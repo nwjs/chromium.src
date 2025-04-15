@@ -1866,7 +1866,7 @@ Se não fizer isso, a permissão será bloqueada pelas configurações de privac
 <translation id="4250680216510889253">Não</translation>
 <translation id="4250716950689692560">A4x4</translation>
 <translation id="4250937007454749162">Camisetas</translation>
-<translation id="4253168017788158739">Nota</translation>
+<translation id="4253168017788158739">Observação</translation>
 <translation id="4255487295905690262">Você vai receber alertas por e-mail se houver uma redução no preço em algum site.</translation>
 <translation id="425582637250725228">É possível que as alterações feitas não sejam salvas.</translation>
 <translation id="4258748452823770588">Assinatura inválida</translation>
@@ -2367,7 +2367,7 @@ Se não fizer isso, a permissão será bloqueada pelas configurações de privac
 <translation id="5164928537947209380">Esta ferramenta experimental de IA nem sempre acerta. Para melhorar as respostas, seu conteúdo é enviado ao Google.
     <ph name="BEGIN_LINK" />Saiba mais<ph name="END_LINK" /></translation>
 <translation id="5169827969064885044">Você pode perder o acesso à conta da sua organização ou sofrer roubo de identidade. O Chrome recomenda que você altere sua senha agora.</translation>
-<translation id="5171045022955879922">Pesquisar ou digitar URL</translation>
+<translation id="5171045022955879922">Pesquise ou digite um URL</translation>
 <translation id="5172758083709347301">Máquina</translation>
 <translation id="5177076414499237632">Saiba mais sobre a origem e o assunto desta página</translation>
 <translation id="5179490652562926740">Configurações de verificação de pagamento salvas</translation>
@@ -3709,7 +3709,7 @@ Mais detalhes:
 <translation id="7535087603100972091">Valor</translation>
 <translation id="753556296624075801">Tecnologia do Google</translation>
 <translation id="7537536606612762813">Obrigatória</translation>
-<translation id="7543525346216957623">Peça para seu responsável</translation>
+<translation id="7543525346216957623">Peça ajuda para um familiar responsável</translation>
 <translation id="7546409722674205727">Iniciando <ph name="APP_NAME" /></translation>
 <translation id="7548892272833184391">Corrigir erros de conexão</translation>
 <translation id="7549584377607005141">Esta página da Web requer os dados inseridos anteriormente para ser exibida de modo correto. É possível enviá-los novamente mas, ao fazer isso, você repete qualquer ação realizada anteriormente na página.</translation>
@@ -3845,7 +3845,7 @@ Mais detalhes:
 <translation id="7751971323486164747">Personalizar tamanhos e fontes no Chrome</translation>
 <translation id="7752995774971033316">Não gerenciado</translation>
 <translation id="7754587126786572336">As guias e os apps do Chrome serão fechados quando a atualização for iniciada</translation>
-<translation id="7755287808199759310">Seu responsável pode desbloqueá-lo para você</translation>
+<translation id="7755287808199759310">Seu familiar responsável pode desbloquear o acesso</translation>
 <translation id="7755624218968747854">Rolo principal</translation>
 <translation id="7758069387465995638">É possível que o software antivírus ou o firewall tenha bloqueado a conexão.</translation>
 <translation id="7759147511335618829">Controle e reprogramação de dispositivos MIDI</translation>
@@ -4670,7 +4670,7 @@ incomuns e incorretas. Isso pode acontecer quando um invasor está fingindo ser 
 <translation id="950926967802086924">Chave de acesso • Gerenciador de senhas do Google</translation>
 <translation id="95721182352849470">Amarelo 2</translation>
 <translation id="961663415146723894">Encadernação na parte inferior</translation>
-<translation id="961856697154696964">Excluir dados de navegação</translation>
+<translation id="961856697154696964">Excluir dados de naveg.</translation>
 <translation id="961930410699694996">Localização permitida apenas desta vez</translation>
 <translation id="962484866189421427">Este conteúdo pode tentar instalar apps enganosos que fingem ser outra coisa ou coletam dados que podem ser usados para rastrear você. <ph name="BEGIN_LINK" />Mostrar mesmo assim<ph name="END_LINK" /></translation>
 <translation id="963734905955638680">Com base na legislação da sua região, o Chromium pede que você escolha o mecanismo de pesquisa padrão. Esses mecanismos são famosos na sua região e estão em ordem aleatória.</translation>

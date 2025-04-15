@@ -581,7 +581,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="3469117812148449995">비밀번호 저장 옵션</translation>
 <translation id="3474048842645761983">{COUNT,plural, =1{사이트 또는 앱 {COUNT}개}other{사이트 및 앱 {COUNT}개}}</translation>
 <translation id="3474624961160222204"><ph name="NAME" />(으)로 계속</translation>
-<translation id="3476450923187944815">다른 앱에서 비밀번호에 액세스합니다.</translation>
+<translation id="3476450923187944815">다른 앱에서 비밀번호에 액세스하세요.</translation>
 <translation id="3488501490964659223">탭이 닫히고, 인터넷 사용 기록이 삭제되었으며, 로그아웃되었습니다</translation>
 <translation id="3493531032208478708">추천 콘텐츠 <ph name="BEGIN_LINK" />자세히 알아보기<ph name="END_LINK" /></translation>
 <translation id="3504377992102007712">설정</translation>
@@ -1376,7 +1376,7 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="6713676799463473249"><ph name="LAST_MODIFICATION_DATE" />에 수정됨</translation>
 <translation id="6722623263381062480">수신된 탭</translation>
 <translation id="6723740634201835758">내 Google 계정에서</translation>
-<translation id="672735642903863329">모든 기기에 북마크, 비밀번호 등을 가져옵니다.</translation>
+<translation id="672735642903863329">모든 기기에 북마크, 비밀번호 등을 가져오세요.</translation>
 <translation id="6729493062119577923">공유 탭 그룹 활동</translation>
 <translation id="6732087373923685049">카메라</translation>
 <translation id="6746338529702829275">계정 데이터 검토</translation>
@@ -1497,7 +1497,7 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="7366909168761621528">인터넷 사용정보</translation>
 <translation id="7367530036083223701">비밀번호 관리자 위젯으로 홈 화면에서 비밀번호에 안전하게 액세스하세요.</translation>
 <translation id="7369285139974632858">북마크에 추가</translation>
-<translation id="7380220816562673297">현재는 가족 구성원과만 비밀번호를 공유할 수 있습니다. 최대 6명이 참여할 수 있는 <ph name="BEGIN_LINK" />가족 그룹을 만들고<ph name="END_LINK" /> Google 서비스에서 제품 및 구독을 더 재미있게 활용하세요</translation>
+<translation id="7380220816562673297">현재는 가족 구성원과만 비밀번호를 공유할 수 있습니다. 최대 6명이 참여할 수 있는 <ph name="BEGIN_LINK" />가족 그룹을 만들고<ph name="END_LINK" /> Google 서비스에서 제품 및 구독을 더 잘 활용하세요.</translation>
 <translation id="739101637685146669">어떤 URL을 북마크에 추가하시겠습니까?</translation>
 <translation id="7393747756726387725">확대</translation>
 <translation id="7397805793441258955">{COUNT,plural, =1{사이트 1개}other{사이트 #개}}</translation>
@@ -1543,7 +1543,7 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="7512075701202892785">즐겨 사용하는 브라우저를 이제 iPad에서 사용하세요</translation>
 <translation id="7512909159512473473">암호 입력…</translation>
 <translation id="7514365320538308">다운로드</translation>
-<translation id="7524055474074101597">여러 앱에서 비밀번호 등에 액세스하세요</translation>
+<translation id="7524055474074101597">여러 앱에서 비밀번호 등의 정보에 액세스하세요.</translation>
 <translation id="75362970626182391">새 탭 그룹</translation>
 <translation id="7537586195939242955">현재 패스를 패스북에 설치할 수 없습니다.</translation>
 <translation id="754655535278952384">확인 시간: <ph name="TIME" /></translation>
@@ -1955,7 +1955,7 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="9107664647686727385">유출된 비밀번호를 확인하세요</translation>
 <translation id="9124387962554796433">Google 검색 및 다른 Google 서비스를 맞춤설정하기 위하여 Google에서 사용자의 방문 기록을 이용할 수 있습니다</translation>
 <translation id="9130317582644834675">텍스트 확대/축소 숨기기</translation>
-<translation id="913036870884277353">다른 앱에서 링크를 간편하게 엽니다.</translation>
+<translation id="913036870884277353">다른 앱에서 링크를 간편하게 여세요.</translation>
 <translation id="9137013805542155359">원본 보기</translation>
 <translation id="914781932147356857">모두 표시…</translation>
 <translation id="9148126808321036104">다시 로그인</translation>

@@ -5351,7 +5351,7 @@ Uzaklaştırmak için Ctrl + Alt + Parlaklığı Azalt tuşlarını kullanın.</
 <translation id="4744268813103118742">Siteye git</translation>
 <translation id="4744571849207727284">Excel</translation>
 <translation id="4744981231093950366">{NUM_TABS,plural, =1{Sitenin sesini aç}other{Sitelerin sesini aç}}</translation>
-<translation id="4745500401920035244">Yöneticiniz, bazı eski profilleri devre dışı bırakan, sistem çapında bir değişiklik yaptı. Artık bu profile erişemezsiniz ancak profili kaldırabilirsiniz</translation>
+<translation id="4745500401920035244">Yöneticiniz, bazı eski profilleri devre dışı bırakan, sistem çapında bir değişiklik yaptı. Artık bu profile erişemezsiniz ancak profili kaldırabilirsiniz.</translation>
 <translation id="474609389162964566">Asistanınıza "Ok Google" diyerek erişin</translation>
 <translation id="4746757725581505837">Bu cihazda kayıtlı <ph name="BRAND" /> verilerinizi silmek üzeresiniz</translation>
 <translation id="4748783296226936791">Yaygın olmayan klavye, oyun kumandası ve başka cihazları kullanan özellikler için siteler genellikle HID cihazlara bağlanır</translation>
@@ -7984,7 +7984,7 @@ Sızdırılmış # şifreniz daha var. Google Şifre Yöneticisi bu şifreleri h
 <translation id="6666559645296300656">Linux'u yeni sürüme geçirme işlemi iptal ediliyor</translation>
 <translation id="6667086124612170548">Dosya bu cihaz için fazla büyük</translation>
 <translation id="6667092961374478614"><ph name="FEATURE_NAME" /> keşfedilebilirliği</translation>
-<translation id="6667187897999649121">Şu anda şifreleri yalnızca aile üyelerinizle paylaşabilirsiniz. En fazla 6 üye ekleyerek bir <ph name="BEGIN_LINK" />aile grubu oluşturun<ph name="END_LINK" />, Google'daki ürün ve aboneliklerinizden daha fazla yararlanın.</translation>
+<translation id="6667187897999649121">Şu anda şifreleri yalnızca aile üyelerinizle paylaşabilirsiniz. En fazla 6 üye içeren bir <ph name="BEGIN_LINK" />aile grubu oluşturun<ph name="END_LINK" />, Google'daki ürün ve aboneliklerinizden daha fazla yararlanın.</translation>
 <translation id="666731172850799929"><ph name="APP_NAME" /> uygulamasında aç</translation>
 <translation id="6669195257625975787">Veriler, görüntülediğiniz siteyle aynı şekilde işlenir</translation>
 <translation id="6670142487971298264"><ph name="APP_NAME" /> artık kullanılabilir</translation>

@@ -1216,7 +1216,8 @@ De tilladelser, du har givet til apps, gælder muligvis for denne konto. Du kan 
 <translation id="1824870205483790748">Fastgør gruppe til bogmærkelinje</translation>
 <translation id="1825073796163165618">Aktivér links</translation>
 <translation id="1825565032302550710">Porten skal være mellem 1024 og 65535</translation>
-<translation id="18260074040409954">Du kan bruge gemte adgangskoder på alle enheder. De er gemt i <ph name="GOOGLE_PASSWORD_MANAGER" /> for <ph name="EMAIL" />.</translation>
+<translation id="18260074040409954">Du kan bruge gemte adgangskoder på alle enheder. De er gemt i
+<ph name="GOOGLE_PASSWORD_MANAGER" /> for <ph name="EMAIL" />.</translation>
 <translation id="1826192255355608658">Synkroniser bogmærkerne, adgangskoderne, historikken m.m. i din Chrome-browser</translation>
 <translation id="1826516787628120939">Kontrollerer</translation>
 <translation id="1826657447823925402">Omvendt rulning er deaktiveret</translation>
@@ -3243,7 +3244,7 @@ Du kan administrere indstillingerne for denne konto ved at installere Family Lin
 <translation id="3251714896659475029">Giv <ph name="SUPERVISED_USER_NAME" /> adgang til Google Assistent via "Hey Google"</translation>
 <translation id="3251759466064201842">&lt;Ikke en del af certifikatet&gt;</translation>
 <translation id="325238099842880997">Opstil digitale spilleregler, der kan hjælpe børn med at spille, udforske og lave lektier derhjemme</translation>
-<translation id="3253225298092156258">Ikke tilgængeligt</translation>
+<translation id="3253225298092156258">Ikke tilgængelig</translation>
 <translation id="3253344772044554413">{NUM_OF_FILES,plural, =1{Frigør plads i <ph name="CLOUD_PROVIDER" /> for at kopiere denne fil}one{Frigør plads i <ph name="CLOUD_PROVIDER" /> for at kopiere denne fil}other{Frigør plads i <ph name="CLOUD_PROVIDER" /> for at kopiere disse filer}}</translation>
 <translation id="3253448572569133955">Ukendt konto</translation>
 <translation id="3254451942070605467">Downloader <ph name="FILE_NAME" /> – <ph name="PERCENT_REMAINING" /> % tilbage</translation>
@@ -8464,7 +8465,7 @@ Du har # andre kompromitterede adgangskoder. Google Adgangs­kode­admin­istrat
 <translation id="6979158407327259162">Google Drev</translation>
 <translation id="6979440798594660689">Slå lyden fra (standard)</translation>
 <translation id="6979557074007409812">Ja. Adskil mine private data fra min arbejdsprofil</translation>
-<translation id="6979737339423435258">Altid</translation>
+<translation id="6979737339423435258">Al tid</translation>
 <translation id="6980402667292348590">Insert</translation>
 <translation id="6981553172137913845">Hvis du vil bruge nettet privat, skal du klikke på prikmenuen for at åbne et inkognitovindue</translation>
 <translation id="6981982820502123353">Hjælpefunktioner</translation>

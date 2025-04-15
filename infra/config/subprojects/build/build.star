@@ -147,11 +147,12 @@ cq_build_perf_builder(
                 "mb",
             ],
             build_config = builder_config.build_config.RELEASE,
+            target_arch = builder_config.target_arch.ARM,
             target_bits = 64,
             target_platform = builder_config.target_platform.ANDROID,
         ),
         android_config = builder_config.android_config(
-            config = "main_builder",
+            config = "base_config",
         ),
     ),
     gn_args = "try/android-arm64-rel",
@@ -182,11 +183,12 @@ cq_build_perf_builder(
                 "mb",
             ],
             build_config = builder_config.build_config.RELEASE,
+            target_arch = builder_config.target_arch.ARM,
             target_bits = 64,
             target_platform = builder_config.target_platform.ANDROID,
         ),
         android_config = builder_config.android_config(
-            config = "main_builder",
+            config = "base_config",
         ),
     ),
     gn_args = {
@@ -590,11 +592,12 @@ This builder measures build performance for Android developer builds, by simulat
                 "mb",
             ],
             build_config = builder_config.build_config.DEBUG,
+            target_arch = builder_config.target_arch.ARM,
             target_bits = 64,
             target_platform = builder_config.target_platform.ANDROID,
         ),
         android_config = builder_config.android_config(
-            config = "main_builder",
+            config = "base_config",
         ),
     ),
     gn_args = {

@@ -64,6 +64,7 @@
 #include "ash/system/accessibility/select_to_speak/select_to_speak_menu_bubble_controller.h"
 #include "ash/system/accessibility/switch_access/switch_access_menu_bubble_controller.h"
 #include "ash/system/input_device_settings/input_device_settings_controller_impl.h"
+#include "ash/system/model/enterprise_domain_model.h"
 #include "ash/system/model/system_tray_model.h"
 #include "ash/system/power/backlights_forced_off_setter.h"
 #include "ash/system/power/power_status.h"
@@ -1824,6 +1825,22 @@ bool AccessibilityController::IsEnterpriseIconVisibleForDictation() {
 }
 
 bool AccessibilityController::IsFaceGazeSettingVisibleInTray() {
+  // For managed accounts, we restrict the face control quick setting to
+  // signed-in profiles. If the device is on the login screen, locked, or in a
+  // kiosk app, we don't show the face control quick setting.
+  bool is_managed =
+      Shell::Get()
+          ->system_tray_model()
+          ->enterprise_domain()
+          ->management_device_mode() != ManagementDeviceMode::kNone;
+  if (is_managed) {
+    LoginStatus status = Shell::Get()->session_controller()->login_status();
+    if (status == LoginStatus::NOT_LOGGED_IN || status == LoginStatus::LOCKED ||
+        status == LoginStatus::KIOSK_APP) {
+      return false;
+    }
+  }
+
   return face_gaze().IsVisibleInTray();
 }
 
@@ -3961,7 +3978,9 @@ void AccessibilityController::UpdateFeatureFromPref(FeatureType feature) {
       if (enabled && ::features::IsAccessibilityFaceGazeEnabled()) {
         if (!facegaze_bubble_controller_) {
           facegaze_bubble_controller_ =
-              std::make_unique<FaceGazeBubbleController>();
+              std::make_unique<FaceGazeBubbleController>(base::BindRepeating(
+                  &AccessibilityController::RequestDisableFaceGaze,
+                  GetWeakPtr()));
         }
         if (!drag_event_rewriter_) {
           drag_event_rewriter_ = std::make_unique<DragEventRewriter>();
@@ -4145,7 +4164,9 @@ void AccessibilityController::UpdateFaceGazeBubble(const std::u16string& text,
 FaceGazeBubbleController*
 AccessibilityController::GetFaceGazeBubbleControllerForTest() {
   if (!facegaze_bubble_controller_) {
-    facegaze_bubble_controller_ = std::make_unique<FaceGazeBubbleController>();
+    facegaze_bubble_controller_ =
+        std::make_unique<FaceGazeBubbleController>(base::BindRepeating(
+            &AccessibilityController::RequestDisableFaceGaze, GetWeakPtr()));
   }
 
   return facegaze_bubble_controller_.get();
@@ -4165,6 +4186,16 @@ void AccessibilityController::EnableDragEventRewriter(bool enabled) {
   }
 
   drag_event_rewriter_->SetEnabled(enabled);
+}
+
+void AccessibilityController::RequestDisableFaceGaze() {
+  if (!active_user_prefs_) {
+    return;
+  }
+
+  active_user_prefs_->SetBoolean(prefs::kAccessibilityFaceGazeEnabledSentinel,
+                                 false);
+  active_user_prefs_->CommitPendingWrite();
 }
 
 }  // namespace ash

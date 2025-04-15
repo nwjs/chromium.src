@@ -71,10 +71,11 @@ ci.builder(
             ],
             build_config = builder_config.build_config.RELEASE,
             target_arch = builder_config.target_arch.ARM,
+            target_bits = 32,
             target_platform = builder_config.target_platform.ANDROID,
         ),
         android_config = builder_config.android_config(
-            config = "main_builder",
+            config = "base_config",
         ),
     ),
     gn_args = gn_args.config(
@@ -131,7 +132,7 @@ ci.builder(
             target_platform = builder_config.target_platform.ANDROID,
         ),
         android_config = builder_config.android_config(
-            config = "main_builder",
+            config = "base_config",
         ),
     ),
     gn_args = gn_args.config(
@@ -177,7 +178,7 @@ ci.builder(
             ],
         ),
         chromium_config = builder_config.chromium_config(
-            config = "x64_builder",
+            config = "main_builder",
             apply_configs = [
                 "clobber",
                 "mb",
@@ -188,7 +189,7 @@ ci.builder(
             target_platform = builder_config.target_platform.ANDROID,
         ),
         android_config = builder_config.android_config(
-            config = "x64_builder",
+            config = "base_config",
         ),
     ),
     gn_args = gn_args.config(
@@ -250,7 +251,7 @@ ci.builder(
             target_platform = builder_config.target_platform.ANDROID,
         ),
         android_config = builder_config.android_config(
-            config = "main_builder",
+            config = "base_config",
         ),
     ),
     gn_args = gn_args.config(
@@ -306,11 +307,13 @@ ci.builder(
             apply_configs = [
                 "mb",
             ],
+            build_config = builder_config.build_config.DEBUG,
             target_arch = builder_config.target_arch.ARM,
+            target_bits = 32,
             target_platform = builder_config.target_platform.ANDROID,
         ),
         android_config = builder_config.android_config(
-            config = "main_builder",
+            config = "base_config",
         ),
     ),
     gn_args = gn_args.config(

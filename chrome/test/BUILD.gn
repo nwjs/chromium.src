@@ -258,7 +258,7 @@ static_library("test_support") {
     "base/web_feature_histogram_tester.h",
     "base/web_ui_mocha_browser_test.cc",
     "base/web_ui_mocha_browser_test.h",
-    "base/web_ui_test_data_source.cc",
+    #"base/web_ui_test_data_source.cc",
     "base/web_ui_test_data_source.h",
   ]
 
@@ -4327,6 +4327,7 @@ if (!is_android) {
         "../browser/extensions/startup_helper_browsertest.cc",
         "../browser/extensions/stubs_apitest.cc",
         "../browser/extensions/subscribe_page_action_browsertest.cc",
+        "../browser/extensions/unpacked_installer_browsertest.cc",
         "../browser/extensions/updater/extension_update_client_base_browsertest.cc",
         "../browser/extensions/updater/extension_update_client_base_browsertest.h",
         "../browser/extensions/updater/update_service_browsertest.cc",
@@ -10306,7 +10307,7 @@ if (!is_android) {
       "base/ui_test_utils.h",
       "base/web_ui_mocha_browser_test.cc",
       "base/web_ui_mocha_browser_test.h",
-      "base/web_ui_test_data_source.cc",
+      #"base/web_ui_test_data_source.cc",
       "base/web_ui_test_data_source.h",
       "interaction/dom_message_observer.cc",
       "interaction/dom_message_observer.h",

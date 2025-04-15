@@ -277,11 +277,11 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling V8
   # and whatever else without interference from each other.
-  'src_internal_revision': 'fd1dae6baefc1a38e8b1e76883e17de761053c44',
+  'src_internal_revision': 'cfa45a836594996a1b7eb1dac9de58b32ef8ddde',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling Skia
   # and whatever else without interference from each other.
-  'skia_revision': 'b99f146a03d3c98049768fd91c2bbe6594b02b2c',
+  'skia_revision': '5a44cdd70f04aa65fa063caa1a7e3028d75236f8',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling V8
   # and whatever else without interference from each other.
@@ -297,7 +297,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling PDFium
   # and whatever else without interference from each other.
-  'pdfium_revision': '9afffebfa895ea6cdcc05516908c50bd7fe72797',
+  'pdfium_revision': '2919d07ee57020e3e4b66cce45c61104d80304d2',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling BoringSSL
   # and whatever else without interference from each other.
@@ -397,7 +397,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling feed
   # and whatever else without interference from each other.
-  'dawn_revision': 'bdc68b25b620d7302a955e2c38c548ebfe74ef31',
+  'dawn_revision': '53dfda5e9d07d58b43cea66b8153c55dd751ff88',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling feed
   # and whatever else without interference from each other.
@@ -1456,7 +1456,7 @@ deps = {
 
   'src/clank': {
     'url': Var('chrome_git') + '/clank/internal/apps.git' + '@' +
-    '1347acde033a6ebddd57a59de71aab572a924782',
+    'ffbe3afbedd3086ab67e24eb52a8f9aea4563514',
     'condition': 'checkout_android and checkout_src_internal',
   },
 
@@ -2777,7 +2777,7 @@ deps = {
   'src/third_party/vulkan_memory_allocator':
     Var('chromium_git') + '/external/github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git' + '@' + '56300b29fbfcc693ee6609ddad3fdd5b7a449a21',
 
-  'src/third_party/wasm_tts_engine/src': Var('chromium_git') + '/chromium/wasm-tts-engine' + '@' + '6ab3e63276a2d66ba3e7db4f87c5b7cb00e22130',
+  'src/third_party/wasm_tts_engine/src': Var('chromium_git') + '/chromium/wasm-tts-engine' + '@' + '53d2aba6f0cf7db57e17edfc3ff6471871b0c125',
 
   # Display server protocol for Linux.
   'src/third_party/wayland/src': {
@@ -2817,7 +2817,7 @@ deps = {
     Var('chromium_git') + '/webpagereplay.git' + '@' + Var('webpagereplay_revision'),
 
   'src/third_party/webrtc':
-    Var('webrtc_git') + '/src.git' + '@' + '04413d62f754a7b1a3a2d8c3df23bcde040112b2',
+    Var('webrtc_git') + '/src.git' + '@' + '9e5db68b15087eccd8d2493b4e8539c1657e0f75',
 
   # Wuffs' canonical repository is at github.com/google/wuffs, but we use
   # Skia's mirror of Wuffs, the same as in upstream Skia's DEPS file.
@@ -4556,7 +4556,7 @@ deps = {
 
   'src/ios_internal':  {
       'url': Var('chrome_git') + '/chrome/ios_internal.git' + '@' +
-        '6f02f68067fecd7da6d0c8d0467eabb07e654cbd',
+        'a6f5b9e9fa45a63aec59d14a71caaa1725b3409f',
       'condition': 'checkout_ios and checkout_src_internal',
   },
 

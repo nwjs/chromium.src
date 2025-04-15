@@ -139,7 +139,7 @@
 <translation id="1517166097004694782">„Mit diesem Tab fortfahren“ ausblenden</translation>
 <translation id="1520027731907768768">Ich möchte Benachrichtigungen zu Preissenkungen für Produkte erhalten, die ich beobachte.</translation>
 <translation id="1521774566618522728">Heute aktiv</translation>
-<translation id="1524563461097350801">Nein danke</translation>
+<translation id="1524563461097350801">Nein, danke</translation>
 <translation id="1531038290222364269">Tabs anzeigen</translation>
 <translation id="1536390784834419204">Seite übersetzen</translation>
 <translation id="1540800554400757039">Adresse 1</translation>
@@ -331,7 +331,7 @@
 <translation id="2299515531293777561"><ph name="CARRIER_NAME" /> • Nr. <ph name="PARCEL_IDENTIFIER" /></translation>
 <translation id="2309265394777270359">Tab schließen</translation>
 <translation id="2311077293164383652">Angepinnten Tab schließen</translation>
-<translation id="2316129865977710310">Nein danke</translation>
+<translation id="2316129865977710310">Nein, danke</translation>
 <translation id="2320166752086256636">Tastatur ausblenden</translation>
 <translation id="2321086116217818302">Passwörter werden zum Exportieren vorbereitet…</translation>
 <translation id="2323697864063408084">Du kannst Benachrichtigungen auf dem Sperrbildschirm und als Banner erhalten, um nichts Wichtiges zu verpassen</translation>
@@ -521,7 +521,7 @@ Informationen zum Löschen deines Suchverlaufs findest du in der Anleitung deine
 <translation id="3140825265190223781">Gespeicherte Passwörter und Passkeys</translation>
 <translation id="3143515551205905069">Synchronisierung abbrechen</translation>
 <translation id="3144126448740580210">Fertig</translation>
-<translation id="314837624430314508">Bleib mit den neuesten Nachrichten, Updates zum Preis-Tracking und mehr auf dem Laufenden.</translation>
+<translation id="314837624430314508">Über aktuelle Nachrichten, Neuigkeiten beim Preis-Tracking und mehr informiert werden.</translation>
 <translation id="3157387275655328056">Zur Leseliste hinzufügen</translation>
 <translation id="315778507796115851">Verlauf</translation>
 <translation id="31652791196570636">Schließen</translation>
@@ -581,7 +581,7 @@ Informationen zum Löschen deines Suchverlaufs findest du in der Anleitung deine
 <translation id="3469117812148449995">Optionen zum Speichern von Passwörtern</translation>
 <translation id="3474048842645761983">{COUNT,plural, =1{für {COUNT} Website oder App}other{für {COUNT} Websites oder Apps}}</translation>
 <translation id="3474624961160222204">Als „<ph name="NAME" />“ fortfahren</translation>
-<translation id="3476450923187944815">Du kannst in anderen Apps auf deine Passwörter zugreifen.</translation>
+<translation id="3476450923187944815">In anderen Apps auf deine Passwörter zugreifen.</translation>
 <translation id="3488501490964659223">Tabs wurden geschlossen und Browserdaten gelöscht. Du wurdest abgemeldet.</translation>
 <translation id="3493531032208478708"><ph name="BEGIN_LINK" />Weitere Informationen<ph name="END_LINK" /> zu vorgeschlagenen Inhalten</translation>
 <translation id="3504377992102007712">Einstellungen</translation>
@@ -686,7 +686,7 @@ Informationen zum Löschen deines Suchverlaufs findest du in der Anleitung deine
 <translation id="3950820424414687140">Anmelden</translation>
 <translation id="3955740319737378355">Fertig</translation>
 <translation id="3955822496205734389">Du nutzt schwache Passwörter.</translation>
-<translation id="3958312024468322930">Ziehe es ins Dock am unteren Rand des Startbildschirms</translation>
+<translation id="3958312024468322930">Ziehe es in die Leiste am unteren Rand des Startbildschirms</translation>
 <translation id="3960218941754097036">Mit Google Lens beliebige Elemente auf dem Bildschirm suchen</translation>
 <translation id="3962326069546168954">Speichern</translation>
 <translation id="3967327056943561740">Lesezeichen</translation>
@@ -997,7 +997,7 @@ Informationen zum Löschen deines Suchverlaufs findest du in der Anleitung deine
 <translation id="5233638681132016545">Neuer Tab</translation>
 <translation id="5234094073825090254">{count,plural, =1{Das Lesezeichen wurde in deinem Google-Konto {email} gespeichert.}other{Die Lesezeichen wurden in deinem Google-Konto {email} gespeichert.}}</translation>
 <translation id="5234764350956374838">Schließen</translation>
-<translation id="5238596603078743134"><ph name="BEGIN_BOLD" /><ph name="USERNAME" /><ph name="END_BOLD" /> kann jetzt deinen Nutzernamen und dein Passwort verwenden, um sich über den Google Passwortmanager auf <ph name="BEGIN_BOLD" /><ph name="WEBSITE" /><ph name="END_BOLD" /> anzumelden.</translation>
+<translation id="5238596603078743134"><ph name="BEGIN_BOLD" /><ph name="USERNAME" /><ph name="END_BOLD" /> kann jetzt über den Google Passwortmanager deinen Nutzernamen und dein Passwort verwenden, um sich auf <ph name="BEGIN_BOLD" /><ph name="WEBSITE" /><ph name="END_BOLD" /> anzumelden.</translation>
 <translation id="5242899254250321823">Passwort auf der Website ändern</translation>
 <translation id="5248640482715684545">Diese Website versucht, eine andere App zu öffnen.</translation>
 <translation id="5250371859659394278">Von einer unbekannten Quelle</translation>
@@ -1104,7 +1104,7 @@ Handoff muss auch im Abschnitt „Allgemein“ deiner Einstellungen aktiviert se
 <translation id="5684761169742812828">Dieses Passwort wurde aufgrund einer Datenpanne im Internet preisgegeben. Falls du gerade keine Zeit hast, das Passwort zu ändern, empfiehlt Google, diese Warnung offen zu lassen, damit du später daran erinnert wirst.</translation>
 <translation id="5694848685995373177">In Google Drive für <ph name="USER_EMAIL" /> gespeichert.</translation>
 <translation id="570209299585559496">Du kannst die Desktopansicht als Standardeinstellung festlegen, wenn du zu den Einstellungen und dann zu den Inhaltseinstellungen gehst</translation>
-<translation id="5702108177581350218">Wenn du eine Kopie deines Nutzernamens und deines Passworts teilst, können Familienmitglieder sie mit dem Google Passwortmanager ausfüllen.</translation>
+<translation id="5702108177581350218">Wenn du eine Kopie deines Nutzernamens und deines Passworts teilst, können Familienmitglieder diese Angaben über den Google Passwortmanager eintragen.</translation>
 <translation id="5704908597376970822">Anmeldung nicht möglich.</translation>
 <translation id="5709005673595820640">{count,plural, =1{Du nutzt {count} mehrfach verwendetes Passwort, das deine Sicherheit gefährden könnte. Ändere es jetzt, um dich bestmöglich zu schützen.}other{Du nutzt {count} mehrfach verwendete Passwörter, die deine Sicherheit gefährden könnten. Ändere sie jetzt, um dich bestmöglich zu schützen.}}</translation>
 <translation id="57094364128775171">Starkes Passwort vorschlagen…</translation>
@@ -1528,7 +1528,7 @@ Wenn der Inkognitomodus aktiviert ist, können Websites keine Cookies verwenden,
 <translation id="7468373585447318060">Du wirst über Preissenkungen für alle Produkte informiert, die du beobachtest.</translation>
 <translation id="746872191028309255">Du kannst ganz einfach kaufen, was du mit deiner Kamera oder in der Fotogalerie siehst.</translation>
 <translation id="7471557245617580330">Neuen Tab erstellen</translation>
-<translation id="7473891865547856676">Nein danke</translation>
+<translation id="7473891865547856676">Nein, danke</translation>
 <translation id="7476548258282096076">Auf dieser Karte werden deine am häufigsten besuchten Websites angezeigt.</translation>
 <translation id="747956641630879526">Wenn du diese Karte ausblendest, wird die Paketverfolgung deaktiviert und alle deine Daten werden entfernt</translation>
 <translation id="7484645889979462775">Für diese Website niemals</translation>
@@ -1612,7 +1612,7 @@ Wenn der Inkognitomodus aktiviert ist, können Websites keine Cookies verwenden,
 <translation id="7815852444315004084">Vorerst ausblenden</translation>
 <translation id="7825973332242257878">Tabgruppen</translation>
 <translation id="7831876841288640403">Wähle für die Adressleiste die Position aus, die für dich am besten geeignet ist.</translation>
-<translation id="7839994177130598711">Deine Familienmitglieder können jetzt deinen Nutzernamen und dein Passwort verwenden, um sich über den Google Passwortmanager auf <ph name="BEGIN_BOLD" /><ph name="WEBSITE" /><ph name="END_BOLD" /> anzumelden.</translation>
+<translation id="7839994177130598711">Deine Familienmitglieder können jetzt über den Google Passwortmanager deinen Nutzernamen und dein Passwort verwenden, um sich auf <ph name="BEGIN_BOLD" /><ph name="WEBSITE" /><ph name="END_BOLD" /> anzumelden.</translation>
 <translation id="7840771868269352570">Die ausgewählten Elemente werden entfernt.</translation>
 <translation id="7841180087127694526">Nach kopiertem Text suchen</translation>
 <translation id="7841418003178675048">Hier kannst du auswählen, welche Karten auf der Seite „Neuer Tab“ angezeigt werden sollen.</translation>

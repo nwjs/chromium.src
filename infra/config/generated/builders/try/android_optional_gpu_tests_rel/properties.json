@@ -17,10 +17,13 @@
               "builder_group": "tryserver.chromium.android",
               "execution_mode": "COMPILE_AND_TEST",
               "legacy_android_config": {
-                "config": "main_builder"
+                "config": "base_config"
               },
               "legacy_chromium_config": {
+                "build_config": "Debug",
                 "config": "main_builder",
+                "target_arch": "arm",
+                "target_bits": 32,
                 "target_platform": "android"
               },
               "legacy_gclient_config": {

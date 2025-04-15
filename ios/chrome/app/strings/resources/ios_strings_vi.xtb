@@ -137,7 +137,7 @@
 <translation id="1509960214886564027">Các tính năng trên nhiều trang web có thể hoạt động không đúng cách</translation>
 <translation id="1513858653616922153">Xóa mật khẩu</translation>
 <translation id="1517166097004694782">Ẩn tuỳ chọn "Tiếp tục trên thẻ này"</translation>
-<translation id="1520027731907768768">Nhận thông báo khi các sản phẩm bạn theo dõi được giảm giá. =</translation>
+<translation id="1520027731907768768">Nhận thông báo khi sản phẩm bạn theo dõi giảm giá.</translation>
 <translation id="1521774566618522728">Hoạt động hôm nay</translation>
 <translation id="1524563461097350801">Không, cảm ơn</translation>
 <translation id="1531038290222364269">Hiển thị thẻ</translation>
@@ -182,7 +182,7 @@
 <translation id="1713777106376424209">Hãng vận chuyển</translation>
 <translation id="1715515772563243997">Nếu tin tưởng <ph name="SITE" />, bạn có thể sử dụng mật khẩu đã lưu để đăng nhập.</translation>
 <translation id="1728549374069268714">Dán và truy cập</translation>
-<translation id="1732468323901456775">Bật thông báo của <ph name="MODULE_NAME" /></translation>
+<translation id="1732468323901456775">Bật thông báo cho <ph name="MODULE_NAME" /></translation>
 <translation id="1740468249224277719">Nhấn đúp để cài đặt.</translation>
 <translation id="1740650426894359238">Chuyển sang một hồ sơ khác</translation>
 <translation id="1743244221910283364">Loại bỏ thay đổi</translation>
@@ -955,7 +955,7 @@ Bạn đang dùng công cụ tìm kiếm <ph name="DSE_NAME" />. Để xoá nh�
 <translation id="507187271399539513">{count,plural, =1{Phương thức thanh toán {position}/{count}}other{Phương thức thanh toán {position}/{count}}}</translation>
 <translation id="5075939510584558547">Lưu mà không mã hoá</translation>
 <translation id="5076534614343816664">Theo dõi giá</translation>
-<translation id="5078303485429639424">Bật thông báo của <ph name="FEATURE_NAME" /></translation>
+<translation id="5078303485429639424">Bật thông báo cho <ph name="FEATURE_NAME" /></translation>
 <translation id="5079950360618752063">Sử dụng mật khẩu đề xuất</translation>
 <translation id="5083464117946352670">Không thể xác định kích thước tệp.</translation>
 <translation id="5085558938118581974">Tìm kiếm trên thẻ của các thiết bị đã đồng bộ hoá</translation>

@@ -38,7 +38,7 @@
 <translation id="1125564390852150847">Yeni sekme oluştur.</translation>
 <translation id="1126696498560056882">Bu cihazdaki hesapları yönetin</translation>
 <translation id="1126809382673880764">Sizi tehlikeli web siteleri, indirmeler ve uzantılara karşı korumaz. Gmail ve Arama gibi diğer Google hizmetlerinde, mümkün olduğunda Güvenli Tarama korumasından yararlanmaya devam edersiniz.</translation>
-<translation id="1142371195993008685"><ph name="FEATURE_NAME" /> kanalından gelen bildirimleri kapat</translation>
+<translation id="1142371195993008685"><ph name="FEATURE_NAME" /> bildirimlerini kapat</translation>
 <translation id="1147031633655575115"><ph name="USER" /> olarak oturum açıldı</translation>
 <translation id="1149401351239820326">Son kullanım tarihinin ayı</translation>
 <translation id="1150989369772528668">Takvim</translation>
@@ -182,7 +182,7 @@
 <translation id="1713777106376424209">Teslim eden</translation>
 <translation id="1715515772563243997"><ph name="SITE" /> kaynağına güveniyorsanız kayıtlı bir şifre kullanarak oturum açabilirsiniz.</translation>
 <translation id="1728549374069268714">Yapıştır ve git</translation>
-<translation id="1732468323901456775"><ph name="MODULE_NAME" /> bildirimlerini etkinleştir</translation>
+<translation id="1732468323901456775"><ph name="MODULE_NAME" /> bildirimlerini aç</translation>
 <translation id="1740468249224277719">Yüklemek için iki kez dokunun.</translation>
 <translation id="1740650426894359238">Başka bir profile geç</translation>
 <translation id="1743244221910283364">Değişiklikleri sil</translation>
@@ -955,7 +955,7 @@ Arama geçmişinizi silmek için arama motorunuzun bununla ilgili talimatların�
 <translation id="507187271399539513">{count,plural, =1{{position}/{count} ödeme yöntemi}other{{position}/{count} ödeme yöntemi}}</translation>
 <translation id="5075939510584558547">Şifreleme olmadan kaydedin</translation>
 <translation id="5076534614343816664">Fiyat takibi</translation>
-<translation id="5078303485429639424"><ph name="FEATURE_NAME" /> bildirimlerini etkinleştir</translation>
+<translation id="5078303485429639424"><ph name="FEATURE_NAME" /> bildirimlerini aç</translation>
 <translation id="5079950360618752063">Önerilen şifreyi kullan</translation>
 <translation id="5083464117946352670">Dosya boyutu belirlenemiyor.</translation>
 <translation id="5085558938118581974">Senkronize edilmiş cihazlardaki sekmeleri arayın</translation>
@@ -1497,7 +1497,7 @@ Gizli moddayken siteler, örneğin reklamları kişiselleştirmek amacıyla fark
 <translation id="7366909168761621528">Göz atma verileri</translation>
 <translation id="7367530036083223701">Şifre Yöneticisi widget'ını kullanarak şifrelerinize ana ekrandan güvenli bir şekilde erişin.</translation>
 <translation id="7369285139974632858">Yer işaretlerine ekle</translation>
-<translation id="7380220816562673297">Şu anda şifreleri yalnızca aile üyelerinizle paylaşabilirsiniz. En fazla 6 üye ekleyerek bir <ph name="BEGIN_LINK" />aile grubu oluşturun<ph name="END_LINK" />, Google'daki ürün ve aboneliklerinizden daha fazla yararlanın.</translation>
+<translation id="7380220816562673297">Şu anda şifreleri yalnızca aile üyelerinizle paylaşabilirsiniz. En fazla 6 üye içeren bir <ph name="BEGIN_LINK" />aile grubu oluşturun<ph name="END_LINK" />, Google'daki ürün ve aboneliklerinizden daha fazla yararlanın.</translation>
 <translation id="739101637685146669">Hangi URL'ye yer işareti koymak istiyorsunuz?</translation>
 <translation id="7393747756726387725">Yakınlaştır</translation>
 <translation id="7397805793441258955">{COUNT,plural, =1{1 site}other{# site}}</translation>
@@ -1649,7 +1649,7 @@ Gizli moddayken siteler, örneğin reklamları kişiselleştirmek amacıyla fark
 
 Siteler, örneğin reklamları kişiselleştirmek amacıyla farklı sitelerde tarama etkinliğinizi görmek için çerezler kullanabilir.</translation>
 <translation id="7971136598759319605">1 gün önce etkindi</translation>
-<translation id="7975036700432177008">Dene</translation>
+<translation id="7975036700432177008">Deneyin</translation>
 <translation id="797588153137233716">Menü → Geçmiş → Tarama verilerini sil</translation>
 <translation id="7977451675950311423">Veri ihlali nedeniyle güvenliği ihlal edilmiş bir şifre kullanırsanız sizi uyarır.</translation>
 <translation id="797824194429476746">Sekmeler bu cihazda açık kalır ancak grup kalıcı olarak silinir.</translation>

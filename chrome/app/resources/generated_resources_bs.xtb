@@ -7677,7 +7677,7 @@ Domena <ph name="DOMAIN" /> zahtijeva da pametna kartica ostane umetnuta.</trans
 <translation id="6429384232893414837">Greška prilikom ažuriranja</translation>
 <translation id="6430814529589430811">Šifrirano koristeći Base64 ASCII, jedna potvrda</translation>
 <translation id="6431347207794742960">Aplikacija <ph name="PRODUCT_NAME" /> će postaviti automatsko ažuriranje za sve korisnike na ovom računaru.</translation>
-<translation id="6434104957329207050">Brzina pregledanja po tačkama</translation>
+<translation id="6434104957329207050">Brzina skeniranja po tačkama</translation>
 <translation id="6434309073475700221">Odbaci</translation>
 <translation id="6434325376267409267">Da koristite aplikaciju <ph name="APP_NAME" />, najprije trebate ažurirati uređaj.</translation>
 <translation id="6434755719322447931">Haotično</translation>
@@ -9283,7 +9283,7 @@ Imate još # ugroženih lozinki. Googleov Upravitelj lozinki preporučuje da odm
 <translation id="7581007437437492586">Pravila su ispravno konfigurirana</translation>
 <translation id="7581462281756524039">Alat za čišćenje</translation>
 <translation id="7582582252461552277">Preferiraj ovu mrežu</translation>
-<translation id="7582844466922312471">Prijenos podataka na mobilnoj mreži</translation>
+<translation id="7582844466922312471">Prenos podataka na mobilnoj mreži</translation>
 <translation id="7583948862126372804">Broj</translation>
 <translation id="7585106857920830898">Provjeravamo je li preuzimanje u skladu sa sigurnosnim pravilima vaše organizacije...</translation>
 <translation id="7586498138629385861">Chrome će biti aktivan dok su Chromeove aplikacije otvorene.</translation>
@@ -9469,7 +9469,7 @@ Imate još # ugroženih lozinki. Googleov Upravitelj lozinki preporučuje da odm
 <translation id="7705334495398865155">Nasumično odaberite ID hardvera (BSSID) da spriječite da drugi prate ovaj uređaj.</translation>
 <translation id="7705524343798198388">VPN</translation>
 <translation id="7707108266051544351">Ovoj web lokaciji je blokirano korištenje senzora pokreta.</translation>
-<translation id="7707922173985738739">Koristi prijenos podataka na mobilnoj mreži</translation>
+<translation id="7707922173985738739">Koristi prenos podataka na mobilnoj mreži</translation>
 <translation id="770831926727930011">Lokalni podaci su zaštićeni vašom starom lozinkom. Unesite staru lozinku da oporavite lokalne podatke.</translation>
 <translation id="7709152031285164251">Neuspješno – <ph name="INTERRUPT_REASON" /></translation>
 <translation id="7710568461918838723">&amp;Emitiraj...</translation>
@@ -11248,7 +11248,7 @@ Domena <ph name="DOMAIN" /> zahtijeva da pametna kartica ostane umetnuta.}}</tra
 <translation id="8944099748578356325">Brže troši bateriju (trenutno je na <ph name="BATTERY_PERCENTAGE" />%)</translation>
 <translation id="8944633700466246631">Kreiranje 6-cifrenog PIN-a za oporavak za Google upravitelj lozinki</translation>
 <translation id="8945274638472141382">Veličina ikona</translation>
-<translation id="8945508919180478719">Mikrofon u studijskom stilu</translation>
+<translation id="8945508919180478719">Studijski mikrofon</translation>
 <translation id="8946359700442089734">Funkcije za uklanjanje grešaka nisu u potpunosti omogućene na ovom <ph name="IDS_SHORT_PRODUCT_NAME" /> uređaju.</translation>
 <translation id="8946954897220903437">Suzi sve zahtjeve u traci za adresu</translation>
 <translation id="894763922177556086">Dobra</translation>

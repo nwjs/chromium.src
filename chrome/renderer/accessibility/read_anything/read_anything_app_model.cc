@@ -880,9 +880,14 @@ void ReadAnythingAppModel::ProcessNonGeneratedEvents(
       case ax::mojom::Event::kTooltipClosed:
       case ax::mojom::Event::kTooltipOpened:
       case ax::mojom::Event::kTreeChanged:
-        break;
+        if (!features::IsReadAnythingReadAloudEnabled()) {
+          break;
+        }
+        [[fallthrough]];
       case ax::mojom::Event::kValueChanged:
-        reset_draw_timer_ = true;
+        if (!features::IsReadAnythingReadAloudEnabled()) {
+          reset_draw_timer_ = true;
+        }
         break;
       case ax::mojom::Event::kAriaAttributeChangedDeprecated:
       case ax::mojom::Event::kMenuListValueChangedDeprecated:
@@ -943,6 +948,14 @@ void ReadAnythingAppModel::ProcessGeneratedEvents(
           requires_distillation_ = true;
         }
         break;
+      // After the user finishes typing something we wait for a timer and redraw
+      // to capture the input.
+      case ui::AXEventGenerator::Event::EDITABLE_TEXT_CHANGED:
+        if (features::IsReadAnythingReadAloudEnabled()) {
+          reset_draw_timer_ = true;
+          break;
+        }
+        [[fallthrough]];
       // Audit these events e.g. to trigger distillation.
       case ui::AXEventGenerator::Event::NONE:
       case ui::AXEventGenerator::Event::ACCESS_KEY_CHANGED:
@@ -963,7 +976,6 @@ void ReadAnythingAppModel::ProcessGeneratedEvents(
       case ui::AXEventGenerator::Event::DETAILS_CHANGED:
       case ui::AXEventGenerator::Event::DESCRIBED_BY_CHANGED:
       case ui::AXEventGenerator::Event::DESCRIPTION_CHANGED:
-      case ui::AXEventGenerator::Event::EDITABLE_TEXT_CHANGED:
       case ui::AXEventGenerator::Event::ENABLED_CHANGED:
       case ui::AXEventGenerator::Event::EXPANDED:
       case ui::AXEventGenerator::Event::FOCUS_CHANGED:
