@@ -113,7 +113,8 @@
 #endif
 
 extern VoidHookFn g_promise_reject_callback_fn;
-
+extern HostImportModuleFn g_host_import_module_fn;
+extern HostGetImportMetaFn g_host_get_import_meta_fn;
 
 namespace blink {
 
@@ -661,6 +662,13 @@ v8::MaybeLocal<v8::Promise> HostImportModuleDynamically(
   v8::Isolate* isolate = context->GetIsolate();
   ScriptState* script_state = ScriptState::From(isolate, context);
 
+  if (context->GetAlignedPointerFromEmbedderData(50) == (void*)0x08110800 && g_host_import_module_fn) {
+    v8::HandleScope handle_scope(isolate);
+    v8::MaybeLocal<v8::Promise> ret;
+    g_host_import_module_fn(context, v8_host_defined_options, v8_referrer_resource_url,
+			    v8_specifier, v8_import_attributes, &ret);
+    return ret;
+  }
   Modulator* modulator = Modulator::From(script_state);
   if (!modulator) {
     // Inactive browsing context (detached frames) doesn't have a modulator.
@@ -737,6 +745,10 @@ void HostGetImportMetaProperties(v8::Local<v8::Context> context,
   ScriptState* script_state = ScriptState::From(isolate, context);
   v8::HandleScope handle_scope(isolate);
 
+  if (context->GetAlignedPointerFromEmbedderData(50) == (void*)0x08110800 && g_host_get_import_meta_fn) {
+    g_host_get_import_meta_fn(context, module, meta);
+    return;
+  }
   Modulator* modulator = Modulator::From(script_state);
   if (!modulator)
     return;
