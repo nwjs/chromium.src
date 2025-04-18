@@ -111,9 +111,9 @@ static void EosOnReadDone(bool* got_eos_buffer,
     *got_eos_buffer = true;
     return;
   }
-
-  EXPECT_TRUE(buffer->data());
-  EXPECT_FALSE(buffer->empty());
+  auto buffer_span = base::span(*buffer);
+  EXPECT_TRUE(buffer_span.data());
+  EXPECT_FALSE(buffer_span.empty());
   *got_eos_buffer = false;
 }
 
@@ -1226,9 +1226,10 @@ static void ValidateAnnexB(DemuxerStream* stream,
   if (buffer->decrypt_config())
     subsamples = buffer->decrypt_config()->subsamples();
 
-  bool is_valid =
-      mp4::AVC::AnalyzeAnnexB(buffer->data(), buffer->size(), subsamples)
-          .is_conformant.value_or(false);
+  auto buffer_span = base::span(*buffer);
+  bool is_valid = mp4::AVC::AnalyzeAnnexB(buffer_span.data(),
+                                          buffer_span.size(), subsamples)
+                      .is_conformant.value_or(false);
   EXPECT_TRUE(is_valid);
 
   if (!is_valid) {
@@ -1627,6 +1628,39 @@ TEST_F(FFmpegDemuxerTest, Read_Flac_192kHz_Mp4) {
   VerifyFlacStream(GetStream(DemuxerStream::AUDIO), 4, CHANNEL_LAYOUT_STEREO,
                    192000, kSampleFormatS32);
 }
+
+#if BUILDFLAG(USE_PROPRIETARY_CODECS)
+// Verifies that a mkv file without proper duration information doesn't just
+// assume durations are zero for all buffers.
+TEST_F(FFmpegDemuxerTest, Read_MissingDurations) {
+  CreateDemuxer("testsrc-no-durations-h264.mkv");
+  InitializeDemuxer();
+  auto* stream = GetStream(DemuxerStream::VIDEO);
+  ASSERT_NE(stream, nullptr);
+
+  auto VerifyBuffersHaveNoDuration = [&]() {
+    base::RunLoop loop;
+    stream->Read(1, base::BindLambdaForTesting(
+                        [&](DemuxerStream::Status status,
+                            DemuxerStream::DecoderBufferVector buffers) {
+                          ASSERT_EQ(status, DemuxerStream::kOk);
+                          ASSERT_EQ(buffers.size(), 1u);
+                          for (auto& buffer : buffers) {
+                            EXPECT_EQ(buffer->duration(), kNoTimestamp);
+                          }
+                          loop.QuitWhenIdle();
+                        }));
+    loop.Run();
+  };
+
+  VerifyBuffersHaveNoDuration();
+
+  // For this particular file, after a seek ffmpeg returns 1ms durations...
+  Seek(base::TimeDelta());
+
+  VerifyBuffersHaveNoDuration();
+}
+#endif
 
 // Verify that FFmpeg demuxer falls back to choosing disabled streams for
 // seeking if there's no suitable enabled stream found.

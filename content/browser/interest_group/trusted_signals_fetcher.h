@@ -14,6 +14,7 @@
 #include <string_view>
 #include <vector>
 
+#include "base/containers/flat_set.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
@@ -21,6 +22,7 @@
 #include "base/types/expected.h"
 #include "base/unguessable_token.h"
 #include "base/values.h"
+#include "content/browser/interest_group/devtools_enums.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/frame_tree_node_id.h"
 #include "content/services/auction_worklet/public/mojom/trusted_signals_cache.mojom.h"
@@ -156,19 +158,20 @@ class CONTENT_EXPORT TrustedSignalsFetcher {
   TrustedSignalsFetcher(const TrustedSignalsFetcher&) = delete;
   TrustedSignalsFetcher& operator=(const TrustedSignalsFetcher&) = delete;
 
-  // `frame_tree_node_id` is used to log events for devtools.
+  // `frame_tree_node_id` and `devtools_auction_ids` are used to log events for
+  // devtools, if needed.
   //
   // `main_frame_origin` and `network_partition_nonce` are used to create an
   // IsolationInfo identifying the network partition to use.
   // `main_frame_origin`'s host is also sent as part of the encrypted request.
   //
   // `ip_address_space` is the IPAddressSpace of the frame that's running the
-  // auction. It's used to create a ClientSecurityState that, depending on
-  // global settings, can have a PrivateNetworkRequestPolicy that sends CORS
-  // preflight requests if the signals URL maps to an IP on a less public
-  // address space. The other members of ClientSecurityState use default values.
-  // Default values are safe since these are credentialless requests. Any data
-  // taken from the frame would also potentially be a leak.
+  // auction. It's used to create a ClientSecurityState that has a
+  // PrivateNetworkRequestPolicy that will block the signals fetch if the
+  // signals URL maps to an IP on a less public address space. The other members
+  // of ClientSecurityState use default values.  Default values are safe since
+  // these are credentialless requests. Any data taken from the frame would also
+  // potentially be a leak.
   //
   // `script_origin` is the owner of the interest group the request is for. Used
   // as the initiator for CORS.
@@ -178,6 +181,7 @@ class CONTENT_EXPORT TrustedSignalsFetcher {
   virtual void FetchBiddingSignals(
       network::mojom::URLLoaderFactory* url_loader_factory,
       FrameTreeNodeId frame_tree_node_id,
+      base::flat_set<std::string> devtools_auction_ids,
       const url::Origin& main_frame_origin,
       network::mojom::IPAddressSpace ip_address_space,
       base::UnguessableToken network_partition_nonce,
@@ -187,16 +191,20 @@ class CONTENT_EXPORT TrustedSignalsFetcher {
       const std::map<int, std::vector<BiddingPartition>>& compression_groups,
       Callback callback);
 
-  // `frame_tree_node_id` is used to log events for devtools.
+  // `frame_tree_node_id` and `devtools_auction_ids` are used to log events for
+  // devtools, if needed.
   //
   // `main_frame_origin` and `network_partition_nonce` are used to create an
   // IsolationInfo identifying the network partition to use.
   // `main_frame_origin`'s host is also sent as part of the encrypted request.
   //
   // `ip_address_space` is the IPAddressSpace of the frame that's running the
-  // auction. The other members of ClientSecurityState are either based on its
-  // value or use defaults. Defaults are safe since these are credentialless
-  // requests. Any data taken from the frame would also potentially be a leak.
+  // auction. It's used to create a ClientSecurityState that has a
+  // PrivateNetworkRequestPolicy that will block the signals fetch if the
+  // signals URL maps to an IP on a less public address space. The other members
+  // of ClientSecurityState use default values.  Default values are safe since
+  // these are credentialless requests. Any data taken from the frame would also
+  // potentially be a leak.
   //
   // `script_origin` is the seller for the auction. Used as the initiator for
   // CORS.
@@ -206,6 +214,7 @@ class CONTENT_EXPORT TrustedSignalsFetcher {
   virtual void FetchScoringSignals(
       network::mojom::URLLoaderFactory* url_loader_factory,
       FrameTreeNodeId frame_tree_node_id,
+      base::flat_set<std::string> devtools_auction_ids,
       const url::Origin& main_frame_origin,
       network::mojom::IPAddressSpace ip_address_space,
       base::UnguessableToken network_partition_nonce,
@@ -224,7 +233,9 @@ class CONTENT_EXPORT TrustedSignalsFetcher {
   // this class.
   void EncryptRequestBodyAndStart(
       network::mojom::URLLoaderFactory* url_loader_factory,
+      InterestGroupAuctionFetchType fetch_type,
       FrameTreeNodeId frame_tree_node_id,
+      base::flat_set<std::string> devtools_auction_ids,
       const url::Origin& main_frame_origin,
       network::mojom::IPAddressSpace ip_address_space,
       base::UnguessableToken network_partition_nonce,

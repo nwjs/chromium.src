@@ -199,6 +199,7 @@
     <iron-list id="grid"
         items="[[tiles_]]"
         grid
+        aria-label$="[[i18n('seaPenFreeformResultsLabel')]]"
         aria-setsize$="[[tiles_.length]]"
         role="listbox">
       <template>
@@ -211,7 +212,7 @@
           </template>
           <div class="loading-placeholder">
             <sparkle-placeholder index="[[index]]"
-                active="[[!isTileVisible_(item, thumbnailsLoading_)]]">
+                active="[[thumbnailsLoading_]]">
             </sparkle-placeholder>
           </div>
           <p hidden id="latestTextQueryDescription">
@@ -273,6 +274,7 @@
         <iron-list id="historyGrid[[queryHistoryIndex]]"
             items="[[queryHistoryEntry.thumbnails]]"
             grid
+            aria-label$="[[i18n('seaPenFreeformPreviousPrompts')]]"
             aria-setsize$="[[queryHistoryEntry.thumbnails.length]]"
             role="listbox">
           <template>

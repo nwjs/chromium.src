@@ -16,6 +16,8 @@ import org.chromium.chrome.browser.password_manager.PasswordManagerHelper;
 import org.chromium.chrome.browser.password_manager.PasswordManagerUtilBridge;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.components.prefs.PrefService;
+import org.chromium.components.signin.AccountManagerFacade;
+import org.chromium.components.signin.AccountManagerFacadeProvider;
 
 /** Manages fetching and setting the password information for Safety Hub. */
 public class SafetyHubPasswordsFetchService {
@@ -24,6 +26,7 @@ public class SafetyHubPasswordsFetchService {
 
     @NonNull private final PrefService mPrefService;
     @NonNull private final PasswordManagerHelper mPasswordManagerHelper;
+    @NonNull private final AccountManagerFacade mAccountManagerFacade;
 
     /**
      * These booleans indicate if the specific type of passwords count has returned. They are used
@@ -54,6 +57,7 @@ public class SafetyHubPasswordsFetchService {
         mPasswordManagerHelper = passwordManagerHelper;
         mPrefService = prefService;
         mAccount = account;
+        mAccountManagerFacade = AccountManagerFacadeProvider.getInstance();
     }
 
     public void setAccount(@Nullable String account) {
@@ -91,21 +95,32 @@ public class SafetyHubPasswordsFetchService {
      * made a password checkup call to GMSCore for this account in the last hour, then it assumes
      * the results are still fresh and they can be reused.
      *
-     * <p>`onFinishedCallback` runs either: (1) on success, when all password counts have
+     * <p>{@code onFinishedCallback} runs either: (1) on success, when all password counts have
      * successfully been returned and the appropriate preferences have been updated with the
      * results; or (2) if any error has occurred either when running the checkup or fetching the
      * counts.
+     *
+     * @return {@code true} if the checkup will be performed by GMSCore. Otherwise, returns {@code
+     *     false}, e.g. when the last checkup results are within the holdback period.
      */
-    public void runPasswordCheckup(Callback<Boolean> onFinishedCallback) {
+    public boolean runPasswordCheckup(Callback<Boolean> onFinishedCallback) {
         if (!canPerformFetch()) {
             clearPrefs();
             onFinishedCallback.onResult(/* errorOccurred */ true);
-            return;
+            return false;
         }
 
-        if (getTimeSinceLastCheckupInMs() <= CHECKUP_COOL_DOWN_PERIOD_IN_MS) {
+        boolean inHoldbackPeriod = getTimeSinceLastCheckupInMs() <= CHECKUP_COOL_DOWN_PERIOD_IN_MS;
+
+        if (inHoldbackPeriod) {
             onFinishedCallback.onResult(/* errorOccurred */ false);
-            return;
+            return false;
+        }
+
+        if (noAccountsOnDevice()) {
+            clearPrefsIfCheckUpLongAgo();
+            onFinishedCallback.onResult(/* errorOccurred */ true);
+            return false;
         }
 
         mPasswordManagerHelper.runPasswordCheckupInBackground(
@@ -118,15 +133,11 @@ public class SafetyHubPasswordsFetchService {
                     fetchPasswordsCount(onFinishedCallback);
                 },
                 error -> {
-                    // If the last check up was performed a long time ago, then don't reuse the
-                    // counts.
-                    if (getTimeSinceLastCheckupInMs()
-                            > (SafetyHubFetchService.SAFETY_HUB_JOB_INTERVAL_IN_DAYS
-                                    * TimeUtils.MILLISECONDS_PER_DAY)) {
-                        clearPrefs();
-                    }
+                    clearPrefsIfCheckUpLongAgo();
                     onFinishedCallback.onResult(/* errorOccurred */ true);
                 });
+
+        return true;
     }
 
     /** Returns true if a password fetch can be performed, namely if GMSCore can be called. */
@@ -138,6 +149,34 @@ public class SafetyHubPasswordsFetchService {
         mPrefService.clearPref(getBreachedPreference());
         mPrefService.clearPref(getWeakPreference());
         mPrefService.clearPref(getReusedPreference());
+        if (mAccount == null) {
+            mPrefService.clearPref(getLastTimeInMsCheckCompletedPreference());
+        }
+    }
+
+    /**
+     * Clears the count preferences if the last check up was performed a long time ago, so they
+     * don't get reused.
+     */
+    private void clearPrefsIfCheckUpLongAgo() {
+        if (getTimeSinceLastCheckupInMs()
+                > (SafetyHubFetchService.SAFETY_HUB_JOB_INTERVAL_IN_DAYS
+                        * TimeUtils.MILLISECONDS_PER_DAY)) {
+            clearPrefs();
+        }
+    }
+
+    /**
+     * Returns true if there are no accounts on device. If there are accounts on the device or if
+     * there isn't yet information about accounts on the device, returns false.
+     */
+    private boolean noAccountsOnDevice() {
+        if (!mAccountManagerFacade.getAccounts().isFulfilled()
+                || !mAccountManagerFacade.didAccountFetchSucceed()) {
+            return false;
+        }
+
+        return mAccountManagerFacade.getAccounts().getResult().isEmpty();
     }
 
     private long getTimeSinceLastCheckupInMs() {

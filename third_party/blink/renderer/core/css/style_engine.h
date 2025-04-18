@@ -388,6 +388,7 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   }
   bool UpdateRootFontRelativeUnits(const ComputedStyle* old_root_style,
                                    const ComputedStyle* new_root_style);
+  void SetUsesTreeCountingFunctions() { uses_tree_counting_functions_ = true; }
 
   void ResetCSSFeatureFlags(const RuleFeatureSet&);
 
@@ -767,7 +768,8 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   void Trace(Visitor*) const override;
   const char* NameInHeapSnapshot() const override { return "StyleEngine"; }
 
-  RuleSet* DefaultViewTransitionStyle() const;
+  RuleSet* DefaultViewTransitionStyle(const Element&) const;
+
   void UpdateViewTransitionOptIn();
 
   const ActiveStyleSheetVector& ActiveUserStyleSheets() const {
@@ -785,7 +787,7 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   // Returns true if marked dirty for layout
   bool UpdateLastSuccessfulPositionFallbacksAndAnchorScrollShift();
 
-  void RevisitActiveStyleSheetsForInspector();
+  void RevisitStyleSheetForInspector(StyleSheetContents* contents);
 
  private:
   void UpdateCounters(const Element& element,
@@ -934,6 +936,7 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
                                               const StyleRecalcContext&);
 
   void RecalcTransitionPseudoStyle();
+  void RebuildTransitionPseudoLayoutTrees();
 
   // We may need to update whitespaces in the layout tree after a flat tree
   // removal which caused a layout subtree to be detached.
@@ -1025,6 +1028,9 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   bool uses_root_font_relative_units_{false};
   bool uses_glyph_relative_units_{false};
   bool uses_line_height_units_{false};
+  // True if we ever resolved style that involved tree-counting functions such
+  // as sibling-count() and sibling-index().
+  bool uses_tree_counting_functions_{false};
   // True if we have performed style recalc for at least one element that
   // depends on container queries.
   bool style_affected_by_layout_{false};

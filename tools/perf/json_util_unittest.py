@@ -11,6 +11,8 @@ from unittest import mock
 import json_util
 from parameterized import parameterized  # pylint: disable=import-error
 
+# pylint: disable=too-many-lines
+
 
 class JsonUtilTest(unittest.TestCase):
 
@@ -310,10 +312,10 @@ class JsonUtilTest(unittest.TestCase):
         'win-222-e504',
         'Chromium Commit Position':
         'https://crrev.com/1405221',
-        'V8 Git Hash': ('https://chromium.googlesource.com/v8/v8/+/'
-                        '60e67b93909a1c858305b27111d9988f94fff0f8'),
-        'WebRTC Git Hash': ('https://webrtc.googlesource.com/src/+/'
-                            '1e19045eaa63d00a3b4017fd43c5b502c6ed73a2'),
+        'V8': ('https://chromium.googlesource.com/v8/v8/+/'
+               '60e67b93909a1c858305b27111d9988f94fff0f8'),
+        'WebRTC': ('https://webrtc.googlesource.com/src/+/'
+                   '1e19045eaa63d00a3b4017fd43c5b502c6ed73a2'),
     }
     expected = {
         'version': 1,
@@ -345,19 +347,23 @@ class JsonUtilTest(unittest.TestCase):
       got = agent.process(details)
       self.assertDictEqual(got, expected)
 
+    with self.subTest(name='no_synthetic_measurements_with_benchmark_name'):
+      expected2 = copy.deepcopy(expected)
+      expected2['key']['benchmark'] = 'speedometer3_modified'
+      agent = json_util.JsonUtil(generate_synthetic_measurements=False)
+      agent.add(result2_json)
+      got = agent.process(details, benchmark_name='speedometer3_modified')
+      self.assertDictEqual(got, expected2)
+
     with self.subTest(name='generate_synthetic_measurements'):
       agent = json_util.JsonUtil(generate_synthetic_measurements=True)
       agent.add(result2_json)
-      synthetic_measurements = {
+      synthetic_measurements_1 = {
           'measurements': {
               'stat': [
                   {
-                      'value': 'value',
+                      'value': 'average',
                       'measurement': 140.6900000002235
-                  },
-                  {
-                      'value': 'error',
-                      'measurement': 13.676537086499565
                   },
               ]
           },
@@ -368,7 +374,93 @@ class JsonUtilTest(unittest.TestCase):
               'subtest_1': 'Speedometer3',
           },
       }
-      expected['results'].extend([synthetic_measurements])
+      synthetic_measurements_2 = {
+          'measurements': {
+              'stat': [
+                  {
+                      'value': 'min',
+                      'measurement': 130.90000000037253
+                  },
+              ]
+          },
+          'key': {
+              'improvement_direction': 'down',
+              'unit': 'ms_smallerIsBetter',
+              'test': 'Editor-TipTap_min',
+              'subtest_1': 'Speedometer3',
+          },
+      }
+      synthetic_measurements_3 = {
+          'measurements': {
+              'stat': [
+                  {
+                      'value': 'max',
+                      'measurement': 172.90000000130385
+                  },
+              ]
+          },
+          'key': {
+              'improvement_direction': 'down',
+              'unit': 'ms_smallerIsBetter',
+              'test': 'Editor-TipTap_max',
+              'subtest_1': 'Speedometer3',
+          },
+      }
+      synthetic_measurements_4 = {
+          'measurements': {
+              'stat': [
+                  {
+                      'value': 'sum',
+                      'measurement': 1406.9000000022352
+                  },
+              ]
+          },
+          'key': {
+              'improvement_direction': 'down',
+              'unit': 'ms_smallerIsBetter',
+              'test': 'Editor-TipTap_sum',
+              'subtest_1': 'Speedometer3',
+          },
+      }
+      synthetic_measurements_5 = {
+          'measurements': {
+              'stat': [
+                  {
+                      'value': 'count',
+                      'measurement': 10.0
+                  },
+              ]
+          },
+          'key': {
+              'improvement_direction': 'up',
+              'unit': 'unitless_biggerIsBetter',
+              'test': 'Editor-TipTap_count',
+              'subtest_1': 'Speedometer3',
+          },
+      }
+      synthetic_measurements_6 = {
+          'measurements': {
+              'stat': [
+                  {
+                      'value': 'error',
+                      'measurement': 13.676537086499565
+                  },
+              ]
+          },
+          'key': {
+              'improvement_direction': 'down',
+              'unit': 'ms_smallerIsBetter',
+              'test': 'Editor-TipTap_std',
+              'subtest_1': 'Speedometer3',
+          },
+      }
+      expected['results'].extend([
+          synthetic_measurements_1,
+          synthetic_measurements_2,
+          synthetic_measurements_3,
+          synthetic_measurements_4,
+          synthetic_measurements_5,
+          synthetic_measurements_6])
       got = agent.process(details)
       self.assertDictEqual(got, expected)
     with self.subTest(name='generate_synthetic_measurements_with_subtest'):
@@ -383,8 +475,18 @@ class JsonUtilTest(unittest.TestCase):
               'storyTags'] = 'f0bb92d7-5ab2-42ed-ad7f-d79018aa3b61'
       key['subtest_1'] = 'browse_news'
       key['subtest_2'] = 'browse_news_nytimes_2020'
-      synthetic_measurements['key']['subtest_1'] = 'browse_news'
-      synthetic_measurements['key']['subtest_2'] = 'browse_news_nytimes_2020'
+      synthetic_measurements_1['key']['subtest_1'] = 'browse_news'
+      synthetic_measurements_1['key']['subtest_2'] = 'browse_news_nytimes_2020'
+      synthetic_measurements_2['key']['subtest_1'] = 'browse_news'
+      synthetic_measurements_2['key']['subtest_2'] = 'browse_news_nytimes_2020'
+      synthetic_measurements_3['key']['subtest_1'] = 'browse_news'
+      synthetic_measurements_3['key']['subtest_2'] = 'browse_news_nytimes_2020'
+      synthetic_measurements_4['key']['subtest_1'] = 'browse_news'
+      synthetic_measurements_4['key']['subtest_2'] = 'browse_news_nytimes_2020'
+      synthetic_measurements_5['key']['subtest_1'] = 'browse_news'
+      synthetic_measurements_5['key']['subtest_2'] = 'browse_news_nytimes_2020'
+      synthetic_measurements_6['key']['subtest_1'] = 'browse_news'
+      synthetic_measurements_6['key']['subtest_2'] = 'browse_news_nytimes_2020'
       expected = {
           'version': 1,
           'git_hash': 'CP:1405221',
@@ -393,7 +495,14 @@ class JsonUtilTest(unittest.TestCase):
               'bot': 'win-10-perf',
               'benchmark': 'speedometer3',
           },
-          'results': [measurement, synthetic_measurements],
+          'results': [
+              measurement,
+              synthetic_measurements_1,
+              synthetic_measurements_2,
+              synthetic_measurements_3,
+              synthetic_measurements_4,
+              synthetic_measurements_5,
+              synthetic_measurements_6],
           'links': links,
       }
       agent.add(result2_json_copy)
@@ -543,9 +652,80 @@ class JsonUtilTest(unittest.TestCase):
                   'measurements': {
                       'stat': [
                           {
-                              'value': 'value',
+                              'value': 'average',
                               'measurement': 2.0
                           },
+                      ],
+                  },
+                  'key': {
+                      'improvement_direction': 'down',
+                      'unit': 'ms_smallerIsBetter',
+                      'test': 'abc_avg',
+                  },
+              },
+              {
+                  'measurements': {
+                      'stat': [
+                          {
+                              'value': 'min',
+                              'measurement': 1.0
+                          },
+                      ],
+                  },
+                  'key': {
+                      'improvement_direction': 'down',
+                      'unit': 'ms_smallerIsBetter',
+                      'test': 'abc_min',
+                  },
+              },
+              {
+                  'measurements': {
+                      'stat': [
+                          {
+                              'value': 'max',
+                              'measurement': 3.0
+                          },
+                      ],
+                  },
+                  'key': {
+                      'improvement_direction': 'down',
+                      'unit': 'ms_smallerIsBetter',
+                      'test': 'abc_max',
+                  },
+              },
+              {
+                  'measurements': {
+                      'stat': [
+                          {
+                              'value': 'sum',
+                              'measurement': 6.0
+                          },
+                      ],
+                  },
+                  'key': {
+                      'improvement_direction': 'down',
+                      'unit': 'ms_smallerIsBetter',
+                      'test': 'abc_sum',
+                  },
+              },
+              {
+                  'measurements': {
+                      'stat': [
+                          {
+                              'value': 'count',
+                              'measurement': 3.0
+                          },
+                      ],
+                  },
+                  'key': {
+                      'improvement_direction': 'up',
+                      'unit': 'unitless_biggerIsBetter',
+                      'test': 'abc_count',
+                  },
+              },
+              {
+                  'measurements': {
+                      'stat': [
                           {
                               'value': 'error',
                               'measurement': 1.0
@@ -555,7 +735,7 @@ class JsonUtilTest(unittest.TestCase):
                   'key': {
                       'improvement_direction': 'down',
                       'unit': 'ms_smallerIsBetter',
-                      'test': 'abc_avg',
+                      'test': 'abc_std',
                   },
               },
           ],
@@ -612,9 +792,90 @@ class JsonUtilTest(unittest.TestCase):
                   'measurements': {
                       'stat': [
                           {
-                              'value': 'value',
+                              'value': 'average',
                               'measurement': 2.0
                           },
+                      ],
+                  },
+                  'key': {
+                      'improvement_direction': 'down',
+                      'unit': 'ms_smallerIsBetter',
+                      'test': 'abc_avg',
+                      'subtest_1': 'subtest',
+                      'subtest_2': 'subtest2',
+                  },
+              },
+              {
+                  'measurements': {
+                      'stat': [
+                          {
+                              'value': 'min',
+                              'measurement': 1.0
+                          },
+                      ],
+                  },
+                  'key': {
+                      'improvement_direction': 'down',
+                      'unit': 'ms_smallerIsBetter',
+                      'test': 'abc_min',
+                      'subtest_1': 'subtest',
+                      'subtest_2': 'subtest2',
+                  },
+              },
+              {
+                  'measurements': {
+                      'stat': [
+                          {
+                              'value': 'max',
+                              'measurement': 3.0
+                          },
+                      ],
+                  },
+                  'key': {
+                      'improvement_direction': 'down',
+                      'unit': 'ms_smallerIsBetter',
+                      'test': 'abc_max',
+                      'subtest_1': 'subtest',
+                      'subtest_2': 'subtest2',
+                  },
+              },
+              {
+                  'measurements': {
+                      'stat': [
+                          {
+                              'value': 'sum',
+                              'measurement': 6.0
+                          },
+                      ],
+                  },
+                  'key': {
+                      'improvement_direction': 'down',
+                      'unit': 'ms_smallerIsBetter',
+                      'test': 'abc_sum',
+                      'subtest_1': 'subtest',
+                      'subtest_2': 'subtest2',
+                  },
+              },
+              {
+                  'measurements': {
+                      'stat': [
+                          {
+                              'value': 'count',
+                              'measurement': 3.0
+                          },
+                      ],
+                  },
+                  'key': {
+                      'improvement_direction': 'up',
+                      'unit': 'unitless_biggerIsBetter',
+                      'test': 'abc_count',
+                      'subtest_1': 'subtest',
+                      'subtest_2': 'subtest2',
+                  },
+              },
+              {
+                  'measurements': {
+                      'stat': [
                           {
                               'value': 'error',
                               'measurement': 1.0
@@ -624,7 +885,7 @@ class JsonUtilTest(unittest.TestCase):
                   'key': {
                       'improvement_direction': 'down',
                       'unit': 'ms_smallerIsBetter',
-                      'test': 'abc_avg',
+                      'test': 'abc_std',
                       'subtest_1': 'subtest',
                       'subtest_2': 'subtest2',
                   },
@@ -689,10 +950,10 @@ class JsonUtilTest(unittest.TestCase):
         'win-222-e504, win-223-e504, win-224-e504',
         'Chromium Commit Position':
         'https://crrev.com/1405221',
-        'V8 Git Hash': ('https://chromium.googlesource.com/v8/v8/+/'
-                        '60e67b93909a1c858305b27111d9988f94fff0f8'),
-        'WebRTC Git Hash': ('https://webrtc.googlesource.com/src/+/'
-                            '1e19045eaa63d00a3b4017fd43c5b502c6ed73a2'),
+        'V8': ('https://chromium.googlesource.com/v8/v8/+/'
+               '60e67b93909a1c858305b27111d9988f94fff0f8'),
+        'WebRTC': ('https://webrtc.googlesource.com/src/+/'
+                   '1e19045eaa63d00a3b4017fd43c5b502c6ed73a2'),
     }
     self.assertDictEqual(got, expected)
 
@@ -797,12 +1058,14 @@ class JsonUtilTest(unittest.TestCase):
           'win-11-perf',
           '',
           False,
+          False,
           [],
       ),
       (
           'empty_builder_name',
           '',
           'ChromiumPerf',
+          False,
           False,
           [],
       ),
@@ -811,33 +1074,203 @@ class JsonUtilTest(unittest.TestCase):
           'win-10-perf',
           'ChromiumPerf',
           False,
-          ['chrome-perf-public'],
+          False,
+          ['chrome-perf-public', 'chrome-perf-non-public'],
+      ),
+      (
+          'public_builder_with_copy_to_experiment',
+          'win-10-perf',
+          'ChromiumPerf',
+          False,
+          True,
+          ['chrome-perf-public', 'chrome-perf-non-public',
+           'chrome-perf-experiment-non-public'],
       ),
       (
           'internal_builder',
           'win-11-perf',
           'ChromiumPerf',
           False,
-          ['chrome-perf-public', 'chrome-perf-non-public'],
+          False,
+          ['chrome-perf-non-public'],
+      ),
+      (
+          'internal_builder_with_copy_to_experiment',
+          'win-11-perf',
+          'ChromiumPerf',
+          False,
+          True,
+          ['chrome-perf-non-public'],
+      ),
+      (
+          'another_internal_builder',
+          'android-pixel6-perf',
+          'ChromiumPerf',
+          False,
+          False,
+          ['chrome-perf-non-public'],
       ),
       (
           'experiment_only',
           'win-11-perf',
           'ChromiumPerf',
           True,
+          False,
           ['chrome-perf-experiment-non-public'],
       ),
   ])
   def test_gcs_buckets_from_builder_name(
-      self, _, builder_name, master_name, experiment_only, expected):
+      self, _, builder_name, master_name, experiment_only,
+      copy_to_experiment, expected):
     with mock.patch('builtins.open', new_callable=mock.mock_open) as mock_open:
       mock_open.return_value.__enter__.return_value.read.return_value = (
           '{"public_perf_builders": ["win-10-perf"]}')
       got = json_util.gcs_buckets_from_builder_name(
           builder_name=builder_name,
           master_name=master_name,
-          experiment_only=experiment_only)
+          experiment_only=experiment_only,
+          public_copy_to_experiment=copy_to_experiment)
       self.assertEqual(got, expected)
+
+  @parameterized.expand([
+      (
+          'default_up_on_empty_string',
+          '',
+          'up',
+      ),
+      (
+          'foo_smallerIsBetter',
+          'foo_smallerIsBetter',
+          'down',
+      ),
+      (
+          'smallerIsBetter',
+          '_smallerIsBetter',
+          'down',
+      ),
+      (
+          'abc_smallerIsBetter',
+          'abc_smallerIsBetter',
+          'down',
+      ),
+      (
+          'default_up',
+          'foo_bar',
+          'up',
+      ),
+      (
+          'bar_biggerIsBetter',
+          'bar_biggerIsBetter',
+          'up',
+      ),
+  ])
+  def test_get_improvement_direction(
+      self, _, unit, expected):
+    # pylint: disable=protected-access
+    got= json_util._get_improvement_direction(unit)
+    self.assertEqual(got, expected)
+
+
+  @parameterized.expand([
+      ('none', None, True),
+      (
+          'with_empty_results',
+          {
+              'version': 1,
+              'git_hash': 'CP:1405221',
+              'key': {
+                  'master': 'ChromiumPerf',
+                  'bot': 'win-10-perf',
+                  'benchmark': 'speedometer3',
+              },
+              'results': [],
+              'links': {
+                  'Build Page':
+                  ('https://ci.chromium.org/ui/p/chrome/builders/ci/win-10-perf/39376'
+                   ),
+                  'OS Version':
+                  '10.0.19045',
+                  'Bot Id':
+                  'win-222-e504',
+                  'Chromium Commit Position':
+                  'https://crrev.com/1405221',
+                  'V8': ('https://chromium.googlesource.com/v8/v8/+/'
+                         '60e67b93909a1c858305b27111d9988f94fff0f8'),
+                  'WebRTC': ('https://webrtc.googlesource.com/src/+/'
+                             '1e19045eaa63d00a3b4017fd43c5b502c6ed73a2'),
+              }
+          },
+          True,
+      ),
+      (
+          'with_some_results',
+          {
+              'version':
+              1,
+              'git_hash':
+              'CP:1405221',
+              'key': {
+                  'master': 'ChromiumPerf',
+                  'bot': 'win-10-perf',
+                  'benchmark': 'speedometer3',
+              },
+              'results': [{
+                  'measurements': {
+                      'stat': [
+                          {
+                              'value': 'value',
+                              'measurement': 140.6900000002235
+                          },
+                          {
+                              'value': 'error',
+                              'measurement': 13.676537086499565
+                          },
+                          {
+                              'value': 'count',
+                              'measurement': 10.0
+                          },
+                          {
+                              'value': 'max',
+                              'measurement': 172.90000000130385
+                          },
+                          {
+                              'value': 'min',
+                              'measurement': 130.90000000037253
+                          },
+                          {
+                              'value': 'sum',
+                              'measurement': 1406.9000000022352
+                          },
+                      ]
+                  },
+                  'key': {
+                      'improvement_direction': 'down',
+                      'unit': 'ms_smallerIsBetter',
+                      'test': 'Editor-TipTap',
+                      'subtest_1': 'Speedometer3',
+                  },
+              }],
+              'links': {
+                  'Build Page':
+                  ('https://ci.chromium.org/ui/p/chrome/builders/ci/win-10-perf/39376'
+                   ),
+                  'OS Version':
+                  '10.0.19045',
+                  'Bot Id':
+                  'win-222-e504',
+                  'Chromium Commit Position':
+                  'https://crrev.com/1405221',
+                  'V8': ('https://chromium.googlesource.com/v8/v8/+/'
+                         '60e67b93909a1c858305b27111d9988f94fff0f8'),
+                  'WebRTC': ('https://webrtc.googlesource.com/src/+/'
+                             '1e19045eaa63d00a3b4017fd43c5b502c6ed73a2'),
+              }
+          },
+          False,
+      )
+  ])
+  def test_is_empty(self, _, data, expected):
+    self.assertEqual(json_util.is_empty(data), expected)
 
 
 if __name__ == '__main__':

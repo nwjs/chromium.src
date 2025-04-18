@@ -59,13 +59,15 @@ class ASH_EXPORT NullCaptureModeSession : public BaseCaptureModeSession {
                                     ActionButtonViewID id) override;
   void AddSmartActionsButton() override;
   void MaybeShowScannerDisclaimer(
+      ScannerEntryPoint entry_point,
       base::RepeatingClosure accept_callback,
       base::RepeatingClosure decline_callback) override;
   void OnScannerActionsFetched(
       ScannerSession::FetchActionsResponse actions_response) override;
   void ShowActionContainerError(const std::u16string& error_message) override;
-  gfx::Rect GetFeedbackWidgetScreenBounds() const override;
   void OnSearchResultsPanelCreated(views::Widget* panel_widget) override;
+  bool TakeFocusForSearchResultsPanel(bool reverse) override;
+  void ClearPseudoFocus() override;
 
  private:
   // CaptureModeSession:

@@ -73,6 +73,21 @@ bool IsValidFencedFrameReportingURL(const KURL& url) {
   return url.ProtocolIs("https");
 }
 
+// Precondition: `data_origin_type` is not kInvalid.
+mojom::blink::SharedStorageDataOriginType SharedStorageDataOriginToMojom(
+    SharedStorageDataOrigin data_origin_type) {
+  switch (data_origin_type) {
+    case SharedStorageDataOrigin::kContextOrigin:
+      return mojom::blink::SharedStorageDataOriginType::kContextOrigin;
+    case SharedStorageDataOrigin::kScriptOrigin:
+      return mojom::blink::SharedStorageDataOriginType::kScriptOrigin;
+    case SharedStorageDataOrigin::kCustomOrigin:
+      return mojom::blink::SharedStorageDataOriginType::kCustomOrigin;
+    case SharedStorageDataOrigin::kInvalid:
+      NOTREACHED();
+  }
+}
+
 }  // namespace
 
 // static
@@ -227,22 +242,46 @@ void SharedStorageWorklet::AddModuleHelper(
   network::mojom::CredentialsMode credentials_mode =
       Request::V8RequestCredentialsToCredentialsMode(
           options->credentials().AsEnum());
+  auto* window = DynamicTo<LocalDOMWindow>(execution_context);
+  if (window->document() && window->document()->IsPrerendering()) {
+    window->document()->AddPostPrerenderingActivationStep(WTF::BindOnce(
+        &SharedStorageWorklet::AddModuleOnLocalDomWindow,
+        WrapWeakPersistent(this), WrapWeakPersistent(window),
+        std::move(script_source_url), std::move(shared_storage_security_origin),
+        data_origin_type, credentials_mode, resolve_to_worklet, start_time,
+        WrapPersistent(resolver)));
+  } else {
+    AddModuleOnLocalDomWindow(window, std::move(script_source_url),
+                              std::move(shared_storage_security_origin),
+                              data_origin_type, credentials_mode,
+                              resolve_to_worklet, start_time, resolver);
+  }
+}
 
+void SharedStorageWorklet::AddModuleOnLocalDomWindow(
+    LocalDOMWindow* dom_window,
+    KURL script_source_url,
+    scoped_refptr<SecurityOrigin> shared_storage_security_origin,
+    SharedStorageDataOrigin data_origin_type,
+    network::mojom::CredentialsMode credentials_mode,
+    bool resolve_to_worklet,
+    base::TimeTicks start_time,
+    ScriptPromiseResolverBase* resolver) {
   std::unique_ptr<Vector<mojom::blink::OriginTrialFeature>>
       origin_trial_features =
-          OriginTrialContext::GetInheritedTrialFeatures(execution_context);
-
-  SharedStorageWindowSupplement::From(To<LocalDOMWindow>(*execution_context))
+          OriginTrialContext::GetInheritedTrialFeatures(dom_window);
+  SharedStorageWindowSupplement::From(*dom_window)
       ->GetSharedStorageDocumentService()
       ->CreateWorklet(
-          script_source_url, shared_storage_security_origin, credentials_mode,
+          script_source_url, shared_storage_security_origin,
+          SharedStorageDataOriginToMojom(data_origin_type), credentials_mode,
           resolve_to_worklet
               ? mojom::blink::SharedStorageWorkletCreationMethod::kCreateWorklet
               : mojom::blink::SharedStorageWorkletCreationMethod::kAddModule,
           origin_trial_features ? *origin_trial_features
                                 : Vector<mojom::blink::OriginTrialFeature>(),
           worklet_host_.BindNewEndpointAndPassReceiver(
-              execution_context->GetTaskRunner(TaskType::kMiscPlatformAPI)),
+              dom_window->GetTaskRunner(TaskType::kMiscPlatformAPI)),
           WTF::BindOnce(
               [](ScriptPromiseResolverBase* resolver,
                  SharedStorageWorklet* shared_storage_worklet,
@@ -383,6 +422,11 @@ ScriptPromise<V8SharedStorageResponse> SharedStorageWorklet::selectURL(
   int kExclusiveMaxBucket = 9;
   base::UmaHistogramExactLinear("Storage.SharedStorage.SelectURL.UrlsLength",
                                 urls.size(), kExclusiveMaxBucket);
+
+  if (urls.size() == 1) {
+    execution_context->CountUse(
+        WebFeature::kSharedStorageAPI_SelectURL_Method_CalledWithOneURL);
+  }
 
   v8::Local<v8::Context> v8_context =
       script_state->GetIsolate()->GetCurrentContext();
@@ -535,7 +579,8 @@ ScriptPromise<V8SharedStorageResponse> SharedStorageWorklet::selectURL(
 
   worklet_host_->SelectURL(
       name, std::move(converted_urls), std::move(*serialized_data), keep_alive,
-      std::move(private_aggregation_config), options->savedQuery(),
+      std::move(private_aggregation_config), resolve_to_config,
+      options->savedQuery(),
       WTF::BindOnce(
           [](ScriptPromiseResolver<V8SharedStorageResponse>* resolver,
              SharedStorageWorklet* shared_storage_worklet,

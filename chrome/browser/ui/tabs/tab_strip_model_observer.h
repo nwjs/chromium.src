@@ -8,19 +8,24 @@
 #include <memory>
 #include <optional>
 #include <set>
+#include <variant>
 #include <vector>
 
 #include "base/memory/raw_ptr.h"
-#include "chrome/browser/ui/tabs/public/tab_interface.h"
 #include "chrome/browser/ui/tabs/tab_change_type.h"
 #include "components/sessions/core/session_id.h"
+#include "components/tab_collections/public/tab_interface.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tab_groups/tab_group_visual_data.h"
-#include "third_party/abseil-cpp/absl/types/variant.h"
 #include "third_party/perfetto/include/perfetto/tracing/traced_value_forward.h"
 #include "ui/base/models/list_selection_model.h"
 
 class TabStripModel;
+namespace tabs {
+class TabModel;
+class TabGroupTabCollection;
+enum class SplitTabLayout;
+}  // namespace tabs
 
 namespace content {
 class WebContents;
@@ -198,7 +203,7 @@ class TabStripModelChange {
   void WriteIntoTrace(perfetto::TracedValue context) const;
 
  private:
-  using Delta = absl::variant<Insert, Remove, Move, Replace>;
+  using Delta = std::variant<Insert, Remove, Move, Replace>;
 
   TabStripModelChange(Type type, Delta delta);
 
@@ -287,23 +292,29 @@ struct TabGroupChange {
   };
 
   struct CreateChange : public Delta {
-    explicit CreateChange(TabGroupCreationReason reason);
+    CreateChange(TabGroupCreationReason reason,
+                 tabs::TabGroupTabCollection* detached_group);
     ~CreateChange() override;
 
     TabGroupCreationReason reason() const { return reason_; }
+    std::vector<tabs::TabModel*> GetDetachedTabs() const;
 
    private:
     TabGroupCreationReason reason_;
+    raw_ptr<tabs::TabGroupTabCollection> detached_group_;
   };
 
   struct CloseChange : public Delta {
-    explicit CloseChange(TabGroupClosureReason reason);
+    CloseChange(TabGroupClosureReason reason,
+                tabs::TabGroupTabCollection* detached_group);
     ~CloseChange() override;
 
     TabGroupClosureReason reason() const { return reason_; }
+    std::vector<tabs::TabModel*> GetDetachedTabs() const;
 
    private:
     TabGroupClosureReason reason_;
+    raw_ptr<tabs::TabGroupTabCollection> detached_group_;
   };
 
   TabGroupChange(TabStripModel* model,
@@ -406,8 +417,38 @@ class TabStripModelObserver {
   // Notfies us when a Tab Group will be removed from the Tab Group Model.
   virtual void OnTabGroupWillBeRemoved(const tab_groups::TabGroupId& group_id);
 
+  enum class SplitTabAddReason {
+    kNewSplitTabCreated,
+    kInsertedFromAnotherTabstrip
+  };
+
+  enum class SplitTabRemoveReason {
+    kSplitTabClosed,
+    kDetachedToAnotherTabstrip
+  };
+
   // Notification that a new split view has been added to the TabStripModel.
-  virtual void OnSplitViewAdded(std::vector<tabs::TabInterface*> tabs);
+  virtual void OnSplitTabCreated(
+      std::vector<std::pair<tabs::TabInterface*, int>> tabs,
+      split_tabs::SplitTabId split_id,
+      SplitTabAddReason reason,
+      tabs::SplitTabLayout tab_layout);
+
+  // Notification that a split view has been removed from the TabStripModel.
+  virtual void OnSplitTabRemoved(
+      std::vector<std::pair<tabs::TabInterface*, int>> tabs,
+      split_tabs::SplitTabId split_id,
+      SplitTabRemoveReason reason);
+
+  // Notification that the orientation of a split view is updated.
+  virtual void OnSplitTabOrientationChanged(split_tabs::SplitTabId split_id,
+                                            tabs::SplitTabLayout tab_layout);
+
+  // Notification that the contents of a split view is updated.
+  virtual void OnSplitTabContentsUpdated(
+      split_tabs::SplitTabId split_id,
+      std::vector<std::pair<tabs::TabInterface*, int>> prev_tabs,
+      std::vector<std::pair<tabs::TabInterface*, int>> new_tabs);
 
   // The specified WebContents at |index| changed in some way. |contents|
   // may be an entirely different object and the old value is no longer

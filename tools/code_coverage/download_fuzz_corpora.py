@@ -21,6 +21,7 @@ ALL_CORPORA_TYPES = [
 CORPORA_BUCKET_BASE_URL_BY_TYPE = {
     LIBFUZZER_CORPORA_TYPE:
     'gs://clusterfuzz-libfuzzer-backup/corpus/libfuzzer/',
+    CENTIPEDE_CORPORA_TYPE: 'gs://clusterfuzz-centipede-backup/',
     FUZZILLI_CORPORA_TYPE: 'gs://autozilli/',
 }
 
@@ -39,19 +40,15 @@ def _gsutil(cmd, cwd):
 
 
 def _get_fuzzilli_corpora(arch):
-  try:
-    output = subprocess.check_output([
-        'gsutil.py', 'ls',
-        CORPORA_BUCKET_BASE_URL_BY_TYPE[FUZZILLI_CORPORA_TYPE]
-    ]).decode('utf-8')
-    regex = {
-        'x64': 'autozilli-[0-9]+\.tgz',
-        'x86': 'autozilli-x86-[0-9]+\.tgz',
-        'arm64': 'autozilli-arm64-[0-9]+\.tgz',
-    }[arch]
-    return re.findall(regex, output)
-  except:
-    return []
+  output = subprocess.check_output(
+      ['gsutil', 'ls',
+       CORPORA_BUCKET_BASE_URL_BY_TYPE[FUZZILLI_CORPORA_TYPE]]).decode('utf-8')
+  regex = {
+      'x64': 'autozilli-[0-9]+\.tgz',
+      'x86': 'autozilli-x86-[0-9]+\.tgz',
+      'arm64': 'autozilli-arm64-[0-9]+\.tgz',
+  }[arch]
+  return re.findall(regex, output)
 
 
 def _download_corpus(args):

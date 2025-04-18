@@ -34,6 +34,7 @@ import org.chromium.base.Callback;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.base.supplier.Supplier;
 import org.chromium.cc.input.BrowserControlsState;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsOffsetTagsInfo;
@@ -65,6 +66,7 @@ import org.chromium.chrome.browser.lifecycle.PauseResumeWithNativeObserver;
 import org.chromium.chrome.browser.lifecycle.TopResumedActivityChangedObserver;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
+import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.Tab.LoadUrlResult;
 import org.chromium.chrome.browser.tab.TabCreationState;
@@ -87,6 +89,7 @@ import org.chromium.chrome.browser.toolbar.top.tab_strip.StripVisibilityState;
 import org.chromium.chrome.browser.toolbar.top.tab_strip.TabStripTransitionCoordinator.TabStripTransitionDelegate;
 import org.chromium.chrome.browser.ui.desktop_windowing.AppHeaderUtils;
 import org.chromium.chrome.browser.ui.system.StatusBarColorController;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.desktop_windowing.AppHeaderState;
 import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateManager;
 import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateManager.AppHeaderObserver;
@@ -255,15 +258,14 @@ public class StripLayoutHelperManager
 
     private class TabStripEventHandler implements MotionEventHandler {
         @Override
-        public void onDown(float x, float y, boolean fromMouse, int buttons) {
+        public void onDown(float x, float y, int buttons) {
             if (DragDropGlobalState.hasValue()) {
                 return;
             }
-            if (mModelSelectorButton != null
-                    && mModelSelectorButton.onDown(x, y, fromMouse, buttons)) {
+            if (mModelSelectorButton != null && mModelSelectorButton.onDown(x, y, buttons)) {
                 return;
             }
-            getActiveStripLayoutHelper().onDown(x, y, fromMouse, buttons);
+            getActiveStripLayoutHelper().onDown(x, y, buttons);
         }
 
         @Override
@@ -291,17 +293,16 @@ public class StripLayoutHelperManager
         }
 
         @Override
-        public void click(float x, float y, boolean fromMouse, int buttons) {
+        public void click(float x, float y, int buttons) {
             if (DragDropGlobalState.hasValue()) {
                 return;
             }
             long time = time();
-            if (mModelSelectorButton != null
-                    && mModelSelectorButton.click(x, y, fromMouse, buttons)) {
+            if (mModelSelectorButton != null && mModelSelectorButton.click(x, y, buttons)) {
                 mModelSelectorButton.handleClick(time);
                 return;
             }
-            getActiveStripLayoutHelper().click(time(), x, y, fromMouse, buttons);
+            getActiveStripLayoutHelper().click(time(), x, y, buttons);
         }
 
         @Override
@@ -317,7 +318,7 @@ public class StripLayoutHelperManager
             if (DragDropGlobalState.hasValue()) {
                 return;
             }
-            getActiveStripLayoutHelper().onLongPress(time(), x, y);
+            getActiveStripLayoutHelper().onLongPress(x, y);
         }
 
         @Override
@@ -399,7 +400,8 @@ public class StripLayoutHelperManager
      * @param tabModelStartupInfoSupplier A supplier for the TabModelStartupInfo.
      * @param lifecycleDispatcher The ActivityLifecycleDispatcher for registering this class to
      *     lifecycle events.
-     * @param multiInstanceManager MultiInstanceManager passed to TabDragSource for drag and drop.
+     * @param multiInstanceManager The {@link MultiInstanceManager} used to move tabs to other
+     *     windows.
      * @param dragDropDelegate DragAndDropDelegate passed to TabDragSource to initiate tab drag and
      *     drop.
      * @param toolbarContainerView View passed to TabDragSource for drag and drop.
@@ -409,6 +411,11 @@ public class StripLayoutHelperManager
      * @param browserControlsStateProvider BrowserControlsStateProvider for drag drop.
      * @param toolbarManager The ToolbarManager instance.
      * @param desktopWindowStateManager The DesktopWindowStateManager for the app header.
+     * @param actionConfirmationManager The {@link ActionConfirmationManager} for group actions.
+     * @param modalDialogManager The {@link ModalDialogManager} for the context menu.
+     * @param dataSharingTabManager The {@link DataSharingTabManager} for shared groups.
+     * @param bottomSheetController The {@link BottomSheetController} used to show bottom sheets.
+     * @param shareDelegateSupplier Supplies {@link ShareDelegate} to share tab URLs.
      */
     public StripLayoutHelperManager(
             Context context,
@@ -432,7 +439,10 @@ public class StripLayoutHelperManager
             @Nullable DesktopWindowStateManager desktopWindowStateManager,
             ActionConfirmationManager actionConfirmationManager,
             ModalDialogManager modalDialogManager,
-            DataSharingTabManager dataSharingTabManager) {
+            DataSharingTabManager dataSharingTabManager,
+            @NonNull BottomSheetController bottomSheetController,
+            @NonNull Supplier<ShareDelegate> shareDelegateSupplier) {
+        mContext = context;
         Resources res = context.getResources();
         mUpdateHost = updateHost;
         mLayerTitleCacheSupplier = layerTitleCacheSupplier;
@@ -510,7 +520,10 @@ public class StripLayoutHelperManager
                         actionConfirmationManager,
                         modalDialogManager,
                         dataSharingTabManager,
-                        () -> getStripVisibilityState() == StripVisibilityState.VISIBLE);
+                        () -> getStripVisibilityState() == StripVisibilityState.VISIBLE,
+                        bottomSheetController,
+                        multiInstanceManager,
+                        shareDelegateSupplier);
         mIncognitoHelper =
                 new StripLayoutHelper(
                         context,
@@ -525,7 +538,10 @@ public class StripLayoutHelperManager
                         actionConfirmationManager,
                         modalDialogManager,
                         dataSharingTabManager,
-                        () -> getStripVisibilityState() == StripVisibilityState.VISIBLE);
+                        () -> getStripVisibilityState() == StripVisibilityState.VISIBLE,
+                        bottomSheetController,
+                        multiInstanceManager,
+                        shareDelegateSupplier);
 
         tabHoverCardViewStub.setOnInflateListener(
                 (viewStub, view) -> {
@@ -559,7 +575,6 @@ public class StripLayoutHelperManager
                     mIncognitoHelper.setLayerTitleCache(layerTitleCache);
                 });
 
-        onContextChanged(context);
         if (mDesktopWindowStateManager != null) {
             mDesktopWindowStateManager.addObserver(this);
             mIsTopResumedActivity = !mDesktopWindowStateManager.isInUnfocusedDesktopWindow();
@@ -683,7 +698,10 @@ public class StripLayoutHelperManager
             mTabModelSelectorTabModelObserver.destroy();
             mTabModelSelectorTabObserver.destroy();
         }
-        mTabDragSource = null;
+        if (mTabDragSource != null) {
+            mTabDragSource.destroy();
+            mTabDragSource = null;
+        }
         if (mDesktopWindowStateManager != null) {
             mDesktopWindowStateManager.removeObserver(this);
         }
@@ -719,8 +737,8 @@ public class StripLayoutHelperManager
     }
 
     @VisibleForTesting
-    public void simulateClick(float x, float y, boolean fromMouse, int buttons) {
-        mTabStripEventHandler.click(x, y, fromMouse, buttons);
+    public void simulateClick(float x, float y, int buttons) {
+        mTabStripEventHandler.click(x, y, buttons);
     }
 
     @VisibleForTesting
@@ -1468,17 +1486,6 @@ public class StripLayoutHelperManager
                 mIsTopResumedActivity);
     }
 
-    /**
-     * Updates all internal resources and dimensions.
-     *
-     * @param context The current Android Context.
-     */
-    public void onContextChanged(Context context) {
-        mContext = context;
-        mNormalHelper.onContextChanged(context);
-        mIncognitoHelper.onContextChanged(context);
-    }
-
     @Override
     public boolean updateOverlay(long time, long dt) {
         getInactiveStripLayoutHelper().finishAnimationsAndPushTabUpdates();
@@ -1583,8 +1590,8 @@ public class StripLayoutHelperManager
         }
     }
 
-    void simulateOnDownForTesting(float x, float y, boolean fromMouse, int buttons) {
-        mTabStripEventHandler.onDown(x, y, fromMouse, buttons);
+    void simulateOnDownForTesting(float x, float y, int buttons) {
+        mTabStripEventHandler.onDown(x, y, buttons);
     }
 
     void setTabStripTreeProviderForTesting(TabStripSceneLayer tabStripTreeProvider) {

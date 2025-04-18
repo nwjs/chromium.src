@@ -24,6 +24,8 @@ import("//ui/qt/qt.gni")
 if (is_android) {
   import("//build/config/android/config.gni")
   import("//build/config/android/rules.gni")
+} else if (is_ios) {
+  import("//build/config/apple/mobile_config.gni")
 } else if (is_mac) {
   import("//build/config/mac/rules.gni")
 }
@@ -486,6 +488,8 @@ component("base") {
     "//skia",
     "//third_party/abseil-cpp:absl",
     "//ui/base/mojom:ui_base_types",
+    "//ui/color",
+    "//ui/color:color_headers",
     "//ui/gfx",
     "//ui/gfx/geometry",
   ]
@@ -544,11 +548,9 @@ component("base") {
 
   if (use_blink) {
     deps += [
-      "//ui/color",
       "//ui/events",
       "//ui/events/devices",
     ]
-    public_deps += [ "//ui/color:color_headers" ]
   }
 
   if (is_win) {
@@ -821,11 +823,16 @@ static_library("test_support") {
     ]
   } else {
     sources += [
-      "test/ios/keyboard_appearance_listener.h",
-      "test/ios/keyboard_appearance_listener.mm",
       "test/ios/ui_image_test_utils.h",
       "test/ios/ui_image_test_utils.mm",
     ]
+
+    if (target_platform == "iphoneos") {
+      sources += [
+        "test/ios/keyboard_appearance_listener.h",
+        "test/ios/keyboard_appearance_listener.mm",
+      ]
+    }
   }
 
   if (use_aura && (is_win || is_chromeos || is_castos)) {
@@ -1061,6 +1068,7 @@ test("ui_base_unittests") {
     "//ui/base/data_transfer_policy:unittests",
     "//ui/base/metadata:metadata_tests",
     "//ui/base/prediction:prediction",
+    "//ui/color",
     "//ui/display",
     "//ui/gfx:test_support",
     "//ui/resources",
@@ -1131,7 +1139,6 @@ test("ui_base_unittests") {
 
   if (use_blink) {
     deps += [
-      "//ui/color",
       "//ui/events:events_base",
       "//ui/events:test_support",
     ]

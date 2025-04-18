@@ -25,6 +25,7 @@
 #include "chrome/browser/extensions/component_loader.h"
 #include "chrome/browser/extensions/crx_installer.h"
 #include "chrome/browser/extensions/delayed_install_manager.h"
+#include "chrome/browser/extensions/extension_error_controller.h"
 #include "chrome/browser/extensions/extension_garbage_collector.h"
 #include "chrome/browser/extensions/extension_management.h"
 #include "chrome/browser/extensions/extension_service.h"
@@ -166,16 +167,17 @@ void ChromeExtensionSystem::Shared::RegisterManagementPolicyProviders() {
 
 void ChromeExtensionSystem::Shared::InitInstallGates() {
   update_install_gate_ = std::make_unique<UpdateInstallGate>(profile_);
-  extension_service_->delayed_install_manager()->RegisterInstallGate(
+  auto* delayed_install_manager = DelayedInstallManager::Get(profile_);
+  delayed_install_manager->RegisterInstallGate(
       ExtensionPrefs::DelayReason::kWaitForIdle, update_install_gate_.get());
-  extension_service_->delayed_install_manager()->RegisterInstallGate(
+  delayed_install_manager->RegisterInstallGate(
       ExtensionPrefs::DelayReason::kWaitForImports,
       extension_service_->shared_module_service());
 #if BUILDFLAG(IS_CHROMEOS)
   if (IsRunningInForcedAppMode()) {
     kiosk_app_update_install_gate_ =
         std::make_unique<ash::KioskAppUpdateInstallGate>(profile_);
-    extension_service_->delayed_install_manager()->RegisterInstallGate(
+    delayed_install_manager->RegisterInstallGate(
         ExtensionPrefs::DelayReason::kWaitForOsUpdate,
         kiosk_app_update_install_gate_.get());
   }
@@ -210,7 +212,8 @@ void ChromeExtensionSystem::Shared::Init(bool extensions_enabled) {
       profile_->GetPath().AppendASCII(kInstallDirectoryName),
       profile_->GetPath().AppendASCII(kUnpackedInstallDirectoryName),
       ExtensionPrefs::Get(profile_), Blocklist::Get(profile_),
-      autoupdate_enabled, extensions_enabled, &ready_);
+      ExtensionErrorController::Get(profile_), autoupdate_enabled,
+      extensions_enabled, &ready_);
 
   uninstall_ping_sender_ = std::make_unique<UninstallPingSender>(
       ExtensionRegistry::Get(profile_),
@@ -439,7 +442,8 @@ void ChromeExtensionSystem::InstallUpdate(
   ExtensionService* service = extension_service();
   DCHECK(service);
 
-  scoped_refptr<CrxInstaller> installer = CrxInstaller::CreateSilent(service);
+  scoped_refptr<CrxInstaller> installer =
+      CrxInstaller::CreateSilent(service->profile());
   installer->set_delete_source(true);
   installer->AddInstallerCallback(std::move(install_update_callback));
   installer->set_install_immediately(install_immediately);

@@ -1073,7 +1073,8 @@ WebGPUDecoder* CreateWebGPUDecoderImpl(
       dawn_caching_interface = caching_interface_factory->CreateInstance(
           *dawn_cache_options.handle,
           base::BindRepeating(&DecoderClient::CacheBlob,
-                              base::Unretained(client)));
+                              base::Unretained(client),
+                              gpu::GpuDiskCacheType::kDawnWebGPU));
     } else {
       dawn_caching_interface = caching_interface_factory->CreateInstance();
     }
@@ -1251,6 +1252,7 @@ bool WebGPUDecoderImpl::IsFeatureExposed(wgpu::FeatureName feature) const {
     case wgpu::FeatureName::AdapterPropertiesVk:
     case wgpu::FeatureName::AdapterPropertiesMemoryHeaps:
     case wgpu::FeatureName::ShaderModuleCompilationOptions:
+    case wgpu::FeatureName::CoreFeaturesAndLimits:
       return safety_level_ == webgpu::SafetyLevel::kUnsafe ||
              safety_level_ == webgpu::SafetyLevel::kSafeExperimental;
     case wgpu::FeatureName::DepthClipControl:
@@ -1611,7 +1613,7 @@ WebGPUDecoderImpl::CreateQueuedRequestDeviceCallback(
                                      callback_info);
         } else {
           callback_info.callback(
-              WGPURequestDeviceStatus_InstanceDropped, nullptr,
+              WGPURequestDeviceStatus_CallbackCancelled, nullptr,
               MakeStringView("Queued device request cancelled."),
               callback_info.userdata1, callback_info.userdata2);
         }

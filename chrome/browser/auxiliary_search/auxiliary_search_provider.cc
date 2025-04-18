@@ -18,11 +18,15 @@
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/android/persisted_tab_data/sensitivity_persisted_tab_data_android.h"
 #include "chrome/browser/android/tab_android.h"
+#include "chrome/browser/auxiliary_search/fetch_and_rank_helper.h"
 #include "chrome/browser/auxiliary_search/proto/auxiliary_search_group.pb.h"
 #include "chrome/browser/flags/android/chrome_feature_list.h"
+#include "chrome/browser/ntp_tiles/chrome_most_visited_sites_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_keyed_service_factory.h"
 #include "chrome/browser/visited_url_ranking/visited_url_ranking_service_factory.h"
+#include "components/ntp_tiles/constants.h"
+#include "components/visited_url_ranking/public/features.h"
 #include "components/visited_url_ranking/public/fetch_options.h"
 #include "components/visited_url_ranking/public/url_visit.h"
 #include "components/visited_url_ranking/public/url_visit_util.h"
@@ -35,9 +39,11 @@
 
 using base::android::ToJavaByteArray;
 using visited_url_ranking::Config;
+using visited_url_ranking::Fetcher;
 using visited_url_ranking::FetchOptions;
 using visited_url_ranking::ResultStatus;
 using visited_url_ranking::URLVisitAggregate;
+using visited_url_ranking::URLVisitAggregatesTransformType;
 using visited_url_ranking::URLVisitsMetadata;
 using visited_url_ranking::URLVisitVariantHelper;
 using visited_url_ranking::VisitedURLRankingService;
@@ -46,6 +52,8 @@ using visited_url_ranking::VisitedURLRankingServiceFactory;
 namespace {
 // Must match Java Tab.INVALID_TAB_ID.
 static constexpr int kInvalidTabId = -1;
+
+const int kMaxNumMostVisitedSites = 4;
 
 using BackToJavaCallback = base::OnceCallback<void(
     std::unique_ptr<std::vector<base::WeakPtr<TabAndroid>>>)>;
@@ -84,9 +92,10 @@ class AuxiliarySearchProviderFactory : public ProfileKeyedServiceFactory {
     if (base::FeatureList::IsEnabled(
             chrome::android::kAndroidAppIntegrationMultiDataSource)) {
       return std::make_unique<AuxiliarySearchProvider>(
-          VisitedURLRankingServiceFactory::GetForProfile(profile));
+          VisitedURLRankingServiceFactory::GetForProfile(profile),
+          ChromeMostVisitedSitesFactory::NewForProfile(profile));
     }
-    return std::make_unique<AuxiliarySearchProvider>(nullptr);
+    return std::make_unique<AuxiliarySearchProvider>(nullptr, nullptr);
   }
 };
 
@@ -127,145 +136,33 @@ base::WeakPtr<TabAndroid> FilterNonSensitiveSearchableTab(
   return tab;
 }
 
-FetchOptions CreateFetchOptions() {
-  URLVisitAggregate::URLTypeSet expected_types = {
-      URLVisitAggregate::URLType::kActiveLocalTab,
-      URLVisitAggregate::URLType::kCCTVisit};
-  return FetchOptions::CreateFetchOptionsForTabResumption(expected_types);
+void OnDataReady(JNIEnv* env,
+                 base::android::ScopedJavaGlobalRef<jobject> j_callback,
+                 std::vector<jni_zero::ScopedJavaLocalRef<jobject>> entries) {
+  Java_AuxiliarySearchBridge_onDataReady(env, entries, j_callback);
 }
 
-// Class to manage history data fetch and rank flow, containing required
-// parameters and states.
-class FetchAndRankHelper : public base::RefCounted<FetchAndRankHelper> {
- public:
-  friend base::RefCounted<FetchAndRankHelper>;
-
-  FetchAndRankHelper(VisitedURLRankingService* ranking_service,
-                     JNIEnv* env,
-                     base::android::ScopedJavaGlobalRef<jobject> j_ref,
-                     base::android::ScopedJavaGlobalRef<jobject> j_entries,
-                     base::android::ScopedJavaGlobalRef<jobject> j_callback)
-      : ranking_service_(ranking_service),
-        env_(env),
-        j_ref_(j_ref),
-        j_entries_(j_entries),
-        j_callback_(j_callback),
-        fetch_options_(CreateFetchOptions()),
-        config_({.key = visited_url_ranking::kTabResumptionRankerKey}) {}
-
-  void StartFetching() {
-    ranking_service_->FetchURLVisitAggregates(
-        fetch_options_, base::BindOnce(&FetchAndRankHelper::OnFetched,
-                                       base::RetainedRef(this)));
-  }
-
- private:
-  ~FetchAndRankHelper() = default;
-
-  // Continuing after StartFetching()'s call to FetchURLVisitAggregates().
-  void OnFetched(ResultStatus status,
-                 URLVisitsMetadata url_visits_metadata,
-                 std::vector<URLVisitAggregate> aggregates) {
-    if (status != ResultStatus::kSuccess) {
-      Java_AuxiliarySearchBridge_onDataReady(env_, j_ref_, j_entries_,
-                                             j_callback_);
-      return;
-    }
-
-    ranking_service_->RankURLVisitAggregates(
-        config_, std::move(aggregates),
-        base::BindOnce(&FetchAndRankHelper::OnRanked, base::RetainedRef(this),
-                       std::move(url_visits_metadata)));
-  }
-
-  // Continuing after OnFetched()'s call to RankVisitAggregates().
-  void OnRanked(URLVisitsMetadata url_visits_metadata,
-                ResultStatus status,
-                std::vector<URLVisitAggregate> aggregates) {
-    if (status != ResultStatus::kSuccess) {
-      Java_AuxiliarySearchBridge_onDataReady(env_, j_ref_, j_entries_,
-                                             j_callback_);
-      return;
-    }
-
-    for (const URLVisitAggregate& aggregate : aggregates) {
-      if (aggregate.fetcher_data_map.empty()) {
-        continue;
-      }
-      // TODO(crbug.com/337858147): Choose representative member. For now, just
-      // take the first one.
-      const auto& fetcher_entry = *aggregate.fetcher_data_map.begin();
-      std::visit(
-          URLVisitVariantHelper{
-              [&](const URLVisitAggregate::TabData& tab_data) {
-                bool is_local_tab =
-                    (tab_data.last_active_tab.id != kInvalidTabId);
-                if (!is_local_tab) {
-                  return;
-                }
-
-                Java_AuxiliarySearchBridge_addDataEntry(
-                    env_, j_ref_,
-                    JniIntWrapper(
-                        static_cast<int>(AuxiliarySearchEntryType::kTab)),
-                    url::GURLAndroid::FromNativeGURL(
-                        env_, tab_data.last_active_tab.visit.url),
-                    base::android::ConvertUTF16ToJavaString(
-                        env_, tab_data.last_active_tab.visit.title),
-                    tab_data.last_active.InMillisecondsSinceUnixEpoch(),
-                    tab_data.last_active_tab.id, /* appId= */ nullptr,
-                    kInvalidTabId, j_entries_);
-              },
-              [&](const URLVisitAggregate::HistoryData& history_data) {
-                bool is_custom_tab =
-                    history_data.last_visited.context_annotations.on_visit
-                        .browser_type ==
-                    history::VisitContextAnnotations::BrowserType::kCustomTab;
-                if (!is_custom_tab) {
-                  return;
-                }
-
-                Java_AuxiliarySearchBridge_addDataEntry(
-                    env_, j_ref_,
-                    JniIntWrapper(
-                        static_cast<int>(AuxiliarySearchEntryType::kCustomTab)),
-                    url::GURLAndroid::FromNativeGURL(
-                        env_, history_data.last_visited.url_row.url()),
-                    base::android::ConvertUTF16ToJavaString(
-                        env_, history_data.last_visited.url_row.title()),
-                    history_data.last_visited.visit_row.visit_time
-                        .InMillisecondsSinceUnixEpoch(),
-                    kInvalidTabId,
-                    history_data.last_app_id
-                        ? base::android::ConvertUTF8ToJavaString(
-                              env_, *history_data.last_app_id)
-                        : nullptr,
-                    base::Hash(aggregate.url_key), j_entries_);
-              }},
-          fetcher_entry.second);
-    }
-
-    Java_AuxiliarySearchBridge_onDataReady(env_, j_ref_, j_entries_,
-                                           j_callback_);
-  }
-
- private:
-  raw_ptr<VisitedURLRankingService> ranking_service_;
-  raw_ptr<JNIEnv> env_;
-  base::android::ScopedJavaGlobalRef<jobject> j_ref_;
-  base::android::ScopedJavaGlobalRef<jobject> j_entries_;
-  base::android::ScopedJavaGlobalRef<jobject> j_callback_;
-  const FetchOptions fetch_options_;
-  const Config config_;
-};
+// Converts the score to be an integer. Usually the score is between 0 and 1.0.
+int convertSiteSuggestionScore(double score) {
+  return std::max(0, static_cast<int>(score * 100));
+}
 
 }  // namespace
 
 AuxiliarySearchProvider::AuxiliarySearchProvider(
-    VisitedURLRankingService* ranking_service)
-    : ranking_service_(ranking_service) {}
+    VisitedURLRankingService* ranking_service,
+    std::unique_ptr<ntp_tiles::MostVisitedSites> most_visited_sites)
+    : ranking_service_(ranking_service),
+      most_visited_sites_(std::move(most_visited_sites)) {}
 
 AuxiliarySearchProvider::~AuxiliarySearchProvider() = default;
+
+void AuxiliarySearchProvider::Shutdown() {
+  if (most_visited_sites_) {
+    most_visited_sites_->RemoveMostVisitedURLsObserver(this);
+    most_visited_sites_.reset();
+  }
+}
 
 void AuxiliarySearchProvider::GetNonSensitiveTabs(
     JNIEnv* env,
@@ -284,20 +181,72 @@ void AuxiliarySearchProvider::GetNonSensitiveTabs(
 
 void AuxiliarySearchProvider::GetNonSensitiveHistoryData(
     JNIEnv* env,
-    const base::android::JavaRef<jobject>& j_ref_obj,
-    const base::android::JavaParamRef<jobject>& j_entries_obj,
     const base::android::JavaParamRef<jobject>& j_callback_obj) const {
-  base::android::ScopedJavaGlobalRef<jobject> j_ref(j_ref_obj);
-  base::android::ScopedJavaGlobalRef<jobject> j_entries(env, j_entries_obj);
-
-  base::android::ScopedJavaGlobalRef<jobject> j_callback(env, j_callback_obj);
-
   CHECK(ranking_service_ != nullptr);
   scoped_refptr<FetchAndRankHelper> helper =
-      base::MakeRefCounted<FetchAndRankHelper>(ranking_service_, env, j_ref,
-                                               j_entries, j_callback);
+      base::MakeRefCounted<FetchAndRankHelper>(
+          ranking_service_,
+          base::BindOnce(
+              &OnDataReady, env,
+              base::android::ScopedJavaGlobalRef<jobject>(j_callback_obj)));
 
   helper->StartFetching();
+}
+
+void AuxiliarySearchProvider::SetObserverAndTrigger(
+    JNIEnv* env,
+    const base::android::JavaRef<jobject>& j_ref_obj) {
+  j_ref_ = base::android::ScopedJavaGlobalRef<jobject>(j_ref_obj);
+
+  CHECK(most_visited_sites_);
+  most_visited_sites_->AddMostVisitedURLsObserver(this,
+                                                  kMaxNumMostVisitedSites);
+}
+
+void AuxiliarySearchProvider::GetMostVisitedSites(JNIEnv* env) const {
+  CHECK(most_visited_sites_);
+
+  most_visited_sites_->RefreshTiles();
+}
+
+void AuxiliarySearchProvider::OnURLsAvailable(
+    const std::map<ntp_tiles::SectionType, ntp_tiles::NTPTilesVector>&
+        sections) {
+  CHECK(most_visited_sites_);
+
+  JNIEnv* env = base::android::AttachCurrentThread();
+  std::vector<jni_zero::ScopedJavaLocalRef<jobject>> entries;
+  // Uses only personalized tiles for auxiliary search.
+  auto it = sections.find(ntp_tiles::SectionType::PERSONALIZED);
+  if (it == sections.end()) {
+    return;
+  }
+
+  for (const ntp_tiles::NTPTile& tile : it->second) {
+    // Filters the tile list to include only TOP_SITES and CUSTOM_LINKS tiles.
+    if (tile.source != ntp_tiles::TileSource::TOP_SITES &&
+        tile.source != ntp_tiles::TileSource::CUSTOM_LINKS) {
+      continue;
+    }
+
+    entries.push_back(Java_AuxiliarySearchBridge_addDataEntry(
+        env, static_cast<int>(AuxiliarySearchEntryType::kTopSite),
+        url::GURLAndroid::FromNativeGURL(env, tile.url),
+        base::android::ConvertUTF16ToJavaString(env, tile.title),
+        tile.last_visit_time.InMillisecondsSinceUnixEpoch(), kInvalidTabId,
+        /* appId= */ nullptr,
+        std::abs(static_cast<int>(
+            base::Hash(tile.url.spec() + base::UTF16ToUTF8(tile.title)))),
+        convertSiteSuggestionScore(tile.score)));
+  }
+
+  Java_AuxiliarySearchBridge_onMostVisitedSitesURLsAvailable(env, j_ref_,
+                                                             entries);
+}
+
+void AuxiliarySearchProvider::OnIconMadeAvailable(const GURL& site_url) {
+  JNIEnv* env = base::android::AttachCurrentThread();
+  Java_AuxiliarySearchBridge_onIconMadeAvailable(env, j_ref_, site_url);
 }
 
 // static

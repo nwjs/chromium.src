@@ -275,6 +275,12 @@ static bool BlockSuppressesAutosizing(const LayoutBlock* block) {
   if (BlockHeightConstrained(block))
     return true;
 
+  if (RuntimeEnabledFeatures::TextAutoSizingDisabledOnFlexboxEnabled() &&
+      block->IsFlexItem()) {
+    block->GetDocument().CountUse(WebFeature::kTextAutoSizingDisabledOnFlexbox);
+    return true;
+  }
+
   return false;
 }
 
@@ -892,8 +898,7 @@ TextAutosizer::Fingerprint TextAutosizer::ComputeFingerprint(
 
     // TODO(kojii): The width can be computed from style only when it's fixed.
     // consider for adding: writing mode, padding.
-    data.width_ =
-        width.IsFixed() ? WTF::NormalizeSign(width.GetFloatValue()) : 0.0f;
+    data.width_ = width.IsFixed() ? WTF::NormalizeSign(width.Pixels()) : 0.0f;
   }
 
   // Use nodeIndex as a rough approximation of column number
@@ -1066,8 +1071,9 @@ float TextAutosizer::WidthFromBlock(const LayoutBlock* block) const {
     float width;
     Length specified_width = block->StyleRef().LogicalWidth();
     if (specified_width.IsFixed()) {
-      if ((width = specified_width.Value()) > 0)
+      if ((width = specified_width.Pixels()) > 0) {
         return width;
+      }
     }
     if (specified_width.HasPercent()) {
       if (float container_width = ContentInlineSize(block->ContainingBlock())) {

@@ -16,7 +16,8 @@ class PrefService;
 
 namespace privacy_sandbox {
 
-// Startup states
+// Startup states. These values are persisted to logs. Entries should not be
+// renumbered and numeric values should never be reused.
 // LINT.IfChange(NoticeStartupState)
 enum class NoticeStartupState {
   // Incorrect or unknown states, for example if the notice hasn't been shown
@@ -32,16 +33,15 @@ enum class NoticeStartupState {
   kFlowCompletedWithOptOut = 4,
   // Prompt/notice still waiting for action.
   kPromptWaiting = 5,
-  // Prompt/notice had an action other then the specified actions performed on
-  // it.
-  kPromptOtherAction = 6,
-  // Prompt/notice timed out.
-  kTimedOut = 7,
-  kMaxValue = kTimedOut,
+  // kPromptOtherAction = 6,  // no longer used
+  // kTimedOut = 7,  // no longer used,
+  kMaxValue = kPromptWaiting,
 };
 // LINT.ThenChange(//tools/metrics/histograms/enums.xml:PrivacySandboxNoticeStartupState)
 
-// Different notice actions.
+// TODO(crbug.com/392088228): Remove this once all values are migrated and
+// histograms are migrated to use UA. This is deprecated and should only be used
+// for histograms.
 // LINT.IfChange(NoticeActionTaken)
 enum class NoticeActionTaken {
   // No Ack action set.
@@ -50,8 +50,8 @@ enum class NoticeActionTaken {
   kAck = 1,
   // Action taken clicking the 'x' button.
   kClosed = 2,
-  // Action taken clicking the learn more button.
-  kLearnMore = 3,
+  // TODO(crbug.com/392088228): In the process of deprecating, do not use.
+  kLearnMore_Deprecated = 3,
   // Opted in/Consented to the notice using 'Turn it on' or some other form of
   // explicit consent.
   kOptIn = 4,
@@ -70,30 +70,28 @@ enum class NoticeActionTaken {
 };
 // LINT.ThenChange(//tools/metrics/histograms/enums.xml:PrivacySandboxNoticeAction)
 
+// LINT.IfChange(NoticeEvent)
 enum class NoticeEvent {
   // ACK'ed the notice using 'GotIt' or some other form of acknowledgement.
   kAck = 0,
   // Action taken clicking the 'x' button.
   kClosed = 1,
-  // Action taken to defer using 'Remind me later' or some other form of
-  // deferral.
-  kDeferred = 2,
   // Opted in/Consented to the notice using 'Turn it on' or some other form of
   // explicit consent.
-  kOptIn = 3,
+  kOptIn = 2,
   // Action taken to dismiss or opt out of the notice using 'No Thanks' or some
   // other form of dismissal.
-  kOptOut = 4,
+  kOptOut = 3,
   // Action taken clicking the settings button.
-  kSettings = 5,
+  kSettings = 4,
   // Notice shown.
-  kShown = 6,
-  // No action taken, the notice timed out.
-  kTimedOut = 7,
-  kMaxValue = kTimedOut,
+  kShown = 5,
+  kMaxValue = kShown,
 };
+// LINT.ThenChange(//tools/metrics/histograms/enums.xml:PrivacySandboxNoticeEvent)
 
-// Different notice action outcomes.
+// Different notice action outcomes. These values are persisted to logs. Entries
+// should not be renumbered and numeric values should never be reused.
 // LINT.IfChange(NoticeActionBehavior)
 enum class NoticeActionBehavior {
   // Action taken on notice set successfully.
@@ -124,18 +122,18 @@ class PrivacySandboxNoticeData {
 
   // Gets the timestamp when the notice was first shown. If the notice was never
   // shown, the default timestamp will be returned.
-  std::optional<base::Time> GetNoticeFirstShownFromEvents();
+  std::optional<base::Time> GetNoticeFirstShownFromEvents() const;
 
   // Gets the timestamp when the notice was last shown. If the notice was never
   // shown, the default timestamp will be returned.
-  std::optional<base::Time> GetNoticeLastShownFromEvents();
+  std::optional<base::Time> GetNoticeLastShownFromEvents() const;
 
   // Gets the notice action taken and when it was taken the first time the
   // notice was shown. If the notice hasn't been shown for the first time, or
   // there was no action associated, no value is returned. If there are multiple
   // actions associated, only the last action is returned.
   std::optional<std::pair<NoticeEvent, base::Time>>
-  GetNoticeActionTakenForFirstShownFromEvents();
+  GetNoticeActionTakenForFirstShownFromEvents() const;
 
   // TODO(crbug.com/392088228): Remove other actions once the new event fields
   // are written to. Stores information about profile interactions on a notice.
@@ -182,7 +180,7 @@ class PrivacySandboxNoticeStorage {
   // Sets the pref and histogram controlling the action taken on the notice.
   void SetNoticeActionTaken(PrefService* pref_service,
                             std::string_view notice,
-                            NoticeActionTaken notice_action_taken,
+                            NoticeEvent notice_action_taken,
                             base::Time notice_action_taken_time);
 
   // Updates the pref and histogram controlling whether the notice has been
@@ -206,13 +204,8 @@ class PrivacySandboxNoticeStorage {
   static std::optional<NoticeEvent> NoticeActionToNoticeEvent(
       NoticeActionTaken action);
 
-  // Functionality should only be used to migrate pre-notice storage prefs.
-  // TODO(crbug.com/333406690): Remove this once the old privacy sandbox prefs
-  // are migrated to the new data model.
-  void MigratePrivacySandboxNoticeData(
-      PrefService* pref_service,
-      const PrivacySandboxNoticeData& notice_data,
-      std::string_view notice);
+  // Gets the string used for histogram naming from NoticeEvent.
+  static std::string GetNoticeActionStringFromEvent(NoticeEvent event);
 
   PrivacySandboxNoticeStorage(const PrivacySandboxNoticeStorage&) = delete;
   PrivacySandboxNoticeStorage& operator=(const PrivacySandboxNoticeStorage&) =

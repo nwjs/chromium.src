@@ -6,6 +6,7 @@
 #define COMPONENTS_COLLABORATION_PUBLIC_COLLABORATION_CONTROLLER_DELEGATE_H_
 
 #include "base/functional/callback.h"
+#include "components/collaboration/public/collaboration_flow_type.h"
 #include "components/data_sharing/public/group_data.h"
 #include "components/saved_tab_groups/public/types.h"
 #include "components/strings/grit/components_strings.h"
@@ -32,6 +33,8 @@ class CollaborationControllerDelegate {
       kSigninDisabledByPolicy = 3,
       // Show the error when Entreprise disabled sync.
       kSyncDisabledByPolicy = 4,
+      // Show the group full error dialog.
+      kGroupFull = 5,
     };
 
     explicit ErrorInfo(Type type) : type_(type) { GetStringForErrorType(); }
@@ -56,12 +59,20 @@ class CollaborationControllerDelegate {
           return "Sync Disabled By Policy";
         case Type::kSigninDisabledByPolicy:
           return "Signin Disabled By Policy";
+        case Type::kGroupFull:
+          return "Group Is Full";
       }
     }
 
    private:
     void GetStringForErrorType() {
       switch (type_) {
+        case Type::kInvalidUrl:
+          error_header =
+              l10n_util::GetStringUTF8(IDS_COLLABORATION_LINK_FAILED_HEADER);
+          error_body =
+              l10n_util::GetStringUTF8(IDS_COLLABORATION_LINK_FAILED_BODY);
+          break;
         case Type::kSyncDisabledByPolicy:
           error_header = l10n_util::GetStringUTF8(
               IDS_COLLABORATION_ENTREPRISE_SYNC_DISABLED_HEADER);
@@ -74,11 +85,11 @@ class CollaborationControllerDelegate {
           error_body = l10n_util::GetStringUTF8(
               IDS_COLLABORATION_ENTREPRISE_SIGNIN_DISABLED_BODY);
           break;
-        case Type::kInvalidUrl:
-          error_header =
-              l10n_util::GetStringUTF8(IDS_COLLABORATION_LINK_FAILED_HEADER);
-          error_body =
-              l10n_util::GetStringUTF8(IDS_COLLABORATION_LINK_FAILED_BODY);
+        case Type::kGroupFull:
+          error_header = l10n_util::GetStringUTF8(
+              IDS_COLLABORATION_GROUP_IS_FULL_ERROR_DIALOG_HEADER);
+          error_body = l10n_util::GetStringUTF8(
+              IDS_COLLABORATION_GROUP_IS_FULL_ERROR_DIALOG_BODY);
           break;
         case Type::kGenericError:
         case Type::kUnknown:
@@ -98,6 +109,7 @@ class CollaborationControllerDelegate {
     kSuccess = 0,
     kFailure = 1,
     kCancel = 2,
+    kDeleteOrLeaveGroup = 3,
   };
 
   CollaborationControllerDelegate() = default;
@@ -126,8 +138,9 @@ class CollaborationControllerDelegate {
   // Request to cancel and close the current UI screen.
   virtual void Cancel(ResultCallback result) = 0;
 
-  // Request to show the authentication screen.
-  virtual void ShowAuthenticationUi(ResultCallback result) = 0;
+  // Request to show the authentication screen for the current `flow_type`.
+  virtual void ShowAuthenticationUi(FlowType flow_type,
+                                    ResultCallback result) = 0;
 
   // Notification for when sign-in or sync status has been updated to ensure
   // that the update propagated to all relevant components.

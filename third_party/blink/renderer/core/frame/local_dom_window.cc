@@ -253,7 +253,7 @@ LocalDOMWindow::LocalDOMWindow(LocalFrame& frame, WindowAgent* agent)
           MakeGarbageCollected<TextSuggestionController>(*this)),
       isolated_world_csp_map_(
           MakeGarbageCollected<
-              HeapHashMap<int, Member<ContentSecurityPolicy>>>()),
+              GCedHeapHashMap<int, Member<ContentSecurityPolicy>>>()),
       token_(frame.GetLocalFrameToken()),
       network_state_observer_(MakeGarbageCollected<NetworkStateObserver>(this)),
       closewatcher_stack_(
@@ -605,7 +605,7 @@ scoped_refptr<base::SingleThreadTaskRunner> LocalDOMWindow::GetTaskRunner(
 void LocalDOMWindow::ReportPermissionsPolicyViolation(
     network::mojom::PermissionsPolicyFeature feature,
     mojom::blink::PolicyDisposition disposition,
-    const std::optional<String>& reporting_endpoint,
+    const String& reporting_endpoint,
     const String& message) const {
   if (disposition == mojom::blink::PolicyDisposition::kEnforce) {
     const_cast<LocalDOMWindow*>(this)->CountPermissionsPolicyUsage(
@@ -633,8 +633,8 @@ void LocalDOMWindow::ReportPermissionsPolicyViolation(
 
   // Send the permissions policy violation report to the specified endpoint,
   // if one exists, as well as any ReportingObservers.
-  if (reporting_endpoint) {
-    ReportingContext::From(this)->QueueReport(report, {*reporting_endpoint});
+  if (!reporting_endpoint.empty()) {
+    ReportingContext::From(this)->QueueReport(report, {reporting_endpoint});
   } else {
     ReportingContext::From(this)->QueueReport(report);
   }
@@ -650,7 +650,7 @@ void LocalDOMWindow::ReportPermissionsPolicyViolation(
 void LocalDOMWindow::ReportPotentialPermissionsPolicyViolation(
     network::mojom::PermissionsPolicyFeature feature,
     mojom::blink::PolicyDisposition disposition,
-    const std::optional<String>& reporting_endpoint,
+    const String& reporting_endpoint,
     const String& message,
     const String& allow_attribute,
     const String& src_attribute) const {
@@ -674,8 +674,8 @@ void LocalDOMWindow::ReportPotentialPermissionsPolicyViolation(
 
   // Send the potential permissions policy violation report to the specified
   // endpoint if one exists, as well as any ReportingObservers.
-  if (reporting_endpoint) {
-    ReportingContext::From(this)->QueueReport(report, {*reporting_endpoint});
+  if (!reporting_endpoint.empty()) {
+    ReportingContext::From(this)->QueueReport(report, {reporting_endpoint});
   } else {
     ReportingContext::From(this)->QueueReport(report);
   }
@@ -1609,8 +1609,10 @@ gfx::Size LocalDOMWindow::GetViewportSize() const {
   // The main frame's viewport size depends on the page scale. If viewport is
   // enabled, the initial page scale depends on the content width and is set
   // after a layout, perform one now so queries during page load will use the
-  // up to date viewport.
-  if (page->GetSettings().GetViewportEnabled() && GetFrame()->IsMainFrame()) {
+  // up to date viewport. Also, a main frame needs at least one layout to set
+  // its initial size.
+  if (GetFrame()->IsMainFrame() &&
+      (page->GetSettings().GetViewportEnabled() || !view->DidFirstLayout())) {
     document()->UpdateStyleAndLayout(DocumentUpdateReason::kJavaScript);
   }
 
@@ -2391,6 +2393,10 @@ DOMWindow* LocalDOMWindow::open(v8::Isolate* isolate,
     UseCounter::Count(*entered_window, WebFeature::kWindowOpenPopupOnMobile);
   }
 #endif
+
+  if (window_features.is_popup) {
+    UseCounter::Count(*entered_window, WebFeature::kDOMWindowOpenPopup);
+  }
 
   if (!completed_url.IsEmpty() || result.new_window)
     result.frame->Navigate(frame_request, WebFrameLoadType::kStandard);

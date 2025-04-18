@@ -4,6 +4,7 @@
 
 #include "chrome/browser/contextual_cueing/contextual_cueing_helper.h"
 
+#include "base/command_line.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/contextual_cueing/contextual_cueing_features.h"
 #include "chrome/browser/contextual_cueing/contextual_cueing_service.h"
@@ -15,6 +16,7 @@
 #include "chrome/browser/page_content_annotations/page_content_extraction_service_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/common/chrome_features.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "chrome/test/base/scoped_testing_local_state.h"
 #include "chrome/test/base/testing_browser_process.h"
@@ -29,28 +31,12 @@
 
 namespace contextual_cueing {
 
-class FakeOptimizationGuideKeyedService
-    : public testing::NiceMock<MockOptimizationGuideKeyedService> {
- public:
-  optimization_guide::ModelExecutionFeaturesController*
-  GetModelExecutionFeaturesController() override {
-    return fake_features_controller_.get();
-  }
-
-  void SetFakeFeaturesController(
-      std::unique_ptr<optimization_guide::ModelExecutionFeaturesController>
-          fake_features_controller) {
-    fake_features_controller_ = std::move(fake_features_controller);
-  }
-
- private:
-  std::unique_ptr<optimization_guide::ModelExecutionFeaturesController>
-      fake_features_controller_;
-};
+#if BUILDFLAG(ENABLE_GLIC)
 
 std::unique_ptr<KeyedService> CreateOptimizationGuideKeyedService(
     content::BrowserContext* context) {
-  return std::make_unique<FakeOptimizationGuideKeyedService>();
+  return std::make_unique<
+      testing::NiceMock<MockOptimizationGuideKeyedService>>();
 }
 
 std::unique_ptr<KeyedService> CreatePageContentExtractionService(
@@ -63,15 +49,15 @@ std::unique_ptr<KeyedService> CreateContextualCueingService(
     content::BrowserContext* context) {
   return std::make_unique<ContextualCueingService>(
       page_content_annotations::PageContentExtractionServiceFactory::
-          GetForProfile(Profile::FromBrowserContext(context)));
+          GetForProfile(Profile::FromBrowserContext(context)),
+      /*optimization_guide_keyed_service=*/nullptr);
 }
 
 class ContextualCueingHelperTest : public ChromeRenderViewHostTestHarness {
  public:
   ContextualCueingHelperTest() {
     scoped_feature_list_.InitWithFeatures(
-        {features::kGlic, features::kTabstripComboButton,
-         contextual_cueing::kContextualCueing},
+        {features::kGlic, features::kTabstripComboButton, kContextualCueing},
         {});
   }
 
@@ -82,42 +68,21 @@ class ContextualCueingHelperTest : public ChromeRenderViewHostTestHarness {
     TestingBrowserProcess::GetGlobal()->CreateGlobalFeaturesForTesting();
     ChromeRenderViewHostTestHarness::SetUp();
     pref_service_ = std::make_unique<TestingPrefServiceSimple>();
-    optimization_guide::prefs::RegisterProfilePrefs(pref_service_->registry());
-    optimization_guide::model_execution::prefs::RegisterProfilePrefs(
-        pref_service_->registry());
 
-    ((FakeOptimizationGuideKeyedService*)
-         OptimizationGuideKeyedServiceFactory::GetForProfile(profile()))
-        ->SetFakeFeaturesController(
-            std::make_unique<
-                optimization_guide::ModelExecutionFeaturesController>(
-                pref_service_.get(), identity_test_env_.identity_manager(),
-                profile_manager_->local_state()->Get(),
-                optimization_guide::ModelExecutionFeaturesController::
-                    DogfoodStatus::NON_DOGFOOD));
+    auto* fake_optimization_guide_keyed_service =
+        (testing::NiceMock<MockOptimizationGuideKeyedService>*)
+            OptimizationGuideKeyedServiceFactory::GetForProfile(profile());
+    ON_CALL(*fake_optimization_guide_keyed_service,
+            ShouldModelExecutionBeAllowedForUser)
+        .WillByDefault(testing::Return(true));
+
+    // Bypass glic eligibility check.
+    base::CommandLine::ForCurrentProcess()->AppendSwitch(::switches::kGlicDev);
   }
 
   void TearDown() override {
-    TestingBrowserProcess::GetGlobal()->GetFeatures()->Shutdown();
     ChromeRenderViewHostTestHarness::TearDown();
-  }
-
-  void EnableSignIn() {
-    auto account_info = identity_test_env_.MakePrimaryAccountAvailable(
-        "test_email", signin::ConsentLevel::kSignin);
-    AccountCapabilitiesTestMutator mutator(&account_info.capabilities);
-    mutator.set_can_use_model_execution_features(true);
-    signin::UpdateAccountInfoForAccount(identity_test_env_.identity_manager(),
-                                        account_info);
-  }
-
-  void EnableSignInWithoutCapability() {
-    auto account_info = identity_test_env_.MakePrimaryAccountAvailable(
-        "test_email", signin::ConsentLevel::kSignin);
-    AccountCapabilitiesTestMutator mutator(&account_info.capabilities);
-    mutator.set_can_use_model_execution_features(false);
-    signin::UpdateAccountInfoForAccount(identity_test_env_.identity_manager(),
-                                        account_info);
+    TestingBrowserProcess::GetGlobal()->GetFeatures()->Shutdown();
   }
 
   TestingProfile::TestingFactories GetTestingFactories() const override {
@@ -140,29 +105,23 @@ class ContextualCueingHelperTest : public ChromeRenderViewHostTestHarness {
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-#if BUILDFLAG(ENABLE_GLIC)
+TEST_F(ContextualCueingHelperTest, NullTabHelperWithoutModelExecution) {
+  auto* fake_optimization_guide_keyed_service =
+      (testing::NiceMock<MockOptimizationGuideKeyedService>*)
+          OptimizationGuideKeyedServiceFactory::GetForProfile(profile());
+  ON_CALL(*fake_optimization_guide_keyed_service,
+          ShouldModelExecutionBeAllowedForUser)
+      .WillByDefault(testing::Return(false));
 
-TEST_F(ContextualCueingHelperTest, NullTabHelperWithoutSignin) {
   ContextualCueingHelper::MaybeCreateForWebContents(web_contents());
-  auto* contextual_cueing_helper =
-      ContextualCueingHelper::FromWebContents(web_contents());
-  EXPECT_FALSE(contextual_cueing_helper);
-}
-
-TEST_F(ContextualCueingHelperTest, NullTabHelperIfWithoutCapability) {
-  EnableSignInWithoutCapability();
-  ContextualCueingHelper::MaybeCreateForWebContents(web_contents());
-  auto* contextual_cueing_helper =
-      ContextualCueingHelper::FromWebContents(web_contents());
-  EXPECT_FALSE(contextual_cueing_helper);
+  EXPECT_EQ(nullptr, ContextualCueingHelper::FromWebContents(web_contents()));
 }
 
 TEST_F(ContextualCueingHelperTest, TabHelperStartsUp) {
-  EnableSignIn();
   ContextualCueingHelper::MaybeCreateForWebContents(web_contents());
   auto* contextual_cueing_helper =
       ContextualCueingHelper::FromWebContents(web_contents());
-  EXPECT_TRUE(contextual_cueing_helper);
+  EXPECT_NE(nullptr, contextual_cueing_helper);
 }
 #endif  // BUILDFLAG(ENABLE_GLIC)
 

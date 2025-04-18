@@ -5,7 +5,6 @@
 package org.chromium.chrome.browser.bookmarks;
 
 import android.app.Activity;
-import android.content.ComponentName;
 import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -31,6 +30,7 @@ import org.chromium.chrome.browser.bookmarks.BookmarkUiPrefs.BookmarkRowDisplayP
 import org.chromium.chrome.browser.commerce.ShoppingServiceFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
+import org.chromium.chrome.browser.price_tracking.PriceDropNotificationManager;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.settings.SettingsNavigationFactory;
 import org.chromium.chrome.browser.signin.SigninAndHistorySyncActivityLauncherImpl;
@@ -137,8 +137,8 @@ public class BookmarkManagerCoordinator
      * @param profile The profile which the manager is running in.
      * @param bookmarkUiPrefs Manages prefs for bookmarks ui.
      * @param bookmarkOpener Helper class to open bookmarks.
-     * @param openBookmarkComponentName The component to use when opening a bookmark, can be null on
-     *     tablets.
+     * @param bookmarkManagerOpener Helper class to open bookmark activities.
+     * @param priceDropNotificationManager Manages price drop notifications.
      */
     public BookmarkManagerCoordinator(
             @NonNull Context context,
@@ -147,7 +147,8 @@ public class BookmarkManagerCoordinator
             @NonNull Profile profile,
             @NonNull BookmarkUiPrefs bookmarkUiPrefs,
             @NonNull BookmarkOpener bookmarkOpener,
-            @Nullable ComponentName openBookmarkComponentName) {
+            @NonNull BookmarkManagerOpener bookmarkManagerOpener,
+            @NonNull PriceDropNotificationManager priceDropNotificationManager) {
         mContext = context;
         mProfile = profile;
         mImageFetcher =
@@ -215,7 +216,8 @@ public class BookmarkManagerCoordinator
                         mModalDialogManager,
                         this::onEndSearch,
                         moveSnackbarManager,
-                        () -> IncognitoUtils.isIncognitoModeEnabled(profile));
+                        () -> IncognitoUtils.isIncognitoModeEnabled(profile),
+                        bookmarkManagerOpener);
         mSelectableListLayout.configureWideDisplayStyle();
 
         final @BookmarkRowDisplayPref int displayPref =
@@ -226,7 +228,7 @@ public class BookmarkManagerCoordinator
                         context,
                         mBookmarkModel,
                         mImageFetcher,
-                        BookmarkUtils.getRoundedIconGenerator(context, displayPref));
+                        BookmarkViewUtils.getRoundedIconGenerator(context, displayPref));
 
         BookmarkUndoController bookmarkUndoController =
                 new BookmarkUndoController(context, mBookmarkModel, snackbarManager);
@@ -255,7 +257,9 @@ public class BookmarkManagerCoordinator
                         mSnackbarManager,
                         this::canShowSigninPromo,
                         onScrollListenerConsumer,
-                        moveSnackbarManager);
+                        moveSnackbarManager,
+                        bookmarkManagerOpener,
+                        priceDropNotificationManager);
         mPromoHeaderManager = mMediator.getPromoHeaderManager();
 
         bookmarkDelegateSupplier.set(/* object= */ mMediator);

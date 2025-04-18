@@ -16,6 +16,7 @@
 #include "services/network/public/cpp/shared_storage_utils.h"
 #include "services/network/public/mojom/shared_storage.mojom-blink.h"
 #include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/common/fenced_frame/fenced_frame_utils.h"
 #include "third_party/blink/public/common/shared_storage/shared_storage_utils.h"
 #include "third_party/blink/public/mojom/shared_storage/shared_storage.mojom-blink.h"
 #include "third_party/blink/public/mojom/shared_storage/shared_storage_worklet_service.mojom-blink.h"
@@ -200,8 +201,11 @@ class SharedStorage::IterationSource final
       client->SharedStorageKeys(receiver_.BindNewPipeAndPassRemote(
           execution_context->GetTaskRunner(TaskType::kMiscPlatformAPI)));
     } else {
-      client->SharedStorageEntries(receiver_.BindNewPipeAndPassRemote(
-          execution_context->GetTaskRunner(TaskType::kMiscPlatformAPI)));
+      bool values_only = GetKind() == Kind::kValue;
+      client->SharedStorageEntries(
+          receiver_.BindNewPipeAndPassRemote(
+              execution_context->GetTaskRunner(TaskType::kMiscPlatformAPI)),
+          values_only);
     }
 
     base::UmaHistogramExactLinear(
@@ -679,6 +683,13 @@ ScriptPromise<IDLAny> SharedStorage::batchUpdate(
     mojom_methods.push_back(method->CloneMojomMethod());
   }
 
+  if (!IsValidSharedStorageBatchUpdateMethodsArgument(mojom_methods)) {
+    exception_state.ThrowDOMException(
+        DOMExceptionCode::kDataError,
+        network::kBatchUpdateMethodsArgumentValidationErrorMessage);
+    return promise;
+  }
+
   String with_lock = options->getWithLockOr(/*fallback_value=*/String());
   if (IsReservedLockName(with_lock)) {
     exception_state.ThrowDOMException(DOMExceptionCode::kDataError,
@@ -746,8 +757,15 @@ ScriptPromise<IDLString> SharedStorage::get(ScriptState* script_state,
       return promise;
     }
 
+    // By this point, we know we are inside a fenced frame, so log the use
+    // counter here.
+    UseCounter::Count(execution_context,
+                      WebFeature::kSharedStorageGetInFencedFrame);
+
     if (!base::FeatureList::IsEnabled(
             blink::features::kFencedFramesLocalUnpartitionedDataAccess)) {
+      RecordSharedStorageGetInFencedFrameOutcome(
+          SharedStorageGetInFencedFrameOutcome::kFeatureDisabled);
       resolver->Reject(V8ThrowDOMException::CreateOrEmpty(
           script_state->GetIsolate(), DOMExceptionCode::kOperationError,
           "Cannot call get() in a fenced frame with feature "
@@ -758,6 +776,8 @@ ScriptPromise<IDLString> SharedStorage::get(ScriptState* script_state,
     if (!execution_context->IsFeatureEnabled(
             network::mojom::PermissionsPolicyFeature::
                 kFencedUnpartitionedStorageRead)) {
+      RecordSharedStorageGetInFencedFrameOutcome(
+          SharedStorageGetInFencedFrameOutcome::kPermissionDisabled);
       resolver->Reject(V8ThrowDOMException::CreateOrEmpty(
           script_state->GetIsolate(), DOMExceptionCode::kOperationError,
           "Cannot call get() in a fenced frame without the "

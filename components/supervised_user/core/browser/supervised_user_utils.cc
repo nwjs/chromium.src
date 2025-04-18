@@ -5,6 +5,7 @@
 #include "components/supervised_user/core/browser/supervised_user_utils.h"
 
 #include <optional>
+#include <variant>
 #include <vector>
 
 #include "base/base64.h"
@@ -182,7 +183,12 @@ std::string GetBase64EncodedInTransactionalDataForPayload(
   transaction_data.mutable_payload()->set_value(
       approval_url.SerializeAsString());
   transaction_data.mutable_payload()->set_type_url(kPacpUrlPayloadMessageType);
-  return base::Base64Encode(transaction_data.SerializeAsString());
+  std::string base_64_url_encoded_data;
+  base::Base64UrlEncode(transaction_data.SerializeAsString(),
+                        base::Base64UrlEncodePolicy::INCLUDE_PADDING,
+                        &base_64_url_encoded_data);
+  CHECK(base_64_url_encoded_data.length() > 0);
+  return base_64_url_encoded_data;
 }
 
 // Returns the PACP widget url with the appropriate query parameters.
@@ -225,18 +231,18 @@ ParentAccessCallbackParsedResult::~ParentAccessCallbackParsedResult() = default;
 
 std::optional<ParentAccessWidgetError>
 ParentAccessCallbackParsedResult::GetError() const {
-  if (absl::holds_alternative<ParentAccessWidgetError>(result_)) {
-    return absl::get<ParentAccessWidgetError>(result_);
+  if (std::holds_alternative<ParentAccessWidgetError>(result_)) {
+    return std::get<ParentAccessWidgetError>(result_);
   }
   return std::nullopt;
 }
 
 std::optional<kids::platform::parentaccess::client::proto::ParentAccessCallback>
 ParentAccessCallbackParsedResult::GetCallback() const {
-  if (absl::holds_alternative<
+  if (std::holds_alternative<
           kids::platform::parentaccess::client::proto::ParentAccessCallback>(
           result_)) {
-    return absl::get<
+    return std::get<
         kids::platform::parentaccess::client::proto::ParentAccessCallback>(
         result_);
   }

@@ -104,15 +104,6 @@ BASE_DECLARE_FEATURE(kOverridePrivacySandboxSettingsLocalTesting);
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kDisablePrivacySandboxPrompts);
 
-// Enables the First Party Sets UI.
-COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
-BASE_DECLARE_FEATURE(kPrivacySandboxFirstPartySetsUI);
-
-// Populates First Party Sets information with sample membership information,
-// for testing purposes only.
-COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
-extern const base::FeatureParam<bool> kPrivacySandboxFirstPartySetsUISampleSets;
-
 // Enables enforcement of Privacy Sandbox Enrollment/Attestations.
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kEnforcePrivacySandboxAttestations);
@@ -163,10 +154,6 @@ BASE_DECLARE_FEATURE(kAlwaysBlock3pcsIncognito);
 // Enables fingerprinting protection setting UX.
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kFingerprintingProtectionUx);
-
-// Enables IP Protection setting behavior.
-COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
-BASE_DECLARE_FEATURE(kIpProtectionV1);
 
 // Enables showing IP Protection toggle on the settings page.
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
@@ -241,9 +228,6 @@ extern const base::FeatureParam<bool>
 
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kPrivacySandboxAdTopicsContentParity);
-
-COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
-BASE_DECLARE_FEATURE(kPrivacySandboxMigratePrefsToNoticeConsentDataModel);
 
 // If true, provides a link to the Privacy Policy on the Topics Consent notice.
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
@@ -330,6 +314,15 @@ BASE_DECLARE_FEATURE(kPrivacySandboxAllowPromptForBlocked3PCookies);
 // equalized styling.
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kPrivacySandboxEqualizedPromptButtons);
+
+// If true, migrates Privacy Sandbox Notice & Consent prefs to V2.
+COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
+BASE_DECLARE_FEATURE(kPrivacySandboxMigratePrefsToSchemaV2);
+
+// If true, show the V2 of the Privacy Sandbox first time notice.
+COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
+BASE_DECLARE_FEATURE(kPrivacySandboxFirstTimeNoticeV2);
+
 }  // namespace privacy_sandbox
 
 #endif  // COMPONENTS_PRIVACY_SANDBOX_PRIVACY_SANDBOX_FEATURES_H_

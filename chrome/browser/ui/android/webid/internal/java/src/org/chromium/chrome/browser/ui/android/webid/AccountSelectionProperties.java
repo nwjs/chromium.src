@@ -14,6 +14,7 @@ import org.chromium.base.Callback;
 import org.chromium.blink.mojom.RpMode;
 import org.chromium.chrome.browser.ui.android.webid.data.Account;
 import org.chromium.chrome.browser.ui.android.webid.data.IdentityCredentialTokenError;
+import org.chromium.chrome.browser.ui.android.webid.data.IdentityProviderData;
 import org.chromium.chrome.browser.ui.android.webid.data.IdentityProviderMetadata;
 import org.chromium.content.webid.IdentityRequestDialogDisclosureField;
 import org.chromium.ui.modelutil.PropertyKey;
@@ -30,7 +31,8 @@ import java.util.function.Consumer;
 /** Properties defined here reflect the state of the AccountSelection-components. */
 class AccountSelectionProperties {
     public static final int ITEM_TYPE_ACCOUNT = 1;
-    public static final int ITEM_TYPE_ADD_ACCOUNT = 2;
+    public static final int ITEM_TYPE_LOGIN = 2;
+    public static final int ITEM_TYPE_SEPARATOR = 3;
 
     /**
      * The data needed for a button in the AccountSelection sheet. It may be a continue button for
@@ -51,13 +53,13 @@ class AccountSelectionProperties {
     /** Properties for an account entry in AccountSelection sheet. */
     static class AccountProperties {
         static class Avatar {
-            // Name is used to create a fallback monogram Icon.
-            final String mName;
+            // Display name is used to create a fallback monogram Icon.
+            final String mDisplayName;
             final Bitmap mAvatar;
             final int mAvatarSize;
 
-            Avatar(String name, @Nullable Bitmap avatar, int avatarSize) {
-                mName = name;
+            Avatar(String displayName, @Nullable Bitmap avatar, int avatarSize) {
+                mDisplayName = displayName;
                 mAvatar = avatar;
                 mAvatarSize = avatarSize;
             }
@@ -67,10 +69,12 @@ class AccountSelectionProperties {
                 new WritableObjectPropertyKey<>("avatar");
         static final ReadableObjectPropertyKey<Account> ACCOUNT =
                 new ReadableObjectPropertyKey<>("account");
+        static final ReadableBooleanPropertyKey SHOW_IDP =
+                new ReadableBooleanPropertyKey("show_idp");
         static final ReadableObjectPropertyKey<Callback<ButtonData>> ON_CLICK_LISTENER =
                 new ReadableObjectPropertyKey<>("on_click_listener");
 
-        static final PropertyKey[] ALL_KEYS = {AVATAR, ACCOUNT, ON_CLICK_LISTENER};
+        static final PropertyKey[] ALL_KEYS = {AVATAR, ACCOUNT, SHOW_IDP, ON_CLICK_LISTENER};
 
         private AccountProperties() {}
     }
@@ -96,8 +100,8 @@ class AccountSelectionProperties {
                 new ReadableObjectPropertyKey<>("idp_for_display");
         static final ReadableObjectPropertyKey<String> RP_FOR_DISPLAY =
                 new ReadableObjectPropertyKey<>("rp_for_display");
-        static final ReadableObjectPropertyKey<Bitmap> IDP_BRAND_ICON =
-                new ReadableObjectPropertyKey<>("idp_brand_icon");
+        static final ReadableObjectPropertyKey<Bitmap> HEADER_ICON =
+                new ReadableObjectPropertyKey<>("header_icon");
         static final ReadableObjectPropertyKey<Bitmap> RP_BRAND_ICON =
                 new ReadableObjectPropertyKey<>("rp_brand_icon");
         static final ReadableObjectPropertyKey<HeaderType> TYPE =
@@ -116,7 +120,7 @@ class AccountSelectionProperties {
             CLOSE_ON_CLICK_LISTENER,
             IDP_FOR_DISPLAY,
             RP_FOR_DISPLAY,
-            IDP_BRAND_ICON,
+            HEADER_ICON,
             RP_BRAND_ICON,
             TYPE,
             RP_CONTEXT,
@@ -174,14 +178,14 @@ class AccountSelectionProperties {
     }
 
     /**
-     * Properties defined here reflect the state of the add account button in the AccountSelection
-     * sheet.
+     * Properties defined here reflect the state of a login button in the AccountSelection sheet.
      */
-    static class AddAccountButtonProperties {
+    static class LoginButtonProperties {
         static class Properties {
-            public IdentityProviderMetadata mIdpMetadata;
+            public IdentityProviderData mIdentityProvider;
             public Callback<ButtonData> mOnClickListener;
             public @RpMode.EnumType int mRpMode;
+            public boolean mShowIdp;
         }
 
         static final ReadableObjectPropertyKey<Properties> PROPERTIES =
@@ -189,7 +193,7 @@ class AccountSelectionProperties {
 
         static final PropertyKey[] ALL_KEYS = {PROPERTIES};
 
-        private AddAccountButtonProperties() {}
+        private LoginButtonProperties() {}
     }
 
     /**
@@ -257,6 +261,8 @@ class AccountSelectionProperties {
                 new WritableObjectPropertyKey<>("account_chip");
         static final WritableBooleanPropertyKey SPINNER_ENABLED =
                 new WritableBooleanPropertyKey("spinner_enabled");
+        static final WritableBooleanPropertyKey DRAGBAR_HANDLE_VISIBLE =
+                new WritableBooleanPropertyKey("dragbar_handle_visible");
 
         static final PropertyKey[] ALL_KEYS = {
             CONTINUE_BUTTON,
@@ -266,7 +272,8 @@ class AccountSelectionProperties {
             ERROR_TEXT,
             ADD_ACCOUNT_BUTTON,
             ACCOUNT_CHIP,
-            SPINNER_ENABLED
+            SPINNER_ENABLED,
+            DRAGBAR_HANDLE_VISIBLE
         };
 
         private ItemProperties() {}

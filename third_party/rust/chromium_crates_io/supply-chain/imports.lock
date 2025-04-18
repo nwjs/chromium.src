@@ -9,8 +9,8 @@ user-login = "Amanieu"
 user-name = "Amanieu d'Antras"
 
 [[publisher.libc]]
-version = "0.2.169"
-when = "2024-12-19"
+version = "0.2.171"
+when = "2025-03-11"
 user-id = 55123
 user-login = "rust-lang-owner"
 
@@ -173,16 +173,6 @@ version = "0.4.3"
 who = "Ying Hsu <yinghsu@chromium.org>"
 criteria = ["safe-to-run", "does-not-implement-crypto"]
 version = "2.7.2"
-
-[[audits.chromeos.audits.rand_chacha]]
-who = "Android Legacy"
-criteria = "safe-to-run"
-version = "0.3.1"
-
-[[audits.chromeos.audits.rand_core]]
-who = "Android Legacy"
-criteria = "safe-to-run"
-version = "0.6.4"
 
 [[audits.chromeos.audits.rustc-demangle-capi]]
 who = "George Burgess IV <gbiv@google.com>"

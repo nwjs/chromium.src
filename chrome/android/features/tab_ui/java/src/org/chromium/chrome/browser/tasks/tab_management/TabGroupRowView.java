@@ -19,7 +19,6 @@ import android.widget.TextView;
 import androidx.annotation.ColorInt;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
-import androidx.core.util.Pair;
 
 import org.chromium.chrome.browser.data_sharing.ui.shared_image_tiles.SharedImageTilesView;
 import org.chromium.chrome.browser.tabmodel.TabGroupTitleUtils;
@@ -34,12 +33,47 @@ import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyModel;
 
 import java.time.Clock;
+import java.util.Objects;
 
 /** Displays a horizontal row for a single tab group. */
 public class TabGroupRowView extends LinearLayout {
+
+    /** Represents the title data for the tab group row. */
+    public static class TabGroupRowViewTitleData {
+        public final String title;
+        public final int numTabs;
+        public final @StringRes int rowAccessibilityTextResId;
+
+        /**
+         * @param title The title string to display. If empty, a default title will be used.
+         * @param numTabs The number of tabs in the group.
+         * @param rowAccessibilityTextResId The resource ID for the accessibility string that
+         *     describes the row.
+         */
+        public TabGroupRowViewTitleData(
+                String title, int numTabs, @StringRes int rowAccessibilityTextResId) {
+            this.title = title;
+            this.numTabs = numTabs;
+            this.rowAccessibilityTextResId = rowAccessibilityTextResId;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof TabGroupRowViewTitleData that)) return false;
+            return numTabs == that.numTabs
+                    && rowAccessibilityTextResId == that.rowAccessibilityTextResId
+                    && Objects.equals(title, that.title);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(title, numTabs, rowAccessibilityTextResId);
+        }
+    }
+
     private TabGroupFaviconCluster mTabGroupFaviconCluster;
     private View mColorView;
-    private View mMenuLayout;
     private TextView mTitleTextView;
     private TextView mSubtitleTextView;
     private FrameLayout mImageTilesContainer;
@@ -58,8 +92,7 @@ public class TabGroupRowView extends LinearLayout {
         mTitleTextView = findViewById(R.id.tab_group_title);
         mSubtitleTextView = findViewById(R.id.tab_group_subtitle);
         mImageTilesContainer = findViewById(R.id.image_tiles_container);
-        mListMenuButton = findViewById(R.id.more);
-        mMenuLayout = findViewById(R.id.tab_group_menu);
+        mListMenuButton = findViewById(R.id.tab_group_menu);
     }
 
     void updateCornersForClusterData(ClusterData clusterData) {
@@ -70,10 +103,10 @@ public class TabGroupRowView extends LinearLayout {
         mImageTilesContainer.setVisibility(isShared ? View.VISIBLE : View.GONE);
     }
 
-    void setTitleData(Pair<String, Integer> titleData) {
-        String title = titleData.first;
+    void setTitleData(TabGroupRowViewTitleData titleData) {
+        String title = titleData.title;
         if (TextUtils.isEmpty(title)) {
-            title = TabGroupTitleUtils.getDefaultTitle(getContext(), titleData.second);
+            title = TabGroupTitleUtils.getDefaultTitle(getContext(), titleData.numTabs);
         }
         mTitleTextView.setText(title);
         Resources resources = getResources();
@@ -83,7 +116,7 @@ public class TabGroupRowView extends LinearLayout {
         // Note that the subtitle will also be read for the row, as it just loops over visible text
         // children.
         mTitleTextView.setContentDescription(
-                resources.getString(R.string.tab_group_row_accessibility_text, title));
+                resources.getString(titleData.rowAccessibilityTextResId, title));
     }
 
     void setTimestampEvent(TabGroupTimeAgo event) {
@@ -109,7 +142,7 @@ public class TabGroupRowView extends LinearLayout {
         mListMenuButton.setDelegate(() -> getListMenu(openRunnable, deleteRunnable, leaveRunnable));
         boolean shouldMenuBeVisible =
                 openRunnable != null || deleteRunnable != null || leaveRunnable != null;
-        mMenuLayout.setVisibility(shouldMenuBeVisible ? VISIBLE : GONE);
+        mListMenuButton.setVisibility(shouldMenuBeVisible ? VISIBLE : GONE);
     }
 
     void setSharedImageTilesView(@Nullable SharedImageTilesView sharedImageTilesView) {

@@ -4,6 +4,8 @@
 
 #include "components/viz/service/display/overlay_candidate_factory.h"
 
+#include <variant>
+
 #include "base/containers/contains.h"
 #include "build/build_config.h"
 #include "cc/base/math_util.h"
@@ -351,6 +353,8 @@ OverlayCandidate::CandidateStatus OverlayCandidateFactory::FromDrawQuadResource(
     candidate.needs_detiling =
         resource_provider_->GetNeedsDetiling(resource_id);
     candidate.hdr_metadata = resource_provider_->GetHDRMetadata(resource_id);
+    candidate.low_latency_rendering =
+        resource_provider_->IsLowLatencyRendering(resource_id);
 
     if (!context_.is_delegated_context &&
         !base::Contains(kOverlayFormats, candidate.format)) {
@@ -411,7 +415,7 @@ OverlayCandidate::CandidateStatus OverlayCandidateFactory::FromDrawQuadResource(
         primary_rect_.Contains(candidate.display_rect);
     const bool transform_supports_clipping =
         context_.supports_arbitrary_transform ||
-        absl::holds_alternative<gfx::OverlayTransform>(candidate.transform);
+        std::holds_alternative<gfx::OverlayTransform>(candidate.transform);
     bool can_delegate_clipping =
         context_.supports_clip_rect &&
         (quad_within_window || context_.supports_out_of_window_clip_rect) &&
@@ -433,7 +437,7 @@ OverlayCandidate::CandidateStatus OverlayCandidateFactory::FromDrawQuadResource(
     } else {
       // Clipping is applied after transforms, so we can't delegate transforms
       // if we can't delegate clipping.
-      if (absl::holds_alternative<gfx::Transform>(candidate.transform)) {
+      if (std::holds_alternative<gfx::Transform>(candidate.transform)) {
         return CandidateStatus::kFailHasTransformButCantClip;
       }
 
@@ -480,7 +484,7 @@ void OverlayCandidateFactory::SetDisplayRect(
       auto filter_it = render_pass_filters_->find(rpdq->render_pass_id);
       if (filter_it != render_pass_filters_->end()) {
         candidate.display_rect = gfx::RectF(
-            filter_it->second->ExpandRectForPixelMovement(quad.visible_rect));
+            GetExpandedRectForPixelMovingFilters(*rpdq, *filter_it->second));
         // uv_rect will be updated in SkiaRenderer because the buffer size will
         // be rounded up some.
       }
@@ -685,13 +689,7 @@ OverlayCandidate::CandidateStatus OverlayCandidateFactory::FromTextureQuad(
 
 #if BUILDFLAG(IS_ANDROID)
     candidate.is_video_in_surface_view =
-        quad->is_stream_video &&
-        !resource_provider_->IsBackedBySurfaceTexture(quad->resource_id);
-    if (quad->is_stream_video) {
-      // StreamVideoDrawQuad used to set the resource_size_in_pixels directly
-      // from the quad rather than from the resource.
-      candidate.resource_size_in_pixels = quad->resource_size_in_pixels();
-    }
+        resource_provider_->IsBackedBySurfaceView(quad->resource_id);
 #endif
 
     candidate.has_rounded_display_masks =
@@ -725,15 +723,15 @@ void OverlayCandidateFactory::HandleClipAndSubsampling(
   // Baking |clip_rect| into the |uv_rect| and |display_rect| doesn't make sense
   // when there is an arbitrary transform between the two because the transform
   // may not preserve axis alignment.
-  DCHECK(absl::holds_alternative<gfx::OverlayTransform>(candidate.transform));
+  DCHECK(std::holds_alternative<gfx::OverlayTransform>(candidate.transform));
 
   // Candidates that need detiling have a UV rect that indicates the
   // relationship between the visible rect and the backing buffer dimensions
   // (coded size). This rect is calculated assuming no rotation, so we need to
   // rotate it before applying our own clipping.
   if (candidate.needs_detiling &&
-      absl::holds_alternative<gfx::OverlayTransform>(candidate.transform)) {
-    switch (absl::get<gfx::OverlayTransform>(candidate.transform)) {
+      std::holds_alternative<gfx::OverlayTransform>(candidate.transform)) {
+    switch (std::get<gfx::OverlayTransform>(candidate.transform)) {
       case gfx::OVERLAY_TRANSFORM_ROTATE_CLOCKWISE_90:
         candidate.uv_rect =
             gfx::RectF(1.0f - candidate.uv_rect.height(), candidate.uv_rect.x(),

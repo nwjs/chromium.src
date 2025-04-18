@@ -1014,6 +1014,7 @@ interface CanvasRenderingContext2D
     getter globalCompositeOperation
     getter imageSmoothingEnabled
     getter imageSmoothingQuality
+    getter lang
     getter letterSpacing
     getter lineCap
     getter lineDashOffset
@@ -1086,6 +1087,7 @@ interface CanvasRenderingContext2D
     setter globalCompositeOperation
     setter imageSmoothingEnabled
     setter imageSmoothingQuality
+    setter lang
     setter letterSpacing
     setter lineCap
     setter lineDashOffset
@@ -2675,6 +2677,7 @@ interface GPUAdapterInfo
     getter architecture
     getter description
     getter device
+    getter isFallbackAdapter
     getter subgroupMaxSize
     getter subgroupMinSize
     getter vendor
@@ -6143,6 +6146,7 @@ interface OffscreenCanvasRenderingContext2D
     getter globalCompositeOperation
     getter imageSmoothingEnabled
     getter imageSmoothingQuality
+    getter lang
     getter letterSpacing
     getter lineCap
     getter lineDashOffset
@@ -6214,6 +6218,7 @@ interface OffscreenCanvasRenderingContext2D
     setter globalCompositeOperation
     setter imageSmoothingEnabled
     setter imageSmoothingQuality
+    setter lang
     setter letterSpacing
     setter lineCap
     setter lineDashOffset
@@ -7055,8 +7060,12 @@ interface Response
 interface SVGAElement : SVGGraphicsElement
     attribute @@toStringTag
     getter href
+    getter rel
+    getter relList
     getter target
     method constructor
+    setter rel
+    setter relList
 interface SVGAngle
     attribute @@toStringTag
     attribute SVG_ANGLETYPE_DEG

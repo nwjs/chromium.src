@@ -49,7 +49,6 @@
 #include "content/services/auction_worklet/report_bindings.h"
 #include "content/services/auction_worklet/seller_lazy_filler.h"
 #include "content/services/auction_worklet/shared_storage_bindings.h"
-#include "content/services/auction_worklet/text_conversion_helpers.h"
 #include "content/services/auction_worklet/trusted_signals.h"
 #include "content/services/auction_worklet/trusted_signals_kvv2_manager.h"
 #include "content/services/auction_worklet/webidl_compat.h"
@@ -578,9 +577,9 @@ void SellerWorklet::ScoreAd(
   base::UmaHistogramCounts1000(
       "Ads.InterestGroup.Auction.NumberOfPendingScoreAdTasks",
       score_ad_tasks_.size());
-  score_ad_tasks_.emplace_front();
 
-  auto score_ad_task = score_ad_tasks_.begin();
+  // Add to end of list to make best effort attempt to maintain task order.
+  auto score_ad_task = score_ad_tasks_.emplace(score_ad_tasks_.end());
   score_ad_task->ad_metadata_json = ad_metadata_json;
   score_ad_task->bid = bid;
   score_ad_task->bid_currency = bid_currency;
@@ -656,11 +655,16 @@ void SellerWorklet::ScoreAd(
       !base::FeatureList::IsEnabled(
           features::kFledgeAlwaysReuseSellerContext) &&
       IsCodeReady()) {
-    score_ad_task->context_prep_task_id = cancelable_task_tracker_.PostTask(
-        v8_runners_[score_ad_task->thread].get(), FROM_HERE,
-        base::BindOnce(&SellerWorklet::V8State::PrepareContextRecycler,
-                       base::Unretained(v8_state_[score_ad_task->thread].get()),
-                       trace_id));
+    if (IsCodeReady()) {
+      score_ad_task->context_prep_task_id = cancelable_task_tracker_.PostTask(
+          v8_runners_[score_ad_task->thread].get(), FROM_HERE,
+          base::BindOnce(
+              &SellerWorklet::V8State::PrepareContextRecycler,
+              base::Unretained(v8_state_[score_ad_task->thread].get()),
+              trace_id));
+    } else if (score_ad_tasks_.size() == 1) {
+      SetEagerJsCompilation(true);
+    }
   }
 
   score_ad_task->trace_wait_deps_start = base::TimeTicks::Now();
@@ -761,10 +765,9 @@ void SellerWorklet::ReportResult(
                 browser_signals_other_seller->is_top_level_seller(),
             !browser_signals_component_auction_report_result_params.is_null());
 
-  report_result_tasks_.emplace_front();
-
-  auto report_result_task = report_result_tasks_.begin();
-
+  // Add to end of list to make best effort attempt to maintain task order.
+  auto report_result_task =
+      report_result_tasks_.emplace(report_result_tasks_.end());
   report_result_task->auction_ad_config_non_shared_params =
       auction_ad_config_non_shared_params;
   report_result_task->browser_signals_other_seller =
@@ -905,6 +908,10 @@ SellerWorklet::V8State::CreateContextRecyclerAndRunTopLevel(
   v8::Local<v8::Context> context = context_recycler_scope.GetContext();
   TRACE_EVENT_NESTABLE_ASYNC_END0("fledge", "get_seller_context", trace_id);
 
+  // We want this before RunScript, both because it's meant to be visible
+  // to globals, and because we don't want to overwrite existing globals.
+  context_recycler->AddTextConversionHelpers();
+
   v8::Local<v8::UnboundScript> unbound_worklet_script =
       worklet_script_.Get(v8_helper_->isolate());
 
@@ -922,7 +929,6 @@ SellerWorklet::V8State::CreateContextRecyclerAndRunTopLevel(
       permissions_policy_state_->private_aggregation_allowed,
       /*reserved_once_allowed=*/true);
   context_recycler->AddRealTimeReportingBindings();
-  context_recycler->AddTextConversionHelpers();
   if (base::FeatureList::IsEnabled(network::features::kSharedStorageAPI)) {
     context_recycler->AddSharedStorageBindings(
         shared_storage_host_remote_.is_bound()
@@ -1141,10 +1147,6 @@ void SellerWorklet::V8State::ScoreAd(
   }
   context_recycler->seller_browser_signals_lazy_filler()->FillInObject(
       browser_signal_render_url, &ad_components, browser_signals);
-  if (base::FeatureList::IsEnabled(features::kFledgeTextConversionHelpers)) {
-    context_recycler->text_conversion_helpers()->ReInitialize(context,
-                                                              browser_signals);
-  }
   // TODO(crbug.com/336164429): Construct the fields of browser signals lazily.
   if (!browser_signals_dict.Set("topWindowHostname",
                                 top_window_origin_.host()) ||
@@ -1680,6 +1682,10 @@ void SellerWorklet::V8State::ReportResult(
   v8::Local<v8::Context> context = context_recycler_scope.GetContext();
   AuctionV8Logger v8_logger(v8_helper_.get(), context);
 
+  // We want this before RunScript, both because it's meant to be visible
+  // to globals, and because we don't want to overwrite existing globals.
+  context_recycler.AddTextConversionHelpers();
+
   v8::LocalVector<v8::Value> args(isolate);
 
   context_recycler.EnsureAuctionConfigLazyFillers(
@@ -1703,12 +1709,6 @@ void SellerWorklet::V8State::ReportResult(
 
   v8::Local<v8::Object> browser_signals = v8::Object::New(isolate);
   gin::Dictionary browser_signals_dict(isolate, browser_signals);
-  context_recycler.AddTextConversionHelpers();
-  if (base::FeatureList::IsEnabled(features::kFledgeTextConversionHelpers)) {
-    context_recycler.text_conversion_helpers()->ReInitialize(context,
-                                                             browser_signals);
-  }
-
   context_recycler.AddSellerBrowserSignalsLazyFiller();
   // Passing null for ad_components here since we do not want creative scanning
   // info here.
@@ -2316,16 +2316,14 @@ bool SellerWorklet::IsReadyToScoreAd(const ScoreAdTask& task) const {
          ScoreAdTaskHasInputs(task) && IsCodeReady();
 }
 
-void SellerWorklet::DisableEagerJsCompilationIfOnlyWaitingOnJs(
-    const ScoreAdTask& task) {
-  if (ScoreAdTaskHasInputs(task) && worklet_loader_) {
-    for (size_t thread_index = 0; thread_index < v8_runners_.size();
-         ++thread_index) {
-      v8_runners_[thread_index]->PostTask(
-          FROM_HERE,
-          base::BindOnce(&AuctionV8Helper::DisableEagerJsCompilation,
-                         base::Unretained(v8_helpers_[thread_index].get())));
-    }
+void SellerWorklet::SetEagerJsCompilation(bool eagerly_compile_js) {
+  for (size_t thread_index = 0; thread_index < v8_runners_.size();
+       ++thread_index) {
+    v8_runners_[thread_index]->PostTask(
+        FROM_HERE,
+        base::BindOnce(&AuctionV8Helper::SetEagerJsCompilation,
+                       base::Unretained(v8_helpers_[thread_index].get()),
+                       eagerly_compile_js));
   }
 }
 
@@ -2333,7 +2331,11 @@ void SellerWorklet::ScoreAdIfReady(ScoreAdTaskList::iterator task) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(user_sequence_checker_);
 
   if (!IsReadyToScoreAd(*task)) {
-    DisableEagerJsCompilationIfOnlyWaitingOnJs(*task);
+    if (ScoreAdTaskHasInputs(*task) && worklet_loader_) {
+      // Disable eager JS compilation if we're only waiting on Javascript, so
+      // that we can begin scoring this bid as soon as we have the script.
+      SetEagerJsCompilation(false);
+    }
     return;
   }
 

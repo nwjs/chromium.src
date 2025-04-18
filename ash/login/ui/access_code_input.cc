@@ -259,7 +259,7 @@ FixedLengthCodeInput::FixedLengthCodeInput(int length,
     field->SetFontList(views::Textfield::GetDefaultFontList().Derive(
         kAccessCodeFontSizeDeltaDp, gfx::Font::FontStyle::NORMAL,
         gfx::Font::Weight::NORMAL));
-    field->SetBorder(views::CreateThemedSolidSidedBorder(
+    field->SetBorder(views::CreateSolidSidedBorder(
         gfx::Insets::TLBR(0, 0, kAccessCodeInputFieldUnderlineThicknessDp, 0),
         text_color_id));
     field->SetGroup(kFixedLengthInputGroup);
@@ -268,7 +268,7 @@ FixedLengthCodeInput::FixedLengthCodeInput(int length,
     // FixedLengthCodeInput object.
     field->GetViewAccessibility().set_propagate_focus_to_ancestor(true);
     input_fields_.push_back(field);
-    AddChildView(field);
+    AddChildViewRaw(field);
     layout->SetFlexForView(field, 1);
   }
   text_value_for_a11y_ = std::u16string(length, ' ');
@@ -344,7 +344,7 @@ void FixedLengthCodeInput::SetInputColorId(ui::ColorId color_id) {
     field->SetTextColorId(color_id);
     // We don't update the underline color to red.
     if (color_id != error_color_id) {
-      field->SetBorder(views::CreateThemedSolidSidedBorder(
+      field->SetBorder(views::CreateSolidSidedBorder(
           gfx::Insets::TLBR(0, 0, kAccessCodeInputFieldUnderlineThicknessDp, 0),
           color_id));
     }
@@ -531,7 +531,7 @@ void FixedLengthCodeInput::SetReadOnly(bool read_only) {
   for (ash::AccessibleInputField* field : input_fields_) {
     field->SetReadOnly(read_only);
     field->SetBackground(nullptr);
-    field->SetBorder(views::CreateThemedSolidSidedBorder(
+    field->SetBorder(views::CreateSolidSidedBorder(
         gfx::Insets::TLBR(0, 0, kAccessCodeInputFieldUnderlineThicknessDp, 0),
         underline_color_id));
     field->SetCursorEnabled(!read_only);

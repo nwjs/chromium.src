@@ -19,6 +19,7 @@
 #include "chrome/browser/media/router/media_router_feature.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/commerce/product_specifications_entry_point_controller.h"
@@ -36,6 +37,7 @@
 #include "chrome/browser/ui/toasts/toast_features.h"
 #include "chrome/browser/ui/toasts/toast_service.h"
 #include "chrome/browser/ui/toolbar/chrome_labs/chrome_labs_utils.h"
+#include "chrome/browser/ui/toolbar/pinned_toolbar/tab_search_toolbar_button_controller.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/data_sharing/data_sharing_open_group_helper.h"
 #include "chrome/browser/ui/views/download/bubble/download_toolbar_ui_controller.h"
@@ -45,9 +47,11 @@
 #include "chrome/browser/ui/views/media_router/cast_browser_controller.h"
 #include "chrome/browser/ui/views/send_tab_to_self/send_tab_to_self_toolbar_bubble_controller.h"
 #include "chrome/browser/ui/views/side_panel/extensions/extension_side_panel_manager.h"
+#include "chrome/browser/ui/views/side_panel/history/history_side_panel_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
 #include "chrome/browser/ui/views/tabs/glic_button.h"
 #include "chrome/browser/ui/views/toolbar/chrome_labs/chrome_labs_coordinator.h"
+#include "chrome/browser/ui/views/translate/translate_bubble_controller.h"
 #include "chrome/common/chrome_features.h"
 #include "components/collaboration/public/collaboration_service.h"
 #include "components/commerce/core/commerce_feature_list.h"
@@ -58,9 +62,9 @@
 #include "components/saved_tab_groups/public/features.h"
 
 #if BUILDFLAG(ENABLE_GLIC)
-#include "chrome/browser/glic/glic_button_controller.h"
+#include "chrome/browser/glic/browser_ui/glic_button_controller.h"
+#include "chrome/browser/glic/browser_ui/glic_iph_controller.h"
 #include "chrome/browser/glic/glic_enabling.h"
-#include "chrome/browser/glic/glic_iph_controller.h"
 #include "chrome/browser/glic/glic_keyed_service_factory.h"
 #endif
 namespace {
@@ -117,7 +121,6 @@ void BrowserWindowFeatures::Init(BrowserWindowInterface* browser) {
     }
 
     if (browser->GetProfile()->IsRegularProfile() &&
-        tab_groups::IsTabGroupsSaveV2Enabled() &&
         browser->GetTabStripModel()->SupportsTabGroups() &&
         tab_groups::SavedTabGroupUtils::GetServiceForProfile(
             browser->GetProfile())) {
@@ -139,7 +142,7 @@ void BrowserWindowFeatures::Init(BrowserWindowInterface* browser) {
 
 #if BUILDFLAG(ENABLE_GLIC)
     if (glic::GlicEnabling::IsProfileEligible(browser->GetProfile())) {
-      DCHECK(features::IsTabstripComboButtonEnabled());
+      DCHECK(features::IsTabSearchMoving());
       glic_nudge_controller_ =
           std::make_unique<tabs::GlicNudgeController>(browser);
       glic_iph_controller_ = std::make_unique<glic::GlicIphController>(browser);
@@ -159,6 +162,9 @@ void BrowserWindowFeatures::Init(BrowserWindowInterface* browser) {
 
   memory_saver_bubble_controller_ =
       std::make_unique<memory_saver::MemorySaverBubbleController>(browser);
+
+  //translate_bubble_controller_ = std::make_unique<TranslateBubbleController>(
+  //browser->GetActions()->root_action_item());
 }
 
 void BrowserWindowFeatures::InitPostWindowConstruction(Browser* browser) {
@@ -235,6 +241,11 @@ void BrowserWindowFeatures::InitPostBrowserViewConstruction(
       std::make_unique<SidePanelCoordinator>(browser_view);
   side_panel_coordinator_->Init(browser_view->browser());
 
+  if (HistorySidePanelCoordinator::IsSupported()) {
+    history_side_panel_coordinator_ =
+        std::make_unique<HistorySidePanelCoordinator>(browser_view->browser());
+  }
+
   extension_side_panel_manager_ =
       std::make_unique<extensions::ExtensionSidePanelManager>(
           browser_view->browser(),
@@ -264,10 +275,14 @@ void BrowserWindowFeatures::InitPostBrowserViewConstruction(
           std::make_unique<media_router::CastBrowserController>(
               browser_view->browser());
     }
+
+    if (features::HasTabSearchToolbarButton()) {
+      tab_search_toolbar_button_controller_ =
+          std::make_unique<TabSearchToolbarButtonController>(browser_view);
+    }
   }
 
-  if (download::IsDownloadBubbleEnabled() &&
-      base::FeatureList::IsEnabled(features::kPinnableDownloadsButton)) {
+  if (download::IsDownloadBubbleEnabled()) {
     download_toolbar_ui_controller_ =
         std::make_unique<DownloadToolbarUIController>(browser_view);
   }
@@ -285,6 +300,7 @@ void BrowserWindowFeatures::InitPostBrowserViewConstruction(
 void BrowserWindowFeatures::TearDownPreBrowserViewDestruction() {
   memory_saver_opt_in_iph_controller_.reset();
   lens_overlay_entry_point_controller_.reset();
+  tab_search_toolbar_button_controller_.reset();
 
 #if BUILDFLAG(ENABLE_GLIC)
   glic_button_controller_.reset();
@@ -302,6 +318,10 @@ void BrowserWindowFeatures::TearDownPreBrowserViewDestruction() {
 
   if (shared_tab_group_feedback_controller_) {
     shared_tab_group_feedback_controller_->TearDown();
+  }
+
+  if (chrome_labs_coordinator_) {
+    chrome_labs_coordinator_->TearDown();
   }
 }
 

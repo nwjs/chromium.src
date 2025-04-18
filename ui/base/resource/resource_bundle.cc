@@ -18,6 +18,7 @@
 #include <string_view>
 #include <tuple>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "base/command_line.h"
@@ -40,7 +41,6 @@
 #include "build/build_config.h"
 #include "net/filter/gzip_header.h"
 #include "skia/ext/image_operations.h"
-#include "third_party/abseil-cpp/absl/types/variant.h"
 #include "third_party/brotli/include/brotli/decode.h"
 #include "third_party/skia/include/codec/SkPngDecoder.h"
 #include "third_party/skia/include/core/SkBitmap.h"
@@ -155,17 +155,17 @@ size_t GetBrotliDecompressSize(std::string_view input) {
   return static_cast<size_t>(uncompress_size);
 }
 
-using OutputBufferType = absl::variant<std::string*, std::vector<uint8_t>*>;
+using OutputBufferType = std::variant<std::string*, std::vector<uint8_t>*>;
 
 // Returns a span of the given length that writes into `out_buf`.
 base::span<uint8_t> GetBufferForWriting(OutputBufferType out_buf, size_t len) {
-  if (absl::holds_alternative<std::string*>(out_buf)) {
-    std::string* str = absl::get<std::string*>(out_buf);
+  if (std::holds_alternative<std::string*>(out_buf)) {
+    std::string* str = std::get<std::string*>(out_buf);
     str->resize(len);
     return base::span<uint8_t>(reinterpret_cast<uint8_t*>(str->data()), len);
   }
 
-  std::vector<uint8_t>* vec = absl::get<std::vector<uint8_t>*>(out_buf);
+  std::vector<uint8_t>* vec = std::get<std::vector<uint8_t>*>(out_buf);
   vec->resize(len);
   return base::span<uint8_t>(vec->data(), len);
 }
@@ -614,11 +614,10 @@ std::optional<ResourceBundle::LottieData> ResourceBundle::GetLottieData(
     int resource_id) const {
   // The prefix that GRIT prepends to Lottie assets, after compression if any.
   // See: tools/grit/grit/node/structure.py
-  constexpr char kLottiePrefix[6] = {'L', 'O', 'T', 'T', 'I', 'E'};
+  constexpr std::string_view kLottiePrefix = "LOTTIE";
 
   const std::string_view potential_lottie = GetRawDataResource(resource_id);
-  if (potential_lottie.substr(0u, std::size(kLottiePrefix)) !=
-      std::string_view(kLottiePrefix, std::size(kLottiePrefix))) {
+  if (!potential_lottie.starts_with(kLottiePrefix)) {
     return std::nullopt;
   }
 

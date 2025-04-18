@@ -17,6 +17,7 @@
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/gfx/native_widget_types.h"
 #include "ui/views/controls/webview/webview.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_delegate.h"
@@ -26,8 +27,8 @@ namespace {
 class NonTabWebView : public views::WidgetDelegate, public views::WebView {
  public:
   NonTabWebView(content::BrowserContext* browser_context, const GURL& url) {
-    auto* widget =
-        views::Widget::CreateWindowWithParent(this, /*parent=*/nullptr);
+    auto* widget = views::Widget::CreateWindowWithParent(
+        this, /*parent=*/gfx::NativeView());
     widget->Show();
 
     SetBrowserContext(browser_context);
@@ -169,6 +170,33 @@ IN_PROC_BROWSER_TEST_F(DisplayMediaAccessHandlerTest, ForceSystemAudio) {
     return mediaStream.getAudioTracks().length == 1 &&
             mediaStream.getVideoTracks().length == 0;
   })())"));
+  EXPECT_EQ(dialog_opened_, false);
+}
+
+// Verify that `ContentSettingsType::DISPLAY_MEDIA_SYSTEM_AUDIO` does not work
+// when the request is not from chrome://.
+IN_PROC_BROWSER_TEST_F(DisplayMediaAccessHandlerTest,
+                       ForceSystemAudioButWrongScheme) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+
+  // Navigate to an empty page.
+  GURL url(embedded_test_server()->GetURL("/title1.html"));
+  EXPECT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+
+  DesktopMediaPickerManager* picker_manager = DesktopMediaPickerManager::Get();
+  picker_manager->AddObserver(this);
+
+  SetSystemAudioSetting(true);
+
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  EXPECT_THAT(content::EvalJs(web_contents->GetPrimaryMainFrame(),
+                              R"((async () => {
+    return navigator.mediaDevices.getDisplayMedia({
+        audio: true, systemAudio: 'include', video: false});
+  })())")
+                  .error,
+              testing::HasSubstr("Not supported"));
   EXPECT_EQ(dialog_opened_, false);
 }
 

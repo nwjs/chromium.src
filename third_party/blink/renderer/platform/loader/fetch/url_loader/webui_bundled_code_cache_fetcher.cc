@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/platform/loader/fetch/url_loader/webui_bundled_code_cache_fetcher.h"
 
+#include "base/metrics/histogram_functions.h"
 #include "mojo/public/cpp/base/ref_counted_memory_mojom_traits.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
@@ -70,7 +71,7 @@ void WebUIBundledCodeCacheFetcher::Start() {
     return;
   }
 
-  base::RefCountedMemory* buffer_data =
+  scoped_refptr<base::RefCountedMemory> buffer_data =
       Platform::Current()->GetDataResourceBytes(resource_id_);
   host_task_runner_->PostTask(
       FROM_HERE,
@@ -82,6 +83,9 @@ void WebUIBundledCodeCacheFetcher::Start() {
 
 void WebUIBundledCodeCacheFetcher::DidReceiveCachedCode(
     mojo_base::BigBuffer data) {
+  base::UmaHistogramBoolean(
+      "Blink.ResourceRequest.WebUIBundledCodeCacheFetcher.DidReceiveCachedCode",
+      (data.size() > 0));
   if (data.size() > 0) {
     code_cache_data_ = std::move(data);
   }

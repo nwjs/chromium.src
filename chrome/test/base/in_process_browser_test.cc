@@ -108,7 +108,6 @@
 #if BUILDFLAG(IS_WIN)
 #include "base/win/scoped_com_initializer.h"
 #include "base/win/windows_version.h"
-#include "chrome/browser/os_crypt/app_bound_encryption_win.h"
 #include "components/version_info/version_info.h"
 #include "ui/base/win/atl_module.h"
 #endif
@@ -336,20 +335,8 @@ void InProcessBrowserTest::Initialize() {
   bundle_swizzler_ = std::make_unique<ScopedBundleSwizzlerMac>();
 #endif
 
-  // The HTTPS test server must be setup here as different browser test suites
-  // have different bundle behavior on macOS, and the HTTPS test server
-  // constructor reads in the local test root cert. It might be possible
-  // to move this to BrowserTestBase in the future.
-  embedded_https_test_server_ = std::make_unique<net::EmbeddedTestServer>(
-      net::EmbeddedTestServer::TYPE_HTTPS);
-  // Default hostnames for the HTTPS test server. Test fixtures can call this
-  // with different hostnames (before starting the server) to override.
-  embedded_https_test_server_->SetCertHostnames(
-      {"example.com", "*.example.com", "foo.com", "*.foo.com", "bar.com",
-       "*.bar.com", "a.com", "*.a.com", "b.com", "*.b.com", "c.com",
-       "*.c.com"});
-
   embedded_test_server()->AddDefaultHandlers(GetChromeTestDataDir());
+  InitializeHTTPSTestServer();
   embedded_https_test_server().AddDefaultHandlers(GetChromeTestDataDir());
 
   // Force all buttons not overflow to prevent test flakiness.
@@ -385,13 +372,6 @@ void InProcessBrowserTest::Initialize() {
 #if BUILDFLAG(IS_CHROMEOS)
   launch_browser_for_testing_ =
       std::make_unique<ash::full_restore::ScopedLaunchBrowserForTesting>();
-#endif
-
-#if BUILDFLAG(IS_WIN)
-  // Browser tests use a custom user data dir, which would normally result in
-  // App-Bound encryption being disabled, so in order to get full test coverage
-  // in browser tests, bypass this check.
-  os_crypt::SetNonStandardUserDataDirSupportedForTesting(/*supported=*/true);
 #endif
 }
 

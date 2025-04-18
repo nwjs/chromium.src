@@ -87,7 +87,7 @@ public class TabArchiverImpl implements TabArchiver {
     @Override
     public void doArchivePass(TabModelSelector selectorToArchive) {
         ThreadUtils.assertOnUiThread();
-        if (!mTabArchiveSettings.getArchiveEnabled()) return;
+        assert mTabArchiveSettings.getArchiveEnabled();
         long startTimeMs = mClock.currentTimeMillis();
 
         // Wait for the declutter pass to complete, then do follow-up tasks.
@@ -263,7 +263,8 @@ public class TabArchiverImpl implements TabArchiver {
         ThreadUtils.assertOnUiThread();
         unarchiveAndRestoreTabs(
                 regularTabCreator,
-                TabModelUtils.convertTabListToListOfTabs(mArchivedTabGroupModelFilter),
+                TabModelUtils.convertTabListToListOfTabs(
+                        mArchivedTabGroupModelFilter.getTabModel()),
                 /* updateTimestamp= */ false,
                 /* areTabsBeingOpened= */ false);
         RecordUserAction.record("Tabs.ArchivedTabRescued");
@@ -393,8 +394,7 @@ public class TabArchiverImpl implements TabArchiver {
             TabGroupModelFilter regularTabGroupModelFilter,
             Map<GURL, Long> tabUrlToLastActiveTimestampMap,
             Tab tab) {
-        List<Tab> relatedTabList =
-                regularTabGroupModelFilter.getRelatedTabListForRootId(tab.getRootId());
+        List<Tab> relatedTabList = regularTabGroupModelFilter.getTabsInGroup(tab.getTabGroupId());
         for (Tab relatedTab : relatedTabList) {
             if (!isTabEligibleForArchive(tabUrlToLastActiveTimestampMap, relatedTab)) {
                 return false;

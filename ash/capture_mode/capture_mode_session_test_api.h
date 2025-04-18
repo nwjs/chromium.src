@@ -23,7 +23,6 @@ class CaptureModeBarView;
 class CaptureModeSettingsView;
 class CaptureRegionOverlayController;
 class MagnifierGlass;
-class PillButton;
 class RecordingTypeMenuView;
 class UserNudgeController;
 
@@ -59,8 +58,6 @@ class CaptureModeSessionTestApi {
 
   views::Widget* GetDimensionsLabelWidget();
 
-  views::Widget* GetFeedbackButtonWidget();
-
   UserNudgeController* GetUserNudgeController();
 
   MagnifierGlass& GetMagnifierGlass();
@@ -76,9 +73,12 @@ class CaptureModeSessionTestApi {
 
   CaptureModeSessionFocusCycler::HighlightableView* GetCurrentFocusedView();
 
+  bool HasAxVirtualWidget() const;
+  size_t GetAxVirtualViewsCount() const;
+
   // Returns false if `current_focus_group_` equals to `kNone` which means
   // there's no focus on any focus group for now. Otherwise, returns true;
-  bool HasFocus();
+  bool HasFocus() const;
 
   bool IsFolderSelectionDialogShown();
 
@@ -99,8 +99,6 @@ class CaptureModeSessionTestApi {
   ActionButtonContainerView::ErrorView* GetActionContainerErrorView() const;
 
   CaptureRegionOverlayController* GetCaptureRegionOverlayController() const;
-
-  PillButton* GetFeedbackButton();
 
  private:
   const raw_ptr<CaptureModeSession, DanglingUntriaged> session_;

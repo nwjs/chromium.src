@@ -5,6 +5,7 @@
 #import "ios/chrome/browser/authentication/ui_bundled/signin_earl_grey.h"
 
 #import "base/test/ios/wait_util.h"
+#import "components/policy/core/browser/signin/profile_separation_policies.h"
 #import "components/signin/public/base/consent_level.h"
 #import "components/signin/public/base/signin_metrics.h"
 #import "ios/chrome/browser/authentication/ui_bundled/expected_signin_histograms.h"
@@ -83,15 +84,16 @@ using base::test::ios::WaitUntilConditionOrTimeout;
   [self verifySignedInWithFakeIdentity:identity];
 }
 
+- (void)signinWithFakeManagedIdentityInPersonalProfile:
+    (FakeSystemIdentity*)identity {
+  [SigninEarlGreyAppInterface
+      signinWithFakeManagedIdentityInPersonalProfile:identity];
+  [self verifySignedInWithFakeIdentity:identity];
+}
+
 - (void)signinAndWaitForSyncTransportStateActive:(FakeSystemIdentity*)identity {
   [self signinWithFakeIdentity:identity];
   [ChromeEarlGrey waitForSyncTransportStateActiveWithTimeout:base::Seconds(10)];
-}
-
-- (void)signinAndEnableLegacySyncFeature:(FakeSystemIdentity*)identity {
-  [SigninEarlGreyAppInterface signinAndEnableLegacySyncFeature:identity];
-  [self verifyPrimaryAccountWithEmail:identity.userEmail
-                              consent:signin::ConsentLevel::kSync];
 }
 
 - (void)signInWithoutHistorySyncWithFakeIdentity:(FakeSystemIdentity*)identity {
@@ -220,9 +222,6 @@ using base::test::ios::WaitUntilConditionOrTimeout;
        expecteds.signinSigninCompletedAccessPointNewAccountExistingAccount},
 
       {@"Signin.SignIn.Started", expecteds.signinSignInStarted},
-      {@"Signin.SyncOptIn.Started", expecteds.signinSyncOptInStarted},
-      {@"Signin.SyncOptIn.OpenedSyncSettings",
-       expecteds.signinSyncOptInOpenedSyncSettings},
   };
   signin_metrics::AccessPoint accessPoint = expecteds.accessPoint;
   for (const std::pair<NSString*, int>& expected : array) {
@@ -234,6 +233,19 @@ using base::test::ios::WaitUntilConditionOrTimeout;
                             forHistogram:histogram];
     chrome_test_util::GREYAssertErrorNil(error);
   }
+}
+
+- (void)setPolicyResponseForNextProfileSeparationPolicyRequest:
+    (policy::ProfileSeparationDataMigrationSettings)
+        profileSeparationDataMigrationSettings {
+  [SigninEarlGreyAppInterface
+      setPolicyResponseForNextProfileSeparationPolicyRequest:
+          profileSeparationDataMigrationSettings];
+}
+
+- (BOOL)areSeparateProfilesForManagedAccountsEnabled {
+  return
+      [SigninEarlGreyAppInterface areSeparateProfilesForManagedAccountsEnabled];
 }
 
 @end

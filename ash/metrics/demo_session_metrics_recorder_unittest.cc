@@ -732,7 +732,7 @@ TEST_F(DemoSessionMetricsRecorderTest, DwellTime) {
   histogram_tester_->ExpectUniqueSample("DemoMode.DwellTime", 10, 1);
 }
 
-TEST_F(DemoSessionMetricsRecorderTest, ShopperSessionDwellTime) {
+TEST_F(DemoSessionMetricsRecorderTest, SignedInShopperSessionDwellTime) {
   // Simulate a signed-in demo session.
   DemoSessionMetricsRecorder::SetCurrentSessionType(
       DemoSessionMetricsRecorder::SessionType::kSignedInDemoSession);
@@ -767,6 +767,44 @@ TEST_F(DemoSessionMetricsRecorderTest, ShopperSessionDwellTime) {
   // The recorded dwell time should be 12 seconds again.
   histogram_tester_->ExpectUniqueSample("DemoMode.SignedIn.Shopper.DwellTime",
                                         12, 2);
+}
+
+TEST_F(DemoSessionMetricsRecorderTest,
+       SignedInMGSFallbackShopperSessionDwellTime) {
+  // Simulate a sign-in failure. It falls back to a managed guest session.
+  DemoSessionMetricsRecorder::SetCurrentSessionType(
+      DemoSessionMetricsRecorder::SessionType::kFallbackMGS);
+
+  // Simulate user activities for 12 seconds.
+  SendUserActivity();
+
+  task_environment()->FastForwardBy(base::Seconds(4));
+  SendUserActivity();
+
+  task_environment()->FastForwardBy(base::Seconds(8));
+  SendUserActivity();
+
+  // Simulate a shopper session "timing out" after 90 seconds.
+  task_environment()->FastForwardBy(base::Seconds(90));
+  DemoSessionMetricsRecorder::Get()->ReportShopperSessionDwellTime();
+
+  // The recorded dwell time should be 12 seconds.
+  histogram_tester_->ExpectUniqueSample(
+      "DemoMode.SignedIn.MGSFallback.Shopper.DwellTime", 12, 1);
+
+  // Simulate user activity in another shopper session for 12 seconds.
+  SendUserActivity();
+
+  task_environment()->FastForwardBy(base::Seconds(12));
+  SendUserActivity();
+
+  // Simulate exiting the shopper and cros sessions after 90 seconds.
+  task_environment()->FastForwardBy(base::Seconds(90));
+  DeleteMetricsRecorder();
+
+  // The recorded dwell time should be 12 seconds again.
+  histogram_tester_->ExpectUniqueSample(
+      "DemoMode.SignedIn.MGSFallback.Shopper.DwellTime", 12, 2);
 }
 
 TEST_F(DemoSessionMetricsRecorderTest, ZeroDwellTime) {
@@ -852,11 +890,9 @@ TEST_F(DemoSessionMetricsRecorderTest,
 // In MGS demo session, test user actively exits the session. Check the
 // corresponding user actions are recorded.
 TEST_F(DemoSessionMetricsRecorderTest, UserActivelyExitsMGS) {
-  TestSessionControllerClient* session = GetSessionControllerClient();
   // Simulate to enter the demo MGS.
-  session->Reset();
-  session->AddUserSession(kUserEmail, user_manager::UserType::kPublicAccount);
-  session->SetSessionState(session_manager::SessionState::ACTIVE);
+  ClearLogin();
+  SimulateUserLogin({kUserEmail, user_manager::UserType::kPublicAccount});
 
   DemoSessionMetricsRecorder::RecordExitSessionAction(
       DemoSessionMetricsRecorder::ExitSessionFrom::kShelf);
@@ -888,6 +924,9 @@ TEST_F(DemoSessionMetricsRecorderTest, UserActivelyExitsSignedInSession) {
   // Simulate a signed-in demo session.
   DemoSessionMetricsRecorder::SetCurrentSessionType(
       DemoSessionMetricsRecorder::SessionType::kSignedInDemoSession);
+
+  // Simulate to sign in the session with a regular user.
+  SimulateUserLogin({kUserEmail});
 
   // Even though it's signed-in, the generic exit demo session user actions are
   // still recorded.

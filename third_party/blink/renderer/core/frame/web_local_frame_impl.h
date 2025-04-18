@@ -241,6 +241,12 @@ class CORE_EXPORT WebLocalFrameImpl final
       const gfx::Point& extent,
       WebFrame::TextGranularity = kCharacterGranularity) override;
   void MoveCaretSelection(const gfx::Point&) override;
+
+#if BUILDFLAG(IS_IOS)
+  void StartAutoscrollForSelectionToPoint(const gfx::PointF&);
+  void StopAutoscroll();
+#endif  // BUILDFLAG(IS_IOS)
+
   bool SetEditableSelectionOffsets(int start, int end) override;
   bool AddImeTextSpansToExistingText(
       const std::vector<ui::ImeTextSpan>& ime_text_spans,
@@ -272,6 +278,7 @@ class CORE_EXPORT WebLocalFrameImpl final
       const std::vector<WebString>& words) override;
   WebContentSettingsClient* GetContentSettingsClient() const override;
   void SetContentSettingsClient(WebContentSettingsClient*) override;
+  const mojom::RendererContentSettingsPtr& GetContentSettings() const override;
   void ReloadImage(const WebNode&) override;
   bool IsAllowedToDownload() const override;
   bool IsCrossOriginToOutermostMainFrame() const override;
@@ -573,7 +580,7 @@ class CORE_EXPORT WebLocalFrameImpl final
       const ContextMenuData& data,
       const std::optional<gfx::Point>& host_context_menu_location);
 
-  virtual void Trace(Visitor*) const;
+  void Trace(Visitor*) const;
 
   // Functions to add and remove observers for this object.
   void AddObserver(WebLocalFrameObserver* observer);

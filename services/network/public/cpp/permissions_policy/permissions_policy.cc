@@ -14,10 +14,24 @@
 #include "services/network/public/cpp/permissions_policy/origin_with_possible_wildcards.h"
 #include "services/network/public/cpp/permissions_policy/permissions_policy_declaration.h"
 #include "services/network/public/cpp/permissions_policy/permissions_policy_features.h"
-#include "services/network/public/cpp/resource_request.h"
+#include "services/network/public/cpp/permissions_policy/permissions_policy_features_bitset.h"
+#include "services/network/public/cpp/permissions_policy/permissions_policy_features_generated.h"
 #include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom-shared.h"
 #include "services/network/public/mojom/web_sandbox_flags.mojom-shared.h"
 #include "url/gurl.h"
+
+namespace {
+
+const std::array<network::mojom::PermissionsPolicyFeature, 5>
+    kDefinedOptInFeatures = {
+        network::mojom::PermissionsPolicyFeature::kBrowsingTopics,
+        network::mojom::PermissionsPolicyFeature::
+            kBrowsingTopicsBackwardCompatible,
+        network::mojom::PermissionsPolicyFeature::kSharedStorage,
+        network::mojom::PermissionsPolicyFeature::kRunAdAuction,
+        network::mojom::PermissionsPolicyFeature::kJoinAdInterestGroup};
+
+}  // namespace
 
 namespace network {
 
@@ -26,6 +40,10 @@ PermissionsPolicy::Allowlist::Allowlist() = default;
 PermissionsPolicy::Allowlist::Allowlist(const Allowlist& rhs) = default;
 
 PermissionsPolicy::Allowlist::~Allowlist() = default;
+
+PermissionsPolicy::Allowlist::Allowlist(Allowlist&&) noexcept = default;
+PermissionsPolicy::Allowlist& PermissionsPolicy::Allowlist::operator=(
+    Allowlist&&) noexcept = default;
 
 PermissionsPolicy::Allowlist PermissionsPolicy::Allowlist::FromDeclaration(
     const network::ParsedPermissionsPolicyDeclaration& parsed_declaration) {
@@ -159,23 +177,24 @@ std::unique_ptr<PermissionsPolicy> PermissionsPolicy::CreateFromParsedPolicy(
         parsed_policy_for_isolated_app,
     const url::Origin& origin,
     const network::PermissionsPolicyFeatureList& features) {
-  network::PermissionsPolicyFeatureState inherited_policies;
+  network::PermissionsPolicyFeaturesBitset inherited_policies;
   AllowlistsAndReportingEndpoints allow_lists_and_reporting_endpoints =
       parsed_policy_for_isolated_app
           ? CombinePolicies(parsed_policy_for_isolated_app.value(),
                             parsed_policy)
           : CreateAllowlistsAndReportingEndpoints(parsed_policy);
-  for (const auto& feature : features) {
-    inherited_policies[feature.first] =
-        base::Contains(allow_lists_and_reporting_endpoints.allowlists_,
-                       feature.first) &&
-        allow_lists_and_reporting_endpoints.allowlists_[feature.first].Contains(
-            origin);
+  for (const auto& [feature, unused] : features) {
+    if (base::Contains(allow_lists_and_reporting_endpoints.allowlists_,
+                       feature) &&
+        allow_lists_and_reporting_endpoints.allowlists_[feature].Contains(
+            origin)) {
+      inherited_policies.Add(feature);
+    }
   }
 
   std::unique_ptr<PermissionsPolicy> new_policy = base::WrapUnique(
       new PermissionsPolicy(origin, allow_lists_and_reporting_endpoints,
-                            inherited_policies, features));
+                            std::move(inherited_policies), features));
 
   return new_policy;
 }
@@ -188,8 +207,7 @@ bool PermissionsPolicy::IsHeaderlessUrl(const GURL& url) {
 
 bool PermissionsPolicy::IsFeatureEnabledByInheritedPolicy(
     network::mojom::PermissionsPolicyFeature feature) const {
-  DCHECK(base::Contains(inherited_policies_, feature));
-  return inherited_policies_.at(feature);
+  return inherited_policies_.Contains(feature);
 }
 
 bool PermissionsPolicy::IsFeatureEnabled(
@@ -197,46 +215,62 @@ bool PermissionsPolicy::IsFeatureEnabled(
   return IsFeatureEnabledForOrigin(feature, origin_);
 }
 
+// Implements Permissions Policy 9.9: Is feature enabled in document for origin?
+// Version https://www.w3.org/TR/2023/WD-permissions-policy-1-20230717/
 bool PermissionsPolicy::IsFeatureEnabledForOrigin(
     network::mojom::PermissionsPolicyFeature feature,
-    const url::Origin& origin) const {
-  return IsFeatureEnabledForOriginImpl(feature, origin, /*opt_in_features=*/{});
-}
-
-bool PermissionsPolicy::IsFeatureEnabledForSubresourceRequest(
-    network::mojom::PermissionsPolicyFeature feature,
     const url::Origin& origin,
-    const network::ResourceRequest& request) const {
-  // Derive the opt-in features from the request attributes.
-  std::set<network::mojom::PermissionsPolicyFeature> opt_in_features;
-  if (request.browsing_topics) {
-    DCHECK(base::FeatureList::IsEnabled(network::features::kBrowsingTopics));
+    bool override_default_policy_to_all) const {
+  DCHECK(base::Contains(*feature_list_, feature));
+  DCHECK(!override_default_policy_to_all ||
+         base::Contains(kDefinedOptInFeatures, feature));
 
-    opt_in_features.insert(
-        network::mojom::PermissionsPolicyFeature::kBrowsingTopics);
-    opt_in_features.insert(network::mojom::PermissionsPolicyFeature::
-                               kBrowsingTopicsBackwardCompatible);
+  // 9.9.2: If policy’s inherited policy for feature is Disabled, return
+  // "Disabled".
+  if (!IsFeatureEnabledByInheritedPolicy(feature)) {
+    return false;
   }
 
-  // Note that currently permissions for `sharedStorageWritable` are checked
-  // using `IsFeatureEnabledForSubresourceRequestAssumingOptIn()`, since a
-  // `network::ResourceRequest` is not available at the call site and
-  // `blink::ResourceRequest` should not be used in blink public APIs.
-  if (request.shared_storage_writable_eligible) {
-    DCHECK(base::FeatureList::IsEnabled(network::features::kSharedStorageAPI));
-    opt_in_features.insert(
-        network::mojom::PermissionsPolicyFeature::kSharedStorage);
+  // 9.9.3: If feature is present in policy’s declared policy:
+  //    1. If the allowlist for feature in policy’s declared policy matches
+  //       origin, then return "Enabled".
+  //    2. Otherwise return "Disabled".
+  auto allowlist = allowlists_.find(feature);
+  if (allowlist != allowlists_.end()) {
+    return allowlist->second.Contains(origin);
   }
 
-  if (request.ad_auction_headers) {
-    DCHECK(
-        base::FeatureList::IsEnabled(network::features::kInterestGroupStorage));
-
-    opt_in_features.insert(
-        network::mojom::PermissionsPolicyFeature::kRunAdAuction);
+  // Proposed algorithm change in
+  // https://github.com/w3c/webappsec-permissions-policy/pull/499.
+  if (override_default_policy_to_all) {
+    return true;
   }
 
-  return IsFeatureEnabledForOriginImpl(feature, origin, opt_in_features);
+  const network::PermissionsPolicyFeatureDefault default_policy =
+      feature_list_->at(feature);
+
+  switch (default_policy) {
+    case network::PermissionsPolicyFeatureDefault::EnableForAll:
+      // 9.9.4: If feature’s default allowlist is *, return "Enabled".
+      return true;
+    case network::PermissionsPolicyFeatureDefault::EnableForSelf:
+      // 9.9.5: If feature’s default allowlist is 'self', and origin is same
+      // origin with document’s origin, return "Enabled".
+      if (origin_.IsSameOriginWith(origin)) {
+        return true;
+      }
+      break;
+    case network::PermissionsPolicyFeatureDefault::EnableForNone:
+      if (headerless_) {
+        // Proposed algorithm change in
+        // https://github.com/w3c/webappsec-permissions-policy/pull/515:
+        // 9.9.6 Return "Disabled".
+        return true;
+      }
+      break;
+  }
+  // 9.9.6: Return "Disabled".
+  return false;
 }
 
 // Implements Permissions Policy 9.8: Get feature value for origin.
@@ -363,13 +397,13 @@ PermissionsPolicy::GetAllowlistForFeatureIfExists(
   return std::nullopt;
 }
 
-std::optional<std::string> PermissionsPolicy::GetEndpointForFeature(
+std::string PermissionsPolicy::GetEndpointForFeature(
     network::mojom::PermissionsPolicyFeature feature) const {
   auto endpoint = reporting_endpoints_.find(feature);
   if (endpoint != reporting_endpoints_.end()) {
     return endpoint->second;
   }
-  return std::nullopt;
+  return std::string();
 }
 
 // static
@@ -470,18 +504,21 @@ std::unique_ptr<PermissionsPolicy> PermissionsPolicy::WithClientHints(
       network::GetPermissionsPolicyFeatureList(origin_)));
 }
 
-const network::mojom::PermissionsPolicyFeature
-    PermissionsPolicy::defined_opt_in_features_[] = {
-        network::mojom::PermissionsPolicyFeature::kBrowsingTopics,
-        network::mojom::PermissionsPolicyFeature::
-            kBrowsingTopicsBackwardCompatible,
-        network::mojom::PermissionsPolicyFeature::kSharedStorage,
-        network::mojom::PermissionsPolicyFeature::kRunAdAuction};
+PermissionsPolicy::PermissionsPolicy(mojo::DefaultConstruct::Tag)
+    : feature_list_(GetPermissionsPolicyFeatureListUnloadNone()) {}
+
+PermissionsPolicy::PermissionsPolicy(const PermissionsPolicy&) = default;
+PermissionsPolicy& PermissionsPolicy::operator=(const PermissionsPolicy&) =
+    default;
+
+PermissionsPolicy::PermissionsPolicy(PermissionsPolicy&&) noexcept = default;
+PermissionsPolicy& PermissionsPolicy::operator=(PermissionsPolicy&&) noexcept =
+    default;
 
 PermissionsPolicy::PermissionsPolicy(
     url::Origin origin,
     AllowlistsAndReportingEndpoints allow_lists_and_reporting_endpoints,
-    network::PermissionsPolicyFeatureState inherited_policies,
+    network::PermissionsPolicyFeaturesBitset inherited_policies,
     const network::PermissionsPolicyFeatureList& feature_list,
     bool headerless)
     : origin_(std::move(origin)),
@@ -514,18 +551,17 @@ PermissionsPolicy::CreateFlexibleForFencedFrame(
     const network::ParsedPermissionsPolicy& container_policy,
     const url::Origin& subframe_origin,
     const network::PermissionsPolicyFeatureList& features) {
-  network::PermissionsPolicyFeatureState inherited_policies;
-  for (const auto& feature : features) {
-    if (base::Contains(network::kFencedFrameAllowedFeatures, feature.first)) {
-      inherited_policies[feature.first] = InheritedValueForFeature(
-          subframe_origin, parent_policy, feature, container_policy);
-    } else {
-      inherited_policies[feature.first] = false;
+  network::PermissionsPolicyFeaturesBitset inherited_policies;
+  for (const auto& [feature, default_value] : features) {
+    if (base::Contains(network::kFencedFrameAllowedFeatures, feature) &&
+        InheritedValueForFeature(subframe_origin, parent_policy,
+                                 {feature, default_value}, container_policy)) {
+      inherited_policies.Add(feature);
     }
   }
   return base::WrapUnique(new PermissionsPolicy(
       subframe_origin, CreateAllowlistsAndReportingEndpoints(header_policy),
-      inherited_policies, features));
+      std::move(inherited_policies), features));
 }
 
 // static
@@ -546,18 +582,15 @@ std::unique_ptr<PermissionsPolicy> PermissionsPolicy::CreateFixedForFencedFrame(
     const network::PermissionsPolicyFeatureList& features,
     base::span<const network::mojom::PermissionsPolicyFeature>
         effective_enabled_permissions) {
-  network::PermissionsPolicyFeatureState inherited_policies;
-  for (const auto& feature : features) {
-    inherited_policies[feature.first] = false;
-  }
+  network::PermissionsPolicyFeaturesBitset inherited_policies;
   for (const network::mojom::PermissionsPolicyFeature feature :
        effective_enabled_permissions) {
-    inherited_policies[feature] = true;
+    inherited_policies.Add(feature);
   }
 
   return base::WrapUnique(new PermissionsPolicy(
       origin, CreateAllowlistsAndReportingEndpoints(header_policy),
-      inherited_policies, features));
+      std::move(inherited_policies), features));
 }
 
 // static
@@ -568,84 +601,16 @@ std::unique_ptr<PermissionsPolicy> PermissionsPolicy::CreateFromParentPolicy(
     const url::Origin& origin,
     const network::PermissionsPolicyFeatureList& features,
     bool headerless) {
-  network::PermissionsPolicyFeatureState inherited_policies;
-  for (const auto& feature : features) {
-    inherited_policies[feature.first] = InheritedValueForFeature(
-        origin, parent_policy, feature, container_policy);
+  network::PermissionsPolicyFeaturesBitset inherited_policies;
+  for (const auto& [feature, default_value] : features) {
+    if (InheritedValueForFeature(origin, parent_policy,
+                                 {feature, default_value}, container_policy)) {
+      inherited_policies.Add(feature);
+    }
   }
   return base::WrapUnique(new PermissionsPolicy(
       origin, CreateAllowlistsAndReportingEndpoints(header_policy),
-      inherited_policies, features, headerless));
-}
-
-// Implements Permissions Policy 9.9: Is feature enabled in document for origin?
-// Version https://www.w3.org/TR/2023/WD-permissions-policy-1-20230717/
-bool PermissionsPolicy::IsFeatureEnabledForOriginImpl(
-    network::mojom::PermissionsPolicyFeature feature,
-    const url::Origin& origin,
-    const std::set<network::mojom::PermissionsPolicyFeature>& opt_in_features)
-    const {
-  DCHECK(base::Contains(*feature_list_, feature));
-
-  // 9.9.2: If policy’s inherited policy for feature is Disabled, return
-  // "Disabled".
-  if (!IsFeatureEnabledByInheritedPolicy(feature)) {
-    return false;
-  }
-
-  // 9.9.3: If feature is present in policy’s declared policy:
-  //    1. If the allowlist for feature in policy’s declared policy matches
-  //       origin, then return "Enabled".
-  //    2. Otherwise return "Disabled".
-  auto allowlist = allowlists_.find(feature);
-  if (allowlist != allowlists_.end()) {
-    return allowlist->second.Contains(origin);
-  }
-
-  // Proposed algorithm change in
-  // https://github.com/w3c/webappsec-permissions-policy/pull/499: if
-  // optInFeatures contains feature, then return "Enabled".
-  if (base::Contains(opt_in_features, feature)) {
-    return true;
-  }
-
-  const network::PermissionsPolicyFeatureDefault default_policy =
-      feature_list_->at(feature);
-
-  switch (default_policy) {
-    case network::PermissionsPolicyFeatureDefault::EnableForAll:
-      // 9.9.4: If feature’s default allowlist is *, return "Enabled".
-      return true;
-    case network::PermissionsPolicyFeatureDefault::EnableForSelf:
-      // 9.9.5: If feature’s default allowlist is 'self', and origin is same
-      // origin with document’s origin, return "Enabled".
-      if (origin_.IsSameOriginWith(origin)) {
-        return true;
-      }
-      break;
-    case network::PermissionsPolicyFeatureDefault::EnableForNone:
-      if (headerless_) {
-        // Proposed algorithm change in
-        // https://github.com/w3c/webappsec-permissions-policy/pull/515:
-        // 9.9.6 Return "Disabled".
-        return true;
-      }
-      break;
-  }
-  // 9.9.6: Return "Disabled".
-  return false;
-}
-
-bool PermissionsPolicy::IsFeatureEnabledForSubresourceRequestAssumingOptIn(
-    network::mojom::PermissionsPolicyFeature feature,
-    const url::Origin& origin) const {
-  CHECK(base::Contains(defined_opt_in_features_, feature));
-
-  // Make an opt-in features set containing exactly `feature`, as we're not
-  // given access to the full request to derive any other opt-in features.
-  std::set<network::mojom::PermissionsPolicyFeature> opt_in_features({feature});
-
-  return IsFeatureEnabledForOriginImpl(feature, origin, opt_in_features);
+      std::move(inherited_policies), features, headerless));
 }
 
 // Implements Permissions Policy 9.7: Define an inherited policy for

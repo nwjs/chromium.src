@@ -113,8 +113,7 @@ void PermissionContextBase::RequestPermission(
   request_data
       .WithRequestingOrigin(
           request_data.requesting_origin.DeprecatedGetOriginAsURL())
-      .WithEmbeddingOrigin(
-          PermissionUtil::GetLastCommittedOriginAsURL(rfh->GetMainFrame()));
+      .WithEmbeddingOrigin(GetEffectiveEmbedderOrigin(rfh));
 
   if (!request_data.requesting_origin.is_valid() ||
       !request_data.embedding_origin.is_valid()) {
@@ -284,6 +283,11 @@ const PermissionRequest* PermissionContextBase::FindPermissionRequest(
   }
 
   return request->second.first.get();
+}
+
+GURL PermissionContextBase::GetEffectiveEmbedderOrigin(
+    content::RenderFrameHost* rfh) const {
+  return PermissionUtil::GetLastCommittedOriginAsURL(rfh->GetMainFrame());
 }
 
 content::PermissionResult PermissionContextBase::GetPermissionStatus(

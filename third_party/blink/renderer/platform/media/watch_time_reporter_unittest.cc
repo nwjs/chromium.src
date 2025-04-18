@@ -1634,7 +1634,7 @@ TEST_P(WatchTimeReporterTest, WatchTimeReporterMultiplePartialFinalize) {
 
     OnNativeControlsEnabled(true);
     OnPowerStateChange(true);
-    OnDisplayTypeChanged(DisplayType::kPictureInPicture);
+    OnDisplayTypeChanged(DisplayType::kVideoPictureInPicture);
 
     EXPECT_WATCH_TIME(Ac, kWatchTime1);
     EXPECT_WATCH_TIME(All, kWatchTime1);
@@ -1888,7 +1888,7 @@ TEST_P(WatchTimeReporterTest, WatchTimeCategoryMapping) {
       .WillOnce(testing::Return(kWatchTime));
   Initialize(false, false, kSizeJustRight);
   OnNativeControlsEnabled(true);
-  OnDisplayTypeChanged(DisplayType::kPictureInPicture);
+  OnDisplayTypeChanged(DisplayType::kVideoPictureInPicture);
   wtr_->OnPlaying();
   EXPECT_TRUE(IsMonitoring());
   EXPECT_WATCH_TIME(Ac, kWatchTime);

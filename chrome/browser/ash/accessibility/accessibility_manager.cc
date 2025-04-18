@@ -113,7 +113,7 @@
 #include "ui/events/devices/input_device_event_observer.h"
 #include "ui/events/keycodes/keyboard_codes_posix.h"
 #include "ui/gfx/animation/animation.h"
-#include "ui/native_theme/native_theme_features.h"
+#include "ui/native_theme/features/native_theme_features.h"
 #include "ui/strings/grit/ui_strings.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_observer.h"
@@ -553,12 +553,16 @@ AccessibilityManager::AccessibilityManager() {
               &AccessibilityManager::PostUnloadAccessibilityCommon,
               weak_ptr_factory_.GetWeakPtr())));
 
+  const bool enable_chromevox_v3_manifest =
+      ::features::IsAccessibilityManifestV3EnabledForChromeVox();
   const base::FilePath::CharType* chromevox_manifest_filename =
-      enable_v3_manifest ? extension_misc::kChromeVoxManifestV3Filename
-                         : extension_misc::kChromeVoxManifestFilename;
+      enable_v3_manifest || enable_chromevox_v3_manifest
+          ? extension_misc::kChromeVoxManifestV3Filename
+          : extension_misc::kChromeVoxManifestFilename;
   const base::FilePath::CharType* chromevox_guest_manifest_filename =
-      enable_v3_manifest ? extension_misc::kChromeVoxGuestManifestV3Filename
-                         : extension_misc::kChromeVoxGuestManifestFilename;
+      enable_v3_manifest || enable_chromevox_v3_manifest
+          ? extension_misc::kChromeVoxGuestManifestV3Filename
+          : extension_misc::kChromeVoxGuestManifestFilename;
 
   chromevox_loader_ = base::WrapUnique(new AccessibilityExtensionLoader(
       extension_misc::kChromeVoxExtensionId,
@@ -567,12 +571,16 @@ AccessibilityManager::AccessibilityManager() {
       base::BindRepeating(&AccessibilityManager::PostUnloadChromeVox,
                           weak_ptr_factory_.GetWeakPtr())));
 
+  const bool enable_select_to_speak_v3_manifest =
+      ::features::IsAccessibilityManifestV3EnabledForSelectToSpeak();
   const base::FilePath::CharType* select_to_speak_manifest_filename =
-      enable_v3_manifest ? extension_misc::kSelectToSpeakManifestV3Filename
-                         : extension_misc::kSelectToSpeakManifestFilename;
+      enable_v3_manifest || enable_select_to_speak_v3_manifest
+          ? extension_misc::kSelectToSpeakManifestV3Filename
+          : extension_misc::kSelectToSpeakManifestFilename;
   const base::FilePath::CharType* select_to_speak_guest_manifest_filename =
-      enable_v3_manifest ? extension_misc::kSelectToSpeakGuestManifestV3Filename
-                         : extension_misc::kSelectToSpeakGuestManifestFilename;
+      enable_v3_manifest || enable_select_to_speak_v3_manifest
+          ? extension_misc::kSelectToSpeakGuestManifestV3Filename
+          : extension_misc::kSelectToSpeakGuestManifestFilename;
 
   select_to_speak_loader_ = base::WrapUnique(new AccessibilityExtensionLoader(
       extension_misc::kSelectToSpeakExtensionId,
@@ -582,12 +590,16 @@ AccessibilityManager::AccessibilityManager() {
       base::BindRepeating(&AccessibilityManager::PostUnloadSelectToSpeak,
                           weak_ptr_factory_.GetWeakPtr())));
 
+  const bool enable_switch_access_v3_manifest =
+      ::features::IsAccessibilityManifestV3EnabledForSwitchAccess();
   const base::FilePath::CharType* switch_access_manifest_filename =
-      enable_v3_manifest ? extension_misc::kSwitchAccessManifestV3Filename
-                         : extension_misc::kSwitchAccessManifestFilename;
+      enable_v3_manifest || enable_switch_access_v3_manifest
+          ? extension_misc::kSwitchAccessManifestV3Filename
+          : extension_misc::kSwitchAccessManifestFilename;
   const base::FilePath::CharType* switch_access_guest_manifest_filename =
-      enable_v3_manifest ? extension_misc::kSwitchAccessGuestManifestV3Filename
-                         : extension_misc::kSwitchAccessGuestManifestFilename;
+      enable_v3_manifest || enable_switch_access_v3_manifest
+          ? extension_misc::kSwitchAccessGuestManifestV3Filename
+          : extension_misc::kSwitchAccessGuestManifestFilename;
 
   switch_access_loader_ = base::WrapUnique(new AccessibilityExtensionLoader(
       extension_misc::kSwitchAccessExtensionId,
@@ -784,7 +796,7 @@ void AccessibilityManager::OnSpokenFeedbackChanged() {
 
   content::BrowserAccessibilityState* browser_ax_state =
       content::BrowserAccessibilityState::GetInstance();
-  browser_ax_state->SetKnownScreenReaderAppActive(enabled);
+  browser_ax_state->SetScreenReaderAppActive(enabled);
 
   if (IsUserBrowserContext(profile_)) {
     user_manager::KnownUser known_user(g_browser_process->local_state());
@@ -962,7 +974,7 @@ bool AccessibilityManager::IsReducedAnimationsEnabled() const {
 }
 
 void AccessibilityManager::EnableAlwaysShowScrollbars(bool enabled) {
-  if (!::features::IsOverlayScrollbarOSSettingEnabled() || !profile_) {
+  if (!profile_) {
     return;
   }
 
@@ -973,9 +985,8 @@ void AccessibilityManager::EnableAlwaysShowScrollbars(bool enabled) {
 }
 
 bool AccessibilityManager::IsAlwaysShowScrollbarsEnabled() const {
-  return ::features::IsOverlayScrollbarOSSettingEnabled() && profile_ &&
-         profile_->GetPrefs()->GetBoolean(
-             prefs::kAccessibilityAlwaysShowScrollbarsEnabled);
+  return profile_ && profile_->GetPrefs()->GetBoolean(
+                         prefs::kAccessibilityAlwaysShowScrollbarsEnabled);
 }
 
 void AccessibilityManager::OnReducedAnimationsChanged() const {
@@ -1798,12 +1809,7 @@ void AccessibilityManager::SetProfile(Profile* profile) {
         base::BindRepeating(&AccessibilityManager::OnLocaleChanged,
                             base::Unretained(this)));
 
-    // Compute these histograms on the main (UI) thread because they
-    // need to access PrefService.
-    content::BrowserAccessibilityState::GetInstance()
-        ->AddUIThreadHistogramCallback(base::BindOnce(
-            &AccessibilityManager::UpdateChromeOSAccessibilityHistograms,
-            base::Unretained(this)));
+    UpdateChromeOSAccessibilityHistograms();
 
     extensions::ExtensionRegistry* registry =
         extensions::ExtensionRegistry::Get(profile);
@@ -2022,10 +2028,8 @@ void AccessibilityManager::UpdateChromeOSAccessibilityHistograms() {
     base::UmaHistogramBoolean("Accessibility.CrosFaceGaze",
                               IsFaceGazeEnabled());
   }
-  if (::features::IsOverlayScrollbarOSSettingEnabled()) {
-    base::UmaHistogramBoolean("Accessibility.CrosAlwaysShowScrollbar",
-                              IsAlwaysShowScrollbarsEnabled());
-  }
+  base::UmaHistogramBoolean("Accessibility.CrosAlwaysShowScrollbar",
+                            IsAlwaysShowScrollbarsEnabled());
 }
 
 void AccessibilityManager::PlayVolumeAdjustSound() {

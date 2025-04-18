@@ -7,12 +7,12 @@ const operatorToleranceDict = {
   gelu: {float32: 18, float16: 18},
   hardSigmoid: {float32: 2, float16: 2},
   hardSwish: {float32: 4, float16: 4},
-  leakyRelu: {float32: 1, float16: 1},
+  leakyRelu: {float32: 1, float16: 2},
   linear: {float32: 2, float16: 2},
   prelu: {float32: 1, float16: 1},
   relu: {float32: 0, float16: 0},
   reshape: {float32: 0, float16: 0},
-  sigmoid: {float32: 34, float16: 3},
+  sigmoid: {float32: 34, float16: 10},
   softplus: {float32: 18, float16: 18},
   softsign: {float32: 3, float16: 3},
 };
@@ -249,23 +249,22 @@ const sizeOfShape = (array) => {
 /**
  * Get bitwise of the given value.
  * @param {Number} value
- * @param {String} dataType - A data type string, like "float32", "float16",
- *     more types, please see:
- *     https://www.w3.org/TR/webnn/#enumdef-mloperanddatatype
- * @return {Number} A 64-bit signed integer.
+ * @param {String} dataType - A data type string; currently only "float32" is
+ *     supported by this function.
+ * @return {BigInt} A 64-bit signed integer.
  */
 const getBitwise = (value, dataType) => {
   const buffer = new ArrayBuffer(8);
   const int64Array = new BigInt64Array(buffer);
-  int64Array[0] = value < 0 ? ~BigInt(0) : BigInt(0);
   let typedArray;
   if (dataType === "float32") {
     typedArray = new Float32Array(buffer);
   } else {
     throw new AssertionError(`Data type ${dataType} is not supported`);
   }
-  typedArray[0] = value;
-  return int64Array[0];
+  typedArray[0] = Math.abs(value);
+  const int64 = int64Array[0];
+  return (value < 0) ? -int64 : int64;
 };
 
 /**
@@ -290,34 +289,12 @@ const assert_array_approx_equals_ulp = (actual, expected, nulp, dataType, descri
       actual.length === expected.length,
       `assert_array_approx_equals_ulp: ${description} lengths differ, ` +
           `expected ${expected.length} but got ${actual.length}`);
-  let actualBitwise, expectedBitwise, distance;
+  let distance;
   for (let i = 0; i < actual.length; i++) {
     if (actual[i] === expected[i]) {
       continue;
     } else {
-      // measure the ULP distance
-      if (dataType === 'float32') {
-        actualBitwise = getBitwise(actual[i], dataType);
-        expectedBitwise = getBitwise(expected[i], dataType);
-      } else if (dataType === 'float16') {
-        actualBitwise = actual[i];
-        // convert expected data of Float16 to Uint16
-        expectedBitwise = toHalf(expected[i]);
-      } else if (dataType === 'int64') {
-        actualBitwise = actual[i];
-        expectedBitwise = BigInt(expected[i]);
-      } else if (dataType === 'uint64') {
-        actualBitwise = actual[i];
-        expectedBitwise = BigUint64Array(expected[i]);
-      } else if (
-          dataType === 'int8' || dataType === 'uint8' || dataType === 'int32' ||
-          dataType === 'uint32' || dataType === 'int4' ||
-          dataType === 'uint4') {
-        actualBitwise = actual[i];
-        expectedBitwise = expected[i];
-      }
-      distance = actualBitwise - expectedBitwise;
-      distance = distance >= 0 ? distance : -distance;
+      distance = ulpDistance(actual[i], expected[i], dataType);
 
       // if true, invoke assert_true() in failure case
       // if false, it's expected, not invoke assert_true() in success case to
@@ -326,12 +303,57 @@ const assert_array_approx_equals_ulp = (actual, expected, nulp, dataType, descri
         assert_true(
             false,
             `assert_array_approx_equals_ulp: ${description} actual ` +
-                `${actual[i]} should be close enough to expected ` +
+                `${
+                    dataType === 'float16' ?
+                        float16AsUint16ToNumber(actual[i]) :
+                        actual[i]} should be close enough to expected ` +
                 `${expected[i]} by the acceptable ${nulp} ULP distance, ` +
                 `but they have ${distance} ULP distance`);
       }
     }
   }
+};
+
+/**
+ * Compute the ULP distance between ``a`` and ``b`` for the given ``dataType``.
+ *
+ * @param {(Number|BigInt)} a - First value.
+ * @param {(Number|BigInt)} b - Second value.
+ * @param {String} dataType - A data type string, value: "float32",
+ *     more types, please see:
+ *     https://www.w3.org/TR/webnn/#enumdef-mloperanddatatype
+ */
+const ulpDistance = (a, b, dataType) => {
+  let aBitwise, bBitwise;
+  // measure the ULP distance
+  if (dataType === 'float32') {
+    aBitwise = getBitwise(a, dataType);
+    bBitwise = getBitwise(b, dataType);
+  } else if (dataType === 'float16') {
+    aBitwise = a;
+    // convert b data of Float16 to Uint16
+    bBitwise = toHalf(b);
+
+    // Workaround to use mask to check returned special float16 value -0.0 which
+    // is 32768 (1000 0000 0000 0000) of uint16
+    const signExclusionMask = 0x00007FFF;
+    if ((aBitwise & signExclusionMask) === 0 &&
+        (bBitwise & signExclusionMask) === 0) {
+      return 0;
+    }
+  } else if (dataType === 'int64' || dataType === 'uint64') {
+    aBitwise = BigInt(a);
+    bBitwise = BigInt(b);
+  } else if (
+      dataType === 'int8' || dataType === 'uint8' || dataType === 'int32' ||
+      dataType === 'uint32' || dataType === 'int4' || dataType === 'uint4') {
+    aBitwise = a;
+    bBitwise = b;
+  } else {
+    throw new AssertionError(`Data type ${dataType} is not supported`);
+  }
+  const distance = aBitwise - bBitwise;
+  return distance >= 0 ? distance : -distance;
 };
 
 /**
@@ -959,6 +981,15 @@ const getConv2dPrecisionTolerance =
 
   const tolerance = filterWidth * filterHeight * (inputChannels / groups) * 2;
   const toleranceValueDict = {float32: tolerance, float16: tolerance};
+  const expectedDataType =
+      getExpectedDataTypeOfSingleOutput(graphResources.expectedOutputs);
+  return {metricType: 'ULP', value: toleranceValueDict[expectedDataType]};
+};
+
+const getInstanceNormPrecisionTolerance = (graphResources) => {
+  // according to
+  // https://github.com/web-platform-tests/wpt/pull/43891#discussion_r1457026316
+  const toleranceValueDict = {float32: 840, float16: 8400};
   const expectedDataType =
       getExpectedDataTypeOfSingleOutput(graphResources.expectedOutputs);
   return {metricType: 'ULP', value: toleranceValueDict[expectedDataType]};

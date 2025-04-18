@@ -39,6 +39,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/default_clock.h"
+#include "base/time/time.h"
 #include "build/build_config.h"
 #include "http_request_info.h"
 #include "net/base/cache_type.h"
@@ -542,6 +543,25 @@ void HttpCache::OnExternalCacheHit(
   disk_cache_->OnExternalCacheHit(*key);
 }
 
+void HttpCache::ClearNoVarySearchCache(
+    UrlFilterType filter_type,
+    const base::flat_set<url::Origin>& origins,
+    const base::flat_set<std::string>& domains,
+    base::Time delete_begin,
+    base::Time delete_end) {
+  if (!no_vary_search_cache_) {
+    return;
+  }
+
+  const bool cleared = no_vary_search_cache_->ClearData(
+      filter_type, origins, domains, delete_begin, delete_end);
+
+  if (cleared) {
+    // TODO(https://crbug.com/399562754): Re-write the on-disk store to erase
+    // the removed entries.
+  }
+}
+
 int HttpCache::CreateTransaction(
     RequestPriority priority,
     std::unique_ptr<HttpTransaction>* transaction) {
@@ -667,9 +687,8 @@ std::string HttpCache::GenerateCacheKey(
     if (initiator.has_value() && is_mainframe_navigation &&
         base::FeatureList::IsEnabled(
             net::features::kSplitCacheByCrossSiteMainFrameNavigationBoolean)) {
-      const auto initiator_site = net::SchemefulSite(*initiator);
       const bool is_initiator_cross_site =
-          initiator_site != net::SchemefulSite(url);
+          !net::SchemefulSite::IsSameSite(*initiator, url::Origin::Create(url));
       if (is_initiator_cross_site) {
         is_cross_site_main_frame_navigation_prefix =
             kCrossSiteMainFrameNavigationPrefix;

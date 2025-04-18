@@ -4,14 +4,17 @@
 
 #include "chrome/renderer/accessibility/read_anything/read_anything_app_model.h"
 
+#include <algorithm>
+#include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include "base/containers/span.h"
+#include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/threading/platform_thread.h"
-#include "chrome/renderer/accessibility/read_anything/read_anything_node_utils.h"
-#include "chrome/renderer/accessibility/read_anything/read_anything_test_utils.h"
 #include "chrome/test/base/chrome_render_view_test.h"
 #include "read_anything_test_utils.h"
 #include "services/strings/grit/services_strings.h"
@@ -25,17 +28,45 @@
 #include "ui/base/l10n/l10n_util.h"
 
 using ::testing::ElementsAre;
+using ::testing::UnorderedElementsAre;
+
+class ReadAnythingAppModelNoInitTest : public ChromeRenderViewTest {
+ public:
+  ReadAnythingAppModelNoInitTest() = default;
+  ReadAnythingAppModelNoInitTest(const ReadAnythingAppModelNoInitTest&) =
+      delete;
+  ReadAnythingAppModelNoInitTest& operator=(
+      const ReadAnythingAppModelNoInitTest&) = delete;
+  ~ReadAnythingAppModelNoInitTest() override = default;
+
+  const ReadAnythingAppModel& model() const { return model_; }
+
+ private:
+  ReadAnythingAppModel model_;
+};
+
+TEST_F(ReadAnythingAppModelNoInitTest, IsDocs_FalseBeforeTreeInitialization) {
+  EXPECT_FALSE(model().IsDocs());
+}
+
+TEST_F(ReadAnythingAppModelNoInitTest, IsReload_FalseBeforeTreeInitialization) {
+  EXPECT_FALSE(model().IsReload());
+}
 
 class ReadAnythingAppModelTest : public ChromeRenderViewTest {
  public:
   ReadAnythingAppModelTest() = default;
-  ~ReadAnythingAppModelTest() override = default;
   ReadAnythingAppModelTest(const ReadAnythingAppModelTest&) = delete;
   ReadAnythingAppModelTest& operator=(const ReadAnythingAppModelTest&) = delete;
+  ~ReadAnythingAppModelTest() override = default;
+
+  const std::string DOCS_URL =
+      "https://docs.google.com/document/d/"
+      "1t6x1PQaQWjE8wb9iyYmFaoK1XAEgsl8G1Hx3rzfpoKA/"
+      "edit?ouid=103677288878638916900&usp=docs_home&ths=true";
 
   void SetUp() override {
     ChromeRenderViewTest::SetUp();
-    model_ = std::make_unique<ReadAnythingAppModel>();
 
     // Create a tree id.
     tree_id_ = ui::AXTreeID::CreateNewAXTreeID();
@@ -49,45 +80,50 @@ class ReadAnythingAppModelTest : public ChromeRenderViewTest {
     model().Reset({});
   }
 
-  void SetUpWithoutInitialization() {
-    model_ = std::make_unique<ReadAnythingAppModel>();
+  ReadAnythingAppModel& model() { return model_; }
+  const ReadAnythingAppModel& model() const { return model_; }
+
+  bool AreAllPendingUpdatesEmpty() const {
+    return std::ranges::all_of(
+        model().pending_updates_for_testing(),
+        &ReadAnythingAppModel::Updates::empty,
+        &ReadAnythingAppModel::PendingUpdates::value_type::second);
   }
 
-  ReadAnythingAppModel& model() { return *model_; }
-  const ReadAnythingAppModel& model() const { return *model_; }
-
-  bool AreAllPendingUpdatesEmpty() {
-    size_t count = 0;
-    for (auto const& [tree_id, updates] :
-         model_->GetPendingUpdatesForTesting()) {
-      count += updates.size();
-    }
-    return count == 0;
-  }
-
-  void AccessibilityEventReceived(const std::vector<ui::AXTreeUpdate>& updates,
+  void AccessibilityEventReceived(const ReadAnythingAppModel::Updates& updates,
                                   bool speech_playing = false) {
-    AccessibilityEventReceived(updates[0].tree_data.tree_id, updates,
-                               speech_playing);
+    std::vector<ui::AXEvent> events;
+    model().AccessibilityEventReceived(
+        updates[0].tree_data.tree_id,
+        const_cast<ReadAnythingAppModel::Updates&>(updates), events,
+        speech_playing);
   }
 
   void EnableReadAloud() {
     scoped_feature_list_.InitAndEnableFeature(features::kReadAnythingReadAloud);
   }
 
-  void AccessibilityEventReceived(const ui::AXTreeID& tree_id,
-                                  const std::vector<ui::AXTreeUpdate>& updates,
-                                  bool speech_playing = false) {
-    std::vector<ui::AXEvent> events;
-    model_->AccessibilityEventReceived(
-        tree_id, const_cast<std::vector<ui::AXTreeUpdate>&>(updates), events,
-        speech_playing);
+  void DisableReadAloud() {
+    scoped_feature_list_.InitAndDisableFeature(
+        features::kReadAnythingReadAloud);
   }
 
-  void ProcessDisplayNodes(const std::vector<ui::AXNodeID>& content_node_ids) {
-    model().Reset(content_node_ids);
-    model_->ComputeDisplayNodeIdsForDistilledTree();
+  std::set<ui::AXNodeID> GetNotIgnoredIds(base::span<const ui::AXNodeID> ids) {
+    std::set<ui::AXNodeID> set;
+    for (auto id : ids) {
+      model().InsertIdIfNotIgnored(id, set);
+    }
+    return set;
   }
+
+  void ProcessDisplayNodes(std::vector<ui::AXNodeID> content_node_ids) {
+    model().Reset(std::move(content_node_ids));
+    model().ComputeDisplayNodeIdsForDistilledTree();
+  }
+
+  void SetUrlInformationCallback() { ranSetUrlInformationCallback_ = true; }
+
+  bool RanSetUrlInformationCallback() { return ranSetUrlInformationCallback_; }
 
   std::vector<int> SendSimpleUpdateAndGetChildIds() {
     // Set the name of each node to be its id.
@@ -101,22 +137,17 @@ class ReadAnythingAppModelTest : public ChromeRenderViewTest {
       child_ids.push_back(id);
       initial_update.nodes[i] = test::TextNodeWithTextFromId(id);
     }
-    AccessibilityEventReceived({initial_update});
+    AccessibilityEventReceived({std::move(initial_update)});
     return child_ids;
   }
 
   ui::AXTreeID tree_id_;
 
  private:
-  std::unique_ptr<ReadAnythingAppModel> model_ = nullptr;
+  ReadAnythingAppModel model_;
+  bool ranSetUrlInformationCallback_ = false;
   base::test::ScopedFeatureList scoped_feature_list_;
 };
-
-TEST_F(ReadAnythingAppModelTest, IsDocs_FalseBeforeTreeInitialization) {
-  EXPECT_FALSE(model().IsDocs());
-  SetUpWithoutInitialization();
-  EXPECT_FALSE(model().IsDocs());
-}
 
 TEST_F(ReadAnythingAppModelTest, FontName) {
   EXPECT_NE(model().font_name(), std::string());
@@ -127,29 +158,151 @@ TEST_F(ReadAnythingAppModelTest, FontName) {
 }
 
 TEST_F(ReadAnythingAppModelTest, OnSettingsRestoredFromPrefs) {
-  auto line_spacing = read_anything::mojom::LineSpacing::kDefaultValue;
-  auto letter_spacing = read_anything::mojom::LetterSpacing::kDefaultValue;
+  auto line_spacing = read_anything::mojom::LineSpacing::kLoose;
+  auto letter_spacing = read_anything::mojom::LetterSpacing::kWide;
   std::string font_name = "Roboto";
   double font_size = 3.0;
   bool links_enabled = false;
   bool images_enabled = true;
-  auto color = read_anything::mojom::Colors::kDefaultValue;
-  int color_value = 0;
+  auto color = read_anything::mojom::Colors::kDark;
 
   model().OnSettingsRestoredFromPrefs(line_spacing, letter_spacing, font_name,
                                       font_size, links_enabled, images_enabled,
                                       color);
 
-  EXPECT_EQ(static_cast<int>(line_spacing), model().line_spacing());
-  EXPECT_EQ(static_cast<int>(letter_spacing), model().letter_spacing());
+  EXPECT_EQ(line_spacing, model().line_spacing());
+  EXPECT_EQ(letter_spacing, model().letter_spacing());
   EXPECT_EQ(font_name, model().font_name());
   EXPECT_EQ(font_size, model().font_size());
   EXPECT_EQ(links_enabled, model().links_enabled());
   EXPECT_EQ(images_enabled, model().images_enabled());
-  EXPECT_EQ(color_value, model().color_theme());
+  EXPECT_EQ(color, model().color_theme());
 }
 
-TEST_F(ReadAnythingAppModelTest, IsNodeIgnoredForReadAnything) {
+TEST_F(ReadAnythingAppModelTest, SetTreeInfoUrlInformation_RunsCallback) {
+  ui::AXTreeUpdate update;
+  ui::AXTreeID tree_id = ui::AXTreeID::CreateNewAXTreeID();
+  test::SetUpdateTreeID(&update, tree_id);
+  ui::AXNodeData root = test::LinkNode(/* id= */ 1, DOCS_URL);
+  update.root_id = root.id;
+  update.nodes = {std::move(root)};
+  model().SetUrlInformationCallback(
+      base::BindOnce(&ReadAnythingAppModelTest::SetUrlInformationCallback,
+                     base::Unretained(this)));
+  EXPECT_FALSE(RanSetUrlInformationCallback());
+
+  AccessibilityEventReceived({std::move(update)});
+  model().SetActiveTreeId(tree_id);
+
+  EXPECT_TRUE(RanSetUrlInformationCallback());
+}
+
+TEST_F(ReadAnythingAppModelTest, SetTreeInfoUrlInformation_IsDocs) {
+  ui::AXTreeUpdate update;
+  ui::AXTreeID tree_id = ui::AXTreeID::CreateNewAXTreeID();
+  test::SetUpdateTreeID(&update, tree_id);
+  ui::AXNodeData root = test::LinkNode(/* id= */ 1, DOCS_URL);
+  update.root_id = root.id;
+  update.nodes = {std::move(root)};
+
+  AccessibilityEventReceived({std::move(update)});
+  model().SetActiveTreeId(tree_id);
+
+  EXPECT_TRUE(
+      model().tree_infos_for_testing().at(tree_id)->is_url_information_set);
+  EXPECT_TRUE(model().IsDocs());
+}
+
+TEST_F(ReadAnythingAppModelTest, SetTreeInfoUrlInformation_IsNotDocs) {
+  ui::AXTreeUpdate update;
+  ui::AXTreeID tree_id = ui::AXTreeID::CreateNewAXTreeID();
+  test::SetUpdateTreeID(&update, tree_id);
+  ui::AXNodeData root = test::LinkNode(/* id= */ 1, "https://www.google.com");
+  update.root_id = root.id;
+  update.nodes = {std::move(root)};
+
+  AccessibilityEventReceived({std::move(update)});
+  model().SetActiveTreeId(tree_id);
+
+  EXPECT_TRUE(
+      model().tree_infos_for_testing().at(tree_id)->is_url_information_set);
+  EXPECT_FALSE(model().IsDocs());
+}
+
+TEST_F(ReadAnythingAppModelTest,
+       SetTreeInfoUrlInformation_FirstTreeIsNotReload) {
+  ui::AXTreeUpdate update;
+  ui::AXTreeID tree_id = ui::AXTreeID::CreateNewAXTreeID();
+  test::SetUpdateTreeID(&update, tree_id);
+  ui::AXNodeData root = test::LinkNode(/* id= */ 1, "https://www.google.com");
+  update.root_id = root.id;
+  update.nodes = {std::move(root)};
+
+  AccessibilityEventReceived({std::move(update)});
+  model().SetActiveTreeId(tree_id);
+
+  EXPECT_TRUE(
+      model().tree_infos_for_testing().at(tree_id)->is_url_information_set);
+  EXPECT_FALSE(model().IsReload());
+}
+
+TEST_F(ReadAnythingAppModelTest, SetTreeInfoUrlInformation_IsReload) {
+  ui::AXTreeUpdate update1;
+  ui::AXTreeID id_1 = ui::AXTreeID::CreateNewAXTreeID();
+  test::SetUpdateTreeID(&update1, id_1);
+  ui::AXNodeData root1 = test::LinkNode(/* id= */ 1, "https://www.google.com");
+  update1.root_id = root1.id;
+  update1.nodes = {std::move(root1)};
+
+  ui::AXTreeUpdate update2;
+  ui::AXTreeID id_2 = ui::AXTreeID::CreateNewAXTreeID();
+  test::SetUpdateTreeID(&update2, id_2);
+  ui::AXNodeData root2 = test::LinkNode(/* id= */ 5, "https://www.google.com");
+  update2.root_id = root2.id;
+  update2.nodes = {std::move(root2)};
+
+  AccessibilityEventReceived({std::move(update1)});
+  model().SetActiveTreeId(id_1);
+  EXPECT_TRUE(
+      model().tree_infos_for_testing().at(id_1)->is_url_information_set);
+  EXPECT_FALSE(model().IsReload());
+
+  AccessibilityEventReceived({std::move(update2)});
+  model().SetActiveTreeId(id_2);
+  EXPECT_TRUE(
+      model().tree_infos_for_testing().at(id_2)->is_url_information_set);
+  EXPECT_TRUE(model().IsReload());
+}
+
+TEST_F(ReadAnythingAppModelTest, SetTreeInfoUrlInformation_IsNotReload) {
+  ui::AXTreeUpdate update1;
+  ui::AXTreeID id_1 = ui::AXTreeID::CreateNewAXTreeID();
+  test::SetUpdateTreeID(&update1, id_1);
+  ui::AXNodeData root1 = test::LinkNode(/* id= */ 1, "https://www.google.com");
+  update1.root_id = root1.id;
+  update1.nodes = {std::move(root1)};
+
+  ui::AXTreeUpdate update2;
+  ui::AXTreeID id_2 = ui::AXTreeID::CreateNewAXTreeID();
+  test::SetUpdateTreeID(&update2, id_2);
+  ui::AXNodeData root2 = test::LinkNode(/* id= */ 5, "https://www.youtube.com");
+  update2.root_id = root2.id;
+  update2.nodes = {std::move(root2)};
+
+  AccessibilityEventReceived({std::move(update1)});
+  model().SetActiveTreeId(id_1);
+  EXPECT_TRUE(
+      model().tree_infos_for_testing().at(id_1)->is_url_information_set);
+  EXPECT_FALSE(model().IsReload());
+
+  AccessibilityEventReceived({std::move(update2)});
+  model().SetActiveTreeId(id_2);
+  EXPECT_TRUE(
+      model().tree_infos_for_testing().at(id_2)->is_url_information_set);
+  EXPECT_FALSE(model().IsReload());
+}
+
+TEST_F(ReadAnythingAppModelTest, InsertIdIfNotIgnored) {
   ui::AXTreeUpdate update;
   test::SetUpdateTreeID(&update, tree_id_);
   ui::AXNodeData static_text_node = test::TextNode(/* id = */ 2);
@@ -161,19 +314,14 @@ TEST_F(ReadAnythingAppModelTest, IsNodeIgnoredForReadAnything) {
   ui::AXNodeData button_node;
   button_node.id = 4;
   button_node.role = ax::mojom::Role::kButton;
-  update.nodes = {static_text_node, combobox_node, button_node};
+  update.nodes = {std::move(static_text_node), std::move(combobox_node),
+                  std::move(button_node)};
 
-  AccessibilityEventReceived({update});
-  EXPECT_EQ(false, a11y::IsNodeIgnoredForReadAnything(model().GetAXNode(2),
-                                                      model().is_pdf()));
-  EXPECT_EQ(true, a11y::IsNodeIgnoredForReadAnything(model().GetAXNode(3),
-                                                     model().is_pdf()));
-  EXPECT_EQ(true, a11y::IsNodeIgnoredForReadAnything(model().GetAXNode(4),
-                                                     model().is_pdf()));
+  AccessibilityEventReceived({std::move(update)});
+  EXPECT_THAT(GetNotIgnoredIds({{2, 3, 4}}), UnorderedElementsAre(2));
 }
 
-TEST_F(ReadAnythingAppModelTest,
-       IsNodeIgnoredForReadAnything_TextFieldsNotIgnored) {
+TEST_F(ReadAnythingAppModelTest, InsertIdIfNotIgnored_TextFieldsNotIgnored) {
   ui::AXTreeUpdate update;
   test::SetUpdateTreeID(&update, tree_id_);
   ui::AXNodeData tree_node;
@@ -187,19 +335,15 @@ TEST_F(ReadAnythingAppModelTest,
   ui::AXNodeData textfield_node;
   textfield_node.id = 4;
   textfield_node.role = ax::mojom::Role::kTextField;
-  update.nodes = {tree_node, textfield_with_combobox_node, textfield_node};
+  update.nodes = {std::move(tree_node), std::move(textfield_with_combobox_node),
+                  std::move(textfield_node)};
 
-  AccessibilityEventReceived({update});
-  EXPECT_EQ(true, a11y::IsNodeIgnoredForReadAnything(model().GetAXNode(2),
-                                                     model().is_pdf()));
-  EXPECT_EQ(false, a11y::IsNodeIgnoredForReadAnything(model().GetAXNode(3),
-                                                      model().is_pdf()));
-  EXPECT_EQ(false, a11y::IsNodeIgnoredForReadAnything(model().GetAXNode(4),
-                                                      model().is_pdf()));
+  AccessibilityEventReceived({std::move(update)});
+  EXPECT_THAT(GetNotIgnoredIds({{2, 3, 4}}), UnorderedElementsAre(3, 4));
 }
 
 TEST_F(ReadAnythingAppModelTest,
-       IsNodeIgnoredForReadAnything_InaccessiblePDFPageNodes) {
+       InsertIdIfNotIgnored_InaccessiblePDFPageNodes) {
   model().set_is_pdf(true);
 
   // PDF OCR output contains kBanner and kContentInfo (each with a static text
@@ -227,100 +371,53 @@ TEST_F(ReadAnythingAppModelTest,
   root.child_ids = {banner_node.id, content_info_node.id};
   root.role = ax::mojom::Role::kPdfRoot;
   update.root_id = root.id;
-  update.nodes = {root, banner_node, static_text_start_node, content_info_node,
-                  static_text_end_node};
+  update.nodes = {std::move(root), std::move(banner_node),
+                  std::move(static_text_start_node),
+                  std::move(content_info_node),
+                  std::move(static_text_end_node)};
 
-  AccessibilityEventReceived({update});
-  EXPECT_EQ(true, a11y::IsNodeIgnoredForReadAnything(model().GetAXNode(2),
-                                                     model().is_pdf()));
-  EXPECT_EQ(true, a11y::IsNodeIgnoredForReadAnything(model().GetAXNode(3),
-                                                     model().is_pdf()));
-  EXPECT_EQ(false, a11y::IsNodeIgnoredForReadAnything(model().GetAXNode(4),
-                                                      model().is_pdf()));
-  EXPECT_EQ(true, a11y::IsNodeIgnoredForReadAnything(model().GetAXNode(5),
-                                                     model().is_pdf()));
-}
-
-TEST_F(ReadAnythingAppModelTest, ModelUpdatesTreeState) {
-  // Set up trees.
-  ui::AXTreeID tree_id_2 = ui::AXTreeID::CreateNewAXTreeID();
-  ui::AXTreeID tree_id_3 = ui::AXTreeID::CreateNewAXTreeID();
-
-  model().AddTree(tree_id_2, std::make_unique<ui::AXSerializableTree>());
-  model().AddTree(tree_id_3, std::make_unique<ui::AXSerializableTree>());
-
-  ASSERT_EQ(3u, model().GetTreesForTesting()->size());
-  ASSERT_TRUE(model().ContainsTree(tree_id_2));
-  ASSERT_TRUE(model().ContainsTree(tree_id_3));
-  ASSERT_TRUE(model().ContainsTree(tree_id_));
-
-  // Remove one tree.
-  model().EraseTreeForTesting(tree_id_2);
-  ASSERT_EQ(2u, model().GetTreesForTesting()->size());
-  ASSERT_TRUE(model().ContainsTree(tree_id_3));
-  ASSERT_FALSE(model().ContainsTree(tree_id_2));
-  ASSERT_TRUE(model().ContainsTree(tree_id_));
-
-  // Remove the second tree.
-  model().EraseTreeForTesting(tree_id_);
-  ASSERT_EQ(1u, model().GetTreesForTesting()->size());
-  ASSERT_TRUE(model().ContainsTree(tree_id_3));
-  ASSERT_FALSE(model().ContainsTree(tree_id_2));
-  ASSERT_FALSE(model().ContainsTree(tree_id_));
-
-  // Remove the last tree.
-  model().EraseTreeForTesting(tree_id_3);
-  ASSERT_EQ(0u, model().GetTreesForTesting()->size());
-  ASSERT_FALSE(model().ContainsTree(tree_id_3));
-  ASSERT_FALSE(model().ContainsTree(tree_id_2));
-  ASSERT_FALSE(model().ContainsTree(tree_id_));
+  AccessibilityEventReceived({std::move(update)});
+  EXPECT_THAT(GetNotIgnoredIds({{2, 3, 4, 5}}), UnorderedElementsAre(4));
 }
 
 TEST_F(ReadAnythingAppModelTest, AddAndRemoveTrees) {
+  // Start with 1 tree (the tree created in SetUp).
+  ASSERT_EQ(1u, model().tree_infos_for_testing().size());
+  ASSERT_TRUE(model().ContainsTree(tree_id_));
+
   // Create two new trees with new tree IDs.
   std::vector<ui::AXTreeID> tree_ids = {ui::AXTreeID::CreateNewAXTreeID(),
                                         ui::AXTreeID::CreateNewAXTreeID()};
-  std::vector<ui::AXTreeUpdate> updates;
-  for (int i = 0; i < 2; i++) {
+  for (size_t i = 0; i < tree_ids.size(); ++i) {
     ui::AXTreeUpdate update;
     test::SetUpdateTreeID(&update, tree_ids[i]);
     ui::AXNodeData node;
     node.id = 1;
-    update.nodes = {node};
     update.root_id = node.id;
-    updates.push_back(update);
+    update.nodes = {std::move(node)};
+    AccessibilityEventReceived({std::move(update)});
+    ASSERT_EQ(i + 2, model().tree_infos_for_testing().size());
+    ASSERT_TRUE(model().ContainsTree(tree_id_));
+    for (size_t j = 0; j <= i; ++j) {
+      ASSERT_TRUE(model().ContainsTree(tree_ids[j]));
+    }
   }
 
-  // Start with 1 tree (the tree created in SetUp).
-  ASSERT_EQ(1u, model().GetTreesForTesting()->size());
-  ASSERT_TRUE(model().ContainsTree(tree_id_));
-
-  // Add the two trees.
-  AccessibilityEventReceived({updates[0]});
-  ASSERT_EQ(2u, model().GetTreesForTesting()->size());
-  ASSERT_TRUE(model().ContainsTree(tree_id_));
-  ASSERT_TRUE(model().ContainsTree(tree_ids[0]));
-  AccessibilityEventReceived({updates[1]});
-  ASSERT_EQ(3u, model().GetTreesForTesting()->size());
-  ASSERT_TRUE(model().ContainsTree(tree_id_));
-  ASSERT_TRUE(model().ContainsTree(tree_ids[0]));
-  ASSERT_TRUE(model().ContainsTree(tree_ids[1]));
-
   // Remove all of the trees.
-  model().EraseTreeForTesting(tree_id_);
-  ASSERT_EQ(2u, model().GetTreesForTesting()->size());
+  model().OnAXTreeDestroyed(tree_id_);
+  ASSERT_EQ(2u, model().tree_infos_for_testing().size());
   ASSERT_TRUE(model().ContainsTree(tree_ids[0]));
   ASSERT_TRUE(model().ContainsTree(tree_ids[1]));
-  model().EraseTreeForTesting(tree_ids[0]);
-  ASSERT_EQ(1u, model().GetTreesForTesting()->size());
+  model().OnAXTreeDestroyed(tree_ids[0]);
+  ASSERT_EQ(1u, model().tree_infos_for_testing().size());
   ASSERT_TRUE(model().ContainsTree(tree_ids[1]));
-  model().EraseTreeForTesting(tree_ids[1]);
-  ASSERT_EQ(0u, model().GetTreesForTesting()->size());
+  model().OnAXTreeDestroyed(tree_ids[1]);
+  ASSERT_EQ(0u, model().tree_infos_for_testing().size());
 }
 
 TEST_F(ReadAnythingAppModelTest,
        DistillationInProgress_TreeUpdateReceivedOnInactiveTree) {
-  EXPECT_EQ(0u, model().GetPendingUpdatesForTesting()[tree_id_].size());
+  EXPECT_FALSE(model().pending_updates_for_testing().contains(tree_id_));
 
   // Create a new tree.
   ui::AXTreeID tree_id_2 = ui::AXTreeID::CreateNewAXTreeID();
@@ -329,130 +426,130 @@ TEST_F(ReadAnythingAppModelTest,
   ui::AXNodeData node;
   node.id = 1;
   update_2.root_id = node.id;
-  update_2.nodes = {node};
+  update_2.nodes = {std::move(node)};
 
   // Updates on inactive trees are processed immediately and are not marked as
   // pending.
-  AccessibilityEventReceived({update_2});
-  EXPECT_EQ(0u, model().GetPendingUpdatesForTesting()[tree_id_].size());
+  AccessibilityEventReceived({std::move(update_2)});
+  EXPECT_FALSE(model().pending_updates_for_testing().contains(tree_id_));
 }
 
 TEST_F(ReadAnythingAppModelTest,
        AddPendingUpdatesAfterUnserializingOnSameTree_DoesNotCrash) {
   std::vector<int> child_ids = SendSimpleUpdateAndGetChildIds();
-  std::vector<ui::AXTreeUpdate> updates =
+  ReadAnythingAppModel::Updates updates =
       test::CreateSimpleUpdateList(child_ids, tree_id_);
 
   // Send update 0, which starts distillation.
-  AccessibilityEventReceived({updates[0]});
-  EXPECT_EQ(0u, model().GetPendingUpdatesForTesting()[tree_id_].size());
+  AccessibilityEventReceived({std::move(updates[0])});
+  EXPECT_FALSE(model().pending_updates_for_testing().contains(tree_id_));
   ASSERT_TRUE(AreAllPendingUpdatesEmpty());
 
   // Send update 1. Since distillation is in progress, this will not be
   // unserialized yet.
   model().set_distillation_in_progress(true);
-  AccessibilityEventReceived({updates[1]});
-  EXPECT_EQ(1u, model().GetPendingUpdatesForTesting()[tree_id_].size());
+  AccessibilityEventReceived({std::move(updates[1])});
+  EXPECT_EQ(1u, model().pending_updates_for_testing().at(tree_id_).size());
 
   // Ensure that there are no crashes after an accessibility event is received
   // immediately after unserializing.
   model().UnserializePendingUpdates(tree_id_);
   model().set_distillation_in_progress(true);
-  AccessibilityEventReceived({updates[2]});
-  EXPECT_EQ(1u, model().GetPendingUpdatesForTesting()[tree_id_].size());
+  AccessibilityEventReceived({std::move(updates[2])});
+  EXPECT_EQ(1u, model().pending_updates_for_testing().at(tree_id_).size());
   ASSERT_FALSE(AreAllPendingUpdatesEmpty());
 }
 
 TEST_F(ReadAnythingAppModelTest, OnTreeErased_ClearsPendingUpdates) {
   std::vector<int> child_ids = SendSimpleUpdateAndGetChildIds();
-  std::vector<ui::AXTreeUpdate> updates =
+  ReadAnythingAppModel::Updates updates =
       test::CreateSimpleUpdateList(child_ids, tree_id_);
 
   // Send update 0, which starts distillation.
-  AccessibilityEventReceived({updates[0]});
-  EXPECT_EQ(0u, model().GetPendingUpdatesForTesting()[tree_id_].size());
+  AccessibilityEventReceived({std::move(updates[0])});
+  EXPECT_FALSE(model().pending_updates_for_testing().contains(tree_id_));
   ASSERT_TRUE(AreAllPendingUpdatesEmpty());
 
   // Send update 1. Since distillation is in progress, this will not be
   // unserialized yet.
   model().set_distillation_in_progress(true);
-  AccessibilityEventReceived({updates[1]});
-  EXPECT_EQ(1u, model().GetPendingUpdatesForTesting()[tree_id_].size());
+  AccessibilityEventReceived({std::move(updates[1])});
+  EXPECT_EQ(1u, model().pending_updates_for_testing().at(tree_id_).size());
 
   // Destroy the tree.
-  model().EraseTreeForTesting(tree_id_);
-  EXPECT_EQ(0u, model().GetPendingUpdatesForTesting()[tree_id_].size());
+  model().OnAXTreeDestroyed(tree_id_);
+  EXPECT_FALSE(model().pending_updates_for_testing().contains(tree_id_));
 }
 
 TEST_F(ReadAnythingAppModelTest,
        DistillationInProgress_TreeUpdateReceivedOnActiveTree) {
   std::vector<int> child_ids = SendSimpleUpdateAndGetChildIds();
-  std::vector<ui::AXTreeUpdate> updates =
+  ReadAnythingAppModel::Updates updates =
       test::CreateSimpleUpdateList(child_ids, tree_id_);
 
   // Send update 0, which starts distillation.
-  AccessibilityEventReceived({updates[0]});
-  EXPECT_EQ(0u, model().GetPendingUpdatesForTesting()[tree_id_].size());
+  AccessibilityEventReceived({std::move(updates[0])});
+  EXPECT_FALSE(model().pending_updates_for_testing().contains(tree_id_));
   ASSERT_TRUE(AreAllPendingUpdatesEmpty());
 
   // Send update 1. Since distillation is in progress, this will not be
   // unserialized yet.
   model().set_distillation_in_progress(true);
-  AccessibilityEventReceived({updates[1]});
-  EXPECT_EQ(1u, model().GetPendingUpdatesForTesting()[tree_id_].size());
+  AccessibilityEventReceived({std::move(updates[1])});
+  EXPECT_EQ(1u, model().pending_updates_for_testing().at(tree_id_).size());
 
   // Send update 2. This is still not unserialized yet.
-  AccessibilityEventReceived({updates[2]});
-  EXPECT_EQ(2u, model().GetPendingUpdatesForTesting()[tree_id_].size());
+  AccessibilityEventReceived({std::move(updates[2])});
+  EXPECT_EQ(2u, model().pending_updates_for_testing().at(tree_id_).size());
 
   // Complete distillation which unserializes the pending updates and distills
   // them.
   model().UnserializePendingUpdates(tree_id_);
-  EXPECT_EQ(0u, model().GetPendingUpdatesForTesting()[tree_id_].size());
+  EXPECT_FALSE(model().pending_updates_for_testing().contains(tree_id_));
   ASSERT_TRUE(AreAllPendingUpdatesEmpty());
 }
 
 TEST_F(ReadAnythingAppModelTest, SpeechPlaying_TreeUpdateReceivedOnActiveTree) {
   std::vector<int> child_ids = SendSimpleUpdateAndGetChildIds();
-  std::vector<ui::AXTreeUpdate> updates =
+  ReadAnythingAppModel::Updates updates =
       test::CreateSimpleUpdateList(child_ids, tree_id_);
 
   // Send update 0, which starts distillation.
-  AccessibilityEventReceived({updates[0]});
-  EXPECT_EQ(0u, model().GetPendingUpdatesForTesting()[tree_id_].size());
+  AccessibilityEventReceived({std::move(updates[0])});
+  EXPECT_FALSE(model().pending_updates_for_testing().contains(tree_id_));
   ASSERT_TRUE(AreAllPendingUpdatesEmpty());
 
   // Send update 1. Since speech is in progress, this will not be
   // unserialized yet.
-  AccessibilityEventReceived({updates[1]}, /*speech_playing=*/true);
-  EXPECT_EQ(1u, model().GetPendingUpdatesForTesting()[tree_id_].size());
+  AccessibilityEventReceived({std::move(updates[1])}, /*speech_playing=*/true);
+  EXPECT_EQ(1u, model().pending_updates_for_testing().at(tree_id_).size());
 
   // Send update 2. This is still not unserialized yet.
-  AccessibilityEventReceived({updates[2]}, /*speech_playing=*/true);
-  EXPECT_EQ(2u, model().GetPendingUpdatesForTesting()[tree_id_].size());
+  AccessibilityEventReceived({std::move(updates[2])}, /*speech_playing=*/true);
+  EXPECT_EQ(2u, model().pending_updates_for_testing().at(tree_id_).size());
 
   // Complete distillation which unserializes the pending updates and distills
   // them.
   model().UnserializePendingUpdates(tree_id_);
-  EXPECT_EQ(0u, model().GetPendingUpdatesForTesting()[tree_id_].size());
+  EXPECT_FALSE(model().pending_updates_for_testing().contains(tree_id_));
   ASSERT_TRUE(AreAllPendingUpdatesEmpty());
 }
 
 TEST_F(ReadAnythingAppModelTest, ClearPendingUpdates_DeletesPendingUpdates) {
-  EXPECT_EQ(0u, model().GetPendingUpdatesForTesting()[tree_id_].size());
+  EXPECT_FALSE(model().pending_updates_for_testing().contains(tree_id_));
 
   // Create a couple of updates which add additional nodes to the tree.
   std::vector<int> child_ids = {2, 3, 4};
-  std::vector<ui::AXTreeUpdate> updates =
+  ReadAnythingAppModel::Updates updates =
       test::CreateSimpleUpdateList(child_ids, tree_id_);
 
-  AccessibilityEventReceived({updates[0]});
-  EXPECT_EQ(0u, model().GetPendingUpdatesForTesting()[tree_id_].size());
+  AccessibilityEventReceived({std::move(updates[0])});
+  EXPECT_FALSE(model().pending_updates_for_testing().contains(tree_id_));
   model().set_distillation_in_progress(true);
-  AccessibilityEventReceived({updates[1]});
-  EXPECT_EQ(1u, model().GetPendingUpdatesForTesting()[tree_id_].size());
-  AccessibilityEventReceived({updates[2]});
-  EXPECT_EQ(2u, model().GetPendingUpdatesForTesting()[tree_id_].size());
+  AccessibilityEventReceived({std::move(updates[1])});
+  EXPECT_EQ(1u, model().pending_updates_for_testing().at(tree_id_).size());
+  AccessibilityEventReceived({std::move(updates[2])});
+  EXPECT_EQ(2u, model().pending_updates_for_testing().at(tree_id_).size());
 
   // Clearing the pending updates correctly deletes the pending updates.
   model().ClearPendingUpdates();
@@ -460,27 +557,30 @@ TEST_F(ReadAnythingAppModelTest, ClearPendingUpdates_DeletesPendingUpdates) {
 }
 
 TEST_F(ReadAnythingAppModelTest, ChangeActiveTreeWithPendingUpdates_UnknownID) {
-  EXPECT_EQ(0u, model().GetPendingUpdatesForTesting()[tree_id_].size());
+  EXPECT_FALSE(model().pending_updates_for_testing().contains(tree_id_));
   ASSERT_TRUE(AreAllPendingUpdatesEmpty());
 
   // Create a couple of updates which add additional nodes to the tree.
   std::vector<int> child_ids = {2, 3, 4};
-  std::vector<ui::AXTreeUpdate> updates =
+  ReadAnythingAppModel::Updates updates =
       test::CreateSimpleUpdateList(child_ids, tree_id_);
+  const size_t num_pending_updates = updates.size();
 
   // Create an update which has no tree id.
   ui::AXTreeUpdate update;
   ui::AXNodeData node = test::GenericContainerNode(/* id= */ 1);
-  update.nodes = {node};
-  updates.push_back(update);
+  update.nodes = {std::move(node)};
+  updates.push_back(std::move(update));
 
-  // Add the three updates.
-  AccessibilityEventReceived({updates[0]});
-  EXPECT_EQ(0u, model().GetPendingUpdatesForTesting()[tree_id_].size());
+  // Add the updates.
+  AccessibilityEventReceived({std::move(updates[0])});
+  updates.erase(updates.begin());
+  EXPECT_FALSE(model().pending_updates_for_testing().contains(tree_id_));
   ASSERT_TRUE(AreAllPendingUpdatesEmpty());
   model().set_distillation_in_progress(true);
-  AccessibilityEventReceived(tree_id_, {updates[1], updates[2]});
-  EXPECT_EQ(2u, model().GetPendingUpdatesForTesting()[tree_id_].size());
+  AccessibilityEventReceived(std::move(updates));
+  EXPECT_EQ(num_pending_updates,
+            model().pending_updates_for_testing().at(tree_id_).size());
 
   // Switch to a new active tree. Should not crash.
   model().SetActiveTreeId(ui::AXTreeIDUnknown());
@@ -498,11 +598,11 @@ TEST_F(ReadAnythingAppModelTest, DisplayNodeIdsContains_ContentNodes) {
   ui::AXNodeData parent_node;
   parent_node.id = 4;
   parent_node.child_ids = {node1.id, node2.id};
-  update.nodes = {parent_node, node1, node2};
+  update.nodes = {std::move(parent_node), std::move(node1), std::move(node2)};
 
   // This update changes the structure of the tree. When the controller receives
   // it in AccessibilityEventReceived, it will re-distill the tree.
-  AccessibilityEventReceived({update});
+  AccessibilityEventReceived({std::move(update)});
   ProcessDisplayNodes({3, 4});
   EXPECT_TRUE(base::Contains(model().display_node_ids(), 1));
   EXPECT_FALSE(base::Contains(model().display_node_ids(), 2));
@@ -522,7 +622,7 @@ TEST_F(ReadAnythingAppModelTest,
   update.nodes[1].AddState(ax::mojom::State::kInvisible);
   update.nodes[2].id = 4;
   update.nodes[2].AddState(ax::mojom::State::kIgnored);
-  AccessibilityEventReceived({update});
+  AccessibilityEventReceived({std::move(update)});
   ProcessDisplayNodes({2, 3, 4});
   EXPECT_TRUE(base::Contains(model().display_node_ids(), 1));
   EXPECT_TRUE(base::Contains(model().display_node_ids(), 2));
@@ -570,7 +670,7 @@ TEST_F(ReadAnythingAppModelTest,
   update.nodes[2].child_ids = {4};
   update.nodes[3].id = 4;
   update.nodes[3].role = ax::mojom::Role::kInlineTextBox;
-  AccessibilityEventReceived({update});
+  AccessibilityEventReceived({std::move(update)});
   ProcessDisplayNodes({4});
   EXPECT_TRUE(model().display_node_ids().empty());
 }
@@ -585,7 +685,7 @@ TEST_F(ReadAnythingAppModelTest,
   update.tree_data.sel_focus_offset = 0;
   update.tree_data.sel_is_backward = false;
 
-  AccessibilityEventReceived({update});
+  AccessibilityEventReceived({std::move(update)});
   model().PostProcessSelection();
   EXPECT_TRUE(base::Contains(model().selection_node_ids(), 1));
   EXPECT_TRUE(base::Contains(model().selection_node_ids(), 2));
@@ -602,7 +702,7 @@ TEST_F(ReadAnythingAppModelTest,
   update.tree_data.sel_anchor_offset = 0;
   update.tree_data.sel_focus_offset = 0;
   update.tree_data.sel_is_backward = true;
-  AccessibilityEventReceived({update});
+  AccessibilityEventReceived({std::move(update)});
   model().PostProcessSelection();
   EXPECT_TRUE(base::Contains(model().selection_node_ids(), 1));
   EXPECT_TRUE(base::Contains(model().selection_node_ids(), 2));
@@ -626,7 +726,7 @@ TEST_F(ReadAnythingAppModelTest,
   update.tree_data.sel_focus_offset = 0;
   update.tree_data.sel_is_backward = false;
 
-  AccessibilityEventReceived({update});
+  AccessibilityEventReceived({std::move(update)});
   model().PostProcessSelection();
   EXPECT_FALSE(base::Contains(model().display_node_ids(), 1));
   EXPECT_FALSE(base::Contains(model().selection_node_ids(), 2));
@@ -647,9 +747,9 @@ TEST_F(ReadAnythingAppModelTest, Reset_ResetsState) {
   ui::AXNodeData root;
   root.id = 4;
   root.child_ids = {node1.id, node2.id};
-  update.nodes = {root, node1, node2};
+  update.nodes = {std::move(root), std::move(node1), std::move(node2)};
 
-  AccessibilityEventReceived({update});
+  AccessibilityEventReceived({std::move(update)});
   ProcessDisplayNodes({3, 4});
   model().set_distillation_in_progress(true);
 
@@ -694,7 +794,7 @@ TEST_F(ReadAnythingAppModelTest, Reset_ResetsSelectionState) {
   update.tree_data.sel_anchor_offset = 0;
   update.tree_data.sel_focus_offset = 0;
   update.tree_data.sel_is_backward = true;
-  AccessibilityEventReceived({update});
+  AccessibilityEventReceived({std::move(update)});
   model().PostProcessSelection();
 
   // Assert initial selection state.
@@ -735,7 +835,7 @@ TEST_F(ReadAnythingAppModelTest, PostProcessSelection_SelectionStateCorrect) {
   update.tree_data.sel_anchor_offset = 0;
   update.tree_data.sel_focus_offset = 0;
   update.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update});
+  AccessibilityEventReceived({std::move(update)});
   model().set_requires_post_process_selection(true);
   model().PostProcessSelection();
 
@@ -762,7 +862,7 @@ TEST_F(ReadAnythingAppModelTest, PostProcessSelectionFromAction_DoesNotDraw) {
   update.tree_data.sel_anchor_offset = 0;
   update.tree_data.sel_focus_offset = 0;
   update.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update});
+  AccessibilityEventReceived({std::move(update)});
   ProcessDisplayNodes({2, 3});
   model().set_selection_from_action(true);
 
@@ -780,7 +880,7 @@ TEST_F(
   update.tree_data.sel_anchor_offset = 0;
   update.tree_data.sel_focus_offset = 5;
   update.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update});
+  AccessibilityEventReceived({std::move(update)});
   model().set_selection_from_action(false);
 
   ASSERT_FALSE(model().PostProcessSelection());
@@ -796,7 +896,7 @@ TEST_F(ReadAnythingAppModelTest,
   update.tree_data.sel_anchor_offset = 5;
   update.tree_data.sel_focus_offset = 5;
   update.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update});
+  AccessibilityEventReceived({std::move(update)});
   model().set_selection_from_action(false);
 
   ASSERT_FALSE(model().PostProcessSelection());
@@ -812,7 +912,7 @@ TEST_F(ReadAnythingAppModelTest,
   update.tree_data.sel_anchor_offset = 0;
   update.tree_data.sel_focus_offset = 5;
   update.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update});
+  AccessibilityEventReceived({std::move(update)});
   model().set_selection_from_action(false);
 
   ASSERT_TRUE(model().PostProcessSelection());
@@ -829,7 +929,7 @@ TEST_F(
   update.tree_data.sel_anchor_offset = 0;
   update.tree_data.sel_focus_offset = 0;
   update.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update});
+  AccessibilityEventReceived({std::move(update)});
   model().set_selection_from_action(false);
 
   ASSERT_FALSE(model().PostProcessSelection());
@@ -847,7 +947,7 @@ TEST_F(ReadAnythingAppModelTest,
   update1.tree_data.sel_anchor_offset = 0;
   update1.tree_data.sel_focus_offset = 5;
   update1.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update1});
+  AccessibilityEventReceived({std::move(update1)});
   model().set_selection_from_action(false);
   model().PostProcessSelection();
 
@@ -859,7 +959,7 @@ TEST_F(ReadAnythingAppModelTest,
   update2.tree_data.sel_anchor_offset = 2;
   update2.tree_data.sel_focus_offset = 2;
   update2.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update2});
+  AccessibilityEventReceived({std::move(update2)});
   model().set_selection_from_action(false);
 
   ASSERT_FALSE(model().PostProcessSelection());
@@ -877,7 +977,7 @@ TEST_F(ReadAnythingAppModelTest,
   update1.tree_data.sel_anchor_offset = 0;
   update1.tree_data.sel_focus_offset = 0;
   update1.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update1});
+  AccessibilityEventReceived({std::move(update1)});
   model().set_selection_from_action(false);
   model().PostProcessSelection();
 
@@ -889,7 +989,7 @@ TEST_F(ReadAnythingAppModelTest,
   update2.tree_data.sel_anchor_offset = 2;
   update2.tree_data.sel_focus_offset = 2;
   update2.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update2});
+  AccessibilityEventReceived({std::move(update2)});
   model().set_selection_from_action(false);
 
   ASSERT_FALSE(model().PostProcessSelection());
@@ -907,7 +1007,7 @@ TEST_F(ReadAnythingAppModelTest,
   update1.tree_data.sel_anchor_offset = 2;
   update1.tree_data.sel_focus_offset = 2;
   update1.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update1});
+  AccessibilityEventReceived({std::move(update1)});
   model().set_selection_from_action(false);
   model().PostProcessSelection();
 
@@ -919,7 +1019,7 @@ TEST_F(ReadAnythingAppModelTest,
   update2.tree_data.sel_anchor_offset = 0;
   update2.tree_data.sel_focus_offset = 5;
   update2.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update2});
+  AccessibilityEventReceived({std::move(update2)});
   model().set_selection_from_action(false);
 
   ASSERT_FALSE(model().PostProcessSelection());
@@ -937,7 +1037,7 @@ TEST_F(ReadAnythingAppModelTest,
   update1.tree_data.sel_anchor_offset = 2;
   update1.tree_data.sel_focus_offset = 6;
   update1.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update1});
+  AccessibilityEventReceived({std::move(update1)});
   model().set_selection_from_action(false);
   model().PostProcessSelection();
 
@@ -949,7 +1049,7 @@ TEST_F(ReadAnythingAppModelTest,
   update2.tree_data.sel_anchor_offset = 0;
   update2.tree_data.sel_focus_offset = 5;
   update2.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update2});
+  AccessibilityEventReceived({std::move(update2)});
   model().set_selection_from_action(false);
 
   ASSERT_FALSE(model().PostProcessSelection());
@@ -967,7 +1067,7 @@ TEST_F(ReadAnythingAppModelTest,
   update1.tree_data.sel_anchor_offset = 0;
   update1.tree_data.sel_focus_offset = 5;
   update1.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update1});
+  AccessibilityEventReceived({std::move(update1)});
   model().set_selection_from_action(false);
   model().PostProcessSelection();
 
@@ -979,7 +1079,7 @@ TEST_F(ReadAnythingAppModelTest,
   update2.tree_data.sel_anchor_offset = 2;
   update2.tree_data.sel_focus_offset = 2;
   update2.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update2});
+  AccessibilityEventReceived({std::move(update2)});
   model().set_selection_from_action(false);
 
   ASSERT_TRUE(model().PostProcessSelection());
@@ -997,7 +1097,7 @@ TEST_F(ReadAnythingAppModelTest,
   update1.tree_data.sel_anchor_offset = 0;
   update1.tree_data.sel_focus_offset = 0;
   update1.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update1});
+  AccessibilityEventReceived({std::move(update1)});
   model().set_selection_from_action(false);
   model().PostProcessSelection();
 
@@ -1009,7 +1109,7 @@ TEST_F(ReadAnythingAppModelTest,
   update2.tree_data.sel_anchor_offset = 2;
   update2.tree_data.sel_focus_offset = 2;
   update2.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update2});
+  AccessibilityEventReceived({std::move(update2)});
   model().set_selection_from_action(false);
 
   ASSERT_FALSE(model().PostProcessSelection());
@@ -1027,7 +1127,7 @@ TEST_F(ReadAnythingAppModelTest,
   update1.tree_data.sel_anchor_offset = 2;
   update1.tree_data.sel_focus_offset = 2;
   update1.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update1});
+  AccessibilityEventReceived({std::move(update1)});
   model().set_selection_from_action(false);
   model().PostProcessSelection();
 
@@ -1039,7 +1139,7 @@ TEST_F(ReadAnythingAppModelTest,
   update2.tree_data.sel_anchor_offset = 0;
   update2.tree_data.sel_focus_offset = 5;
   update2.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update2});
+  AccessibilityEventReceived({std::move(update2)});
   model().set_selection_from_action(false);
 
   ASSERT_TRUE(model().PostProcessSelection());
@@ -1057,7 +1157,7 @@ TEST_F(ReadAnythingAppModelTest,
   update1.tree_data.sel_anchor_offset = 2;
   update1.tree_data.sel_focus_offset = 6;
   update1.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update1});
+  AccessibilityEventReceived({std::move(update1)});
   model().set_selection_from_action(false);
   model().PostProcessSelection();
 
@@ -1069,7 +1169,7 @@ TEST_F(ReadAnythingAppModelTest,
   update2.tree_data.sel_anchor_offset = 0;
   update2.tree_data.sel_focus_offset = 5;
   update2.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update2});
+  AccessibilityEventReceived({std::move(update2)});
   model().set_selection_from_action(false);
 
   ASSERT_TRUE(model().PostProcessSelection());
@@ -1087,7 +1187,7 @@ TEST_F(ReadAnythingAppModelTest,
   update1.tree_data.sel_anchor_offset = 0;
   update1.tree_data.sel_focus_offset = 5;
   update1.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update1});
+  AccessibilityEventReceived({std::move(update1)});
   model().set_selection_from_action(false);
   model().PostProcessSelection();
 
@@ -1099,7 +1199,7 @@ TEST_F(ReadAnythingAppModelTest,
   update2.tree_data.sel_anchor_offset = 2;
   update2.tree_data.sel_focus_offset = 2;
   update2.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update2});
+  AccessibilityEventReceived({std::move(update2)});
   model().set_selection_from_action(false);
 
   ASSERT_TRUE(model().PostProcessSelection());
@@ -1117,7 +1217,7 @@ TEST_F(ReadAnythingAppModelTest,
   update1.tree_data.sel_anchor_offset = 0;
   update1.tree_data.sel_focus_offset = 0;
   update1.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update1});
+  AccessibilityEventReceived({std::move(update1)});
   model().set_selection_from_action(false);
   model().PostProcessSelection();
 
@@ -1129,7 +1229,7 @@ TEST_F(ReadAnythingAppModelTest,
   update2.tree_data.sel_anchor_offset = 2;
   update2.tree_data.sel_focus_offset = 2;
   update2.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update2});
+  AccessibilityEventReceived({std::move(update2)});
   model().set_selection_from_action(false);
 
   ASSERT_FALSE(model().PostProcessSelection());
@@ -1147,7 +1247,7 @@ TEST_F(ReadAnythingAppModelTest,
   update1.tree_data.sel_anchor_offset = 2;
   update1.tree_data.sel_focus_offset = 2;
   update1.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update1});
+  AccessibilityEventReceived({std::move(update1)});
   model().set_selection_from_action(false);
   model().PostProcessSelection();
 
@@ -1159,7 +1259,7 @@ TEST_F(ReadAnythingAppModelTest,
   update2.tree_data.sel_anchor_offset = 0;
   update2.tree_data.sel_focus_offset = 5;
   update2.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update2});
+  AccessibilityEventReceived({std::move(update2)});
   model().set_selection_from_action(false);
 
   ASSERT_FALSE(model().PostProcessSelection());
@@ -1177,7 +1277,7 @@ TEST_F(ReadAnythingAppModelTest,
   update1.tree_data.sel_anchor_offset = 2;
   update1.tree_data.sel_focus_offset = 6;
   update1.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update1});
+  AccessibilityEventReceived({std::move(update1)});
   model().set_selection_from_action(false);
   model().PostProcessSelection();
 
@@ -1189,7 +1289,7 @@ TEST_F(ReadAnythingAppModelTest,
   update2.tree_data.sel_anchor_offset = 0;
   update2.tree_data.sel_focus_offset = 5;
   update2.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update2});
+  AccessibilityEventReceived({std::move(update2)});
   model().set_selection_from_action(false);
 
   ASSERT_TRUE(model().PostProcessSelection());
@@ -1207,7 +1307,7 @@ TEST_F(ReadAnythingAppModelTest,
   update1.tree_data.sel_anchor_offset = 0;
   update1.tree_data.sel_focus_offset = 5;
   update1.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update1});
+  AccessibilityEventReceived({std::move(update1)});
   model().set_selection_from_action(false);
   model().PostProcessSelection();
 
@@ -1219,7 +1319,7 @@ TEST_F(ReadAnythingAppModelTest,
   update2.tree_data.sel_anchor_offset = 2;
   update2.tree_data.sel_focus_offset = 2;
   update2.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update2});
+  AccessibilityEventReceived({std::move(update2)});
   model().set_selection_from_action(false);
 
   ASSERT_FALSE(model().PostProcessSelection());
@@ -1237,7 +1337,7 @@ TEST_F(ReadAnythingAppModelTest,
   update1.tree_data.sel_anchor_offset = 0;
   update1.tree_data.sel_focus_offset = 0;
   update1.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update1});
+  AccessibilityEventReceived({std::move(update1)});
   model().set_selection_from_action(false);
   model().PostProcessSelection();
 
@@ -1249,7 +1349,7 @@ TEST_F(ReadAnythingAppModelTest,
   update2.tree_data.sel_anchor_offset = 2;
   update2.tree_data.sel_focus_offset = 2;
   update2.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update2});
+  AccessibilityEventReceived({std::move(update2)});
   model().set_selection_from_action(false);
 
   ASSERT_FALSE(model().PostProcessSelection());
@@ -1267,7 +1367,7 @@ TEST_F(ReadAnythingAppModelTest,
   update1.tree_data.sel_anchor_offset = 2;
   update1.tree_data.sel_focus_offset = 2;
   update1.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update1});
+  AccessibilityEventReceived({std::move(update1)});
   model().set_selection_from_action(false);
   model().PostProcessSelection();
 
@@ -1279,7 +1379,7 @@ TEST_F(ReadAnythingAppModelTest,
   update2.tree_data.sel_anchor_offset = 0;
   update2.tree_data.sel_focus_offset = 5;
   update2.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update2});
+  AccessibilityEventReceived({std::move(update2)});
   model().set_selection_from_action(false);
 
   ASSERT_TRUE(model().PostProcessSelection());
@@ -1297,7 +1397,7 @@ TEST_F(ReadAnythingAppModelTest,
   update1.tree_data.sel_anchor_offset = 2;
   update1.tree_data.sel_focus_offset = 6;
   update1.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update1});
+  AccessibilityEventReceived({std::move(update1)});
   model().set_selection_from_action(false);
   model().PostProcessSelection();
 
@@ -1309,7 +1409,7 @@ TEST_F(ReadAnythingAppModelTest,
   update2.tree_data.sel_anchor_offset = 0;
   update2.tree_data.sel_focus_offset = 5;
   update2.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update2});
+  AccessibilityEventReceived({std::move(update2)});
   model().set_selection_from_action(false);
 
   ASSERT_TRUE(model().PostProcessSelection());
@@ -1332,12 +1432,12 @@ TEST_F(ReadAnythingAppModelTest,
                            generic_container_node.id};
   generic_container_node.child_ids = {static_text_child_node1.id,
                                       static_text_child_node2.id};
-  update.nodes = {parent_node,
-                  static_text_node1,
-                  static_text_node2,
-                  generic_container_node,
-                  static_text_child_node1,
-                  static_text_child_node2};
+  update.nodes = {std::move(parent_node),
+                  std::move(static_text_node1),
+                  std::move(static_text_node2),
+                  std::move(generic_container_node),
+                  std::move(static_text_child_node1),
+                  std::move(static_text_child_node2)};
 
   AccessibilityEventReceived({update});
 
@@ -1346,7 +1446,7 @@ TEST_F(ReadAnythingAppModelTest,
   update.tree_data.sel_anchor_offset = 0;
   update.tree_data.sel_focus_offset = 0;
   update.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update});
+  AccessibilityEventReceived({std::move(update)});
   model().PostProcessSelection();
 
   ASSERT_TRUE(model().has_selection());
@@ -1386,7 +1486,8 @@ TEST_F(ReadAnythingAppModelTest,
 
   ui::AXNodeData root = test::TextNode(/* id= */ 1);
   root.child_ids = {static_text_node.id, link_node.id};
-  update.nodes = {root, static_text_node, link_node, inline_block_node};
+  update.nodes = {std::move(root), std::move(static_text_node),
+                  std::move(link_node), std::move(inline_block_node)};
 
   AccessibilityEventReceived({update});
 
@@ -1395,7 +1496,7 @@ TEST_F(ReadAnythingAppModelTest,
   update.tree_data.sel_anchor_offset = 0;
   update.tree_data.sel_focus_offset = 1;
   update.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update});
+  AccessibilityEventReceived({std::move(update)});
   model().PostProcessSelection();
 
   ASSERT_TRUE(model().has_selection());
@@ -1427,8 +1528,8 @@ TEST_F(ReadAnythingAppModelTest,
 
   ui::AXNodeData parent_node = test::TextNode(/* id= */ 1);
   parent_node.child_ids = {static_text_node.id, link_node.id};
-  update.nodes = {parent_node, static_text_node, link_node,
-                  static_text_list_node};
+  update.nodes = {std::move(parent_node), std::move(static_text_node),
+                  std::move(link_node), std::move(static_text_list_node)};
 
   AccessibilityEventReceived({update});
 
@@ -1437,7 +1538,7 @@ TEST_F(ReadAnythingAppModelTest,
   update.tree_data.sel_anchor_offset = 0;
   update.tree_data.sel_focus_offset = 1;
   update.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update});
+  AccessibilityEventReceived({std::move(update)});
   model().PostProcessSelection();
 
   ASSERT_TRUE(model().has_selection());
@@ -1467,8 +1568,8 @@ TEST_F(ReadAnythingAppModelTest,
 
   ui::AXNodeData parent_node = test::TextNode(/* id= */ 1);
   parent_node.child_ids = {static_text_node.id, generic_container_node.id};
-  update.nodes = {parent_node, static_text_node, generic_container_node,
-                  inline_node};
+  update.nodes = {std::move(parent_node), std::move(static_text_node),
+                  std::move(generic_container_node), std::move(inline_node)};
 
   AccessibilityEventReceived({update});
 
@@ -1477,7 +1578,7 @@ TEST_F(ReadAnythingAppModelTest,
   update.tree_data.sel_anchor_offset = 0;
   update.tree_data.sel_focus_offset = 1;
   update.tree_data.sel_is_backward = true;
-  AccessibilityEventReceived({update});
+  AccessibilityEventReceived({std::move(update)});
   model().PostProcessSelection();
 
   ASSERT_TRUE(model().has_selection());
@@ -1505,8 +1606,10 @@ TEST_F(
 
   ui::AXNodeData parent_node = test::TextNode(/* id= */ 1);
   parent_node.child_ids = {static_text_node.id, generic_container_node.id};
-  update.nodes = {parent_node, static_text_node, generic_container_node,
-                  static_text_child_node1, static_text_child_node2};
+  update.nodes = {std::move(parent_node), std::move(static_text_node),
+                  std::move(generic_container_node),
+                  std::move(static_text_child_node1),
+                  std::move(static_text_child_node2)};
 
   AccessibilityEventReceived({update});
 
@@ -1515,7 +1618,7 @@ TEST_F(
   update.tree_data.sel_anchor_offset = 0;
   update.tree_data.sel_focus_offset = 0;
   update.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update});
+  AccessibilityEventReceived({std::move(update)});
   model().PostProcessSelection();
 
   ASSERT_TRUE(model().has_selection());
@@ -1549,7 +1652,7 @@ TEST_F(ReadAnythingAppModelTest, ResetTextSize_ReturnsTextSizeToDefault) {
   EXPECT_EQ(model().font_size(), default_font_size);
 }
 
-TEST_F(ReadAnythingAppModelTest, LanguageCode_ReturnsCorrectCode) {
+TEST_F(ReadAnythingAppModelTest, BaseLanguageCode_ReturnsCorrectCode) {
   ASSERT_EQ(model().base_language_code(), "en");
 
   model().SetBaseLanguageCode("es");
@@ -1571,7 +1674,7 @@ TEST_F(ReadAnythingAppModelTest,
 }
 
 TEST_F(ReadAnythingAppModelTest,
-       SupportedFonts_SetLanguageCode_ReturnsExpectedDefaultFonts) {
+       SupportedFonts_SetBaseLanguageCode_ReturnsExpectedDefaultFonts) {
   // Spanish
   model().SetBaseLanguageCode("es");
   EXPECT_THAT(model().supported_fonts(),
@@ -1605,8 +1708,8 @@ TEST_F(ReadAnythingAppModelTest, PdfEvents_SetRequiresDistillation) {
   pdf_root_node.id = 1;
   pdf_root_node.role = ax::mojom::Role::kPdfRoot;
   pdf_root_node.child_ids = {embedded_node.id};
-  initial_update.nodes = {pdf_root_node, embedded_node};
-  AccessibilityEventReceived({initial_update});
+  initial_update.nodes = {std::move(pdf_root_node), std::move(embedded_node)};
+  AccessibilityEventReceived({std::move(initial_update)});
 
   // Update with no new nodes added to the tree.
   ui::AXTreeUpdate update;
@@ -1616,8 +1719,8 @@ TEST_F(ReadAnythingAppModelTest, PdfEvents_SetRequiresDistillation) {
   node.id = 1;
   node.role = ax::mojom::Role::kPdfRoot;
   node.SetNameChecked("example.pdf");
-  update.nodes = {node};
-  AccessibilityEventReceived({update});
+  update.nodes = {std::move(node)};
+  AccessibilityEventReceived({std::move(update)});
   ASSERT_FALSE(model().requires_distillation());
 
   // Tree update with PDF contents (new nodes added).
@@ -1633,9 +1736,11 @@ TEST_F(ReadAnythingAppModelTest, PdfEvents_SetRequiresDistillation) {
 
   ui::AXNodeData static_text_node2 = test::TextNode(/* id= */ 3);
   updated_embedded_node.child_ids = {static_text_node2.id};
-  update2.nodes = {static_text_node1, updated_embedded_node, static_text_node2};
+  update2.nodes = {std::move(static_text_node1),
+                   std::move(updated_embedded_node),
+                   std::move(static_text_node2)};
 
-  AccessibilityEventReceived({update2});
+  AccessibilityEventReceived({std::move(update2)});
   ASSERT_TRUE(model().requires_distillation());
 }
 
@@ -1648,8 +1753,8 @@ TEST_F(ReadAnythingAppModelTest, PdfEvents_DontSetRequiresDistillation) {
   ui::AXNodeData node;
   node.id = 1;
   node.role = ax::mojom::Role::kPdfRoot;
-  initial_update.nodes = {node};
-  AccessibilityEventReceived({initial_update});
+  initial_update.nodes = {std::move(node)};
+  AccessibilityEventReceived({std::move(initial_update)});
 
   // Updates that don't create a new subtree, for example, a role change, should
   // not set requires_distillation_.
@@ -1657,8 +1762,8 @@ TEST_F(ReadAnythingAppModelTest, PdfEvents_DontSetRequiresDistillation) {
   test::SetUpdateTreeID(&update, tree_id_);
   ui::AXNodeData static_text_node = test::TextNode(/* id= */ 1);
   update.root_id = static_text_node.id;
-  update.nodes = {static_text_node};
-  AccessibilityEventReceived({update});
+  update.nodes = {std::move(static_text_node)};
+  AccessibilityEventReceived({std::move(update)});
   ASSERT_FALSE(model().requires_distillation());
 }
 
@@ -1678,8 +1783,8 @@ TEST_F(ReadAnythingAppModelTest, OnSelection_HandlesClickAndDragEvents) {
   // from kUser to kPage. Post process selection should be required in either
   // case.
   // model().set_requires_post_process_selection(false) is needed to
-  // model().Reset the flag to check that model().OnSelection(...) properly sets
-  // (or doesn't set) the flag.
+  // reset the flag to check that model().OnSelection(...) properly sets (or
+  // doesn't set) the flag.
   update.tree_data.sel_anchor_object_id = 2;
   update.tree_data.sel_focus_object_id = 3;
   update.tree_data.sel_anchor_offset = 0;
@@ -1715,36 +1820,110 @@ TEST_F(ReadAnythingAppModelTest, OnSelection_HandlesClickAndDragEvents) {
   update.tree_data.sel_anchor_offset = 1;
   update.tree_data.sel_focus_offset = 0;
   update.tree_data.sel_is_backward = false;
-  AccessibilityEventReceived({update});
+  AccessibilityEventReceived({std::move(update)});
   model().set_requires_post_process_selection(false);
   model().OnSelection(ax::mojom::EventFrom::kPage);
   EXPECT_FALSE(model().requires_post_process_selection());
 }
 
 TEST_F(ReadAnythingAppModelTest, LastExpandedNodeNamedChanged_TriggersRedraw) {
+  DisableReadAloud();
   ui::AXTreeUpdate initial_update;
   test::SetUpdateTreeID(&initial_update, tree_id_);
-  ui::AXNodeData initial_node = test::TextNode(/* id= */ 2, u"Old Name");
-  initial_update.nodes = {initial_node};
-  AccessibilityEventReceived({initial_update});
+  static constexpr int kInitialId = 2;
+  ui::AXNodeData initial_node = test::TextNode(kInitialId, u"Old Name");
+  initial_update.nodes = {std::move(initial_node)};
+  AccessibilityEventReceived({std::move(initial_update)});
 
   ui::AXTreeUpdate update;
   test::SetUpdateTreeID(&update, tree_id_);
-  ui::AXNodeData updated_node = test::TextNode(initial_node.id, u"New Name");
-  update.nodes = {updated_node};
-  model().set_last_expanded_node_id(initial_node.id);
-  EXPECT_EQ(model().last_expanded_node_id(), initial_node.id);
-  AccessibilityEventReceived({update});
+  ui::AXNodeData updated_node = test::TextNode(kInitialId, u"New Name");
+  update.nodes = {std::move(updated_node)};
+  model().set_last_expanded_node_id(kInitialId);
+  EXPECT_EQ(model().last_expanded_node_id(), kInitialId);
+  AccessibilityEventReceived({std::move(update)});
 
   EXPECT_FALSE(model().requires_post_process_selection());
   EXPECT_TRUE(model().redraw_required());
   EXPECT_EQ(model().last_expanded_node_id(), ui::kInvalidAXNodeID);
-  // Check selection model().Reset.
+  // Check selection reset.
   EXPECT_FALSE(model().has_selection());
   EXPECT_EQ(model().start_offset(), -1);
   EXPECT_EQ(model().end_offset(), -1);
   EXPECT_EQ(model().start_node_id(), ui::kInvalidAXNodeID);
   EXPECT_EQ(model().end_node_id(), ui::kInvalidAXNodeID);
+  EXPECT_TRUE(model().selection_node_ids().empty());
+}
+
+TEST_F(ReadAnythingAppModelTest, Expand_NodeDoesNotExist_Redistills) {
+  EnableReadAloud();
+  ui::AXTreeUpdate initial_update;
+  test::SetUpdateTreeID(&initial_update, tree_id_);
+  static constexpr int kInitialId = 2;
+  ui::AXNodeData initial_node = test::GenericContainerNode(kInitialId);
+  initial_update.nodes = {std::move(initial_node)};
+  AccessibilityEventReceived({std::move(initial_update)});
+  model().Reset({kInitialId});
+
+  EXPECT_FALSE(model().requires_distillation());
+  EXPECT_FALSE(model().redraw_required());
+
+  ui::AXTreeUpdate update;
+  test::SetUpdateTreeID(&update, tree_id_);
+  static constexpr int kExpandedId = 4;
+  ui::AXNodeData updated_node = test::GenericContainerNode(kExpandedId);
+  updated_node.AddState(ax::mojom::State::kExpanded);
+  update.nodes = {std::move(updated_node)};
+  AccessibilityEventReceived({std::move(update)});
+
+  EXPECT_TRUE(model().requires_distillation());
+  EXPECT_FALSE(model().redraw_required());
+}
+
+TEST_F(ReadAnythingAppModelTest, Expand_NodeDoesExist_Redraws) {
+  EnableReadAloud();
+  ui::AXTreeUpdate initial_update;
+  test::SetUpdateTreeID(&initial_update, tree_id_);
+  static constexpr int kInitialId = 2;
+  ui::AXNodeData initial_node = test::GenericContainerNode(kInitialId);
+  initial_update.nodes = {initial_node};
+  AccessibilityEventReceived({std::move(initial_update)});
+  model().Reset({kInitialId});
+
+  EXPECT_FALSE(model().requires_distillation());
+  EXPECT_FALSE(model().redraw_required());
+
+  ui::AXTreeUpdate update;
+  test::SetUpdateTreeID(&update, tree_id_);
+  initial_node.AddState(ax::mojom::State::kExpanded);
+  update.nodes = {std::move(initial_node)};
+  AccessibilityEventReceived({std::move(update)});
+
+  EXPECT_FALSE(model().requires_distillation());
+  EXPECT_TRUE(model().redraw_required());
+}
+
+TEST_F(ReadAnythingAppModelTest, Collapse_Redraws) {
+  EnableReadAloud();
+  ui::AXTreeUpdate initial_update;
+  test::SetUpdateTreeID(&initial_update, tree_id_);
+  static constexpr int kInitialId = 2;
+  ui::AXNodeData initial_node = test::GenericContainerNode(kInitialId);
+  initial_node.AddState(ax::mojom::State::kExpanded);
+  initial_update.nodes = {initial_node};
+  AccessibilityEventReceived({std::move(initial_update)});
+  model().Reset({kInitialId});
+
+  ui::AXTreeUpdate update;
+  test::SetUpdateTreeID(&update, tree_id_);
+  initial_node.AddState(ax::mojom::State::kCollapsed);
+  initial_node.RemoveState(ax::mojom::State::kExpanded);
+  update.nodes = {std::move(initial_node)};
+  AccessibilityEventReceived({std::move(update)});
+
+  EXPECT_TRUE(model().redraw_required());
+  EXPECT_FALSE(model().requires_post_process_selection());
+  EXPECT_FALSE(model().has_selection());
   EXPECT_TRUE(model().selection_node_ids().empty());
 }
 
@@ -1757,7 +1936,7 @@ TEST_F(ReadAnythingAppModelTest, ContentEditableValueChanged_ResetsDrawTimer) {
   static constexpr int kId = 1;
   node1.id = kId;
   update.nodes = {std::move(node1)};
-  std::vector<ui::AXTreeUpdate> updates = {std::move(update)};
+  ReadAnythingAppModel::Updates updates = {std::move(update)};
 
   ui::AXEvent event;
   event.id = kId;
@@ -1802,4 +1981,43 @@ TEST_F(ReadAnythingAppModelTest,
   AccessibilityEventReceived({std::move(update)});
 
   EXPECT_TRUE(model().reset_draw_timer());
+}
+TEST_F(ReadAnythingAppModelTest,
+       ContentEditableValueChanged_OnPDF_DoesNotResetDrawTimer) {
+  EnableReadAloud();
+  model().set_is_pdf(true);
+  // Create a tree with a text field.
+  ui::AXNodeData root;
+  root.id = 1;
+  ui::AXNodeData text_field;
+  text_field.id = 2;
+  text_field.role = ax::mojom::Role::kTextField;
+  text_field.AddState(ax::mojom::State::kEditable);
+  root.child_ids = {text_field.id};
+  ui::AXNodeData static_text;
+  static_text.id = 3;
+  static_text.role = ax::mojom::Role::kStaticText;
+  static_text.AddState(ax::mojom::State::kEditable);
+  text_field.child_ids = {static_text.id};
+  // Send the initial tree update.
+  ui::AXTreeUpdate initial_update;
+  test::SetUpdateTreeID(&initial_update, tree_id_);
+  initial_update.root_id = root.id;
+  initial_update.nodes = {std::move(root), text_field, static_text};
+  AccessibilityEventReceived({std::move(initial_update)});
+
+  // This update changes the structure of the tree. When the controller receives
+  // it in AccessibilityEventReceived, it will re-distill the tree.
+  ui::AXTreeUpdate update;
+  test::SetUpdateTreeID(&update, tree_id_);
+  static_text.SetName("Something has changed within me");
+  update.nodes = {std::move(static_text)};
+  AccessibilityEventReceived({std::move(update)});
+
+  EXPECT_FALSE(model().reset_draw_timer());
+}
+
+TEST_F(ReadAnythingAppModelTest, GetAXNode_InvalidNodeId_ReturnsNullptr) {
+  ui::AXNode* node = model().GetAXNode(12);
+  EXPECT_EQ(node, nullptr);
 }

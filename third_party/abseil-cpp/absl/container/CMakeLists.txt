@@ -720,9 +720,11 @@ absl_cc_library(
     ${ABSL_DEFAULT_COPTS}
   DEPS
     absl::config
+    absl::common_policy_traits
     absl::container_memory
     absl::core_headers
     absl::raw_hash_set
+    absl::type_traits
     absl::throw_delegate
   PUBLIC
 )
@@ -812,6 +814,7 @@ absl_cc_test(
     absl::hash_policy_testing
     absl::hashtable_debug
     absl::hashtablez_sampler
+    absl::int128
     absl::log
     absl::memory
     absl::node_hash_set

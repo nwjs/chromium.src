@@ -1951,22 +1951,34 @@ TEST_F(SellerWorkletTest, ScoreAdAdComponentsCreativeScanningMetadata) {
 
 TEST_F(SellerWorkletTest, ScoreAdTextConversions) {
   RunScoreAdWithReturnValueExpectingResult(
-      R"('encodeUtf8' in browserSignals? 3 : 2)", 2);
-  RunScoreAdWithReturnValueExpectingResult(
-      R"('decodeUtf8' in browserSignals? 3 : 2)", 2);
+      R"('protectedAudience' in globalThis? 3 : 2)", 2);
 }
 
 TEST_F(SellerWorkletTextConversionsTest, ScoreAdTextConversions) {
   RunScoreAdWithReturnValueExpectingResult(
-      R"('encodeUtf8' in browserSignals? 3 : 2)", 3);
+      R"('encodeUtf8' in protectedAudience? 3 : 2)", 3);
   RunScoreAdWithReturnValueExpectingResult(
-      R"('decodeUtf8' in browserSignals? 3 : 2)", 3);
+      R"('decodeUtf8' in protectedAudience? 3 : 2)", 3);
 
-  RunScoreAdWithReturnValueExpectingResult("browserSignals.encodeUtf8('A')[0]",
-                                           65);
   RunScoreAdWithReturnValueExpectingResult(
-      "browserSignals.decodeUtf8(new Uint8Array([65, 68])) === 'AD' ? 3 : 2",
+      "protectedAudience.encodeUtf8('A')[0]", 65);
+  RunScoreAdWithReturnValueExpectingResult(
+      "protectedAudience.decodeUtf8(new Uint8Array([65, 68])) === 'AD' ? 3 : 2",
       3);
+}
+
+TEST_F(SellerWorkletTextConversionsTest, ScoreAdNoGlobalStomp) {
+  const char kScript[] = R"(
+    function protectedAudience() {
+      return 5;
+    }
+
+    function scoreAd() {
+      return protectedAudience();
+    }
+
+  )";
+  RunScoreAdWithJavascriptExpectingResult(kScript, 5);
 }
 
 TEST_F(SellerWorkletTest, ScoreAdBid) {
@@ -2635,8 +2647,19 @@ TEST_F(SellerWorkletTest, ScoreAdExperimentGroupId) {
 
 // Test the case of a bunch of ScoreAd() calls in parallel, all started before
 // the worklet script has loaded.
+//
+// In the single-threaded case, make sure that Javascript scoreAd() calls are
+// made in the order in which they are queued. That is done by having each
+// script call console.log() and checking the order - can't rely on callback
+// invocation order, since Mojo doesn't guarantee that.
 TEST_P(SellerWorkletMultiThreadingTest, ScoreAdParallelBeforeLoadComplete) {
-  auto seller_worklet = CreateWorklet(/*pause_for_debugger_on_start=*/false);
+  ScopedInspectorSupport inspector_support(v8_helper().get());
+  SellerWorklet* worklet_impl = nullptr;
+  auto seller_worklet =
+      CreateWorklet(/*pause_for_debugger_on_start=*/false, &worklet_impl);
+  int id = worklet_impl->context_group_ids_for_testing()[0];
+  TestChannel* channel =
+      inspector_support.ConnectDebuggerSessionAndRuntimeEnable(id);
 
   const size_t kNumWorklets = 10;
   size_t num_completed_worklets = 0;
@@ -2673,21 +2696,46 @@ TEST_P(SellerWorkletMultiThreadingTest, ScoreAdParallelBeforeLoadComplete) {
   // score. The worklet should report a successful load.
   AddJavascriptResponse(
       &url_loader_factory_, decision_logic_url_,
-      CreateScoreAdScript("parseInt(browserSignals.renderURL.slice(-1))"));
+      CreateScoreAdScript("parseInt(browserSignals.renderURL.slice(-1))",
+                          "console.log(browserSignals.renderURL.slice(-1));"));
 
   // All scripts should complete successfully.
   run_loop.Run();
+
+  // Verify that calls were made in FIFO order.
+  if (NumThreads() == 1) {
+    for (size_t i = 0; i < kNumWorklets; ++i) {
+      channel->WaitForAndValidateConsoleMessage(
+          "log", /*json_args=*/
+          base::StringPrintf("[{\"type\":\"string\", \"value\":\"%i\"}]", i),
+          /*stack_trace_size=*/1, /*function=*/"scoreAd", decision_logic_url_,
+          /*line_number=*/3);
+    }
+  }
 }
 
 // Test the case of a bunch of ScoreAd() calls in parallel, all started after
 // the worklet script has loaded.
+//
+// In the single-threaded case, make sure that Javascript scoreAd() calls are
+// made in the order in which they are queued. That is done by having each
+// script call console.log() and checking the order - can't rely on callback
+// invocation order, since Mojo doesn't guarantee that.
 TEST_P(SellerWorkletMultiThreadingTest, ScoreAdParallelAfterLoadComplete) {
   base::HistogramTester histogram_tester;
   // Seller script that uses the last character of `renderURL` as the score.
   AddJavascriptResponse(
       &url_loader_factory_, decision_logic_url_,
-      CreateScoreAdScript("parseInt(browserSignals.renderURL.slice(-1))"));
-  auto seller_worklet = CreateWorklet();
+      CreateScoreAdScript("parseInt(browserSignals.renderURL.slice(-1))",
+                          "console.log(browserSignals.renderURL.slice(-1));"));
+
+  ScopedInspectorSupport inspector_support(v8_helper().get());
+  SellerWorklet* worklet_impl = nullptr;
+  auto seller_worklet =
+      CreateWorklet(/*pause_for_debugger_on_start=*/false, &worklet_impl);
+  int id = worklet_impl->context_group_ids_for_testing()[0];
+  TestChannel* channel =
+      inspector_support.ConnectDebuggerSessionAndRuntimeEnable(id);
 
   // Let the script load.
   task_environment_.RunUntilIdle();
@@ -2719,6 +2767,17 @@ TEST_P(SellerWorkletMultiThreadingTest, ScoreAdParallelAfterLoadComplete) {
                              }));
   }
   run_loop.Run();
+
+  // Verify that calls were made in FIFO order.
+  if (NumThreads() == 1) {
+    for (size_t i = 0; i < kNumWorklets; ++i) {
+      channel->WaitForAndValidateConsoleMessage(
+          "log", /*json_args=*/
+          base::StringPrintf("[{\"type\":\"string\", \"value\":\"%i\"}]", i),
+          /*stack_trace_size=*/1, /*function=*/"scoreAd", decision_logic_url_,
+          /*line_number=*/3);
+    }
+  }
 
   // MaxSellerContextsPerThread doesn't come into effect because the scoring
   // tasks are processed as they come.
@@ -2852,6 +2911,11 @@ TEST_P(SellerWorkletMultiThreadingTest,
 // 1) The worklet script load completes.
 // 2) ScoreAd() calls are made.
 // 3) The trusted bidding signals are loaded.
+//
+// In the single-threaded case, make sure that Javascript scoreAd() calls are
+// made in the order in which they are queued. That is done by having each
+// script call console.log() and checking the order - can't rely on callback
+// invocation order, since Mojo doesn't guarantee that.
 TEST_P(SellerWorkletMultiThreadingTest,
        ScoreAdParallelTrustedScoringSignalsBatched1) {
   // Seller script that gets the score from the `trustedScoringSignals` value of
@@ -2859,10 +2923,19 @@ TEST_P(SellerWorkletMultiThreadingTest,
   AddJavascriptResponse(
       &url_loader_factory_, decision_logic_url_,
       CreateScoreAdScript(
-          "trustedScoringSignals.renderURL[browserSignals.renderURL]"));
+          "trustedScoringSignals.renderURL[browserSignals.renderURL]",
+          "console.log(browserSignals.renderURL.slice(-1));"));
+
   trusted_scoring_signals_url_ =
       GURL("https://url.test/trusted_scoring_signals");
-  auto seller_worklet = CreateWorklet();
+
+  ScopedInspectorSupport inspector_support(v8_helper().get());
+  SellerWorklet* worklet_impl = nullptr;
+  auto seller_worklet =
+      CreateWorklet(/*pause_for_debugger_on_start=*/false, &worklet_impl);
+  int id = worklet_impl->context_group_ids_for_testing()[0];
+  TestChannel* channel =
+      inspector_support.ConnectDebuggerSessionAndRuntimeEnable(id);
 
   // Start scoring a bunch of worklets. Don't provide JSON responses, to make
   // sure they all reside in the worklet's task list at once.
@@ -2917,9 +2990,21 @@ TEST_P(SellerWorkletMultiThreadingTest,
 
   // All ScoreAd() calls should succeed with the expected scores.
   run_loop.Run();
+
+  // Verify that calls were made in FIFO order.
+  if (NumThreads() == 1) {
+    for (size_t i = 0; i < kNumWorklets; ++i) {
+      channel->WaitForAndValidateConsoleMessage(
+          "log", /*json_args=*/
+          base::StringPrintf("[{\"type\":\"string\", \"value\":\"%i\"}]", i),
+          /*stack_trace_size=*/1, /*function=*/"scoreAd", decision_logic_url_,
+          /*line_number=*/3);
+    }
+  }
 }
 
-// Same as above, but with different ordering.
+// Same as above, but with different ordering, and without checking scoreAd()
+// invocation order in the single-threaded case, for simplicity.
 //
 // In this test, the ordering is:
 // 1) ScoreAd() calls are made.
@@ -3460,24 +3545,36 @@ TEST_F(SellerWorkletTest, ReportResultNoAdComponentsCreativeScanningMetadata) {
 
 TEST_F(SellerWorkletTest, ReportResultTextConversions) {
   RunReportResultCreatedScriptExpectingResult(
-      "('encodeUtf8' in browserSignals) ? 2 : 1",
-      /*extra_code=*/std::string(), "1",
-      /*expected_report_url=*/std::nullopt);
-  RunReportResultCreatedScriptExpectingResult(
-      "('decodeUtf8' in browserSignals) ? 2 : 1",
+      "('protectedAudience' in globalThis) ? 2 : 1",
       /*extra_code=*/std::string(), "1",
       /*expected_report_url=*/std::nullopt);
 }
 
 TEST_F(SellerWorkletTextConversionsTest, ReportResultTextConversions) {
   RunReportResultCreatedScriptExpectingResult(
-      "('encodeUtf8' in browserSignals) ? 2 : 1",
+      "('encodeUtf8' in protectedAudience) ? 2 : 1",
       /*extra_code=*/std::string(), "2",
       /*expected_report_url=*/std::nullopt);
   RunReportResultCreatedScriptExpectingResult(
-      "('decodeUtf8' in browserSignals) ? 2 : 1",
+      "('decodeUtf8' in protectedAudience) ? 2 : 1",
       /*extra_code=*/std::string(), "2",
       /*expected_report_url=*/std::nullopt);
+}
+
+TEST_F(SellerWorkletTextConversionsTest, ReportResultNoGlobalStomp) {
+  const char kScript[] = R"(
+    function protectedAudience() {
+      sendReportTo('https://report.test/');
+    }
+
+    function reportResult() {
+      protectedAudience();
+    }
+  )";
+  RunReportResultWithJavascriptExpectingResult(
+      kScript,
+      /*expected_signals_for_winner=*/"null",
+      /*expected_report_url=*/GURL("https://report.test"));
 }
 
 TEST_F(SellerWorkletTest, ReportResultTopWindowOrigin) {

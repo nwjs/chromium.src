@@ -41,11 +41,6 @@ namespace ash {
 // dark/light mode, tablet mode, etc.
 class WmPixelDiffTest : public AshTestBase {
  public:
-  WmPixelDiffTest() {
-    scoped_features_.InitWithFeatures(
-        {features::kForestFeature, features::kSavedDeskUiRevamp}, {});
-  }
-
   // AshTestBase:
   std::optional<pixel_test::InitParams> CreatePixelTestInitParams()
       const override {
@@ -53,7 +48,7 @@ class WmPixelDiffTest : public AshTestBase {
   }
 
  private:
-  base::test::ScopedFeatureList scoped_features_;
+  base::test::ScopedFeatureList scoped_features_{features::kForestFeature};
 };
 
 // A basic overview pixel test that shows three overview windows and the virtual
@@ -91,7 +86,7 @@ TEST_F(WmPixelDiffTest, OverviewAndDesksBarBasic) {
 
   EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
       "overview_and_desks_bar_basic",
-      /*revision_number=*/17, desk_widget, overview_widget1, overview_widget2,
+      /*revision_number=*/18, desk_widget, overview_widget1, overview_widget2,
       overview_widget3));
 }
 
@@ -170,7 +165,7 @@ TEST_F(WmPixelDiffTest, WindowCycleBasic) {
 
   EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
       "window_cycle_basic",
-      /*revision_number=*/23, widget));
+      /*revision_number=*/24, widget));
 }
 
 TEST_F(WmPixelDiffTest, InformedRestoreNoScreenshotDialog) {
@@ -206,7 +201,7 @@ TEST_F(WmPixelDiffTest, InformedRestoreNoScreenshotDialog) {
 
   EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
       "informed_restore_no_screenshot",
-      /*revision_number=*/1, widget));
+      /*revision_number=*/2, widget));
 }
 
 }  // namespace ash

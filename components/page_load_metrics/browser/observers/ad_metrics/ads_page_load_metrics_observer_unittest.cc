@@ -7,6 +7,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "base/files/file_util.h"
@@ -62,7 +63,6 @@
 #include "net/base/host_port_pair.h"
 #include "services/metrics/public/cpp/metrics_utils.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
-#include "third_party/abseil-cpp/absl/utility/utility.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/mojom/frame/frame.mojom.h"
 #include "url/gurl.h"
@@ -127,9 +127,9 @@ const char kMemoryMainFrameMaxHistogramId[] =
 const char kMemoryUpdateCountHistogramId[] =
     "PageLoad.Clients.Ads.Memory.UpdateCount";
 const char kAdClickHistoryQueryCountHistogramId[] =
-    "PageLoad.Clients.Ads.AdClick.HistoryQueryCount";
+    "PageLoad.Clients.Ads.AdClick.HistoryQueryCount2";
 const char kAdClickEtldPlusOneHistoryQueryCountHistogramId[] =
-    "PageLoad.Clients.Ads.AdClick.EtldPlusOneHistoryQueryCount";
+    "PageLoad.Clients.Ads.AdClick.EtldPlusOneHistoryQueryCount2";
 
 const int kMaxHeavyAdNetworkBytes =
     heavy_ad_thresholds::kMaxNetworkBytes +
@@ -3285,7 +3285,7 @@ TEST_P(AdsPageLoadMetricsObserverTest,
        FirstContentfulPaintPostAbortedOnDeviceAuction_NotRecorded) {
   SimulateFCPPostAuctions({CompleteAuctionResult(
       /*is_server_auction=*/false,
-      /*is_on_device_auction=*/true, content::AuctionResult::kAborted)});
+      /*is_on_device_auction=*/true, content::AuctionResult::kAbortSignal)});
 
   histogram_tester().ExpectUniqueSample(
       SuffixedHistogram(
@@ -3758,6 +3758,22 @@ TEST_F(AdsPageLoadMetricsObserverAdUrlInHistoryTest,
        AdClick_HistoryQueryCount_HistoryEmpty) {
   QueryAdUrlAndWaitUntilComplete(GURL(kAdUrl));
 
+  EXPECT_THAT(
+      histogram_tester().GetAllSamples(kAdClickHistoryQueryCountHistogramId),
+      std::vector<base::Bucket>({{/*min=*/0, /*count=*/1}}));
+  EXPECT_THAT(histogram_tester().GetAllSamples(
+                  kAdClickEtldPlusOneHistoryQueryCountHistogramId),
+              std::vector<base::Bucket>({{/*min=*/0, /*count=*/1}}));
+}
+
+TEST_F(AdsPageLoadMetricsObserverAdUrlInHistoryTest,
+       AdClick_HistoryQueryCount_OnlyLastThirtyDaysHistoryQueried) {
+  GURL ad_url(kAdUrl);
+  history_service_->AddPage(ad_url, base::Time::Now() - base::Days(31),
+                            history::SOURCE_BROWSED);
+  QueryAdUrlAndWaitUntilComplete(ad_url);
+
+  // Should return empty history since the ad was visited more than 30 days ago.
   EXPECT_THAT(
       histogram_tester().GetAllSamples(kAdClickHistoryQueryCountHistogramId),
       std::vector<base::Bucket>({{/*min=*/0, /*count=*/1}}));

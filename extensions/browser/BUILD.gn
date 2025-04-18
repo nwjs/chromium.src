@@ -214,6 +214,8 @@ source_set("browser_sources") {
     "blocklist_extension_prefs.cc",
     "blocklist_extension_prefs.h",
     "blocklist_state.h",
+    "bookmark_app_util.cc",
+    "bookmark_app_util.h",
     "browser_context_keyed_api_factory.h",
     "browser_frame_context_data.cc",
     "browser_frame_context_data.h",
@@ -384,6 +386,8 @@ source_set("browser_sources") {
     "json_file_sanitizer.h",
     "l10n_file_util.cc",
     "l10n_file_util.h",
+    "launch_util.cc",
+    "launch_util.h",
     "lazy_background_task_queue.cc",
     "lazy_background_task_queue.h",
     "lazy_background_task_queue_factory.cc",
@@ -992,7 +996,6 @@ source_set("unit_tests") {
   if (is_chromeos) {
     sources += [
       "api/audio/audio_device_id_calculator_unittest.cc",
-      "api/audio/audio_service_utils_unittest.cc",
       "api/feedback_private/access_rate_limiter_chromeos_unittest.cc",
       "api/feedback_private/feedback_private_api_chromeos_unittest.cc",
       "api/feedback_private/feedback_private_api_unittest_base_chromeos.cc",

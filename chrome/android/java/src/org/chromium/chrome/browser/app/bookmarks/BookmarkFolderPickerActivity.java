@@ -13,7 +13,6 @@ import org.chromium.base.IntentUtils;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.SynchronousInitializationActivity;
 import org.chromium.chrome.browser.back_press.BackPressHelper;
-import org.chromium.chrome.browser.back_press.SecondaryActivityBackPressUma.SecondaryActivity;
 import org.chromium.chrome.browser.bookmarks.BookmarkAddNewFolderCoordinator;
 import org.chromium.chrome.browser.bookmarks.BookmarkFolderPickerCoordinator;
 import org.chromium.chrome.browser.bookmarks.BookmarkImageFetcher;
@@ -21,6 +20,7 @@ import org.chromium.chrome.browser.bookmarks.BookmarkModel;
 import org.chromium.chrome.browser.bookmarks.BookmarkUiPrefs;
 import org.chromium.chrome.browser.bookmarks.BookmarkUiPrefs.BookmarkRowDisplayPref;
 import org.chromium.chrome.browser.bookmarks.BookmarkUtils;
+import org.chromium.chrome.browser.bookmarks.BookmarkViewUtils;
 import org.chromium.chrome.browser.bookmarks.ImprovedBookmarkRowCoordinator;
 import org.chromium.chrome.browser.commerce.ShoppingServiceFactory;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
@@ -71,7 +71,8 @@ public class BookmarkFolderPickerActivity extends SynchronousInitializationActiv
                                 ImageFetcherConfig.IN_MEMORY_WITH_DISK_CACHE,
                                 profile.getProfileKey(),
                                 GlobalDiscardableReferencePool.getReferencePool()),
-                        BookmarkUtils.getRoundedIconGenerator(this, BookmarkRowDisplayPref.VISUAL));
+                        BookmarkViewUtils.getRoundedIconGenerator(
+                                this, BookmarkRowDisplayPref.VISUAL));
         BookmarkAddNewFolderCoordinator addNewFolderCoordinator =
                 new BookmarkAddNewFolderCoordinator(
                         this,
@@ -98,11 +99,7 @@ public class BookmarkFolderPickerActivity extends SynchronousInitializationActiv
                                 shoppingService),
                         shoppingService);
 
-        BackPressHelper.create(
-                this,
-                getOnBackPressedDispatcher(),
-                mCoordinator,
-                SecondaryActivity.BOOKMARK_FOLDER_PICKER);
+        BackPressHelper.create(this, getOnBackPressedDispatcher(), mCoordinator);
 
         Toolbar toolbar = mCoordinator.getToolbar();
         setSupportActionBar(toolbar);

@@ -6903,7 +6903,7 @@ TEST_F(DrawPropertiesTestWithLayerTree, SkippingLayerImpl) {
   // and we will configure |child| in several ways that should force the subtree
   // to be skipped. The visible content rect for |grandchild| should, therefore,
   // remain empty.
-  ImplOf(grandchild)->set_visible_layer_rect(gfx::Rect());
+  ImplOf(grandchild)->SetVisibleLayerRectForTesting(gfx::Rect());
 
   gfx::Transform singular;
   singular.set_rc(0, 0, 0);
@@ -6961,7 +6961,7 @@ TEST_F(DrawPropertiesTestWithLayerTree, SkippingLayerImpl) {
   child->SetOpacity(1.f);
 
   // A double sided render surface with backface visible should not be skipped
-  ImplOf(grandchild)->set_visible_layer_rect(gfx::Rect());
+  ImplOf(grandchild)->SetVisibleLayerRectForTesting(gfx::Rect());
   child->SetForceRenderSurfaceForTesting(true);
   child->SetTransform(rotate_back_and_translate);
   CommitAndActivate();
@@ -6987,7 +6987,7 @@ TEST_F(DrawPropertiesTestWithLayerTree, SkippingLayerImpl) {
   timeline()->AttachAnimation(animation);
   animation->AttachElement(parent->element_id());
   animation->AddKeyframeModel(std::move(transform_animation));
-  ImplOf(grandchild)->set_visible_layer_rect(gfx::Rect());
+  ImplOf(grandchild)->SetVisibleLayerRectForTesting(gfx::Rect());
   parent->SetTransform(singular);
   child->SetTransform(singular);
   CommitAndActivate();
@@ -7044,8 +7044,8 @@ TEST_F(DrawPropertiesTest, LayerSkippingInSubtreeOfSingularTransform) {
   grand_child->SetDrawsContent(true);
 
   // Check that we set the visible sizes as expected in CalculateDrawProperties
-  grand_child->set_visible_layer_rect(gfx::Rect());
-  child->set_visible_layer_rect(gfx::Rect());
+  grand_child->SetVisibleLayerRectForTesting(gfx::Rect());
+  child->SetVisibleLayerRectForTesting(gfx::Rect());
 
   CopyProperties(root, child);
   CreateTransformNode(child);
@@ -7057,16 +7057,16 @@ TEST_F(DrawPropertiesTest, LayerSkippingInSubtreeOfSingularTransform) {
 
   // See if we optimize out irrelevant pieces of work.
   SetTransform(child, singular);
-  grand_child->set_visible_layer_rect(gfx::Rect());
-  child->set_visible_layer_rect(gfx::Rect());
+  grand_child->SetVisibleLayerRectForTesting(gfx::Rect());
+  child->SetVisibleLayerRectForTesting(gfx::Rect());
   UpdateActiveTreeDrawProperties();
   EXPECT_EQ(gfx::Rect(), grand_child->visible_layer_rect());
   EXPECT_EQ(gfx::Rect(), child->visible_layer_rect());
 
   // Check that undoing the transform is still valid (memoryless enough)
   SetTransform(child, gfx::Transform());
-  grand_child->set_visible_layer_rect(gfx::Rect());
-  child->set_visible_layer_rect(gfx::Rect());
+  grand_child->SetVisibleLayerRectForTesting(gfx::Rect());
+  child->SetVisibleLayerRectForTesting(gfx::Rect());
   root->layer_tree_impl()->property_trees()->set_needs_rebuild(true);
   UpdateActiveTreeDrawProperties();
   ASSERT_EQ(gfx::Rect(10, 10), grand_child->visible_layer_rect());
@@ -7078,8 +7078,8 @@ TEST_F(DrawPropertiesTest, LayerSkippingInSubtreeOfSingularTransform) {
   animation->AttachElement(child->element_id());
 
   SetTransform(child, singular);
-  grand_child->set_visible_layer_rect(gfx::Rect(1, 1));
-  child->set_visible_layer_rect(gfx::Rect(1, 1));
+  grand_child->SetVisibleLayerRectForTesting(gfx::Rect(1, 1));
+  child->SetVisibleLayerRectForTesting(gfx::Rect(1, 1));
   UpdateActiveTreeDrawProperties();
   EXPECT_EQ(gfx::Rect(10, 10), grand_child->visible_layer_rect());
   EXPECT_EQ(gfx::Rect(10, 10), child->visible_layer_rect());
@@ -7180,6 +7180,28 @@ TEST_F(DrawPropertiesTest, RenderSurfacePixelAlignment) {
             grand_child->visible_drawable_content_rect());
   EXPECT_TRUE(grand_child->is_clipped());
   EXPECT_EQ(gfx::Rect(51, 201), grand_child->clip_rect());
+
+  SetRenderSurfaceReason(
+      child, RenderSurfaceReason::k2DScaleTransformWithCompositedDescendants);
+  UpdateActiveTreeDrawProperties();
+  ASSERT_EQ(parent_surface, GetRenderSurface(parent));
+  ASSERT_EQ(child_surface, GetRenderSurface(child));
+  // The parent still has the same pixel alignment.
+  EXPECT_TRANSFORM_EQ(gfx::Transform::MakeTranslation(25, 30),
+                      parent_surface->draw_transform());
+  EXPECT_VECTOR2DF_NEAR(gfx::Vector2dF(0.4, 0.6),
+                        parent_surface->pixel_alignment_offset(), kTolerance);
+  // `child` no longer has pixel alignment because it has
+  // RenderSurfaceReason::k2DScaleTransformWithCompositedDescendants.
+  // `child_surface`'s draw transform now includes the pixel alignment of the
+  // target surface and its original offset from the target surface.
+  EXPECT_TRANSFORM_EQ(gfx::Transform::MakeTranslation(10.6, 21.4),
+                      child_surface->draw_transform());
+  EXPECT_VECTOR2DF_NEAR(gfx::Vector2dF(),
+                        child_surface->pixel_alignment_offset(), kTolerance);
+  EXPECT_TRUE(child->DrawTransform().IsIdentity());
+  EXPECT_TRANSFORM_NEAR(gfx::Transform::MakeTranslation(5.6, 10.4),
+                        grand_child->DrawTransform(), kTolerance);
 }
 
 // This tests that we skip computing the visible areas for the subtree
@@ -7210,7 +7232,7 @@ TEST_F(DrawPropertiesTestWithLayerTree, SkippingPendingLayerImpl) {
 
   // Check the skipped case.
   root->SetOpacity(0.f);
-  PendingImplOf(grandchild)->set_visible_layer_rect(gfx::Rect());
+  PendingImplOf(grandchild)->SetVisibleLayerRectForTesting(gfx::Rect());
   Commit();
   EXPECT_EQ(gfx::Rect(), PendingImplOf(grandchild)->visible_layer_rect());
 
@@ -7232,7 +7254,7 @@ TEST_F(DrawPropertiesTestWithLayerTree, SkippingPendingLayerImpl) {
   animation->AddKeyframeModel(std::move(keyframe_model));
   animation->AttachElement(root->element_id());
   // Repeat the calculation invocation.
-  PendingImplOf(grandchild)->set_visible_layer_rect(gfx::Rect());
+  PendingImplOf(grandchild)->SetVisibleLayerRectForTesting(gfx::Rect());
   Commit();
   EXPECT_EQ(gfx::Rect(10, 10), PendingImplOf(grandchild)->visible_layer_rect());
 }
@@ -7251,7 +7273,7 @@ TEST_F(DrawPropertiesTestWithLayerTree, SkippingLayer) {
   CommitAndActivate();
 
   EXPECT_EQ(gfx::Rect(10, 10), ImplOf(child)->visible_layer_rect());
-  ImplOf(child)->set_visible_layer_rect(gfx::Rect());
+  ImplOf(child)->SetVisibleLayerRectForTesting(gfx::Rect());
 
   child->SetHideLayerAndSubtree(true);
   CommitAndActivate();
@@ -8048,19 +8070,16 @@ TEST_F(DrawPropertiesTestWithLayerTree, OpacityAnimationsTrackingTest) {
   UpdateMainDrawProperties();
 
   EffectNode* node = GetEffectNode(animated.get());
-  EXPECT_FALSE(node->is_currently_animating_opacity);
   EXPECT_TRUE(node->has_potential_opacity_animation);
 
   keyframe_model_ptr->set_time_offset(base::Milliseconds(0));
   host()->AnimateLayers(base::TimeTicks::Max());
   node = GetEffectNode(animated.get());
-  EXPECT_TRUE(node->is_currently_animating_opacity);
   EXPECT_TRUE(node->has_potential_opacity_animation);
 
   animation->AbortKeyframeModelsWithProperty(TargetProperty::OPACITY,
                                              false /*needs_completion*/);
   node = GetEffectNode(animated.get());
-  EXPECT_FALSE(node->is_currently_animating_opacity);
   EXPECT_FALSE(node->has_potential_opacity_animation);
 }
 

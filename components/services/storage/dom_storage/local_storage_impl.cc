@@ -724,9 +724,8 @@ void LocalStorageImpl::OnConnectionFinished() {
     tried_to_recreate_during_open_ = false;
 
   // Clear stale storage areas after a delay to prevent blocking session
-  // restoration. See crbug.com/40281870 for more info.
-  if (database_ && !in_memory_ &&
-      base::FeatureList::IsEnabled(kDeleteStaleLocalStorageOnStartup)) {
+  // restoration.
+  if (database_ && !in_memory_) {
     base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
         FROM_HERE,
         base::BindOnce(&LocalStorageImpl::DeleteStaleStorageAreas,
@@ -900,8 +899,7 @@ void LocalStorageImpl::OnGotStorageUsageForShutdown(
     for (const auto& origin_to_purge : origins_to_purge_on_shutdown_) {
       if (key_origin == origin_to_purge ||
           (storage_key.IsThirdPartyContext() &&
-           net::SchemefulSite(origin_to_purge) ==
-               storage_key.top_level_site())) {
+           storage_key.top_level_site().IsSameSiteWith(origin_to_purge))) {
         storage_keys_to_delete.push_back(storage_key);
         break;
       }
@@ -969,6 +967,11 @@ void LocalStorageImpl::OnCommitResult(leveldb::Status status) {
 }
 
 void LocalStorageImpl::DeleteStaleStorageAreas() {
+  if (!database_) {
+    // Due to the delay before LocalStorageImpl::DeleteStaleStorageAreas is invoked
+    // it's possible `database_` existed before, but no longer.
+    return;
+  }
   database_->RunDatabaseTask(
       base::BindOnce([](const DomStorageDatabase& db) {
         std::vector<DomStorageDatabase::KeyValuePair> data;
@@ -1041,9 +1044,7 @@ void LocalStorageImpl::OnGotMetaDataToDeleteStaleStorageAreas(
       // If the storage area has not been accessed or modified within 400 days
       // it can be cleared.
       stale_storage_keys.push_back(storage_key);
-    } else if (base::FeatureList::IsEnabled(
-                   kDeleteOrphanLocalStorageOnStartup) &&
-               (storage_key.nonce().has_value() ||
+    } else if ((storage_key.nonce().has_value() ||
                 storage_key.top_level_site().opaque()) &&
                (base::Time::Now() - accessed_or_modified_time) >=
                    base::Days(1)) {
@@ -1053,11 +1054,9 @@ void LocalStorageImpl::OnGotMetaDataToDeleteStaleStorageAreas(
       orphans_found++;
     }
   }
-  if (base::FeatureList::IsEnabled(kDeleteOrphanLocalStorageOnStartup)) {
-    // These are counted independently to better track errors in rollout.
-    base::UmaHistogramCounts100000(
-        "LocalStorage.OrphanStorageAreasOnStartupCount", orphans_found);
-  }
+  // These are counted independently to better track errors in rollout.
+  base::UmaHistogramCounts100000(
+      "LocalStorage.OrphanStorageAreasOnStartupCount", orphans_found);
 
   // Delete stale storage areas and count results.
   DeleteStorageKeys(

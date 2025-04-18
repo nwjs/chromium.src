@@ -1003,19 +1003,27 @@ select:-internal-list-box optgroup {
     line-height: initial !important;
 }
 
-/* option selected, list-box focused */
-/* TODO(crbug.com/1244986): We should be able to remove !important here, but
-   it breaks some WebUI menus. */
 select:-internal-list-box:focus option:checked,
+select:-internal-list-box:focus option:checked:disabled,
 select:-internal-list-box:focus option:checked:hover {
-    background-color: SelectedItem !important;
-    color: SelectedItemText !important;
+    background-color: SelectedItem;
+    color: SelectedItemText;
 }
 
-/* TODO(crbug.com/1244986): We should be able to remove !important here, but
-   it breaks some WebUI menus. */
 select:-internal-list-box:focus option:checked:disabled {
-    background-color: -internal-inactive-list-box-selection !important;
+    background-color: -internal-inactive-list-box-selection;
+}
+
+@supports not blink-feature(SelectColorsRemoveImportant) {
+    select:-internal-list-box:focus option:checked,
+    select:-internal-list-box:focus option:checked:hover {
+        background-color: SelectedItem !important;
+        color: SelectedItemText !important;
+    }
+
+    select:-internal-list-box:focus option:checked:disabled {
+        background-color: -internal-inactive-list-box-selection !important;
+    }
 }
 
 /* option selected, list-box not focused */
@@ -1286,6 +1294,10 @@ nobr {
 
 [interesttarget]:focus-visible {
   outline: solid 3px -webkit-focus-ring-color;
+}
+
+button[interesttarget] {
+  user-select: none;
 }
 
 html:focus-visible, body:focus-visible {
@@ -1755,11 +1767,9 @@ dialog:where(:modal) {
   select:not(:-internal-list-box):not([multiple]):enabled:active {
     background-color: -internal-auto-base(Field, color-mix(in lab, currentColor 20%, transparent));
   }
-
-  /* Without this rule, we would be changing the styles for disabled
-   * appearance:auto selects. */
   select:not(:-internal-list-box):not([multiple]):disabled {
-    color: -internal-auto-base(light-dark(GrayText, #aaa), inherit);
+    opacity: -internal-auto-base(0.7, unset);
+    color: -internal-auto-base(light-dark(GrayText, #aaa), color-mix(in srgb, currentColor 50%, transparent));
     border-color: -internal-auto-base(rgba(118, 118, 118, 0.3), inherit);
   }
 
@@ -1824,7 +1834,7 @@ dialog:where(:modal) {
 
 
   select:not(:-internal-list-box):not([multiple]) option::checkmark {
-    content: '\2713' / '';
+    content: '\2713';
   }
   select option:not(:checked)::checkmark {
     visibility: hidden;

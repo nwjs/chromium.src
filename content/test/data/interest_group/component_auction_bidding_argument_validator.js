@@ -192,10 +192,6 @@ function validateBrowserSignals(browserSignals, isGenerateBid) {
     throw 'Wrong seller ' + browserSignals.seller;
   if (!browserSignals.topLevelSeller.startsWith('https://b.test'))
     throw 'Wrong topLevelSeller ' + browserSignals.topLevelSeller;
-  if (!(browserSignals.decodeUtf8 instanceof Function))
-    throw 'Wrong decodeUtf8';
-  if (!(browserSignals.encodeUtf8 instanceof Function))
-    throw 'Wrong encodeUtf8';
 
   if (isGenerateBid) {
     if (Object.keys(browserSignals).length !== 14) {
@@ -220,8 +216,52 @@ function validateBrowserSignals(browserSignals, isGenerateBid) {
           browserSignals.forDebuggingOnlySampling;
     if (browserSignals.multiBidLimit !== 1)
       throw 'Wrong multiBidLimit ' + browserSignals.multiBidLimit;
+    if (!('viewCounts' in browserSignals))
+      throw 'viewCounts unexpectedly not in browserSignals';
+    if (!('clickCounts' in browserSignals))
+      throw 'clickCounts unexpectedly not in browserSignals';
+    if (browserSignals.viewCounts.pastHour !== 0) {
+      throw 'Wrong browserSignals.viewCounts.pastHour ' +
+          browserSignals.viewCounts.pastHour;
+    }
+    if (browserSignals.viewCounts.pastDay !== 0) {
+      throw 'Wrong browserSignals.viewCounts.pastDay ' +
+          browserSignals.viewCounts.pastDay;
+    }
+    if (browserSignals.viewCounts.pastWeek !== 0) {
+      throw 'Wrong browserSignals.viewCounts.pastWeek ' +
+          browserSignals.viewCounts.pastWeek;
+    }
+    if (browserSignals.viewCounts.past30Days !== 0) {
+      throw 'Wrong browserSignals.viewCounts.past30Days ' +
+          browserSignals.viewCounts.past30Days;
+    }
+    if (browserSignals.viewCounts.past90Days !== 0) {
+      throw 'Wrong browserSignals.viewCounts.past90Days ' +
+          browserSignals.viewCounts.past90Days;
+    }
+    if (browserSignals.clickCounts.pastHour !== 0) {
+      throw 'Wrong browserSignals.clickCounts.pastHour ' +
+          browserSignals.clickCounts.pastHour;
+    }
+    if (browserSignals.clickCounts.pastDay !== 0) {
+      throw 'Wrong browserSignals.clickCounts.pastDay ' +
+          browserSignals.clickCounts.pastDay;
+    }
+    if (browserSignals.clickCounts.pastWeek !== 0) {
+      throw 'Wrong browserSignals.clickCounts.pastWeek ' +
+          browserSignals.clickCounts.pastWeek;
+    }
+    if (browserSignals.clickCounts.past30Days !== 0) {
+      throw 'Wrong browserSignals.clickCounts.past30Days ' +
+          browserSignals.clickCounts.past30Days;
+    }
+    if (browserSignals.clickCounts.past90Days !== 0) {
+      throw 'Wrong browserSignals.clickCounts.past90Days ' +
+          browserSignals.clickCounts.past90Days;
+    }
   } else {
-    if (Object.keys(browserSignals).length !== 19) {
+    if (Object.keys(browserSignals).length !== 17) {
       throw 'Wrong number of browser signals fields ' +
           JSON.stringify(browserSignals);
     }

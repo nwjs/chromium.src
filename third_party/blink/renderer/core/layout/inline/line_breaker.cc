@@ -785,8 +785,7 @@ void LineBreaker::PrepareNextLine(LineInfo* line_info) {
     // lines solely consisting of leading floats, and those don't count as
     // "formatted lines", since they aren't actually lines, as far as the spec
     // is concerned).
-    if (!RuntimeEnabledFeatures::LineBoxBelowLeadingFloatsEnabled() ||
-        !break_token_ || current_ != break_token_->Start()) {
+    if (!break_token_ || current_ != break_token_->Start()) {
       is_first_formatted_line_ = false;
       use_first_line_style_ = false;
     }
@@ -3076,9 +3075,9 @@ void LineBreaker::ComputeMinMaxContentSizeForBlockChild(
                                        /* is_new_fc */ true);
   builder.SetAvailableBlockSize(constraint_space_.AvailableSize().block_size);
   builder.SetPercentageResolutionBlockSize(
-      constraint_space_.PercentageResolutionBlockSize());
-  builder.SetReplacedPercentageResolutionBlockSize(
-      constraint_space_.ReplacedPercentageResolutionBlockSize());
+      child.IsReplaced()
+          ? constraint_space_.ReplacedChildPercentageResolutionBlockSize()
+          : constraint_space_.PercentageResolutionBlockSize());
   const auto space = builder.ToConstraintSpace();
 
   const MinMaxSizesResult result =
@@ -3446,6 +3445,8 @@ LineInfo LineBreaker::CreateSubLineInfo(
   sub_line_breaker.OverrideAvailableWidth(limit);
   sub_line_breaker.NextLine(&sub_line_info);
   if (disallow_auto_wrap) {
+    // If this check fails, a forced break or a block-in-inline might
+    // appear unexpectedly.
     CHECK(sub_line_breaker.IsAtEnd());
   }
   return sub_line_info;
@@ -3646,14 +3647,6 @@ void LineBreaker::HandleFloat(const InlineItem& item,
     DCHECK(exclusion_space_);
     item_result->exclusion_space_before_position_float.CopyFrom(
         *exclusion_space_);
-
-    if (RuntimeEnabledFeatures::LineBoxBelowLeadingFloatsEnabled()) {
-      return;
-    }
-
-    // Don't break after leading floats if indented.
-    if (position_ != 0)
-      item_result->can_break_after = false;
     return;
   }
 
@@ -3665,11 +3658,13 @@ void LineBreaker::HandleFloat(const InlineItem& item,
   // the clamp BFC offset in the final relayout, the line will be hidden.
   bool is_hidden_for_paint =
       constraint_space_.GetLineClampData().ShouldHideForPaint();
+
+  const BlockNode float_node(To<LayoutBox>(item.GetLayoutObject()));
   UnpositionedFloat unpositioned_float(
-      BlockNode(To<LayoutBox>(item.GetLayoutObject())), float_break_token,
-      constraint_space_.AvailableSize(),
-      constraint_space_.PercentageResolutionSize(),
-      constraint_space_.ReplacedPercentageResolutionSize(),
+      float_node, float_break_token, constraint_space_.AvailableSize(),
+      float_node.IsReplaced()
+          ? constraint_space_.ReplacedChildPercentageResolutionSize()
+          : constraint_space_.PercentageResolutionSize(),
       {constraint_space_.GetBfcOffset().line_offset, bfc_block_offset},
       constraint_space_, node_.Style(),
       constraint_space_.FragmentainerBlockSize(),
@@ -4066,8 +4061,7 @@ void LineBreaker::HandleOverflow(LineInfo* line_info) {
   }
 
   if (applied_text_indent_ && width_to_rewind > LayoutUnit() &&
-      is_first_formatted_line_ && !leading_floats_.floats.empty() &&
-      RuntimeEnabledFeatures::LineBoxBelowLeadingFloatsEnabled()) {
+      is_first_formatted_line_ && !leading_floats_.floats.empty()) {
     // If there is no inflow content and there are only leading floats, also
     // rewind text indentation. The idea here is that text-indent alone
     // shouldn't contribute to overflow (and it doesn't even belong on this
@@ -4526,9 +4520,8 @@ void LineBreaker::SetCurrentStyleForce(const ComputedStyle& style) {
 }
 
 bool LineBreaker::IsPreviousItemOfType(InlineItem::InlineItemType type) {
-  return current_.item_index > 0
-             ? Items().at(current_.item_index - 1)->Type() == type
-             : false;
+  return current_.item_index > 0 &&
+         Items().at(current_.item_index - 1)->Type() == type;
 }
 
 void LineBreaker::MoveToNextOf(const InlineItem& item) {

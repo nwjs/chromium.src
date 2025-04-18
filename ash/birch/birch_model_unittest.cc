@@ -24,6 +24,7 @@
 #include "ash/test/ash_test_base.h"
 #include "ash/wm/coral/coral_controller.h"
 #include "ash/wm/coral/coral_test_util.h"
+#include "base/compiler_specific.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -190,7 +191,7 @@ class BirchModelTest : public AshTestBase {
       bool enable = false;
       for (const char* exception : exceptions) {
         /*strcmp returns 0 when inputs are the same*/
-        if (0 == strcmp(pref, exception)) {
+        if (0 == UNSAFE_TODO(strcmp(pref, exception))) {
           enable = true;
         }
       }
@@ -373,7 +374,7 @@ TEST_F(BirchModelTest, DataFetchForNonPrimaryUserClearsModel) {
   TestModelConsumer consumer;
 
   // Sign in to a secondary user.
-  SimulateUserLogin("user2@test.com");
+  SimulateUserLogin({"user2@test.com"});
   ASSERT_FALSE(Shell::Get()->session_controller()->IsUserPrimary());
 
   // Add an item to the model.
@@ -1255,7 +1256,7 @@ TEST_F(BirchModelTest, ModelClearedOnMultiProfileUserSwitch) {
   ASSERT_TRUE(model->IsDataFresh());
 
   // Sign in to a secondary user.
-  SimulateUserLogin("user2@test.com");
+  SimulateUserLogin({"user2@test.com"});
   ASSERT_FALSE(Shell::Get()->session_controller()->IsUserPrimary());
 
   // The model is empty.

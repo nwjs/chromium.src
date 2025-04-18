@@ -24,6 +24,7 @@
 #include "services/network/public/mojom/trust_tokens.mojom-blink.h"
 #include "services/network/public/mojom/trust_tokens.mojom.h"
 #include "third_party/blink/public/common/loader/network_utils.h"
+#include "third_party/blink/public/common/navigation/preloading_headers.h"
 #include "third_party/blink/public/mojom/blob/blob.mojom-blink.h"
 #include "third_party/blink/public/mojom/blob/blob.mojom.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-blink.h"
@@ -44,7 +45,6 @@ namespace {
 
 // TODO(yhirano): Unify these with variables in
 // content/public/common/content_constants.h.
-constexpr char kCorsExemptPurposeHeaderName[] = "Purpose";
 constexpr char kCorsExemptRequestedWithHeaderName[] = "X-Requested-With";
 
 // TODO(yhirano) Dedupe this and the same-name function in
@@ -308,7 +308,7 @@ void PopulateResourceRequest(const ResourceRequestHead& src,
   // Set Purpose header to cors_exempt_headers rather than headers to be
   // exempted from CORS checks.
   if (!src.GetPurposeHeader().empty()) {
-    dest->cors_exempt_headers.SetHeader(kCorsExemptPurposeHeaderName,
+    dest->cors_exempt_headers.SetHeader(kPurposeHeaderName,
                                         src.GetPurposeHeader().Utf8());
   }
 
@@ -325,9 +325,9 @@ void PopulateResourceRequest(const ResourceRequestHead& src,
   dest->credentials_mode = src.GetCredentialsMode();
   dest->redirect_mode = src.GetRedirectMode();
   dest->fetch_integrity = src.GetFetchIntegrity().Utf8();
-  dest->expected_signatures.reserve(src.GetExpectedSignatures().size());
-  for (const String& signature : src.GetExpectedSignatures()) {
-    dest->expected_signatures.push_back(signature.Utf8());
+  dest->expected_public_keys.reserve(src.GetExpectedPublicKeys().size());
+  for (const String& public_key : src.GetExpectedPublicKeys()) {
+    dest->expected_public_keys.push_back(public_key.Utf8());
   }
   if (src.GetWebBundleTokenParams().has_value()) {
     dest->web_bundle_token_params =

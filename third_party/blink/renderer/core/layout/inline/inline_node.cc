@@ -15,7 +15,6 @@
 
 #include "base/containers/adapters.h"
 #include "base/debug/dump_without_crashing.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/not_fatal_until.h"
 #include "base/trace_event/trace_event.h"
 #include "third_party/blink/renderer/core/dom/text_diff_range.h"
@@ -64,6 +63,7 @@
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/text/bidi_paragraph.h"
 #include "third_party/blink/renderer/platform/wtf/text/character_names.h"
+#include "third_party/blink/renderer/platform/wtf/text/character_visitor.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_buffer.h"
 #include "third_party/blink/renderer/platform/wtf/text/text_offset_map.h"
 
@@ -1377,17 +1377,6 @@ void InlineNode::ShapeText(InlineItemsData* data,
                            const String* previous_text,
                            const InlineItems* previous_items,
                            const Font* override_font) const {
-  TRACE_EVENT0("fonts", "InlineNode::ShapeText");
-  base::ScopedClosureRunner scoped_closure_runner(WTF::BindOnce(
-      [](base::ElapsedTimer timer, Document* document) {
-        if (document) {
-          document->MaybeRecordShapeTextElapsedTime(timer.Elapsed());
-        }
-      },
-      base::ElapsedTimer(),
-      WrapWeakPersistent(GetLayoutBox() ? &GetLayoutBox()->GetDocument()
-                                        : nullptr)));
-
   const String& text_content = data->text_content;
   InlineItems* items = &data->items;
 #if EXPENSIVE_DCHECKS_ARE_ON()
@@ -1739,20 +1728,16 @@ namespace {
 
 template <typename CharType>
 String CreateTextContentForStickyImagesQuirk(
-    const CharType* text,
-    unsigned length,
+    base::span<const CharType> text,
     base::span<const Member<InlineItem>> items) {
-  StringBuffer<CharType> buffer(length);
-  CharType* characters = buffer.Characters();
-  memcpy(characters, text, length * sizeof(CharType));
+  StringBuffer<CharType> buffer(text.size());
+  base::span<CharType> span = buffer.Span();
+  span.copy_from(text);
   for (const Member<InlineItem>& item_ptr : items) {
     const InlineItem& item = *item_ptr;
     if (item.Type() == InlineItem::kAtomicInline && item.IsImage()) {
-      // TODO(crbug.com/351564777): Resolve a buffer safety issue.
-      DCHECK_EQ(UNSAFE_TODO(characters[item.StartOffset()]),
-                kObjectReplacementCharacter);
-      // TODO(crbug.com/351564777): Resolve a buffer safety issue.
-      UNSAFE_TODO(characters[item.StartOffset()]) = kNoBreakSpaceCharacter;
+      DCHECK_EQ(span[item.StartOffset()], kObjectReplacementCharacter);
+      span[item.StartOffset()] = kNoBreakSpaceCharacter;
     }
   }
   return buffer.Release();
@@ -1772,12 +1757,9 @@ String InlineNode::TextContentForStickyImagesQuirk(
     const InlineItem& item = *items_data.items[i];
     if (item.Type() == InlineItem::kAtomicInline && item.IsImage()) {
       auto item_span = base::span(items_data.items).subspan(i);
-      if (text_content.Is8Bit()) {
-        return CreateTextContentForStickyImagesQuirk(
-            text_content.Characters8(), text_content.length(), item_span);
-      }
-      return CreateTextContentForStickyImagesQuirk(
-          text_content.Characters16(), text_content.length(), item_span);
+      return WTF::VisitCharacters(text_content, [&](auto chars) {
+        return CreateTextContentForStickyImagesQuirk(chars, item_span);
+      });
     }
   }
   return text_content;
@@ -2052,9 +2034,9 @@ static LayoutUnit ComputeContentSize(InlineNode node,
                                            /* is_new_fc */ true);
       builder.SetAvailableBlockSize(space.AvailableSize().block_size);
       builder.SetPercentageResolutionBlockSize(
-          space.PercentageResolutionBlockSize());
-      builder.SetReplacedPercentageResolutionBlockSize(
-          space.ReplacedPercentageResolutionBlockSize());
+          float_node.IsReplaced()
+              ? space.ReplacedChildPercentageResolutionBlockSize()
+              : space.PercentageResolutionBlockSize());
       const auto float_space = builder.ToConstraintSpace();
 
       const MinMaxSizesResult child_result =

@@ -13,7 +13,7 @@
 // META: variant=?25-28
 // META: variant=?29-last
 
-"use strict;"
+"use strict";
 
 // These tests focus on the browserSignals argument passed to generateBid().
 // Note that "topLevelSeller" is covered by component auction tests,
@@ -50,11 +50,6 @@ subsetTest(promise_test, async test => {
 
           // Remove deprecated field, if present.
           delete browserSignals.prevWins;
-
-          // encode/decode utf-8 are tested separately, and aren't
-          // suitable to equality testing.
-          delete browserSignals.encodeUtf8;
-          delete browserSignals.decodeUtf8;
 
           if (!deepEquals(browserSignals, expectedBrowserSignals))
              throw "Unexpected browserSignals: " + JSON.stringify(browserSignals);`

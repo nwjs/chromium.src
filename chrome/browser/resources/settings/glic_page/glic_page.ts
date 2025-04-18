@@ -57,11 +57,6 @@ export class SettingsGlicPageElement extends SettingsGlicPageElementBase {
 
   static get properties() {
     return {
-      prefs: {
-        type: Object,
-        notify: true,
-      },
-
       registeredShortcut_: {
         type: String,
         value: '',
@@ -86,6 +81,8 @@ export class SettingsGlicPageElement extends SettingsGlicPageElementBase {
     };
   }
 
+  private shortcutInput_: string;
+  private removedShortcut_: string|null = null;
   private registeredShortcut_: string;
   private fakePref_: chrome.settingsPrivate.PrefObject;
   private browserProxy_: GlicBrowserProxy = GlicBrowserProxyImpl.getInstance();
@@ -96,6 +93,11 @@ export class SettingsGlicPageElement extends SettingsGlicPageElementBase {
   override async connectedCallback() {
     super.connectedCallback();
     this.registeredShortcut_ = await this.browserProxy_.getGlicShortcut();
+    await CrSettingsPrefs.initialized;
+    this.tabAccessToggleExpanded_ =
+        this.getPref<boolean>(
+                SettingsGlicPageFeaturePrefName.TAB_CONTEXT_ENABLED)
+            .value;
   }
 
   private onGlicPageClick_() {
@@ -126,22 +128,60 @@ export class SettingsGlicPageElement extends SettingsGlicPageElementBase {
   private onLauncherToggleChange_(event: Event) {
     const enabled = (event.target as SettingsToggleButtonElement).checked;
     this.browserProxy_.setGlicOsLauncherEnabled(enabled);
-    this.metricsBrowserProxy_.recordBooleanHistogram(
-        'Glic.OsEntrypoint.Settings.Toggle', enabled);
+    this.metricsBrowserProxy_.recordAction(
+        'Glic.OsEntrypoint.Settings.Toggle' +
+        (enabled ? '.Enabled' : '.Disabled'));
     this.hideHelpBubble(OS_WIDGET_TOGGLE_ELEMENT_ID);
   }
 
+  private onGeolocationToggleChange_(event: Event) {
+    const enabled = (event.target as SettingsToggleButtonElement).checked;
+    this.metricsBrowserProxy_.recordAction(
+        'Glic.Settings.Geolocation' + (enabled ? '.Enabled' : '.Disabled'));
+  }
+
+  private onMicrophoneToggleChange_(event: Event) {
+    const enabled = (event.target as SettingsToggleButtonElement).checked;
+    this.metricsBrowserProxy_.recordAction(
+        'Glic.Settings.Microphone' + (enabled ? '.Enabled' : '.Disabled'));
+  }
+
   private async onShortcutUpdated_(event: CustomEvent<string>) {
-    await this.browserProxy_.setGlicShortcut(event.detail);
+    this.shortcutInput_ = event.detail;
+    await this.browserProxy_.setGlicShortcut(this.shortcutInput_);
+    if (this.removedShortcut_ === null) {
+      this.removedShortcut_ = this.registeredShortcut_;
+    }
     this.registeredShortcut_ = await this.browserProxy_.getGlicShortcut();
     // Records true if the shortcut string is not undefined or the empty string.
     this.metricsBrowserProxy_.recordBooleanHistogram(
-        'Glic.OsEntrypoint.Settings.Shortcut', !!event.detail);
+        'Glic.OsEntrypoint.Settings.Shortcut', !!this.shortcutInput_);
     this.hideHelpBubble(OS_WIDGET_KEYBOARD_SHORTCUT_ELEMENT_ID);
   }
 
+  // Records whether the shortcut enablement state transitioned from disabled to
+  // enabled or vice versa.
+  // TODO(crbug.com/406848612): Record these in the browser process instead.
+  private recordShortcutEnablement() {
+    if (this.shortcutInput_ && !this.removedShortcut_) {
+      this.metricsBrowserProxy_.recordAction(
+          'GlicOsEntrypoint.Settings.ShortcutEnabled');
+    } else if (!this.shortcutInput_ && this.removedShortcut_) {
+      this.metricsBrowserProxy_.recordAction(
+          'GlicOsEntrypoint.Settings.ShortcutDisabled');
+    } else {
+      this.metricsBrowserProxy_.recordAction(
+          'GlicOsEntrypoint.Settings.ShortcutEdited');
+    }
+  }
+
   private onInputCaptureChange_(event: CustomEvent<boolean>) {
-    this.browserProxy_.setShortcutSuspensionState(event.detail);
+    const capturing = event.detail;
+    this.browserProxy_.setShortcutSuspensionState(capturing);
+    if (!capturing) {
+      this.recordShortcutEnablement();
+      this.removedShortcut_ = null;
+    }
   }
 
   private shouldShowKeyboardShortcut_(launcherEnabled: boolean): boolean {
@@ -153,8 +193,12 @@ export class SettingsGlicPageElement extends SettingsGlicPageElementBase {
                .value === 0;
   }
 
-  private onTabAccessToggleChange_(event: CustomEvent<{value: boolean}>) {
-    this.tabAccessToggleExpanded_ = event.detail.value;
+  private onTabAccessToggleChange_(event: CustomEvent) {
+    const target = event.target as SettingsToggleButtonElement;
+    const enabled = target.checked;
+    this.tabAccessToggleExpanded_ = enabled;
+    this.metricsBrowserProxy_.recordAction(
+        'Glic.Settings.TabContext' + (enabled ? '.Enabled' : '.Disabled'));
   }
 
   private onActivityRowClick_() {

@@ -480,11 +480,13 @@ bool IsExpandableSuggestionType(SuggestionType type) {
     case SuggestionType::kFillPassword:
     case SuggestionType::kGeneratePasswordEntry:
     case SuggestionType::kIbanEntry:
+    case SuggestionType::kLoyaltyCardEntry:
     case SuggestionType::kInsecureContextPaymentDisabledMessage:
     case SuggestionType::kManageAddress:
     case SuggestionType::kManageAutofillAi:
     case SuggestionType::kManageCreditCard:
     case SuggestionType::kManageIban:
+    case SuggestionType::kManageLoyaltyCard:
     case SuggestionType::kManagePlusAddress:
     case SuggestionType::kMerchantPromoCodeEntry:
     case SuggestionType::kMixedFormMessage:
@@ -494,13 +496,14 @@ bool IsExpandableSuggestionType(SuggestionType type) {
     case SuggestionType::kScanCreditCard:
     case SuggestionType::kSeePromoCodeDetails:
     case SuggestionType::kSeparator:
-    case SuggestionType::kShowAccountCards:
     case SuggestionType::kTitle:
     case SuggestionType::kUndoOrClear:
     case SuggestionType::kViewPasswordDetails:
     case SuggestionType::kVirtualCreditCardEntry:
+    case SuggestionType::kIdentityCredential:
     case SuggestionType::kWebauthnCredential:
     case SuggestionType::kWebauthnSignInWithAnotherDevice:
+    case SuggestionType::kPendingStateSignin:
       return false;
   }
 }

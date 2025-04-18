@@ -16,8 +16,8 @@
 #include "chrome/browser/ui/exclusive_access/exclusive_access_context.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/lens/lens_overlay_controller.h"
+#include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
-#include "chrome/browser/ui/tabs/public/tab_interface.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/page_action/page_action_controller.h"
 #include "chrome/browser/ui/views/page_action/page_action_triggers.h"
@@ -30,6 +30,7 @@
 #include "components/lens/lens_features.h"
 #include "components/lens/lens_overlay_permission_utils.h"
 #include "components/omnibox/browser/omnibox_prefs.h"
+#include "components/tab_collections/public/tab_interface.h"
 #include "content/public/browser/navigation_entry.h"
 
 namespace {
@@ -232,9 +233,6 @@ void LensOverlayEntryPointController::OnViewRemovedFromWidget(
   location_bar_->GetFocusManager()->RemoveFocusChangeListener(this);
 }
 
-void LensOverlayEntryPointController::OnWillChangeFocus(views::View* before,
-                                                        views::View* now) {}
-
 void LensOverlayEntryPointController::OnDidChangeFocus(views::View* before,
                                                        views::View* now) {
   UpdatePageActionState();
@@ -265,7 +263,7 @@ actions::ActionItem* LensOverlayEntryPointController::GetToolbarEntrypoint() {
 }
 
 void LensOverlayEntryPointController::UpdatePageActionState() {
-  if (!base::FeatureList::IsEnabled(::features::kPageActionsMigration)) {
+  if (!IsPageActionMigrated(PageActionIconType::kLensOverlay)) {
     return;
   }
   // This may not have been initialized (e.g. for non-normal browser types).
@@ -291,7 +289,6 @@ void LensOverlayEntryPointController::UpdatePageActionState() {
 
   if (!ShouldShowPageAction(active_tab)) {
     page_action_controller->Hide(page_action_id);
-    page_action_controller->HideSuggestionChip(page_action_id);
     return;
   }
 
@@ -301,7 +298,10 @@ void LensOverlayEntryPointController::UpdatePageActionState() {
       l10n_util::GetStringUTF16(IDS_CONTENT_LENS_OVERLAY_ENTRYPOINT_LABEL));
 
   page_action_controller->Show(page_action_id);
-  page_action_controller->ShowSuggestionChip(page_action_id);
+  page_action_controller->ShowSuggestionChip(page_action_id,
+                                             {
+                                                 .should_animate = false,
+                                             });
 }
 
 bool LensOverlayEntryPointController::IsOverlayActive() {
@@ -336,7 +336,7 @@ bool LensOverlayEntryPointController::ShouldShowPageAction(
 
   // The overlay is unavailable on the NTP as it is unlikely to be useful to
   // users on the page. It would also appear immediately when a new tab or
-  // window is created due to focus immediatey jumping into the location bar.
+  // window is created due to focus immediately jumping into the location bar.
   if (IsNewTabPage(active_tab->GetContents())) {
     return false;
   }

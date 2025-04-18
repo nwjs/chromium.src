@@ -207,7 +207,8 @@ public class AccountSelectionButtonModeIntegrationTest extends AccountSelectionI
                         "Test",
                         "Test",
                         /* secondaryDescription= */ null,
-                        null,
+                        /* pictureBitmap= */ null,
+                        /* circledBadgedPictureBitmap= */ null,
                         /* isSignIn= */ true,
                         /* isBrowserTrustedSignIn= */ false,
                         /* isFilteredOut= */ false,
@@ -401,7 +402,7 @@ public class AccountSelectionButtonModeIntegrationTest extends AccountSelectionI
                 AccountSelectionProperties.ITEM_TYPE_ACCOUNT,
                 accountsList.getAdapter().getItemViewType(1));
         assertEquals(
-                AccountSelectionProperties.ITEM_TYPE_ADD_ACCOUNT,
+                AccountSelectionProperties.ITEM_TYPE_LOGIN,
                 accountsList.getAdapter().getItemViewType(2));
 
         // Check that secondary button is NOT displayed.
@@ -620,7 +621,7 @@ public class AccountSelectionButtonModeIntegrationTest extends AccountSelectionI
                 ((TextView) contentView.findViewById(R.id.header_title)).getText().toString();
         String expectedSubtitle =
                 ((TextView) contentView.findViewById(R.id.header_subtitle)).getText().toString();
-        onView(withId(R.id.header_idp_icon)).check(matches(isDisplayed()));
+        onView(withId(R.id.header_icon)).check(matches(isDisplayed()));
         onView(withId(R.id.header_rp_icon)).check(matches(not(isDisplayed())));
         onView(withId(R.id.arrow_range_icon)).check(matches(not(isDisplayed())));
 
@@ -633,7 +634,7 @@ public class AccountSelectionButtonModeIntegrationTest extends AccountSelectionI
         assertEquals(
                 expectedSubtitle,
                 ((TextView) contentView.findViewById(R.id.header_subtitle)).getText().toString());
-        onView(withId(R.id.header_idp_icon)).check(matches(isDisplayed()));
+        onView(withId(R.id.header_icon)).check(matches(isDisplayed()));
         onView(withId(R.id.header_rp_icon)).check(matches(not(isDisplayed())));
         onView(withId(R.id.arrow_range_icon)).check(matches(not(isDisplayed())));
     }
@@ -667,7 +668,7 @@ public class AccountSelectionButtonModeIntegrationTest extends AccountSelectionI
                 ((TextView) contentView.findViewById(R.id.header_title)).getText().toString();
         String expectedSubtitle =
                 ((TextView) contentView.findViewById(R.id.header_subtitle)).getText().toString();
-        onView(withId(R.id.header_idp_icon)).check(matches(isDisplayed()));
+        onView(withId(R.id.header_icon)).check(matches(isDisplayed()));
         onView(withId(R.id.header_rp_icon)).check(matches(isDisplayed()));
         onView(withId(R.id.arrow_range_icon)).check(matches(isDisplayed()));
 
@@ -680,7 +681,7 @@ public class AccountSelectionButtonModeIntegrationTest extends AccountSelectionI
         assertEquals(
                 expectedSubtitle,
                 ((TextView) contentView.findViewById(R.id.header_subtitle)).getText().toString());
-        onView(withId(R.id.header_idp_icon)).check(matches(isDisplayed()));
+        onView(withId(R.id.header_icon)).check(matches(isDisplayed()));
         onView(withId(R.id.header_rp_icon)).check(matches(isDisplayed()));
         onView(withId(R.id.arrow_range_icon)).check(matches(isDisplayed()));
     }

@@ -98,7 +98,7 @@ class SyncServiceFactoryTest : public testing::Test {
 
   // Returns the collection of default datatypes.
   syncer::DataTypeSet DefaultDatatypes() {
-    static_assert(54 == syncer::GetNumDataTypes(),
+    static_assert(55 == syncer::GetNumDataTypes(),
                   "When adding a new type, you probably want to add it here as "
                   "well (assuming it is already enabled). Check similar "
                   "function in "
@@ -208,7 +208,11 @@ class SyncServiceFactoryTest : public testing::Test {
     // controller gets instantiated for the type.
 
     if (base::FeatureList::IsEnabled(syncer::kSyncAutofillLoyaltyCard)) {
-      datatypes.Put(syncer::AUTOFILL_LOYALTY_CARD);
+      datatypes.Put(syncer::AUTOFILL_VALUABLE);
+    }
+
+    if (base::FeatureList::IsEnabled(syncer::kSyncSharedTabGroupAccountData)) {
+      datatypes.Put(syncer::SHARED_TAB_GROUP_ACCOUNT_DATA);
     }
 
     return datatypes;

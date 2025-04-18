@@ -56,7 +56,7 @@ chromium-metrics-reviews@google.com.
 </variants>
 
 <histogram name="Content.Classification" enum="ContentClassification"
-    expires_after="2025-07-06">
+    expires_after="2025-09-07">
   <owner>sophey@chromium.org</owner>
   <owner>chrome-sherlock@google.com</owner>
   <summary>
@@ -404,7 +404,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContentSettings.RegularProfile.DefaultAutoVerifySetting"
-    enum="ContentSetting" expires_after="2025-06-29">
+    enum="ContentSetting" expires_after="2025-08-31">
   <owner>ryankalla@google.com</owner>
   <owner>src/components/permissions/PERMISSIONS_OWNERS</owner>
   <summary>
@@ -414,7 +414,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContentSettings.RegularProfile.DefaultBackgroundSyncSetting"
-    enum="ContentSetting" expires_after="2025-07-13">
+    enum="ContentSetting" expires_after="2025-09-14">
   <owner>tungnh@chromium.org</owner>
   <owner>src/components/permissions/PERMISSIONS_OWNERS</owner>
   <summary>
@@ -451,7 +451,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContentSettings.RegularProfile.DefaultStorageAccessSetting"
-    enum="ContentSetting" expires_after="2025-07-13">
+    enum="ContentSetting" expires_after="2025-09-14">
   <owner>dullweber@chromium.org</owner>
   <owner>src/components/permissions/PERMISSIONS_OWNERS</owner>
   <summary>
@@ -823,6 +823,8 @@ chromium-metrics-reviews@google.com.
     <variant name="javascript-jit" summary="JavaScript JIT"/>
     <variant name="javascript-optimizer" summary="JavaScript Optimizer"/>
     <variant name="keygen" summary="Keygen exceptions"/>
+    <variant name="local-network-access"
+        summary="Local network access exceptions"/>
     <variant name="media-engagement" summary="Media engagement exceptions"/>
     <variant name="media-stream-camera" summary="Camera exceptions"/>
     <variant name="media-stream-mic" summary="Microphone exceptions"/>
@@ -1011,16 +1013,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="ContentSuggestions.Feed.Controls.Actions"
-    enum="FeedControlsActions" expires_after="never">
-<!-- expires-never: tracked as an important feed metric. -->
-
-  <owner>vincb@google.com</owner>
-  <owner>feed@chromium.org</owner>
-  <owner>src/components/feed/OWNERS</owner>
-  <summary>Actions related to the feed controls.</summary>
-</histogram>
-
 <histogram name="ContentSuggestions.Feed.DisplayStatusOnOpen"
     enum="ContentSuggestionsDisplayStatus" expires_after="2025-11-30">
   <owner>jianli@chromium.org</owner>
@@ -1103,7 +1095,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram base="true" name="ContentSuggestions.Feed.LoadStepLatency"
+<histogram name="ContentSuggestions.Feed.LoadStepLatency{FeedLoadLatencyStep}"
     units="ms" expires_after="2024-07-21">
   <owner>harringtond@chromium.org</owner>
   <owner>feed@chromium.org</owner>
@@ -1113,8 +1105,22 @@ chromium-metrics-reviews@google.com.
     that ends with the Feed showing up on the UI. All steps added together tally
     to the total time taken.
 
-    Feed v2 only.
+    Feed v2 only. {FeedLoadLatencyStep}
   </summary>
+  <token key="FeedLoadLatencyStep">
+    <variant name=".ActionUpload"
+        summary="Time taken read stored actions and upload them if necessary."/>
+    <variant name=".LoadFromStore"
+        summary="Time taken to load the feed content from local storage."/>
+    <variant name=".QueryRequest"
+        summary="Time taken to request fresh feed content from the network."/>
+    <variant name=".StreamView"
+        summary="Time taken to receive feedback that a Feed item was shown.
+                 Time begins after feed data is loaded from the network or
+                 local storage"/>
+    <variant name=".TaskStart"
+        summary="Time taken to begin executing the load stream task."/>
+  </token>
 </histogram>
 
 <histogram name="ContentSuggestions.Feed.LoadStreamStatus.LoadMore"
@@ -1732,7 +1738,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContentSuggestions.Feed.WebFeed.SortTypeWhenEngaged"
-    enum="FeedSortType" expires_after="2025-04-28">
+    enum="FeedSortType" expires_after="2025-08-31">
   <owner>adamta@google.com</owner>
   <owner>sczs@chromium.org</owner>
   <owner>feed@chromium.org</owner>

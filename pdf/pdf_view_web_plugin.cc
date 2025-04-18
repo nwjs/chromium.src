@@ -165,6 +165,9 @@ constexpr int kCompletePDFIndex = -1;
 // A different negative value to differentiate itself from `kCompletePDFIndex`.
 constexpr int kInvalidPDFIndex = -2;
 
+// Get save data from plugin in maximum 16 MB blocks.
+constexpr uint32_t kMaxSaveBufferSize = 16 * 1000 * 1000;
+
 // Enumeration of pinch states.
 // This should match PinchPhase enum in
 // chrome/browser/resources/pdf/viewport.ts.
@@ -265,6 +268,17 @@ bool IsPreviewingPDF(int print_preview_page_count) {
 
 bool IsSaveDataSizeValid(size_t size) {
   return size > 0 && size <= PdfViewWebPlugin::kMaximumSavedFileSize;
+}
+
+base::Value::Dict CreateSaveDataBlockMessage(
+    const std::string& token,
+    PdfViewWebPlugin::SaveDataBlock data) {
+  base::Value::Dict message;
+  message.Set("type", "saveDataBlock");
+  message.Set("token", token);
+  message.Set("dataToSave", std::move(data.block));
+  message.Set("totalFileSize", base::checked_cast<int>(data.total_file_size));
+  return message;
 }
 
 }  // namespace
@@ -407,6 +421,13 @@ class PdfViewWebPlugin::PdfInkModuleClientImpl : public PdfInkModuleClient {
 };
 #endif  // BUILDFLAG(ENABLE_PDF_INK2)
 
+PdfViewWebPlugin::SaveDataBlock::SaveDataBlock() = default;
+PdfViewWebPlugin::SaveDataBlock::SaveDataBlock(
+    PdfViewWebPlugin::SaveDataBlock&& other) noexcept = default;
+PdfViewWebPlugin::SaveDataBlock& PdfViewWebPlugin::SaveDataBlock::operator=(
+    PdfViewWebPlugin::SaveDataBlock&&) noexcept = default;
+PdfViewWebPlugin::SaveDataBlock::~SaveDataBlock() = default;
+
 std::unique_ptr<PDFiumEngine> PdfViewWebPlugin::Client::CreateEngine(
     PDFiumEngineClient* client,
     PDFiumFormFiller::ScriptOption script_option) {
@@ -423,7 +444,8 @@ PdfViewWebPlugin::PdfViewWebPlugin(
       ink_module_client_(MaybeCreatePdfInkModuleClient(*this)),
       ink_module_(MaybeCreatePdfInkModule(ink_module_client_.get())),
 #endif
-      initial_params_(std::move(params)) {
+      initial_params_(std::move(params)),
+      max_save_buffer_size_(kMaxSaveBufferSize) {
   DCHECK(pdf_host_);
   pdf_host_->SetListener(listener_receiver_.BindNewPipeAndPassRemote());
 }
@@ -1629,12 +1651,18 @@ void PdfViewWebPlugin::OnMessage(const base::Value::Dict& message) {
            &PdfViewWebPlugin::HandleGetPageBoundingBoxMessage},
           {"getPasswordComplete",
            &PdfViewWebPlugin::HandleGetPasswordCompleteMessage},
+          {"getSaveDataBlock",
+           &PdfViewWebPlugin::HandleGetSaveDataBlockMessage},
           {"getSelectedText", &PdfViewWebPlugin::HandleGetSelectedTextMessage},
+          {"getSuggestedFileName",
+           &PdfViewWebPlugin::HandleGetSuggestedFileName},
           {"getThumbnail", &PdfViewWebPlugin::HandleGetThumbnailMessage},
           {"highlightTextFragments",
            &PdfViewWebPlugin::HandleHighlightTextFragmentsMessage},
           {"print", &PdfViewWebPlugin::HandlePrintMessage},
           {"loadPreviewPage", &PdfViewWebPlugin::HandleLoadPreviewPageMessage},
+          {"releaseSaveInBlockBuffers",
+           &PdfViewWebPlugin::HandleReleaseSaveInBlockBuffers},
           {"resetPrintPreviewMode",
            &PdfViewWebPlugin::HandleResetPrintPreviewModeMessage},
           {"rotateClockwise", &PdfViewWebPlugin::HandleRotateClockwiseMessage},
@@ -1727,6 +1755,26 @@ void PdfViewWebPlugin::HandleGetSelectedTextMessage(
 
   base::Value::Dict reply = PrepareReplyMessage(message);
   reply.Set("selectedText", selected_text);
+  client_->PostMessage(std::move(reply));
+}
+
+void PdfViewWebPlugin::HandleGetSaveDataBlockMessage(
+    const base::Value::Dict& message) {
+  const std::string& token = *message.FindString("token");
+  SaveRequestType request_type =
+      static_cast<SaveRequestType>(message.FindInt("saveRequestType").value());
+  uint32_t offset = static_cast<uint32_t>(message.FindInt("offset").value());
+  uint32_t block_size =
+      static_cast<uint32_t>(message.FindInt("blockSize").value());
+
+  client_->PostMessage(CreateSaveDataBlockMessage(
+      token, SaveBlockToBuffer(request_type, offset, block_size)));
+}
+
+void PdfViewWebPlugin::HandleGetSuggestedFileName(
+    const base::Value::Dict& message) {
+  base::Value::Dict reply = PrepareReplyMessage(message);
+  reply.Set("fileName", GetFileNameForSaveFromUrl(url_));
   client_->PostMessage(std::move(reply));
 }
 
@@ -2028,7 +2076,7 @@ void PdfViewWebPlugin::SaveToBuffer(SaveRequestType request_type,
     uint32_t length = engine_->GetLoadedByteSize();
     if (IsSaveDataSizeValid(length)) {
       base::Value::BlobStorage data(length);
-      if (engine_->ReadLoadedBytes(length, data.data())) {
+      if (engine_->ReadLoadedBytes(0, data)) {
         data_to_save = base::Value(std::move(data));
       }
     }
@@ -2041,6 +2089,73 @@ void PdfViewWebPlugin::SaveToBuffer(SaveRequestType request_type,
   client_->PostMessage(std::move(message));
 }
 
+uint32_t PdfViewWebPlugin::VerifyParamsAndGetSaveBlockSize(
+    uint32_t total_file_size,
+    uint32_t offset,
+    uint32_t block_size) {
+  if (block_size) {
+    // Block size should be less than max threshold.
+    CHECK_LE(block_size, max_save_buffer_size_);
+  } else {
+    // `block_size` is allowed to be 0 only when offset is 0 since the caller
+    // may not know the total file size at that point.
+    CHECK(!offset);
+  }
+  CHECK_LT(offset, total_file_size);
+  if (block_size) {
+    CHECK_LE(block_size, total_file_size - offset);
+  } else {
+    block_size = std::min(max_save_buffer_size_, total_file_size);
+  }
+  return block_size;
+}
+
+PdfViewWebPlugin::SaveDataBlock PdfViewWebPlugin::SaveBlockToBuffer(
+    SaveRequestType request_type,
+    uint32_t offset,
+    uint32_t block_size) {
+  engine_->KillFormFocus();
+
+  SaveDataBlock result;
+  if (request_type == SaveRequestType::kOriginal) {
+    // This function does not handle files larger than INT_MAX.
+    if (engine_->GetLoadedByteSize() <= static_cast<uint32_t>(INT_MAX)) {
+      result.total_file_size = engine_->GetLoadedByteSize();
+      block_size = VerifyParamsAndGetSaveBlockSize(result.total_file_size,
+                                                   offset, block_size);
+      result.block.resize(block_size);
+      if (!engine_->ReadLoadedBytes(offset, result.block)) {
+        result.block.resize(0);
+      }
+    }
+    return result;
+  }
+
+  if (offset == 0) {
+    save_data_buffer_ = engine_->GetSaveData();
+    // This function does not handle files larger than INT_MAX.
+    if (save_data_buffer_.size() > static_cast<uint32_t>(INT_MAX)) {
+      ReleaseSaveBuffer();
+    }
+  } else {
+    CHECK(save_data_buffer_.size());
+  }
+  if (save_data_buffer_.size()) {
+    result.total_file_size = static_cast<uint32_t>(save_data_buffer_.size());
+    block_size = VerifyParamsAndGetSaveBlockSize(result.total_file_size, offset,
+                                                 block_size);
+    result.block.resize(block_size);
+    base::span(result.block)
+        .copy_from(base::span(save_data_buffer_).subspan(offset, block_size));
+    // Drop the buffer if everything is returned.
+    if (offset + block_size == result.total_file_size) {
+      ReleaseSaveBuffer();
+    }
+  }
+
+  return result;
+}
+
 void PdfViewWebPlugin::SaveToFile(const std::string& token) {
   engine_->KillFormFocus();
 
@@ -2050,6 +2165,11 @@ void PdfViewWebPlugin::SaveToFile(const std::string& token) {
   client_->PostMessage(std::move(message));
 
   pdf_host_->SaveUrlAs(GURL(url_), network::mojom::ReferrerPolicy::kDefault);
+}
+
+void PdfViewWebPlugin::ReleaseSaveBuffer() {
+  std::vector<uint8_t> empty;
+  save_data_buffer_.swap(empty);
 }
 
 void PdfViewWebPlugin::SetPluginCanSave(bool can_save) {
@@ -2630,6 +2750,11 @@ void PdfViewWebPlugin::SendLoadingProgress(double percentage) {
   client_->PostMessage(std::move(message));
 }
 
+void PdfViewWebPlugin::HandleReleaseSaveInBlockBuffers(
+    const base::Value::Dict& /*message*/) {
+  ReleaseSaveBuffer();
+}
+
 void PdfViewWebPlugin::HandleResetPrintPreviewModeMessage(
     const base::Value::Dict& message) {
   const std::string& url = *message.FindString("url");
@@ -2828,15 +2953,16 @@ gfx::Point PdfViewWebPlugin::FrameToPdfCoordinates(
          gfx::Vector2d(available_area_.x(), 0);
 }
 
-AccessibilityDocInfo PdfViewWebPlugin::GetAccessibilityDocInfo() const {
-  AccessibilityDocInfo doc_info;
-  doc_info.page_count = engine_->GetNumberOfPages();
+std::unique_ptr<AccessibilityDocInfo>
+PdfViewWebPlugin::GetAccessibilityDocInfo() const {
+  auto doc_info = std::make_unique<AccessibilityDocInfo>();
+  doc_info->page_count = engine_->GetNumberOfPages();
   if (base::FeatureList::IsEnabled(chrome_pdf::features::kPdfTags)) {
-    doc_info.is_tagged = engine_->IsTagged();
+    doc_info->is_tagged = engine_->IsPDFDocTagged();
   }
-  doc_info.text_accessible =
+  doc_info->text_accessible =
       engine_->HasPermission(DocumentPermission::kCopyAccessible);
-  doc_info.text_copyable = engine_->HasPermission(DocumentPermission::kCopy);
+  doc_info->text_copyable = engine_->HasPermission(DocumentPermission::kCopy);
   return doc_info;
 }
 

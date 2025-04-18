@@ -519,18 +519,6 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,
   RunEventTest(FILE_PATH_LITERAL("checked-mixed-changed.html"));
 }
 
-// http:/crbug.com/889013
-IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,
-                       DISABLED_AccessibilityEventsCaretHide) {
-  RunEventTest(FILE_PATH_LITERAL("caret-hide.html"));
-}
-
-// http:/crbug.com/889013
-IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,
-                       DISABLED_AccessibilityEventsCaretMove) {
-  RunEventTest(FILE_PATH_LITERAL("caret-move.html"));
-}
-
 // Flaky on Windows, disabled on Linux: https://crbug.com/1186887
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
 #define MAYBE_AccessibilityEventsCaretMoveHiddenInput \
@@ -549,16 +537,8 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,
   RunEventTest(FILE_PATH_LITERAL("checkbox-validity.html"));
 }
 
-// Flaky on TSAN, see https://crbug.com/1066702
-#if defined(THREAD_SANITIZER)
-#define MAYBE_AccessibilityEventsCaretBrowsingEnabled \
-  DISABLED_AccessibilityEventsCaretBrowsingEnabled
-#else
-#define MAYBE_AccessibilityEventsCaretBrowsingEnabled \
-  AccessibilityEventsCaretBrowsingEnabled
-#endif
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,
-                       MAYBE_AccessibilityEventsCaretBrowsingEnabled) {
+                       AccessibilityEventsCaretBrowsingEnabled) {
   // This actually enables caret browsing without setting the pref.
   GetWebContents()->GetMutableRendererPrefs()->caret_browsing_enabled = true;
   // This notifies accessibility that caret browsing is on so that it sends
@@ -651,6 +631,24 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,
                        AccessibilityEventsDescriptionChange) {
   RunEventTest(FILE_PATH_LITERAL("description-change.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,
+                       AccessibilityEventsDescriptionChangePaneTitle) {
+  RunEventTest(FILE_PATH_LITERAL("description-changed-pane-title.html"));
+}
+
+// TODO(crbug.com/399735836): Fix failure on Windows
+#if BUILDFLAG(IS_WIN)
+#define MAYBE_AccessibilityEventsDescriptionChangeSubtree \
+  DISABLED_AccessibilityEventsDescriptionChangeSubtree
+#else
+#define MAYBE_AccessibilityEventsDescriptionChangeSubtree \
+  AccessibilityEventsDescriptionChangeSubtree
+#endif
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,
+                       MAYBE_AccessibilityEventsDescriptionChangeSubtree) {
+  RunEventTest(FILE_PATH_LITERAL("description-changed-subtree.html"));
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,

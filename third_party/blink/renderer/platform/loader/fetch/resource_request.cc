@@ -465,8 +465,13 @@ void ResourceRequestHead::SetFetchIntegrity(
   IntegrityMetadataSet metadata;
   SubresourceIntegrity::ParseIntegrityAttribute(integrity, metadata,
                                                 feature_context);
-  for (const auto& signature : metadata.signatures) {
-    expected_signatures_.push_back(signature.first);
+  SetExpectedPublicKeys(metadata);
+}
+
+void ResourceRequestHead::SetExpectedPublicKeys(
+    const IntegrityMetadataSet& metadata) {
+  for (const auto& public_key : metadata.public_keys) {
+    expected_public_keys_.push_back(public_key.digest);
   }
 }
 
@@ -522,8 +527,8 @@ bool ResourceRequest::IsFeatureEnabledForSubresourceRequestAssumingOptIn(
     return false;
   }
 
-  return policy->IsFeatureEnabledForSubresourceRequestAssumingOptIn(feature,
-                                                                    origin);
+  return policy->IsFeatureEnabledForOrigin(
+      feature, origin, /*override_default_policy_to_all=*/true);
 }
 
 }  // namespace blink

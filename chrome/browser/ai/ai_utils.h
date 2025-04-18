@@ -18,8 +18,13 @@ class AIUtils {
       optimization_guide::OptimizationGuideModelExecutionError::
           ModelExecutionError error);
 
-  // Copied from compose::Config::trimmed_inner_text_max_chars.
-  static constexpr size_t kTrimmedInnerTextMaxChars = 12000;
+  static constexpr int kNormalizedDownloadProgressMax = 0x10000;
+
+  // Normalizes the model download progress by scaling `bytes_so_far` from
+  // having `total_bytes` its max to having a `kNormalizedDownloadProgressMax`
+  // as its max.
+  static int64_t NormalizeModelDownloadProgress(int64_t bytes_so_far,
+                                                int64_t total_bytes);
 };
 
 #endif  // CHROME_BROWSER_AI_AI_UTILS_H_

@@ -82,6 +82,7 @@ import org.chromium.chrome.browser.device_reauth.ReauthenticatorBridge;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
+import org.chromium.chrome.browser.price_tracking.PriceDropNotificationManager;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileResolver;
 import org.chromium.chrome.browser.profiles.ProfileResolverJni;
@@ -145,8 +146,7 @@ import java.util.function.Consumer;
 /** Unit tests for {@link BookmarkManagerMediator}. */
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(shadows = {ShadowPostTask.class})
-// TODO(crbug.com/327387704): Add tests with this flag enabled.
-@DisableFeatures(ChromeFeatureList.UNO_PHASE_2_FOLLOW_UP)
+@EnableFeatures(ChromeFeatureList.UNO_PHASE_2_FOLLOW_UP)
 public class BookmarkManagerMediatorTest {
     private static final GURL EXAMPLE_URL = JUnitTestGURLs.EXAMPLE_URL;
     private static final String EXAMPLE_URL_FORMATTED =
@@ -191,6 +191,8 @@ public class BookmarkManagerMediatorTest {
     @Mock private BookmarkMoveSnackbarManager mBookmarkMoveSnackbarManager;
     @Mock private BasicNativePage mNativePage;
     @Mock private ReauthenticatorBridge mReauthenticatorMock;
+    @Mock private BookmarkManagerOpener mBookmarkManagerOpener;
+    @Mock private PriceDropNotificationManager mPriceDropNotificationManager;
 
     @Captor private ArgumentCaptor<BookmarkModelObserver> mBookmarkModelObserverArgumentCaptor;
     @Captor private ArgumentCaptor<SelectionObserver> mSelectionObserver;
@@ -533,7 +535,9 @@ public class BookmarkManagerMediatorTest {
                         mSnackbarManager,
                         mCanShowPromo,
                         mOnScrollListenerConsumer,
-                        mBookmarkMoveSnackbarManager);
+                        mBookmarkMoveSnackbarManager,
+                        mBookmarkManagerOpener,
+                        mPriceDropNotificationManager);
         mMediator.addUiObserver(mBookmarkUiObserver);
     }
 
@@ -1384,6 +1388,7 @@ public class BookmarkManagerMediatorTest {
     }
 
     @Test
+    @DisableFeatures(ChromeFeatureList.UNO_PHASE_2_FOLLOW_UP)
     public void testPromoHeader() {
         BookmarkPromoHeader.forcePromoVisibilityForTesting(true);
         mMediator.getPromoHeaderManager().syncStateChanged();
@@ -1548,6 +1553,10 @@ public class BookmarkManagerMediatorTest {
 
     @Test
     public void testImprovedSpecialFolders() {
+        doReturn(true).when(mBookmarkModel).isSpecialFolder(mDesktopFolderItem);
+        doReturn(true).when(mBookmarkModel).isSpecialFolder(mMobileFolderItem);
+        doReturn(true).when(mBookmarkModel).isSpecialFolder(mOtherFolderItem);
+        doReturn(true).when(mBookmarkModel).isSpecialFolder(mReadingListFolderItem);
         mBookmarkUiPrefs.setBookmarkRowSortOrder(BookmarkRowSortOrder.ALPHABETICAL);
         final @ColorInt int specialBackgroundColor =
                 SemanticColorUtils.getColorPrimaryContainer(mActivity);

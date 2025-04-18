@@ -18,7 +18,9 @@
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
 #include "base/types/expected.h"
+#include "base/version_info/channel.h"
 #include "components/ip_protection/common/ip_protection_probabilistic_reveal_token_fetcher.h"
+#include "google_apis/common/api_key_request_util.h"
 #include "net/base/net_errors.h"
 #include "net/http/http_request_headers.h"
 #include "services/network/public/cpp/net_ipc_param_traits.h"
@@ -78,44 +80,46 @@ constexpr net::NetworkTrafficAnnotationTag kTrafficAnnotation =
 //
 // Calculations here are to have a rough estimate and assumes following.
 // Calculations are for version 1 (only supported version so far, browser will
-// verify this) and curve secp224r1. Exact size depends on how proto messages
-// are serialized.
+// verify this) and curve NID_X9_62_prime256v1. Exact size depends on how proto
+// messages are serialized.
 //
 // At most 400 tokens are allowed in a single response and browser will verify
 // it after deserializing response.
 //
 // - Assume `bytes` and `repeated` fields use 8 bytes for size.
-// - A token takes (4 + 37 + 37) 78 bytes. A response has at most 400 tokens.
-//   GetProbabilisticRevealTokenResponse.tokens might take as much as 400*78 + 8
-//   (31208) bytes.
-// - public_key takes (29 + 8) 37 bytes.
+// - A token takes (4 + 41 + 41) 86 bytes. A response has at most 400 tokens.
+//   GetProbabilisticRevealTokenResponse.tokens might take as much as 400*86 + 8
+//   (34408) bytes.
+// - public_key takes (33 + 8) 41 bytes.
 // - expiration_time_seconds take 8 bytes.
 // - next_epoch_start_time_seconds take 8 bytes.
 // - num_tokens_with_signal takes 4 bytes.
+// - epoch_id takes 8 bytes.
 //
-// This means response can be as much as (31208 + 37 + 8 + 8 + 4) 31265.
-// Limit is set to 32 * 1024 (32768) which gives more than our rough estimate.
+// This means response can be as much as (34408 + 41 + 8 + 8 + 4 + 8) 34477.
+// Limit is set to 40 * 1024 (40960) which gives more than our rough estimate.
 //
-// Serialized response with 400 tokens size is 26443, obtained by tweaking test
+// Serialized response with 400 tokens size is 29659, obtained by tweaking test
 // TryGetProbabilisticRevealTokensLargeResponse.
-constexpr size_t kGetProbabilisticRevealTokenResponseMaxBodySize = 32 * 1024;
+constexpr size_t kGetProbabilisticRevealTokenResponseMaxBodySize = 40 * 1024;
 constexpr char kProtobufContentType[] = "application/x-protobuf";
 constexpr int32_t kMinNumberOfTokens = 10;
 constexpr int32_t kMaxNumberOfTokens = 400;
 constexpr int32_t kTokenVersion = 1;
-constexpr int32_t kTokenSize = 29;
+constexpr int32_t kTokenSize = 33;
 constexpr int32_t kMinNumTokensWithSignal = 0;
+constexpr int32_t kEpochIdSize = 8;
 constexpr base::TimeDelta kMinExpirationTimeDelta = base::Hours(3);
 constexpr base::TimeDelta kMaxExpirationTimeDelta = base::Days(3);
 
-network::ResourceRequest CreateFetchRequest() {
+network::ResourceRequest CreateFetchRequest(version_info::Channel channel) {
   const std::string& get_prt_server_path =
-      net::features::kIpPrivacyProbabilisticRevealTokenServerPath.Get();
+      net::features::kProbabilisticRevealTokenServerPath.Get();
   GURL::Replacements replacements;
   replacements.SetPathStr(get_prt_server_path);
   network::ResourceRequest resource_request;
   resource_request.url =
-      GURL(net::features::kIpPrivacyProbabilisticRevealTokenServer.Get())
+      GURL(net::features::kProbabilisticRevealTokenServer.Get())
           .ReplaceComponents(replacements);
   resource_request.method = net::HttpRequestHeaders::kPostMethod;
   resource_request.credentials_mode = network::mojom::CredentialsMode::kOmit;
@@ -126,6 +130,7 @@ network::ResourceRequest CreateFetchRequest() {
     resource_request.headers.SetHeader("Ip-Protection-Debug-Experiment-Arm",
                                        base::NumberToString(experiment_arm));
   }
+  google_apis::AddDefaultAPIKeyToRequest(resource_request, channel);
   return resource_request;
 }
 
@@ -143,8 +148,9 @@ std::string CreateFetchRequestBody() {
 IpProtectionProbabilisticRevealTokenDirectFetcher::
     IpProtectionProbabilisticRevealTokenDirectFetcher(
         std::unique_ptr<network::PendingSharedURLLoaderFactory>
-            pending_url_loader_factory)
-    : retriever_(std::move(pending_url_loader_factory)) {}
+            pending_url_loader_factory,
+        version_info::Channel channel)
+    : retriever_(std::move(pending_url_loader_factory), channel) {}
 
 IpProtectionProbabilisticRevealTokenDirectFetcher::
     ~IpProtectionProbabilisticRevealTokenDirectFetcher() = default;
@@ -171,10 +177,11 @@ void IpProtectionProbabilisticRevealTokenDirectFetcher::
 
 IpProtectionProbabilisticRevealTokenDirectFetcher::Retriever::Retriever(
     std::unique_ptr<network::PendingSharedURLLoaderFactory>
-        pending_url_loader_factory)
+        pending_url_loader_factory,
+    version_info::Channel channel)
     : url_loader_factory_(network::SharedURLLoaderFactory::Create(
           std::move(pending_url_loader_factory))),
-      request_(CreateFetchRequest()),
+      request_(CreateFetchRequest(channel)),
       request_body_(CreateFetchRequestBody()) {
   CHECK(url_loader_factory_);
   CHECK(request_.url.is_valid());
@@ -225,7 +232,6 @@ void IpProtectionProbabilisticRevealTokenDirectFetcher::Retriever::
   std::move(callback).Run(std::move(response));
 }
 
-// TODO(crbug.com/391358904): add metrics
 void IpProtectionProbabilisticRevealTokenDirectFetcher::
     OnGetProbabilisticRevealTokensCompleted(
         TryGetProbabilisticRevealTokensCallback callback,
@@ -245,8 +251,6 @@ void IpProtectionProbabilisticRevealTokenDirectFetcher::
         TryGetProbabilisticRevealTokensResult{
             TryGetProbabilisticRevealTokensStatus::kNetNotOk, response.error(),
             no_get_probabilistic_reveal_tokens_until_});
-    // TODO(crbug.com/391358904): add failure metrics using response.error()
-    // before returning.
     return;
   } else if (!response.value().has_value()) {
     // url_loader->NetError() is net::OK, however, DownloadToString returned
@@ -256,8 +260,6 @@ void IpProtectionProbabilisticRevealTokenDirectFetcher::
         TryGetProbabilisticRevealTokensResult{
             TryGetProbabilisticRevealTokensStatus::kNetOkNullResponse, net::OK,
             no_get_probabilistic_reveal_tokens_until_});
-    // TODO(crbug.com/391358904): add failure metrics using response.error()
-    // before returning.
     return;
   }
 
@@ -286,12 +288,13 @@ void IpProtectionProbabilisticRevealTokenDirectFetcher::
   // TODO(crbug.com/391358904): add success metrics before returning.
   TryGetProbabilisticRevealTokensOutcome outcome;
   for (const auto& t : response_proto.tokens()) {
-    outcome.tokens.emplace_back(t.version(), t.u(), t.e());
+    outcome.tokens.emplace_back(t.version(), t.u(), t.e(),
+                                response_proto.epoch_id());
   }
   outcome.public_key = std::move(response_proto.public_key().y());
-  outcome.expiration_time_seconds = response_proto.expiration_time_seconds();
+  outcome.expiration_time_seconds = response_proto.expiration_time().seconds();
   outcome.next_epoch_start_time_seconds =
-      response_proto.next_epoch_start_time_seconds();
+      response_proto.next_epoch_start_time().seconds();
   outcome.num_tokens_with_signal = response_proto.num_tokens_with_signal();
   std::move(callback).Run(
       std::optional<TryGetProbabilisticRevealTokensOutcome>{std::move(outcome)},
@@ -311,7 +314,7 @@ IpProtectionProbabilisticRevealTokenDirectFetcher::
   }
   base::TimeDelta expiration_time_delta =
       base::Time::FromSecondsSinceUnixEpoch(
-          response.expiration_time_seconds()) -
+          response.expiration_time().seconds()) -
       base::Time::Now();
   if (expiration_time_delta < kMinExpirationTimeDelta) {
     return TryGetProbabilisticRevealTokensStatus::kExpirationTooSoon;
@@ -327,6 +330,9 @@ IpProtectionProbabilisticRevealTokenDirectFetcher::
           response.public_key().y(), {});
       !crypter.ok()) {
     return TryGetProbabilisticRevealTokensStatus::kInvalidPublicKey;
+  }
+  if (response.epoch_id().size() != kEpochIdSize) {
+    return TryGetProbabilisticRevealTokensStatus::kInvalidEpochIdSize;
   }
 
   for (const auto& t : response.tokens()) {

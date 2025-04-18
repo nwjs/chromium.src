@@ -53,6 +53,7 @@
 #include "content/public/browser/tracing_delegate.h"
 #include "content/public/browser/url_loader_request_interceptor.h"
 #include "content/public/browser/vpn_service_proxy.h"
+#include "content/public/browser/web_authentication_delegate.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_view_delegate.h"
 #include "content/public/common/alternative_error_page_override_info.mojom.h"
@@ -98,7 +99,6 @@
 #include "content/public/browser/tts_environment_android.h"
 #else
 #include "content/public/browser/authenticator_request_client_delegate.h"
-#include "content/public/browser/web_authentication_delegate.h"
 #include "third_party/blink/public/mojom/installedapp/related_application.mojom.h"
 #endif
 
@@ -125,6 +125,11 @@ void ContentBrowserClient::PostAfterStartupTask(
 
 bool ContentBrowserClient::IsBrowserStartupComplete() {
   return true;
+}
+
+void ContentBrowserClient::OnUiTaskRunnerReady(
+    base::OnceClosure enable_native_ui_task_execution_callback) {
+  std::move(enable_native_ui_task_execution_callback).Run();
 }
 
 void ContentBrowserClient::SetBrowserStartupIsCompleteForTesting() {}
@@ -733,6 +738,16 @@ std::string ContentBrowserClient::GetWebUIHostnameForCodeCacheMetrics(
   return std::string();
 }
 
+bool ContentBrowserClient::IsWebUIBundledCodeCachingEnabled(
+    const GURL& webui_lock_url) const {
+  return false;
+}
+
+base::flat_map<GURL, int>
+ContentBrowserClient::GetWebUIResourceUrlToCodeCacheMap() const {
+  return base::flat_map<GURL, int>();
+}
+
 void ContentBrowserClient::AllowCertificateError(
     WebContents* web_contents,
     int cert_error,
@@ -1215,6 +1230,10 @@ bool ContentBrowserClient::ShouldOverrideUrlLoading(
 }
 #endif
 
+bool ContentBrowserClient::SupportsAvoidUnnecessaryBeforeUnloadCheckSync() {
+  return true;
+}
+
 bool ContentBrowserClient::ShouldAllowSameSiteRenderFrameHostChange(
     const RenderFrameHost& rfh) {
   return true;
@@ -1291,13 +1310,13 @@ bool ContentBrowserClient::IsSecurityLevelAcceptableForWebAuthn(
   return true;
 }
 
-#if !BUILDFLAG(IS_ANDROID)
 WebAuthenticationDelegate*
 ContentBrowserClient::GetWebAuthenticationDelegate() {
   static base::NoDestructor<WebAuthenticationDelegate> delegate;
   return delegate.get();
 }
 
+#if !BUILDFLAG(IS_ANDROID)
 std::unique_ptr<AuthenticatorRequestClientDelegate>
 ContentBrowserClient::GetWebAuthenticationRequestDelegate(
     RenderFrameHost* render_frame_host) {
@@ -1783,6 +1802,11 @@ bool ContentBrowserClient::IsBlobUrlPartitioningEnabled(
   return true;
 }
 
+bool ContentBrowserClient::ShouldReduceAcceptLanguage(
+    content::BrowserContext* browser_context) {
+  return true;
+}
+
 bool ContentBrowserClient::UseOutermostMainFrameOrEmbedderForSubCaptureTargets()
     const {
   return false;
@@ -1945,6 +1969,22 @@ ContentBrowserClient::MaybeOverrideLocalURLCrossOriginEmbedderPolicy(
 
 bool ContentBrowserClient::ShouldEnableSubframeZoom() {
   return false;
+}
+
+bool ContentBrowserClient::ShouldPrioritizeForBackForwardCache(
+    BrowserContext* browser_context,
+    const GURL& url) {
+  return false;
+}
+
+std::unique_ptr<KeepAliveRequestTracker>
+ContentBrowserClient::MaybeCreateKeepAliveRequestTracker(
+    const network::ResourceRequest& request,
+    std::optional<ukm::SourceId> ukm_source_id,
+    bool is_attribution_request,
+    KeepAliveRequestTracker::IsContextDetachedCallback
+        is_context_detached_callback) {
+  return nullptr;
 }
 
 }  // namespace content

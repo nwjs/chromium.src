@@ -18,7 +18,6 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/task_environment.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/bookmarks/managed_bookmark_service_factory.h"
 #include "chrome/browser/extensions/component_loader.h"
@@ -26,6 +25,7 @@
 #include "chrome/browser/extensions/delayed_install_manager.h"
 #include "chrome/browser/extensions/extension_garbage_collector_factory.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/external_provider_manager.h"
 #include "chrome/browser/extensions/load_error_reporter.h"
 #include "chrome/browser/extensions/shared_module_service.h"
 #include "chrome/browser/extensions/test_extension_system.h"
@@ -250,7 +250,7 @@ ExtensionServiceTestBase::ExtensionServiceTestBase(
       service_(nullptr),
       testing_local_state_(TestingBrowserProcess::GetGlobal()),
       registry_(nullptr),
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
       user_manager_(std::make_unique<user_manager::UserManagerImpl>(
           std::make_unique<ash::UserManagerDelegateImpl>(),
           testing_local_state_.Get(),
@@ -322,7 +322,9 @@ void ExtensionServiceTestBase::InitializeExtensionServiceWithUpdater() {
   ExtensionServiceInitParams params;
   params.autoupdate_enabled = true;
   InitializeExtensionService(std::move(params));
-  service_->updater()->Start();
+  auto* updater = ExtensionUpdater::Get(profile());
+  CHECK(updater->enabled());
+  updater->Start();
 }
 
 void ExtensionServiceTestBase::
@@ -497,9 +499,9 @@ void ExtensionServiceTestBase::CreateExtensionService(
   // provider and if there is something already registered there then it will
   // interfere with the tests. Those tests that need an external provider
   // will register one specifically.
-  service_->ClearProvidersForTesting();
+  ExternalProviderManager::Get(profile())->ClearProvidersForTesting();
 
-  service_->delayed_install_manager()->RegisterInstallGate(
+  DelayedInstallManager::Get(profile())->RegisterInstallGate(
       ExtensionPrefs::DelayReason::kWaitForImports,
       service_->shared_module_service());
 

@@ -34,7 +34,7 @@ import {getHtml} from './detail_view.html.js';
 import type {ItemDelegate} from './item.js';
 import {DummyItemDelegate} from './item.js';
 import {ItemMixin} from './item_mixin.js';
-import {computeInspectableViewLabel, convertSafetyCheckReason, createDummyExtensionInfo, EnableControl, getEnableControl, getEnableToggleAriaLabel, getEnableToggleTooltipText, getItemSource, getItemSourceString, isEnabled, SAFETY_HUB_EXTENSION_KEPT_HISTOGRAM_NAME, SAFETY_HUB_EXTENSION_REMOVED_HISTOGRAM_NAME, SAFETY_HUB_WARNING_REASON_MAX_SIZE, sortViews, userCanChangeEnablement} from './item_util.js';
+import {computeInspectableViewLabel, convertSafetyCheckReason, createDummyExtensionInfo, EnableControl, getEnableControl, getEnableToggleAriaLabel, getEnableToggleTooltipText, getItemSource, getItemSourceString, isEnabled, SAFETY_HUB_EXTENSION_KEPT_HISTOGRAM_NAME, SAFETY_HUB_EXTENSION_REMOVED_HISTOGRAM_NAME, SAFETY_HUB_WARNING_REASON_MAX_SIZE, sortViews, UPLOAD_EXTENSION_TO_ACCOUNT_DETAILS_VIEW_PAGE_HISTOGRAM_NAME, userCanChangeEnablement} from './item_util.js';
 import type {Mv2DeprecationDelegate} from './mv2_deprecation_delegate.js';
 import {getMv2ExperimentStage, Mv2ExperimentStage} from './mv2_deprecation_util.js';
 import {navigation, Page} from './navigation_helper.js';
@@ -121,17 +121,19 @@ export class ExtensionsDetailViewElement extends
     };
   }
 
-  data: chrome.developerPrivate.ExtensionInfo = createDummyExtensionInfo();
-  delegate: ItemDelegate&Mv2DeprecationDelegate = new DummyDetailViewDelegate();
-  inDevMode: boolean = false;
-  enableEnhancedSiteControls: boolean = false;
-  incognitoAvailable: boolean = false;
-  showActivityLog: boolean = false;
-  fromActivityLog: boolean = false;
-  protected showSafetyCheck_: boolean = false;
-  protected size_: string = '';
-  protected sortedViews_: chrome.developerPrivate.ExtensionView[] = [];
-  private mv2ExperimentStage_: Mv2ExperimentStage =
+  accessor data: chrome.developerPrivate.ExtensionInfo =
+      createDummyExtensionInfo();
+  accessor delegate: ItemDelegate&Mv2DeprecationDelegate =
+      new DummyDetailViewDelegate();
+  accessor inDevMode: boolean = false;
+  accessor enableEnhancedSiteControls: boolean = false;
+  accessor incognitoAvailable: boolean = false;
+  accessor showActivityLog: boolean = false;
+  accessor fromActivityLog: boolean = false;
+  protected accessor showSafetyCheck_: boolean = false;
+  protected accessor size_: string = '';
+  protected accessor sortedViews_: chrome.developerPrivate.ExtensionView[] = [];
+  private accessor mv2ExperimentStage_: Mv2ExperimentStage =
       getMv2ExperimentStage(loadTimeData.getInteger('MV2ExperimentStage'));
 
   override firstUpdated() {
@@ -306,8 +308,10 @@ export class ExtensionsDetailViewElement extends
     this.reloadItem().catch((loadError) => this.fire('load-error', loadError));
   }
 
-  protected onUploadClick_() {
-    this.delegate.uploadItemToAccount(this.data.id);
+  protected async onUploadClick_() {
+    const uploaded = await this.delegate.uploadItemToAccount(this.data.id);
+    chrome.metricsPrivate.recordBoolean(
+        UPLOAD_EXTENSION_TO_ACCOUNT_DETAILS_VIEW_PAGE_HISTOGRAM_NAME, uploaded);
   }
 
   protected onRemoveClick_() {

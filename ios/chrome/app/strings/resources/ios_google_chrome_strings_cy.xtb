@@ -6,7 +6,6 @@
 <translation id="1143896152279775643">Bydd eich cyfrinair yn cael ei gadw i Reolwr Cyfrineiriau Google ar gyfer <ph name="EMAIL" />.</translation>
 <translation id="1146503048444965320">Agor tab newydd yn Chrome</translation>
 <translation id="1166460004393506534">Dileu data pori yn Chrome</translation>
-<translation id="1171255741903316750">Troi "Cloi tabiau Anhysbys pan fyddwch yn cau Chrome" ymlaen</translation>
 <translation id="1179527450541388808">Cael Mynediad at Chrome yn gyflymach o ddoc sgrîn hafan eich iPad.</translation>
 <translation id="1180362651362502943">Parhewch i ddefnyddio'r data Chrome yn eich Cyfrif Google.</translation>
 <translation id="1200396280085622191">Defnyddiwch Chrome unrhyw bryd y byddwch yn tapio dolenni mewn negeseuon ac apiau eraill.</translation>
@@ -37,12 +36,14 @@ Pethau i'w hystyried:
 <translation id="1634522710245925681">Defnyddio Chrome yn ddiofyn i gael mewnwelediadau prisiau yn hawdd</translation>
 <translation id="1646463005043273333">Yn agor y gosodiad Chromium i osod Chromium fel y porwr diofyn.</translation>
 <translation id="1670609221633730681">Awgrym Chrome: Dewiswch leoliad eich bar cyfeiriad</translation>
+<translation id="1683863426423719967">I dderbyn Atgoffwyr Tab gan Chrome, trowch hysbysiadau ymlaen yn eich Gosodiadau iOS.</translation>
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="1784567647421309104">Cadw Eich Cyfrineiriau yn Chrome</translation>
 <translation id="1790080846677398234">Yn ychwanegu'r cyfeiriadau URL sydd wedi'u mewnbynnu at eich nodau tudalen yn Chrome.</translation>
 <translation id="1799920918471566157">Awgrymiadau Chrome</translation>
 <translation id="1830634592642484976">Mae'r cyfeiriad hwn wedi'i gadw i Chrome ar hyn o bryd. Er mwyn ei ddefnyddio ar draws cynhyrchion Google, cadwch ef yn eich Cyfrif Google, <ph name="USER_EMAIL" />.</translation>
 <translation id="1891812034154776216">Cuddio tabiau Anhysbys sydd ar agor pan fyddwch yn gadael Chrome</translation>
+<translation id="1894434821386148799">Gallwch ddod o hyd i osodiadau Chrome a rhagor yma</translation>
 <translation id="1917964099031477364">Bydd y cyfrif hwn ac unrhyw ddata sydd heb eu cadw yn cael eu tynnu o Chrome ac apiau Google eraill ar y ddyfais hon.</translation>
 <translation id="1919130412786645364">Caniatáu mewngofnodi i Chrome</translation>
 <translation id="1965935827552890526">Gorffennwch yr hyn roeddech chi'n ei wneud yn y ffenestr arall oedd ar agor gennych yn Chrome.</translation>
@@ -127,9 +128,9 @@ Arhoswch ychydig funudau cyn allgofnodi. Os byddwch yn allgofnodi nawr, bydd y d
 <translation id="4430797724889237570">Agorwch ddolenni o Gmail, Maps, YouTube ac apiau eraill yn Chrome</translation>
 <translation id="447252321002412580">Helpu i Wella nodweddion a pherfformiad Chrome</translation>
 <translation id="4523886039239821078">Mae rhai ychwanegion yn achosi i Chrome dorri. Dadosodwch:</translation>
+<translation id="4574806550936185355">Troi "Cloi tabiau Anhysbys pan fyddwch yn cau Chrome" ymlaen</translation>
 <translation id="4633328489441962921">Ni all Chrome wirio am ddiweddariadau</translation>
 <translation id="4636900170638246267">Mewngofnodi i'r wefan hon a Chrome.</translation>
-<translation id="4646014602299206846">Bydd Chrome yn canfod rhifau olrhain pecyn ar wefannau rydych chi'n ymweld â nhw ac yn dangos diweddariadau pecyn ar dudalen y tab newydd. Bydd eich data yn cael eu rhannu gyda Google i ddarparu'r nodwedd hon ac i wella Siopa i bawb.</translation>
 <translation id="4647910807533196601">Agor fy nhab diweddaraf yn Chrome</translation>
 <translation id="4693084815234024320">Rydych yn y modd Anhysbys Chrome</translation>
 <translation id="4724297637870447613">Gallwch ddefnyddio Chrome ymhobman</translation>
@@ -160,7 +161,6 @@ Arhoswch ychydig funudau cyn allgofnodi. Os byddwch yn allgofnodi nawr, bydd y d
 <translation id="5395376160638294582">Gwnewch yn siŵr y gallwch bob amser ddefnyddio'r data Chrome yn eich Cyfrif Google</translation>
 <translation id="5404252374083197467">Gosod Chrome fel y porwr diofyn?</translation>
 <translation id="5439191312780166229">Yn eich rhybuddio am wefannau peryglus, hyd yn oed rhai nad oedd Google yn gwybod amdanynt o'r blaen, trwy ddadansoddi mwy o ddata o wefannau na diogelwch safonol. Gallwch ddewis hepgor rhybuddion Chrome.</translation>
-<translation id="5442013002200339429">Os ydych yn cuddio "<ph name="MODULE_NAME" />", ni fydd Chrome yn olrhain eich pecynnau yn awtomatig yn y dyfodol mwyach a bydd yn dileu eich holl ddata olrhain pecynnau o'r gorffennol.</translation>
 <translation id="5460571915754665838">4. Dewiswch Chrome</translation>
 <translation id="5492504007368565877">Ni all Rheolwr Cyfrineiriau Google wirio'ch cyfrineiriau.</translation>
 <translation id="5525095647255982834">I anfon y tab hwn i ddyfais arall, mewngofnodwch i Chrome yno.</translation>
@@ -179,6 +179,7 @@ Arhoswch ychydig funudau cyn allgofnodi. Os byddwch yn allgofnodi nawr, bydd y d
 <translation id="5716154293141027663">Agor Chrome unrhyw bryd y byddwch yn tapio dolenni mewn apiau eraill</translation>
 <translation id="5752489513673657785">Ffrwd bersonol wedi'i chreu ar eich cyfer gan Google</translation>
 <translation id="5772407442571703917">Lawrlwythwch Chrome yma.</translation>
+<translation id="5777468213129569553">Agor Chrome</translation>
 <translation id="5779767936254214055">Clowch eich tabiau Anhysbys pan fyddwch yn gadael Chrome neu'n newid i ap gwahanol.</translation>
 <translation id="5808435672482059465">Gweld Eich Hanes Chrome</translation>
 <translation id="5833027901704861726">Nid yw peth o'ch data Chrome wedi'u cadw yn eich <ph name="EMAIL" /> eto.
@@ -214,7 +215,6 @@ Mae eich data wedi'u hamgryptio â'ch cyfrinymadrodd. Rhowch ef i ddefnyddio a c
 <translation id="6636941099779251629">Mae eich sefydliad yn gofyn i chi fewngofnodi i ddefnyddio Chrome. <ph name="BEGIN_LINK" />Dysgu rhagor<ph name="END_LINK" /></translation>
 <translation id="6646696210740573446">Yn anfon rhan o'r URL sydd wedi'i dwyllo at Google drwy weinydd preifatrwydd sy'n cuddio eich cyfeiriad IP. Os yw gwefan yn ceisio dwyn eich cyfrinair, neu pan fyddwch yn lawrlwytho ffeil niweidiol, gall Chrome hefyd anfon cyfeiriadau URL, gan gynnwys darnau o gynnwys tudalen, i Google.</translation>
 <translation id="6647304104688527905">Yn agor tab newydd yn Chrome.</translation>
-<translation id="6648150602980899529">Rydych yn mewngofnodi gyda chyfrif a reolir gan <ph name="DOMAIN" /> ac yn rhoi rheolaeth dros eich data Chrome i'w weinyddwr. Bydd eich data yn cael eu cysylltu'n barhaol i'r cyfrif hwn. Bydd allgofnodi o Chrome yn dileu eich data o'r ddyfais hon, ond bydd yn parhau i gael ei storio yn eich Cyfrif Google.</translation>
 <translation id="6684809838922667136">Gwella Chrome</translation>
 <translation id="6695698548122852044">{THRESHOLD,plural, =1{Mae hyn yn digwydd pan nad yw Chrome yn cael ei ddefnyddio am {THRESHOLD} funud. Bydd data a gadwyd i'r ddyfais hon yn unig tra roeddech wedi mewngofnodi yn cael eu dileu. Gallai hyn gynnwys hanes a chyfrineiriau.}zero{Mae hyn yn digwydd pan nad yw Chrome yn cael ei ddefnyddio am {THRESHOLD} munud. Bydd data a gadwyd i'r ddyfais hon yn unig tra roeddech wedi mewngofnodi yn cael eu dileu. Gallai hyn gynnwys hanes a chyfrineiriau.}two{Mae hyn yn digwydd pan nad yw Chrome yn cael ei ddefnyddio am {THRESHOLD} funud. Bydd data a gadwyd i'r ddyfais hon yn unig tra roeddech wedi mewngofnodi yn cael eu dileu. Gallai hyn gynnwys hanes a chyfrineiriau.}few{Mae hyn yn digwydd pan nad yw Chrome yn cael ei ddefnyddio am {THRESHOLD} munud. Bydd data a gadwyd i'r ddyfais hon yn unig tra roeddech wedi mewngofnodi yn cael eu dileu. Gallai hyn gynnwys hanes a chyfrineiriau.}many{Mae hyn yn digwydd pan nad yw Chrome yn cael ei ddefnyddio am {THRESHOLD} munud. Bydd data a gadwyd i'r ddyfais hon yn unig tra roeddech wedi mewngofnodi yn cael eu dileu. Gallai hyn gynnwys hanes a chyfrineiriau.}other{Mae hyn yn digwydd pan nad yw Chrome yn cael ei ddefnyddio am {THRESHOLD} munud. Bydd data a gadwyd i'r ddyfais hon yn unig tra roeddech wedi mewngofnodi yn cael eu dileu. Gallai hyn gynnwys hanes a chyfrineiriau.}}</translation>
 <translation id="6709398533399187136">Datgelwyd eich cyfrinair mewn achos o dor data. Mae Rheolwr Cyfrineiriau Google yn argymell ei newid ar unwaith.</translation>
@@ -262,6 +262,7 @@ Am ragor o osodiadau sy'n defnyddio data i wella'ch profiad Chrome, ewch i <ph n
 <translation id="7575971113404272499">Awgrym Chrome: defnyddiwch Chrome yn ddiofyn</translation>
 <translation id="7581063337314642333">Mynd i'r Grid Tabiau yn Chrome</translation>
 <translation id="7599894504325210080">Gwedd ehangedig Awtolenwi Chrome</translation>
+<translation id="7617512710641355143">Rheolir Chrome</translation>
 <translation id="7642373780953416937">Derbyn rhybuddion ar unrhyw faterion preifatrwydd neu ddiogelwch y mae Chrome yn eu canfod yn awtomatig i chi.</translation>
 <translation id="7660356333829433649">Dewch yn ôl yma am ragor o awgrymiadau defnyddiol i gael y gorau o Chrome.</translation>
 <translation id="7662994914830945754">Er mwyn gweld eich tabiau o ble bynnag rydych yn defnyddio Chrome, mewngofnodwch a throwch gysoni ymlaen</translation>

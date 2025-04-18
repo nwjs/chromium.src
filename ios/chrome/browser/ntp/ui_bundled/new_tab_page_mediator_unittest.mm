@@ -10,6 +10,7 @@
 #import "base/memory/raw_ptr.h"
 #import "base/test/metrics/histogram_tester.h"
 #import "base/test/scoped_feature_list.h"
+#import "components/feature_engagement/public/tracker.h"
 #import "components/feed/core/v2/public/common_enums.h"
 #import "components/regional_capabilities/regional_capabilities_switches.h"
 #import "components/search_engines/template_url.h"
@@ -17,7 +18,11 @@
 #import "components/search_engines/template_url_service.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
 #import "components/sync/test/test_sync_service.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/cells/content_suggestions_most_visited_item.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/content_suggestions_mediator.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/user_account_image_update_delegate.h"
 #import "ios/chrome/browser/discover_feed/model/discover_feed_service_factory.h"
+#import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
 #import "ios/chrome/browser/ntp/shared/metrics/feed_metrics_constants.h"
 #import "ios/chrome/browser/ntp/shared/metrics/feed_metrics_recorder.h"
@@ -37,9 +42,6 @@
 #import "ios/chrome/browser/signin/model/fake_authentication_service_delegate.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 #import "ios/chrome/browser/toolbar/ui_bundled/test/toolbar_test_navigation_manager.h"
-#import "ios/chrome/browser/ui/content_suggestions/cells/content_suggestions_most_visited_item.h"
-#import "ios/chrome/browser/ui/content_suggestions/content_suggestions_mediator.h"
-#import "ios/chrome/browser/ui/content_suggestions/user_account_image_update_delegate.h"
 #import "ios/chrome/browser/url_loading/model/fake_url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_notifier_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_params.h"
@@ -63,15 +65,15 @@ using feed::FeedUserActionType;
 class NewTabPageMediatorTest : public PlatformTest {
  public:
   NewTabPageMediatorTest() {
-    TestProfileIOS::Builder test_cbs_builder;
-    test_cbs_builder.AddTestingFactory(
+    TestProfileIOS::Builder test_profile_builder;
+    test_profile_builder.AddTestingFactory(
         ios::TemplateURLServiceFactory::GetInstance(),
         ios::TemplateURLServiceFactory::GetDefaultFactory());
-    test_cbs_builder.AddTestingFactory(
+    test_profile_builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
         AuthenticationServiceFactory::GetFactoryWithDelegate(
             std::make_unique<FakeAuthenticationServiceDelegate>()));
-    profile_ = std::move(test_cbs_builder).Build();
+    profile_ = std::move(test_profile_builder).Build();
     browser_ = std::make_unique<TestBrowser>(profile_.get());
 
     std::unique_ptr<ToolbarTestNavigationManager> navigation_manager =
@@ -111,8 +113,11 @@ class NewTabPageMediatorTest : public PlatformTest {
                          isSafeMode:NO];
     header_consumer_ = OCMProtocolMock(@protocol(NewTabPageHeaderConsumer));
     mediator_.headerConsumer = header_consumer_;
+    feature_engagement::Tracker* tracker =
+        feature_engagement::TrackerFactory::GetForProfile(profile_.get());
     feed_metrics_recorder_ =
-        [[FeedMetricsRecorder alloc] initWithPrefService:prefs];
+        [[FeedMetricsRecorder alloc] initWithPrefService:prefs
+                                featureEngagementTracker:tracker];
     mediator_.feedMetricsRecorder = feed_metrics_recorder_;
     histogram_tester_ = std::make_unique<base::HistogramTester>();
   }

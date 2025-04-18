@@ -13,9 +13,7 @@ class BrowserAccessibilityStateImplChromeOS
 
  protected:
   // BrowserAccessibilityStateImpl:
-  void SetKnownScreenReaderAppActive(bool is_active) override {
-    is_chromevox_active_ = is_active;
-
+  void SetScreenReaderAppActive(bool is_active) override {
     // Set/clear crash key (similar to crash keys for other screen readers).
     static auto* ax_chromevox_crash_key = base::debug::AllocateCrashKeyString(
         "ax_chromevox", base::debug::CrashKeySize::Size32);
@@ -24,12 +22,10 @@ class BrowserAccessibilityStateImplChromeOS
     } else {
       base::debug::ClearCrashKeyString(ax_chromevox_crash_key);
     }
+
+    OnAssistiveTechFound(is_active ? ui::AssistiveTech::kChromeVox
+                                   : ui::AssistiveTech::kNone);
   }
-
-  bool IsKnownScreenReaderAppActive() override { return is_chromevox_active_; }
-
- private:
-  bool is_chromevox_active_ = false;
 };
 
 // static

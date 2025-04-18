@@ -26,13 +26,21 @@ class CORE_EXPORT MasonryLayoutAlgorithm
   MinMaxSizesResult ComputeMinMaxSizes(const MinMaxSizesFloatInput&);
   const LayoutResult* Layout();
 
+  LayoutUnit CalculateTieThreshold(const ComputedStyle& style) const;
+
  private:
   friend class MasonryLayoutAlgorithmTest;
+
+  // This places all the items stored in `masonry_items` and adjusts
+  // `intrinsic_block_size_` based on the placement of the items. Placement of
+  // the items is finalized within this method.
+  void PlaceMasonryItems(const GridLayoutTrackCollection& track_collection,
+                         GridItems& masonry_items);
 
   GridSizingTrackCollection BuildGridAxisTracks(
       const GridLineResolver& line_resolver,
       SizingConstraint sizing_constraint,
-      wtf_size_t* start_offset) const;
+      wtf_size_t& start_offset) const;
 
   wtf_size_t ComputeAutomaticRepetitions() const;
 
@@ -41,8 +49,8 @@ class CORE_EXPORT MasonryLayoutAlgorithm
   //   intrinsic size contribution among the items in that group."
   // Returns a collection of items that reflect the intrinsic contributions from
   // the item groups, which will be used to resolve the grid axis' track sizes.
-  GridItems* VirtualMasonryItems(const GridLineResolver& line_resolver,
-                                 wtf_size_t* start_offset) const;
+  GridItems BuildVirtualMasonryItems(const GridLineResolver& line_resolver,
+                                     wtf_size_t& start_offset) const;
 
   ConstraintSpace CreateConstraintSpace(
       const GridItemData& masonry_item,
@@ -54,11 +62,13 @@ class CORE_EXPORT MasonryLayoutAlgorithm
   // adjust the item's final position using its alignment properties.
   ConstraintSpace CreateConstraintSpaceForLayout(
       const GridItemData& masonry_item,
-      const GridSizingTrackCollection& track_collection,
+      const GridLayoutTrackCollection& track_collection,
       LogicalRect* containing_rect = nullptr) const;
 
   ConstraintSpace CreateConstraintSpaceForMeasure(
       const GridItemData& masonry_item) const;
+
+  LayoutUnit intrinsic_block_size_;
 };
 
 }  // namespace blink

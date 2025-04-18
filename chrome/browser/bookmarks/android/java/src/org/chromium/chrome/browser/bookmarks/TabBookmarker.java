@@ -11,7 +11,9 @@ import androidx.annotation.Nullable;
 
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.Supplier;
+import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.browser.offlinepages.OfflinePageUtils;
+import org.chromium.chrome.browser.price_tracking.PriceDropNotificationManager;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.components.bookmarks.BookmarkId;
@@ -19,16 +21,21 @@ import org.chromium.components.bookmarks.BookmarkItem;
 import org.chromium.components.bookmarks.BookmarkType;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 
+import java.util.Objects;
+
 /**
  * Helper class for managing the UI flow for bookmarking the active tab and kicking off the backend.
  * Shows a snackbar if a new bookmark was added. If the bookmark already exists, kicks off edit
  * bookmark UI. Includes price tracking specific UI if the page is relevant for price tracking.
  */
+@NullMarked
 public class TabBookmarker {
     private final Activity mActivity;
     private final Supplier<BookmarkModel> mBookmarkModelSupplier;
     private final Supplier<BottomSheetController> mBottomSheetControllerSupplier;
     private final Supplier<SnackbarManager> mSnackbarManagerSupplier;
+    private final BookmarkManagerOpener mBookmarkManagerOpener;
+    private final Supplier<PriceDropNotificationManager> mPriceDropNotificationManagerSupplier;
 
     /**
      * Constructor.
@@ -38,18 +45,23 @@ public class TabBookmarker {
      * @param bottomSheetControllerSupplier Supplier of the {@link BottomSheetController} for this
      *     activity.
      * @param snackbarManagerSupplier Supplier of the {@link SnackbarManager}.
-     * @param isCustomTab Whether this is a custom tab activity.
+     * @param bookmarkManagerOpener Helper to open bookmark activities.
+     * @param priceDropNotificationManagerSupplier Supplies the {@link PriceDropNotificationManager}
+     *     which manages price drop notifications.
      */
     public TabBookmarker(
             @NonNull Activity activity,
             @NonNull ObservableSupplier<BookmarkModel> bookmarkModelSupplier,
             @NonNull Supplier<BottomSheetController> bottomSheetControllerSupplier,
             @NonNull Supplier<SnackbarManager> snackbarManagerSupplier,
-            boolean isCustomTab) {
+            @NonNull BookmarkManagerOpener bookmarkManagerOpener,
+            @NonNull Supplier<PriceDropNotificationManager> priceDropNotificationManagerSupplier) {
         mActivity = activity;
         mBookmarkModelSupplier = bookmarkModelSupplier;
         mBottomSheetControllerSupplier = bottomSheetControllerSupplier;
         mSnackbarManagerSupplier = snackbarManagerSupplier;
+        mBookmarkManagerOpener = bookmarkManagerOpener;
+        mPriceDropNotificationManagerSupplier = priceDropNotificationManagerSupplier;
     }
 
     /**
@@ -93,7 +105,9 @@ public class TabBookmarker {
                     bookmarkId,
                     /* fromExplicitTrackUi= */ true,
                     /* wasBookmarkMoved= */ false,
-                    /* isNewBookmark= */ false);
+                    /* isNewBookmark= */ false,
+                    mBookmarkManagerOpener,
+                    mPriceDropNotificationManagerSupplier.get());
         }
     }
 
@@ -149,10 +163,13 @@ public class TabBookmarker {
                     BookmarkId currentBookmarkId =
                             (currentBookmarkItem == null) ? null : currentBookmarkItem.getId();
                     // Add offline page for a new bookmark.
-                    if (newBookmarkId != null && !newBookmarkId.equals(currentBookmarkId)) {
+                    if (newBookmarkId != null
+                            && !Objects.equals(newBookmarkId, currentBookmarkId)) {
                         OfflinePageUtils.saveBookmarkOffline(newBookmarkId, tabToBookmark);
                     }
                 },
-                fromExplicitTrackUi);
+                fromExplicitTrackUi,
+                mBookmarkManagerOpener,
+                mPriceDropNotificationManagerSupplier.get());
     }
 }

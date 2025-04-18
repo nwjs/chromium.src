@@ -53,6 +53,9 @@ std::u16string MakeHowToUseText(const extensions::ActionInfo* action,
     extra = command->accelerator().GetShortcutText();
   }
 
+  // TODO(crbug.com/405148986): This returns an empty string for MV3 extensions
+  // which specify the "action" key in the manifest since
+  // ActionInfo::Type::kAction is not handled. Add the appropriate string here.
   int message_id = 0;
   if (action && action->type == extensions::ActionInfo::Type::kBrowser) {
     message_id =
@@ -103,19 +106,11 @@ ExtensionInstalledBubbleModel::ExtensionInstalledBubbleModel(
   show_how_to_manage_ = !command.has_value() || anchor_to_omnibox_;
   show_key_binding_ = command.has_value();
 
-  // Note: `ShouldShowSyncPromo` does not check if extensions are syncing in
-  // transport mode. That's why `IsSyncingEnabled` is added so the sign in promo
-  // is not shown in that case.
-  // Finally, make sure the promo is not shown to users that have explicitly
-  // signed in through the browser (even if extensions are not syncing).
-  show_sign_in_promo_ =
-      extensions::sync_util::ShouldSync(profile, extension) &&
-      !extensions::sync_util::IsSyncingExtensionsEnabled(profile) &&
-      signin::ShouldShowSyncPromo(*profile) &&
-      !profile->GetPrefs()->GetBoolean(prefs::kExplicitBrowserSignin);
-
   if (show_how_to_use_) {
     how_to_use_text_ = MakeHowToUseText(action_info, command, keyword);
+
+    // Don't show how to use if the text returned is empty.
+    show_how_to_use_ = !how_to_use_text_.empty();
   }
 }
 

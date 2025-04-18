@@ -322,7 +322,14 @@ BtmServiceImpl::BtmServiceImpl(base::PassKey<BrowserContextImpl>,
     }
   }
 
-  storage_ = base::SequenceBound<BtmStorage>(CreateTaskRunner(), path_to_use);
+  if (path_to_use.has_value()) {
+    // If opening a persisted database, use `CreateTaskRunnerForResource()` to
+    // avoid race condition during profile re-loading.
+    storage_ = base::SequenceBound<BtmStorage>(
+        CreateTaskRunnerForResource(path_to_use.value()), path_to_use);
+  } else {
+    storage_ = base::SequenceBound<BtmStorage>(CreateTaskRunner(), path_to_use);
+  }
 
   repeating_timer_ = CreateTimer();
   repeating_timer_->Start();
@@ -363,6 +370,18 @@ scoped_refptr<base::SequencedTaskRunner> BtmServiceImpl::CreateTaskRunner() {
   return base::ThreadPool::CreateSequencedTaskRunner(
       {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
        base::ThreadPolicy::PREFER_BACKGROUND});
+}
+
+scoped_refptr<base::SequencedTaskRunner>
+BtmServiceImpl::CreateTaskRunnerForResource(const base::FilePath& path) {
+  if (base::FeatureList::IsEnabled(kDipsOnForegroundSequence)) {
+    return base::ThreadPool::CreateSequencedTaskRunnerForResource(
+        {base::MayBlock()}, path);
+  }
+  return base::ThreadPool::CreateSequencedTaskRunnerForResource(
+      {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
+       base::ThreadPolicy::PREFER_BACKGROUND},
+      path);
 }
 
 BtmCookieMode BtmServiceImpl::GetCookieMode() const {
@@ -416,7 +435,7 @@ void BtmServiceImpl::HandleRedirectChain(
 
   chain->cookie_mode = GetCookieMode();
   // Copy the URL out before |redirects| is moved, to avoid use-after-move.
-  GURL url = redirects[0]->url.url;
+  GURL url = redirects[0]->redirecting_url.url;
   storage_.AsyncCall(&BtmStorage::Read)
       .WithArgs(url)
       .Then(base::BindOnce(&BtmServiceImpl::GotState,
@@ -476,7 +495,7 @@ void BtmServiceImpl::GotState(
   }
 
   // Copy the URL out before `redirects` is moved, to avoid use-after-move.
-  GURL url = redirects[index + 1]->url.url;
+  GURL url = redirects[index + 1]->redirecting_url.url;
   storage_.AsyncCall(&BtmStorage::Read)
       .WithArgs(url)
       .Then(base::BindOnce(&BtmServiceImpl::GotState,
@@ -558,7 +577,7 @@ void BtmServiceImpl::HandleRedirect(
   bool final_site_same = (redirect.site == chain.final_site);
   DCHECK_LT(redirect.chain_index.value(), chain.length);
 
-  ukm::builders::DIPS_Redirect(redirect.url.source_id)
+  ukm::builders::DIPS_Redirect(redirect.redirecting_url.source_id)
       .SetSiteEngagementLevel(redirect.site_had_user_activation.value() ? 1 : 0)
       .SetRedirectType(static_cast<int64_t>(redirect.redirect_type))
       .SetCookieAccessType(static_cast<int64_t>(redirect.access_type))
@@ -584,7 +603,7 @@ void BtmServiceImpl::HandleRedirect(
   // Record this bounce in the DIPS database.
   if (redirect.access_type != BtmDataAccessType::kUnknown) {
     record_bounce.Run(
-        redirect.url.url, redirect.has_3pc_exception.value(),
+        redirect.redirecting_url.url, redirect.has_3pc_exception.value(),
         chain.final_url.url, redirect.time,
         /*stateful=*/redirect.access_type > BtmDataAccessType::kRead,
         stateful_bounce_callback);

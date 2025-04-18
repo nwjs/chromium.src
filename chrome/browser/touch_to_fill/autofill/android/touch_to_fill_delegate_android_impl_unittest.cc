@@ -18,6 +18,7 @@
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
 #include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#include "components/autofill/core/browser/ui/autofill_external_delegate.h"
 #include "components/autofill/core/common/autofill_clock.h"
 #include "components/autofill/core/common/autofill_constants.h"
 #include "components/autofill/core/common/autofill_test_utils.h"
@@ -32,6 +33,7 @@ namespace {
 
 using test::CreateTestCreditCardFormData;
 using ::testing::_;
+using ::testing::AllOf;
 using ::testing::ElementsAre;
 using ::testing::ElementsAreArray;
 using ::testing::Field;
@@ -49,8 +51,8 @@ Matcher<Suggestion> EqualsSuggestionFields(const std::u16string& main_text,
   return AllOf(
       Field(&Suggestion::main_text,
             Suggestion::Text(main_text, Suggestion::Text::IsPrimary(false))),
-      Field(&Suggestion::minor_text,
-            Suggestion::Text(minor_text, Suggestion::Text::IsPrimary(false))),
+      Field(&Suggestion::minor_texts,
+            std::vector<Suggestion::Text>{Suggestion::Text(minor_text)}),
       Property(&Suggestion::HasDeactivatedStyle, has_deactivated_style));
 }
 
@@ -145,9 +147,11 @@ class MockBrowserAutofillManager : public TestBrowserAutofillManager {
               (override));
   MOCK_METHOD(void,
               DidShowSuggestions,
-              (DenseSet<SuggestionType> shown_suggestion_types,
+              (base::span<const Suggestion> suggestions,
                const FormData& form,
-               const FieldGlobalId& field_id),
+               const FieldGlobalId& field_id,
+               AutofillExternalDelegate::UpdateSuggestionsCallback
+                   update_suggestions_callback),
               (override));
   MOCK_METHOD(bool, CanShowAutofillUi, (), (const, override));
   MOCK_METHOD(AutofillField*,

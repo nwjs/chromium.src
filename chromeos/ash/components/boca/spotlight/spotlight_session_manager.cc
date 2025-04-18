@@ -91,15 +91,14 @@ void SpotlightSessionManager::OnConsumerActivityUpdated(
 }
 
 void SpotlightSessionManager::OnConnectionCodeReceived(
-    std::optional<std::string> connection_code) {
-  if (!connection_code.has_value()) {
-    LOG(WARNING) << "[Boca]Failed to generate Spotlight connection code.";
-    return;
-  }
+    const std::string& connection_code) {
+  CHECK(spotlight_service_);
+  notification_handler_->StartSpotlightCountdownNotification();
 
-  notification_handler_->StartSpotlightCountdownNotification(
-      base::BindOnce(&SpotlightSessionManager::RegisterStudentScreen,
-                     weak_ptr_factory_.GetWeakPtr(), connection_code.value()));
+  spotlight_service_->RegisterScreen(
+      connection_code, BocaAppClient::Get()->GetSchoolToolsServerBaseUrl(),
+      base::BindOnce(&SpotlightSessionManager::OnRegisterScreenRequestSent,
+                     weak_ptr_factory_.GetWeakPtr()));
 }
 
 void SpotlightSessionManager::RegisterStudentScreen(

@@ -13,6 +13,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "base/check_deref.h"
@@ -45,6 +46,7 @@
 #include "components/autofill/core/common/field_data_manager.h"
 #include "components/autofill/core/common/form_data.h"
 #include "components/autofill/core/common/form_field_data.h"
+#include "components/autofill/core/common/metrics_enums.h"
 #include "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
 #include "components/autofill/core/common/unique_ids.h"
 #include "components/password_manager/core/common/password_manager_features.h"
@@ -259,6 +261,7 @@ bool IsTextInput(const WebFormControlElement& element) {
     case FormControlType::kContentEditable:
     case FormControlType::kInputCheckbox:
     case FormControlType::kInputMonth:
+    case FormControlType::kInputDate:
     case FormControlType::kInputRadio:
     case FormControlType::kSelectOne:
     case FormControlType::kTextArea:
@@ -277,10 +280,6 @@ bool IsTextInput(const WebFormControlElement& element) {
 
 bool IsSelectElement(const WebFormControlElement& element) {
   return GetAutofillFormControlType(element) == FormControlType::kSelectOne;
-}
-
-bool IsMonthInput(const WebFormControlElement& element) {
-  return GetAutofillFormControlType(element) == FormControlType::kInputMonth;
 }
 
 bool IsCheckableElement(const WebFormControlElement& element) {
@@ -1325,61 +1324,100 @@ bool ShouldSkipFillField(const FormFieldData::FillData& field,
 // causing the background to be blue.
 void FillFormField(const FormFieldData::FillData& data,
                    bool is_initiating_node,
-                   WebFormControlElement& field,
+                   WebFormControlElement& form_control,
                    FieldDataManager& field_data_manager) {
-  // Fill fields for text input, textarea and select fields.
-  // Filling not supported for checkboxes and radio buttons.
-  if (!IsTextInput(field) && !IsMonthInput(field) &&
-      !IsTextAreaElement(field) && !IsSelectElement(field)) {
+  std::optional<FormControlType> type =
+      GetAutofillFormControlType(form_control);
+  if (!type) {
     return;
   }
+  switch (*type) {
+    case FormControlType::kInputCheckbox:
+    case FormControlType::kInputRadio:
+      return;
+    case FormControlType::kContentEditable:
+      NOTREACHED();
+    case FormControlType::kInputDate:
+    case FormControlType::kInputEmail:
+    case FormControlType::kInputMonth:
+    case FormControlType::kInputNumber:
+    case FormControlType::kInputPassword:
+    case FormControlType::kInputSearch:
+    case FormControlType::kInputTelephone:
+    case FormControlType::kInputText:
+    case FormControlType::kInputUrl:
+    case FormControlType::kSelectOne:
+    case FormControlType::kTextArea:
+      break;
+  }
+
   WebAutofillState new_autofill_state = data.is_autofilled
                                             ? WebAutofillState::kAutofilled
                                             : WebAutofillState::kNotFilled;
 
-  if (IsTextInput(field)) {
+  if (IsTextInput(form_control)) {
     field_data_manager.UpdateFieldDataMap(
-        GetFieldRendererId(field), data.value.substr(0, field.MaxLength()),
+        GetFieldRendererId(form_control),
+        data.value.substr(0, form_control.MaxLength()),
         FieldPropertiesFlags::kAutofilledOnUserTrigger);
   }
 
-  field.SetAutofillValue(WebString::FromUTF16(data.value), new_autofill_state);
+  form_control.SetAutofillValue(WebString::FromUTF16(data.value),
+                                new_autofill_state);
   // Changing the field's value might trigger JavaScript, which is capable
   // of destroying the frame.
-  if (!field.GetDocument().GetFrame()) {
+  if (!form_control.GetDocument().GetFrame()) {
     return;
   }
 
-  if (!is_initiating_node || IsSelectElement(field)) {
+  if (!is_initiating_node || IsSelectElement(form_control)) {
     return;
   }
-  auto length = base::checked_cast<unsigned>(field.Value().length());
-  field.SetSelectionRange(length, length);
+  auto length = base::checked_cast<unsigned>(form_control.Value().length());
+  form_control.SetSelectionRange(length, length);
   // selectionchange event is capable of destroying the frame.
-  if (!field.GetDocument().GetFrame()) {
+  if (!form_control.GetDocument().GetFrame()) {
     return;
   }
   // Clear the current IME composition (the underline), if there is one.
-  field.GetDocument().GetFrame()->UnmarkText();
+  form_control.GetDocument().GetFrame()->UnmarkText();
 }
 
 // Sets the |field|'s "suggested" (non JS visible) value to the value in |data|.
 // Also sets the "autofilled" attribute, causing the background to be blue.
 void PreviewFormField(const FormFieldData::FillData& data,
-                      WebFormControlElement& field,
+                      WebFormControlElement& form_control,
                       FieldDataManager& field_data_manager) {
-  // Preview text input, textarea and select fields.
-  // Preview not supported for checkboxes and radio buttons.
-  if (!IsTextInput(field) && !IsMonthInput(field) &&
-      !IsTextAreaElement(field) && !IsSelectElement(field)) {
+  std::optional<FormControlType> type =
+      GetAutofillFormControlType(form_control);
+  if (!type) {
     return;
   }
+  switch (*type) {
+    case FormControlType::kInputCheckbox:
+    case FormControlType::kInputRadio:
+      return;
+    case FormControlType::kContentEditable:
+      NOTREACHED();
+    case FormControlType::kInputDate:
+    case FormControlType::kInputEmail:
+    case FormControlType::kInputMonth:
+    case FormControlType::kInputNumber:
+    case FormControlType::kInputPassword:
+    case FormControlType::kInputSearch:
+    case FormControlType::kInputTelephone:
+    case FormControlType::kInputText:
+    case FormControlType::kInputUrl:
+    case FormControlType::kSelectOne:
+    case FormControlType::kTextArea:
+      break;
+  }
 
-  field.SetSuggestedValue(WebString::FromUTF16(data.value));
+  form_control.SetSuggestedValue(WebString::FromUTF16(data.value));
   WebAutofillState new_autofill_state = data.is_autofilled
                                             ? WebAutofillState::kPreviewed
                                             : WebAutofillState::kNotFilled;
-  field.SetAutofillState(new_autofill_state);
+  form_control.SetAutofillState(new_autofill_state);
 }
 
 // A less-than comparator for FormFieldData's pointer by their FieldRendererId.
@@ -2004,6 +2042,11 @@ void WebFormControlElementToFormField(
     if (extract_options.contains(ExtractOption::kDatalist) ||
         base::FeatureList::IsEnabled(
             features::kAutofillOptimizeFormExtraction)) {
+      // TODO(crbug.com/316143236): Remove this metric once debugging is
+      // complete.
+      base::UmaHistogramEnumeration(
+          "Autofill.DataList.Events",
+          AutofillDataListEvents::kDataListOptionsParsed);
       field->set_datalist_options(GetDataListOptions(input_element));
     }
   } else if (IsTextAreaElement(element)) {
@@ -2056,6 +2099,7 @@ std::optional<FormData> ExtractFormDataWithFieldsAndFrames(
     const WebDocument& document,
     const WebFormElement& form_element,
     const FieldDataManager& field_data_manager,
+    ButtonTitlesCache* button_titles_cache,
     DenseSet<ExtractOption> extract_options) {
   if (form_element && !form_element.IsConnected()) {
     return std::nullopt;
@@ -2160,8 +2204,8 @@ std::optional<FormData> ExtractFormDataWithFieldsAndFrames(
   if (!base::FeatureList::IsEnabled(
           features::kAutofillOptimizeFormExtraction)) {
     std::erase_if(child_frames, [](const auto& child_frame) {
-      return absl::visit([](const auto& token) { return token.is_empty(); },
-                         child_frame.token);
+      return std::visit([](const auto& token) { return token.is_empty(); },
+                        child_frame.token);
     });
     if (child_frames.size() > kMaxExtractableChildFrames) {
       child_frames.clear();
@@ -2196,6 +2240,7 @@ std::optional<FormData> ExtractFormDataWithFieldsAndFrames(
   }
   form.set_fields(std::move(fields));
   form.set_child_frames(std::move(child_frames));
+  form.set_button_titles(GetButtonTitles(form_element, button_titles_cache));
   // `likely_contains_captcha` is only needed for Android for the autosubmission
   // after filling credentials from TTF bottom sheet.
 #if BUILDFLAG(IS_ANDROID)
@@ -2244,10 +2289,12 @@ std::optional<FormData> ExtractFormData(
     const WebFormElement& form_element,
     const FieldDataManager& field_data_manager,
     const CallTimerState& timer_state,
+    ButtonTitlesCache* button_titles_cache,
     DenseSet<ExtractOption> extract_options) {
   ScopedCallTimer timer("ExtractFormData", timer_state);
   return ExtractFormDataWithFieldsAndFrames(
-      document, form_element, field_data_manager, extract_options);
+      document, form_element, field_data_manager, button_titles_cache,
+      extract_options);
 }
 
 GURL GetCanonicalActionForForm(const WebFormElement& form) {
@@ -2300,6 +2347,11 @@ std::optional<FormControlType> ToAutofillFormControlType(
       return FormControlType::kSelectOne;
     case blink::mojom::FormControlType::kTextArea:
       return FormControlType::kTextArea;
+    case blink::mojom::FormControlType::kInputDate:
+      if (base::FeatureList::IsEnabled(features::kAutofillExtractInputDate)) {
+        return FormControlType::kInputDate;
+      }
+      break;
     case blink::mojom::FormControlType::kButtonButton:
     case blink::mojom::FormControlType::kButtonSubmit:
     case blink::mojom::FormControlType::kButtonReset:
@@ -2307,7 +2359,6 @@ std::optional<FormControlType> ToAutofillFormControlType(
     case blink::mojom::FormControlType::kFieldset:
     case blink::mojom::FormControlType::kInputButton:
     case blink::mojom::FormControlType::kInputColor:
-    case blink::mojom::FormControlType::kInputDate:
     case blink::mojom::FormControlType::kInputDatetimeLocal:
     case blink::mojom::FormControlType::kInputFile:
     case blink::mojom::FormControlType::kInputHidden:
@@ -2395,6 +2446,7 @@ FindFormAndFieldForFormControlElement(
     const WebFormControlElement& element,
     const FieldDataManager& field_data_manager,
     const CallTimerState& timer_state,
+    form_util::ButtonTitlesCache* button_titles_cache,
     DenseSet<ExtractOption> extract_options,
     const SynchronousFormCache& form_cache) {
   DCHECK(element);
@@ -2406,7 +2458,8 @@ FindFormAndFieldForFormControlElement(
   WebDocument document = element.GetDocument();
   WebFormElement owning_form = element.GetOwningFormForAutofill();
   std::optional<FormData> form = form_cache.GetOrExtractForm(
-      document, owning_form, field_data_manager, timer_state, extract_options);
+      document, owning_form, field_data_manager, timer_state,
+      button_titles_cache, extract_options);
   const bool extract_form_data_succeeded = form.has_value();
 
   if (!form) {

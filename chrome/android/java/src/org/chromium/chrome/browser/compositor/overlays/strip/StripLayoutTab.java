@@ -8,6 +8,7 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.content.Context;
 import android.graphics.Color;
+import android.graphics.Rect;
 import android.graphics.RectF;
 import android.util.FloatProperty;
 
@@ -33,6 +34,7 @@ import org.chromium.chrome.browser.tasks.tab_management.TabUiThemeUtil;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.ui.base.LocalizationUtils;
 import org.chromium.ui.util.ColorUtils;
+import org.chromium.ui.util.MotionEventUtils;
 
 import java.util.List;
 import java.util.Optional;
@@ -150,7 +152,6 @@ public class StripLayoutTab extends StripLayoutView {
     // Tab's ID this view refers to.
     private int mTabId;
 
-    private final Context mContext;
     private final TabLoadTracker mLoadTracker;
     private final LayoutUpdateHost mUpdateHost;
     private TintedCompositorButton mCloseButton;
@@ -204,9 +205,8 @@ public class StripLayoutTab extends StripLayoutView {
             TabLoadTrackerCallback loadTrackerCallback,
             LayoutUpdateHost updateHost,
             boolean incognito) {
-        super(incognito, clickHandler);
+        super(incognito, clickHandler, context);
         mTabId = id;
-        mContext = context;
         mLoadTracker = new TabLoadTracker(id, loadTrackerCallback);
         mUpdateHost = updateHost;
         mCloseButton =
@@ -668,9 +668,10 @@ public class StripLayoutTab extends StripLayoutView {
 
     /**
      * @param closePressed The current pressed state of the attached button.
+     * @param buttons Buttons in the motion event.
      */
-    public void setClosePressed(boolean closePressed, boolean isPressedFromMouse) {
-        mCloseButton.setPressed(closePressed, isPressedFromMouse);
+    public void setClosePressed(boolean closePressed, int buttons) {
+        mCloseButton.setPressed(closePressed, MotionEventUtils.isPrimaryButton(buttons));
     }
 
     /**
@@ -750,6 +751,15 @@ public class StripLayoutTab extends StripLayoutView {
         return mIsPlaceholder;
     }
 
+    @Override
+    public void setIsDraggedOffStrip(boolean isDraggedOffStrip) {
+        super.setIsDraggedOffStrip(isDraggedOffStrip);
+
+        // Views that are dragged off strip need to hide their dividers.
+        setStartDividerVisible(/* visible= */ false);
+        setEndDividerVisible(/* visible= */ false);
+    }
+
     /**
      * @return The left-side of the tab's touch target.
      */
@@ -793,6 +803,16 @@ public class StripLayoutTab extends StripLayoutView {
 
     public int getCloseButtonOffsetX() {
         return CLOSE_BUTTON_OFFSET_X;
+    }
+
+    @Override
+    public void getAnchorRect(Rect out) {
+        float dpToPx = getDpToPx();
+        out.set(
+                Math.round((getDrawX() + FOLIO_FOOT_LENGTH_DP) * dpToPx),
+                Math.round(getDrawY() * dpToPx),
+                Math.round((getDrawX() + getWidth()) * dpToPx),
+                Math.round((getDrawY() + getHeight()) * dpToPx));
     }
 
     // TODO(dtrainor): Don't animate this if we're selecting or deselecting this tab.

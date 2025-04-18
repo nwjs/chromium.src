@@ -7,12 +7,14 @@
 #include <functional>
 #include <optional>
 #include <string>
+#include <variant>
 
 #include "base/check.h"
 #include "base/feature_list.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/not_fatal_until.h"
 #include "base/notreached.h"
+#include "base/rand_util.h"
 #include "base/types/optional_ref.h"
 #include "base/types/optional_util.h"
 #include "build/build_config.h"
@@ -31,7 +33,6 @@
 #include "net/cookies/cookie_util.h"
 #include "net/cookies/site_for_cookies.h"
 #include "net/cookies/static_cookie_policy.h"
-#include "third_party/abseil-cpp/absl/types/variant.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
@@ -178,7 +179,6 @@ CookieSettingsBase::GetContentSettingsTypes() {
           ContentSettingsType::FEDERATED_IDENTITY_SHARING,
           ContentSettingsType::TRACKING_PROTECTION,
           ContentSettingsType::TOP_LEVEL_TPCD_ORIGIN_TRIAL,
-          ContentSettingsType::STORAGE_ACCESS_HEADER_ORIGIN_TRIAL,
           ContentSettingsType::LEGACY_COOKIE_SCOPE,
       });
   return kInstance;
@@ -492,7 +492,7 @@ CookieSettingsBase::IsAllowedBy3pcdMetadataGrantsSettings(
       IsAllowed(GetContentSetting(url, first_party_url,
                                   ContentSettingsType::TPCD_METADATA_GRANTS,
                                   &info));
-  return {allowed, info};
+  return {allowed, std::move(info)};
 }
 
 CookieSettingsBase::IsAllowedWithMetadata
@@ -506,7 +506,7 @@ CookieSettingsBase::IsAllowedByTrackingProtectionSetting(
       GetContentSetting(url, first_party_url,
                         ContentSettingsType::TRACKING_PROTECTION,
                         &info) == CONTENT_SETTING_ALLOW;
-  return {allowed, info};
+  return {allowed, std::move(info)};
 }
 
 bool CookieSettingsBase::IsAllowedBy3pcdHeuristicsGrantsSettings(
@@ -561,13 +561,12 @@ bool CookieSettingsBase::IsAllowedBySandboxValue(
 
   url::Origin origin = url::Origin::Create(url);
   url::Origin first_party_origin = url::Origin::Create(first_party_url);
-  return origin.IsSameOriginWith(first_party_origin) ||
-         net::SchemefulSite(origin) == net::SchemefulSite(first_party_origin);
+  return net::SchemefulSite::IsSameSite(origin, first_party_origin);
 }
 
-absl::variant<CookieSettingsBase::AllowAllCookies,
-              CookieSettingsBase::AllowPartitionedCookies,
-              CookieSettingsBase::BlockAllCookies>
+std::variant<CookieSettingsBase::AllowAllCookies,
+             CookieSettingsBase::AllowPartitionedCookies,
+             CookieSettingsBase::BlockAllCookies>
 CookieSettingsBase::DecideAccess(const GURL& url,
                                  const GURL& first_party_url,
                                  bool is_third_party_request,
@@ -713,13 +712,13 @@ CookieSettingsBase::GetCookieSettingInternal(
   const bool block_third_party_cookies = ShouldBlockThirdPartyCookies(
       url::Origin::Create(first_party_url), overrides);
 
-  const absl::variant<AllowAllCookies, AllowPartitionedCookies, BlockAllCookies>
+  const std::variant<AllowAllCookies, AllowPartitionedCookies, BlockAllCookies>
       choice = DecideAccess(url, first_party_url, is_third_party_request,
                             overrides, cookie_setting, is_explicit_setting,
                             block_third_party_cookies, setting_info);
 
   if (const AllowAllCookies* allow_cookies =
-          absl::get_if<AllowAllCookies>(&choice)) {
+          std::get_if<AllowAllCookies>(&choice)) {
     CHECK(IsAllowed(cookie_setting));
     CHECK(!is_third_party_request || !block_third_party_cookies ||
               allow_cookies->mechanism != ThirdPartyCookieAllowMechanism::kNone,
@@ -744,7 +743,7 @@ CookieSettingsBase::GetCookieSettingInternal(
           source.has_value()) {
         setting_info.source = *source;
       }
-      *info = setting_info;
+      *info = std::move(setting_info);
     }
     const CookieSettingWithMetadata out{
         cookie_setting,
@@ -759,7 +758,7 @@ CookieSettingsBase::GetCookieSettingInternal(
     return out;
   }
 
-  if (absl::holds_alternative<AllowPartitionedCookies>(choice)) {
+  if (std::holds_alternative<AllowPartitionedCookies>(choice)) {
     CHECK(is_third_party_request, base::NotFatalUntil::M128);
     CHECK(block_third_party_cookies, base::NotFatalUntil::M128);
     CHECK(!is_explicit_setting, base::NotFatalUntil::M128);
@@ -767,7 +766,7 @@ CookieSettingsBase::GetCookieSettingInternal(
     FireStorageAccessHistogram(StorageAccessResult::ACCESS_BLOCKED);
 
     if (info) {
-      *info = setting_info;
+      *info = std::move(setting_info);
     }
     const CookieSettingWithMetadata out{
         CONTENT_SETTING_BLOCK,
@@ -781,12 +780,12 @@ CookieSettingsBase::GetCookieSettingInternal(
     return out;
   }
 
-  CHECK(absl::holds_alternative<BlockAllCookies>(choice));
+  CHECK(std::holds_alternative<BlockAllCookies>(choice));
   CHECK_EQ(cookie_setting, CONTENT_SETTING_BLOCK, base::NotFatalUntil::M128);
   FireStorageAccessHistogram(StorageAccessResult::ACCESS_BLOCKED);
 
   if (info) {
-    *info = setting_info;
+    *info = std::move(setting_info);
   }
   const CookieSettingWithMetadata out{
       CONTENT_SETTING_BLOCK,
@@ -834,12 +833,10 @@ bool CookieSettingsBase::IsAllowedByStorageAccessGrant(
           net::CookieSettingOverride::kStorageAccessGrantEligibleViaHeader)) {
     return false;
   }
-  // The Storage Access API allows access in A(B(A)) case (or similar). Do the
-  // same-origin check first for performance reasons.
+  // The Storage Access API allows access in A(B(A)) case (or similar).
   const url::Origin origin = url::Origin::Create(url);
   const url::Origin first_party_origin = url::Origin::Create(first_party_url);
-  if (origin.IsSameOriginWith(first_party_origin) ||
-      net::SchemefulSite(origin) == net::SchemefulSite(first_party_origin)) {
+  if (net::SchemefulSite::IsSameSite(origin, first_party_origin)) {
     return true;
   }
   if (GetContentSetting(url, first_party_url,

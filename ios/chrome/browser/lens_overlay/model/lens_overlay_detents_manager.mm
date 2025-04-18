@@ -4,34 +4,64 @@
 
 #import "ios/chrome/browser/lens_overlay/model/lens_overlay_detents_manager.h"
 
+#import "base/metrics/histogram_macros.h"
+
 namespace {
 
-NSString* const kCustomConsentSheetDetentIdentifier =
-    @"kCustomConsentSheetDetentIdentifier";
+NSString* const kConsentSheetDetentIdentifier =
+    @"kConsentSheetDetentIdentifier";
 
+// The identifier for the medium detent when presenting in the translate filter
+// strategy.
 NSString* const kTranslateModeMediumDetentIdentifier =
     @"kTranslateModeMediumDetentIdentifier";
 
-NSString* const kCustomPeakSheetDetentIdentifier =
-    @"kCustomPeakSheetDetentIdentifier";
+// The identifier for the peak detent.
+NSString* const kPeakSheetDetentIdentifier = @"kPeakSheetDetentIdentifier";
 
 // The detent height in points for the 'peak' state of the bottom sheet.
-const CGFloat kPeakDetentHeight = 100;
+const CGFloat kPeakDetentHeight = 100.0;
 
 // The percentage of the screen that will be covered by the bottom sheet in
 // translate mode.
 const CGFloat kTranslateSheetHeightRatio = 0.33;
+
 }  // namespace
 
-@interface LensOverlayDetentsManager (Private) <
-    UISheetPresentationControllerDelegate>
+@interface LensOverlayDetentsManager () <UISheetPresentationControllerDelegate>
 
-@property(nonatomic, readonly) UISheetPresentationControllerDetent* largeDetent;
-@property(nonatomic, readonly)
-    UISheetPresentationControllerDetent* mediumDetent;
-@property(nonatomic, readonly)
-    UISheetPresentationControllerDetent* consentDetent;
-@property(nonatomic, readonly) UISheetPresentationControllerDetent* peakDetent;
+// Whether the bottom sheet being managed is in the medium detent dimension.
+- (BOOL)isInMediumDetent;
+
+// Whether the bottom sheet being managed is in the large detent dimension.
+- (BOOL)isInLargeDetent;
+
+// The height of The base window of the presentation
+- (CGFloat)windowHeight;
+
+// Changes the current set of available detents for a given a desired sheet
+// state. Also notifies the delegate of any change in detents.
+- (void)setDetentsForState:(SheetDetentState)state;
+
+// Reports to the delegate and logs metrics as necessary.
+// Pass `isUserGestureInitiated` when the change is due to a user gesture.
+- (void)reportDimensionChangeIfNeeded:(BOOL)isUserGestureInitiated;
+
+// A detent for the sheet that’s approximately the full height of the screen
+// (excluding the top safe area which is not covered).
+- (UISheetPresentationControllerDetent*)largeDetent;
+
+// A detent for the sheet that’s approximately half the height of the screen
+// when presenting for the selection filter and on third of the screen for
+// the translation filter.
+- (UISheetPresentationControllerDetent*)mediumDetent;
+
+// The detent in which to present the consent dialog.
+- (UISheetPresentationControllerDetent*)consentDetent;
+
+// The detent of the peak state that covers a small portion of the screen,
+// allowing most of the content behind the sheet to be visible.
+- (UISheetPresentationControllerDetent*)peakDetent;
 
 @end
 
@@ -61,7 +91,7 @@ const CGFloat kTranslateSheetHeightRatio = 0.33;
   self = [super init];
   if (self) {
     _sheet = sheet;
-    _latestReportedDimension = SheetDimensionStateHidden;
+    _latestReportedDimension = SheetDimensionState::kHidden;
     _window = window;
     _sheet.delegate = self;
     _presentationStrategy = presentationStrategy;
@@ -70,55 +100,54 @@ const CGFloat kTranslateSheetHeightRatio = 0.33;
   return self;
 }
 
-#pragma mark - Public
+#pragma mark - Public properties
 
 - (CGFloat)estimatedMediumDetentHeight {
   switch (_presentationStrategy) {
     case SheetDetentPresentationStategySelection:
-      return self.windowHeight / 2;
+      return [self windowHeight] / 2;
     case SheetDetentPresentationStategyTranslate:
-      return self.windowHeight * kTranslateSheetHeightRatio;
+      return [self windowHeight] * kTranslateSheetHeightRatio;
     default:
       return 0;
   }
 }
 
 - (SheetDimensionState)sheetDimension {
-  NSString* identifier = _sheet.selectedDetentIdentifier;
-  BOOL isInMediumDetent = self.isInMediumDetent;
-  BOOL isInLargestDetent = self.isInLargeDetent;
-  BOOL isPeaking =
-      [identifier isEqualToString:kCustomPeakSheetDetentIdentifier];
-  BOOL isConsent =
-      [identifier isEqualToString:kCustomConsentSheetDetentIdentifier];
-  if (isInLargestDetent) {
-    return SheetDimensionStateLarge;
-  } else if (isInMediumDetent) {
-    return SheetDimensionStateMedium;
-  } else if (isPeaking) {
-    return SheetDimensionStatePeaking;
-  } else if (isConsent) {
-    return SheetDimensionStateConsent;
-  } else {
-    return SheetDimensionStateHidden;
+  if ([self isInLargeDetent]) {
+    return SheetDimensionState::kLarge;
   }
-}
+  if ([self isInMediumDetent]) {
+    return SheetDimensionState::kMedium;
+  }
 
-- (void)adjustDetentsForState:(SheetDetentState)state {
-  __weak __typeof(self) weakSelf = self;
-  [_sheet animateChanges:^{
-    [weakSelf setDetentsForState:state];
-  }];
+  NSString* identifier = _sheet.selectedDetentIdentifier;
+  if ([identifier isEqualToString:kPeakSheetDetentIdentifier]) {
+    return SheetDimensionState::kPeaking;
+  }
+
+  if ([identifier isEqualToString:kConsentSheetDetentIdentifier]) {
+    return SheetDimensionState::kConsent;
+  }
+
+  return SheetDimensionState::kHidden;
 }
 
 - (void)setPresentationStrategy:
     (SheetDetentPresentationStategy)presentationStrategy {
   _presentationStrategy = presentationStrategy;
-  BOOL unrestrictedMovement = self.isInMediumDetent || self.isInLargeDetent;
-  if (unrestrictedMovement) {
+  if ([self isInMediumDetent] || [self isInLargeDetent]) {
     // Refresh the detents presentation for the unrestricted state.
     [self adjustDetentsForState:SheetDetentStateUnrestrictedMovement];
   }
+}
+
+#pragma mark - Public methods
+
+- (void)adjustDetentsForState:(SheetDetentState)state {
+  [_sheet animateChanges:^{
+    [self setDetentsForState:state];
+  }];
 }
 
 - (void)requestMaximizeBottomSheet {
@@ -126,7 +155,7 @@ const CGFloat kTranslateSheetHeightRatio = 0.33;
     _sheet.selectedDetentIdentifier =
         UISheetPresentationControllerDetentIdentifierLarge;
   }];
-  [self reportDimensionChangeIfNeeded];
+  [self reportDimensionChangeIfNeeded:NO];
 }
 
 - (void)requestMinimizeBottomSheet {
@@ -134,28 +163,31 @@ const CGFloat kTranslateSheetHeightRatio = 0.33;
     _sheet.selectedDetentIdentifier =
         UISheetPresentationControllerDetentIdentifierMedium;
   }];
-  [self reportDimensionChangeIfNeeded];
+  [self reportDimensionChangeIfNeeded:NO];
 }
 
 #pragma mark - UISheetPresentationControllerDelegate
 
 - (void)sheetPresentationControllerDidChangeSelectedDetentIdentifier:
     (UISheetPresentationController*)sheetPresentationController {
-  [self reportDimensionChangeIfNeeded];
+  [self reportDimensionChangeIfNeeded:YES];
 }
 
 - (BOOL)presentationControllerShouldDismiss:
     (UIPresentationController*)presentationController {
-  if (!_observer) {
+  UMA_HISTOGRAM_ENUMERATION("Lens.BottomSheet.PositionAfterSwipe",
+                            SheetDimensionState::kHidden);
+
+  if (!_delegate) {
     return YES;
   }
-  return [_observer bottomSheetShouldDismissFromState:self.sheetDimension];
+  return [_delegate lensOverlayDetentsManagerShouldDismissBottomSheet:self];
 }
 
 - (void)presentationControllerDidDismiss:
     (UIPresentationController*)presentationController {
   _sheet.selectedDetentIdentifier = nil;
-  [_observer onBottomSheetDimensionStateChanged:SheetDimensionStateHidden];
+  [_delegate lensOverlayDetentsManagerDidChangeDimensionState:self];
 }
 
 #pragma mark - Private
@@ -180,29 +212,41 @@ const CGFloat kTranslateSheetHeightRatio = 0.33;
 - (void)setDetentsForState:(SheetDetentState)state {
   switch (state) {
     case SheetDetentStateUnrestrictedMovement:
-      _sheet.detents = @[ self.mediumDetent, self.largeDetent ];
-      _sheet.largestUndimmedDetentIdentifier = self.largeDetent.identifier;
-      _sheet.selectedDetentIdentifier = self.mediumDetent.identifier;
+      _sheet.detents = @[ [self mediumDetent], [self largeDetent] ];
+      _sheet.largestUndimmedDetentIdentifier = [self largeDetent].identifier;
+      _sheet.selectedDetentIdentifier = [self mediumDetent].identifier;
       break;
     case SheetDetentStatePeakEnabled:
-      _sheet.detents = @[ self.peakDetent ];
-      _sheet.largestUndimmedDetentIdentifier = self.peakDetent.identifier;
-      _sheet.selectedDetentIdentifier = self.peakDetent.identifier;
+      _sheet.detents = @[ [self peakDetent] ];
+      _sheet.largestUndimmedDetentIdentifier = kPeakSheetDetentIdentifier;
+      _sheet.selectedDetentIdentifier = kPeakSheetDetentIdentifier;
       break;
     case SheetDetentStateConsentDialog:
-      _sheet.detents = @[ self.consentDetent ];
-      _sheet.largestUndimmedDetentIdentifier = self.consentDetent.identifier;
-      _sheet.selectedDetentIdentifier = self.consentDetent.identifier;
+      _sheet.detents = @[ [self consentDetent] ];
+      _sheet.largestUndimmedDetentIdentifier = kConsentSheetDetentIdentifier;
+      _sheet.selectedDetentIdentifier = kConsentSheetDetentIdentifier;
       break;
   }
 
-  [self reportDimensionChangeIfNeeded];
+  [self reportDimensionChangeIfNeeded:NO];
 }
 
-- (void)reportDimensionChangeIfNeeded {
+// Reports to the delegate and logs metrics as necessary.
+- (void)reportDimensionChangeIfNeeded:(BOOL)isUserGestureInitiated {
+  // Maintain a strong reference to self throughout this method to prevent
+  // premature deallocation. `lensOverlayDetentsManagerDidChangeDimensionState`
+  // could trigger self's deallocation if the dimension state change results in
+  // the overlay being hidden. (see https://crbug.com/403224762).
+  LensOverlayDetentsManager* strongSelf = self;
+
   if (self.sheetDimension != _latestReportedDimension) {
-    [_observer onBottomSheetDimensionStateChanged:self.sheetDimension];
-    _latestReportedDimension = self.sheetDimension;
+    if (isUserGestureInitiated) {
+      UMA_HISTOGRAM_ENUMERATION("Lens.BottomSheet.PositionAfterSwipe",
+                                self.sheetDimension);
+    }
+
+    _latestReportedDimension = strongSelf.sheetDimension;
+    [_delegate lensOverlayDetentsManagerDidChangeDimensionState:strongSelf];
   }
 }
 
@@ -215,7 +259,7 @@ const CGFloat kTranslateSheetHeightRatio = 0.33;
     return [UISheetPresentationControllerDetent mediumDetent];
   }
 
-  CGFloat resolvedHeight = self.windowHeight * kTranslateSheetHeightRatio;
+  CGFloat resolvedHeight = [self windowHeight] * kTranslateSheetHeightRatio;
   auto heightResolver = ^CGFloat(
       id<UISheetPresentationControllerDetentResolutionContext> context) {
     return resolvedHeight;
@@ -233,7 +277,7 @@ const CGFloat kTranslateSheetHeightRatio = 0.33;
     return presentedViewController.preferredContentSize.height;
   };
   return [UISheetPresentationControllerDetent
-      customDetentWithIdentifier:kCustomConsentSheetDetentIdentifier
+      customDetentWithIdentifier:kConsentSheetDetentIdentifier
                         resolver:consentHeightResolver];
 }
 
@@ -243,7 +287,7 @@ const CGFloat kTranslateSheetHeightRatio = 0.33;
     return kPeakDetentHeight;
   };
   return [UISheetPresentationControllerDetent
-      customDetentWithIdentifier:kCustomPeakSheetDetentIdentifier
+      customDetentWithIdentifier:kPeakSheetDetentIdentifier
                         resolver:peakHeightResolver];
 }
 

@@ -49,7 +49,7 @@ ActionTypeButton::ActionTypeButton(PressedCallback callback,
   SetVisible(true);
   SetBackground(views::CreateRoundedRectBackground(SK_ColorTRANSPARENT,
                                                    /*radius=*/kCornerRadius));
-  SetBorder(views::CreateThemedRoundedRectBorder(
+  SetBorder(views::CreateRoundedRectBorder(
       /*thickness=*/kBorderThickness,
       /*radius=*/kCornerRadius, cros_tokens::kCrosSysHoverOnSubtle));
   SetFocusBehavior(views::View::FocusBehavior::ACCESSIBLE_ONLY);
@@ -81,7 +81,7 @@ void ActionTypeButton::RefreshColors() {
                                : ash::kColorAshIconSecondaryDisabledColor;
   SetEnabledTextColors(active_color_id);
   SetTextColor(ButtonState::STATE_DISABLED, disabled_color_id);
-  SetBackground(is_selected ? views::CreateThemedRoundedRectBackground(
+  SetBackground(is_selected ? views::CreateRoundedRectBackground(
                                   cros_tokens::kCrosSysHighlightShape,
                                   /*radius=*/kCornerRadius)
                             : views::CreateRoundedRectBackground(
@@ -89,7 +89,7 @@ void ActionTypeButton::RefreshColors() {
                                   /*radius=*/kCornerRadius));
   SetBorder(is_selected
                 ? views::CreateEmptyBorder(/*thickness=*/kBorderThickness)
-                : views::CreateThemedRoundedRectBorder(
+                : views::CreateRoundedRectBorder(
                       /*thickness=*/kBorderThickness,
                       /*radius=*/kCornerRadius,
                       cros_tokens::kCrosSysHoverOnSubtle));

@@ -9,6 +9,7 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "base/check.h"
@@ -51,7 +52,6 @@
 #include "components/user_education/views/new_badge_label.h"
 #include "components/vector_icons/vector_icons.h"
 #include "content/public/browser/web_contents.h"
-#include "third_party/abseil-cpp/absl/types/variant.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/color/color_id.h"
@@ -89,8 +89,8 @@ constexpr auto kPopupItemTypesUsingLeadingIcons = DenseSet<SuggestionType>(
     {SuggestionType::kAllSavedPasswordsEntry, SuggestionType::kManageAddress,
      SuggestionType::kManageAutofillAi, SuggestionType::kManageCreditCard,
      SuggestionType::kManageIban, SuggestionType::kManagePlusAddress,
-     SuggestionType::kShowAccountCards, SuggestionType::kUndoOrClear,
-     SuggestionType::kViewPasswordDetails});
+     SuggestionType::kUndoOrClear, SuggestionType::kViewPasswordDetails,
+     SuggestionType::kPendingStateSignin});
 
 // Max width for the username and masked password.
 constexpr int kAutofillPopupUsernameMaxWidth = 272;
@@ -131,15 +131,13 @@ void FormatLabel(views::Label& label,
   switch (main_filling_product) {
     case FillingProduct::kAddress:
     case FillingProduct::kAutocomplete:
+    case FillingProduct::kAutofillAi:
     case FillingProduct::kPlusAddresses:
+    case FillingProduct::kLoyaltyCard:
       label.SetMaximumWidthSingleLine(maximum_width_single_line);
       break;
     case FillingProduct::kCreditCard:
       if (text.should_truncate.value()) {
-        // `should_truncate` should only be set to true iff
-        // `kAutofillEnableCardProductName` is enabled.
-        DCHECK(base::FeatureList::IsEnabled(
-            autofill::features::kAutofillEnableCardProductName));
         label.SetMaximumWidthSingleLine(maximum_width_single_line);
       }
       break;
@@ -147,7 +145,6 @@ void FormatLabel(views::Label& label,
     case FillingProduct::kIban:
     case FillingProduct::kMerchantPromoCode:
     case FillingProduct::kPassword:
-    case FillingProduct::kAutofillAi:
     case FillingProduct::kNone:
       break;
   }
@@ -181,16 +178,21 @@ std::unique_ptr<views::Label> CreateMainTextLabel(
 }
 
 // Creates a label for the suggestion's minor text.
-std::unique_ptr<views::Label> CreateMinorTextLabel(
+std::vector<std::unique_ptr<views::Label>> CreateMinorTextLabels(
     const Suggestion& suggestion) {
-  if (suggestion.minor_text.value.empty()) {
-    return nullptr;
+  std::vector<std::unique_ptr<views::Label>> minor_text_labels;
+  for (const Suggestion::Text& text : suggestion.minor_texts) {
+    if (text.value.empty()) {
+      continue;
+    }
+    auto label = std::make_unique<views::Label>(
+        text.value, views::style::CONTEXT_DIALOG_BODY_TEXT,
+        suggestion.HasDeactivatedStyle() ? kDisabledTextStyle
+                                         : kMinorTextStyle);
+    label->SetEnabledColor(ui::kColorLabelForegroundSecondary);
+    minor_text_labels.push_back(std::move(label));
   }
-  auto label = std::make_unique<views::Label>(
-      suggestion.minor_text.value, views::style::CONTEXT_DIALOG_BODY_TEXT,
-      suggestion.HasDeactivatedStyle() ? kDisabledTextStyle : kMinorTextStyle);
-  label->SetEnabledColor(ui::kColorLabelForegroundSecondary);
-  return label;
+  return minor_text_labels;
 }
 
 // Creates sub-text views and passes their references to `PopupRowContentView`
@@ -275,6 +277,12 @@ std::unique_ptr<PopupRowContentView> CreateFooterPopupRowContentView(
     main_text_label->SetEnabledColor(ui::kColorLabelForegroundSecondary);
   }
   main_text_label->SetEnabled(!suggestion.is_loading);
+
+  if (suggestion.type == SuggestionType::kPendingStateSignin) {
+    main_text_label->SetMultiLine(true);
+    main_text_label->SetHorizontalAlignment(gfx::ALIGN_TO_HEAD);
+  }
+
   view->AddChildView(std::move(main_text_label));
 
   popup_cell_utils::AddSpacerWithSize(*view,
@@ -351,7 +359,7 @@ std::unique_ptr<views::View> CreatePasswordSubtextView(
 std::unique_ptr<views::View> GetPasswordIconView(
     const Suggestion& suggestion,
     PasswordFaviconLoader* favicon_loader) {
-  if (!absl::holds_alternative<Suggestion::FaviconDetails>(
+  if (!std::holds_alternative<Suggestion::FaviconDetails>(
           suggestion.custom_icon)) {
     return popup_cell_utils::GetIconImageView(suggestion);
   }
@@ -368,7 +376,7 @@ std::unique_ptr<views::View> GetPasswordIconView(
       gfx::Size(kCustomIconSize, kCustomIconSize), std::move(placeholder_icon),
       base::BindOnce(
           &PasswordFaviconLoader::Load, base::Unretained(favicon_loader),
-          absl::get<Suggestion::FaviconDetails>(suggestion.custom_icon)));
+          std::get<Suggestion::FaviconDetails>(suggestion.custom_icon)));
 }
 
 std::unique_ptr<PopupRowContentView> CreatePasswordPopupRowContentView(
@@ -390,7 +398,7 @@ std::unique_ptr<PopupRowContentView> CreatePasswordPopupRowContentView(
   std::vector<std::unique_ptr<views::View>> subtext_views;
   subtext_views.push_back(CreatePasswordSubtextView(suggestion));
   popup_cell_utils::AddSuggestionContentToView(
-      suggestion, std::move(main_text_label), CreateMinorTextLabel(suggestion),
+      suggestion, std::move(main_text_label), CreateMinorTextLabels(suggestion),
       CreatePasswordDescriptionLabel(suggestion), std::move(subtext_views),
       GetPasswordIconView(suggestion, favicon_loader), *view);
 
@@ -410,7 +418,7 @@ std::unique_ptr<PopupRowContentView> CreateComposePopupRowContentView(
   }
   popup_cell_utils::AddSuggestionContentToView(
       suggestion, std::move(main_text_label),
-      /*minor_text_label=*/nullptr,
+      /*minor_text_labels=*/{},
       /*description_label=*/nullptr, /*subtext_views=*/
       CreateSubtextViews(*view, suggestion, FillingProduct::kCompose),
       popup_cell_utils::GetIconImageView(suggestion), *view);
@@ -438,7 +446,7 @@ std::unique_ptr<PopupRowContentView> CreatePopupRowContentView(
   FormatLabel(*main_text_label, suggestion.main_text, main_filling_product,
               kAutofillSuggestionMaxWidth);
   popup_cell_utils::AddSuggestionContentToView(
-      suggestion, std::move(main_text_label), CreateMinorTextLabel(suggestion),
+      suggestion, std::move(main_text_label), CreateMinorTextLabels(suggestion),
       /*description_label=*/nullptr,
       CreateSubtextViews(*view, suggestion, main_filling_product),
       popup_cell_utils::GetIconImageView(suggestion), *view);
@@ -459,7 +467,7 @@ std::unique_ptr<PopupRowWithButtonView> CreateAutocompleteRowWithDeleteButton(
   FormatLabel(*main_text_label, suggestion.main_text,
               FillingProduct::kAutocomplete, kAutofillSuggestionMaxWidth);
   popup_cell_utils::AddSuggestionContentToView(
-      suggestion, std::move(main_text_label), CreateMinorTextLabel(suggestion),
+      suggestion, std::move(main_text_label), CreateMinorTextLabels(suggestion),
       /*description_label=*/nullptr,
       CreateSubtextViews(*view, suggestion, FillingProduct::kAutocomplete),
       popup_cell_utils::GetIconImageView(suggestion), *view);
@@ -517,7 +525,7 @@ std::unique_ptr<PopupRowView> CreateNewPlusAddressInlineSuggestion(
   FormatLabel(*main_text_label, suggestion.main_text,
               FillingProduct::kPlusAddresses, kAutofillSuggestionMaxWidth);
   popup_cell_utils::AddSuggestionContentToView(
-      suggestion, std::move(main_text_label), CreateMinorTextLabel(suggestion),
+      suggestion, std::move(main_text_label), CreateMinorTextLabels(suggestion),
       /*description_label=*/nullptr,
       CreateSubtextViews(*view, suggestion, FillingProduct::kPlusAddresses),
       popup_cell_utils::GetIconImageView(suggestion), *view);

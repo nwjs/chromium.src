@@ -32,10 +32,10 @@
 <translation id="1055184225775184556">&amp;Annuler l'ajout</translation>
 <translation id="1056898198331236512">Avertissement</translation>
 <translation id="1058344460600311577"><ph name="PLAY_CHROME_DINO_GAME_FOCUSED_FRIENDLY_MATCH_TEXT" />, appuyez sur Tabulation, puis sur Entrée pour jouer au jeu du dino dans Chrome</translation>
-<translation id="1058479211578257048">Enregistrement des cartes…</translation>
 <translation id="1060136083665017312">Consoles de jeux</translation>
 <translation id="1060320201901229167">Enveloppe Kaku 5</translation>
 <translation id="1062407476771304334">Remplacer</translation>
+<translation id="1063822554756965137">Les fichiers ont bien été supprimés</translation>
 <translation id="1064054731605354900">A3x5</translation>
 <translation id="1067029985695494416">Détails du moteur de recherche</translation>
 <translation id="1068672505746868501">Ne jamais traduire les pages en <ph name="SOURCE_LANGUAGE" /></translation>
@@ -54,7 +54,6 @@
 <translation id="1090629319939036170">Menu RV</translation>
 <translation id="1091463901118115503">Poursuivre la lecture</translation>
 <translation id="1091779689406092804">captures d'écran</translation>
-<translation id="1094777233105318927">Informations sur votre navigateur, votre OS, votre appareil, les logiciels installés et les fichiers</translation>
 <translation id="1096545575934602868">Ce champ ne peut pas contenir plus de <ph name="MAX_ITEMS_LIMIT" /> entrées. Toutes les entrées supplémentaires seront supprimées.</translation>
 <translation id="1097803577928227769">Parcs et jardins régionaux</translation>
 <translation id="1099928364755383720">Picture-in-picture automatique</translation>
@@ -72,7 +71,6 @@
 <translation id="1122714970786750095">Appareils électroniques et électriques</translation>
 <translation id="1123753900084781868">Sous-titres instantanés non disponibles pour l'instant</translation>
 <translation id="1125453215844207206">Image sans libellé. Extraction du texte, optimisée par l'IA de Google…</translation>
-<translation id="1125573121925420732">Les avertissements peuvent être fréquents en attendant que les sites Web finissent de mettre à jour leurs systèmes de sécurité. Ce problème devrait être bientôt résolu.</translation>
 <translation id="112840717907525620">Cache de la règle valide.</translation>
 <translation id="1131264053432022307">Image copiée</translation>
 <translation id="1138458427267715730">Recevez des alertes en cas de baisse de prix sur n'importe quel site Web</translation>
@@ -116,6 +114,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="1195073053842921378">Cette adresse sera supprimée de cet appareil</translation>
 <translation id="1195558154361252544">Les notifications sont bloquées automatiquement pour tous les sites, sauf ceux que vous autorisez</translation>
 <translation id="1197088940767939838">Orange</translation>
+<translation id="1198412233443148072"><ph name="MEMBER_FIRST_NAME" /> a supprimé l'onglet "<ph name="WEBSITE_TITLE" />"</translation>
 <translation id="1201402288615127009">Suivant</translation>
 <translation id="1201895884277373915">Plus de résultats pour ce site</translation>
 <translation id="1202892408424955784">Produits suivis</translation>
@@ -138,6 +137,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="1230244617745022071"><ph name="SOURCE" /> (détecté automatiquement)</translation>
 <translation id="1232569758102978740">Sans titre</translation>
 <translation id="1236081509407217141">Autoriser la RV ?</translation>
+<translation id="1236689197410206751">AfterPay</translation>
 <translation id="1240347957665416060">Nom de votre appareil</translation>
 <translation id="124116460088058876">Autres langues</translation>
 <translation id="1243027604378859286">Auteur :</translation>
@@ -146,6 +146,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="1253846494229886276">Enregistrement de la capture d'écran…</translation>
 <translation id="1253921432148366685"><ph name="TYPE_1" />, <ph name="TYPE_2" /> (synchronisés)</translation>
 <translation id="1255086252236620440">Batteurs mixeurs</translation>
+<translation id="1255931290436977164">Passeport</translation>
 <translation id="1256368399071562588">&lt;p&gt;Si vous ne parvenez pas à ouvrir un site Web dans Chrome, essayez d'abord de corriger le problème en suivant ces étapes :&lt;/p&gt;
     &lt;ol&gt;
     &lt;li&gt;Vérifiez que l'adresse ne contient pas de faute de frappe.&lt;/li&gt;
@@ -158,6 +159,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="1264309058268477500">Autre</translation>
 <translation id="1264974993859112054">Sports</translation>
 <translation id="1268480293435976622">Enveloppe chinoise n°7</translation>
+<translation id="1269045546668906972">Activez la saisie automatique avec l'IA pour remplir automatiquement plus de champs</translation>
 <translation id="1269516672602708785">Créez rapidement un site dans Google Sites</translation>
 <translation id="1270328905573953738">Déménagement et installation</translation>
 <translation id="1270502636509132238">Mode d'enlèvement</translation>
@@ -222,7 +224,6 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="1363028406613469049">Suivre</translation>
 <translation id="1364822246244961190">Cette règle est bloquée. Sa valeur sera ignorée.</translation>
 <translation id="1368318639262510626">Jeu du dino. Un dinosaure pixelisé traverse un paysage désolé en esquivant les cactus et les ptérodactyles. Lorsque vous entendez un signal audio, appuyez sur Espace pour le faire sauter par-dessus les obstacles.</translation>
-<translation id="1369735141991626842">Remplir les champs avec l'IA</translation>
 <translation id="1374468813861204354">suggestions</translation>
 <translation id="1375198122581997741">À propos de la version</translation>
 <translation id="1375293861397106342">Gamme de prix habituelle pour toutes les options : <ph name="LOW_PRICE" /> - <ph name="HIGH_PRICE" /></translation>
@@ -297,7 +298,6 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="1492194039220927094">Diffusion push des règles : </translation>
 <translation id="1495677929897281669">Retour à l'onglet</translation>
 <translation id="1500286806237135498">Caméras (<ph name="CAMERAS_COUNT" />)</translation>
-<translation id="1501859676467574491">Afficher les cartes de votre compte Google</translation>
 <translation id="1504042622576912555">Cannelure</translation>
 <translation id="1507202001669085618">&lt;p&gt;Ce message s'affiche si vous utilisez un portail Wi-Fi auquel vous devez vous connecter pour accéder à Internet.&lt;/p&gt;
     &lt;p&gt;Pour corriger cette erreur, cliquez sur &lt;strong&gt;Se connecter&lt;/strong&gt; sur la page que vous essayez d'ouvrir.&lt;/p&gt;</translation>
@@ -315,7 +315,6 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="1532118530259321453">Cette page indique</translation>
 <translation id="1533966801397200693">Le profil auquel vous êtes connecté est un profil géré. Votre administrateur peut modifier à distance les paramètres de votre profil, analyser les rapports d'informations sur le navigateur et effectuer d'autres tâches nécessaires. <ph name="BEGIN_LINK" />En savoir plus<ph name="END_LINK" /></translation>
 <translation id="1536390784834419204">Traduire la page</translation>
-<translation id="1538295100801850685">Améliorations des prédictions</translation>
 <translation id="1539840569003678498">Rapport envoyé :</translation>
 <translation id="1542105669288201090">Études de commerce</translation>
 <translation id="1545757265410828525">Historique des prix</translation>
@@ -387,6 +386,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="1644574205037202324">Historique</translation>
 <translation id="1645004815457365098">Source inconnue</translation>
 <translation id="1645368109819982629">Protocole incompatible</translation>
+<translation id="1647550855876293003"><ph name="RESULT_MODIFIED_DATE" /> – <ph name="RESULT_OWNER" /></translation>
 <translation id="1650602712345345441">Gérez vos paramètres Chrome</translation>
 <translation id="1652415888492971589">JIS B8</translation>
 <translation id="1652862280638399816">Pour utiliser le Gestionnaire de mots de passe avec le trousseau macOS, relancez Chromium et autorisez l'accès au trousseau. Vos onglets s'ouvriront alors de nouveau.</translation>
@@ -409,7 +409,6 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="1689333818294560261">Pseudo</translation>
 <translation id="1692622044604477956">Infos sur les films et horaires des séances</translation>
 <translation id="1697430960030447570"><ph name="BEGIN_BOLD" />Comment vous pouvez gérer vos données<ph name="END_BOLD" /> : Chrome supprime automatiquement les thèmes qui datent de plus de quatre semaines. À mesure que vous continuez de naviguer, un thème peut réapparaître dans la liste. Vous pouvez aussi bloquer certains thèmes pour empêcher que Chrome les partage avec les sites, et désactiver les thèmes d'annonces à tout moment dans les paramètres Chrome.</translation>
-<translation id="1697532407822776718">Vous êtes prêt !</translation>
 <translation id="1699651774646344471">Vous pouvez désormais utiliser les adresses de votre compte Google</translation>
 <translation id="1700542542921501212">Vous pouvez utiliser <ph name="SEARCH_ENGINE_NAME" /> pour effectuer une recherche sur le Web.</translation>
 <translation id="1702815194757674443">ROC 16K</translation>
@@ -443,7 +442,6 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="1734878702283171397">Essayez de contacter l'administrateur système.</translation>
 <translation id="1736163675982669961"><ph name="CARD_NICKNAME" />, <ph name="CARD_NETWORK_NAME" />, <ph name="CARD_LAST_FOUR_DIGITS" />, date d'expiration : <ph name="CARD_EXPIRATION" /></translation>
 <translation id="1736420071277903564">Ordinateur</translation>
-<translation id="1739422091279046802">défilement et zoom</translation>
 <translation id="1741613555002899862">Cette règle doit être spécifiée avec une chaîne valide lorsque la règle DnsOverHttpsMode est définie sur <ph name="SECURE_DNS_MODE_SECURE" />.</translation>
 <translation id="1743393865165844832">Literie et linge de maison</translation>
 <translation id="1743892871127720056">Titre du tableau comparatif, modifier le texte</translation>
@@ -506,6 +504,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="1846432862466000825">Plastique (archive)</translation>
 <translation id="1848640291751752317">téléchargements</translation>
 <translation id="1848982255014129637">Photo (haute brillance)</translation>
+<translation id="1849438148665368129">L'achat doit être inférieur à <ph name="CHECKOUT_AMOUNT_MAXIMUM" /></translation>
 <translation id="1853392626017747777">Enregistrement par carte virtuelle fermé</translation>
 <translation id="1854180393107901205">Arrêter la diffusion</translation>
 <translation id="1855370856221982654">Boxe</translation>
@@ -539,7 +538,6 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="1919526244108283799">400 x 600 mm</translation>
 <translation id="192020519938775529">{COUNT,plural, =0{Aucun}=1{1 site}one{# site}other{# sites}}</translation>
 <translation id="192095259937375524">Bouton "Partager cet onglet" à activer pour partager cet onglet en le castant, en créant un QR code, en partageant le lien, etc.</translation>
-<translation id="1921479021518565778">Suggestions chargées</translation>
 <translation id="1924727005275031552">Nouvelle</translation>
 <translation id="1927439846988093361">Soins capillaires</translation>
 <translation id="1935353813610900265">Envoyez des commentaires sur la recherche dans l'historique optimisée par l'IA</translation>
@@ -571,6 +569,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="1975584088563498795">Boîte aux lettres 10</translation>
 <translation id="1978555033938440688">Version du micrologiciel</translation>
 <translation id="1979156660928743046">Informations sur le contenu multimédia</translation>
+<translation id="1987486584747170374">Vos recherches, les meilleurs résultats et le contenu des pages correspondantes sont envoyés à Google. Ils ne seront pas utilisés par des réviseurs humains pour améliorer l'IA. Votre organisation peut modifier ces paramètres à tout moment.</translation>
 <translation id="1988881251331415125">S'il n'y a pas d'erreur, essayez de <ph name="BEGIN_LINK" />faire un diagnostic sur la connectivité<ph name="END_LINK" />.</translation>
 <translation id="1992331125980284532">JIS B3</translation>
 <translation id="1997484222658892567"><ph name="URL" /> souhaite stocker de façon permanente des données volumineuses sur votre ordinateur local</translation>
@@ -604,6 +603,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="2040894699575719559">Position bloquée</translation>
 <translation id="2041788246978549610">Utiliser les micros disponibles (<ph name="MICS_COUNT" />)</translation>
 <translation id="2042213636306070719">Bac 7</translation>
+<translation id="2043896419861982462">Pour masquer les options de paiement échelonné, accédez aux <ph name="IDS_AUTOFILL_CARD_BNPL_SELECT_PROVIDER_FOOTNOTE_HIDE_OPTION_PAYMENT_SETTINGS_LINK_TEXT" /></translation>
 <translation id="2045871135676061132">Enveloppe personnelle</translation>
 <translation id="2046951263634619614">Librairies</translation>
 <translation id="2048261947532620704">Traduction de la page</translation>
@@ -628,6 +628,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="2082238445998314030">Résultat <ph name="RESULT_NUMBER" /> sur <ph name="TOTAL_RESULTS" /></translation>
 <translation id="2083256696566019397">Autoriser à chaque visite</translation>
 <translation id="2085876078937250610">Enregistrer…</translation>
+<translation id="2090451897496479509">Pour en savoir plus, contactez le fournisseur</translation>
 <translation id="2091887806945687916">Son</translation>
 <translation id="2093982008204312032">Google Chrome tente de désactiver Windows Hello pour saisir les mots de passe.</translation>
 <translation id="2094505752054353250">Le domaine ne correspond pas</translation>
@@ -694,7 +695,6 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="2187317261103489799">Détecter (par défaut)</translation>
 <translation id="2188375229972301266">Multiple perforation en bas</translation>
 <translation id="2194856509914051091">Éléments à prendre en compte</translation>
-<translation id="2198071643181968308">En savoir plus sur <ph name="BNPL_ISSUER_NAME" /></translation>
 <translation id="2200678913752027654">Bouton "Je n'aime pas", appuyer sur Entrée pour ouvrir un formulaire où indiquer précisément pourquoi vous n'aimez pas cette suggestion</translation>
 <translation id="2202627062836089804">arrière de votre carte</translation>
 <translation id="2204482073374652408">Mise à jour terminée.</translation>
@@ -760,10 +760,13 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="2293443924986248631">Lorsque cette option est activée, les sites ne peuvent pas utiliser de cookies pour suivre votre activité sur le Web. Les fonctionnalités de certains sites peuvent être bloquées.</translation>
 <translation id="2295831393422400053">Activez le paramètre "Améliorer les recherches et la navigation" pour utiliser M'aider à écrire</translation>
 <translation id="2296244067976588032">Clé d'accès • Trousseau iCloud</translation>
+<translation id="2296331629987861142">Payez facilement en plusieurs versements (sous réserve d'éligibilité, des frais s'appliquent)</translation>
 <translation id="2300306941146563769">Non importé</translation>
 <translation id="2301098101308036335">Quels sites Web sont consultés et à quel moment.</translation>
 <translation id="230286397113210245">Bouton "Ouvrir une fenêtre de navigation privée" à activer pour ouvrir une nouvelle fenêtre de navigation privée</translation>
+<translation id="2305294852062272447">Enregistrer le permis de conduire ?</translation>
 <translation id="2306124309679506798">Autoriser une expérience immersive ?</translation>
+<translation id="2307711332257985952">Vos adresses personnelle et professionnelle sont désormais disponibles dans Chrome</translation>
 <translation id="2312234273148520048">Sauces et condiments</translation>
 <translation id="2316087952091171402">Moins de <ph name="UPPER_ESTIMATE" />. Le chargement de certains sites risque d'être plus lent lors de votre prochaine visite.</translation>
 <translation id="2316159751672436664">Personnaliser vos outils d'accessibilité dans les paramètres Chrome OS</translation>
@@ -771,6 +774,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="2317259163369394535"><ph name="DOMAIN" /> nécessite un nom d'utilisateur et un mot de passe.</translation>
 <translation id="2318594867107319532">Dernière actualisation des règles :</translation>
 <translation id="2320564945062300737">Produits pour le soin du visage</translation>
+<translation id="2321291402658100099">Gérer les informations</translation>
 <translation id="2322254345061973671">{COUNT,plural, =1{1 fenêtre}one{# fenêtre}other{# fenêtres}}</translation>
 <translation id="2328651992442742497">Autorisé (par défaut)</translation>
 <translation id="2328955282645810595">Outils électriques et de construction</translation>
@@ -820,6 +824,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="2396249848217231973">&amp;Annuler la suppression</translation>
 <translation id="2399344929880464793">Cet IBAN est enregistré dans votre compte Google afin que vous puissiez l'utiliser dans les services Google.</translation>
 <translation id="2399868464369312507">Google Chrome tente de modifier les modes de paiement.</translation>
+<translation id="2400263725572336749">Ajouter un passeport</translation>
 <translation id="2400600116338235695">Peut demander à se connecter aux ports série</translation>
 <translation id="2404884497378469141">Réessayez de copier vos fichiers</translation>
 <translation id="2413155254802890957">Ancienne</translation>
@@ -883,7 +888,6 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="2518584823165598232">Cette carte n'est pas disponible. Veuillez contacter l'émetteur de votre carte.</translation>
 <translation id="2521385132275182522">Agrafe en bas à droite</translation>
 <translation id="2521736961081452453">Créer un formulaire</translation>
-<translation id="2523886232349826891">Enregistrée sur cet appareil uniquement</translation>
 <translation id="2524461107774643265">Ajouter des informations</translation>
 <translation id="2526062290525841862">Pour exécuter cette appli, réactivez le mode développeur pour les applications Web isolées</translation>
 <translation id="2526280916094749336">Vous pouvez utiliser les adresses enregistrées dans les produits Google. Celle-ci sera enregistrée dans votre compte Google (<ph name="ACCOUNT" />).</translation>
@@ -899,6 +903,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="2539524384386349900">Détecter</translation>
 <translation id="2541219929084442027">Les pages consultées dans les onglets de navigation privée ne sont pas enregistrées dans l'historique de votre navigateur, dans les cookies ni dans l'historique des recherches une fois que vous avez fermé tous les onglets de navigation privée. Les fichiers téléchargés et les favoris ajoutés sont conservés.</translation>
 <translation id="2542106216580219892">Surf</translation>
+<translation id="2543236854123609690"><ph name="ORIGIN" /> – Pour quitter le plein écran, appuyez de manière prolongée sur |<ph name="ACCELERATOR" />|</translation>
 <translation id="2544546346215446551">Votre administrateur a redémarré votre appareil</translation>
 <translation id="2544644783021658368">Document unique</translation>
 <translation id="254524874071906077">Définir Chrome comme navigateur par défaut</translation>
@@ -972,6 +977,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="2688186765492306706">500 x 760 mm</translation>
 <translation id="2688969097326701645">Oui, continuer</translation>
 <translation id="2690699652723742414">30 derniers jours</translation>
+<translation id="2691385045260836588">Modèle</translation>
 <translation id="2691924980723297736">Avertissement de sécurité</translation>
 <translation id="2697248912349197812">Demander à <ph name="KEYWORD_SHORT_NAME" /></translation>
 <translation id="2699273987028089219">Sous-menu disponible. Appuyez sur <ph name="SHORTCUT" /> pour accéder à des options supplémentaires.</translation>
@@ -1008,6 +1014,8 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="2742128390261873684">Domotique</translation>
 <translation id="2742870351467570537">Supprimer les éléments sélectionnés</translation>
 <translation id="2743512410823092182">Équipements, ressources et services de DJ</translation>
+<translation id="2743934314332613923">Mettre à jour le permis de conduire ?</translation>
+<translation id="2759299890026163685">Vérifiez que votre connexion Internet est stable avant de réessayer</translation>
 <translation id="2759825833388495838">de renseigner votre mot de passe sur <ph name="APP_NAME" /></translation>
 <translation id="2764001903315068341">Bandes dessinées</translation>
 <translation id="2765217105034171413">Petite</translation>
@@ -1019,6 +1027,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="2775884851269838147">Première page imprimée</translation>
 <translation id="2781185443919227679">Plages et îles</translation>
 <translation id="2781692009645368755">Google Pay</translation>
+<translation id="2781799097551205934">Règlement en cours de préparation</translation>
 <translation id="2782088940970074970">Location de voitures</translation>
 <translation id="278436560439594386">Appareils ménagers</translation>
 <translation id="2784474685437057136">B5 Extra</translation>
@@ -1046,6 +1055,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="2859383374160668142">Vous pouvez consulter les baisses de prix des produits que vous suivez à tout moment.</translation>
 <translation id="2859806420264540918">Ce site affiche des annonces intrusives ou trompeuses.</translation>
 <translation id="28618371182701850">Véhicules électriques et rechargeables</translation>
+<translation id="287387905105155974">Info-bulle d'aide</translation>
 <translation id="28761159517501904">Films</translation>
 <translation id="2876489322757410363">En payant via une appli externe, vous allez quitter le mode navigation privée. Voulez-vous continuer ?</translation>
 <translation id="2876949457278336305"><ph name="MANAGE_SECURITY_SETTINGS_FOCUSED_FRIENDLY_MATCH_TEXT" />, puis Tabulation, puis Entrée pour gérer la navigation sécurisée, etc., dans les paramètres Chrome</translation>
@@ -1058,6 +1068,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="2891963978019740012">Votre moteur de recherche dans Chrome</translation>
 <translation id="2893773853358652045">4e rouleau</translation>
 <translation id="2894137550885451583">Voici les prix en <ph name="CURRENCY" /> pour le produit <ph name="PRODUCT" /></translation>
+<translation id="2894233157216554317">Mettre à jour le passeport ?</translation>
 <translation id="2900528713135656174">Créer un événement</translation>
 <translation id="2902312830803030883">Autres actions</translation>
 <translation id="2903493209154104877">Adresses</translation>
@@ -1105,6 +1116,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="2959274854674276289">Cuisine végétarienne</translation>
 <translation id="2961809451460302960">Assurance-vie</translation>
 <translation id="2962073860865348475">12 x 18 pouces</translation>
+<translation id="2965779286557330949">Plus que quelques secondes...</translation>
 <translation id="2967082089043584472">Ajouté à <ph name="SET" /></translation>
 <translation id="2967098518029543669">enregistrez-le dans votre compte Google</translation>
 <translation id="297173220375858963">PAO</translation>
@@ -1133,6 +1145,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="3005723025932146533">Afficher la copie enregistrée</translation>
 <translation id="300580149047131921">Utilisée récemment</translation>
 <translation id="3009036448238594149"><ph name="ACTION_IN_SUGGEST_FOCUSED_FRIENDLY_MATCH_TEXT" />, appuyez sur Tabulation pour parcourir les actions disponibles, puis sur Entrée pour exécuter l'action sélectionnée.</translation>
+<translation id="3010991137650052245">Pour lui permettre d'utiliser votre <ph name="PERMISSION" /> sur ce site, autorisez <ph name="SHORT_PRODUCT_NAME" /> à y accéder</translation>
 <translation id="3013711734159931232">Produits ménagers</translation>
 <translation id="3014553260345122294">Actualités financières</translation>
 <translation id="3014726756341138577">Fonctionnalités avancées d'imprimante</translation>
@@ -1143,6 +1156,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="3023165109041533893">Les annonces suggérées par les sites contribuent à protéger votre historique de navigation et votre identité tout en permettant aux sites de vous montrer des annonces pertinentes. En fonction de votre activité, un site que vous avez visité peut suggérer des annonces s'y rapportant lorsque vous poursuivez votre navigation. Vous pouvez consulter la liste de ces sites et bloquer ceux qui vous ne vous intéressent pas dans les paramètres.</translation>
 <translation id="3024663005179499861">Type de règle incorrect.</translation>
 <translation id="3030331669969285614">Ces flags empêchent ou annulent une modification destructive et ne sont disponibles que pendant une durée limitée.</translation>
+<translation id="3030542417256082866">Enregistrer le véhicule ?</translation>
 <translation id="3034526003882782781">Défilement et zoom autorisés</translation>
 <translation id="3036894576201005614">Produits ménagers de nettoyage</translation>
 <translation id="3037177537145227281">Suivi du prix activé</translation>
@@ -1155,7 +1169,6 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="3052868890529250114">La connexion aux sites est généralement sécurisée, mais Chrome n'a pas pu utiliser de connexion sécurisée cette fois-ci. Il est possible qu'un pirate informatique tente d'espionner vos activités en ligne ou de modifier votre connexion réseau. <ph name="BEGIN_LEARN_MORE_LINK" />En savoir plus sur cet avertissement<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="3052964831964880138"><ph name="PRODUCT_NAME" /> : prix en baisse (-<ph name="PRICE_DROP" />)</translation>
 <translation id="3061707000357573562">Service d'application de correctifs</translation>
-<translation id="306198082577913404">Activer les améliorations de prédiction</translation>
 <translation id="3062655045399308513">Supprimer les données de navigation...</translation>
 <translation id="3063453392496098461">Échec de l'installation des services d'arrière-plan VPN.</translation>
 <translation id="306573536155379004">Le jeu a commencé.</translation>
@@ -1171,10 +1184,12 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="3090667236485488075">Verre</translation>
 <translation id="3095940652251934233">Statement</translation>
 <translation id="3098513225387949945">Cette règle est ignorée. Elle est considérée comme désactivée, car la liste d'interdictions contient une séquence équivalente à "*".</translation>
+<translation id="3098944373717628099">Vos fichiers locaux seront supprimés dans 1 heure</translation>
 <translation id="3099619114405539473">Utiliser les caméras disponibles (<ph name="CAMERAS_COUNT" />)</translation>
 <translation id="3102312643185441063">Épargne</translation>
 <translation id="3103188521861412364">Actions et obligations</translation>
 <translation id="3103535543639438037">Comparer côte à côte des produits similaires</translation>
+<translation id="3103993932858740905">Lorsque vous payez en plusieurs fois, un numéro de carte virtuelle temporaire est renseigné. Ce numéro est réservé à cet achat.</translation>
 <translation id="3105172416063519923">ID d'élément : </translation>
 <translation id="3107591622054137333"><ph name="BEGIN_LINK" />Vérifiez la configuration du DNS sécurisé<ph name="END_LINK" /></translation>
 <translation id="3108943290502734357">Bac intermédiaire</translation>
@@ -1265,6 +1280,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="323107829343500871">Saisir le code CVC de la carte <ph name="CREDIT_CARD" /></translation>
 <translation id="3234666976984236645">Toujours détecter du contenu important sur ce site</translation>
 <translation id="323585066388831737">Rouge clair</translation>
+<translation id="3235902901585019063">Les fichiers locaux seront supprimés le <ph name="DATE_TIME" />. Assurez-vous que toutes les données essentielles à caractère personnel ou professionnel sont stockées en externe.</translation>
 <translation id="3236212803136366317">Avantages des cartes</translation>
 <translation id="3238395604961564389">Ouvrir le lien dans la fenêtre de navigation privée</translation>
 <translation id="3240683217920639535"><ph name="MANAGE_CHROME_THEMES_FOCUSED_FRIENDLY_MATCH_TEXT" />, puis Tabulation, puis Entrée pour personnaliser l'apparence de votre navigateur</translation>
@@ -1310,6 +1326,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="33073482541490531">Le mot de passe que vous venez d'utiliser a été détecté lors d'une violation de données. Le Gestionnaire de mots de passe vous recommande de le modifier immédiatement.</translation>
 <translation id="3307649904964670439">Bouton "Personnaliser Chrome" à activer pour personnaliser l'apparence de votre navigateur</translation>
 <translation id="3308006649705061278">Unité d'organisation (OU)</translation>
+<translation id="3317077846337994567">Le paiement échelonné n'est pas disponible pour le moment. Réessayez plus tard.</translation>
 <translation id="3318016344440038475">Comédies (films TV)</translation>
 <translation id="3324687287337751929">4 x 6 pouces</translation>
 <translation id="3324983252691184275">Pourpre</translation>
@@ -1336,9 +1353,9 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="3360306038446926262">Fenêtres</translation>
 <translation id="3362968246557010467">Cette règle a été copiée automatiquement depuis la règle obsolète "<ph name="OLD_POLICY" />". Vous devez utiliser cette nouvelle règle à la place.</translation>
 <translation id="3364869320075768271">Le site <ph name="URL" /> souhaite utiliser vos données et votre appareil de réalité virtuelle</translation>
-<translation id="3366477098757335611">Afficher les cartes</translation>
 <translation id="3369192424181595722">Erreur de l'horloge</translation>
 <translation id="3371064404604898522">Définir Chrome comme navigateur par défaut</translation>
+<translation id="3371186787117738282"><ph name="ATTRIBUTE_NAME" /> ajouté</translation>
 <translation id="337363190475750230">Révoqué</translation>
 <translation id="3377144306166885718">Le serveur utilisait une version obsolète de TLS.</translation>
 <translation id="3377188786107721145">Erreur d'analyse de la règle.</translation>
@@ -1348,6 +1365,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="3380864720620200369">ID client : </translation>
 <translation id="3381668585148405088">Valider votre achat</translation>
 <translation id="3383566085871012386">Ordre de priorité actuel</translation>
+<translation id="3383713837163550889">Vos fichiers locaux seront supprimés dans 1 minute</translation>
 <translation id="3384522979010096022">Votre organisation ne vous autorise pas à consulter ce site</translation>
 <translation id="3391030046425686457">Adresse de livraison</translation>
 <translation id="3391482648489541560">modification de fichier</translation>
@@ -1405,6 +1423,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="3479552764303398839">Pas maintenant</translation>
 <translation id="3484560055331845446">Vous pourriez perdre l'accès à votre compte Google. L'équipe Chrome vous recommande de modifier votre mot de passe maintenant. Vous devrez vous connecter.</translation>
 <translation id="3484861421501147767">Rappel : vous avez un code promotionnel enregistré</translation>
+<translation id="3485901585646640838">Pour utiliser les mots de passe et autres infos enregistrées dans votre compte Google, confirmez votre identité</translation>
 <translation id="3486406746948052912">Antitranspirants, déodorants et sprays corporels</translation>
 <translation id="3487845404393360112">Bac 4</translation>
 <translation id="3493660662684070951">Fourgons, monospaces et SUV</translation>
@@ -1449,6 +1468,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="3558573058928565255">Dans la journée</translation>
 <translation id="3559897352860026926">Demandez à votre administrateur de vérifier ses paramètres de configuration pour <ph name="CLOUD_PROVIDER" />.</translation>
 <translation id="3560824484345057728">Voir les sites associés</translation>
+<translation id="356359327498380603">Mettre à jour le véhicule ?</translation>
 <translation id="3566021033012934673">Votre connexion n'est pas privée</translation>
 <translation id="3566336457819493938">215 x 315 mm</translation>
 <translation id="3566649245868131295">Emplois dans le secteur de la santé</translation>
@@ -1475,9 +1495,11 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="3586931643579894722">Masquer les détails</translation>
 <translation id="3587725436724465984">Votre organisation a identifié <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /> comme un site susceptible de ne pas respecter une règle. <ph name="BEGIN_LEARN_MORE_LINK" />En savoir plus sur cet avertissement<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="3587738293690942763">Milieu</translation>
+<translation id="3596918995172292499">État de la plaque</translation>
 <translation id="3600106876108433070">En savoir plus sur les tableaux comparatifs</translation>
 <translation id="3600246354004376029">"<ph name="TITLE" />", <ph name="DOMAIN" />, <ph name="TIME" /></translation>
 <translation id="3600492954573979888">Bouton "Gérer les paramètres de confidentialité du compte Google" à activer pour accéder aux paramètres de confidentialité de votre compte Google</translation>
+<translation id="3602695245205338770">Sélectionnez un fournisseur de paiements échelonnés</translation>
 <translation id="3603507503523709">Application bloquée par votre administrateur</translation>
 <translation id="3605899229568538311">5 x 5 pouces</translation>
 <translation id="3606917451836803637">Programmes et émissions TV</translation>
@@ -1522,6 +1544,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="3664782872746246217">Mots-clés :</translation>
 <translation id="3665100783276035932">La plupart des sites devraient fonctionner comme prévu</translation>
 <translation id="3665806835792525231"><ph name="BEGIN_LINK1" />En savoir plus<ph name="LINK_END1" /></translation>
+<translation id="3670030362669914947">Numéro</translation>
 <translation id="3670229581627177274">Activer le Bluetooth</translation>
 <translation id="3671117652518853176">Même si cette option est désactivée, vous devrez parfois procéder à une validation pour des raisons de sécurité</translation>
 <translation id="3671540257457995106">Autoriser le redimensionnement ?</translation>
@@ -1536,7 +1559,6 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="3681007416295224113">Informations relatives au certificat</translation>
 <translation id="3681421644246505351">Chrome relève les thèmes qui vous intéressent grâce à votre historique de navigation.</translation>
 <translation id="3682094733650754138">L'option "Remplir l'adresse" a été sélectionnée</translation>
-<translation id="3687493962714153124">Gérer la saisie automatique avec l'IA</translation>
 <translation id="3687920599421452763">Fourgons et fourgonnettes</translation>
 <translation id="3693327506115126094">Choisir comment confirmer votre identité</translation>
 <translation id="3698353241727597930">Votre administrateur a configuré l'enregistrement des <ph name="FILES" /> dans votre espace de stockage <ph name="CLOUD_STORAGE" /> géré par l'entreprise. Ces fichiers peuvent être surveillés, audités et conservés lorsque vous les supprimez.</translation>
@@ -1563,6 +1585,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="3715016660240337709">{0,plural, =1{Importation bloquée pour le fichier}one{Importation bloquée pour <ph name="FILE_COUNT" /> fichier}other{Importation bloquée pour <ph name="FILE_COUNT" /> fichiers}}</translation>
 <translation id="3715597595485130451">Connexion au réseau Wi-Fi</translation>
 <translation id="3717027428350673159"><ph name="BEGIN_LINK" />Vérifier les configurations du proxy, du pare-feu et du DNS<ph name="END_LINK" /></translation>
+<translation id="3723316892512143176">IBAN</translation>
 <translation id="3723663469265383848">Pendant la mise à jour, vous ne pourrez pas utiliser votre appareil pendant 10 minutes maximum.</translation>
 <translation id="372429172604983730">Les antivirus, les pare-feu et les logiciels de filtrage Web ou de proxy font partie des applications qui peuvent être à l'origine du problème.</translation>
 <translation id="3727101516080730231"><ph name="CREATE_GOOGLE_SLIDE_FOCUSED_FRIENDLY_MATCH_TEXT" />, appuyez sur Tabulation, puis sur Entrée pour créer rapidement une présentation Google dans Slides</translation>
@@ -1646,6 +1669,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="3858027520442213535">Mettre à jour la date et l'heure</translation>
 <translation id="3858860766373142691">Nom</translation>
 <translation id="3865339060090354361">Voir ici les conditions d'utilisation de <ph name="CREDIT_CARD_NAME" /></translation>
+<translation id="3869939189466884821">Vos fichiers locaux seront supprimés dans <ph name="MINUTES" /> minutes</translation>
 <translation id="3872834068356954457">Sciences</translation>
 <translation id="3875783148670536197">Démonstration</translation>
 <translation id="3879748587602334249">Gestionnaire de téléchargement</translation>
@@ -1689,12 +1713,15 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="3950820424414687140">Se connecter</translation>
 <translation id="3953505489397572035">Ce prix est dans la gamme habituelle</translation>
 <translation id="3958057596965527988">4 x 4 pouces</translation>
+<translation id="3959969108528118741">Propriétaire</translation>
 <translation id="3961148744525529027">La feuille du gestionnaire de paiement est ouverte à moitié</translation>
 <translation id="3962859241508114581">Titre précédent</translation>
 <translation id="3963721102035795474">Mode lecture</translation>
 <translation id="3964661563329879394">{COUNT,plural, =0{Aucun}=1{De 1 site }one{De # site }other{De # sites }}</translation>
 <translation id="3965672182149944205">Enregistrer l'adresse ?</translation>
 <translation id="3966044442021752214">Sécurité du produit</translation>
+<translation id="3969869202926863008">Accès au réseau local</translation>
+<translation id="3970239200223030389">Date d'émission</translation>
 <translation id="397105322502079400">Calcul en cours…</translation>
 <translation id="3973234410852337861"><ph name="HOST_NAME" /> est bloqué</translation>
 <translation id="3975852104434126461">Industrie automobile</translation>
@@ -1732,6 +1759,8 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="4031179711345676612">Micro autorisé</translation>
 <translation id="4036753017940930924">Terrains et terres</translation>
 <translation id="4039506337798853114">Pour afficher le curseur, appuyez sur |<ph name="ACCELERATOR" />|</translation>
+<translation id="4045226534284799755">Connectez-vous à votre compte Microsoft avant de réessayer</translation>
+<translation id="4045441967987592849">Rouvrir</translation>
 <translation id="4047351652147966654">18 x 24 pouces</translation>
 <translation id="404831776305217138">L'URL de mise à jour pour l'extension ayant l'ID "<ph name="EXTENSION_ID" />" n'est pas valide ou utilise un schéma incompatible. Les schémas compatibles sont <ph name="HTTP_SCHEME" />, <ph name="HTTPS_SCHEME" /> et <ph name="FILE_SCHEME" />.</translation>
 <translation id="4050392779074832022">Vous pourrez l'utiliser dans tous les produits Google</translation>
@@ -1751,6 +1780,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="4073797364926776829">Afficher la carte</translation>
 <translation id="4075732493274867456">Le client et le serveur ne sont pas compatibles avec une version de protocole ou une méthode de chiffrement SSL commune.</translation>
 <translation id="4079302484614802869">La configuration du proxy est définie pour utiliser une URL de script .pac, et non pas des serveurs proxy déterminés.</translation>
+<translation id="4080855220442581440">faire défiler les onglets partagés et zoomer dessus</translation>
 <translation id="4082333119419111506">Papier (préimprimé)</translation>
 <translation id="4082393374666368382">Paramètres - Gestion</translation>
 <translation id="4084219288110917128">Enveloppe C1</translation>
@@ -1781,6 +1811,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="4116701314593212016">JIS B7</translation>
 <translation id="4116798170070772848">RA2</translation>
 <translation id="4117700440116928470">La portée de la règle n'est pas compatible.</translation>
+<translation id="411918202192379658">La saisie automatique s'est encore améliorée</translation>
 <translation id="4121428309786185360">Expire le</translation>
 <translation id="4123572138124678573">Triple perforation en bas</translation>
 <translation id="412601465078863288">Délai d'importation dépassé</translation>
@@ -1799,10 +1830,12 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="4150099059797363385">Enveloppe chinoise n°4</translation>
 <translation id="4151403195736952345">Utiliser la valeur par défaut globale (Détection)</translation>
 <translation id="4152318981910038897">{COUNT,plural, =1{Page 1}one{Page {COUNT}}other{Page {COUNT}}}</translation>
+<translation id="4152670763139331043">{NUM_TABS,plural, =1{1 onglet}one{# onglet}other{# onglets}}</translation>
 <translation id="4154277373259957087">Chrome va maintenant valider votre identité avant de renseigner les modes de paiement. Vous pouvez modifier cela à tout moment dans <ph name="IDS_AUTOFILL_MANDATORY_REAUTH_CONFIRMATION_SETTINGS_LINK" />.</translation>
 <translation id="415440494507469262">Ajouter un onglet au tableau comparatif</translation>
 <translation id="4159784952369912983">Violet</translation>
 <translation id="4165422751765527461">Ouvre un article du centre d'aide dans un nouvel onglet</translation>
+<translation id="4165584779486830267">Vous pouvez désormais payer en plusieurs fois avec Affirm ou Zip.</translation>
 <translation id="4165986682804962316">Paramètres des sites</translation>
 <translation id="4169535189173047238">Ne pas autoriser</translation>
 <translation id="4171400957073367226">Signature de validation non valide.</translation>
@@ -1890,11 +1923,11 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="4282280603030594840">Achat de véhicules</translation>
 <translation id="4282346679996504092">Les alertes pour ce produit ont été désactivées et le favori supprimé</translation>
 <translation id="4285498937028063278">Retirer</translation>
-<translation id="428639260510061158">{NUM_CARDS,plural, =1{Cette carte a été enregistrée dans votre compte Google}one{Cette carte a été enregistrée dans votre compte Google}other{Ces cartes ont été enregistrées dans votre compte Google}}</translation>
 <translation id="4287495839370498922">Confidentialité des annonces améliorée dans Chrome</translation>
 <translation id="4290920330097335010">Ne jamais autoriser</translation>
 <translation id="4296207570293932800">Nouvelle fonctionnalité de confidentialité disponible pour les annonces</translation>
 <translation id="4297502707443874121">Vignette de la page <ph name="THUMBNAIL_PAGE" /></translation>
+<translation id="4297937944457164390"><ph name="ATTRIBUTE_NAME" /> mis à jour</translation>
 <translation id="4298000214066716287">Investissement</translation>
 <translation id="42981349822642051">Développer</translation>
 <translation id="4300675098767811073">Multiple perforation à droite</translation>
@@ -1910,7 +1943,6 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="4312866146174492540">Bloquer (par défaut)</translation>
 <translation id="4314815835985389558">Gérer la synchronisation</translation>
 <translation id="4316057107946726368">Veuillez saisir un message de justification contenant au maximum <ph name="MAX_CHAR_COUNT" /> caractères. Caractères utilisés : <ph name="ACTUAL_CHAR_COUNT" /> sur <ph name="MAX_CHAR_COUNT" />.</translation>
-<translation id="431740489189220419">Chargement des suggestions…</translation>
 <translation id="4318213823155573975">Chapeaux</translation>
 <translation id="4318312030194671742">Service de composition d'aperçus Paint</translation>
 <translation id="4318566738941496689">Nom et adresse réseau de votre appareil</translation>
@@ -1945,17 +1977,19 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="4363222835916186793">Les alertes pour ce produit ont été désactivées</translation>
 <translation id="4363729811203340554">Si vous partagez cet appareil, Chrome peut vous demander de valider chaque fois que vous payez avec la saisie automatique</translation>
 <translation id="4366943895537458493">Plaque</translation>
+<translation id="4369179505195332608">Modifier le permis de conduire</translation>
 <translation id="437040971055499437">Un événement lié à la sécurité se produit</translation>
 <translation id="4371591986692297148">Inactive</translation>
 <translation id="4372948949327679948">Valeur attendue : <ph name="VALUE_TYPE" />.</translation>
 <translation id="437620492464254965">Portes et fenêtres</translation>
 <translation id="4377125064752653719">Vous avez tenté d'accéder à <ph name="DOMAIN" />, mais le certificat présenté par le serveur a été révoqué par son émetteur. Cela signifie que le certificat présenté par le serveur ne doit pas être approuvé. Il est donc possible que vous communiquiez avec un pirate informatique.</translation>
 <translation id="4378154925671717803">Téléphone</translation>
+<translation id="4382833368532556056">À partir de maintenant, enregistrez vos fichiers dans le stockage cloud</translation>
 <translation id="4384395682990721132">A4x3</translation>
 <translation id="4387692837058041921">L'importation du fichier vers Microsoft OneDrive a été suspendue</translation>
-<translation id="4389931020843542579">Chargement du groupe d'onglets…</translation>
 <translation id="4390472908992056574">Brim</translation>
 <translation id="4395550503472021297">Cette règle contrôle le comportement par défaut des règles suivantes : <ph name="POLICIES" /></translation>
+<translation id="4396554829965096368">Permis de conduire</translation>
 <translation id="4397978002248035985">Ouvre un pop-up pour effectuer la validation sur le site Web de votre banque</translation>
 <translation id="4406883609789734330">Sous-titres instantanés</translation>
 <translation id="4406896451731180161">résultats de recherche</translation>
@@ -2015,6 +2049,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="4521280267704259211">Enveloppe Monarch</translation>
 <translation id="4521916730539354575">Bac de gauche</translation>
 <translation id="4522570452068850558">Détails</translation>
+<translation id="4523580145196408446">Associé</translation>
 <translation id="4523643381056109546">Signalétique</translation>
 <translation id="4524138615196389145">Confirmez désormais vos cartes plus rapidement avec WebAuthn</translation>
 <translation id="45243788195988825">Bloquer <ph name="TOPIC" /></translation>
@@ -2035,7 +2070,6 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="4569155249847375786">Validé</translation>
 <translation id="457875822857220463">Livraison</translation>
 <translation id="4579699065574932398">Services bancaires</translation>
-<translation id="4582204425268416675">Supprimer la carte</translation>
 <translation id="4582595824823167856">Recevoir un SMS</translation>
 <translation id="4586607503179159908">Mode de paiement validé</translation>
 <translation id="4587425331216688090">Supprimer l'adresse de Chrome ?</translation>
@@ -2050,6 +2084,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="460848736049414407">Bloqué par l'administrateur</translation>
 <translation id="4610279718074907952">Ce site fait partie d'un groupe, défini par <ph name="SET_OWNER" />, qui peut voir votre activité</translation>
 <translation id="46128681529823442">Équipement de football</translation>
+<translation id="4612904677925722054">Ce site peut comporter du contenu réservé à un public averti. Un parent ou représentant légal doit autoriser ton accès à ce site Web.</translation>
 <translation id="4619564267100705184">Confirmer votre identité</translation>
 <translation id="4622292761762557753">Transférer quand même</translation>
 <translation id="4622647778991854660">Activer les notifications dans le centre de notifications. Ouvrir <ph name="LINK" />.</translation>
@@ -2158,6 +2193,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="4796594887379589189">Numéro de compte de travail</translation>
 <translation id="4798269756263412078">Recevez des alertes si le prix baisse sur un site. Vous recevrez les alertes par e-mail.</translation>
 <translation id="4800132727771399293">Veuillez vérifier la date d'expiration et le code CVC, puis réessayez.</translation>
+<translation id="4800546479758254481">RA autorisée</translation>
 <translation id="4803924862070940586"><ph name="FORMATTED_TOTAL_AMOUNT" /> <ph name="CURRENCY_CODE" /></translation>
 <translation id="4809079943450490359">Instructions de l'administrateur de votre appareil :</translation>
 <translation id="4811450222531576619">En savoir plus sur sa source et son thème</translation>
@@ -2167,6 +2203,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="4819347708020428563">Modifier les annotations dans la vue par défaut ?</translation>
 <translation id="4822493756793346865">Les prix habituels sont basés sur ceux de magasins du Web au cours des 90 derniers jours.</translation>
 <translation id="4822922322149719535">Examiner le journal d'erreurs</translation>
+<translation id="4823699521959851389"><ph name="SHORT_PRODUCT_NAME" /> a besoin d'accéder à votre <ph name="PERMISSION" /> sur l'appareil</translation>
 <translation id="4825496307559726072"><ph name="CREATE_GOOGLE_SHEET_FOCUSED_FRIENDLY_MATCH_TEXT" />, appuyez sur Tabulation, puis sur Entrée pour créer rapidement une feuille de calcul Google Sheets</translation>
 <translation id="4826588772550366629">votre caméra et votre micro</translation>
 <translation id="4827283332383516812">Supprimer la carte</translation>
@@ -2177,6 +2214,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="4834250788637067901">Modes de paiement, offres et adresses utilisant Google Pay</translation>
 <translation id="4840250757394056958">Afficher votre historique Chrome</translation>
 <translation id="484462545196658690">Auto</translation>
+<translation id="4844937814014739139">Faire défiler les onglets partagés et zoomer dessus</translation>
 <translation id="484671803914931257">Obtenez des remises sur <ph name="MERCHANT_NAME" /> et plus</translation>
 <translation id="484988093836683706">Utiliser le déverrouillage de l'appareil</translation>
 <translation id="4850886885716139402">Afficher</translation>
@@ -2271,6 +2309,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="5001526427543320409">Cookies tiers</translation>
 <translation id="5002932099480077015">Si cette option est activée, Chrome enregistre une copie de votre carte sur cet appareil pour vous permettre de remplir plus rapidement les formulaires.</translation>
 <translation id="5007392906805964215">Afficher</translation>
+<translation id="5010599530303458903">Payez tous les mois ou en quatre versements sans intérêts (sous réserve d'éligibilité)</translation>
 <translation id="5011561501798487822">Langue détectée</translation>
 <translation id="5015510746216210676">Nom de la machine :</translation>
 <translation id="5017554619425969104">Texte copié</translation>
@@ -2315,13 +2354,13 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="5087286274860437796">Le certificat actuel du serveur n'est pas valide.</translation>
 <translation id="5087580092889165836">Ajouter une carte</translation>
 <translation id="5088142053160410913">Message à l'opérateur</translation>
+<translation id="5089810972385038852">État</translation>
 <translation id="5090647584136241764">Ajoutez des onglets avec des produits similaires pour comparer facilement les détails qui vous intéressent</translation>
 <translation id="5093232627742069661">Pli en Z</translation>
 <translation id="5094747076828555589">Impossible de vérifier sur le serveur qu'il s'agit bien du domaine <ph name="DOMAIN" />, car son certificat de sécurité n'est pas considéré comme fiable par Chromium. Cela peut être dû à une mauvaise configuration ou bien à l'interception de votre connexion par un pirate informatique.</translation>
 <translation id="5097099694988056070">Statistiques concernant l'appareil, telles que l'utilisation du processeur et de la RAM</translation>
 <translation id="5097468150760963273">27 x 39 pouces</translation>
 <translation id="5097501891273180634">A2</translation>
-<translation id="5106405387002409393">Chrome a besoin d'accéder à l'<ph name="PERMISSION" /> de votre appareil</translation>
 <translation id="510644072453496781">Carton (morceau)</translation>
 <translation id="5106648964679263509">Carte virtuelle pour <ph name="BNPL_ISSUER_NAME" /> renseignée</translation>
 <translation id="5108881358339761672">Site non sécurisé</translation>
@@ -2363,6 +2402,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="5159010409087891077">Ouvrir la page dans une nouvelle fenêtre de navigation privée (⇧⌘N)</translation>
 <translation id="5161334686036120870">Sujet :</translation>
 <translation id="5161506081086828129">Empileur 9</translation>
+<translation id="5164537320435517152">Supprimer les fichiers dans <ph name="MINUTES" /> min</translation>
 <translation id="5164798890604758545">Texte saisi</translation>
 <translation id="5164928537947209380">Cet outil d'IA expérimental n'est pas infaillible. Pour l'améliorer, votre contenu est envoyé à Google.
     <ph name="BEGIN_LINK" />En savoir plus<ph name="END_LINK" /></translation>
@@ -2391,6 +2431,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="5217759126664161410">Format de protocole non valide.</translation>
 <translation id="5221377878828867877">La réutilisation des mots de passe est gérée par votre organisation</translation>
 <translation id="5222812217790122047">Veuillez saisir une adresse e-mail</translation>
+<translation id="5225215474235602477">Enregistrer le passeport ?</translation>
 <translation id="5228269245420405804">Enseignement à distance</translation>
 <translation id="5230733896359313003">Adresse de livraison</translation>
 <translation id="5230815978613972521">B8</translation>
@@ -2416,6 +2457,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="5255771248404149177">Le fournisseur de votre carte souhaite vérifier votre identité</translation>
 <translation id="5255833070095767006">350 x 460 mm</translation>
 <translation id="5257739419779698609">{0,plural, =1{Une règle de l'administrateur déconseille de copier ce fichier vers <ph name="DESTINATION_NAME" />}one{Une règle de l'administrateur déconseille de copier ce fichier vers <ph name="DESTINATION_NAME" />}other{Une règle de l'administrateur déconseille de copier ces fichiers vers <ph name="DESTINATION_NAME" />}}</translation>
+<translation id="5258473597674772367">Le groupe d'onglets "<ph name="GROUP_NAME" />" n'est plus disponible</translation>
 <translation id="5263867360296733198">Examen requis avant l'importation</translation>
 <translation id="5266128565379329178">Reliure en haut</translation>
 <translation id="5269225904387178860">Quadruple perforation en bas</translation>
@@ -2453,6 +2495,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="531996107159483074"><ph name="BEGIN_BOLD" />Votre moteur de recherche par défaut vous permet d'effectuer des recherches sur le Web et d'alimenter des fonctionnalités Chromium<ph name="END_BOLD" /> telles que la recherche à partir de la barre d'adresse ou à partir d'images dans les pages Web. Une fonctionnalité peut ne pas être disponible si votre moteur de recherche ne la prend pas en charge.</translation>
 <translation id="5323043727018853753">Contenu intégré autorisé</translation>
 <translation id="5323105697514565458"><ph name="FRIENDLY_MATCH_TEXT" />, <ph name="MATCH_POSITION" /> sur <ph name="NUM_MATCHES" /></translation>
+<translation id="5327248766486351172">Nom</translation>
 <translation id="5329858041417644019">Votre navigateur n'est pas géré</translation>
 <translation id="5331585574693522196">Définir par défaut</translation>
 <translation id="5332219387342487447">Mode de livraison</translation>
@@ -2465,6 +2508,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="5344522958567249764">Gérer la confidentialité des annonces</translation>
 <translation id="5344579389779391559">L'accès à la page suivante peut engendrer des frais</translation>
 <translation id="5345249337934847112">Papier couché haute densité</translation>
+<translation id="5348330584842140856">Ce fichier n'a pas été déplacé, car il n'existe plus</translation>
 <translation id="5349543692327946794">Étiquettes (jet d'encre)</translation>
 <translation id="5351548097010183514">Fournitures et matériaux de construction</translation>
 <translation id="5354143049423063163">Fonds spéculatifs</translation>
@@ -2481,6 +2525,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="5379618281582508161">Pour obtenir ce mot de passe sur tous vos appareils, validez votre identité</translation>
 <translation id="5380953781541843508">dans l'ordre croissant</translation>
 <translation id="5381318171304904246">Si vous continuez, vous serez redirigé vers le site Web de votre banque. Une fois la validation effectuée, vous serez automatiquement redirigé afin de finaliser votre achat.</translation>
+<translation id="5381952079334035181"><ph name="MEMBER_FIRST_NAME" /> a modifié l'onglet "<ph name="WEBSITE_TITLE" />"</translation>
 <translation id="5383478552402031184">Revêtements de sol</translation>
 <translation id="5385857628869214740">Humour</translation>
 <translation id="5385966243497224160">Impossible de prévisualiser une URL non HTTPS</translation>
@@ -2519,8 +2564,8 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
             <ph name="LIST_ITEM" />Les informations saisies dans formulaires
           <ph name="END_LIST" /></translation>
 <translation id="5443468954631487277">Ordre inverse, face vers le haut</translation>
-<translation id="5445340838622821110">Lorsque vous payez en plusieurs fois, un numéro de carte virtuelle temporaire est renseigné. Ce numéro est réservé à cet achat. <ph name="IDS_AUTOFILL_BNPL_FILLED_CARD_INFORMATION_BUBBLE_LEARN_MORE_LINK_LABEL" /></translation>
 <translation id="5447235695608032700">Autoriser <ph name="SITE" /> à utiliser les informations qu'il a enregistrées vous concernant</translation>
+<translation id="5451331376824595378">Lorsque Chrome signale des événements liés à la sécurité, votre administrateur reçoit des données sur ces événements (URL des pages que vous consultez dans Chrome ou depuis lesquelles vous copiez des données, métadonnées ou noms de fichiers, adresses IP, plantages d'un navigateur ou d'un onglet, nom d'utilisateur avec lequel vous vous connectez à des applis Web, à votre appareil et à Chrome, etc.).</translation>
 <translation id="5452270690849572955">Cette page du site <ph name="HOST_NAME" /> est introuvable</translation>
 <translation id="5452923259299906094">Payer avec un e-portefeuille et Pix</translation>
 <translation id="5455374756549232013">Horodatage de la règle incorrect.</translation>
@@ -2601,6 +2646,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="5570825185877910964">Protéger le compte</translation>
 <translation id="5571083550517324815">Enlèvement impossible à cette adresse. Sélectionnez-en une autre.</translation>
 <translation id="5572434905385510939">22 x 28 pouces</translation>
+<translation id="5573641252776268565">Modifier le passeport</translation>
 <translation id="5578606540385219379">Fournisseurs de services</translation>
 <translation id="5580958916614886209">Veuillez vérifier le mois d'expiration, puis réessayer</translation>
 <translation id="5583442610070676234">Plus d'actions pour le tableau comparatif <ph name="COMPARE_SET_NAME" /></translation>
@@ -2648,6 +2694,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="5660122698869360728">Un nouveau dossier intelligent qui vous permet d'enregistrer toutes vos pages d'achat au même endroit et de suivre automatiquement les prix, d'obtenir des tendances de prix, etc.</translation>
 <translation id="5663955426505430495">L'administrateur de cet appareil a installé des extensions permettant d'utiliser des fonctions supplémentaires. Ces extensions ont accès à certaines de vos données.</translation>
 <translation id="5667827081946850877">Livres audio</translation>
+<translation id="5674082555327905359">Peut demander à se connecter à n'importe quel appareil sur votre réseau local</translation>
 <translation id="5675650730144413517">Cette page ne fonctionne pas</translation>
 <translation id="5675809467256309336">Dance et électro</translation>
 <translation id="5675959228867414813">Afficher par date</translation>
@@ -2664,7 +2711,6 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="569000877158168851">La valeur de la règle DnsOverHttpsTemplates n'est pas valide et ne sera pas utilisée, sauf si la règle DnsOverHttpsMode est définie sur <ph name="SECURE_DNS_MODE_AUTOMATIC" /> ou <ph name="SECURE_DNS_MODE_SECURE" />.</translation>
 <translation id="5691848789297492617">Invite "Enregistrer la carte" ouverte à pleine hauteur.</translation>
 <translation id="5695542892312572833">Utiliser Windows Hello pour valider et finaliser votre achat ?</translation>
-<translation id="5697827549745555938">Les informations que vous avez enregistrées et cette page sont envoyées à Google pour déterminer si la saisie automatique peut vous aider à remplir ce formulaire. Des réviseurs humains peuvent consulter les données pour améliorer cette fonctionnalité.</translation>
 <translation id="5699628521141772782">Produits laitiers et œufs</translation>
 <translation id="5700761515355162635">Cookies tiers autorisés</translation>
 <translation id="5701381305118179107">Centrer</translation>
@@ -2688,7 +2734,6 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="5730040223043577876">L'équipe Chrome vous recommande de réinitialiser votre mot de passe si vous l'avez réutilisé sur d'autres sites.</translation>
 <translation id="5732392974455271431">Tes parents peuvent te le débloquer</translation>
 <translation id="573555826359077410">Bouton "Créer un formulaire" à activer pour créer rapidement un formulaire dans Google Forms</translation>
-<translation id="5737183892635480227">{NUM_CARDS,plural, =1{Enregistrer une carte dans votre compte Google}one{Enregistrer une carte dans votre compte Google}other{Enregistrer des cartes dans votre compte Google}}</translation>
 <translation id="5738385766833540397">Gérez la réception d'alertes en cas de baisse de prix des produits que vous suivez</translation>
 <translation id="573974402615125334">Pour rejoindre des groupes d'onglets, en partager et collaborer dessus, synchronisez votre historique et vos onglets</translation>
 <translation id="5740911612628596808">Enveloppe C9</translation>
@@ -2728,6 +2773,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="5826507051599432481">Nom commun (CN)</translation>
 <translation id="5830698870816298009">Utiliser et bouger la caméra</translation>
 <translation id="583281660410589416">Inconnu</translation>
+<translation id="5837220895135257862">Libérez de l'espace sur <ph name="CLOUD_PROVIDER" /> avant de réessayer</translation>
 <translation id="5838278095973806738">Nous vous conseillons de ne pas saisir d'informations sensibles sur ce site (par exemple, vos mots de passe ou les informations de votre carte de paiement), car elles pourraient être dérobées par des pirates informatiques.</translation>
 <translation id="5838732667866024867">Vous pouvez utiliser les flèches vers la gauche/droite pour consulter l'évolution des prix sur le graphique</translation>
 <translation id="5840318881868981258">Dans votre compte Google <ph name="ACCOUNT" /></translation>
@@ -2767,6 +2813,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="5910140988253729859">Annuler la saisie automatique</translation>
 <translation id="5911020115933784199">Événementiel et organisation</translation>
 <translation id="5911110632211230665">Ouverture bloquée</translation>
+<translation id="5914465277418006379"><ph name="MEMBER_FIRST_NAME" /> a ajouté cet onglet</translation>
 <translation id="5915189366813702112">Aménagements du temps de travail</translation>
 <translation id="59174027418879706">Activé</translation>
 <translation id="5918373444239520146">Gadgets et appareils électroniques portables</translation>
@@ -2776,7 +2823,6 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="5921185718311485855">Activé</translation>
 <translation id="5921639886840618607">Enregistrer la carte dans votre compte Google ?</translation>
 <translation id="5921952831792678223">Pick-ups</translation>
-<translation id="5922853866070715753">Vous avez presque terminé !</translation>
 <translation id="5923492272538889093">Utiliser le déverrouillage de l'appareil au lieu du code CVC ?</translation>
 <translation id="5924510104057992926">Examen requis avant l'ouverture</translation>
 <translation id="5924782825030413055">Source de la dernière mise à jour de l'autorisation :</translation>
@@ -2793,6 +2839,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="5944297261866530437">Tissu (haute brillance)</translation>
 <translation id="5950901984834744590">Rasoirs</translation>
 <translation id="5951495562196540101">Impossible d'enregistrer votre appareil avec un compte personnel (licence associée disponible).</translation>
+<translation id="5952076224478208938">Marque</translation>
 <translation id="5953516610448771166">Les sous-titres instantanés ne sont pas disponibles pour ce contenu multimédia. Pour obtenir des sous-titres, bloquez <ph name="CONTENT_SETTINGS" /> pour ce site.</translation>
 <translation id="595873925609605681">Si les fonctionnalités des sites ne fonctionnent pas, <ph name="BEGIN_LINK" />essayez d'autoriser temporairement les cookies tiers<ph name="END_LINK" />.</translation>
 <translation id="5960795367348889467">Validation</translation>
@@ -2832,6 +2879,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="6015796118275082299">Année</translation>
 <translation id="6017514345406065928">Vert</translation>
 <translation id="6018650639991193045">Supprimer votre historique de navigation et les cookies, vider le cache et plus dans les paramètres Chrome</translation>
+<translation id="6023810427609440412">VIN (numéro d'identification du véhicule)</translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /> (synchronisés)</translation>
 <translation id="6028591542479806248">Gérer les notifications mobiles et par e-mail</translation>
 <translation id="6028833024483927901">Cuisine du monde</translation>
@@ -2847,6 +2895,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="604124094241169006">Automatique</translation>
 <translation id="6041777658117377052">Température de la chambre</translation>
 <translation id="6042308850641462728">Plus</translation>
+<translation id="6043357981274314628">Terminé</translation>
 <translation id="6044573915096792553">Taille 12</translation>
 <translation id="6045164183059402045">Modèle d'imposition</translation>
 <translation id="6047927260846328439">Ce contenu peut vous inciter à installer un logiciel ou vous soutirer des informations personnelles. <ph name="BEGIN_LINK" />Je souhaite y accéder malgré tout.<ph name="END_LINK" /></translation>
@@ -2863,19 +2912,19 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="6055982527635883756">Enveloppe (archive)</translation>
 <translation id="6057177372083677067">Vidéo en ligne</translation>
 <translation id="6058646026409894363">Génie civil</translation>
-<translation id="6058977677006700226">Vous utilisez vos cartes sur tous vos appareils ?</translation>
 <translation id="6059925163896151826">Appareils USB</translation>
 <translation id="6060009363608157444">Mode DnsOverHttps non valide.</translation>
 <translation id="6061154937977953833">Lutte</translation>
+<translation id="6062405040252994646">Outil</translation>
 <translation id="6062937464449575061">Ne plus suivre le prix</translation>
 <translation id="6063415549109819824">Crédit immobilier</translation>
 <translation id="6070432475334343308">Un ou plusieurs fichiers n'ont pas été importés dans <ph name="FOLDER_NAME" /> sur <ph name="CLOUD_PROVIDER" /></translation>
-<translation id="6080696365213338172">Vous avez accédé à du contenu à l'aide d'un certificat fourni par l'administrateur. Les données que vous fournissez à <ph name="DOMAIN" /> peuvent être interceptées par votre administrateur.</translation>
 <translation id="6085149458302186532">Étiquettes (couleur)</translation>
 <translation id="6087312102907839798">Recherches associées</translation>
 <translation id="6089505343295765444">Les onglets que vous supprimez de l'historique Chrome s'afficheront toujours dans vos tableaux comparatifs</translation>
 <translation id="6093599771645355227">Jaune 1</translation>
 <translation id="6093795393556121384">Votre carte a bien été validée.</translation>
+<translation id="6094253940069566294">Modifier le véhicule</translation>
 <translation id="6094273045989040137">Annoter</translation>
 <translation id="6094290315941448991">Une règle définie par l'administrateur a désactivé l'enregistrement d'écran lorsqu'un contenu confidentiel est affiché</translation>
 <translation id="6099269767116481177">22 x 29,5 pouces</translation>
@@ -2895,6 +2944,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="6116338172782435947">Voir le texte et les images copiés dans le presse-papiers</translation>
 <translation id="6117833587752089929">Photo (satinée)</translation>
 <translation id="6118782133429281336">La liste d'origine est vide.</translation>
+<translation id="6120950591512958208">Utilisez ce code au moment de payer.</translation>
 <translation id="612178891608320683">Cuisine végane</translation>
 <translation id="6122181661879998141">avant de votre carte</translation>
 <translation id="6124058285696691147">Télécharger la pièce jointe</translation>
@@ -2920,6 +2970,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="6159908896951210943">Formel</translation>
 <translation id="6160391204859821737">Activez une option de confidentialité pour les annonces</translation>
 <translation id="6162403104168428984">Mettre à jour l'adresse ?</translation>
+<translation id="6164605812717770913">Un parent ou représentant légal a dit que tu n'avais pas le droit d'accéder à ce site. Tu peux lui demander de le débloquer.</translation>
 <translation id="6165508094623778733">En savoir plus</translation>
 <translation id="6167577165590485365">Dernière tentative d'extraction :</translation>
 <translation id="617256461084925519">Google Chrome tente de confirmer votre identité afin de pouvoir indiquer vos informations de paiement.</translation>
@@ -2965,6 +3016,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="6241121617266208201">Masquer les suggestions</translation>
 <translation id="624499991300733384">Service de composition d'impression</translation>
 <translation id="6246316216123107851">Il y a <ph name="NUM_DAYS" /> jours</translation>
+<translation id="6246382863801034910">Véhicule</translation>
 <translation id="6246868321321344665">Votre organisation peut voir des données de navigation comme les mots de passe et l'historique dans les profils professionnels et personnels</translation>
 <translation id="6250932670816326647">Produits pour le bain et le corps</translation>
 <translation id="6251906504834538140">{0,plural, =1{Déplacement bloqué pour le fichier}one{Déplacement bloqué pour <ph name="FILE_COUNT" /> fichier}other{Déplacement bloqué pour <ph name="FILE_COUNT" /> fichiers}}</translation>
@@ -3011,12 +3063,14 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="6321917430147971392">Vérifiez vos paramètres DNS</translation>
 <translation id="6322182122604171028">Impossible d'utiliser Windows Hello</translation>
 <translation id="6326947323444967009">Définir Chrome comme navigateur par défaut dans les réglages d'iOS</translation>
+<translation id="6327065120806001832">accès au réseau local</translation>
 <translation id="6328639280570009161">Essayez de désactiver la prédiction réseau</translation>
-<translation id="6328784461820205019">"Votre connexion n'est pas privée", "&lt;span class="error-code"&gt;NET::ERR_CERT_AUTHORITY_INVALID&lt;/span&gt;", "&lt;span class="error-code"&gt;ERR_CERT_COMMON_NAME_INVALID&lt;/span&gt;", "&lt;span class="error-code"&gt;NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM&lt;/span&gt;", "&lt;span class="error-code"&gt;ERR_CERT_SYMANTEC_LEGACY&lt;/span&gt;" ou "Erreur de certificat SSL"</translation>
 <translation id="6335029926534404762">Chaussures de sport</translation>
+<translation id="6336948221660696475">RV non autorisée</translation>
 <translation id="6337133576188860026">Libère moins de <ph name="SIZE" />. Le chargement de certains sites risque d'être plus lent lors de votre prochaine visite.</translation>
 <translation id="6337534724793800597">Filtrer les règles par nom</translation>
 <translation id="633770708279464947">La valeur <ph name="SECURE_DNS_SALT" /> n'est pas valide et ne sera pas utilisée.</translation>
+<translation id="6338645927051849741">Mot de passe • Gestionnaire de mots de passe de Google</translation>
 <translation id="6340739886198108203">Une règle de l'administrateur déconseille de capturer ou d'enregistrer l'écran quand du contenu confidentiel est visible :</translation>
 <translation id="6341434961864773665">{0,plural, =1{Une règle de l'administrateur déconseille d'importer ce fichier vers <ph name="DESTINATION_NAME" />}one{Une règle de l'administrateur déconseille d'importer ce fichier vers <ph name="DESTINATION_NAME" />}other{Une règle de l'administrateur déconseille d'importer ces fichiers vers <ph name="DESTINATION_NAME" />}}</translation>
 <translation id="6342069812937806050">À l'instant</translation>
@@ -3056,6 +3110,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="6391700400718590966">La bottom sheet indiquant qu'aucun identifiant ne correspond pour le paiement sécurisé est fermée</translation>
 <translation id="6392799395081100092">Papier (vélin)</translation>
 <translation id="6393156038355142111">Suggérer un mot de passe sécurisé</translation>
+<translation id="6393310910507376797">Non accepté par le marchand</translation>
 <translation id="6393956493820063117">Le règlement de l'administrateur bloque le collage de contenus provenant de "<ph name="ORIGIN_NAME" />" à cet endroit</translation>
 <translation id="6394852772105848029">Ce site veut ouvrir l'appli <ph name="APP_NAME" /></translation>
 <translation id="639673288733510393">Scooters et cyclomoteurs</translation>
@@ -3070,10 +3125,12 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="6405181733356710802">Accéder à <ph name="APP_NAME" /> ?</translation>
 <translation id="6410264514553301377">Saisissez la date d'expiration et le code CVC pour <ph name="CREDIT_CARD" /></translation>
 <translation id="6411107829285739505">A4x8</translation>
+<translation id="6412543105195503444">Boîte de dialogue d'approbation parentale</translation>
 <translation id="6414010576370319452">Soin de la peau et des ongles</translation>
 <translation id="6415778972515849510">Chromium peut vous aider à protéger votre compte Google et à modifier votre mot de passe.</translation>
 <translation id="6416877227920300343">EDP</translation>
 <translation id="641811520997304166">Services de paie</translation>
+<translation id="6418199314628742460">Assurez-vous que toutes les données à caractère personnel ou professionnel critiques sont stockées en externe.</translation>
 <translation id="6424600253695044005">Stockage cloud</translation>
 <translation id="6425092077175753609">Material</translation>
 <translation id="6427730057873428458">Pli en volets</translation>
@@ -3090,6 +3147,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="6440503408713884761">Ignoré</translation>
 <translation id="6443406338865242315">Les extensions et les plug-ins que vous avez installés</translation>
 <translation id="6444329331928531170">Pension et retraite</translation>
+<translation id="6445051938772793705">Pays</translation>
 <translation id="6446608382365791566">Ajouter d'autres informations</translation>
 <translation id="6447842834002726250">Cookies</translation>
 <translation id="6448371595882710519">En savoir plus sur le contrôle des données</translation>
@@ -3135,6 +3193,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="6519885440226079262">Peut demander à suivre vos mains</translation>
 <translation id="6520026037299163656">Applis Web et outils en ligne</translation>
 <translation id="65203098586853226">Traduction <ph name="SOURCE" /> – <ph name="TARGET" /></translation>
+<translation id="6520509611422418552"><ph name="MEMBER_FIRST_NAME" /> a rejoint le groupe d'onglets "<ph name="GROUP_NAME" />"</translation>
 <translation id="6521745193039995384">Inactive</translation>
 <translation id="6522682797352430154">Musique classique</translation>
 <translation id="6524830701589638230">Bouton "Gérer les paramètres d'accessibilité" à activer pour personnaliser vos outils d'accessibilité dans les paramètres Chrome</translation>
@@ -3208,6 +3267,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="6668389483194953109">Le nom de la taille du papier est "custom", mais la propriété "custom_size" est vide ou non valide.</translation>
 <translation id="6671169470640320959">Financement auto</translation>
 <translation id="6671697161687535275">Supprimer la suggestion de saisie de formulaire de Chromium ?</translation>
+<translation id="6675846980676550611">RA non autorisée</translation>
 <translation id="6677351035258626477">Restauration rapide</translation>
 <translation id="6679354743514146922">Le navigateur Chrome tente de saisir votre mot de passe sur <ph name="APP_NAME" />.</translation>
 <translation id="6681790815630918386">Code CVC enregistré</translation>
@@ -3234,6 +3294,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="6706005862292023715">Rideaux et habillages de fenêtres</translation>
 <translation id="6706210727756204531">Portée</translation>
 <translation id="6706678697074905703">Impossible d'enregistrer cet IBAN dans votre compte Google. Il a été enregistré dans Chrome sur cet appareil à la place.</translation>
+<translation id="6707388108229299854">Pour obtenir cette adresse sur tous vos appareils, confirmez votre identité</translation>
 <translation id="6709133671862442373">Actualités</translation>
 <translation id="6710213216561001401">Précédent</translation>
 <translation id="6710594484020273272">&lt;Saisissez le terme de recherche&gt;</translation>
@@ -3243,6 +3304,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="6716039223770814796">Comparer <ph name="COMPARE_SET_NAME" /> · <ph name="ITEMS" /> éléments</translation>
 <translation id="6716672519412350405"><ph name="URL" /> cherche à créer un plan 3D de votre environnement et à suivre la position de la caméra</translation>
 <translation id="6717692133381953670">Onglet envoyé depuis <ph name="DEVICE_NAME" /></translation>
+<translation id="6718524733720986924">Enregistrez vos informations pour que la saisie automatique puisse remplir plus de champs la prochaine fois</translation>
 <translation id="6718612893943028815">Utiliser la caméra ?</translation>
 <translation id="6721164594124191969">Étiquettes (brillantes)</translation>
 <translation id="6726832600570791992">(émulation 32 bits)</translation>
@@ -3314,6 +3376,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="6871813064737840684">Historique des prix sur le Web pour cette option</translation>
 <translation id="6873456682041376666">Bac supérieur</translation>
 <translation id="6874604403660855544">&amp;Rétablir l'ajout</translation>
+<translation id="6875894866901426843">Votre administrateur supprimera vos fichiers locaux, y compris ceux de la corbeille, le <ph name="DATE_TIME" />.</translation>
 <translation id="6880941331070119097">Option à prix haut</translation>
 <translation id="6881240511396774766">Créez rapidement un document Google Docs</translation>
 <translation id="6882210908253838664">Si un site ne fonctionne pas, vous pouvez l'autoriser temporairement à utiliser des cookies tiers. <ph name="BEGIN_LINK" />En savoir plus<ph name="END_LINK" /></translation>
@@ -3409,6 +3472,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="7023765275461720661">Associer votre compte et payer avec <ph name="BNPL_ISSUER_NAME" /> ?</translation>
 <translation id="7029809446516969842">Mots de passe</translation>
 <translation id="7030164307377592766">modifier les paramètres de saisie des modes de paiement</translation>
+<translation id="7031110846419387930">Informations sur vos navigateur, système d'exploitation, appareil, logiciels installés, fichiers et adresses IP</translation>
 <translation id="7031646650991750659">Les applications Google Play que vous avez installées</translation>
 <translation id="7035705295266423040">Votre banque souhaite valider votre identité</translation>
 <translation id="7038063300915481831"><ph name="MANAGE_GOOGLE_PRIVACY_FOCUSED_FRIENDLY_MATCH_TEXT" />, appuyez sur Tabulation, puis sur Entrée pour gérer les paramètres de confidentialité de votre compte Google</translation>
@@ -3418,7 +3482,6 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="704738887031336226">Afficher les options de <ph name="PAY_OVER_TIME_HELP_LINK_BEGIN" />paiement échelonné<ph name="PAY_OVER_TIME_HELP_LINK_END" /> au moment du règlement</translation>
 <translation id="7048095965575426564">Fanfold européen</translation>
 <translation id="7050187094878475250">Vous avez essayé d'accéder à <ph name="DOMAIN" />, mais la durée de validité du certificat du serveur est trop longue pour être fiable.</translation>
-<translation id="705310974202322020">{NUM_CARDS,plural, =1{Impossible d'enregistrer cette carte pour le moment}one{Impossible d'enregistrer cette carte pour le moment}other{Impossible d'enregistrer ces cartes pour le moment}}</translation>
 <translation id="7053983685419859001">Bloquer</translation>
 <translation id="7054717457611655239">Désormais, enregistrez vos fichiers dans <ph name="CLOUD_PROVIDER" />.</translation>
 <translation id="7058163556978339998"><ph name="BROWSER" /> a confirmé que le certificat de ce site Web a bien été émis par <ph name="ISSUER" />.</translation>
@@ -3521,6 +3584,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="722454870747268814">Nouvel onglet de navigation privée 
 </translation>
 <translation id="7227293336683593977">Historique des prix</translation>
+<translation id="7228306718910595403">État : certification UE</translation>
 <translation id="7232352818707016189">Plus d'actions pour le tableau comparatif</translation>
 <translation id="7233592378249864828">Imprimer la feuille de confirmation</translation>
 <translation id="7234112195906418665">Voyages et transports</translation>
@@ -3551,6 +3615,7 @@ Informations supplémentaires :
 <translation id="7275334191706090484">Favoris gérés</translation>
 <translation id="7275808129217605899">Alimentation saine</translation>
 <translation id="7285654172857511148"><ph name="CHANGE_GOOGLE_PASSWORD_FOCUSED_FRIENDLY_MATCH_TEXT" />, appuyez sur Tabulation, puis sur Entrée pour changer le mot de passe de votre compte Google</translation>
+<translation id="7291578327729322058">Ajouter un permis de conduire</translation>
 <translation id="7292031607255951991">Nom du destinataire</translation>
 <translation id="7298195798382681320">Recommandé</translation>
 <translation id="7299471494012161875">Périphériques d'affichage connectés</translation>
@@ -3568,7 +3633,6 @@ Informations supplémentaires :
 <translation id="7316521168101843192">Enregistrement du fichier sur Microsoft OneDrive…</translation>
 <translation id="7319430975418800333">A3</translation>
 <translation id="7320336641823683070">Aide à la connexion</translation>
-<translation id="7321111802407017850">Enregistrer vos infos dans la saisie automatique</translation>
 <translation id="7323804146520582233">Masquer la section "<ph name="SECTION" />"</translation>
 <translation id="733354035281974745">Ignorer le compte local de l'appareil</translation>
 <translation id="7334320624316649418">&amp;Rétablir la réorganisation</translation>
@@ -3694,6 +3758,7 @@ Informations supplémentaires :
 <translation id="7512685745044087310">Cette règle ne peut pas être définie sur "True" et être obligatoire. Sa valeur a donc été définie sur "Recommended".</translation>
 <translation id="7514365320538308">Télécharger</translation>
 <translation id="7515998400212163428">Android</translation>
+<translation id="7516123895971374904">RV autorisée cette fois-ci</translation>
 <translation id="7517201160922869406">Véhicules tout terrain</translation>
 <translation id="7517414872996418597">Enveloppe C10</translation>
 <translation id="7518003948725431193">Aucune page Web trouvée à l'adresse :<ph name="URL" /></translation>
@@ -3734,6 +3799,7 @@ Informations supplémentaires :
 <translation id="7569983096843329377">Noir</translation>
 <translation id="7574998639136359461">Équipement pour sports d'hiver</translation>
 <translation id="7575207903026901870">Bouton "Supprimer la suggestion" (appuyez sur Entrée pour supprimer cette suggestion)</translation>
+<translation id="7575800019233204241">"Votre connexion n'est pas privée", "&lt;span class="error-code"&gt;NET::ERR_CERT_AUTHORITY_INVALID&lt;/span&gt;", "&lt;span class="error-code"&gt;ERR_CERT_COMMON_NAME_INVALID&lt;/span&gt;", "&lt;span class="error-code"&gt;NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM&lt;/span&gt;" ou "SSL certificate error"</translation>
 <translation id="7575887283389198269">Téléphones portables</translation>
 <translation id="7578104083680115302">Payez rapidement sur des sites et dans des applications sur tous vos appareils au moyen de cartes que vous avez enregistrées sur Google.</translation>
 <translation id="7579442726219254162">Variable inconnue "<ph name="VARIABLE" />" dans la configuration gérée de "<ph name="APPLICATION_ID" />".</translation>
@@ -3812,7 +3878,6 @@ Informations supplémentaires :
 <translation id="7690647519407127574">Oufuku Hagaki (carte postale)</translation>
 <translation id="7693583928066320343">Ordre des pages reçu</translation>
 <translation id="769424100851389104">Lancer la mise à jour maintenant</translation>
-<translation id="769721561045429135">Vous disposez actuellement de plusieurs cartes qui ne peuvent être utilisées que sur cet appareil. Cliquez sur "Continuer" pour examiner les cartes.</translation>
 <translation id="7697837508203274589">Événements sportifs en direct</translation>
 <translation id="7698864304447945242">Mettre à jour les services Google Play pour la RA ?</translation>
 <translation id="7701040980221191251">Désactivée</translation>
@@ -3906,12 +3971,15 @@ Informations supplémentaires :
 <translation id="787226752901403048">Connectez-vous à Chrome pour partager et rejoindre des groupes d'onglets, et collaborer sur des idées</translation>
 <translation id="7877007680666472091">ID de contenus protégés</translation>
 <translation id="7878562273885520351">Votre mot de passe a peut-être été piraté</translation>
+<translation id="7881044256965445977">Rechercher les appareils sur votre réseau local et s'y connecter</translation>
 <translation id="7882421473871500483">Marron</translation>
 <translation id="7886897188117641322">Sélectionnez les grandes catégories de thèmes à utiliser pour personnaliser les annonces</translation>
 <translation id="7887683347370398519">Veuillez vérifier votre code CVC et réessayer.</translation>
 <translation id="7887885240995164102">Utiliser le mode Picture-in-picture</translation>
 <translation id="7888575728750733395">Intent de rendu d'impression</translation>
 <translation id="7890748547282909375">Connectez-vous à Microsoft OneDrive pour enregistrer la capture d'écran</translation>
+<translation id="7892431309448524994"><ph name="ORIGIN" /> – Pour afficher le curseur, appuyez sur |<ph name="ACCELERATOR" />|</translation>
+<translation id="7892865709991296481">paramètres de paiement</translation>
 <translation id="7894280532028510793">S'il n'y a pas d'erreur, essayez de <ph name="BEGIN_LINK" />faire un diagnostic réseau<ph name="END_LINK" />.</translation>
 <translation id="7901831439558593470">Enveloppe 180x230</translation>
 <translation id="7905064834449738336">Lorsque vous utilisez un mot de passe, Chromium vous avertit s'il a été publié en ligne. Lors de cette opération, vos mots de passe et vos noms d'utilisateur sont chiffrés afin que personne ne puisse les consulter, y compris Google.</translation>
@@ -3968,6 +4036,7 @@ Informations supplémentaires :
 <translation id="799149739215780103">Reliure</translation>
 <translation id="7992044431894087211">Le partage d'écran avec <ph name="APPLICATION_TITLE" /> a repris</translation>
 <translation id="7995512525968007366">Non spécifié</translation>
+<translation id="7997855386298213183">onglets partagés</translation>
 <translation id="800218591365569300">Essayez de fermer les autres onglets ou programmes pour libérer de la mémoire.</translation>
 <translation id="8002230960325005199">Voir les sites associés dans un nouvel onglet</translation>
 <translation id="8003046808285812021">"<ph name="SEARCH_TERMS" />"</translation>
@@ -3976,9 +4045,7 @@ Informations supplémentaires :
 <translation id="8009225694047762179">Gérer les mots de passe</translation>
 <translation id="8009460986924589054"><ph name="BEGIN_LINK" />Essayez de supprimer vos cookies<ph name="END_LINK" /></translation>
 <translation id="8009843239480947060">10 x 11 pouces</translation>
-<translation id="8012116502927253373">{NUM_CARDS,plural, =1{Cette carte et l'adresse de facturation associée seront enregistrées. Vous pourrez vous en servir lorsque vous serez connecté à <ph name="USER_EMAIL" />.}one{Cette carte et l'adresse de facturation associée seront enregistrées. Vous pourrez vous en servir lorsque vous serez connecté à <ph name="USER_EMAIL" />.}other{Ces cartes et les adresses de facturation associées seront enregistrées. Vous pourrez vous en servir lorsque vous serez connecté à <ph name="USER_EMAIL" />.}}</translation>
 <translation id="8012647001091218357">Impossible de joindre vos parents pour le moment. Veuillez réessayer.</translation>
-<translation id="8019861005170389898"><ph name="TRADITIONAL_TEXT" /> (<ph name="ADDITIONAL_TEXT" />)</translation>
 <translation id="8022542098135319050">Services et agences de voyages</translation>
 <translation id="8023231537967344568"><ph name="SET_CHROME_AS_DEFAULT_BROWSER_FOCUSED_FRIENDLY_MATCH_TEXT" />, appuyez sur Tabulation, puis sur Entrée pour définir Chrome comme navigateur par défaut du système</translation>
 <translation id="8027077570865220386">Bac 15</translation>
@@ -4034,7 +4101,6 @@ Informations supplémentaires :
 <translation id="8094917007353911263">Pour utiliser ce réseau, il est possible que deviez vous rendre sur la page <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" />.</translation>
 <translation id="8098855213644561659">A3 Extra</translation>
 <translation id="809898108652741896">A6</translation>
-<translation id="8100588592594801589">Les cartes non valides ont été supprimées</translation>
 <translation id="8103161714697287722">Mode de paiement</translation>
 <translation id="8103643211515685474">Imprimer quand même</translation>
 <translation id="8105368624971345109">Désactiver</translation>
@@ -4042,14 +4108,15 @@ Informations supplémentaires :
 <translation id="8116925261070264013">Son coupé</translation>
 <translation id="8118489163946903409">Mode de paiement</translation>
 <translation id="8118506371121007279">Ajouter un commentaire</translation>
+<translation id="812020627659652807">Supprimer les fichiers maintenant</translation>
 <translation id="8120720167840853945">Cette règle ne contrôle pas le comportement par défaut d'autres règles.</translation>
 <translation id="8127301229239896662">Le logiciel "<ph name="SOFTWARE_NAME" />" n'a pas été installé correctement sur votre ordinateur ou sur votre réseau. Demandez à l'administrateur informatique de résoudre le problème.</translation>
+<translation id="8130113808541743942">Déplacer vers...</translation>
 <translation id="8131740175452115882">Confirmer</translation>
 <translation id="8133495915926741232">Sélectionnez les grandes catégories de thèmes à utiliser pour personnaliser les annonces. Si vous désactivez une catégorie plus grande, les thèmes associés seront aussi bloqués. <ph name="BEGIN_LINK" />En savoir plus<ph name="END_LINK" /></translation>
 <translation id="8134058435519644366">Recrutement et gestion du personnel</translation>
 <translation id="8135546115396015134">touche gauche</translation>
 <translation id="8137456439814903304">Énergie et services publics</translation>
-<translation id="81474145143203755">Pour lui permettre d'utiliser votre <ph name="PERMISSION" /> sur ce site, autorisez Chrome à y accéder</translation>
 <translation id="8148608574971654810">Version PDF :</translation>
 <translation id="8149426793427495338">Votre ordinateur s'est mis en veille.</translation>
 <translation id="8150722005171944719">Le fichier disponible à l'adresse <ph name="URL" /> n'est pas lisible. Il est possible qu'il ait été supprimé ou déplacé, ou que les autorisations associées empêchent d'y accéder.</translation>
@@ -4128,6 +4195,7 @@ Informations supplémentaires :
 <translation id="8278544367771164040">Prêts commerciaux</translation>
 <translation id="8279290844152565425">Concerts et festivals de musique</translation>
 <translation id="8279611986089885641">Les notifications Chrome doivent être activées. Vous pouvez les activer dans <ph name="BEGIN_LINK" /><ph name="NOTIFICATION_SETTINGS" /><ph name="END_LINK" />.</translation>
+<translation id="8280569545097027381">Supprimer les fichiers dans <ph name="HOURS" /> h</translation>
 <translation id="8280630997017109758">Bac 11</translation>
 <translation id="8281730697546299650">De nouvelles fonctionnalités de confidentialité pour les annonces sont  disponibles</translation>
 <translation id="8281886186245836920">Passer</translation>
@@ -4244,7 +4312,6 @@ Informations supplémentaires :
 <translation id="8473626140772740486">300 x 450 mm</translation>
 <translation id="8473863474539038330">Adresses et autres</translation>
 <translation id="8474910779563686872">Afficher les informations destinées aux développeurs</translation>
-<translation id="8476959635632921417">Pour enregistrer et utiliser cette adresse sur tous vos appareils, validez votre identité</translation>
 <translation id="8479754468255770962">Agrafe en bas à gauche</translation>
 <translation id="8483229036294884935">Cette adresse sera supprimée de votre compte Google, <ph name="ACCOUNT" /></translation>
 <translation id="8488350697529856933">S'applique à</translation>
@@ -4352,6 +4419,7 @@ Informations supplémentaires :
 <translation id="8687429322371626002">Votre appareil et votre compte sont gérés par <ph name="MANAGER" />.</translation>
 <translation id="8688672835843460752">Disponible</translation>
 <translation id="868922510921656628">Pages par ensemble</translation>
+<translation id="8694684557210599098">Ajouter un véhicule</translation>
 <translation id="8695996513186494922">Comparer les onglets ?</translation>
 <translation id="8698428283892912525">Chrome dispose de fonctionnalités de sécurité intégrées pour vous protéger sur Internet, comme la navigation sécurisée Google, qui a récemment <ph name="BEGIN_LINK" />détecté un logiciel malveillant<ph name="END_LINK" /> sur le site que vous avez essayé de consulter.</translation>
 <translation id="869891660844655955">Date d'expiration</translation>
@@ -4480,7 +4548,6 @@ Informations supplémentaires :
 <translation id="8919895429178014996">Masquer tous les éléments</translation>
 <translation id="8922013791253848639">Toujours autoriser les annonces sur ce site</translation>
 <translation id="8922734931659847428">Liste limitée des URL des pages que vous consultez sur lesquelles ont lieu des <ph name="BEGIN_LINK" />événements technologiques anciens<ph name="END_LINK" /></translation>
-<translation id="8924109546403192898">Lorsque Chrome signale des événements liés à la sécurité, votre administrateur reçoit des données sur ces événements (URL des pages que vous consultez dans Chrome ou depuis lesquelles vous copiez des données, métadonnées ou noms de fichiers, plantages d'un navigateur ou d'un onglet, nom d'utilisateur avec lequel vous vous connectez à des applis Web, à votre appareil et à Chrome, etc.).</translation>
 <translation id="892588693504540538">Perforation en haut à droite</translation>
 <translation id="8926389886865778422">Ne plus afficher ce message</translation>
 <translation id="8932102934695377596">Votre horloge est en retard</translation>
@@ -4497,6 +4564,7 @@ Informations supplémentaires :
 <translation id="8959288490306482616">Brun clair 3</translation>
 <translation id="8963117664422609631">Accéder aux paramètres du site</translation>
 <translation id="8963213021028234748"><ph name="MARKUP_1" />Suggestions :<ph name="MARKUP_2" />Assurez-vous que vous disposez d'une connexion de données.<ph name="MARKUP_3" />Actualisez cette page ultérieurement.<ph name="MARKUP_4" />Vérifiez l'adresse que vous avez saisie.<ph name="MARKUP_5" /></translation>
+<translation id="8963969435440878110">Vos fichiers locaux seront supprimés dans <ph name="HOURS" /> heures</translation>
 <translation id="8968766641738584599">Enregistrer la carte</translation>
 <translation id="8970887620466824814">Un problème est survenu</translation>
 <translation id="8971063699422889582">Le certificat du serveur a expiré.</translation>
@@ -4547,6 +4615,7 @@ Informations supplémentaires :
 <translation id="9051072642122229460">Cafetières et machines à espresso</translation>
 <translation id="9053840549256861041">Nous lançons une nouvelle fonctionnalité de confidentialité des annonces : la mesure des annonces. Chrome ne partage que des informations très limitées entre les sites, comme le moment où une annonce vous a été montrée, afin d'aider les sites à mesurer la performance des annonces.</translation>
 <translation id="9053955920216300738">Les URL que vous consultez</translation>
+<translation id="90542379288189611">Plaque d'immatriculation</translation>
 <translation id="9054288282721240609">Suivi des mains autorisé</translation>
 <translation id="9056953843249698117">Magasin</translation>
 <translation id="9062620674789239642">Il a peut-être été déplacé, modifié ou supprimé.</translation>
@@ -4595,6 +4664,7 @@ Informations supplémentaires :
 <translation id="9139318394846604261">Achats</translation>
 <translation id="9140198744651252040">Le navigateur Chrome souhaite utiliser l'empreinte digitale pour saisir automatiquement les mots de passe</translation>
 <translation id="9141013498910525015">Gérer les adresses</translation>
+<translation id="9141672681283222114">RA autorisée cette fois-ci</translation>
 <translation id="9143898823728499852">Vous pouvez utiliser la saisie automatique pour cette carte, car votre compte <ph name="CARD_ISSUER_NAME" /> est associé à Google Pay</translation>
 <translation id="9144951720726881238">Date d'expiration :</translation>
 <translation id="9145910032514306808"><ph name="BEGIN_LINK" />Reconnectez-vous<ph name="END_LINK" />, puis revenez sur cet onglet pour obtenir de l'aide pour écrire</translation>
@@ -4607,6 +4677,7 @@ Informations supplémentaires :
 <translation id="9155646082713385498">Magazines</translation>
 <translation id="9157595877708044936">Configuration en cours...</translation>
 <translation id="9161794544616754735">{0,plural, =1{<ph name="FILE_NAME" /> peut inclure du contenu sensible}one{<ph name="FILE_COUNT" /> fichier peut inclure du contenu sensible}other{<ph name="FILE_COUNT" /> fichiers peuvent inclure du contenu sensible}}</translation>
+<translation id="9162097962559874470"><ph name="ORIGIN" /> – Pour quitter le plein écran, appuyez sur |<ph name="ACCELERATOR" />|</translation>
 <translation id="9165305804774426672">Les sites que vous visitez peuvent aussi déterminer ce qui vous intéresse en fonction de votre activité sur ces sites. Par exemple, si vous consultez un site qui vend des chaussures de running pour les longues distances, le site peut déterminer que le marathon fait partie de vos centres d'intérêt.</translation>
 <translation id="9166851138617700776">En savoir plus sur les annonces suggérées par les sites et la mesure des annonces</translation>
 <translation id="9167054383925257837">Informations sur le navigateur et l'OS de l'appareil (versions du navigateur et de l'OS, par exemple)</translation>
@@ -4627,6 +4698,7 @@ Informations supplémentaires :
 <translation id="9183425211371246419"><ph name="HOST_NAME" /> utilise un protocole incompatible.</translation>
 <translation id="918454845714257218">Vérifiez le code indiqué à l'<ph name="SIDE_OF_CARD" />, puis réessayez</translation>
 <translation id="9186203289258525843">Bouton "Définir Chrome comme navigateur par défaut" à activer pour définir Chrome comme navigateur par défaut du système</translation>
+<translation id="9189468832660648522"><ph name="MEMBER_FIRST_NAME" /> a modifié cet onglet</translation>
 <translation id="9189789270972826888">Si les informations relatives à la carte n'ont pas été remplies, cliquez ci-dessous pour les copier et les coller. <ph name="IDS_AUTOFILL_FILLED_CARD_INFORMATION_BUBBLE_LEARN_MORE_LINK_LABEL" /></translation>
 <translation id="9190557999028587593">Les thèmes datant de plus de quatre semaines sont supprimés automatiquement</translation>
 <translation id="9191834167571392248">Perforation en bas à gauche</translation>
@@ -4650,6 +4722,7 @@ Informations supplémentaires :
 <translation id="922152298093051471">Personnaliser Chrome</translation>
 <translation id="9222403027701923763">Scolarité primaire et secondaire</translation>
 <translation id="93020190163435405">Stages</translation>
+<translation id="931598121743515856">L'achat doit être supérieur à <ph name="CHECKOUT_AMOUNT_MINIMUM" /></translation>
 <translation id="933712198907837967">Diners Club</translation>
 <translation id="934634059306213385">Autoriser l'appli <ph name="APP_NAME" /> à configurer des réseaux Wi-Fi ?</translation>
 <translation id="936602727769022409">Vous pourriez perdre l'accès à votre compte Google. L'équipe Chromium vous recommande de modifier votre mot de passe maintenant. Vous devrez vous connecter.</translation>
@@ -4659,13 +4732,14 @@ Informations supplémentaires :
 <translation id="940524522703752213">L'importation de vos fichiers dans <ph name="CLOUD_PROVIDER" /> commencera dans <ph name="MINUTES" /> minutes</translation>
 <translation id="944578681290094302">Afficher les récompenses et avantages disponibles pour vos cartes lors du paiement. <ph name="CARD_BENEFIT_HELP_LINK_BEGIN" />En savoir plus sur les avantages des cartes<ph name="CARD_BENEFIT_HELP_LINK_END" /></translation>
 <translation id="945646848072568856">Chrome empêche les sites d'utiliser des cookies tiers pour suivre votre activité lorsque vous naviguez.</translation>
-<translation id="945855313015696284">Vérifiez les informations ci-dessous et supprimez les cartes non valides</translation>
 <translation id="94613679163347541">Comparer <ph name="CATEGORY" /> ?</translation>
 <translation id="947370374845726940"><ph name="CREATE_GOOGLE_SITE_FOCUSED_FRIENDLY_MATCH_TEXT" />, appuyez sur Tabulation, puis sur Entrée pour créer rapidement un site dans Google Sites</translation>
 <translation id="947974362755924771">{COUNT,plural, =0{Chrome limitera de nouveau les cookies aujourd'hui}=1{Chrome limitera de nouveau les cookies demain}one{Chrome limitera de nouveau les cookies dans # jour}other{Chrome limitera de nouveau les cookies dans # jours}}</translation>
+<translation id="949026252328034572"><ph name="MEMBER_COUNT" /> membres ont rejoint le groupe d'onglets "<ph name="GROUP_NAME" />"</translation>
 <translation id="949314938206378263">Tu as demandé à consulter ce site. Ton parent peut répondre dans Family Link.</translation>
 <translation id="950736567201356821">Triple perforation en haut</translation>
 <translation id="950926967802086924">Clé d'accès • Gestionnaire de mots de passe de Google</translation>
+<translation id="955429569736351433">RV autorisée</translation>
 <translation id="95721182352849470">Jaune 2</translation>
 <translation id="961663415146723894">Reliure en bas</translation>
 <translation id="961856697154696964">Supprimer les données de navigation</translation>

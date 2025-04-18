@@ -47,7 +47,6 @@
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
-#include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
@@ -1126,12 +1125,7 @@ void LoginAuthUserView::OnAuthSubmit(std::u16string_view password) {
   password_view_->SetReadOnly(true);
   pin_input_view_->SetReadOnly(true);
 
-  // Checking if the password is only formed of numbers with base::StringToInt
-  // will easily fail due to numeric limits. ContainsOnlyChars is used instead.
-  const bool authenticated_by_pin =
-      ShouldAuthenticateWithPin() &&
-      base::ContainsOnlyChars(base::UTF16ToUTF8(password), "0123456789");
-
+  const bool authenticated_by_pin = ShouldAuthenticateWithPin();
   Shell::Get()->login_screen_controller()->AuthenticateUserWithPasswordOrPin(
       current_user().basic_user_info.account_id, base::UTF16ToUTF8(password),
       authenticated_by_pin,
@@ -1194,7 +1188,7 @@ void LoginAuthUserView::ShowRemoveAccountDialog() {
                         remove_account_dialog_->GetBubbleOpener()->HasFocus();
 
   if (!remove_account_dialog_->parent()) {
-    login_views_utils::GetBubbleContainer(this)->AddChildView(
+    login_views_utils::GetBubbleContainer(this)->AddChildViewRaw(
         remove_account_dialog_.get());
   }
 
@@ -1458,18 +1452,8 @@ void LoginAuthUserView::UpdateInputFieldMode() {
   }
 
   const int pin_length = auth_metadata_.autosubmit_pin_length;
-  const bool is_auto_submit_supported =
-      LoginPinInputView::IsAutosubmitSupported(pin_length);
-
   if (!HasAuthMethod(AUTH_PASSWORD)) {
     input_field_mode_ = GetPinInputMode(/*has_password*/ false, pin_length);
-    return;
-  }
-
-  // Uses combined password/pin if autosubmit is disabled.
-  if (!is_auto_submit_supported &&
-      !features::IsSeparatePasswordAndPinOnLoginEnabled()) {
-    input_field_mode_ = InputFieldMode::kPasswordAndPin;
     return;
   }
 
@@ -1581,10 +1565,6 @@ std::u16string LoginAuthUserView::GetPinPasswordToggleText() const {
 }
 
 std::u16string LoginAuthUserView::GetPasswordViewPlaceholder() const {
-  if (input_field_mode_ == InputFieldMode::kPasswordAndPin) {
-    return l10n_util::GetStringUTF16(
-        IDS_ASH_LOGIN_POD_PASSWORD_PIN_PLACEHOLDER);
-  }
   if (ShouldAuthenticateWithPin()) {
     return l10n_util::GetStringUTF16(IDS_ASH_LOGIN_POD_PIN_PLACEHOLDER);
   }

@@ -90,19 +90,20 @@ public interface SigninManager {
      */
     IdentityManager getIdentityManager();
 
-    /** Returns true if sign in can be started now. */
+    /**
+     * Returns true if sign in flow can be started right away, meaning that:
+     *
+     * <p>1. No sign-in is in progress; 2. No account is already signed-in; 3. Sign-in is not
+     * disabled manually via the settings toggle; 4. Sign-in is not disabled by policy; 5. Google
+     * Play Services are available.
+     */
     boolean isSigninAllowed();
-
-    /** Returns true if sync opt in can be started now. */
-    boolean isSyncOptInAllowed();
-
-    /** Returns true if signin is disabled by policy. */
-    boolean isSigninDisabledByPolicy();
 
     /**
      * Returns whether the user can sign-in (maybe after an update to Google Play services).
+     *
      * @param requireUpdatedPlayServices Indicates whether an updated version of play services is
-     *         required or not.
+     *     required or not.
      */
     boolean isSigninSupported(boolean requireUpdatedPlayServices);
 
@@ -139,22 +140,14 @@ public interface SigninManager {
             @Nullable SignInCallback callback);
 
     /**
-     * Starts the sign-in flow, and executes the callback when finished.
-     *
-     * <p>The sign-in flow goes through the following steps:
-     *
-     * <p>- Wait for accounts to be seeded. - Wait for policy to be checked for the account. - If
-     * managed, wait for the policy to be fetched. - Complete sign-in with the native
-     * IdentityManager. - Call the callback if provided.
+     * This method is used in existing native tests to test the old sync consent flow. New tests
+     * should not use this method.
      *
      * @param coreAccountInfo The {@link CoreAccountInfo} to sign in to.
      * @param accessPoint {@link SigninAccessPoint} that initiated the sign-in flow.
-     * @param callback Optional callback for when the sign-in process is finished.
      */
-    void signinAndEnableSync(
-            CoreAccountInfo coreAccountInfo,
-            @SigninAccessPoint int accessPoint,
-            @Nullable SignInCallback callback);
+    @Deprecated
+    void turnOnSyncForTesting(CoreAccountInfo coreAccountInfo, @SigninAccessPoint int accessPoint);
 
     /**
      * Schedules the runnable to be invoked after all sign-in, sign-out, or sync data wipe operation

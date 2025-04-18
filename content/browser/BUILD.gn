@@ -44,7 +44,7 @@ if (is_android) {
     deps = [
       "//third_party/rust/font_types/v0_8:lib",
       "//third_party/rust/read_fonts/v0_27:lib",
-      "//third_party/rust/skrifa/v0_28:lib",
+      "//third_party/rust/skrifa/v0_29:lib",
     ]
   }
 }
@@ -106,8 +106,10 @@ source_set("browser") {
     "//components/download/database",
     "//components/download/public/common:public",
     "//components/embedder_support",
+    "//components/embedder_support:user_agent",
     "//components/file_access",
     "//components/filename_generation",
+    "//components/fingerprinting_protection_filter/interventions/common:features",
     "//components/input",
     "//components/language/core/common",
     "//components/language_detection/content/common",
@@ -280,6 +282,7 @@ source_set("browser") {
     "//third_party/blink/public/common",
     "//third_party/blink/public/common:common",
     "//third_party/blink/public/common:font_enumeration_table_proto",
+    "//third_party/blink/public/common:preloading_headers",
     "//third_party/blink/public/strings",
     "//third_party/boringssl",
     "//third_party/brotli:dec",
@@ -1111,6 +1114,8 @@ source_set("browser") {
     "find_in_page_client.h",
     "find_request_manager.cc",
     "find_request_manager.h",
+    "fingerprinting_protection/canvas_noise_token_data.cc",
+    "fingerprinting_protection/canvas_noise_token_data.h",
     "first_party_sets/database/first_party_sets_database.cc",
     "first_party_sets/database/first_party_sets_database.h",
     "first_party_sets/first_party_set_parser.cc",
@@ -1203,6 +1208,8 @@ source_set("browser") {
     "interest_group/additional_bid_result.h",
     "interest_group/additional_bids_util.cc",
     "interest_group/additional_bids_util.h",
+    "interest_group/auction_downloader_delegate.cc",
+    "interest_group/auction_downloader_delegate.h",
     "interest_group/auction_metrics_recorder.cc",
     "interest_group/auction_metrics_recorder.h",
     "interest_group/auction_nonce_manager.cc",
@@ -1263,6 +1270,8 @@ source_set("browser") {
     "interest_group/interest_group_update_manager.h",
     "interest_group/noiser_and_bucketer.cc",
     "interest_group/noiser_and_bucketer.h",
+    "interest_group/protected_audience_network_util.cc",
+    "interest_group/protected_audience_network_util.h",
     "interest_group/storage_interest_group.cc",
     "interest_group/storage_interest_group.h",
     "interest_group/subresource_url_authorizations.cc",
@@ -1587,6 +1596,8 @@ source_set("browser") {
     "preloading/prefetch/prefetch_proxy_configurator.h",
     "preloading/prefetch/prefetch_response_reader.cc",
     "preloading/prefetch/prefetch_response_reader.h",
+    "preloading/prefetch/prefetch_scheduler.cc",
+    "preloading/prefetch/prefetch_scheduler.h",
     "preloading/prefetch/prefetch_service.cc",
     "preloading/prefetch/prefetch_service.h",
     "preloading/prefetch/prefetch_serving_page_metrics_container.cc",
@@ -1605,8 +1616,8 @@ source_set("browser") {
     "preloading/prefetch/proxy_lookup_client_impl.h",
     "preloading/prefetcher.cc",
     "preloading/prefetcher.h",
-    "preloading/preload_pipeline_info.cc",
-    "preloading/preload_pipeline_info.h",
+    "preloading/preload_pipeline_info_impl.cc",
+    "preloading/preload_pipeline_info_impl.h",
     "preloading/preloading.cc",
     "preloading/preloading.h",
     "preloading/preloading_attempt_impl.cc",
@@ -1659,6 +1670,10 @@ source_set("browser") {
     "preloading/prerenderer_impl.h",
     "preloading/speculation_rules/speculation_host_impl.cc",
     "preloading/speculation_rules/speculation_host_impl.h",
+    "preloading/speculation_rules/speculation_rules_params.cc",
+    "preloading/speculation_rules/speculation_rules_params.h",
+    "preloading/speculation_rules/speculation_rules_tags.cc",
+    "preloading/speculation_rules/speculation_rules_tags.h",
     "presentation/presentation_service_impl.cc",
     "presentation/presentation_service_impl.h",
     "private_aggregation/private_aggregation_budget_key.cc",
@@ -1739,6 +1754,8 @@ source_set("browser") {
     "renderer_host/commit_deferring_condition_runner.h",
     "renderer_host/concurrent_navigations_commit_deferring_condition.cc",
     "renderer_host/concurrent_navigations_commit_deferring_condition.h",
+    "renderer_host/cookie_access_observers.cc",
+    "renderer_host/cookie_access_observers.h",
     "renderer_host/cookie_utils.cc",
     "renderer_host/cookie_utils.h",
     "renderer_host/cross_process_frame_connector.cc",
@@ -2386,6 +2403,7 @@ source_set("browser") {
     "webid/fake_identity_request_dialog_controller.h",
     "webid/fedcm_metrics.cc",
     "webid/fedcm_metrics.h",
+    "webid/federated_auth_autofill_source.cc",
     "webid/federated_auth_disconnect_request.cc",
     "webid/federated_auth_disconnect_request.h",
     "webid/federated_auth_request_impl.cc",
@@ -2587,8 +2605,8 @@ source_set("browser") {
   }
 
   if (allow_oop_video_decoder) {
-    sources += [ "media/stable_video_decoder_factory.cc" ]
-    deps += [ "//media/mojo/mojom/stable:stable_video_decoder" ]
+    sources += [ "media/oop_video_decoder_factory.cc" ]
+    deps += [ "//media/mojo/mojom" ]
   }
 
   if (is_chromeos) {
@@ -2857,7 +2875,11 @@ source_set("browser") {
       sources += [ "child_process_launcher_helper_ios.mm" ]
       frameworks += [ "BrowserEngineKit.framework" ]
     } else {
-      sources += [ "child_process_launcher_helper_tvos.mm" ]
+      sources += [
+        "child_process_launcher_helper_tvos.mm",
+        "renderer_host/render_widget_host_view_tvos.h",
+        "renderer_host/render_widget_host_view_tvos.mm",
+      ]
     }
 
     frameworks += [ "IOSurface.framework" ]
@@ -3226,6 +3248,8 @@ source_set("browser") {
       "android/gpu_process_callback.cc",
       "android/ime_adapter_android.cc",
       "android/ime_adapter_android.h",
+      "android/input_token_forwarder_manager.cc",
+      "android/input_token_forwarder_manager.h",
       "android/java/gin_java_bound_object.cc",
       "android/java/gin_java_bound_object.h",
       "android/java/gin_java_bound_object_delegate.cc",
@@ -3507,20 +3531,24 @@ source_set("browser") {
     ]
   }
 
-  if (!is_android && !is_ios && !is_fuchsia) {
+  if ((!is_android || is_desktop_android) && !is_ios && !is_fuchsia) {
     sources += [
-      # Devtools frontend not included in Android and iOS
+      # Devtools frontend not included in mobile Android and iOS
       "devtools/devtools_frontend_host_impl.cc",
       "devtools/devtools_frontend_host_impl.h",
-
-      # Trace report internal UI is not adapted for mobile use.
-      "tracing/trace_report/trace_report_internals_ui.cc",
-      "tracing/trace_report/trace_report_internals_ui.h",
     ]
 
     deps += [
       "//content/browser/devtools:devtools_resources",
       "//content/browser/devtools:devtools_resources_extern",
+    ]
+  }
+
+  if (!is_android && !is_ios && !is_fuchsia) {
+    sources += [
+      # Trace report internal UI is not adapted for mobile use.
+      "tracing/trace_report/trace_report_internals_ui.cc",
+      "tracing/trace_report/trace_report_internals_ui.h",
     ]
   }
 
@@ -3648,6 +3676,11 @@ source_set("browser") {
       "devtools/protocol/native_profiling_handler.h",
       "profiling_utils.cc",
     ]
+  }
+
+  # TODO(crbug.com/371609830): Remove dep on experiment end.
+  if (is_chromeos) {
+    deps += [ "//ash/constants:constants" ]
   }
 }
 

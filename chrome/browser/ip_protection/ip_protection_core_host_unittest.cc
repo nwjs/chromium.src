@@ -70,6 +70,7 @@ constexpr char kTokenBatchHistogram[] =
     "NetworkService.IpProtection.TokenBatchRequestTime";
 
 constexpr char kTestEmail[] = "test@example.com";
+constexpr size_t kPRTPointSize = 33;
 
 enum class PrimaryAccountBehavior {
   // Primary account not set.
@@ -679,7 +680,7 @@ TEST_F(IpProtectionCoreHostTest, NoCapabilityButDogfooder) {
 // TryGetAuthTokens() fails because IP Protection is disabled by user settings.
 TEST_F(IpProtectionCoreHostTest, TryGetAuthTokens_IpProtectionDisabled) {
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(privacy_sandbox::kIpProtectionV1);
+  scoped_feature_list.InitAndEnableFeature(privacy_sandbox::kIpProtectionUx);
 
   primary_account_behavior_ = PrimaryAccountBehavior::kNone;
 
@@ -1005,7 +1006,7 @@ TEST_F(IpProtectionCoreHostTest, GetProxyConfigFailure) {
 
 TEST_F(IpProtectionCoreHostTest, GetProxyConfig_IpProtectionDisabled) {
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(privacy_sandbox::kIpProtectionV1);
+  scoped_feature_list.InitAndEnableFeature(privacy_sandbox::kIpProtectionUx);
 
   prefs()->SetBoolean(prefs::kIpProtectionEnabled, false);
 
@@ -1030,7 +1031,7 @@ TEST_F(IpProtectionCoreHostTest, TryGetProbabilisticRevealTokensSuccess) {
       (base::Time::Now() + base::Hours(5)).InSecondsFSinceUnixEpoch();
   const int32_t num_tokens_with_signal = 3;
   std::string public_key;
-  ASSERT_TRUE(base::Base64Decode("ArcODL1rtL9/MhOQuUoDwdNWwhEiNDKA1hFcHSE=",
+  ASSERT_TRUE(base::Base64Decode("Aibvzr0O6eNKZpGH4Ys6kSKy9zOUW2Scyfn5Ien52tgS",
                                  &public_key));
   std::string response_str;
   {
@@ -1040,19 +1041,19 @@ TEST_F(IpProtectionCoreHostTest, TryGetProbabilisticRevealTokensSuccess) {
           GetProbabilisticRevealTokenResponse_ProbabilisticRevealToken* token =
               response_proto.add_tokens();
       token->set_version(1);
-      token->set_u(std::string(29, 'u'));
-      token->set_e(std::string(29, 'e'));
+      token->set_u(std::string(kPRTPointSize, 'u'));
+      token->set_e(std::string(kPRTPointSize, 'e'));
     }
     response_proto.mutable_public_key()->set_y(public_key);
-    response_proto.set_expiration_time_seconds(expiration);
-    response_proto.set_next_epoch_start_time_seconds(next_start);
+    response_proto.mutable_expiration_time()->set_seconds(expiration);
+    response_proto.mutable_next_epoch_start_time()->set_seconds(next_start);
     response_proto.set_num_tokens_with_signal(num_tokens_with_signal);
+    response_proto.set_epoch_id(std::string(8, '0'));
     response_str = response_proto.SerializeAsString();
   }
 
-  const GURL issuer_server_url = GURL(
-      "https://prod.probabilisticrevealtoken.goog/v1/ipblinding/"
-      "getProbabilisticRevealToken");
+  const GURL issuer_server_url =
+      GURL("https://aaftokenissuer.pa.googleapis.com/v1/issueprts");
   test_url_loader_factory_.SetInterceptor(
       base::BindLambdaForTesting([&](const network::ResourceRequest& request) {
         auto head = network::mojom::URLResponseHead::New();
@@ -1074,8 +1075,8 @@ TEST_F(IpProtectionCoreHostTest, TryGetProbabilisticRevealTokensSuccess) {
   const auto& outcome = future.Get<0>();
   ASSERT_TRUE(outcome);
   EXPECT_THAT(outcome->tokens, testing::SizeIs(10));
-  EXPECT_EQ(outcome->tokens[9].u, std::string(29, 'u'));
-  EXPECT_EQ(outcome->tokens[9].e, std::string(29, 'e'));
+  EXPECT_EQ(outcome->tokens[9].u, std::string(kPRTPointSize, 'u'));
+  EXPECT_EQ(outcome->tokens[9].e, std::string(kPRTPointSize, 'e'));
   EXPECT_EQ(outcome->public_key, public_key);
   EXPECT_EQ(outcome->expiration_time_seconds, expiration);
   EXPECT_EQ(outcome->next_epoch_start_time_seconds, next_start);
@@ -1111,15 +1112,14 @@ TEST_F(IpProtectionCoreHostTest,
       token->set_e(std::string(29, 'e'));
     }
     response_proto.mutable_public_key()->set_y(public_key);
-    response_proto.set_expiration_time_seconds(expiration);
-    response_proto.set_next_epoch_start_time_seconds(next_start);
+    response_proto.mutable_expiration_time()->set_seconds(expiration);
+    response_proto.mutable_next_epoch_start_time()->set_seconds(next_start);
     response_proto.set_num_tokens_with_signal(num_tokens_with_signal);
     response_str = response_proto.SerializeAsString();
   }
 
-  const GURL issuer_server_url = GURL(
-      "https://prod.probabilisticrevealtoken.goog/v1/ipblinding/"
-      "getProbabilisticRevealToken");
+  const GURL issuer_server_url =
+      GURL("https://aaftokenissuer.pa.googleapis.com/v1/issueprts");
   test_url_loader_factory_.SetInterceptor(
       base::BindLambdaForTesting([&](const network::ResourceRequest& request) {
         auto head = network::mojom::URLResponseHead::New();

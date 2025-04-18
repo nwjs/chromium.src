@@ -20,7 +20,6 @@
 #include "components/prefs/pref_service.h"
 #include "components/search_engines/template_url_service.h"
 #include "components/unified_consent/url_keyed_data_collection_consent_helper.h"
-#include "components/version_info/version_info.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/web_contents.h"
 #include "google_apis/google_api_keys.h"
@@ -34,10 +33,6 @@ ChromePrefetchServiceDelegate::ChromePrefetchServiceDelegate(
           std::make_unique<PrefetchOriginDecider>(profile_->GetPrefs())) {}
 
 ChromePrefetchServiceDelegate::~ChromePrefetchServiceDelegate() = default;
-
-std::string ChromePrefetchServiceDelegate::GetMajorVersionNumber() {
-  return version_info::GetMajorVersionNumber();
-}
 
 std::string ChromePrefetchServiceDelegate::GetAcceptLanguageHeader() {
   return net::HttpUtil::GenerateAcceptLanguageHeader(

@@ -86,12 +86,6 @@ BASE_FEATURE(kDisablePrivacySandboxPrompts,
              "DisablePrivacySandboxPrompts",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kPrivacySandboxFirstPartySetsUI,
-             "PrivacySandboxFirstPartySetsUI",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-const base::FeatureParam<bool> kPrivacySandboxFirstPartySetsUISampleSets{
-    &kPrivacySandboxFirstPartySetsUI, "use-sample-sets", false};
-
 BASE_FEATURE(kEnforcePrivacySandboxAttestations,
              "EnforcePrivacySandboxAttestations",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -133,10 +127,6 @@ BASE_FEATURE(kAlwaysBlock3pcsIncognito,
 
 BASE_FEATURE(kFingerprintingProtectionUx,
              "FingerprintingProtectionUx",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kIpProtectionV1,
-             "IpProtectionV1",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kIpProtectionUx,
@@ -215,10 +205,6 @@ BASE_FEATURE(kPrivacySandboxAdTopicsContentParity,
              "PrivacySandboxAdTopicsContentParity",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kPrivacySandboxMigratePrefsToNoticeConsentDataModel,
-             "PrivacySandboxMigratePrefsToNoticeConsentDataModel",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kPrivacySandboxPrivacyPolicy,
              "PrivacySandboxPrivacyPolicy",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -293,5 +279,13 @@ BASE_FEATURE(kPrivacySandboxAllowPromptForBlocked3PCookies,
 
 BASE_FEATURE(kPrivacySandboxEqualizedPromptButtons,
              "PrivacySandboxEqualizedPromptButtons",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kPrivacySandboxMigratePrefsToSchemaV2,
+             "PrivacySandboxMigratePrefsToSchemaV2",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kPrivacySandboxFirstTimeNoticeV2,
+             "PrivacySandboxFirstTimeNoticeV2",
              base::FEATURE_DISABLED_BY_DEFAULT);
 }  // namespace privacy_sandbox

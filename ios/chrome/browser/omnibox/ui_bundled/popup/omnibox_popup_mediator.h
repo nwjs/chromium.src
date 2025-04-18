@@ -11,32 +11,23 @@
 
 #import "components/history/core/browser/top_sites.h"
 #import "components/omnibox/browser/autocomplete_result.h"
-#import "ios/chrome/browser/omnibox/model/omnibox_popup_controller_delegate.h"
-#import "ios/chrome/browser/omnibox/ui_bundled/popup/autocomplete_controller_observer_bridge.h"
+#import "ios/chrome/browser/omnibox/model/omnibox_autocomplete_controller_delegate.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/popup/autocomplete_result_consumer.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/popup/carousel/carousel_item_menu_provider.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/popup/favicon_retriever.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/popup/image_retriever.h"
-#import "ios/chrome/browser/omnibox/ui_bundled/popup/popup_debug_info_consumer.h"
-#import "ios/chrome/browser/omnibox/ui_bundled/popup/remote_suggestions_service_observer_bridge.h"
 #import "ui/base/window_open_disposition.h"
 
 @protocol ApplicationCommands;
 @class BrowserActionFactory;
 @class CarouselItem;
 @protocol CarouselItemConsumer;
-class FaviconLoader;
-@class OmniboxPedalAnnotator;
-@class OmniboxPopupController;
+@class OmniboxAutocompleteController;
+@class OmniboxImageFetcher;
 @class OmniboxPopupMediator;
 @class OmniboxPopupPresenter;
 @class SceneState;
 @protocol SnackbarCommands;
-class AutocompleteController;
-
-namespace image_fetcher {
-class ImageDataFetcher;
-}  // namespace image_fetcher
 
 namespace feature_engagement {
 class Tracker;
@@ -65,24 +56,20 @@ class Tracker;
            originView:(UIView*)originView;
 @end
 
-@interface OmniboxPopupMediator : NSObject <AutocompleteResultConsumerDelegate,
-                                            AutocompleteResultDataSource,
-                                            OmniboxPopupControllerDelegate,
-                                            CarouselItemMenuProvider,
-                                            ImageRetriever,
-                                            FaviconRetriever>
+@interface OmniboxPopupMediator
+    : NSObject <AutocompleteResultConsumerDelegate,
+                AutocompleteResultDataSource,
+                OmniboxAutocompleteControllerDelegate,
+                CarouselItemMenuProvider,
+                ImageRetriever,
+                FaviconRetriever>
 
-/// Controller of the omnibox popup.
-@property(nonatomic, weak) OmniboxPopupController* popupController;
-
-@property(nonatomic, readonly, assign) FaviconLoader* faviconLoader;
+/// Controller of the omnibox autocomplete.
+@property(nonatomic, weak)
+    OmniboxAutocompleteController* omniboxAutocompleteController;
 
 @property(nonatomic, weak) id<AutocompleteResultConsumer> consumer;
-/// Consumer for debug info.
-@property(nonatomic, weak) id<PopupDebugInfoConsumer,
-                              RemoteSuggestionsServiceObserver,
-                              AutocompleteControllerObserver>
-    debugInfoConsumer;
+
 @property(nonatomic, weak) id<ApplicationCommands> applicationCommandsHandler;
 /// Browser scene state to notify about events happening in this popup.
 @property(nonatomic, weak) SceneState* sceneState;
@@ -95,8 +82,6 @@ class Tracker;
 /// Whether the default search engine is Google impacts which icon is used in
 /// some cases
 @property(nonatomic, assign) BOOL defaultSearchEngineIsGoogle;
-/// The annotator to create pedals for ths mediator.
-@property(nonatomic) OmniboxPedalAnnotator* pedalAnnotator;
 /// Flag that marks that incognito actions are available. Those can be disabled
 /// by an enterprise policy.
 @property(nonatomic, assign) BOOL allowIncognitoActions;
@@ -109,17 +94,12 @@ class Tracker;
 @property(nonatomic, strong) BrowserActionFactory* mostVisitedActionFactory;
 @property(nonatomic, weak) id<CarouselItemConsumer> carouselItemConsumer;
 
-/// Designated initializer. Takes ownership of `imageFetcher`.
-- (instancetype)
-             initWithFetcher:
-                 (std::unique_ptr<image_fetcher::ImageDataFetcher>)imageFetcher
-               faviconLoader:(FaviconLoader*)faviconLoader
-      autocompleteController:(AutocompleteController*)autocompleteController
-    remoteSuggestionsService:(RemoteSuggestionsService*)remoteSuggestionsService
-                     tracker:(feature_engagement::Tracker*)tracker;
+/// Designated initializer.
+- (instancetype)initWithTracker:(feature_engagement::Tracker*)tracker
+            omniboxImageFetcher:(OmniboxImageFetcher*)omniboxImageFetcher
+    NS_DESIGNATED_INITIALIZER;
 
-// Disconnects all observers set by the mediator.
-- (void)disconnect;
+- (instancetype)init NS_UNAVAILABLE;
 
 @end
 

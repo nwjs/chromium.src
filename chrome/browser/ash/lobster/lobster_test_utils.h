@@ -20,7 +20,8 @@ manta::proto::Request CreateTestMantaRequest(std::string_view query,
                                              std::optional<uint32_t> seed,
                                              const gfx::Size& size,
                                              int num_outputs,
-                                             bool use_query_rewritter);
+                                             bool use_query_rewritter,
+                                             bool use_i18n);
 
 std::unique_ptr<manta::proto::Response> CreateFakeMantaResponse(
     const std::vector<std::string>& queries_returned_from_server,
@@ -30,6 +31,7 @@ testing::Matcher<ash::LobsterImageCandidate> EqLobsterImageCandidate(
     int expected_id,
     const SkBitmap& expected_bitmap,
     uint32_t expected_generation_seed,
-    std::string_view expected_query);
+    std::string_view expected_user_query,
+    std::string_view expected_rewritten_query);
 
 #endif  // CHROME_BROWSER_ASH_LOBSTER_LOBSTER_TEST_UTILS_H_

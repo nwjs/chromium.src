@@ -26,14 +26,11 @@
 #include "base/memory/weak_ptr.h"
 #include "base/rand_util.h"
 #include "base/thread_annotations.h"
-#include "base/threading/thread_checker.h"
 #include "base/time/time.h"
 #include "net/base/net_export.h"
 #include "net/base/schemeful_site.h"
-#include "net/cookies/canonical_cookie.h"
 #include "net/cookies/cookie_access_delegate.h"
 #include "net/cookies/cookie_constants.h"
-#include "net/cookies/cookie_inclusion_status.h"
 #include "net/cookies/cookie_monster_change_dispatcher.h"
 #include "net/cookies/cookie_store.h"
 #include "net/log/net_log_with_source.h"
@@ -41,7 +38,9 @@
 
 namespace net {
 
+class CanonicalCookie;
 class CookieChangeDispatcher;
+class CookieInclusionStatus;
 
 // The cookie monster is the system for storing and retrieving cookies. It has
 // an in-memory list of all cookies, and synchronizes non-session cookies to an
@@ -538,11 +537,13 @@ class NET_EXPORT CookieMonster : public CookieStore {
       const CookiePartitionKey& cookie_partition_key,
       const GURL& url);
 
-  void FilterCookiesWithOptions(const GURL& url,
-                                const CookieOptions options,
-                                std::vector<CanonicalCookie*>* cookie_ptrs,
-                                CookieAccessResultList* included_cookies,
-                                CookieAccessResultList* excluded_cookies);
+  void FilterCookiesWithOptions(
+      const GURL& url,
+      const CookieOptions& options,
+      const CookiePartitionKeyCollection& cookie_partition_key_collection,
+      std::vector<CanonicalCookie*>& cookie_ptrs,
+      CookieAccessResultList& included_cookies,
+      CookieAccessResultList& excluded_cookies);
 
   // Possibly delete an existing cookie equivalent to |cookie_being_set| (same
   // path, domain, and name).
@@ -579,8 +580,8 @@ class NET_EXPORT CookieMonster : public CookieStore {
       bool allowed_to_set_secure_cookie,
       bool skip_httponly,
       bool already_expired,
-      base::Time* creation_date_to_inherit,
-      CookieInclusionStatus* status,
+      base::Time& creation_date_to_inherit,
+      CookieInclusionStatus& status,
       std::optional<PartitionedCookieMap::iterator> cookie_partition_it);
 
   // Inserts `cc` into cookies_. Returns an iterator that points to the inserted
@@ -596,7 +597,7 @@ class NET_EXPORT CookieMonster : public CookieStore {
 
   // Returns true if the cookie should be (or is already) synced to the store.
   // Used for cookies during insertion and deletion into the in-memory store.
-  bool ShouldUpdatePersistentStore(CanonicalCookie* cc);
+  bool ShouldUpdatePersistentStore(CanonicalCookie& cc);
 
   // Inserts `cc` into partitioned_cookies_. Should only be used when
   // cc->IsPartitioned() is true.
@@ -612,7 +613,7 @@ class NET_EXPORT CookieMonster : public CookieStore {
   // restoring saved cookies; some statistics are not gathered in this case.
   void SetAllCookies(CookieList list, SetCookiesCallback callback);
 
-  void InternalUpdateCookieAccessTime(CanonicalCookie* cc,
+  void InternalUpdateCookieAccessTime(CanonicalCookie& cc,
                                       const base::Time& current_time);
 
   // |deletion_cause| argument is used for collecting statistics and choosing
@@ -662,14 +663,14 @@ class NET_EXPORT CookieMonster : public CookieStore {
   // |cookies| must be sorted from least-recent to most-recent.
   //
   // Returns the number of cookies deleted.
-  size_t PurgeLeastRecentMatches(CookieItVector* cookies,
+  size_t PurgeLeastRecentMatches(CookieItVector& cookies,
                                  CookiePriority priority,
                                  size_t to_protect,
                                  size_t purge_goal,
                                  bool protect_secure_cookies);
   // Same as above except that for a given {priority, secureness} tuple domain
   // cookies will be deleted before host cookies.
-  size_t PurgeLeastRecentMatchesForOBC(CookieItList* cookies,
+  size_t PurgeLeastRecentMatchesForOBC(CookieItList& cookies,
                                        CookiePriority priority,
                                        size_t to_protect,
                                        size_t purge_goal,
@@ -717,7 +718,7 @@ class NET_EXPORT CookieMonster : public CookieStore {
                                              const base::Time& safe_date,
                                              size_t purge_goal,
                                              CookieItVector cookie_its,
-                                             base::Time* earliest_time);
+                                             base::Time& earliest_time);
 
   bool HasCookieableScheme(const GURL& url);
 

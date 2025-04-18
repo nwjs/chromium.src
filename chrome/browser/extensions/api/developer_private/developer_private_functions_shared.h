@@ -9,6 +9,7 @@
 #include "chrome/common/extensions/api/developer_private.h"
 #include "extensions/browser/extension_function.h"
 #include "extensions/common/extension.h"
+#include "ui/base/clipboard/file_info.h"
 
 namespace extensions::api {
 
@@ -159,16 +160,44 @@ class DeveloperPrivateUpdateExtensionConfigurationFunction
   ResponseAction Run() override;
 };
 
-class DeveloperPrivateIsProfileManagedFunction : public ExtensionFunction {
+class DeveloperPrivateInstallDroppedFileFunction
+    : public DeveloperPrivateAPIFunction {
  public:
-  DECLARE_EXTENSION_FUNCTION("developerPrivate.isProfileManaged",
-                             DEVELOPERPRIVATE_ISPROFILEMANAGED)
+  DECLARE_EXTENSION_FUNCTION("developerPrivate.installDroppedFile",
+                             DEVELOPERPRIVATE_INSTALLDROPPEDFILE)
+  DeveloperPrivateInstallDroppedFileFunction();
 
- protected:
-  ~DeveloperPrivateIsProfileManagedFunction() override;
+  DeveloperPrivateInstallDroppedFileFunction(
+      const DeveloperPrivateInstallDroppedFileFunction&) = delete;
+  DeveloperPrivateInstallDroppedFileFunction& operator=(
+      const DeveloperPrivateInstallDroppedFileFunction&) = delete;
+
+ private:
+  ~DeveloperPrivateInstallDroppedFileFunction() override;
 
   // ExtensionFunction:
   ResponseAction Run() override;
+};
+
+class DeveloperPrivateNotifyDragInstallInProgressFunction
+    : public DeveloperPrivateAPIFunction {
+ public:
+  DECLARE_EXTENSION_FUNCTION("developerPrivate.notifyDragInstallInProgress",
+                             DEVELOPERPRIVATE_NOTIFYDRAGINSTALLINPROGRESS)
+
+  DeveloperPrivateNotifyDragInstallInProgressFunction();
+
+  DeveloperPrivateNotifyDragInstallInProgressFunction(
+      const DeveloperPrivateNotifyDragInstallInProgressFunction&) = delete;
+  DeveloperPrivateNotifyDragInstallInProgressFunction& operator=(
+      const DeveloperPrivateNotifyDragInstallInProgressFunction&) = delete;
+
+  ResponseAction Run() override;
+
+  static void SetDropFileForTesting(ui::FileInfo* file_info);
+
+ private:
+  ~DeveloperPrivateNotifyDragInstallInProgressFunction() override;
 };
 
 class DeveloperPrivateDeleteExtensionErrorsFunction

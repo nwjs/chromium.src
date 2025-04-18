@@ -96,6 +96,7 @@ import org.chromium.chrome.test.util.ChromeRenderTestRule;
 import org.chromium.chrome.test.util.browser.signin.SigninTestRule;
 import org.chromium.components.content_settings.ContentSettingsType;
 import org.chromium.components.policy.test.annotations.Policies;
+import org.chromium.components.signin.test.util.TestAccounts;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.content_public.common.ContentUrlConstants;
 import org.chromium.ui.test.util.DeviceRestriction;
@@ -701,7 +702,7 @@ public final class SafetyHubTest {
                 safetyHubFragment
                         .getResources()
                         .getQuantityString(
-                                R.plurals.safety_check_passwords_compromised_exist,
+                                R.plurals.safety_hub_account_passwords_compromised_exist,
                                 compromisedPasswordsCount,
                                 compromisedPasswordsCount);
         scrollToExpandedPreference(passwordsTitle);
@@ -727,7 +728,8 @@ public final class SafetyHubTest {
         safetyHubFragment = mSafetyHubFragmentTestRule.getFragment();
 
         passwordsTitle =
-                safetyHubFragment.getString(R.string.safety_hub_no_compromised_passwords_title);
+                safetyHubFragment.getString(
+                        R.string.safety_hub_no_compromised_account_passwords_title);
         scrollToPreference(withText(passwordsTitle));
         verifyButtonsNextToTextVisibility(passwordsTitle, false);
 
@@ -786,7 +788,7 @@ public final class SafetyHubTest {
                 safetyHubFragment
                         .getResources()
                         .getQuantityString(
-                                R.plurals.safety_check_passwords_compromised_exist,
+                                R.plurals.safety_hub_account_passwords_compromised_exist,
                                 compromisedPasswordsCount,
                                 compromisedPasswordsCount);
         scrollToExpandedPreference(compromisedPasswordsTitle);
@@ -836,7 +838,8 @@ public final class SafetyHubTest {
 
         // Verify that the password module is still expanded, but now with the unavailable title.
         String weakPasswordsTitle =
-                safetyHubFragment.getString(R.string.safety_hub_password_check_unavailable_title);
+                safetyHubFragment.getString(
+                        R.string.safety_hub_account_password_check_unavailable_title);
         scrollToExpandedPreference(weakPasswordsTitle);
         verifyButtonsNextToTextVisibility(weakPasswordsTitle, true);
 
@@ -1728,7 +1731,7 @@ public final class SafetyHubTest {
 
     private void addCredentialToAccountStore() {
         // Set up an account with at least one password in the account store.
-        mSigninTestRule.addTestAccountThenSigninAndEnableSync();
+        mSigninTestRule.addAccountThenSignin(TestAccounts.ACCOUNT1);
         PasswordManagerTestHelper.setAccountForPasswordStore(SigninTestRule.TEST_ACCOUNT_EMAIL);
 
         PasswordStoreBridge passwordStoreBridge =

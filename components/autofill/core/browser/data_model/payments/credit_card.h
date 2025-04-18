@@ -6,6 +6,7 @@
 #define COMPONENTS_AUTOFILL_CORE_BROWSER_DATA_MODEL_PAYMENTS_CREDIT_CARD_H_
 
 #include <iosfwd>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -449,6 +450,12 @@ class CreditCard : public FormGroup {
   std::u16string CardIdentifierStringAndDescriptiveExpiration(
       const std::string& app_locale,
       std::u16string customized_nickname = std::u16string()) const;
+
+  // A name to identify this card. It is the nickname if available, or the
+  // product description. If neither are available, returns nullopt.
+  std::optional<std::u16string> CardIdentifierForAutofillDisplay(
+      const std::u16string& customized_nickname = std::u16string()) const;
+
   // A label for this card formatted as 'Expires on MM/YY'.
   // This label is used as a second line label when the autofill dropdown
   // uses a two line layout and the credit card number is selected.
@@ -532,6 +539,9 @@ class CreditCard : public FormGroup {
 
   UsageHistoryInformation& usage_history();
   const UsageHistoryInformation& usage_history() const;
+
+  bool is_bnpl_card() const { return is_bnpl_card_; }
+  void set_is_bnpl_card(bool is_bnpl_card) { is_bnpl_card_ = is_bnpl_card; }
 
  private:
   friend class CreditCardTestApi;
@@ -666,6 +676,9 @@ class CreditCard : public FormGroup {
       CardInfoRetrievalEnrollmentState::kRetrievalUnspecified;
 
   UsageHistoryInformation usage_history_information_;
+
+  // True if this card was created during the BNPL flow, false otherwise.
+  bool is_bnpl_card_ = false;
 };
 
 // So we can compare CreditCards with EXPECT_EQ().

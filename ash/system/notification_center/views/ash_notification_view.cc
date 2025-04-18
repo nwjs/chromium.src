@@ -1061,9 +1061,10 @@ void AshNotificationView::UpdateViewForExpandedState(bool expanded) {
     } else {
       progress_bar_bottom_padding = kProgressBarCollapsedBottomPadding;
     }
-    progress_bar_view()->SetBorder(views::CreateEmptyBorder(
+    progress_bar_view()->SetProperty(
+        views::kMarginsKey,
         gfx::Insets::TLBR(message_center::kProgressBarTopPadding, 0,
-                          progress_bar_bottom_padding, 0)));
+                          progress_bar_bottom_padding, 0));
   }
 
   // Custom padding for app icon and expand button. These 2 views should always
@@ -1406,7 +1407,7 @@ void AshNotificationView::OnThemeChanged() {
        right_content()->height() - icon_view()->GetImageDrawingSize().height() >
            kSmallImageBackgroundThreshold)) {
     icon_view()->set_apply_rounded_corners(false);
-    right_content()->SetBackground(views::CreateThemedRoundedRectBackground(
+    right_content()->SetBackground(views::CreateRoundedRectBackground(
         kColorAshControlBackgroundColorInactive,
         message_center::kImageCornerRadius));
   }

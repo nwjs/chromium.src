@@ -34,6 +34,7 @@ import org.chromium.chrome.browser.commerce.ShoppingServiceFactoryJni;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.page_image_service.ImageServiceBridge;
 import org.chromium.chrome.browser.page_image_service.ImageServiceBridgeJni;
+import org.chromium.chrome.browser.price_tracking.PriceDropNotificationManager;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.tab.Tab;
@@ -79,6 +80,8 @@ public class BookmarkUtilsTest {
     @Mock private ShoppingService mShoppingService;
     @Mock private IdentityServicesProvider mIdentityServicesProvider;
     @Mock private IdentityManager mIdentityManager;
+    @Mock private BookmarkManagerOpener mBookmarkManagerOpener;
+    @Mock private PriceDropNotificationManager mPriceDropNotificationManager;
 
     private Activity mActivity;
     private FakeBookmarkModel mBookmarkModel;
@@ -127,7 +130,9 @@ public class BookmarkUtilsTest {
                 new GURL("https://test.com"),
                 mSnackbarManager,
                 mProfile,
-                mBottomSheetController);
+                mBottomSheetController,
+                mBookmarkManagerOpener,
+                mPriceDropNotificationManager);
         // Normally, a snackbar is shown.
         verify(mSnackbarManager).showSnackbar(any());
         verify(mTracker).notifyEvent(EventConstants.READ_LATER_ARTICLE_SAVED);
@@ -152,7 +157,9 @@ public class BookmarkUtilsTest {
                 new GURL("https://test.com"),
                 mSnackbarManager,
                 mProfile,
-                mBottomSheetController);
+                mBottomSheetController,
+                mBookmarkManagerOpener,
+                mPriceDropNotificationManager);
         // When account bookmarks are enabled, reading list saves use the regular save flow.
         verify(mBottomSheetController).requestShowContent(any(), anyBoolean());
         verify(mTracker).notifyEvent(EventConstants.READ_LATER_ARTICLE_SAVED);
@@ -179,7 +186,9 @@ public class BookmarkUtilsTest {
                 mActivity,
                 BookmarkType.NORMAL,
                 mBookmarkIdCallback,
-                /* fromExplicitTrackUi= */ false);
+                /* fromExplicitTrackUi= */ false,
+                mBookmarkManagerOpener,
+                mPriceDropNotificationManager);
 
         histograms.assertExpected();
     }
@@ -203,7 +212,9 @@ public class BookmarkUtilsTest {
                 mActivity,
                 BookmarkType.READING_LIST,
                 mBookmarkIdCallback,
-                /* fromExplicitTrackUi= */ false);
+                /* fromExplicitTrackUi= */ false,
+                mBookmarkManagerOpener,
+                mPriceDropNotificationManager);
 
         histograms.assertExpected();
     }

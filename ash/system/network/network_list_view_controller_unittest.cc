@@ -204,8 +204,8 @@ class NetworkListViewControllerTest : public AshTestBase,
     delegate->SetMultiDeviceSetupBinder(base::BindRepeating(
         &multidevice_setup::MultiDeviceSetupBase::BindReceiver,
         base::Unretained(fake_multidevice_setup_.get())));
-
-    AshTestBase::SetUp(std::move(delegate));
+    set_shell_delegate(std::move(delegate));
+    AshTestBase::SetUp();
 
     cros_network_ = std::make_unique<FakeCrosNetworkConfig>();
     Shell::Get()
@@ -413,8 +413,7 @@ class NetworkListViewControllerTest : public AshTestBase,
   }
 
   void LoginAsSecondaryUser() {
-    GetSessionControllerClient()->AddUserSession(kUser1Email);
-    SimulateUserLogin(kUser1Email);
+    SimulateUserLogin({kUser1Email});
     GetSessionControllerClient()->SetSessionState(
         session_manager::SessionState::LOGIN_SECONDARY);
     base::RunLoop().RunUntilIdle();

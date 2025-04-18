@@ -46,10 +46,6 @@ DCompPresenter::DCompPresenter(const Settings& settings)
 }
 
 DCompPresenter::~DCompPresenter() {
-  Destroy();
-}
-
-void DCompPresenter::Destroy() {
   for (auto& frame : pending_frames_)
     std::move(frame.callback).Run(gfx::PresentationFeedback::Failure());
   pending_frames_.clear();
@@ -57,38 +53,26 @@ void DCompPresenter::Destroy() {
   if (observing_vsync_) {
     VSyncThreadWin::GetInstance()->RemoveObserver(this);
   }
+}
 
-  // Freeing DComp resources such as visuals and surfaces causes the
-  // device to become 'dirty'. We must commit the changes to the device
-  // in order for the objects to actually be destroyed.
-  // Leaving the device in the dirty state for long periods of time means
-  // that if DWM.exe crashes, the Chromium window will become black until
-  // the next Commit.
+bool DCompPresenter::DestroyDCLayerTree() {
+  CHECK(layer_tree_);
+
+  // Freeing DComp resources such as visuals and surfaces causes the device to
+  // become 'dirty'. We must commit the changes to the device in order for the
+  // objects to actually be destroyed.
+  // Leaving the device in the dirty state for long periods of time means that
+  // if DWM.exe crashes, the Chromium window will become black until the next
+  // Commit.
   layer_tree_.reset();
   if (auto* dcomp_device = GetDirectCompositionDevice()) {
     HRESULT hr = dcomp_device->Commit();
     if (FAILED(hr)) {
-      // The `HRESULT` returned from the `Commit` call.
-      static auto* const hr_crash_key = base::debug::AllocateCrashKeyString(
-          "DCompPresenter-destroy-fail-hr", base::debug::CrashKeySize::Size32);
-      // The time since the creation of the process.
-      static auto* const uptime_crash_key = base::debug::AllocateCrashKeyString(
-          "DCompPresenter-destroy-fail-time",
-          base::debug::CrashKeySize::Size64);
-
-      base::debug::SetCrashKeyString(hr_crash_key,
-                                     base::StringPrintf("0x%08x", hr));
-
-      const base::TimeDelta uptime =
-          base::Time::Now() - base::Process::Current().CreationTime();
-      base::debug::SetCrashKeyString(
-          uptime_crash_key,
-          base::StringPrintf("%d hours, %d min, %lld sec, %lld ms",
-                             uptime.InHours(), uptime.InMinutes() % 60,
-                             uptime.InSeconds() % 60ll,
-                             uptime.InMilliseconds() % 1000ll));
+      return false;
     }
   }
+
+  return true;
 }
 
 bool DCompPresenter::Resize(const gfx::Size& size,
@@ -120,15 +104,6 @@ void DCompPresenter::ScheduleDCLayers(
   // We expect alternating calls to `ScheduleDCLayers` and `Present`.
   DCHECK_EQ(0u, pending_overlays_.size());
   pending_overlays_ = std::move(overlays);
-}
-
-void DCompPresenter::SetFrameRate(float frame_rate) {
-  // Only try to reduce vsync frequency through the video swap chain.
-  // This allows us to experiment UseSetPresentDuration optimization to
-  // fullscreen video overlays only and avoid compromising
-  // UsePreferredIntervalForVideo optimization where we skip compositing
-  // every other frame when fps <= half the vsync frame rate.
-  layer_tree_->SetFrameRate(frame_rate);
 }
 
 void DCompPresenter::Present(SwapCompletionCallback completion_callback,

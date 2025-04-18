@@ -16,7 +16,6 @@ import android.widget.EditText;
 import android.widget.ListAdapter;
 import android.widget.ListView;
 
-import androidx.annotation.DimenRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
@@ -48,6 +47,7 @@ import org.chromium.chrome.browser.tasks.tab_management.TabUiUtils;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.browser_ui.widget.BrowserUiListMenuUtils;
 import org.chromium.components.collaboration.CollaborationService;
+import org.chromium.components.collaboration.CollaborationServiceShareOrManageEntryPoint;
 import org.chromium.components.data_sharing.member_role.MemberRole;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.tab_group_sync.LocalTabGroupId;
@@ -76,6 +76,7 @@ public class TabGroupContextMenuCoordinator extends TabGroupOverflowMenuCoordina
     private EditText mGroupTitleEditText;
     private ColorPickerCoordinator mColorPickerCoordinator;
     private TabGroupModelFilter mTabGroupModelFilter;
+    private Token mTabGroupId;
     private int mGroupRootId;
     private Context mContext;
 
@@ -84,21 +85,20 @@ public class TabGroupContextMenuCoordinator extends TabGroupOverflowMenuCoordina
     private String mCurrentModifiedTitle;
     private boolean mIsPresetTitleUsed;
     private WindowAndroid mWindowAndroid;
-    private boolean mIsMenuShowing;
     private KeyboardVisibilityDelegate.KeyboardVisibilityListener mKeyboardVisibilityListener;
     protected CollaborationService mCollaborationService;
     private final TabGroupModelFilterObserver mTabGroupModelFilterObserver =
             new TabGroupModelFilterObserver() {
                 @Override
                 public void didChangeTabGroupTitle(int rootId, String newTitle) {
-                    if (mIsMenuShowing && rootId == mGroupRootId) {
+                    if (isMenuShowing() && rootId == mGroupRootId) {
                         setExistingOrDefaultTitle(newTitle);
                     }
                 }
 
                 @Override
                 public void didChangeTabGroupColor(int rootId, @TabGroupColorId int newColor) {
-                    if (mIsMenuShowing && rootId == mGroupRootId) {
+                    if (isMenuShowing() && rootId == mGroupRootId) {
                         setSelectedColorItem(newColor);
                     }
                 }
@@ -123,7 +123,8 @@ public class TabGroupContextMenuCoordinator extends TabGroupOverflowMenuCoordina
                         dataSharingTabManager),
                 tabModelSupplier,
                 tabGroupSyncService,
-                collaborationService);
+                collaborationService,
+                windowAndroid.getActivity().get());
         mTabGroupModelFilter = tabGroupModelFilter;
         mWindowAndroid = windowAndroid;
         mKeyboardVisibilityListener =
@@ -182,7 +183,7 @@ public class TabGroupContextMenuCoordinator extends TabGroupOverflowMenuCoordina
             if (tabId == Tab.INVALID_TAB_ID) return;
 
             if (menuId == org.chromium.chrome.R.id.ungroup_tab) {
-                TabUiUtils.ungroupTabGroup(tabGroupModelFilter, tabId);
+                TabUiUtils.ungroupTabGroup(tabGroupModelFilter, tabGroupId);
                 recordUserAction("Ungroup");
             } else if (menuId == org.chromium.chrome.R.id.close_tab_group) {
                 TabUiUtils.closeTabGroup(
@@ -210,7 +211,7 @@ public class TabGroupContextMenuCoordinator extends TabGroupOverflowMenuCoordina
                 // assigned.
                 String tabGroupDisplayName =
                         TabGroupTitleUtils.getDisplayableTitle(
-                                activity, tabGroupModelFilter, tabId);
+                                activity, tabGroupModelFilter, tabGroupId);
 
                 // Create the group share flow and display the share bottom sheet.
                 TabUiUtils.startShareTabGroupFlow(
@@ -218,13 +219,17 @@ public class TabGroupContextMenuCoordinator extends TabGroupOverflowMenuCoordina
                         tabGroupModelFilter,
                         dataSharingTabManager,
                         tabId,
-                        tabGroupDisplayName);
+                        tabGroupDisplayName,
+                        CollaborationServiceShareOrManageEntryPoint
+                                .ANDROID_TAB_GROUP_CONTEXT_MENU_SHARE);
                 recordUserAction("ShareGroup");
             } else if (menuId == R.id.manage_sharing) {
                 dataSharingTabManager.createOrManageFlow(
                         activity,
                         /* syncId= */ null,
                         new LocalTabGroupId(tabGroupId),
+                        CollaborationServiceShareOrManageEntryPoint
+                                .ANDROID_TAB_GROUP_CONTEXT_MENU_MANAGE,
                         /* createGroupFinishedCallback= */ null);
                 recordUserAction("ManageSharing");
             } else if (menuId == R.id.recent_activity) {
@@ -258,6 +263,7 @@ public class TabGroupContextMenuCoordinator extends TabGroupOverflowMenuCoordina
      * @param tabGroupId The tab group ID of the interacting tab group.
      */
     protected void showMenu(RectProvider anchorViewRectProvider, Token tabGroupId) {
+        mTabGroupId = tabGroupId;
         mGroupRootId = mTabGroupModelFilter.getRootIdFromTabGroupId(tabGroupId);
         createAndShowMenu(
                 anchorViewRectProvider,
@@ -267,13 +273,7 @@ public class TabGroupContextMenuCoordinator extends TabGroupOverflowMenuCoordina
                 /* animStyle= */ ResourcesCompat.ID_NULL,
                 HorizontalOrientation.LAYOUT_DIRECTION,
                 mWindowAndroid.getActivity().get());
-        mIsMenuShowing = true;
         recordUserAction("Shown");
-    }
-
-    /** Returns {@code true} if the menu is currently showing, {@code false} otherwise. */
-    protected boolean isMenuShowing() {
-        return mIsMenuShowing;
     }
 
     @Override
@@ -348,7 +348,6 @@ public class TabGroupContextMenuCoordinator extends TabGroupOverflowMenuCoordina
                             R.drawable.material_ic_delete_24dp,
                             /* enabled= */ true));
         }
-        setListViewHeightBasedOnChildren();
     }
 
     @Override
@@ -388,11 +387,6 @@ public class TabGroupContextMenuCoordinator extends TabGroupOverflowMenuCoordina
                             R.drawable.material_ic_delete_24dp,
                             /* enabled= */ true));
         }
-
-        // Manually set the ListView height after adding items, as it's nested in a ScrollView. The
-        // menu must be resized explicitly after new items are added since the ListView height
-        // are set after data change.
-        setListViewHeightBasedOnChildren();
         resizeMenu();
     }
 
@@ -401,7 +395,8 @@ public class TabGroupContextMenuCoordinator extends TabGroupOverflowMenuCoordina
      * ListView behaves like a LinearLayout and relies on the ScrollView for proper scrolling to
      * ensure scrolling for the custom views.
      */
-    private void setListViewHeightBasedOnChildren() {
+    @Override
+    protected void afterCreate() {
         assert mContentView != null : "Menu view should not be null";
 
         ListView listView = mContentView.findViewById(R.id.tab_group_action_menu_list);
@@ -442,12 +437,11 @@ public class TabGroupContextMenuCoordinator extends TabGroupOverflowMenuCoordina
         mWindowAndroid
                 .getKeyboardDelegate()
                 .removeKeyboardVisibilityListener(mKeyboardVisibilityListener);
-        mIsMenuShowing = false;
     }
 
     @Override
-    protected @DimenRes int getMenuWidth() {
-        return R.dimen.tab_strip_group_context_menu_max_width;
+    protected int getMenuWidth(int anchorViewWidthPx) {
+        return getDimensionPixelSize(R.dimen.tab_strip_group_context_menu_max_width);
     }
 
     private void updateTabGroupColor() {
@@ -485,7 +479,7 @@ public class TabGroupContextMenuCoordinator extends TabGroupOverflowMenuCoordina
 
     private String getDefaultTitle() {
         return TabGroupTitleUtils.getDefaultTitle(
-                mContext, mTabGroupModelFilter.getRelatedTabCountForRootId(mGroupRootId));
+                mContext, mTabGroupModelFilter.getTabCountForGroup(mTabGroupId));
     }
 
     // TODO(crbug.com/358689769): Enable live editing and updating of the group title.
@@ -592,7 +586,8 @@ public class TabGroupContextMenuCoordinator extends TabGroupOverflowMenuCoordina
         return mKeyboardVisibilityListener;
     }
 
-    void setGroupRootIdForTesting(int id) {
+    void setGroupDataForTesting(int id, Token tabGroupId) {
         mGroupRootId = id;
+        mTabGroupId = tabGroupId;
     }
 }

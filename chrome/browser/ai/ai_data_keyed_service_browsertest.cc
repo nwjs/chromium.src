@@ -41,6 +41,7 @@
 #include "content/public/common/content_switches.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
+#include "content/public/test/content_browser_test_utils.h"
 #include "content/public/test/fenced_frame_test_util.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/request_handler_util.h"
@@ -93,6 +94,8 @@ class AiDataKeyedServiceBrowserTest : public InProcessBrowserTest {
   void LoadSimplePage() {
     content::NavigateToURLBlockUntilNavigationsComplete(
         web_contents(), https_server_->GetURL("/simple.html"), 1);
+    content::WaitForCopyableView(
+        browser()->tab_strip_model()->GetActiveWebContents());
   }
 
   AiData QueryAiData() {
@@ -131,7 +134,7 @@ IN_PROC_BROWSER_TEST_F(AiDataKeyedServiceBrowserTest,
                        AllowlistedExtensionList) {
   std::vector<std::string> expected_allowlisted_extensions = {
       "hpkopmikdojpadgmioifjjodbmnjjjca", "bgbpcgpcobgjpnpiginpidndjpggappi",
-      "eefninhhiifgcimjkmkongegpoaikmhm"};
+      "eefninhhiifgcimjkmkongegpoaikmhm", "abdciamfdmknaeggbnmafmbdfdmhfgfa"};
 
   EXPECT_EQ(AiDataKeyedService::GetAllowlistedExtensions(),
             expected_allowlisted_extensions);
@@ -272,11 +275,29 @@ IN_PROC_BROWSER_TEST_F(AiDataKeyedServiceBrowserTest, SiteEngagementScores) {
 IN_PROC_BROWSER_TEST_F(AiDataKeyedServiceBrowserTest, AIPageContent) {
   AiData ai_data = LoadSimplePageAndData();
   ASSERT_TRUE(ai_data.has_value());
-  const auto& page_content = ai_data->page_context().annotated_page_content();
-  const auto& content_attributes =
-      page_content.root_node().content_attributes();
-  EXPECT_EQ(content_attributes.attribute_type(),
-            optimization_guide::proto::CONTENT_ATTRIBUTE_ROOT);
+
+  {
+    const auto& page_content = ai_data->page_context().annotated_page_content();
+    EXPECT_EQ(page_content.version(),
+              optimization_guide::proto::ANNOTATED_PAGE_CONTENT_VERSION_1_0);
+    const auto& content_attributes =
+        page_content.root_node().content_attributes();
+    EXPECT_EQ(content_attributes.attribute_type(),
+              optimization_guide::proto::CONTENT_ATTRIBUTE_ROOT);
+    EXPECT_FALSE(content_attributes.has_interaction_info());
+  }
+
+  {
+    const auto& page_content = ai_data->action_annotated_page_content();
+    EXPECT_EQ(page_content.version(),
+              optimization_guide::proto::
+                  ANNOTATED_PAGE_CONTENT_VERSION_ONLY_ACTIONABLE_ELEMENTS_1_0);
+    const auto& content_attributes =
+        page_content.root_node().content_attributes();
+    EXPECT_EQ(content_attributes.attribute_type(),
+              optimization_guide::proto::CONTENT_ATTRIBUTE_ROOT);
+    EXPECT_TRUE(content_attributes.has_interaction_info());
+  }
 }
 
 IN_PROC_BROWSER_TEST_F(AiDataKeyedServiceBrowserTest, SpecifierOn) {
@@ -380,7 +401,8 @@ class AiDataKeyedServiceBrowserTestWithBlocklistedExtensions
 IN_PROC_BROWSER_TEST_F(AiDataKeyedServiceBrowserTestWithBlocklistedExtensions,
                        BlockedExtensionList) {
   std::vector<std::string> expected_allowlisted_extensions = {
-      "bgbpcgpcobgjpnpiginpidndjpggappi", "eefninhhiifgcimjkmkongegpoaikmhm"};
+      "bgbpcgpcobgjpnpiginpidndjpggappi", "eefninhhiifgcimjkmkongegpoaikmhm",
+      "abdciamfdmknaeggbnmafmbdfdmhfgfa"};
 
   EXPECT_EQ(AiDataKeyedService::GetAllowlistedExtensions(),
             expected_allowlisted_extensions);
@@ -406,7 +428,8 @@ IN_PROC_BROWSER_TEST_F(
     RemotelyAllowlistedExtensionList) {
   std::vector<std::string> expected_allowlisted_extensions = {
       "1234", "hpkopmikdojpadgmioifjjodbmnjjjca",
-      "bgbpcgpcobgjpnpiginpidndjpggappi", "eefninhhiifgcimjkmkongegpoaikmhm"};
+      "bgbpcgpcobgjpnpiginpidndjpggappi", "eefninhhiifgcimjkmkongegpoaikmhm",
+      "abdciamfdmknaeggbnmafmbdfdmhfgfa"};
 
   EXPECT_EQ(AiDataKeyedService::GetAllowlistedExtensions(),
             expected_allowlisted_extensions);
@@ -431,7 +454,7 @@ IN_PROC_BROWSER_TEST_F(AiDataKeyedServiceBrowserTestWithAllowAndBlock,
                        AllowAndBlock) {
   std::vector<std::string> expected_allowlisted_extensions = {
       "hpkopmikdojpadgmioifjjodbmnjjjca", "bgbpcgpcobgjpnpiginpidndjpggappi",
-      "eefninhhiifgcimjkmkongegpoaikmhm"};
+      "eefninhhiifgcimjkmkongegpoaikmhm", "abdciamfdmknaeggbnmafmbdfdmhfgfa"};
 
   EXPECT_EQ(AiDataKeyedService::GetAllowlistedExtensions(),
             expected_allowlisted_extensions);

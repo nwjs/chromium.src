@@ -45,6 +45,8 @@ source_set("permissions") {
     "contexts/keyboard_lock_permission_context.h",
     "contexts/local_fonts_permission_context.cc",
     "contexts/local_fonts_permission_context.h",
+    "contexts/local_network_access_permission_context.cc",
+    "contexts/local_network_access_permission_context.h",
     "contexts/midi_permission_context.cc",
     "contexts/midi_permission_context.h",
     "contexts/midi_sysex_permission_context.cc",
@@ -114,6 +116,10 @@ source_set("permissions") {
     "pref_names.h",
     "request_type.cc",
     "request_type.h",
+    "resolvers/content_setting_permission_resolver.cc",
+    "resolvers/content_setting_permission_resolver.h",
+    "resolvers/permission_resolver.cc",
+    "resolvers/permission_resolver.h",
     "switches.cc",
     "switches.h",
   ]
@@ -309,6 +315,7 @@ source_set("unit_tests") {
     "permission_request_manager_unittest.cc",
     "permission_request_queue_unittest.cc",
     "permission_uma_util_unittest.cc",
+    "resolvers/content_setting_permission_resolver_unittest.cc",
   ]
   if (!is_android) {
     sources += [

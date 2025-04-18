@@ -46,6 +46,8 @@
 #import "ios/chrome/browser/permissions/model/media_api_usage_java_script_feature.h"
 #import "ios/chrome/browser/prerender/model/prerender_service.h"
 #import "ios/chrome/browser/prerender/model/prerender_service_factory.h"
+#import "ios/chrome/browser/reader_mode/model/features.h"
+#import "ios/chrome/browser/reader_mode/model/reader_mode_java_script_feature.h"
 #import "ios/chrome/browser/reading_list/model/offline_page_tab_helper.h"
 #import "ios/chrome/browser/reading_list/model/offline_url_utils.h"
 #import "ios/chrome/browser/safe_browsing/model/password_protection_java_script_feature.h"
@@ -92,6 +94,7 @@
 #import "ios/components/security_interstitials/lookalikes/lookalike_url_error.h"
 #import "ios/components/security_interstitials/safe_browsing/safe_browsing_error.h"
 #import "ios/components/security_interstitials/safe_browsing/safe_browsing_unsafe_resource_container.h"
+#import "ios/components/ui_util/dynamic_type_util.h"
 #import "ios/components/webui/web_ui_url_constants.h"
 #import "ios/net/protocol_handler_util.h"
 #import "ios/public/provider/chrome/browser/url_rewriters/url_rewriters_api.h"
@@ -211,7 +214,8 @@ NSString* GetSupervisedUserErrorPageHTML(web::WebState* web_state,
           profile->GetPrefs(), error_info->filtering_behavior_reason(),
           container->IsRemoteApprovalPendingForUrl(url),
           error_info->is_main_frame(),
-          GetApplicationContext()->GetApplicationLocale());
+          GetApplicationContext()->GetApplicationLocale(),
+          ui_util::SystemSuggestedFontSizeMultiplier());
 
   security_interstitials::IOSBlockingPageTabHelper::FromWebState(web_state)
       ->AssociateBlockingPage(navigation_id, std::move(page));
@@ -389,6 +393,10 @@ std::vector<web::JavaScriptFeature*> ChromeWebClient::GetJavaScriptFeatures(
 
   features.push_back(
       SupervisedUserInterstitialJavaScriptFeature::GetInstance());
+
+  if (base::FeatureList::IsEnabled(kEnableReaderModeDistillerHeuristic)) {
+    features.push_back(ReaderModeJavaScriptFeature::GetInstance());
+  }
 
   if (base::FeatureList::IsEnabled(
           kJavaScriptPermissionBasedAPIMetricsEnabled)) {

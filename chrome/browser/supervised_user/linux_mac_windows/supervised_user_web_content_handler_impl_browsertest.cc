@@ -20,7 +20,10 @@
 #include "chrome/browser/supervised_user/linux_mac_windows/parent_access_view.h"
 #include "chrome/browser/supervised_user/supervised_user_service_factory.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_element_identifiers.h"
+#include "chrome/test/base/mixin_based_in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "chrome/test/interaction/interactive_browser_test.h"
 #include "chrome/test/supervised_user/supervision_mixin.h"
 #include "components/supervised_user/core/browser/proto/parent_access_callback.pb.h"
 #include "components/supervised_user/core/browser/supervised_user_service.h"
@@ -269,13 +272,105 @@ IN_PROC_BROWSER_TEST_F(SupervisedUserWebContentHandlerImplTest,
   histogram_tester.ExpectTotalCount(
       supervised_user::kLocalWebApprovalErrorTypeHistogramName, 1);
 
-  // Check that the dialog content was replaced with the error message content.
-  EXPECT_TRUE(base::test::RunUntil([&]() {
-    return handler->GetWeakParentAccessViewForTesting()
-                   ->GetErrorViewForTesting() != nullptr &&
-           handler->GetWeakParentAccessViewForTesting()
-                   ->GetWebViewForTesting() == nullptr;
+  if (base::FeatureList::IsEnabled(
+          supervised_user::kEnableLocalWebApprovalErrorDialog)) {
+    // Check that the dialog content was replaced with the error message
+    // content.
+    EXPECT_TRUE(base::test::RunUntil([&]() {
+      return handler->GetWeakParentAccessViewForTesting()
+                     ->GetErrorViewForTesting() != nullptr &&
+             handler->GetWeakParentAccessViewForTesting()
+                     ->GetWebViewForTesting() == nullptr;
+    }));
+  } else {
+    // Check that the PACP dialog is destructed.
+    ASSERT_TRUE(base::test::RunUntil([&]() {
+      return handler->GetWeakParentAccessViewForTesting() == nullptr;
+    }));
+  }
+}
+
+IN_PROC_BROWSER_TEST_F(SupervisedUserWebContentHandlerImplTest,
+                       ParentApprovalNotInitiatedWhenHostEmpty) {
+  base::HistogramTester histogram_tester;
+
+  CHECK(contents());
+  auto handler = std::make_unique<SupervisedUserWebContentHandlerImpl>(
+      contents(), content::FrameTreeNodeId(), 0);
+
+  supervised_user::UrlFormatter url_formatter(
+      *GetUrlFilter(), supervised_user::FilteringBehaviorReason::DEFAULT);
+  GURL blocked_invalid_url;
+
+  bool approval_initiated;
+  auto approval_initiated_lambda = [](bool& result,
+                                      bool actual_approval_initiated) {
+    result = actual_approval_initiated;
+  };
+
+  // Makes a local approval request and checks that the PACP dialog is created.
+  handler->RequestLocalApproval(
+      blocked_invalid_url, u"child_display_name", url_formatter,
+      supervised_user::FilteringBehaviorReason::MANUAL,
+      /*callback=*/
+      base::BindOnce(approval_initiated_lambda, std::ref(approval_initiated)));
+  EXPECT_EQ(false, approval_initiated);
+}
+
+IN_PROC_BROWSER_TEST_F(SupervisedUserWebContentHandlerImplTest,
+                       UniqueDialogWhenLocalApprovalRequestInProgress) {
+  base::HistogramTester histogram_tester;
+
+  CHECK(contents());
+  auto handler = std::make_unique<SupervisedUserWebContentHandlerImpl>(
+      contents(), content::FrameTreeNodeId(), 0);
+
+  supervised_user::UrlFormatter url_formatter(
+      *GetUrlFilter(), supervised_user::FilteringBehaviorReason::DEFAULT);
+  GURL blocked_url("https://www.example.com/");
+
+  bool approval_initiated;
+  auto approval_initiated_lambda = [](bool& result,
+                                      bool actual_approval_initiated) {
+    result = actual_approval_initiated;
+  };
+
+  // Makes a local approval request and checks that the PACP dialog is created.
+  handler->RequestLocalApproval(
+      blocked_url, u"child_display_name", url_formatter,
+      supervised_user::FilteringBehaviorReason::MANUAL,
+      /*callback=*/
+      base::BindOnce(approval_initiated_lambda, std::ref(approval_initiated)));
+  EXPECT_EQ(true, approval_initiated);
+
+  // Make another approval request, which should return early while another is
+  // in progress.
+  handler->RequestLocalApproval(
+      blocked_url, u"child_display_name", url_formatter,
+      supervised_user::FilteringBehaviorReason::MANUAL,
+      /*callback=*/
+      base::BindOnce(approval_initiated_lambda, std::ref(approval_initiated)));
+  EXPECT_EQ(false, approval_initiated);
+
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return handler->GetWeakParentAccessViewForTesting() != nullptr;
   }));
+  // Close the parent approval dialog.
+  views::Widget* widget =
+      handler->GetWeakParentAccessViewForTesting()->GetWidget();
+  ASSERT_TRUE(widget);
+  widget->CloseWithReason(views::Widget::ClosedReason::kCloseButtonClicked);
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return handler->GetWeakParentAccessViewForTesting() == nullptr;
+  }));
+
+  // The next local approval request should go through.
+  handler->RequestLocalApproval(
+      blocked_url, u"child_display_name", url_formatter,
+      supervised_user::FilteringBehaviorReason::MANUAL,
+      /*callback=*/
+      base::BindOnce(approval_initiated_lambda, std::ref(approval_initiated)));
+  EXPECT_EQ(true, approval_initiated);
 }
 
 IN_PROC_BROWSER_TEST_F(SupervisedUserWebContentHandlerImplTest,
@@ -359,7 +454,7 @@ class SupervisedUserParentAccessViewWithTimeoutTest
     : public SupervisedUserWebContentHandlerImplTest {
  public:
   SupervisedUserParentAccessViewWithTimeoutTest() {
-    // Override PACP timeout to 1 ms.
+    // Override PACP timeout to 10 ms.
     int timeout_ms = 10;
     scoped_feature_list_.InitWithFeaturesAndParameters(
         {{supervised_user::kLocalWebApprovals,
@@ -389,17 +484,33 @@ IN_PROC_BROWSER_TEST_F(SupervisedUserWebContentHandlerImplTest,
       supervised_user::FilteringBehaviorReason::MANUAL,
       /*callback*/ base::DoNothing());
   ASSERT_TRUE(base::test::RunUntil([&]() {
-    return handler->GetWeakParentAccessViewForTesting() != nullptr;
+    return handler->GetWeakParentAccessViewForTesting() != nullptr &&
+           handler->GetWeakParentAccessViewForTesting()
+                   ->GetWebViewForTesting() != nullptr &&
+           !handler->GetWeakParentAccessViewForTesting()
+                ->GetWebViewForTesting()
+                ->GetVisible();
   }));
 
-  // Check that the PACP dialog content is replaced by the error message
-  // content.
-  ASSERT_TRUE(base::test::RunUntil([&]() {
-    return handler->GetWeakParentAccessViewForTesting()
-                   ->GetErrorViewForTesting() != nullptr &&
-           handler->GetWeakParentAccessViewForTesting()
-                   ->GetWebViewForTesting() == nullptr;
-  }));
+  if (base::FeatureList::IsEnabled(
+          supervised_user::kEnableLocalWebApprovalErrorDialog)) {
+    // Check that the PACP dialog content is replaced by the error message
+    // content.
+    ASSERT_TRUE(base::test::RunUntil([&]() {
+      return handler->GetWeakParentAccessViewForTesting()
+                     ->GetWebViewForTesting() == nullptr &&
+             (base::FeatureList::IsEnabled(
+                  supervised_user::kEnableLocalWebApprovalErrorDialog)
+                  ? handler->GetWeakParentAccessViewForTesting()
+                            ->GetErrorViewForTesting() != nullptr
+                  : true);
+    }));
+  } else {
+    // Check that the PACP dialog is destructed.
+    ASSERT_TRUE(base::test::RunUntil([&]() {
+      return handler->GetWeakParentAccessViewForTesting() == nullptr;
+    }));
+  }
 
   histogram_tester.ExpectBucketCount(
       supervised_user::kLocalWebApprovalResultHistogramName,
@@ -414,4 +525,49 @@ IN_PROC_BROWSER_TEST_F(SupervisedUserWebContentHandlerImplTest,
   histogram_tester.ExpectTotalCount(
       supervised_user::kLocalWebApprovalErrorTypeHistogramName, 1);
 }
+
+class SupervisedUserParentAccessViewErrorScreenUiTest
+    : public InteractiveBrowserTestT<SupervisedUserWebContentHandlerImplTest> {
+ public:
+  SupervisedUserParentAccessViewErrorScreenUiTest() {
+    // Override PACP timeout to 0 ms.
+    int timeout_ms = 0;
+    scoped_feature_list_.InitWithFeaturesAndParameters(
+        {{supervised_user::kEnableLocalWebApprovalErrorDialog, {}},
+         {supervised_user::kLocalWebApprovals,
+          {{supervised_user::kLocalWebApprovalBottomSheetLoadTimeoutMs.name,
+            base::NumberToString(timeout_ms)}}}},
+        {});
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(SupervisedUserParentAccessViewErrorScreenUiTest,
+                       ShowAndCloseErrorScreen) {
+  CHECK(contents());
+  auto handler = std::make_unique<SupervisedUserWebContentHandlerImpl>(
+      contents(), content::FrameTreeNodeId(), 0);
+
+  supervised_user::UrlFormatter url_formatter(
+      *GetUrlFilter(), supervised_user::FilteringBehaviorReason::DEFAULT);
+  GURL blocked_url("https://www.example.com/");
+
+  // Makes a local approval request that times out immediately
+  // and checks that the error dialog is shown and can be dismissed by the
+  // "Back" button.
+  RunTestSequence(InAnyContext(
+      Do([&handler, &url_formatter, &blocked_url]() -> void {
+        handler->RequestLocalApproval(
+            blocked_url, u"child_display_name", url_formatter,
+            supervised_user::FilteringBehaviorReason::MANUAL,
+            /*callback=*/ base::DoNothing());
+      }),
+      WaitForShow(kLocalWebParentApprovalDialogErrorId),
+      WaitForShow(ParentAccessView::kErrorDialogBackButtonElementId),
+      PressButton(ParentAccessView::kErrorDialogBackButtonElementId),
+      WaitForHide(kLocalWebParentApprovalDialogErrorId)));
+}
+
 }  // namespace

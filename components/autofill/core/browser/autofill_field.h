@@ -10,7 +10,9 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "base/types/optional_ref.h"
@@ -61,18 +63,21 @@ enum class AutofillPredictionSource {
   kMaxValue = kRationalization
 };
 
+std::string_view AutofillPredictionSourceToStringView(
+    AutofillPredictionSource source);
+
 class AutofillField : public FormFieldData {
  public:
-  using FieldLogEventType = absl::variant<absl::monostate,
-                                          AskForValuesToFillFieldLogEvent,
-                                          TriggerFillFieldLogEvent,
-                                          FillFieldLogEvent,
-                                          TypingFieldLogEvent,
-                                          HeuristicPredictionFieldLogEvent,
-                                          AutocompleteAttributeFieldLogEvent,
-                                          ServerPredictionFieldLogEvent,
-                                          RationalizationFieldLogEvent,
-                                          AblationFieldLogEvent>;
+  using FieldLogEventType = std::variant<std::monostate,
+                                         AskForValuesToFillFieldLogEvent,
+                                         TriggerFillFieldLogEvent,
+                                         FillFieldLogEvent,
+                                         TypingFieldLogEvent,
+                                         HeuristicPredictionFieldLogEvent,
+                                         AutocompleteAttributeFieldLogEvent,
+                                         ServerPredictionFieldLogEvent,
+                                         RationalizationFieldLogEvent,
+                                         AblationFieldLogEvent>;
 
   AutofillField();
   explicit AutofillField(const FormFieldData& field);
@@ -120,11 +125,20 @@ class AutofillField : public FormFieldData {
   const std::u16string& parseable_label() const { return parseable_label_; }
   bool only_fill_when_focused() const { return only_fill_when_focused_; }
 
-  // Setters for the detected types.
   void set_heuristic_type(HeuristicSource s, FieldType t);
+
+  // Sets the server predictions to `predictions` after performing some
+  // filtering. If `predictions` is empty, it creates a `NO_SERVER_DATA`
+  // prediction.
   void set_server_predictions(
       std::vector<AutofillQueryResponse::FormSuggestion::FieldSuggestion::
                       FieldPrediction> predictions);
+  // Adds `prediction` to the back of the existing `server_predictions_` if
+  // the prediction's source passes various validity checks. If the only
+  // existing server prediction is an empty one, it replaces that one.
+  void MaybeAddServerPrediction(
+      AutofillQueryResponse::FormSuggestion::FieldSuggestion::FieldPrediction
+          prediction);
 
   void set_may_use_prefilled_placeholder(
       std::optional<bool> may_use_prefilled_placeholder) {
@@ -321,12 +335,13 @@ class AutofillField : public FormFieldData {
     return password_requirements_;
   }
 
-  // The ordering ordering matters: higher values overrule lower vaules (e.g.,
+  // The ordering ordering matters: higher values overrule lower values (e.g.,
   // kServer overrules kHeuristics).
   enum class FormatStringSource {
-    kUnset = 0,       // The format string hasn't been set yet.
-    kHeuristics = 1,  // The format string has been set by local heuristics.
-    kServer = 2,      // The format string has been set by the server.
+    kUnset = 0,        // No format string set.
+    kHeuristics = 1,   // Set by local heuristics.
+    kModelResult = 2,  // Set by a direct model response
+    kServer = 3,       // Set by an (Autofill) server response.
   };
 
   // The format of the value expected by the web document. For now, format
@@ -340,13 +355,13 @@ class AutofillField : public FormFieldData {
   //
   // Only one format string is stored at a time: the one with the
   // highest-ranking `FormatStringSource`.
-  const std::string& format_string() const { return format_string_; }
+  base::optional_ref<const std::u16string> format_string() const;
 
   FormatStringSource format_string_source() const {
     return format_string_source_;
   }
 
-  void set_format_string_unless_overruled(std::string format_string,
+  void set_format_string_unless_overruled(std::u16string format_string,
                                           FormatStringSource source) {
     if (format_string_source_ <= source) {
       format_string_ = std::move(format_string);
@@ -500,7 +515,7 @@ class AutofillField : public FormFieldData {
   // Corresponds to the requirements determined by the Autofill server.
   std::optional<PasswordRequirementsSpec> password_requirements_;
 
-  std::string format_string_;
+  std::u16string format_string_;
   FormatStringSource format_string_source_ = FormatStringSource::kUnset;
 
   // Predictions which where calculated on the client. This is initialized to

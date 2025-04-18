@@ -231,7 +231,13 @@ const size_t kOutputSnippetLinesLimit = 5000;
 
 // Limit of output snippet size. Exceeding this limit
 // results in truncating the output and failing the test.
-const size_t kOutputSnippetBytesLimit = 300 * 1024;
+// TODO(pbos): Investigate lowering this number (it used to be 300k before
+// logging lines got longer, but even that seems excessive). If we need this to
+// be even that high then try to figure out why and document that here. The
+// author of this comment assumes that the prior limit was set to be submittable
+// with the tests that were checked in at the time rather than thinking that
+// logging 300k is a good threshold.
+const size_t kOutputSnippetBytesLimit = 500 * 1024;
 
 // Limit of seed values for gtest shuffling. Arbitrary, but based on
 // gtest's similarly arbitrary choice.
@@ -322,9 +328,9 @@ void KillSpawnedTestProcesses() {
 // returning it in |result|.  Returns true on success.
 bool TakeInt32FromEnvironment(const char* const var, int32_t* result) {
   std::unique_ptr<Environment> env(Environment::Create());
-  std::string str_val;
+  std::optional<std::string> str_val = env->GetVar(var);
 
-  if (!env->GetVar(var, &str_val)) {
+  if (!str_val.has_value()) {
     return true;
   }
 
@@ -333,7 +339,7 @@ bool TakeInt32FromEnvironment(const char* const var, int32_t* result) {
     return false;
   }
 
-  if (!StringToInt(str_val, result)) {
+  if (!StringToInt(str_val.value(), result)) {
     LOG(ERROR) << "Invalid environment: " << var << " is not an integer.\n";
     return false;
   }
@@ -345,8 +351,7 @@ bool TakeInt32FromEnvironment(const char* const var, int32_t* result) {
 // Also returns true if the variable just doesn't exist.
 bool UnsetEnvironmentVariableIfExists(const std::string& name) {
   std::unique_ptr<Environment> env(Environment::Create());
-  std::string str_val;
-  if (!env->GetVar(name, &str_val)) {
+  if (!env->HasVar(name)) {
     return true;
   }
   return env->UnSetVar(name);
@@ -2199,7 +2204,7 @@ void TestLauncher::RunTests() {
 }
 
 void TestLauncher::PrintFuzzyMatchingTestNames() {
-  for (auto filter : positive_test_filter_) {
+  for (const auto& filter : positive_test_filter_) {
     if (filter.empty()) {
       continue;
     }

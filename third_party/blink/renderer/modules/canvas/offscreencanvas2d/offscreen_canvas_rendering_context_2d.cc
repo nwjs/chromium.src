@@ -18,6 +18,7 @@
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/html/canvas/text_metrics.h"
+#include "third_party/blink/renderer/core/html/canvas/unique_font_selector.h"
 #include "third_party/blink/renderer/core/imagebitmap/image_bitmap.h"
 #include "third_party/blink/renderer/core/workers/worker_global_scope.h"
 #include "third_party/blink/renderer/core/workers/worker_settings.h"
@@ -25,7 +26,6 @@
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/fonts/text_run_paint_info.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_resource_provider.h"
-#include "third_party/blink/renderer/platform/graphics/graphics_types.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_canvas.h"
 #include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
 #include "third_party/blink/renderer/platform/graphics/static_bitmap_image.h"
@@ -97,10 +97,10 @@ OffscreenCanvasRenderingContext2D::~OffscreenCanvasRenderingContext2D() =
 OffscreenCanvasRenderingContext2D::OffscreenCanvasRenderingContext2D(
     OffscreenCanvas* canvas,
     const CanvasContextCreationAttributesCore& attrs)
-    : CanvasRenderingContext(canvas, attrs, CanvasRenderingAPI::k2D),
-      BaseRenderingContext2D(canvas->GetTopExecutionContext()->GetTaskRunner(
-          TaskType::kInternalDefault)),
-      color_params_(attrs.color_space, attrs.pixel_format, attrs.alpha) {
+    : BaseRenderingContext2D(canvas,
+                             attrs,
+                             canvas->GetTopExecutionContext()->GetTaskRunner(
+                                 TaskType::kInternalDefault)) {
   identifiability_study_helper_.SetExecutionContext(
       canvas->GetTopExecutionContext());
   is_valid_size_ = IsValidImageSize(Host()->Size());
@@ -124,7 +124,7 @@ OffscreenCanvasRenderingContext2D::OffscreenCanvasRenderingContext2D(
 }
 
 void OffscreenCanvasRenderingContext2D::Trace(Visitor* visitor) const {
-  CanvasRenderingContext::Trace(visitor);
+  ScriptWrappable::Trace(visitor);
   BaseRenderingContext2D::Trace(visitor);
 }
 
@@ -136,11 +136,6 @@ void OffscreenCanvasRenderingContext2D::FinalizeFrame(FlushReason reason) {
   if (!GetOrCreateCanvasResourceProvider())
     return;
   Host()->FlushRecording(reason);
-}
-
-CanvasRenderingContext2DSettings*
-OffscreenCanvasRenderingContext2D::getContextAttributes() const {
-  return ToCanvasRenderingContext2DSettings(CreationAttributes());
 }
 
 // BaseRenderingContext2D implementation
@@ -390,8 +385,8 @@ bool OffscreenCanvasRenderingContext2D::ResolveFont(const String& new_font) {
     if (!style) {
       return false;
     }
-    FontDescription desc =
-        FontStyleResolver::ComputeFont(*style, host->GetFontSelector());
+    FontDescription desc = FontStyleResolver::ComputeFont(
+        *style, host->GetFontSelector()->BaseFontSelector());
     if (use_locale) {
       desc.SetLocale(locale);
     }
@@ -480,12 +475,13 @@ OffscreenCanvas* OffscreenCanvasRenderingContext2D::HostAsOffscreenCanvas()
   return static_cast<OffscreenCanvas*>(Host());
 }
 
-FontSelector* OffscreenCanvasRenderingContext2D::GetFontSelector() const {
+UniqueFontSelector* OffscreenCanvasRenderingContext2D::GetFontSelector() const {
   return Host()->GetFontSelector();
 }
 
-int OffscreenCanvasRenderingContext2D::LayerCount() const {
-  return BaseRenderingContext2D::LayerCount();
+CanvasResourceProvider*
+OffscreenCanvasRenderingContext2D::GetOrCreateCanvas2DResourceProvider() {
+  return GetOrCreateCanvasResourceProvider();
 }
 
 }  // namespace blink

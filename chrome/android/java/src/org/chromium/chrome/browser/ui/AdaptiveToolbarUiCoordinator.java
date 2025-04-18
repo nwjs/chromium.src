@@ -20,7 +20,9 @@ import org.chromium.chrome.browser.bookmarks.BookmarkModel;
 import org.chromium.chrome.browser.bookmarks.TabBookmarker;
 import org.chromium.chrome.browser.commerce.CommerceBottomSheetContentController;
 import org.chromium.chrome.browser.commerce.CommerceBottomSheetContentCoordinator;
+import org.chromium.chrome.browser.commerce.CommerceBottomSheetContentProvider;
 import org.chromium.chrome.browser.commerce.ShoppingServiceFactory;
+import org.chromium.chrome.browser.commerce.coupons.DiscountsBottomSheetContentCoordinator;
 import org.chromium.chrome.browser.commerce.coupons.DiscountsButtonController;
 import org.chromium.chrome.browser.dom_distiller.ReaderModeToolbarButtonController;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -28,6 +30,7 @@ import org.chromium.chrome.browser.identity_disc.IdentityDiscController;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.omnibox.voice.VoiceRecognitionHandler;
 import org.chromium.chrome.browser.omnibox.voice.VoiceRecognitionHandler.VoiceInteractionSource;
+import org.chromium.chrome.browser.price_history.PriceHistoryBottomSheetContentCoordinator;
 import org.chromium.chrome.browser.price_insights.PriceInsightsButtonController;
 import org.chromium.chrome.browser.price_tracking.CurrentTabPriceTrackingStateSupplier;
 import org.chromium.chrome.browser.price_tracking.PriceTrackingBottomSheetContentCoordinator;
@@ -54,6 +57,7 @@ import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -73,6 +77,7 @@ public class AdaptiveToolbarUiCoordinator {
     private ObservableSupplier<Profile> mProfileSupplier;
     private Supplier<ScrimManager> mScrimSupplier;
     private CommerceBottomSheetContentCoordinator mCommerceBottomSheetContentCoordinator;
+    private Supplier<TabModelSelector> mTabModelSelectorSupplier;
 
     /**
      * Constructor.
@@ -110,6 +115,7 @@ public class AdaptiveToolbarUiCoordinator {
         mBottomSheetController = bottomSheetController;
         mProfileSupplier = profileSupplier;
         mScrimSupplier = scrimSupplier;
+        mTabModelSelectorSupplier = tabModelSelectorSupplier;
         IdentityDiscController identityDiscController =
                 new IdentityDiscController(mContext, activityLifecycleDispatcher, profileSupplier);
         mCurrentTabPriceTrackingStateSupplier =
@@ -182,7 +188,7 @@ public class AdaptiveToolbarUiCoordinator {
                         mContext,
                         activityLifecycleDispatcher,
                         profileSupplier,
-                        new AdaptiveButtonActionMenuCoordinator(),
+                        new AdaptiveButtonActionMenuCoordinator(toolbarBehavior.canShowSettings()),
                         toolbarBehavior,
                         windowAndroid);
         PageSummaryButtonController pageSummaryButtonController =
@@ -190,7 +196,7 @@ public class AdaptiveToolbarUiCoordinator {
                         mContext,
                         mModalDialogManagerSupplier.get(),
                         mActivityTabProvider,
-                        new AiAssistantService());
+                        AiAssistantService.getInstance());
 
         if (ChromeFeatureList.sEnableDiscountInfoApi.isEnabled()) {
             DiscountsButtonController discountsButtonController =
@@ -198,6 +204,7 @@ public class AdaptiveToolbarUiCoordinator {
                             mContext,
                             mActivityTabProvider,
                             mModalDialogManagerSupplier.get(),
+                            mBottomSheetController,
                             this::getCommerceBottomSheetContentController);
             adaptiveToolbarButtonController.addButtonVariant(
                     AdaptiveToolbarButtonVariant.DISCOUNTS, discountsButtonController);
@@ -309,18 +316,37 @@ public class AdaptiveToolbarUiCoordinator {
                 new PriceInsightsDelegateImpl(mContext, mCurrentTabPriceTrackingStateSupplier));
     }
 
+    private DiscountsBottomSheetContentCoordinator createDiscountsContentProvider() {
+        return new DiscountsBottomSheetContentCoordinator(mContext, mActivityTabProvider);
+    }
+
+    private PriceHistoryBottomSheetContentCoordinator createPriceHistoryContentProvider() {
+        return new PriceHistoryBottomSheetContentCoordinator(
+                mContext,
+                mActivityTabProvider,
+                mTabModelSelectorSupplier,
+                new PriceInsightsDelegateImpl(mContext, mCurrentTabPriceTrackingStateSupplier));
+    }
+
     @Nullable
     private CommerceBottomSheetContentController getCommerceBottomSheetContentController() {
+        // This flag is for discounts and commerce bottom sheet as a feature together.
         if (mCommerceBottomSheetContentCoordinator == null
-                // This flag is for discounts and commerce bottom sheet as a feature together.
                 && CommerceFeatureUtils.isDiscountInfoApiEnabled(
                         ShoppingServiceFactory.getForProfile(mProfileSupplier.get()))) {
+
+            List<Supplier<CommerceBottomSheetContentProvider>> contentProviderSuppliers =
+                    new ArrayList<>();
+            contentProviderSuppliers.add(this::createPriceTrackingContentProvider);
+            contentProviderSuppliers.add(this::createDiscountsContentProvider);
+            contentProviderSuppliers.add(this::createPriceHistoryContentProvider);
+
             mCommerceBottomSheetContentCoordinator =
                     new CommerceBottomSheetContentCoordinator(
                             mContext,
                             mBottomSheetController,
                             mScrimSupplier,
-                            this::createPriceTrackingContentProvider);
+                            contentProviderSuppliers);
         }
 
         return mCommerceBottomSheetContentCoordinator;

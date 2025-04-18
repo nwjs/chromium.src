@@ -13,7 +13,9 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "base/check_deref.h"
@@ -31,6 +33,7 @@
 #include "base/strings/strcat.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
+#include "base/strings/to_string.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
@@ -182,17 +185,28 @@ void LogSubmittedFormMetric(mojom::SubmissionSource source,
     kDomMutationAfterAutofill_Null = 18,
     kDomMutationAfterAutofill_Extracted = 19,
     kDomMutationAfterAutofill_Cached = 20,
-    kMaxValue = kDomMutationAfterAutofill_Cached
+    kTotal_Null = 21,
+    kTotal_Extracted = 22,
+    kTotal_Cached = 23,
+    kMaxValue = kTotal_Cached
   };
   static_assert(
       base::to_underlying(SubmittedFormTypeBySource::kMaxValue) + 1 ==
-          3 * (base::to_underlying(mojom::SubmissionSource::kMaxValue) + 1),
+          3 * (base::to_underlying(mojom::SubmissionSource::kMaxValue) + 2),
       "SubmittedFormTypeBySource should have three values for each value of "
-      "SubmissionSource");
+      "SubmissionSource in addition to three `Total` values");
+
+  using underlying_type = std::underlying_type_t<SubmittedFormTypeBySource>;
+  underlying_type source_bucket = base::to_underlying(source) * 3;
+  underlying_type total_bucket =
+      base::to_underlying(SubmittedFormTypeBySource::kTotal_Null);
+  underlying_type offset = base::to_underlying(type);
   base::UmaHistogramEnumeration(
       "Autofill.SubmissionDetection.SubmittedFormType",
-      static_cast<SubmittedFormTypeBySource>(base::to_underlying(source) * 3 +
-                                             base::to_underlying(type)));
+      static_cast<SubmittedFormTypeBySource>(source_bucket + offset));
+  base::UmaHistogramEnumeration(
+      "Autofill.SubmissionDetection.SubmittedFormType",
+      static_cast<SubmittedFormTypeBySource>(total_bucket + offset));
 }
 
 // For each field in the |form| sets the title to include the field's heuristic
@@ -254,6 +268,10 @@ bool ShowPredictions(const WebDocument& document,
                                       : "SERVER_RESPONSE_PENDING",
         "\nheuristic type: ",
         field.heuristic_type,
+        (!field.autofill_ai_type.empty() ? "\nautofill ai type: " : ""),
+        (!field.autofill_ai_type.empty() ? field.autofill_ai_type : ""),
+        (!field.format_string.empty() ? "\nformat string: " : ""),
+        (!field.format_string.empty() ? field.format_string : ""),
         "\nlabel: ",
         truncated_label,
         "\nparseable name: ",
@@ -282,9 +300,9 @@ bool ShowPredictions(const WebDocument& document,
         "\nfield renderer id: ",
         field_id_str,
         "\nvisible: ",
-        field_data.is_visible() ? "true" : "false",
+        base::ToString(field_data.is_visible()),
         "\nfocusable: ",
-        field_data.IsFocusable() ? "true" : "false",
+        base::ToString(field_data.IsFocusable()),
         "\nfield rank: ",
         base::NumberToString(field.rank),
         "\nfield rank in signature group: ",
@@ -599,6 +617,7 @@ void AutofillAgent::DidChangeScrollOffsetImpl(FieldRendererId element_id) {
           FindFormAndFieldForFormControlElement(
               element, field_data_manager(),
               GetCallTimerState(kDidChangeScrollOffsetImpl),
+              button_titles_cache(),
               MaybeExtractDatalist({form_util::ExtractOption::kBounds}),
               /*form_cache=*/{})) {
     auto& [form, field] = *form_and_field;
@@ -661,6 +680,7 @@ void AutofillAgent::FocusedElementChanged(
             FindFormAndFieldForFormControlElement(
                 control, field_data_manager(),
                 GetCallTimerState(kFocusedElementChanged),
+                button_titles_cache(),
                 MaybeExtractDatalist({form_util::ExtractOption::kBounds}),
                 /*form_cache=*/{})) {
       auto& [form, field] = *form_and_field;
@@ -723,6 +743,7 @@ void AutofillAgent::HandleCaretMovedInFormField(WebElement element,
               FindFormAndFieldForFormControlElement(
                   control, self.field_data_manager(),
                   self.GetCallTimerState(kHandleCaretMovedInFormField),
+                  self.button_titles_cache(),
                   self.MaybeExtractDatalist(
                       {form_util::ExtractOption::kBounds}),
                   /*form_cache=*/{})) {
@@ -769,7 +790,7 @@ void AutofillAgent::OnDestruct() {
 }
 
 void AutofillAgent::AccessibilityModeChanged(const ui::AXMode& mode) {
-  is_screen_reader_enabled_ = mode.has_mode(ui::AXMode::kScreenReader);
+  is_screen_reader_enabled_ = mode.has_mode(ui::AXMode::kExtendedProperties);
 }
 
 void AutofillAgent::FireHostSubmitEvents(const FormData& form_data,
@@ -821,8 +842,8 @@ void AutofillAgent::FireHostSubmitEvents(const FormData& form_data,
                                                   form_data, source);
   }
   if (!is_duplicate_submission_for_autofill) {
-    base::UmaHistogramEnumeration(kSubmissionSourceHistogram, source);
     if (auto* autofill_driver = unsafe_autofill_driver()) {
+      base::UmaHistogramEnumeration(kSubmissionSourceHistogram, source);
       autofill_driver->FormSubmitted(form_data, source);
     }
   }
@@ -923,6 +944,7 @@ void AutofillAgent::OnTextFieldValueChanged(
           FindFormAndFieldForFormControlElement(
               element, field_data_manager(),
               GetCallTimerState(kOnTextFieldValueChanged),
+              button_titles_cache(),
               MaybeExtractDatalist({form_util::ExtractOption::kBounds}),
               form_cache)) {
     auto& [form, field] = *form_and_field;
@@ -941,6 +963,7 @@ void AutofillAgent::OnSelectControlSelectionChanged(
           FindFormAndFieldForFormControlElement(
               element, field_data_manager(),
               GetCallTimerState(kOnProvisionallySaveForm),
+              button_titles_cache(),
               MaybeExtractDatalist({form_util::ExtractOption::kBounds}),
               form_cache)) {
     auto& [form, field] = *form_and_field;
@@ -1068,7 +1091,8 @@ void AutofillAgent::ApplyFieldsAction(
       if (extracted_form_ids.insert(filled_form_id).second) {
         std::optional<FormData> form = form_util::ExtractFormData(
             document, form_util::GetFormByRendererId(filled_form_id),
-            field_data_manager(), GetCallTimerState(kApplyFieldsAction));
+            field_data_manager(), GetCallTimerState(kApplyFieldsAction),
+            button_titles_cache());
         if (!form) {
           continue;
         }
@@ -1336,6 +1360,19 @@ void AutofillAgent::PreviewPasswordGenerationSuggestion(
   password_generation_agent_->PreviewGenerationSuggestion(password);
 }
 
+bool AutofillAgent::ShouldThrottleAskForValuesToFill(FieldRendererId field) {
+  static constexpr base::TimeDelta kThrottle = base::Milliseconds(100);
+  base::TimeTicks now = base::TimeTicks::Now();
+  if (field == last_ask_for_values_to_fill_.field &&
+      now - last_ask_for_values_to_fill_.time < kThrottle &&
+      base::FeatureList::IsEnabled(
+          features::kAutofillThrottleAskForValuesToFill)) {
+    return true;
+  }
+  last_ask_for_values_to_fill_ = {now, field};
+  return false;
+}
+
 void AutofillAgent::ShowSuggestions(
     const WebFormControlElement& element,
     AutofillSuggestionTriggerSource trigger_source,
@@ -1380,16 +1417,11 @@ void AutofillAgent::ShowSuggestions(
 
   last_queried_element_ = FieldRef(element);
 
-  // Manual fallbacks override any prioritization done based on the field type.
+  // Password manager takes precedence over Autofill, but not about manual
+  // fallbacks.
   // TODO(crbug.com/333990908): Test manual fallback on different form types.
-  if (IsPlusAddressesManuallyTriggered(trigger_source)) {
-    QueryAutofillSuggestions(element, trigger_source, form_cache);
-    return;
-  }
-
-  // Proceed with generating suggestions based on the field type.
-  if (const WebInputElement input_element =
-          element.DynamicTo<WebInputElement>()) {
+  if (auto input_element = element.DynamicTo<WebInputElement>();
+      input_element && !IsPlusAddressesManuallyTriggered(trigger_source)) {
     if (IsPasswordsAutofillManuallyTriggered(trigger_source)) {
       is_popup_possibly_visible_ = password_autofill_agent_->ShowSuggestions(
           input_element, trigger_source, form_cache);
@@ -1419,7 +1451,37 @@ void AutofillAgent::ShowSuggestions(
     }
   }
 
-  QueryAutofillSuggestions(element, trigger_source, form_cache);
+  if (config_.secure_context_required &&
+      !element.GetDocument().IsSecureContext()) {
+    LOG(WARNING) << "Autofill suggestions are disabled because the document "
+                    "isn't a secure context.";
+    return;
+  }
+
+  std::optional<FormAndField> form_and_field =
+      form_util::FindFormAndFieldForFormControlElement(
+          element, field_data_manager(),
+          GetCallTimerState(kQueryAutofillSuggestions), button_titles_cache(),
+          {form_util::ExtractOption::kDatalist,
+           form_util::ExtractOption::kBounds},
+          form_cache);
+  if (!form_and_field) {
+    return;
+  }
+  auto& [form, field] = *form_and_field;
+
+  if (ShouldThrottleAskForValuesToFill(field->renderer_id())) {
+    return;
+  }
+
+  is_popup_possibly_visible_ = true;
+  if (auto* autofill_driver = unsafe_autofill_driver()) {
+    if (auto* render_frame = unsafe_render_frame()) {
+      autofill_driver->AskForValuesToFill(form, field->renderer_id(),
+                                          GetCaretBounds(*render_frame),
+                                          trigger_source);
+    }
+  }
 }
 
 void AutofillAgent::ShowSuggestionsForContentEditable(
@@ -1429,13 +1491,20 @@ void AutofillAgent::ShowSuggestionsForContentEditable(
   if (!form) {
     return;
   }
+
   CHECK_EQ(form->fields().size(), 1u);
+  const FormFieldData& field = form->fields()[0];
+
+  if (ShouldThrottleAskForValuesToFill(field.renderer_id())) {
+    return;
+  }
+
   if (auto* autofill_driver = unsafe_autofill_driver()) {
     is_popup_possibly_visible_ = true;
     if (auto* render_frame = unsafe_render_frame()) {
-      autofill_driver->AskForValuesToFill(
-          *form, form->fields()[0].renderer_id(), GetCaretBounds(*render_frame),
-          trigger_source);
+      autofill_driver->AskForValuesToFill(*form, field.renderer_id(),
+                                          GetCaretBounds(*render_frame),
+                                          trigger_source);
     }
   }
 }
@@ -1450,42 +1519,6 @@ void AutofillAgent::GetPotentialLastFourCombinationsForStandaloneCvc(
   } else {
     form_util::TraverseDomForFourDigitCombinations(
         document, std::move(potential_matches));
-  }
-}
-
-void AutofillAgent::QueryAutofillSuggestions(
-    const WebFormControlElement& element,
-    AutofillSuggestionTriggerSource trigger_source,
-    const SynchronousFormCache& form_cache) {
-  DCHECK(element.DynamicTo<WebInputElement>() ||
-         form_util::IsTextAreaElement(element));
-
-  std::optional<FormAndField> form_and_field =
-      form_util::FindFormAndFieldForFormControlElement(
-          element, field_data_manager(),
-          GetCallTimerState(kQueryAutofillSuggestions),
-          {form_util::ExtractOption::kDatalist,
-           form_util::ExtractOption::kBounds},
-          form_cache);
-  if (!form_and_field) {
-    return;
-  }
-  auto& [form, field] = *form_and_field;
-
-  if (config_.secure_context_required &&
-      !element.GetDocument().IsSecureContext()) {
-    LOG(WARNING) << "Autofill suggestions are disabled because the document "
-                    "isn't a secure context.";
-    return;
-  }
-
-  is_popup_possibly_visible_ = true;
-  if (auto* autofill_driver = unsafe_autofill_driver()) {
-    if (auto* render_frame = unsafe_render_frame()) {
-      autofill_driver->AskForValuesToFill(form, field->renderer_id(),
-                                          GetCaretBounds(*render_frame),
-                                          trigger_source);
-    }
   }
 }
 
@@ -1524,7 +1557,8 @@ void AutofillAgent::ExtractForm(
   if (!form_id) {
     if (std::optional<FormData> form = form_util::ExtractFormData(
             document, WebFormElement(), field_data_manager(),
-            GetCallTimerState(kExtractForm), extract_options)) {
+            GetCallTimerState(kExtractForm), button_titles_cache(),
+            extract_options)) {
       std::move(callback).Run(std::move(form));
       return;
     }
@@ -1532,7 +1566,8 @@ void AutofillAgent::ExtractForm(
   if (WebFormElement form_element = form_util::GetFormByRendererId(form_id)) {
     if (std::optional<FormData> form = form_util::ExtractFormData(
             document, form_element, field_data_manager(),
-            GetCallTimerState(kExtractForm), extract_options)) {
+            GetCallTimerState(kExtractForm), button_titles_cache(),
+            extract_options)) {
       std::move(callback).Run(std::move(form));
       return;
     }
@@ -1815,6 +1850,7 @@ void AutofillAgent::BatchSelectOptionChange(FieldRendererId element_id) {
           form_util::FindFormAndFieldForFormControlElement(
               element, field_data_manager(),
               GetCallTimerState(kBatchSelectOptionChange),
+              button_titles_cache(),
               /*extract_options=*/{}, /*form_cache=*/{})) {
     auto& [form, field] = *form_and_field;
     if (auto* autofill_driver = unsafe_autofill_driver();
@@ -1940,7 +1976,7 @@ void AutofillAgent::JavaScriptChangedValue(WebFormControlElement element,
   if (std::optional<FormAndField> form_and_field =
           form_util::FindFormAndFieldForFormControlElement(
               element, field_data_manager(),
-              GetCallTimerState(kJavaScriptChangedValue),
+              GetCallTimerState(kJavaScriptChangedValue), button_titles_cache(),
               /*extract_options=*/{}, /*form_cache=*/{})) {
     auto& [form, field] = *form_and_field;
     if (auto* autofill_driver = unsafe_autofill_driver()) {
@@ -2089,17 +2125,22 @@ void AutofillAgent::UpdateStateForTextChange(
 
 std::optional<FormData> AutofillAgent::GetSubmittedForm(
     mojom::SubmissionSource source,
-    std::optional<WebFormElement> submitted_form_element) const {
+    std::optional<WebFormElement> submitted_form_element) {
+  std::optional<FormData> cached_form = provisionally_saved_form();
+  const bool cache_matches_submitted_form_element =
+      !submitted_form_element.has_value() || !cached_form ||
+      cached_form->renderer_id() ==
+          form_util::GetFormRendererId(*submitted_form_element);
+
   // Behavior when `AutofillReplaceFormElementObserver` is enabled:
   // - Never try to extract and unconditionally look at the provisionally saved
   //   form. The reason is that some form extraction could happen during style
   //   recalc, meaning that querying field focusability would crash.
   if (base::FeatureList::IsEnabled(
           features::kAutofillReplaceFormElementObserver)) {
-    LogSubmittedFormMetric(source, provisionally_saved_form()
-                                       ? SubmittedFormType::kCached
-                                       : SubmittedFormType::kNull);
-    return provisionally_saved_form();
+    LogSubmittedFormMetric(source, cached_form ? SubmittedFormType::kCached
+                                               : SubmittedFormType::kNull);
+    return cached_form;
   }
 
   // Behavior when the submission is a result of a detached iframe:
@@ -2108,11 +2149,18 @@ std::optional<FormData> AutofillAgent::GetSubmittedForm(
   // TODO(crbug.com/40281981): Investigate following the default behavior for
   // this source (i.e. trying to extract anyways).
   if (source == mojom::SubmissionSource::FRAME_DETACHED) {
-    LogSubmittedFormMetric(source, provisionally_saved_form()
-                                       ? SubmittedFormType::kCached
-                                       : SubmittedFormType::kNull);
-    return provisionally_saved_form();
+    LogSubmittedFormMetric(source, cached_form ? SubmittedFormType::kCached
+                                               : SubmittedFormType::kNull);
+    return cached_form;
   }
+
+  WebDocument document = GetDocument();
+  std::optional<FormData> extracted_form = form_util::ExtractFormData(
+      document,
+      submitted_form_element.has_value() ? *submitted_form_element
+                                         : last_interacted_form().GetForm(),
+      field_data_manager(), GetCallTimerState(kGetSubmittedForm),
+      button_titles_cache());
 
   // Behavior when `AutofillPreferSavedFormAsSubmittedForm` is enabled
   // (and the feature above is disabled):
@@ -2123,26 +2171,14 @@ std::optional<FormData> AutofillAgent::GetSubmittedForm(
   //   `last_interacted_form()` or `form_element` if provided).
   if (base::FeatureList::IsEnabled(
           features::kAutofillPreferSavedFormAsSubmittedForm)) {
-    if (std::optional<FormData> form = provisionally_saved_form();
-        form && (!submitted_form_element.has_value() ||
-                 form->renderer_id() ==
-                     form_util::GetFormRendererId(*submitted_form_element))) {
+    if (cached_form && cache_matches_submitted_form_element) {
       LogSubmittedFormMetric(source, SubmittedFormType::kCached);
-      return form;
+      return cached_form;
     }
-    if (WebDocument document = GetDocument()) {
-      if (std::optional<FormData> form = form_util::ExtractFormData(
-              document,
-              submitted_form_element.has_value()
-                  ? *submitted_form_element
-                  : last_interacted_form().GetForm(),
-              field_data_manager(), GetCallTimerState(kGetSubmittedForm))) {
-        LogSubmittedFormMetric(source, SubmittedFormType::kExtracted);
-        return form;
-      }
-    }
-    LogSubmittedFormMetric(source, SubmittedFormType::kNull);
-    return std::nullopt;
+    LogSubmittedFormMetric(source, extracted_form
+                                       ? SubmittedFormType::kExtracted
+                                       : SubmittedFormType::kNull);
+    return extracted_form;
   }
 
   // Behavior when `AutofillUseSubmittedFormInHtmlSubmission` is enabled
@@ -2154,17 +2190,13 @@ std::optional<FormData> AutofillAgent::GetSubmittedForm(
   if (submitted_form_element.has_value() &&
       base::FeatureList::IsEnabled(
           features::kAutofillUseSubmittedFormInHtmlSubmission)) {
-    if (std::optional<FormData> form = form_util::ExtractFormData(
-            submitted_form_element->GetDocument(), *submitted_form_element,
-            field_data_manager(), GetCallTimerState(kGetSubmittedForm))) {
+    if (extracted_form) {
       LogSubmittedFormMetric(source, SubmittedFormType::kExtracted);
-      return form;
+      return extracted_form;
     }
-    if (std::optional<FormData> form = provisionally_saved_form();
-        form && form->renderer_id() ==
-                    form_util::GetFormRendererId(*submitted_form_element)) {
+    if (cached_form && cache_matches_submitted_form_element) {
       LogSubmittedFormMetric(source, SubmittedFormType::kCached);
-      return form;
+      return cached_form;
     }
     LogSubmittedFormMetric(source, SubmittedFormType::kNull);
     return std::nullopt;
@@ -2176,12 +2208,10 @@ std::optional<FormData> AutofillAgent::GetSubmittedForm(
       !base::FeatureList::IsEnabled(
           features::kAutofillUseSubmittedFormInHtmlSubmission)) {
     CHECK(submitted_form_element);
-    std::optional<FormData> form = form_util::ExtractFormData(
-        submitted_form_element->GetDocument(), *submitted_form_element,
-        field_data_manager(), GetCallTimerState(kGetSubmittedForm));
-    LogSubmittedFormMetric(source, form ? SubmittedFormType::kExtracted
-                                        : SubmittedFormType::kNull);
-    return form;
+    LogSubmittedFormMetric(source, extracted_form
+                                       ? SubmittedFormType::kExtracted
+                                       : SubmittedFormType::kNull);
+    return extracted_form;
   }
 
   auto has_been_user_edited = [this](const FormFieldData& field) {
@@ -2193,7 +2223,6 @@ std::optional<FormData> AutofillAgent::GetSubmittedForm(
   bool user_edited_unowned_form = !user_autofilled_or_edited_owned_form &&
                                   !user_autofilled_unowned_form &&
                                   !formless_elements_user_edited_.empty();
-  WebDocument document = GetDocument();
   if ((!user_autofilled_or_edited_owned_form && !user_autofilled_unowned_form &&
        !user_edited_unowned_form) ||
       !document) {
@@ -2202,19 +2231,17 @@ std::optional<FormData> AutofillAgent::GetSubmittedForm(
   }
 
   // Try extracting the corresponding form.
-  if (std::optional<FormData> form = form_util::ExtractFormData(
-          document, last_interacted_form().GetForm(), field_data_manager(),
-          GetCallTimerState(kGetSubmittedForm));
-      form && (!user_edited_unowned_form ||
-               !std::ranges::none_of(form->fields(), has_been_user_edited))) {
+  if (extracted_form &&
+      (!user_edited_unowned_form ||
+       !std::ranges::none_of(extracted_form->fields(), has_been_user_edited))) {
     LogSubmittedFormMetric(source, SubmittedFormType::kExtracted);
-    return form;
+    return extracted_form;
   }
 
   // If extraction fails, fallback to the provisionally saved form.
-  if (std::optional<FormData> form = provisionally_saved_form()) {
+  if (cached_form) {
     LogSubmittedFormMetric(source, SubmittedFormType::kCached);
-    return form;
+    return cached_form;
   }
   LogSubmittedFormMetric(source, SubmittedFormType::kNull);
   return std::nullopt;
@@ -2227,7 +2254,7 @@ void AutofillAgent::ResetLastInteractedElements() {
 }
 
 void AutofillAgent::UpdateLastInteractedElement(
-    absl::variant<FormRendererId, FieldRendererId> element_id) {
+    std::variant<FormRendererId, FieldRendererId> element_id) {
   form_tracker_->UpdateLastInteractedElement(element_id);
 }
 

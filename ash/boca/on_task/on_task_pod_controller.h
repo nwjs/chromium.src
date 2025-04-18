@@ -22,8 +22,33 @@ class OnTaskPodController {
   // Configures the snap location for the current pod instance.
   virtual void SetSnapLocation(OnTaskPodSnapLocation snap_location) = 0;
 
+  // Attempts to navigate back to the previous page.
+  virtual void MaybeNavigateToPreviousPage() = 0;
+
+  // Attempts to navigate forward to the next page.
+  virtual void MaybeNavigateToNextPage() = 0;
+
   // Attempts to reload the current page.
   virtual void ReloadCurrentPage() = 0;
+
+  // Attempts to show or hide the tab strip.
+  virtual void ToggleTabStripVisibility(bool show) = 0;
+
+  // Notifies pod widget when the app is paused or unpaused.
+  virtual void OnPauseModeChanged() = 0;
+
+  // Notifies pod widget when there is an update in the page navigation context
+  // (tab switch, URL navigation, etc.).
+  virtual void OnPageNavigationContextChanged() = 0;
+
+  // Whether the boca browser can navigate to the previous page.
+  virtual bool CanNavigateToPreviousPage() = 0;
+
+  // Whether the boca browser can navigate to the next page.
+  virtual bool CanNavigateToNextPage() = 0;
+
+  // Whether the show or hide tab button should be enabled or not.
+  virtual bool CanToggleTabStripVisibility() = 0;
 
  protected:
   OnTaskPodController() = default;

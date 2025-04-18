@@ -24,6 +24,7 @@
 #include "components/account_id/account_id.h"
 #include "components/gcm_driver/fake_gcm_driver.h"
 #include "components/gcm_driver/instance_id/instance_id_driver.h"
+#include "components/prefs/testing_pref_service.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "google_apis/common/request_sender.h"
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
@@ -108,7 +109,8 @@ class BocaManagerTest : public testing::Test {
     session_client_impl_ =
         std::make_unique<StrictMock<MockSessionClientImpl>>(nullptr);
     boca_session_manager_ = std::make_unique<boca::BocaSessionManager>(
-        session_client_impl_.get(), AccountId::FromUserEmail(kTestEmail),
+        session_client_impl_.get(), /*pref_service=*/nullptr,
+        AccountId::FromUserEmail(kTestEmail),
         /*is_producer=*/false);
     invalidation_service_impl_ =
         std::make_unique<boca::InvalidationServiceImpl>(
@@ -157,7 +159,7 @@ class BocaManagerProducerTest : public BocaManagerTest {
         std::move(session_client_impl_), std::move(boca_session_manager_),
         std::move(invalidation_service_impl_),
         std::make_unique<boca::BabelOrcaManager>(
-            identity_test_env_.identity_manager(),
+            &pref_service_, identity_test_env_.identity_manager(),
             url_loader_factory_.GetSafeWeakWrapper(),
             GetBabelOrcaControllerFactory()),
         std::make_unique<boca::BocaMetricsManager>(/*is_producer=*/true),
@@ -166,6 +168,7 @@ class BocaManagerProducerTest : public BocaManagerTest {
             /*spotlight_crd_manager=*/nullptr, /*spotlight_service=*/nullptr));
   }
   std::unique_ptr<BocaManager> boca_manager_;
+  TestingPrefServiceSimple pref_service_;
 };
 
 TEST_F(BocaManagerProducerTest, VerifyOnTaskObserverNotAddedForProducer) {
@@ -211,7 +214,7 @@ class BocaManagerConsumerTest : public BocaManagerTest {
         std::move(session_client_impl_), std::move(boca_session_manager_),
         std::move(invalidation_service_impl_),
         std::make_unique<boca::BabelOrcaManager>(
-            identity_test_env_.identity_manager(),
+            &pref_service_, identity_test_env_.identity_manager(),
             url_loader_factory_.GetSafeWeakWrapper(),
             GetBabelOrcaControllerFactory()),
         std::make_unique<boca::BocaMetricsManager>(/*is_producer=*/false),
@@ -220,6 +223,7 @@ class BocaManagerConsumerTest : public BocaManagerTest {
             /*spotlight_crd_manager=*/nullptr, /*spotlight_service=*/nullptr));
   }
   std::unique_ptr<BocaManager> boca_manager_;
+  TestingPrefServiceSimple pref_service_;
 };
 
 TEST_F(BocaManagerConsumerTest, VerifyOnTaskObserverHasAddedForConsumer) {

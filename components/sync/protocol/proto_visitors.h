@@ -12,6 +12,7 @@
 #include "components/sync/protocol/arc_package_specifics.pb.h"
 #include "components/sync/protocol/autofill_offer_specifics.pb.h"
 #include "components/sync/protocol/autofill_specifics.pb.h"
+#include "components/sync/protocol/autofill_valuable_specifics.pb.h"
 #include "components/sync/protocol/autofill_wallet_credential_specifics.pb.h"
 #include "components/sync/protocol/autofill_wallet_usage_specifics.pb.h"
 #include "components/sync/protocol/bookmark_specifics.pb.h"
@@ -722,7 +723,7 @@ VISIT_PROTO_FIELDS(
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::EntitySpecifics& proto) {
-  static_assert(54 == GetNumDataTypes(),
+  static_assert(55 == GetNumDataTypes(),
                 "When adding a new protocol type, you will likely need to add "
                 "it here as well.");
   VISIT(encrypted);
@@ -731,9 +732,9 @@ VISIT_PROTO_FIELDS(const sync_pb::EntitySpecifics& proto) {
   VISIT(app_setting);
   VISIT(arc_package);
   VISIT(autofill);
-  VISIT(autofill_loyalty_card);
   VISIT(autofill_offer);
   VISIT(autofill_profile);
+  VISIT(autofill_valuable);
   VISIT(autofill_wallet);
   VISIT(autofill_wallet_credential);
   VISIT(autofill_wallet_usage);
@@ -768,6 +769,7 @@ VISIT_PROTO_FIELDS(const sync_pb::EntitySpecifics& proto) {
   VISIT(security_event);
   VISIT(send_tab_to_self);
   VISIT(session);
+  VISIT(shared_tab_group_account_data);
   VISIT(shared_tab_group_data);
   VISIT(sharing_message);
   VISIT(theme);
@@ -1994,11 +1996,28 @@ VISIT_PROTO_FIELDS(
   VISIT(is_collapsed);
 }
 
-VISIT_PROTO_FIELDS(const sync_pb::AutofillLoyaltyCardSpecifics& proto) {
-  VISIT(uuid);
+VISIT_PROTO_FIELDS(const sync_pb::AutofillValuableSpecifics& proto) {
+  VISIT(id);
+  VISIT(loyalty_card);
+}
+
+VISIT_PROTO_FIELDS(
+    const sync_pb::AutofillValuableSpecifics::LoyaltyCard& proto) {
   VISIT(merchant_name);
   VISIT(program_name);
   VISIT(program_logo);
+  VISIT(loyalty_card_suffix);
+}
+
+VISIT_PROTO_FIELDS(const sync_pb::SharedTabDetails& proto) {
+  VISIT(shared_tab_group_guid);
+  VISIT(last_seen_timestamp_windows_epoch);
+}
+
+VISIT_PROTO_FIELDS(const sync_pb::SharedTabGroupAccountDataSpecifics& proto) {
+  VISIT(guid);
+  VISIT(collaboration_id);
+  VISIT(shared_tab_details);
 }
 
 }  // namespace syncer

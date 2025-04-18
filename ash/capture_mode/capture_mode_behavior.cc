@@ -19,9 +19,11 @@
 #include "ash/capture_mode/normal_capture_bar_view.h"
 #include "ash/capture_mode/sunfish_capture_bar_view.h"
 #include "ash/constants/ash_features.h"
+#include "ash/constants/ash_pref_names.h"
 #include "ash/projector/projector_controller_impl.h"
 #include "ash/public/cpp/capture_mode/capture_mode_api.h"
 #include "ash/scanner/scanner_controller.h"
+#include "ash/scanner/scanner_disclaimer.h"
 #include "ash/session/session_controller_impl.h"
 #include "ash/shelf/shelf.h"
 #include "ash/shelf/shelf_layout_manager.h"
@@ -36,6 +38,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/notreached.h"
 #include "base/task/single_thread_task_runner.h"
+#include "components/prefs/pref_service.h"
 #include "ui/aura/window_observer.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/message_center/public/cpp/notification.h"
@@ -346,12 +349,8 @@ class SunfishBehavior : public CaptureModeBehavior {
   ~SunfishBehavior() override = default;
 
   // CaptureModeBehavior:
-  void AttachToSession() override {
-    CaptureModeBehavior::AttachToSession();
-    if (auto* scanner_controller = Shell::Get()->scanner_controller()) {
-      scanner_controller->StartNewSession();
-    }
-  }
+  // The Scanner session is started from
+  // `CaptureModeController::MaybeShowScannerDisclaimerOnSunfishStartup`.
   void DetachFromSession() override {
     CaptureModeBehavior::DetachFromSession();
     if (auto* scanner_controller = Shell::Get()->scanner_controller()) {
@@ -383,8 +382,32 @@ class SunfishBehavior : public CaptureModeBehavior {
   bool ShouldPaintSunfishCaptureRegion() const override { return true; }
   bool CanShowActionButtons() const override { return true; }
   bool ShouldEndSessionOnSearchResultClicked() const override { return true; }
+  bool NeedsDisclaimerOnInit() const override {
+    // Return true if Scanner is enabled and any type of disclaimer should be
+    // shown at the start of a Sunfish-session.
+    return ScannerController::CanShowUiForShell() &&
+           GetScannerDisclaimerType(
+               *capture_mode_util::GetActiveUserPrefService(),
+               ScannerEntryPoint::kSunfishSession) !=
+               ScannerDisclaimerType::kNone;
+  }
+  bool ShouldAnnounceCaptureModeUIOnDisclaimerDismissed() const override {
+    return true;
+  }
   const std::u16string GetCaptureLabelRegionText() const override {
     return l10n_util::GetStringUTF16(IDS_ASH_SUNFISH_CAPTURE_LABEL);
+  }
+  const std::u16string GetActionButtonContainerTitle() const override {
+    return l10n_util::GetStringUTF16(
+        IDS_ASH_SCREEN_CAPTURE_SUNFISH_ACTION_BUTTON_WINDOW_TITLE);
+  }
+  const std::u16string GetCaptureModeBarTitle() const override {
+    // The capture mode bar window does not need a title for Sunfish behavior
+    // since it only contains a close button.
+    return u"";
+  }
+  const std::string GetCaptureModeOpenAnnouncement() const override {
+    return l10n_util::GetStringUTF8(IDS_ASH_SUNFISH_MODE_ALERT_OPEN);
   }
   int GetCaptureBarWidth() const override {
     // Return the height so the button is circular.
@@ -579,6 +602,15 @@ bool CaptureModeBehavior::ShouldEndSessionOnSearchResultClicked() const {
   return false;
 }
 
+bool CaptureModeBehavior::NeedsDisclaimerOnInit() const {
+  return false;
+}
+
+bool CaptureModeBehavior::ShouldAnnounceCaptureModeUIOnDisclaimerDismissed()
+    const {
+  return false;
+}
+
 void CaptureModeBehavior::CreateCaptureFolder(
     OnCaptureFolderCreatedCallback callback) {
   NOTREACHED();
@@ -621,6 +653,40 @@ const std::u16string CaptureModeBehavior::GetCaptureLabelRegionText() const {
       controller->type() == CaptureModeType::kImage
           ? IDS_ASH_SCREEN_CAPTURE_LABEL_REGION_IMAGE_CAPTURE
           : IDS_ASH_SCREEN_CAPTURE_LABEL_REGION_VIDEO_RECORD);
+}
+
+const std::u16string CaptureModeBehavior::GetActionButtonContainerTitle()
+    const {
+  return l10n_util::GetStringUTF16(
+      IDS_ASH_SCREEN_CAPTURE_DEFAULT_ACTION_BUTTON_WINDOW_TITLE);
+}
+
+const std::u16string CaptureModeBehavior::GetCaptureModeBarTitle() const {
+  return l10n_util::GetStringUTF16(IDS_ASH_SCREEN_CAPTURE_A11Y_TITLE);
+}
+
+const std::string CaptureModeBehavior::GetCaptureModeOpenAnnouncement() const {
+  CaptureModeController* controller = CaptureModeController::Get();
+  int capture_source_id;
+  switch (controller->source()) {
+    case CaptureModeSource::kFullscreen:
+      capture_source_id = IDS_ASH_SCREEN_CAPTURE_SOURCE_FULLSCREEN;
+      break;
+    case CaptureModeSource::kRegion:
+      capture_source_id = IDS_ASH_SCREEN_CAPTURE_SOURCE_PARTIAL;
+      break;
+    case CaptureModeSource::kWindow:
+      capture_source_id = IDS_ASH_SCREEN_CAPTURE_SOURCE_WINDOW;
+      break;
+  }
+
+  return l10n_util::GetStringFUTF8(
+      IDS_ASH_SCREEN_CAPTURE_ALERT_OPEN,
+      l10n_util::GetStringUTF16(capture_source_id),
+      l10n_util::GetStringUTF16(
+          controller->type() == CaptureModeType::kImage
+              ? IDS_ASH_SCREEN_CAPTURE_TYPE_SCREENSHOT
+              : IDS_ASH_SCREEN_CAPTURE_TYPE_SCREEN_RECORDING));
 }
 
 std::unique_ptr<CaptureModeBarView>

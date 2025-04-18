@@ -12,6 +12,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -20,6 +21,7 @@
 #include "base/base64.h"
 #include "base/check.h"
 #include "base/containers/contains.h"
+#include "base/containers/flat_set.h"
 #include "base/feature_list.h"
 #include "base/functional/callback_helpers.h"
 #include "base/json/json_writer.h"
@@ -1781,7 +1783,6 @@ class MockTrustedSignalsCacheImpl : public TrustedSignalsCacheImpl {
 
   MockTrustedSignalsCacheImpl()
       : TrustedSignalsCacheImpl(
-            /*url_loader_factory=*/nullptr,
             base::BindRepeating(
                 &MockTrustedSignalsCacheImpl::GetCoordinatorKeyCallback,
                 base::Unretained(this))) {}
@@ -1868,6 +1869,7 @@ class MockTrustedSignalsCacheImpl : public TrustedSignalsCacheImpl {
     void FetchBiddingSignals(
         network::mojom::URLLoaderFactory* url_loader_factory,
         FrameTreeNodeId /*frame_tree_node_id*/,
+        base::flat_set<std::string> /*devtools_auction_ids*/,
         const url::Origin& main_frame_origin,
         network::mojom::IPAddressSpace /*ip_address_space*/,
         base::UnguessableToken /*network_partition_nonce*/,
@@ -1904,6 +1906,7 @@ class MockTrustedSignalsCacheImpl : public TrustedSignalsCacheImpl {
     void FetchScoringSignals(
         network::mojom::URLLoaderFactory* url_loader_factory,
         FrameTreeNodeId /*frame_tree_node_id*/,
+        base::flat_set<std::string> /*devtools_auction_ids*/,
         const url::Origin& main_frame_origin,
         network::mojom::IPAddressSpace /*ip_address_space*/,
         base::UnguessableToken /*network_partition_nonce*/,
@@ -2028,8 +2031,8 @@ class AuctionRunnerTest : public RenderViewHostTestHarness,
       enabled_features.push_back(
           {blink::features::kPrivateAggregationApi,
            {{"fledge_extensions_enabled",
-             should_enable_private_aggregation_fledge_extension ? "true"
-                                                                : "false"}}});
+             base::ToString(
+                 should_enable_private_aggregation_fledge_extension)}}});
       enabled_features.push_back(
           {blink::features::
                kPrivateAggregationApiProtectedAudienceAdditionalExtensions,
@@ -2679,8 +2682,12 @@ class AuctionRunnerTest : public RenderViewHostTestHarness,
     StorageInterestGroup storage_group;
     storage_group.interest_group = std::move(interest_group);
     storage_group.bidding_browser_signals =
-        blink::mojom::BiddingBrowserSignals::New(3, 5, std::move(previous_wins),
-                                                 false);
+        blink::mojom::BiddingBrowserSignals::New(
+            3, 5, std::move(previous_wins), false,
+            /*click_and_view_counts=*/
+            blink::mojom::ViewAndClickCounts::New(
+                /*view_counts=*/blink::mojom::ViewOrClickCounts::New(),
+                /*click_counts=*/blink::mojom::ViewOrClickCounts::New()));
     storage_group.joining_origin = storage_group.interest_group.owner;
     return storage_group;
   }
@@ -2902,7 +2909,7 @@ class AuctionRunnerTest : public RenderViewHostTestHarness,
   std::optional<std::string> GetCookieDeprecationLabel() override {
     return std::nullopt;
   }
-  void GetBiddingAndAuctionServerKey(
+  void GetTrustedKeyValueServerKey(
       const url::Origin& scope_origin,
       const std::optional<url::Origin>& coordinator,
       base::OnceCallback<void(base::expected<BiddingAndAuctionServerKey,
@@ -3302,7 +3309,7 @@ class AuctionRunnerTest : public RenderViewHostTestHarness,
     SCOPED_TRACE(location.ToString());
     using UkmEntry = ukm::builders::AdsInterestGroup_AuctionLatency_V2;
     ukm::TestUkmRecorder::HumanReadableUkmMetrics ukm_metrics = GetUkmMetrics();
-    histogram_tester_->ExpectUniqueSample("Ads.InterestGroup.Auction.Result",
+    histogram_tester_->ExpectUniqueSample("Ads.InterestGroup.Auction.Result2",
                                           expectations.result, 1);
     EXPECT_THAT(ukm_metrics,
                 HasMetricWithValue(UkmEntry::kResultName,
@@ -3392,7 +3399,8 @@ class AuctionRunnerTest : public RenderViewHostTestHarness,
 
     histogram_tester_->ExpectTotalCount(
         "Ads.InterestGroup.Auction.AbortTime",
-        expectations.result == AuctionResult::kAborted);
+        expectations.result == AuctionResult::kDocumentDestruction ||
+            expectations.result == AuctionResult::kAbortSignal);
     histogram_tester_->ExpectTotalCount(
         "Ads.InterestGroup.Auction.CompletedWithoutWinnerTime",
         expectations.result == AuctionResult::kNoBids ||
@@ -24935,6 +24943,66 @@ TEST_P(AuctionRunnerKAnonTest, NoNonKAnonWinner) {
   EXPECT_THAT(result_.errors, testing::ElementsAre());
 }
 
+// No non-k-anon winner is sometimes possible with targetNumAdComponents
+// See https://crbug.com/367302752
+TEST_P(AuctionRunnerKAnonTest, NoNonKAnonWinner2) {
+  if (kanon_mode() != KAnonMode::kEnforce) {
+    return;
+  }
+
+  std::vector<StorageInterestGroup> bidders;
+  bidders.emplace_back(MakeInterestGroup(
+      kBidder1, kBidder1Name, kBidder1Url,
+      /*trusted_bidding_signals_url=*/std::nullopt,
+      /*trusted_bidding_signals_keys=*/{}, GURL("https://ad1.com"),
+      std::make_optional(std::vector<GURL>(
+          {GURL("https://ad1.com/1"), GURL("https://ad1.com/2")}))));
+
+  const char kGenerateBidScript[] = R"(
+    function generateBid(interestGroup, auctionSignals, perBuyerSignals,
+                         trustedBiddingSignals, browserSignals) {
+      return {
+        bid: 5,
+        render: {url: "https://ad1.com/"},
+        adComponents: [
+          "https://ad1.com/1",
+          "https://ad1.com/2",
+        ],
+        targetNumAdComponents: 1
+      };
+    }
+  )";
+
+  const char kScoreAdScript[] = R"(
+    function scoreAd(adMetadata, bid, auctionConfig, trustedScoringSignals,
+                      browserSignals) {
+      if (browserSignals.adComponents[0] === 'https://ad1.com/1') {
+        return -1;
+      }
+      return {desirability: bid,
+              allowComponentAuction: true,
+              ad: adMetadata};
+    }
+  )";
+
+  auction_worklet::AddJavascriptResponse(
+      &url_loader_factory_, kBidder1Url,
+      std::string(kGenerateBidScript) + kSimpleReportWin);
+  auction_worklet::AddJavascriptResponse(
+      &url_loader_factory_, kSellerUrl,
+      std::string(kScoreAdScript) + kBasicReportResult);
+
+  // Don't authorize the first ad component, but do authorize others.
+  AuthorizeKAnonAd(bidders[0].interest_group.ads.value()[0], "https://ad1.com/",
+                   bidders[0]);
+  AuthorizeKAnonAdComponent(bidders[0].interest_group.ad_components.value()[1],
+                            "https://ad1.com/2", bidders[0]);
+
+  StartAuction(kSellerUrl, bidders);
+  auction_run_loop_->Run();
+  EXPECT_THAT(result_.errors, testing::ElementsAre());
+}
+
 // Test where the k-anon ad has a higher bid.
 TEST_P(AuctionRunnerKAnonTest, KAnonHigher) {
   auction_worklet::AddJavascriptResponse(
@@ -25404,7 +25472,7 @@ TEST_P(AuctionRunnerKAnonTest, FailureHandling) {
               testing::ElementsAre());
   histogram_tester_->ExpectUniqueSample(
       "Ads.InterestGroup.Auction.NonKAnonWinnerIsKAnon", false, 0);
-  MetricsExpectations expectations(AuctionResult::kAborted);
+  MetricsExpectations expectations(AuctionResult::kDocumentDestruction);
   expectations.SetNumInterestGroups(2)
       .SetNumOwnersAndDistinctOwners(2)
       .SetNumOwnersWithoutInterestGroups(0)
@@ -26113,12 +26181,12 @@ TEST_F(AuctionRunnerTest, ServerResponseLogsErrors) {
   ASSERT_TRUE(base::Base64Decode(
       "AgAAACQfiwgAAAAAAAADq84sds5ITEuzUigpKk2t5QIAAAgvJxAAAAA=",
       &not_cbor_response));
-  std::string missing_fields_response;
-  // CBOR {isChaff: false} | xxd -r -p | gzip | xxd -p -c 0 | sed
+  std::string bad_field_type_response;
+  // CBOR {"isChaff": ""} | xxd -r -p | gzip | xxd -p -c 0 | sed
   // 's/^/02<size>/' | xxd -r -p | base64
   ASSERT_TRUE(
-      base::Base64Decode("AgAAAB4fiwgAAAAAAAADW5ieWeyckZiW9gUATA0P6QoAAAA=",
-                         &missing_fields_response));
+      base::Base64Decode("AgAAAB4fiwgAAAAAAAADW5ieWeyckZiWlgAAEVptHgoAAAA=",
+                         &bad_field_type_response));
   std::string chaff_response;
   // CBOR {isChaff: true} | xxd -r -p | gzip | xxd -p -c 0 | sed 's/^/02<size>/'
   // | xxd -r -p | base64
@@ -26168,8 +26236,8 @@ TEST_F(AuctionRunnerTest, ServerResponseLogsErrors) {
        true,
        {"runAdAuction(): Could not parse server response"},
        AuctionResult::kInvalidServerResponse},
-      {"missing fields",
-       missing_fields_response,
+      {"bad field type",
+       bad_field_type_response,
        true,
        true,
        kSellerUrl,
@@ -26288,7 +26356,7 @@ TEST_F(AuctionRunnerTest, ServerResponseLogsErrors) {
                                        request_id.AsLowercaseString() + "'");
     }
 
-    hist.ExpectUniqueSample("Ads.InterestGroup.ServerAuction.Result",
+    hist.ExpectUniqueSample("Ads.InterestGroup.ServerAuction.Result2",
                             test_case.result, 1);
   }
 }
@@ -26436,7 +26504,7 @@ TEST_F(AuctionRunnerTest, MatchedSelectedReportingIdInServerResponse) {
 
     auction_run_loop_->Run();
     EXPECT_THAT(result_.errors, testing::ElementsAreArray(test_case.errors));
-    hist.ExpectUniqueSample("Ads.InterestGroup.ServerAuction.Result",
+    hist.ExpectUniqueSample("Ads.InterestGroup.ServerAuction.Result2",
                             test_case.result, 1);
   }
 }
@@ -26657,7 +26725,7 @@ TEST_F(AuctionRunnerTest, MatchedReportingIdsInServerResponse) {
 
     auction_run_loop_->Run();
     EXPECT_THAT(result_.errors, testing::ElementsAreArray(test_case.errors));
-    hist.ExpectUniqueSample("Ads.InterestGroup.ServerAuction.Result",
+    hist.ExpectUniqueSample("Ads.InterestGroup.ServerAuction.Result2",
                             test_case.result, 1);
   }
 }

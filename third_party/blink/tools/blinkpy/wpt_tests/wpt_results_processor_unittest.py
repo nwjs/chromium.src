@@ -185,7 +185,8 @@ class WPTResultsProcessorTest(LoggingTestCase):
             expectations=None,
             test_file_location=self.path_finder.path_from_web_tests(
                 'external', 'wpt', 'reftest.html'),
-            html_summary=None)
+            html_summary=None,
+            additional_tags=mock.ANY)
 
         result = report_mock.call_args.kwargs['result']
         self.assertEqual(result.name, 'external/wpt/reftest.html')
@@ -194,6 +195,11 @@ class WPTResultsProcessorTest(LoggingTestCase):
         self.assertFalse(result.unexpected)
         self.assertAlmostEqual(result.took, 2)
         self.assertEqual(result.artifacts, {})
+
+        tags = report_mock.call_args.kwargs['additional_tags']
+        self.assertIn(('web_tests_base_timeout', '10'), tags)
+        self.assertIn(('web_tests_used_expectation_file', 'TestExpectations'),
+                      tags)
 
     def test_report_unexpected_fail(self):
         self.fs.write_text_file(
@@ -222,7 +228,8 @@ class WPTResultsProcessorTest(LoggingTestCase):
             expectations=None,
             test_file_location=self.path_finder.path_from_web_tests(
                 'wpt_internal', 'reftest.html'),
-            html_summary=mock.ANY)
+            html_summary=mock.ANY,
+            additional_tags=mock.ANY)
 
         result = report_mock.call_args.kwargs['result']
         self.assertEqual(result.name, 'wpt_internal/reftest.html')
@@ -279,7 +286,8 @@ class WPTResultsProcessorTest(LoggingTestCase):
                       expectations=None,
                       test_file_location=self.path_finder.path_from_web_tests(
                           'external', 'wpt', 'variant.html'),
-                      html_summary=mock.ANY),
+                      html_summary=mock.ANY,
+                      additional_tags=mock.ANY),
         ] * 2)
 
         fail, ok = [
@@ -1357,3 +1365,34 @@ class WPTResultsProcessorTest(LoggingTestCase):
         report = json.loads(self.fs.read_text_file(report_dest))
         self.assertEqual(report['run_info'], self.wpt_report['run_info'])
         self.assertEqual(report['results'], self.wpt_report['results'])
+
+    def test_report_expected_skipped_test(self):
+        self.fs.write_text_file(
+            self.path_finder.path_from_web_tests('TestExpectations'),
+            textwrap.dedent("""\
+                # results: [ Skip ]
+                external/wpt/reftest.html [ Skip ]
+                """))
+        self._event(action='test_start', test='/reftest.html')
+        self._event(action='test_end',
+                    test='/reftest.html',
+                    expected=None,
+                    status='SKIP')
+        report_mock = self.processor.sink.report_individual_test_result
+        report_mock.assert_called_once_with(
+            test_name_prefix='',
+            result=mock.ANY,
+            artifact_output_dir=self.fs.join('/mock-checkout', 'out',
+                                             'Default'),
+            expectations=None,
+            test_file_location=self.path_finder.path_from_web_tests(
+                'external', 'wpt', 'reftest.html'),
+            html_summary=mock.ANY,
+            additional_tags=mock.ANY)
+        result = report_mock.call_args.kwargs['result']
+        self.assertEqual(result.name, 'external/wpt/reftest.html')
+        self.assertEqual(result.actual, 'SKIP')
+        self.assertEqual(result.expected, {'SKIP'})
+        self.assertFalse(result.unexpected)
+        self.assertAlmostEqual(result.took, 0)
+        self.assertEqual(result.artifacts, {})

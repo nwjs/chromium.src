@@ -99,7 +99,6 @@ public class CollaborationControllerDelegateImpl implements CollaborationControl
 
         if (mFlowType == FlowType.JOIN) {
             loadingFullscreenCoordinator.startLoading(
-                    mActivity.getString(R.string.collaboration_loading_text),
                     () -> {
                         destroy();
                     });
@@ -350,17 +349,17 @@ public class CollaborationControllerDelegateImpl implements CollaborationControl
                 mActivity,
                 mDataSharingTabManager.getProfile(),
                 bottomSheetConfig,
-                SigninAccessPoint.COLLABORATION_TAB_GROUP);
+                SigninAccessPoint.COLLABORATION_SHARE_TAB_GROUP);
     }
 
     private Intent createFullscreenSigninIntent() {
-        // TODO(haileywang): Add the correct logo: .signinLogoId(R.drawable.signin_logo).
         FullscreenSigninAndHistorySyncConfig fullscreenConfig =
                 new FullscreenSigninAndHistorySyncConfig.Builder()
                         .historyOptInMode(HistorySyncConfig.OptInMode.REQUIRED)
                         .signinTitleId(R.string.collaboration_signin_title)
                         .signinSubtitleId(R.string.collaboration_signin_description)
                         .signinDismissTextId(R.string.collaboration_signin_sync_dismiss)
+                        .signinLogoId(R.drawable.signin_logo)
                         .historySyncTitleId(R.string.collaboration_sync_title)
                         .historySyncSubtitleId(R.string.collaboration_sync_description)
                         .build();
@@ -369,7 +368,7 @@ public class CollaborationControllerDelegateImpl implements CollaborationControl
                 mActivity,
                 mDataSharingTabManager.getProfile(),
                 fullscreenConfig,
-                SigninAccessPoint.COLLABORATION_TAB_GROUP);
+                SigninAccessPoint.COLLABORATION_JOIN_TAB_GROUP);
     }
 
     private void onSigninResult(int resultCode, long resultCallback) {
@@ -553,9 +552,9 @@ public class CollaborationControllerDelegateImpl implements CollaborationControl
                 mDataSharingTabManager.showManageSharing(
                         mActivity,
                         existingGroup.collaborationId,
-                        () -> {
+                        (outcome) -> {
                             CollaborationControllerDelegateImplJni.get()
-                                    .runResultCallback(Outcome.SUCCESS, resultCallback);
+                                    .runResultCallback(outcome, resultCallback);
                         });
 
         mCloseScreenRunnable =

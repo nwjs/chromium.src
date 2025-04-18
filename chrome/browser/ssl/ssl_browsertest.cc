@@ -1557,16 +1557,6 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, SHA1IsDefaultDisabled) {
       AuthState::SHOWING_INTERSTITIAL);
 }
 
-// By default, trust in Symantec's Legacy PKI should be disabled. Unfortunately,
-// there is currently no way to simulate navigation to a page that will
-// meaningfully test that Symantec enforcement is actually applied to the
-// request.
-IN_PROC_BROWSER_TEST_F(SSLUITest, SymantecEnforcementIsNotDisabled) {
-  EXPECT_FALSE(last_ssl_config_.symantec_enforcement_disabled);
-  EXPECT_FALSE(CreateDefaultNetworkContextParams()
-                   ->initial_ssl_config->symantec_enforcement_disabled);
-}
-
 // Visit a HTTP page which request WSS connection to a server providing invalid
 // certificate. Close the page while WSS connection waits for SSLManager's
 // response from UI thread.
@@ -7448,57 +7438,9 @@ IN_PROC_BROWSER_TEST_F(SSLUIDynamicInterstitialTest, MismatchWhenOverridable) {
   }
 }
 
-class RecurrentInterstitialBrowserTest : public CertVerifierBrowserTest {
- public:
-  RecurrentInterstitialBrowserTest() : CertVerifierBrowserTest() {}
-
-  void SetUpOnMainThread() override {
-    CertVerifierBrowserTest::SetUpOnMainThread();
-    host_resolver()->AddRule("*", "127.0.0.1");
-  }
-};
-
-// Tests that a message is added to the interstitial when an error code recurs
-// multiple times.
-IN_PROC_BROWSER_TEST_F(RecurrentInterstitialBrowserTest,
-                       RecurrentInterstitial) {
-  net::EmbeddedTestServer https_server(net::EmbeddedTestServer::TYPE_HTTPS);
-  ASSERT_TRUE(https_server.Start());
-  mock_cert_verifier()->set_default_result(
-      net::ERR_CERTIFICATE_TRANSPARENCY_REQUIRED);
-
-  StatefulSSLHostStateDelegate* state =
-      static_cast<StatefulSSLHostStateDelegate*>(
-          browser()->profile()->GetSSLHostStateDelegate());
-  state->ResetRecurrentErrorCountForTesting();
-
-  state->SetRecurrentInterstitialThresholdForTesting(2);
-
-  // Use different hostnames for the two test cases to avoid the clickthrough
-  // from one interfering with the other.
-  GURL url = https_server.GetURL("show_error_message.test", "/");
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
-  WebContents* tab = browser()->tab_strip_model()->GetActiveWebContents();
-  ASSERT_TRUE(chrome_browser_interstitials::IsShowingInterstitial(tab));
-  ExpectInterstitialElementHidden(tab, "recurrent-error-message",
-                                  true /* expect_hidden */);
-
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
-  ASSERT_TRUE(chrome_browser_interstitials::IsShowingInterstitial(tab));
-  ExpectInterstitialElementHidden(tab, "recurrent-error-message",
-                                  false /* expect_hidden */);
-
-  // Proceed through the interstitial and observe that the histogram is
-  // recorded correctly.
-  content::TestNavigationObserver nav_observer(tab, 1);
-  ASSERT_TRUE(
-      content::ExecJs(tab, "window.certificateErrorPageController.proceed();"));
-  nav_observer.Wait();
-}
-
-// Tests that mixed content is tracked by origin, not by URL. This is tested by
-// checking that mixed content flags are set appropriately for about:blank URLs
-// (who inherit the origin of their opener).
+// Tests that mixed content is tracked by origin hostname, not by URL. This is
+// tested by checking that mixed content flags are set appropriately for
+// about:blank URLs (who inherit the origin of their opener).
 //
 // Note: we test that mixed content flags are propagated from an opener page to
 // about:blank, but not the other way around. This is because there is no way
@@ -7545,33 +7487,14 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, ActiveMixedContentTrackedByOrigin) {
                               embedded_test_server()->GetURL("/title1.html"))));
   first_navigation.Wait();
 
-  if (content::IsIsolatedOriginRequiredToGuaranteeDedicatedProcess()) {
-    // Verify that in process models where sites need to be explicitly isolated,
-    // the new tab ends up in the same process as the original one.
-    // As a result of being in the same process, expect the SSL state to
-    // reflect that the process has run insecure content.
-    EXPECT_EQ(tab->GetSiteInstance()->GetProcess(),
-              opened_tab->GetSiteInstance()->GetProcess());
-    ssl_test_util::CheckAuthenticationBrokenState(
-        opened_tab, CertError::NONE, AuthState::RAN_INSECURE_CONTENT);
-  } else {
-    // Verify that tabs are in different processes and that the new tab does
-    // not have insecure status yet.
-    EXPECT_NE(tab->GetSiteInstance()->GetProcess(),
-              opened_tab->GetSiteInstance()->GetProcess());
-    ssl_test_util::CheckUnauthenticatedState(opened_tab, AuthState::NONE);
-  }
+  ssl_test_util::CheckAuthenticationBrokenState(
+      opened_tab, CertError::NONE, AuthState::RAN_INSECURE_CONTENT);
 
   content::TestNavigationObserver about_blank_navigation(opened_tab);
   ASSERT_TRUE(content::ExecJs(tab, "w.location.href = 'about:blank'"));
   about_blank_navigation.Wait();
   ssl_test_util::CheckAuthenticationBrokenState(
       opened_tab, CertError::NONE, AuthState::RAN_INSECURE_CONTENT);
-
-  // Verify the two tabs are now in the same process independent of
-  // process model.
-  EXPECT_EQ(tab->GetSiteInstance()->GetProcess(),
-            opened_tab->GetSiteInstance()->GetProcess());
 }
 
 // Tests that MixedContentShown histogram doesn't get logged when a site with

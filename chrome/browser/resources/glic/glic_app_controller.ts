@@ -6,11 +6,10 @@ import {loadTimeData} from '//resources/js/load_time_data.js';
 import {getRequiredElement} from 'chrome://resources/js/util.js';
 
 import {BrowserProxyImpl} from './browser_proxy.js';
-import {WebUiState} from './glic.mojom-webui.js';
+import {PrepareForClientResult, ProfileReadyState, WebUiState} from './glic.mojom-webui.js';
 import type {PageInterface} from './glic.mojom-webui.js';
 import type {ApiHostEmbedder} from './glic_api_impl/glic_api_host.js';
-import {exceptionFromTransferable} from './glic_api_impl/request_types.js';
-import type {TransferableException} from './glic_api_impl/request_types.js';
+import {WebClientState} from './glic_api_impl/glic_api_host.js';
 import type {PageType, WebviewDelegate} from './webview.js';
 import {WebviewController} from './webview.js';
 
@@ -37,9 +36,11 @@ interface PageElementTypes {
   offlinePanel: HTMLElement;
   errorPanel: HTMLElement;
   unavailablePanel: HTMLElement;
+  signInPanel: HTMLElement;
   guestPanel: HTMLElement;
   webviewHeader: HTMLDivElement;
   webviewContainer: HTMLDivElement;
+  signInButton: HTMLButtonElement;
 }
 
 const $: PageElementTypes = new Proxy({}, {
@@ -48,8 +49,8 @@ const $: PageElementTypes = new Proxy({}, {
   },
 });
 
-type PanelId =
-    'loadingPanel'|'guestPanel'|'offlinePanel'|'errorPanel'|'unavailablePanel';
+type PanelId = 'loadingPanel'|'guestPanel'|'offlinePanel'|'errorPanel'|
+    'unavailablePanel'|'signInPanel';
 
 interface StateDescriptor {
   onEnter?: () => void;
@@ -70,6 +71,9 @@ export class GlicAppController implements PageInterface, WebviewDelegate,
 
   // Present only when loading or after loading is finished. Removed on error.
   private webview?: WebviewController;
+
+  private profileReadyState: ProfileReadyState|undefined = undefined;
+  private profileReadyInitialState = Promise.withResolvers<void>();
 
   state: WebUiState|undefined;
 
@@ -95,6 +99,19 @@ export class GlicAppController implements PageInterface, WebviewDelegate,
     } else {
       this.setState(WebUiState.kOffline);
     }
+    $.signInButton.addEventListener('click', () => {
+      this.signIn();
+    });
+
+    document.addEventListener('keydown', ev => {
+      if (this.state !== WebUiState.kReady) {
+        if (ev.code === 'Escape') {
+          ev.stopPropagation();
+          ev.preventDefault();
+          this.browserProxy.handler.closePanel();
+        }
+      }
+    });
 
     if (kEnableDebug) {
       window.addEventListener('load', () => {
@@ -105,10 +122,12 @@ export class GlicAppController implements PageInterface, WebviewDelegate,
 
   // WebviewDelegate implementation.
   webviewUnresponsive(): void {
+    console.warn('webview unresponsive');
     this.setState(WebUiState.kUnresponsive);
   }
 
-  webviewError(): void {
+  webviewError(reason: string): void {
+    console.warn(`webview exit. reason: ${reason}`);
     this.setState(WebUiState.kError);
   }
 
@@ -199,14 +218,38 @@ export class GlicAppController implements PageInterface, WebviewDelegate,
       WebUiState.kUnresponsive,
       {
         onEnter: () => {
+          // TODO(crbug.com/394162784): Create an unresponsive UI according to
+          // the design spec and remove the placeholder.
+          this.enterUnresponsiveUiPlaceholder();
+        },
+        onExit: this.exitUnresponsiveUiPlaceholder,
+      },
+    ],
+    [
+      WebUiState.kSignIn,
+      {
+        onEnter: () => {
           this.destroyWebview();
-          // TODO(crbug.com/394162784): Create an unresponsive UI and permit
-          // transitioning back to being responsive.
-          this.showPanel('errorPanel');
+          this.showPanel('signInPanel');
         },
       },
     ],
   ]);
+
+  private enterUnresponsiveUiPlaceholder(): void {
+    if (!this.webview) {
+      return;
+    }
+    this.webview.webview.style.webkitTransition = 'opacity 250ms';
+    this.webview.webview.style.opacity = '0.5';
+  }
+
+  private exitUnresponsiveUiPlaceholder(): void {
+    if (!this.webview) {
+      return;
+    }
+    this.webview.webview.style.opacity = '1';
+  }
 
   private cancelTimeout(): void {
     if (this.loadingTimer) {
@@ -216,35 +259,45 @@ export class GlicAppController implements PageInterface, WebviewDelegate,
   }
 
   private async beginLoad(): Promise<void> {
-    // Send this message but block on it only after webview cookies are synced
-    // to minimize latency. Enabling state is checked only when going online.
-    // This only applies when showing Glic in a tab (since the entry point
-    // button is removed when disabled) so the mild inconsistency doesn't
-    // matter.
-    const enabledCheck = this.browserProxy.handler.isProfileEnabled();
-
     // Time to show the loading panel if the web client is not ready.
     const showLoadingTime = performance.now() + kPreHoldLoadingTimeMs;
 
-    // Blocking on cookie syncing here introduces latency, we should consider
-    // ways to avoid it.
-    const {success} = await this.browserProxy.handler.prepareForClient();
+    // profileReadyState isn't available right away. Wait until it's ready.
+    await this.profileReadyInitialState.promise;
 
-    const isEnabled = (await enabledCheck).enabled;
-    if (!isEnabled) {
-      this.setState(WebUiState.kUnavailable);
-      return;
+    const readyState = this.profileReadyState;
+    switch (readyState) {
+      case ProfileReadyState.kUnknownError:
+        this.setState(WebUiState.kUnavailable);
+        return;
+      case ProfileReadyState.kSignInRequired:
+        this.setState(WebUiState.kSignIn);
+        return;
+      case ProfileReadyState.kReady:
+        break;
     }
 
-    if (!success) {
-      this.setState(WebUiState.kError);
-      return;
+    // Blocking on cookie syncing here introduces latency, we should consider
+    // ways to avoid it.
+    const {result} = await this.browserProxy.handler.prepareForClient();
+    switch (result) {
+      case PrepareForClientResult.kSuccess:
+        break;
+      case PrepareForClientResult.kUnknownError:
+        console.warn('prepareForClient in beginLoad() failed.');
+        this.setState(WebUiState.kError);
+        return;
+      case PrepareForClientResult.kRequiresSignIn:
+        this.setState(WebUiState.kSignIn);
+        return;
     }
 
     // Load the web client only after cookie sync is complete.
     this.destroyWebview();
     this.webview = new WebviewController(
         $.webviewContainer, this.browserProxy, this, this);
+    this.webview.getWebClientState().subscribe(
+        this.webClientStateChanged.bind(this));
 
     this.loadingTimer = setTimeout(() => {
       this.setState(WebUiState.kShowLoading);
@@ -275,7 +328,17 @@ export class GlicAppController implements PageInterface, WebviewDelegate,
     // `kMaxWaitTimeMs`. Switch to error state at that time unless interrupted
     // by `webClientReady`.
     this.loadingTimer = setTimeout(() => {
-      this.setState(WebUiState.kError);
+      if (this.webview?.waitingOnPanelWillOpen()) {
+        console.warn('Exceeded timeout waiting for notifyPanelWillOpen');
+        this.setState(WebUiState.kError);
+      } else if (
+          this.webview?.getWebClientState().getCurrentValue() ===
+          WebClientState.RESPONSIVE) {
+        this.setState(WebUiState.kReady);
+      } else {
+        console.warn('Exceeded timeout waiting for client to load');
+        this.setState(WebUiState.kError);
+      }
     }, kMaxWaitTimeMs - kMinHoldLoadingTimeMs);
   }
 
@@ -360,25 +423,25 @@ export class GlicAppController implements PageInterface, WebviewDelegate,
     }
   }
 
-  // Called when the web client completes initialization.
-  webClientInitializationDone(
-      success: boolean, exception: TransferableException|undefined): void {
-    if (success) {
-      this.showGuest();
-    } else {
-      if (exception) {
-        console.error(exceptionFromTransferable(exception));
-      }
-      this.setState(WebUiState.kError);
-    }
-  }
-
-  // This may also be called when the panel is re-opened by webui after being
-  // hidden, such as when an error panel is shown.
-  // This will do nothing if the app is not in kReady state.
-  private showGuest(): void {
-    if (this.state === WebUiState.kReady) {
-      this.showPanel('guestPanel');
+  webClientStateChanged(state: WebClientState): void {
+    switch (state) {
+      case WebClientState.RESPONSIVE:
+        // If we're still in a loading state, let it transition naturally
+        // through the loading process.
+        switch (this.state) {
+          case WebUiState.kBeginLoad:
+          case WebUiState.kShowLoading:
+          case WebUiState.kHoldLoading:
+            return;
+        }
+        this.setState(WebUiState.kReady);
+        break;
+      case WebClientState.UNRESPONSIVE:
+        this.setState(WebUiState.kUnresponsive);
+        break;
+      case WebClientState.ERROR:
+        this.setState(WebUiState.kError);
+        break;
     }
   }
 
@@ -412,6 +475,10 @@ export class GlicAppController implements PageInterface, WebviewDelegate,
     this.setState(WebUiState.kBeginLoad);
   }
 
+  private signIn(): void {
+    this.browserProxy.handler.signInAndClosePanel();
+  }
+
   // PageInterface implementation.
 
   // Called before the WebUI is shown. If we're in an error state, automatically
@@ -419,6 +486,34 @@ export class GlicAppController implements PageInterface, WebviewDelegate,
   intentToShow() {
     if (this.state === WebUiState.kError) {
       this.reload();
+    }
+  }
+
+  setProfileReadyState(state: ProfileReadyState) {
+    if (this.profileReadyState === state) {
+      return;
+    }
+    const initialCall = this.profileReadyState === undefined;
+    this.profileReadyState = state;
+
+    if (initialCall) {
+      // The initial state is handled in `beginLoad()`.
+      this.profileReadyInitialState.resolve();
+    } else {
+      switch (this.profileReadyState) {
+        case ProfileReadyState.kUnknownError:
+          this.setState(WebUiState.kUnavailable);
+          break;
+        case ProfileReadyState.kSignInRequired:
+          this.setState(WebUiState.kSignIn);
+          break;
+        case ProfileReadyState.kReady:
+          if (this.state === WebUiState.kUnavailable ||
+              this.state === WebUiState.kSignIn) {
+            this.setState(WebUiState.kBeginLoad);
+          }
+          break;
+      }
     }
   }
 }

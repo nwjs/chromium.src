@@ -120,19 +120,9 @@ class AuthenticationService : public KeyedService,
       signin::ConsentLevel consent_level) const;
 
   // Grants signin::ConsentLevel::kSignin to `identity` and records the signin
-  // at `access_point`. This method does not set up Sync-the-feature for the
-  // identity. Virtual for testing.
+  // at `access_point`. Virtual for testing.
   virtual void SignIn(id<SystemIdentity> identity,
                       signin_metrics::AccessPoint access_point);
-
-  // Grants signin::ConsentLevel::kSync to `identity` and records the event at
-  // `access_point`. This starts setting up Sync-the-feature, but the setup will
-  // only complete once SyncUserSettings::SetInitialSyncFeatureSetupComplete()
-  // is called. This method is used for testing. Virtual for testing.
-  // TODO(crbug.com/40067025): Delete this method after Phase 2 on iOS is
-  // launched. See ConsentLevel::kSync documentation for details.
-  virtual void GrantSyncConsent(id<SystemIdentity> identity,
-                                signin_metrics::AccessPoint access_point);
 
   // Signs the authenticated user out of Chrome and clears the browsing
   // data if the account is managed.
@@ -159,6 +149,11 @@ class AuthenticationService : public KeyedService,
  private:
   friend class AuthenticationServiceTestBase;
   friend class FakeAuthenticationService;
+
+  // If the current profile is being opened for the first time, this performs
+  // any necessary first-time setup (notably, signing in the assigned managed
+  // account to a managed profile), and then marks the profile as initialized.
+  void PerformFirstTimeProfileInitializationIfNecessary();
 
   // Returns the cached MDM errors associated with `identity`. If the cache
   // is stale for `identity`, the entry might be removed.

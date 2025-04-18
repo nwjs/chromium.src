@@ -22,6 +22,7 @@
 #include "components/autofill/core/browser/payments/test_payments_network_interface.h"
 #include "components/autofill/core/browser/single_field_fillers/payments/mock_merchant_promo_code_manager.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
+#include "components/autofill/core/browser/ui/payments/bnpl_tos_controller.h"
 
 #if !BUILDFLAG(IS_IOS)
 namespace webauthn {
@@ -61,14 +62,6 @@ class TestPaymentsAutofillClient : public PaymentsAutofillClient {
 
   // PaymentsAutofillClient:
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-  void ShowLocalCardMigrationDialog(
-      base::OnceClosure show_migration_dialog_closure) override;
-  void ConfirmMigrateLocalCardToCloud(
-      const LegalMessageLines& legal_message_lines,
-      const std::string& user_email,
-      const std::vector<MigratableCreditCard>& migratable_credit_cards,
-      PaymentsAutofillClient::LocalCardMigrationCallback
-          start_migrating_cards_callback) override;
   void ConfirmSaveIbanLocally(
       const Iban& iban,
       bool should_show_prompt,
@@ -133,11 +126,6 @@ class TestPaymentsAutofillClient : public PaymentsAutofillClient {
   bool GetMandatoryReauthOptInPromptWasShown();
 
   bool GetMandatoryReauthOptInPromptWasReshown();
-
-  void set_migration_card_selections(
-      const std::vector<std::string>& migration_card_selection) {
-    migration_card_selection_ = migration_card_selection;
-  }
 
   bool autofill_progress_dialog_shown() {
     return autofill_progress_dialog_shown_;
@@ -215,8 +203,6 @@ class TestPaymentsAutofillClient : public PaymentsAutofillClient {
   const raw_ref<AutofillClient> client_;
 
   std::unique_ptr<PaymentsNetworkInterface> payments_network_interface_;
-
-  std::vector<std::string> migration_card_selection_;
 
   bool autofill_progress_dialog_shown_ = false;
 

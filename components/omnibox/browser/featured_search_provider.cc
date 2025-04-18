@@ -172,11 +172,6 @@ void FeaturedSearchProvider::Start(const AutocompleteInput& input,
     AddHistoryEmbeddingsScopePromoIphMatch();
   }
 
-  if (input.IsZeroSuggest() ||
-      (input.type() == metrics::OmniboxInputType::EMPTY)) {
-    return;
-  }
-
   AddFeaturedKeywordMatches(input);
 }
 
@@ -204,14 +199,16 @@ void FeaturedSearchProvider::AddFeaturedKeywordMatches(
   if (input.GetFeaturedKeywordMode() !=
       AutocompleteInput::FeaturedKeywordMode::kFalse) {
     TemplateURLService::TemplateURLVector turls;
-    template_url_service_->AddMatchingKeywords(input.text(), &turls);
+    template_url_service_->AddMatchingKeywords(input.text(), false, &turls);
     for (TemplateURL* turl : turls) {
       if (turl->starter_pack_id() > 0 &&
           turl->is_active() == TemplateURLData::ActiveStatus::kTrue) {
         // Don't add the expanded set of starter pack engines unless the feature
         // is enabled.
-        if (!OmniboxFieldTrial::IsStarterPackExpansionEnabled() &&
-            turl->starter_pack_id() > TemplateURLStarterPackData::kTabs) {
+        if ((turl->starter_pack_id() == TemplateURLStarterPackData::kGemini &&
+             !OmniboxFieldTrial::IsStarterPackExpansionEnabled()) ||
+            (turl->starter_pack_id() == TemplateURLStarterPackData::kPage &&
+             !OmniboxFieldTrial::IsStarterPackPageEnabled())) {
           continue;
         }
         AddStarterPackMatch(*turl, input);
@@ -249,8 +246,10 @@ void FeaturedSearchProvider::AddStarterPackMatch(
       TemplateURLStarterPackData::GetDestinationUrlForStarterPackID(
           template_url.starter_pack_id());
   match.fill_into_edit = template_url.keyword();
-  match.inline_autocompletion =
-      match.fill_into_edit.substr(input.text().length());
+  if (match.fill_into_edit.starts_with(input.text())) {
+    match.inline_autocompletion =
+        match.fill_into_edit.substr(input.text().length());
+  }
   match.destination_url = GURL(destination_url);
   match.transition = ui::PAGE_TRANSITION_GENERATED;
   if (input.current_page_classification() !=
@@ -394,6 +393,9 @@ void FeaturedSearchProvider::AddFeaturedEnterpriseSearchMatch(
   match.contents_class = {{}};
   match.allowed_to_be_default_match = false;
   match.keyword = template_url.keyword();
+  if (template_url.CreatedByEnterpriseSearchAggregatorPolicy()) {
+    match.icon_url = template_url.favicon_url();
+  }
 
   matches_.push_back(match);
 }

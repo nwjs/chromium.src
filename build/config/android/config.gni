@@ -87,10 +87,9 @@ if (is_android) {
     # "build_server" ensures that fast_local_dev_server.py is running and
     #     offloads analysis tasks to it to be run after the build completes.
     #     This is the recommended setting for local development.
+    android_static_analysis = "on"
     if (is_official_build) {
       android_static_analysis = "off"
-    } else {
-      android_static_analysis = "on"
     }
   }
 
@@ -130,12 +129,12 @@ if (is_android) {
 
   public_android_sdk_root = "//third_party/android_sdk/public"
   public_android_sdk_build_tools =
-      "${public_android_sdk_root}/build-tools/35.0.0"
-  public_android_sdk_platform_version = "35"
-  if (android_sdk_release == "v") {
+      "${public_android_sdk_root}/build-tools/36.0.0"
+  public_android_sdk_platform_version = "36"
+  if (android_sdk_release == "b") {
     default_android_sdk_root = public_android_sdk_root
     default_android_sdk_platform_version = public_android_sdk_platform_version
-    default_android_sdk_build_tools_version = "35.0.0"
+    default_android_sdk_build_tools_version = "36.0.0"
     public_android_sdk = true
   }
 
@@ -454,4 +453,6 @@ if (is_android) {
 
   # TODO(crbug.com/40261378): Remove.
   use_upstream_errorprone_annotations_threadsafe = true
+
+  android_logs = [ "android64_ndk_api_level=${android64_ndk_api_level}" ]
 }

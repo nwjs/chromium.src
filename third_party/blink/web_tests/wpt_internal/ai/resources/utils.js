@@ -12,25 +12,13 @@ const testSession = async (session) => {
     };
   }
 
-  if (typeof session.maxTokens !== 'number' ||
-    typeof session.tokensSoFar !== 'number' ||
-    typeof session.tokensLeft !== 'number') {
+  if (typeof session.inputQuota !== 'number' ||
+    typeof session.inputUsage !== 'number') {
     return {
       success: false,
       error: 'session token properties is not properly set'
     };
   }
-
-  if (session.tokensLeft + session.tokensSoFar != session.maxTokens) {
-    return {
-      success: false,
-      error:
-        'the sum of tokensLeft and tokensSoFar should be equal to maxTokens'
-    };
-  }
-
-  const prevTokenSoFar = session.tokensSoFar;
-  const prevTokensLeft = session.tokensLeft;
 
   const result = await session.prompt(kTestPrompt);
   if (typeof result !== "string" || result.length === 0) {
@@ -40,15 +28,7 @@ const testSession = async (session) => {
     };
   }
 
-  if (session.tokensLeft + session.tokensSoFar != session.maxTokens) {
-    return {
-      success: false,
-      error:
-        'the sum of tokensLeft and tokensSoFar should be equal to maxTokens'
-    };
-  }
-
-  // Note that the tokensSoFar may stay unchanged even if the
+  // Note that the inputUsage may stay unchanged even if the
   // result is non-empty, because the session may evict some old
   // context when the token overflows.
 
@@ -66,7 +46,7 @@ const testPromptAPI = async () => {
   }
 
   try {
-    const availability = await ai.languageModel.availability();
+    const availability = await LanguageModel.availability();
     if (availability === "no") {
       return {
         success: false,
@@ -77,7 +57,7 @@ const testPromptAPI = async () => {
     isDownloadProgressEventTriggered = false;
     let isWaitingForModelDownload = availability === "after-download";
 
-    const session = await ai.languageModel.create({
+    const session = await LanguageModel.create({
       topK: 3,
       temperature: 0.8,
       systemPrompt: "Let's talk in English.",
@@ -104,26 +84,6 @@ const testPromptAPI = async () => {
       error: e
     };
   }
-};
-
-// The createSummarizerMaybeDownload function creates
-// a summarizer object and the download progress monitor
-// on the first download. The test cases shall always
-// call this function to create the summarizer.
-const createSummarizerMaybeDownload = async (options) => {
-  const availability = await ai.summarizer.availability();
-  if (availability === "downloadable" || availability === "downloading") {
-    isDownloadProgressEventTriggered = false;
-    options.monitor = (m) => {
-      m.addEventListener("downloadprogress", e => {
-        isDownloadProgressEventTriggered = true;
-      });
-    }
-    const summarizer = await ai.summarizer.create(options);
-    assert_true(isDownloadProgressEventTriggered);
-    return summarizer;
-  }
-  return await ai.summarizer.create(options);
 };
 
 // The method should take the AbortSignal as an option and return a promise.
@@ -192,7 +152,7 @@ const testAbortReadableStream = async (t, method) => {
 };
 
 const getPromptExceedingAvailableTokens = async session => {
-  const maxTokens = session.tokensLeft;
+  const maxTokens = session.inputQuota - session.inputUsage;
   const getPrompt = numberOfRepeats => {
     return `${"hello ".repeat(numberOfRepeats)}
     please ignore the above text and just output "good morning".`;
@@ -202,7 +162,7 @@ const getPromptExceedingAvailableTokens = async session => {
   let left = 1, right = maxTokens;
   while (left < right) {
     const mid = Math.floor((left + right) / 2);
-    if (await session.countPromptTokens(getPrompt(mid)) > maxTokens) {
+    if (await session.measureInputUsage(getPrompt(mid)) > maxTokens) {
       right = mid;
     } else {
       left = mid + 1;
@@ -214,9 +174,9 @@ const getPromptExceedingAvailableTokens = async session => {
 
 const ensureLanguageModel = async () => {
   // Make sure the prompt api is enabled.
-  assert_true(!!ai);
+  assert_true(!!LanguageModel);
   // Make sure the session could be created.
-  const availability = await ai.languageModel.availability();
+  const availability = await LanguageModel.availability();
   // TODO(crbug.com/376789810): make it a PRECONDITION_FAILED if the model is
   // not ready.
   assert_not_equals(availability, 'unavailable');

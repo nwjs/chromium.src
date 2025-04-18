@@ -171,6 +171,11 @@ namespace media {
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kAudioDucking);
 MEDIA_EXPORT extern const base::FeatureParam<int> kAudioDuckingAttenuation;
 #endif  // !BUILDFLAG(IS_ANDROID)
+
+#if BUILDFLAG(IS_WIN)
+MEDIA_EXPORT BASE_DECLARE_FEATURE(kAudioDuckingWin);
+#endif  // BUILDFLAG(IS_WIN)
+
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kAudioFocusDuckFlash);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kAudioInputConfirmReadsViaShmem);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kAutoPictureInPictureForVideoPlayback);
@@ -181,8 +186,6 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kAVDColorSpaceChanges);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kCameraMicEffects);
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS) &&
         // !BUILDFLAG(IS_FUCHSIA)
-
-MEDIA_EXPORT BASE_DECLARE_FEATURE(kCastLoopbackAudioToAudioReceivers);
 
 // NOTE: callers should always use the free functions in
 // /media/cast/encoding/encoding_support.h instead of accessing these features
@@ -210,6 +213,10 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kChromeWideEchoCancellation);
 #endif
 #if (BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN))
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kEnforceSystemEchoCancellation);
+MEDIA_EXPORT extern const base::FeatureParam<bool>
+    kEnforceSystemEchoCancellationAllowAgcInTandem;
+MEDIA_EXPORT extern const base::FeatureParam<bool>
+    kEnforceSystemEchoCancellationAllowNsInTandem;
 #endif
 #if BUILDFLAG(IS_CHROMEOS)
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kCrOSSystemAEC);
@@ -228,6 +235,7 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kIgnoreUiGains);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kShowForceRespectUiGainsToggle);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kCrOSSystemVoiceIsolationOption);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kAudioFlexibleLoopbackForSystemLoopback);
+MEDIA_EXPORT BASE_DECLARE_FEATURE(kCrOSEnforceMonoAudioCapture);
 #endif
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kD3D11VideoDecoderUseSharedHandle);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kDedicatedMediaServiceThread);
@@ -387,6 +395,7 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaDrmPreprovisioningAtStartup);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaDrmGetStatusForPolicy);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kRequestSystemAudioFocus);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kUseAudioLatencyFromHAL);
+MEDIA_EXPORT BASE_DECLARE_FEATURE(kUseSecurityLevelWhenCheckingMediaDrmVersion);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kAllowMediaCodecSoftwareDecoder);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kAllowMediaCodecCallsInSeparateProcess);
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -482,15 +491,10 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kBackgroundListening);
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
-// Note: please use GetOutOfProcessVideoDecodingMode() to determine if OOP-VD is
-// enabled instead of directly checking this feature flag. The reason is that
+// Note: please use IsOutOfProcessVideoDecodingEnabled() to determine if OOP-VD
+// is enabled instead of directly checking this feature flag. The reason is that
 // that function may perform checks beyond the feature flag.
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kUseOutOfProcessVideoDecoding);
-
-// Note: please use GetOutOfProcessVideoDecodingMode() to determine if GTFO
-// OOP-VD is enabled instead of directly checking this feature flag. The reason
-// is that that function may perform checks beyond the feature flag.
-MEDIA_EXPORT BASE_DECLARE_FEATURE(kUseGTFOOutOfProcessVideoDecoding);
 #endif  // BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
@@ -548,6 +552,8 @@ MEDIA_EXPORT std::string GetEffectiveAutoplayPolicy(
 
 MEDIA_EXPORT bool IsChromeWideEchoCancellationEnabled();
 MEDIA_EXPORT bool IsSystemEchoCancellationEnforced();
+MEDIA_EXPORT bool IsSystemEchoCancellationEnforcedAndAllowAgcInTandem();
+MEDIA_EXPORT bool IsSystemEchoCancellationEnforcedAndAllowNsInTandem();
 MEDIA_EXPORT bool IsDedicatedMediaServiceThreadEnabled(
     gl::ANGLEImplementation impl);
 MEDIA_EXPORT bool IsHardwareSecureDecryptionEnabled();
@@ -559,12 +565,7 @@ MEDIA_EXPORT bool IsMediaFoundationD3D11VideoCaptureEnabled();
 #endif
 
 #if BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
-enum class OOPVDMode {
-  kDisabled,
-  kEnabledWithGpuProcessAsProxy,     // AKA "regular" OOP-VD; go/oop-vd-dd.
-  kEnabledWithoutGpuProcessAsProxy,  // AKA GTFO OOP-VD; go/oopvd-gtfo-dd.
-};
-MEDIA_EXPORT OOPVDMode GetOutOfProcessVideoDecodingMode();
+MEDIA_EXPORT bool IsOutOfProcessVideoDecodingEnabled();
 #endif  // BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
 
 // Return bitmask of audio formats supported by EDID.

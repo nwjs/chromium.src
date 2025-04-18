@@ -32,6 +32,7 @@
 #include <algorithm>
 #include <optional>
 #include <utility>
+#include <variant>
 
 #include "base/compiler_specific.h"
 #include "base/containers/span.h"
@@ -323,6 +324,8 @@ void ResourceLoader::Start() {
 
   if (!resource_->Url().ProtocolIsData()) {
     network_resource_request_ = CreateNetworkRequest(request, request_body_);
+    fetcher_->PopulateResourceRequestPermissionsPolicy(
+        network_resource_request_.get());
     if (is_cache_aware_loading_activated_) {
       // Override cache policy for cache-aware loading. If this request fails, a
       // reload with original request will be triggered in DidFail().
@@ -668,9 +671,10 @@ bool ResourceLoader::WillFollowRedirect(
         ResourceRequest::RedirectStatus::kFollowedRedirect);
 
     std::optional<ResourceRequestBlockedReason> blocked_reason =
-        Context().CanRequest(resource_type, *new_request, new_url, options,
-                             reporting_disposition,
-                             new_request->GetRedirectInfo());
+        Context().CanRequest(
+            resource_type, *new_request, new_url, options,
+            reporting_disposition, new_request->GetRedirectInfo(),
+            FetchParameters::HasPreloadedResponseCandidate(false));
 
     if (Context().CalculateIfAdSubresource(
             *new_request, std::nullopt /* alias_url */, resource_type,
@@ -766,7 +770,7 @@ FetchContext& ResourceLoader::Context() const {
 
 void ResourceLoader::DidReceiveResponse(
     const WebURLResponse& response,
-    absl::variant<mojo::ScopedDataPipeConsumerHandle, SegmentedBuffer> body,
+    std::variant<mojo::ScopedDataPipeConsumerHandle, SegmentedBuffer> body,
     std::optional<mojo_base::BigBuffer> cached_metadata) {
   DCHECK(!response.IsNull());
 
@@ -794,24 +798,24 @@ void ResourceLoader::DidReceiveResponse(
     // the body of 304 Not Modified response. And Blink don't fetch the
     // revalidating request when the page is controlled by a service worker.
     // So, We don't need to handle the body for 304 Not Modified responses.
-    if (absl::holds_alternative<SegmentedBuffer>(body)) {
-      CHECK(absl::get<SegmentedBuffer>(body).empty());
+    if (std::holds_alternative<SegmentedBuffer>(body)) {
+      CHECK(std::get<SegmentedBuffer>(body).empty());
     } else {
-      CHECK(absl::holds_alternative<mojo::ScopedDataPipeConsumerHandle>(body));
+      CHECK(std::holds_alternative<mojo::ScopedDataPipeConsumerHandle>(body));
       // If the `body` is released here, the network service will treat the
       // disconnection of the `body` handle as if the request was cancelled. So
       // we keeps the `body` handle.
       empty_body_handle_for_revalidation_ =
-          std::move(absl::get<mojo::ScopedDataPipeConsumerHandle>(body));
+          std::move(std::get<mojo::ScopedDataPipeConsumerHandle>(body));
     }
     return;
   }
-  if (absl::holds_alternative<SegmentedBuffer>(body)) {
-    DidReceiveDataImpl(std::move(absl::get<SegmentedBuffer>(body)));
+  if (std::holds_alternative<SegmentedBuffer>(body)) {
+    DidReceiveDataImpl(std::move(std::get<SegmentedBuffer>(body)));
     return;
   }
   mojo::ScopedDataPipeConsumerHandle body_handle =
-      std::move(absl::get<mojo::ScopedDataPipeConsumerHandle>(body));
+      std::move(std::get<mojo::ScopedDataPipeConsumerHandle>(body));
   if (!body_handle) {
     return;
   }
@@ -930,20 +934,6 @@ void ResourceLoader::DidReceiveResponseInternal(
     return;
   }
 
-  // https://wicg.github.io/cross-origin-embedder-policy/#integration-html
-  // TODO(crbug.com/1064920): Remove this once PlzDedicatedWorker ships.
-  if (options.reject_coep_unsafe_none &&
-      !network::CompatibleWithCrossOriginIsolated(
-          response.GetCrossOriginEmbedderPolicy()) &&
-      !response.CurrentRequestUrl().ProtocolIsData() &&
-      !response.CurrentRequestUrl().ProtocolIs("blob")) {
-    DCHECK(!base::FeatureList::IsEnabled(features::kPlzDedicatedWorker));
-    HandleError(ResourceError::BlockedByResponse(
-        response.CurrentRequestUrl(), network::mojom::BlockedByResponseReason::
-                                          kCoepFrameResourceNeedsCoepHeader));
-    return;
-  }
-
   // Redirect information for possible post-request checks below.
   const std::optional<ResourceRequest::RedirectInfo>& previous_redirect_info =
       request.GetRedirectInfo();
@@ -982,9 +972,10 @@ void ResourceLoader::DidReceiveResponseInternal(
         ResourceRequest::RedirectStatus::kFollowedRedirect);
 
     std::optional<ResourceRequestBlockedReason> blocked_reason =
-        Context().CanRequest(resource_type, ResourceRequest(initial_request),
-                             response_url, options,
-                             ReportingDisposition::kReport, redirect_info);
+        Context().CanRequest(
+            resource_type, ResourceRequest(initial_request), response_url,
+            options, ReportingDisposition::kReport, redirect_info,
+            FetchParameters::HasPreloadedResponseCandidate(false));
     if (blocked_reason) {
       HandleError(ResourceError::CancelledDueToAccessCheckError(
           response_url, blocked_reason.value()));
@@ -1074,22 +1065,22 @@ void ResourceLoader::DidReceiveData(base::span<const char> data) {
 }
 
 void ResourceLoader::DidReceiveDataImpl(
-    absl::variant<SegmentedBuffer, base::span<const char>> data) {
+    std::variant<SegmentedBuffer, base::span<const char>> data) {
   size_t data_size = 0;
   // If a BackgroundResponseProcessor consumed the body data on the background
   // thread, this method is called with a SegmentedBuffer data. Otherwise, it is
   // called with a span<const char> data several times.
-  if (absl::holds_alternative<SegmentedBuffer>(data)) {
-    data_size = absl::get<SegmentedBuffer>(data).size();
+  if (std::holds_alternative<SegmentedBuffer>(data)) {
+    data_size = std::get<SegmentedBuffer>(data).size();
     if (auto* observer = fetcher_->GetResourceLoadObserver()) {
-      for (const auto& span : absl::get<SegmentedBuffer>(data)) {
+      for (const auto& span : std::get<SegmentedBuffer>(data)) {
         observer->DidReceiveData(resource_->InspectorId(),
                                  base::SpanOrSize(span));
       }
     }
   } else {
-    CHECK(absl::holds_alternative<base::span<const char>>(data));
-    base::span<const char> span = absl::get<base::span<const char>>(data);
+    CHECK(std::holds_alternative<base::span<const char>>(data));
+    base::span<const char> span = std::get<base::span<const char>>(data);
     data_size = span.size();
     if (auto* observer = fetcher_->GetResourceLoadObserver()) {
       observer->DidReceiveData(resource_->InspectorId(),

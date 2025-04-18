@@ -53,14 +53,10 @@ import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityClient;
 import org.chromium.components.browser_ui.edge_to_edge.EdgeToEdgePadAdjuster;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler.BackPressResult;
 import org.chromium.components.feature_engagement.Tracker;
-import org.chromium.components.omnibox.OmniboxFeatureList;
 import org.chromium.ui.base.TestActivity;
 
 /** Tests for {@link HubCoordinator}. */
 @RunWith(BaseRobolectricTestRunner.class)
-// TabSwitcherSearchTest provides the test coverage for the code
-// when OmniboxFeatureList.ANDROID_HUB_SEARCH is enabled
-@DisableFeatures(OmniboxFeatureList.ANDROID_HUB_SEARCH)
 public class HubCoordinatorUnitTest {
     private static final int TAB_ID = 7;
     private static final int INCOGNITO_TAB_ID = 9;
@@ -82,6 +78,7 @@ public class HubCoordinatorUnitTest {
     @Mock private Tracker mTracker;
     @Mock private SearchActivityClient mSearchActivityClient;
     @Mock private EdgeToEdgeController mEdgeToEdgeController;
+    @Mock private HubColorMixer mHubColorMixer;
     @Captor private ArgumentCaptor<EdgeToEdgePadAdjuster> mEdgeToEdgePadAdjusterArgumentCaptor;
     private final ObservableSupplierImpl<Integer> mColorOverviewSupplier =
             new ObservableSupplierImpl<>();
@@ -94,6 +91,10 @@ public class HubCoordinatorUnitTest {
     private ObservableSupplierImpl<Integer> mPreviousLayoutTypeSupplier =
             new ObservableSupplierImpl<>();
     private ObservableSupplierImpl<DisplayButtonData> mReferenceButtonDataSupplier =
+            new ObservableSupplierImpl<>();
+    private ObservableSupplierImpl<Boolean> mRegularHubSearchEnabledStateSupplier =
+            new ObservableSupplierImpl<>();
+    private ObservableSupplierImpl<Boolean> mIncognitoHubSearchEnabledStateSupplier =
             new ObservableSupplierImpl<>();
     private OneshotSupplierImpl<ProfileProvider> mProfileProviderSupplier =
             new OneshotSupplierImpl<>();
@@ -116,6 +117,8 @@ public class HubCoordinatorUnitTest {
                 .thenReturn(new ObservableSupplierImpl<>());
         when(mTabSwitcherPane.getReferenceButtonDataSupplier())
                 .thenReturn(mReferenceButtonDataSupplier);
+        when(mTabSwitcherPane.getHubSearchEnabledStateSupplier())
+                .thenReturn(mRegularHubSearchEnabledStateSupplier);
         when(mIncognitoTabSwitcherPane.getPaneId()).thenReturn(PaneId.INCOGNITO_TAB_SWITCHER);
         when(mIncognitoTabSwitcherPane.getColorScheme()).thenReturn(HubColorScheme.INCOGNITO);
         when(mIncognitoTabSwitcherPane.getHandleBackPressChangedSupplier())
@@ -124,6 +127,8 @@ public class HubCoordinatorUnitTest {
                 .thenReturn(new ObservableSupplierImpl<>());
         when(mIncognitoTabSwitcherPane.getReferenceButtonDataSupplier())
                 .thenReturn(mReferenceButtonDataSupplier);
+        when(mIncognitoTabSwitcherPane.getHubSearchEnabledStateSupplier())
+                .thenReturn(mIncognitoHubSearchEnabledStateSupplier);
         when(mTab.getId()).thenReturn(TAB_ID);
         when(mTab.isIncognito()).thenReturn(false);
         when(mIncognitoTab.getId()).thenReturn(INCOGNITO_TAB_ID);
@@ -161,7 +166,7 @@ public class HubCoordinatorUnitTest {
                         mMenuButtonCoordinator,
                         mSearchActivityClient,
                         mEdgeToEdgeSupplier,
-                        mColorOverviewSupplier);
+                        mHubColorMixer);
         ShadowLooper.runUiThreadTasks();
         mRootView.getChildCount();
         assertNotEquals(0, mRootView.getChildCount());

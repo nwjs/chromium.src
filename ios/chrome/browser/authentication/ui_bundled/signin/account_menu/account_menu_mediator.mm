@@ -68,16 +68,11 @@
   // identities section
   NSMutableArray<id<SystemIdentity>>* _identities;
 
-  // The type of account error that is being displayed in the error section for
-  // signed in accounts. Is set to kNone when there is no error section.
-  syncer::SyncService::UserActionableError _diplayedAccountErrorType;
-
   // Records the displayed primary account info by the view. Used to limit the
   // view updates to only when one of these values is updated.
   NSString* _primaryAccountDisplayedEmail;
   NSString* _primaryAccountDisplayedUserFullName;
   UIImage* _primaryAccountDisplayedAvatar;
-  BOOL _primaryAccountDisplayedManaged;
 }
 
 - (instancetype)initWithSyncService:(syncer::SyncService*)syncService
@@ -109,19 +104,13 @@
         signin::ConsentLevel::kSignin);
     _syncService = syncService;
     _syncObserver = std::make_unique<SyncObserverBridge>(self, _syncService);
-    _diplayedAccountErrorType = syncer::SyncService::UserActionableError::kNone;
     [self updateIdentitiesIfAllowed];
-    // By default, if the mediator was not involved in stopping the account
-    // menu, it mean the coordinator was directly interupted.
-    self.signinCoordinatorResult = SigninCoordinatorResultInterrupted;
-    _signinCompletionIdentity = nil;
     _error = GetAccountErrorUIInfo(_syncService);
   }
   return self;
 }
 
 - (void)disconnect {
-  _signinCompletionIdentity = nil;
   _blockUpdates = YES;
   _accountManagerService = nullptr;
   _accountManagerServiceObserver.reset();
@@ -187,8 +176,9 @@
       _primaryIdentity, IdentityAvatarSize::Large);
 }
 
-- (ManagementState)managementState {
-  return GetManagementState(_identityManager, _authenticationService, _prefs);
+- (NSString*)managementDescription {
+  return GetManagementDescription(
+      GetManagementState(_identityManager, _authenticationService, _prefs));
 }
 
 - (AccountErrorUIInfo*)accountErrorUIInfo {
@@ -235,11 +225,12 @@
   }
   // The user is not signed anymore. The account menu can be stopped.
   // The old value of `_primaryIdentity` can be kept during the shutdown.
-  self.signinCoordinatorResult =
-      SigninCoordinatorResult::SigninCoordinatorResultInterrupted;
   _blockUpdates = YES;
   self.userInteractionsBlocked = YES;
-  [self.delegate mediatorWantsToBeDismissed:self];
+  [self.delegate mediatorWantsToBeDismissed:self
+                                 withResult:SigninCoordinatorResultInterrupted
+                             signedIdentity:nil
+                            userTappedClose:NO];
 }
 
 - (void)onExtendedAccountInfoUpdated:(const AccountInfo&)info {
@@ -265,7 +256,8 @@
     return;
   }
   AccountErrorUIInfo* newError = GetAccountErrorUIInfo(_syncService);
-  if (newError == _error) {
+  if (_error == newError || [newError isEqual:_error]) {
+    // The first disjunct is necessary for the case when both values are `nil`.
     return;
   }
   _error = newError;
@@ -279,9 +271,10 @@
     (AccountMenuViewController*)viewController {
   CHECK_EQ(viewController, _consumer);
   self.userInteractionsBlocked = YES;
-  self.signinCoordinatorResult =
-      SigninCoordinatorResult::SigninCoordinatorResultCanceledByUser;
-  [_delegate mediatorWantsToBeDismissed:self];
+  [_delegate mediatorWantsToBeDismissed:self
+                             withResult:SigninCoordinatorResultCanceledByUser
+                         signedIdentity:nil
+                        userTappedClose:YES];
 }
 
 - (void)signOutFromTargetRect:(CGRect)targetRect {
@@ -425,8 +418,12 @@
 - (void)signoutEndedWithSuccess:(BOOL)success {
   if (success) {
     // By signing-out the user cancelled the option to signin in this menu.
-    self.signinCoordinatorResult = SigninCoordinatorResultCanceledByUser;
-    [_delegate mediatorWantsToBeDismissed:self];
+    // TODO(crbug.com/400715119): Should consider add a signout result in
+    // SigninCoordinatorResult.
+    [_delegate mediatorWantsToBeDismissed:self
+                               withResult:SigninCoordinatorResultCanceledByUser
+                           signedIdentity:nil
+                          userTappedClose:NO];
   } else {
     // User had not signed-out. Allow to interact with the UI.
     self.userInteractionsBlocked = NO;
@@ -442,10 +439,10 @@
   BOOL success =
       result == SigninCoordinatorResult::SigninCoordinatorResultSuccess;
   if (success) {
-    _signinCompletionIdentity = newIdentity;
-    self.signinCoordinatorResult = result;
-    [_delegate triggerAccountSwitchSnackbarWithIdentity:newIdentity];
-    [_delegate mediatorWantsToBeDismissed:self];
+    [_delegate mediatorWantsToBeDismissed:self
+                               withResult:result
+                           signedIdentity:newIdentity
+                          userTappedClose:NO];
   } else if (_accountManagerService->IsValidIdentity(previousIdentity)) {
     // If the sign-in failed, sign back in previous account if possible and
     // restart using the account menu.
@@ -455,8 +452,10 @@
     self.userInteractionsBlocked = NO;
     [self restartUpdates];
   } else {
-    self.signinCoordinatorResult = result;
-    [_delegate mediatorWantsToBeDismissed:self];
+    [_delegate mediatorWantsToBeDismissed:self
+                               withResult:result
+                           signedIdentity:nil
+                          userTappedClose:NO];
   }
 }
 
@@ -554,9 +553,7 @@
 - (BOOL)primaryAccountInfoChanged {
   if (_primaryAccountDisplayedAvatar != self.primaryAccountAvatar ||
       _primaryAccountDisplayedUserFullName != self.primaryAccountUserFullName ||
-      _primaryAccountDisplayedEmail != self.primaryAccountEmail ||
-      _primaryAccountDisplayedManaged !=
-          self.managementState.is_profile_managed()) {
+      _primaryAccountDisplayedEmail != self.primaryAccountEmail) {
     [self recordPrimaryAccountDisplayedInfo];
     return YES;
   }
@@ -568,7 +565,6 @@
   _primaryAccountDisplayedEmail = self.primaryAccountEmail;
   _primaryAccountDisplayedUserFullName = self.primaryAccountUserFullName;
   _primaryAccountDisplayedAvatar = self.primaryAccountAvatar;
-  _primaryAccountDisplayedManaged = self.managementState.is_profile_managed();
 }
 
 // Returns whether this mediator is disconnected

@@ -952,10 +952,10 @@ gpu::ContextResult GLES2DecoderPassthroughImpl::Initialize(
   FAIL_INIT_IF_NOT(feature_info_->feature_flags().khr_debug,
                    "missing GL_KHR_debug");
   FAIL_INIT_IF_NOT(!attrib_helper.fail_if_major_perf_caveat ||
-                       !feature_info_->feature_flags().is_swiftshader_for_webgl,
-                   "fail_if_major_perf_caveat + swiftshader");
-  FAIL_INIT_IF_NOT(!attrib_helper.enable_oop_rasterization,
-                   "oop rasterization not supported");
+                       !feature_info_->feature_flags().is_software_webgl,
+                   "fail_if_major_perf_caveat + software gl");
+  FAIL_INIT_IF_NOT(!attrib_helper.enable_gpu_rasterization,
+                   "GPU rasterization not supported");
   FAIL_INIT_IF_NOT(!IsES31ForTestingContextType(attrib_helper.context_type) ||
                        feature_info_->gl_version_info().IsAtLeastGLES(3, 1),
                    "ES 3.1 context type requires an ES 3.1 ANGLE context");
@@ -1063,6 +1063,17 @@ gpu::ContextResult GLES2DecoderPassthroughImpl::Initialize(
   if (feature_info_->IsWebGLContext())
     api()->glDisableFn(GL_TEXTURE_RECTANGLE_ANGLE);
 #endif
+
+  // TEMPORARY: Set primitive restart to enabled by default for WebGL2. Clear
+  // errors afterwards so that when this state is initialized and validated in
+  // ANGLE, it will not generate errors during command buffer initialization.
+  if (feature_info_->context_type() == CONTEXT_TYPE_WEBGL2) {
+    // If WebGL 2, the PRIMITIVE_RESTART_FIXED_INDEX should be always enabled.
+    // See the section <Primitive Restart is Always Enabled> in WebGL 2 spec:
+    // https://www.khronos.org/registry/webgl/specs/latest/2.0/#4.1.4
+    api()->glEnableFn(GL_PRIMITIVE_RESTART_FIXED_INDEX);
+    CheckErrorCallbackState();
+  }
 
   // Register this object as a GPU switching observer.
   if (feature_info_->IsWebGLContext()) {
@@ -2158,6 +2169,11 @@ bool GLES2DecoderPassthroughImpl::IsIgnoredCap(GLenum cap) const {
   switch (cap) {
     case GL_DEBUG_OUTPUT:
       return true;
+
+    case GL_PRIMITIVE_RESTART_FIXED_INDEX:
+      // Disable setting primitive restart at the command decoder level until
+      // it's blocked in ANGLE for WebGL contexts.
+      return feature_info_->IsWebGLContext();
 
     default:
       return false;

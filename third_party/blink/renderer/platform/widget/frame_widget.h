@@ -75,7 +75,8 @@ class PLATFORM_EXPORT FrameWidget {
 
   // Posts a task with the given delay, then requests an animation frame from
   // the compositor (ie LayerTreeHost::SetNeedsAnimate()).
-  virtual void RequestAnimationAfterDelay(const base::TimeDelta&) = 0;
+  virtual void RequestAnimationAfterDelay(const base::TimeDelta&,
+                                          bool urgent) = 0;
 
   // Sets the root layer. The |layer| can be null when detaching the root layer.
   virtual void SetRootLayer(scoped_refptr<cc::Layer> layer) = 0;
@@ -163,10 +164,7 @@ class PLATFORM_EXPORT FrameWidget {
   virtual bool HasImeRenderWidgetHost() const { return false; }
 
   // Called to send new cursor anchor info data to the browser.
-  virtual void UpdateCursorAnchorInfo() = 0;
-
-  // Update the current visible line bounds for the focused element.
-  virtual void UpdateLineBounds() = 0;
+  virtual void UpdateCursorAnchorInfo(bool update_requested) = 0;
 
   virtual gfx::Range CompositionRange() = 0;
   // Returns ime_text_spans and corresponding window coordinates for the list

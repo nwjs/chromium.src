@@ -82,10 +82,27 @@ bool FileSystemAccessMetadata::IsTopLevelEncryptedArchive() const {
   return false;
 }
 
+bool FileSystemAccessMetadata::IsForDownloadItem(
+    download::DownloadItem* download) const {
+  return false;
+}
+
 download::DownloadDangerType FileSystemAccessMetadata::GetDangerType() const {
   // Used as the default pre-scan and fallback danger type since FSA doesn't
   // have preliminary danger type checks.
   return download::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS;
+}
+
+enterprise_connectors::EventResult
+FileSystemAccessMetadata::GetPreScanEventResult(
+    download::DownloadDangerType danger_type) const {
+  // Currently for file system access deep scans, pre-scan danger type
+  // should always be DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS and event result
+  // ALLOWED.
+  if (danger_type != download::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS) {
+    DVLOG(1) << "Unexpected danger type for fsa scan: " << danger_type;
+  }
+  return enterprise_connectors::EventResult::ALLOWED;
 }
 
 std::unique_ptr<DownloadRequestMaker>
@@ -93,6 +110,34 @@ FileSystemAccessMetadata::CreateDownloadRequestFromMetadata(
     scoped_refptr<BinaryFeatureExtractor> binary_feature_extractor) const {
   return DownloadRequestMaker::CreateFromFileSystemAccess(
       binary_feature_extractor, *item_);
+}
+
+std::unique_ptr<DeepScanningMetadata::DownloadScopedObservation>
+FileSystemAccessMetadata::GetDownloadObservation(
+    download::DownloadItem::Observer* observer) {
+  return nullptr;
+}
+
+void FileSystemAccessMetadata::SetCallback(CheckDownloadCallback callback) {
+  callback_ = std::move(callback);
+}
+
+void FileSystemAccessMetadata::ProcessScanResult(
+    DownloadCheckResultReason reason,
+    DownloadCheckResult deep_scan_result) {
+  if (deep_scan_result == DownloadCheckResult::ASYNC_SCANNING ||
+      deep_scan_result == DownloadCheckResult::ASYNC_LOCAL_PASSWORD_SCANNING) {
+    return;
+  }
+
+  // Callback should only be run once, ignore any subsequent scan results.
+  if (!callback_.is_null()) {
+    std::move(callback_).Run(MaybeOverrideScanResult(reason, deep_scan_result));
+  }
+}
+
+base::WeakPtr<FileSystemAccessMetadata> FileSystemAccessMetadata::GetWeakPtr() {
+  return weakptr_factory_.GetWeakPtr();
 }
 
 }  // namespace safe_browsing

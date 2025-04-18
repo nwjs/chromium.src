@@ -37,6 +37,7 @@
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/common/chrome_switches.h"
 #include "components/reading_list/core/reading_list_model.h"
+#include "components/saved_tab_groups/internal/saved_tab_group_model.h"
 #include "components/saved_tab_groups/public/features.h"
 #include "components/saved_tab_groups/public/types.h"
 #include "components/security_interstitials/content/security_interstitial_tab_helper.h"
@@ -161,21 +162,11 @@ void BrowserTabStripModelDelegate::MoveTabsToNewWindow(
 void BrowserTabStripModelDelegate::MoveGroupToNewWindow(
     const tab_groups::TabGroupId& group) {
   TabGroupModel* group_model = browser_->tab_strip_model()->group_model();
-  if (!group_model) {
+  if (!group_model || !group_model->ContainsTabGroup(group)) {
     return;
   }
 
-  gfx::Range range = group_model->GetTabGroup(group)->ListTabs();
-
-  std::vector<int> indices;
-  indices.reserve(range.length());
-  for (auto i = range.start(); i < range.end(); ++i) {
-    indices.push_back(i);
-  }
-
-  // chrome:: to disambiguate the free function from
-  // BrowserTabStripModelDelegate::MoveTabsToNewWindow().
-  chrome::MoveTabsToNewWindow(browser_, indices, group);
+  chrome::MoveGroupToNewWindow(browser_, group);
 }
 
 std::optional<SessionID> BrowserTabStripModelDelegate::CreateHistoricalTab(
@@ -214,10 +205,6 @@ void BrowserTabStripModelDelegate::CreateHistoricalGroup(
 void BrowserTabStripModelDelegate::GroupAdded(
     const tab_groups::TabGroupId& group) {
   if (tab_groups::IsTabGroupSyncServiceDesktopMigrationEnabled()) {
-    return;
-  }
-
-  if (!tab_groups::IsTabGroupsSaveV2Enabled()) {
     return;
   }
 
@@ -305,14 +292,14 @@ bool BrowserTabStripModelDelegate::CanReload() const {
 }
 
 void BrowserTabStripModelDelegate::AddToReadLater(
-    content::WebContents* web_contents) {
+    std::vector<content::WebContents*> web_contentses) {
   ReadingListModel* model =
       ReadingListModelFactory::GetForBrowserContext(browser_->profile());
   if (!model || !model->loaded()) {
     return;
   }
 
-  chrome::MoveTabToReadLater(browser_, web_contents);
+  chrome::MoveTabsToReadLater(browser_, web_contentses);
 }
 
 bool BrowserTabStripModelDelegate::SupportsReadLater() {
@@ -349,7 +336,7 @@ void BrowserTabStripModelDelegate::OnGroupsDestruction(
     const std::vector<tab_groups::TabGroupId>& group_ids,
     base::OnceCallback<void()> close_callback,
     bool delete_groups) {
-  if (!delete_groups && tab_groups::IsTabGroupsSaveV2Enabled()) {
+  if (!delete_groups) {
     // Close the groups rather than delete them to retain the saved group.
     for (auto group_id : group_ids) {
       tab_groups::SavedTabGroupUtils::RemoveGroupFromTabstrip(browser_,

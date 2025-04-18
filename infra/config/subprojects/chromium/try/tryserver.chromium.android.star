@@ -308,6 +308,42 @@ try_.builder(
 )
 
 try_.builder(
+    name = "android-15-tablet-landscape-x64-rel",
+    # TODO(crbug.com/376748979 ): Enable on branches once tests are stable
+    # branch_selector = branches.selector.ANDROID_BRANCHES,
+    description_html = "Run Chromium tests on Android 15 tablet landscape emulator.",
+    mirrors = [
+        "ci/android-15-tablet-landscape-x64-rel",
+    ],
+    gn_args = gn_args.config(
+        configs = [
+            "ci/android-15-tablet-landscape-x64-rel",
+            "release_try_builder",
+        ],
+    ),
+    contact_team_email = "clank-engprod@google.com",
+    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
+)
+
+try_.builder(
+    name = "android-15-tablet-x64-rel",
+    # TODO(crbug.com/376748979 ): Enable on branches once tests are stable
+    # branch_selector = branches.selector.ANDROID_BRANCHES,
+    description_html = "Run Chromium tests on Android 15 tablet emulator.",
+    mirrors = [
+        "ci/android-15-tablet-x64-rel",
+    ],
+    gn_args = gn_args.config(
+        configs = [
+            "ci/android-15-tablet-x64-rel",
+            "release_try_builder",
+        ],
+    ),
+    contact_team_email = "clank-engprod@google.com",
+    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
+)
+
+try_.builder(
     name = "android-15-x64-fyi-rel",
     mirrors = [
         "ci/android-15-x64-fyi-rel",
@@ -391,8 +427,8 @@ try_.orchestrator_builder(
             "ci/android-pie-arm64-rel",
             "release_try_builder",
             "android_fastbuild",
+            "enable_android_secondary_abi",
             "fail_on_android_expectations",
-            "no_secondary_abi",
             "use_clang_coverage",
             "partial_code_coverage_instrumentation",
         ],
@@ -404,8 +440,6 @@ try_.orchestrator_builder(
         "chromium.add_one_test_shard": 10,
         # crbug/940930
         "chromium.enable_cleandead": 100,
-        # b/346598710
-        "chromium.luci_analysis_v2": 100,
     },
     main_list_view = "try",
     tryjob = try_.job(),
@@ -586,7 +620,13 @@ try_.builder(
     mirrors = ["ci/android-cronet-arm64-gn2bp-dbg"],
     gn_args = "ci/android-cronet-arm64-gn2bp-dbg",
     contact_team_email = "cronet-team@google.com",
+    main_list_view = "try",
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
+    tryjob = try_.job(
+        location_filters = [
+            "components/cronet/gn2bp/.+",
+        ],
+    ),
 )
 
 try_.builder(
@@ -930,6 +970,7 @@ try_.builder(
         configs = [
             "android_builder",
             "debug_try_builder",
+            "enable_android_secondary_abi",
             "remoteexec",
             "arm64",
         ],
@@ -1141,6 +1182,7 @@ try_.builder(
     gn_args = gn_args.config(
         configs = [
             "ci/Android arm64 Builder (dbg)",
+            "enable_android_secondary_abi",
             "release_try_builder",
             "strip_debug_info",
             "webview_monochrome",
@@ -1159,6 +1201,7 @@ try_.builder(
     gn_args = gn_args.config(
         configs = [
             "ci/Android arm64 Builder (dbg)",
+            "enable_android_secondary_abi",
             "release_try_builder",
             "strip_debug_info",
             "webview_monochrome",
@@ -1193,8 +1236,6 @@ try_.orchestrator_builder(
         "chromium.add_one_test_shard": 10,
         # crbug/940930
         "chromium.enable_cleandead": 100,
-        # b/346598710
-        "chromium.luci_analysis_v2": 100,
     },
     main_list_view = "try",
     tryjob = try_.job(),
@@ -1235,8 +1276,6 @@ try_.orchestrator_builder(
         "chromium.add_one_test_shard": 10,
         # crbug/940930
         "chromium.enable_cleandead": 100,
-        # b/346598710
-        "chromium.luci_analysis_v2": 100,
     },
     main_list_view = "try",
     tryjob = try_.job(),
@@ -1268,6 +1307,7 @@ try_.builder(
         configs = [
             "android_builder",
             "debug_try_builder",
+            "enable_android_secondary_abi",
             "remoteexec",
             "compile_only",
             "arm64",
@@ -1285,6 +1325,7 @@ try_.builder(
         configs = [
             "android_builder",
             "debug_try_builder",
+            "enable_android_secondary_abi",
             "remoteexec",
             "compile_only",
             "arm64",
@@ -1354,6 +1395,7 @@ try_.builder(
         location_filters = [
             "build/android/.+",
             "build/config/android/.+",
+            "chrome/browser/safe_browsing/BUILD.gn",
             "chromecast/.+",
             "components/cast/.+",
             "components/cast_receiver/.+",
@@ -1376,6 +1418,7 @@ try_.builder(
         location_filters = [
             "build/android/.+",
             "build/config/android/.+",
+            "chrome/browser/safe_browsing/BUILD.gn",
             "chromecast/.+",
             "components/cast/.+",
             "components/cast_receiver/.+",
@@ -1398,6 +1441,7 @@ try_.builder(
         location_filters = [
             "build/android/.+",
             "build/config/android/.+",
+            "chrome/browser/safe_browsing/BUILD.gn",
             "chromecast/.+",
             "components/cast/.+",
             "components/cast_receiver/.+",
@@ -1420,6 +1464,7 @@ try_.builder(
         location_filters = [
             "build/android/.+",
             "build/config/android/.+",
+            "chrome/browser/safe_browsing/BUILD.gn",
             "chromecast/.+",
             "components/cast/.+",
             "components/cast_receiver/.+",
@@ -1444,6 +1489,7 @@ try_.builder(
         configs = [
             "android_builder",
             "debug_try_builder",
+            "enable_android_secondary_abi",
             "remoteexec",
             "compile_only",
             "arm64",

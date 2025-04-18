@@ -273,7 +273,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Arc.Accessibility.ActiveTime.{ArcAccessibilityFeatures}"
-    units="ms" expires_after="2025-07-06">
+    units="ms" expires_after="2025-09-07">
   <owner>sahok@chromium.org</owner>
   <owner>arc-framework@google.com</owner>
   <summary>
@@ -306,15 +306,23 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Arc.AndroidBootTime" units="ms" expires_after="2025-07-27">
+<histogram name="Arc.AndroidBootTime{AndroidBootTypes}" units="ms"
+    expires_after="2025-07-27">
   <owner>khmel@google.com</owner>
   <owner>arc-performance@google.com</owner>
   <summary>
     The time elapsed for booting up the ARC instance.
 
     This metric is capped at 60 seconds, see Arc.UiAvailable if you need a
-    metric that tracks longer.
+    metric that tracks longer. {AndroidBootTypes}
   </summary>
+  <token key="AndroidBootTypes">
+    <variant name=""/>
+    <variant name=".FirstBoot" summary="For the very first boot, aka opt-in."/>
+    <variant name=".FirstBootAfterUpdate"
+        summary="For the first boot after Chrome OS update."/>
+    <variant name=".RegularBoot" summary="For a regular boot."/>
+  </token>
 </histogram>
 
 <histogram name="Arc.Anr.{AnrPeriod}" units="ANRs" expires_after="2025-08-10">
@@ -372,7 +380,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Arc.App.LowMemoryKills.{ArcAppKillType}Count10Minutes"
-    units="Apps" expires_after="2025-07-13">
+    units="Apps" expires_after="2025-09-14">
   <owner>cwd@google.com</owner>
   <owner>cros-vm-technology@google.com</owner>
   <summary>
@@ -384,7 +392,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Arc.App.LowMemoryKills.{ArcBackgroundVms}.{ArcAppKillType}Count10Minutes"
-    units="Apps" expires_after="2025-07-13">
+    units="Apps" expires_after="2025-09-14">
   <owner>cwd@google.com</owner>
   <owner>cros-vm-technology@google.com</owner>
   <summary>
@@ -397,7 +405,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Arc.App.LowMemoryKills{ArcAppKillDailyBackgroundVms}{ArcAppKillDailyType}"
-    units="Apps" expires_after="2025-07-13">
+    units="Apps" expires_after="2025-09-14">
   <owner>cwd@google.com</owner>
   <owner>cros-vm-technology@google.com</owner>
   <summary>
@@ -420,7 +428,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Arc.AppCount" units="units" expires_after="2025-07-13">
+<histogram name="Arc.AppCount" units="units" expires_after="2025-09-14">
   <owner>khmel@google.com</owner>
   <owner>fahdi@google.com</owner>
   <summary>
@@ -431,7 +439,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Arc.AppCount.HasInstalledOrUnknownApp" enum="Boolean"
-    expires_after="2025-07-06">
+    expires_after="2025-09-07">
   <owner>khmel@google.com</owner>
   <owner>arcvm-eng@google.com</owner>
   <summary>
@@ -443,7 +451,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Arc.AppCount.{AppType}" units="apps"
-    expires_after="2025-07-06">
+    expires_after="2025-09-07">
   <owner>khmel@google.com</owner>
   <owner>arcvm-eng@google.com</owner>
   <summary>
@@ -465,7 +473,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Arc.AppInstall.CacheHit" enum="BooleanCacheHit"
-    expires_after="2025-05-04">
+    expires_after="2026-03-24">
   <owner>jhorwich@google.com</owner>
   <owner>arc-commercial@google.com</owner>
   <summary>
@@ -535,7 +543,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Arc.AppInstalledReason" enum="InstallationCounterReasonEnum"
-    expires_after="2025-07-13">
+    expires_after="2025-09-14">
   <owner>thanhdng@chromium.org</owner>
   <owner>tby@chromium.org</owner>
   <summary>
@@ -748,7 +756,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Arc.Auth.MainAccountResolution.Status{ArcUserTypes}"
-    enum="ArcAuthMainAccountResolutionStatus" expires_after="2025-04-27">
+    enum="ArcAuthMainAccountResolutionStatus" expires_after="2026-03-19">
   <owner>jhorwich@google.com</owner>
   <owner>arc-core@google.com</owner>
   <summary>
@@ -1062,8 +1070,34 @@ chromium-metrics-reviews@google.com.
   <token key="SuccessFailure" variants="SuccessFailure"/>
 </histogram>
 
+<histogram name="Arc.DlcInstaller.Install" enum="BooleanSuccess"
+    expires_after="2026-03-24">
+  <owner>tinghaolin@google.com</owner>
+  <owner>chromeos-flex-eng@google.com</owner>
+  <summary>
+    Result of checking if the ARC DLC installer successfully installed the ARCVM
+    image from DLC.
+
+    When a user uses a managed device that enables the preload device policy and
+    meets the hardware requirements, the DLC service will install the ARCVM
+    image from DLC. This downloading mechanism is enabled on boards with the
+    arcvm-dlc USE flag (currently, only the reven board).
+  </summary>
+</histogram>
+
+<histogram name="Arc.DlcInstaller.InstallTime" units="ms"
+    expires_after="2026-03-24">
+  <owner>tinghaolin@google.com</owner>
+  <owner>chromeos-flex-eng@google.com</owner>
+  <summary>
+    The elapsed time between the arcvm image being installed via DLC service and
+    the completion of that installation. This downloading mechanism is enabled
+    on boards with the arcvm-dlc USE flag (currently, only the reven board).
+  </summary>
+</histogram>
+
 <histogram name="Arc.EngagementTime.ArcTotal" units="ms"
-    expires_after="2025-07-13">
+    expires_after="2025-09-14">
   <owner>mduggan@google.com</owner>
   <owner>yhanada@google.com</owner>
   <owner>arc-framework@google.com</owner>
@@ -1077,7 +1111,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Arc.EngagementTime.Background" units="ms"
-    expires_after="2025-07-13">
+    expires_after="2025-09-14">
   <owner>mduggan@google.com</owner>
   <owner>yhanada@google.com</owner>
   <owner>arc-framework@google.com</owner>
@@ -1089,7 +1123,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Arc.EngagementTime.Foreground" units="ms"
-    expires_after="2025-07-13">
+    expires_after="2025-09-14">
   <owner>mduggan@google.com</owner>
   <owner>yhanada@google.com</owner>
   <owner>arc-framework@google.com</owner>
@@ -1100,7 +1134,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Arc.EngagementTime.Total" units="ms"
-    expires_after="2025-07-13">
+    expires_after="2025-09-14">
   <owner>mduggan@google.com</owner>
   <owner>yhanada@google.com</owner>
   <owner>arc-framework@google.com</owner>
@@ -1609,7 +1643,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Arc.Notifications.IsCustomNotification"
-    enum="BooleanIsCustomNotification" expires_after="2025-07-13">
+    enum="BooleanIsCustomNotification" expires_after="2025-09-14">
   <owner>shuminghao@google.com</owner>
   <owner>arc-framework@google.com</owner>
   <summary>
@@ -2289,7 +2323,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Arc.Supervision.Transition.Result"
-    enum="ArcSupervisionTransitionResult" expires_after="2025-07-13">
+    enum="ArcSupervisionTransitionResult" expires_after="2025-09-14">
   <owner>jhorwich@google.com</owner>
   <owner>arc-commercial@google.com</owner>
   <summary>
@@ -2415,7 +2449,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Arc.VmDataMigration.BatteryConsumption" units="%"
-    expires_after="2025-06-30">
+    expires_after="2025-08-31">
   <owner>momohatt@google.com</owner>
   <owner>youkichihosoi@google.com</owner>
   <owner>arc-storage@google.com</owner>
@@ -2429,7 +2463,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Arc.VmDataMigration.DesiredDiskImageSizeInGB.{SatisfiedOrNot}"
-    units="GB" expires_after="2025-07-06">
+    units="GB" expires_after="2025-09-07">
   <owner>momohatt@google.com</owner>
   <owner>youkichihosoi@google.com</owner>
   <owner>arc-storage@google.com</owner>
@@ -2445,7 +2479,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Arc.VmDataMigration.Duration" units="seconds"
-    expires_after="2025-07-06">
+    expires_after="2025-09-07">
   <owner>momohatt@google.com</owner>
   <owner>youkichihosoi@google.com</owner>
   <owner>arc-storage@google.com</owner>
@@ -2456,7 +2490,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Arc.VmDataMigration.EndStatus"
-    enum="CrOSFileSystemMigrationEndStatus" expires_after="2025-07-06">
+    enum="CrOSFileSystemMigrationEndStatus" expires_after="2025-09-07">
   <owner>momohatt@google.com</owner>
   <owner>youkichihosoi@google.com</owner>
   <owner>arc-storage@google.com</owner>
@@ -2467,7 +2501,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Arc.VmDataMigration.FailedErrorCode" enum="PlatformFileError"
-    expires_after="2025-07-06">
+    expires_after="2025-09-14">
   <owner>momohatt@google.com</owner>
   <owner>youkichihosoi@google.com</owner>
   <owner>arc-storage@google.com</owner>
@@ -2481,7 +2515,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Arc.VmDataMigration.FailedOperationType"
     enum="CrOSFileSystemMigrationFailedOperationType"
-    expires_after="2025-07-06">
+    expires_after="2025-09-14">
   <owner>momohatt@google.com</owner>
   <owner>youkichihosoi@google.com</owner>
   <owner>arc-storage@google.com</owner>
@@ -2494,7 +2528,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Arc.VmDataMigration.FailedPathType"
-    enum="ArcVmDataMigrationFailedPathType" expires_after="2025-07-06">
+    enum="ArcVmDataMigrationFailedPathType" expires_after="2025-09-14">
   <owner>momohatt@google.com</owner>
   <owner>youkichihosoi@google.com</owner>
   <owner>arc-storage@google.com</owner>
@@ -2507,7 +2541,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Arc.VmDataMigration.GetAndroidDataInfoDuration" units="ms"
-    expires_after="2025-07-06">
+    expires_after="2025-09-07">
   <owner>momohatt@google.com</owner>
   <owner>youkichihosoi@google.com</owner>
   <owner>arc-storage@google.com</owner>
@@ -2519,7 +2553,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Arc.VmDataMigration.InitialBatteryLevel" units="%"
-    expires_after="2025-07-06">
+    expires_after="2025-09-07">
   <owner>momohatt@google.com</owner>
   <owner>youkichihosoi@google.com</owner>
   <owner>arc-storage@google.com</owner>
@@ -2542,7 +2576,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Arc.VmDataMigration.MigrationFinishReason{ArcUserTypes}"
-    enum="ArcVmDataMigrationFinishReason" expires_after="2025-06-30">
+    enum="ArcVmDataMigrationFinishReason" expires_after="2025-08-31">
   <owner>momohatt@google.com</owner>
   <owner>youkichihosoi@google.com</owner>
   <owner>arc-storage@google.com</owner>
@@ -2553,7 +2587,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Arc.VmDataMigration.MigrationStatusOnArcStarted{ArcUserTypes}"
-    enum="ArcVmDataMigrationStatus" expires_after="2025-06-30">
+    enum="ArcVmDataMigrationStatus" expires_after="2025-08-31">
   <owner>momohatt@google.com</owner>
   <owner>youkichihosoi@google.com</owner>
   <owner>arc-storage@google.com</owner>
@@ -2592,7 +2626,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Arc.VmDataMigration.NotificationShownForTheFirstTime"
-    enum="BooleanEnabled" expires_after="2025-06-30">
+    enum="BooleanEnabled" expires_after="2025-08-31">
   <owner>momohatt@google.com</owner>
   <owner>youkichihosoi@google.com</owner>
   <owner>arc-storage@google.com</owner>
@@ -2604,7 +2638,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Arc.VmDataMigration.RemainingDays.{ArcVmDataMigrationFrontEndEvents}"
-    units="days" expires_after="2025-07-06">
+    units="days" expires_after="2025-09-07">
   <owner>momohatt@google.com</owner>
   <owner>youkichihosoi@google.com</owner>
   <owner>arc-storage@google.com</owner>
@@ -2630,7 +2664,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Arc.VmDataMigration.RequiredFreeDiskSpaceInGB.{SatisfiedOrNot}"
-    units="GB" expires_after="2025-06-30">
+    units="GB" expires_after="2025-08-31">
   <owner>momohatt@google.com</owner>
   <owner>youkichihosoi@google.com</owner>
   <owner>arc-storage@google.com</owner>
@@ -2646,7 +2680,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Arc.VmDataMigration.ResumeNotificationShown"
-    enum="BooleanEnabled" expires_after="2025-06-30">
+    enum="BooleanEnabled" expires_after="2025-08-31">
   <owner>momohatt@google.com</owner>
   <owner>youkichihosoi@google.com</owner>
   <owner>arc-storage@google.com</owner>
@@ -2660,7 +2694,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Arc.VmDataMigration.ScreenEvent.On{ArcVmDataMigrationType}"
-    enum="ArcVmDataMigrationScreenEvent" expires_after="2025-06-30">
+    enum="ArcVmDataMigrationScreenEvent" expires_after="2025-08-31">
   <owner>momohatt@google.com</owner>
   <owner>youkichihosoi@google.com</owner>
   <owner>arc-storage@google.com</owner>
@@ -2673,7 +2707,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Arc.VmDataMigration.ScreenInitialState.On{ArcVmDataMigrationType}"
-    enum="ArcVmDataMigrationScreenInitialState" expires_after="2025-06-30">
+    enum="ArcVmDataMigrationScreenInitialState" expires_after="2025-08-31">
   <owner>momohatt@google.com</owner>
   <owner>youkichihosoi@google.com</owner>
   <owner>arc-storage@google.com</owner>
@@ -2699,7 +2733,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Arc.VmDataMigration.SetupResult"
-    enum="ArcVmDataMigrationSetupResult" expires_after="2025-07-06">
+    enum="ArcVmDataMigrationSetupResult" expires_after="2025-09-07">
   <owner>momohatt@google.com</owner>
   <owner>youkichihosoi@google.com</owner>
   <owner>arc-storage@google.com</owner>
@@ -2710,7 +2744,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Arc.VmDataMigration.StartStatus"
-    enum="CrOSFileSystemMigrationStartStatus" expires_after="2025-07-06">
+    enum="CrOSFileSystemMigrationStartStatus" expires_after="2025-09-07">
   <owner>momohatt@google.com</owner>
   <owner>youkichihosoi@google.com</owner>
   <owner>arc-storage@google.com</owner>
@@ -2721,7 +2755,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Arc.VmDataMigration.TotalFiles" units="files"
-    expires_after="2025-07-06">
+    expires_after="2025-09-07">
   <owner>momohatt@google.com</owner>
   <owner>youkichihosoi@google.com</owner>
   <owner>arc-storage@google.com</owner>
@@ -2732,7 +2766,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Arc.VmDataMigration.TotalSizeMB" units="MB"
-    expires_after="2025-07-06">
+    expires_after="2025-09-07">
   <owner>momohatt@google.com</owner>
   <owner>youkichihosoi@google.com</owner>
   <owner>arc-storage@google.com</owner>
@@ -2758,7 +2792,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Arc.VmRemovableMediaUnmount.Duration" units="ms"
-    expires_after="2025-07-01">
+    expires_after="2025-08-31">
   <owner>momohatt@google.com</owner>
   <owner>arc-storage@google.com</owner>
   <summary>
@@ -2768,7 +2802,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Arc.VmRemovableMediaUnmount.Result"
-    enum="ArcVmRemovableMediaUnmountResult" expires_after="2025-07-01">
+    enum="ArcVmRemovableMediaUnmountResult" expires_after="2025-08-31">
   <owner>momohatt@google.com</owner>
   <owner>arc-storage@google.com</owner>
   <summary>
@@ -2796,16 +2830,6 @@ chromium-metrics-reviews@google.com.
     up.
   </summary>
   <token key="DeviceType" variants="DeviceType"/>
-</histogram>
-
-<histogram name="Arc.WallpaperApiUsage" enum="ArcWallpaperApi"
-    expires_after="2025-05-04">
-  <owner>hirokisato@google.com</owner>
-  <owner>arc-framework@google.com</owner>
-  <summary>
-    Records the number of times an API for getting / setting wallpaper from
-    Android is called.
-  </summary>
 </histogram>
 
 <histogram name="Arc.Wayland.LateTiming.Duration{WaylandEventType}" units="ms"
@@ -2887,7 +2911,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Arc.WM.WindowEnterTabletModeDelayTimeV2.{ChromeOSAppType}"
-    units="ms" expires_after="2025-04-06">
+    units="ms" expires_after="2026-04-06">
   <owner>lingyufeng@google.com</owner>
   <owner>arc-framework@google.com</owner>
   <summary>
@@ -2899,7 +2923,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Arc.WM.WindowExitTabletModeDelayTimeV2.{ChromeOSAppType}"
-    units="ms" expires_after="2025-04-06">
+    units="ms" expires_after="2026-04-06">
   <owner>lingyufeng@google.com</owner>
   <owner>arc-framework@google.com</owner>
   <summary>
@@ -2944,6 +2968,20 @@ chromium-metrics-reviews@google.com.
     window shown in tablet mode.
   </summary>
   <token key="ChromeOSAppType" variants="ChromeOSAppType"/>
+</histogram>
+
+<histogram name="Arc.{MuteType}AudioSuccess" enum="BooleanSuccess"
+    expires_after="2025-09-04">
+  <owner>vshenvi@google.com</owner>
+  <owner>cros-edu-eng@google.com</owner>
+  <summary>
+    Records the success outcome of the ARC VM mute or unmute audio operation.
+    Normally triggered when entering or exiting locked fullscreen mode.
+  </summary>
+  <token key="MuteType">
+    <variant name="Mute"/>
+    <variant name="Unmute"/>
+  </token>
 </histogram>
 
 </histograms>

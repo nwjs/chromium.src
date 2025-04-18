@@ -22,8 +22,15 @@ class PlainTextNodeTest : public testing::Test {
     return *MakeGarbageCollected<Font>(FontDescription{}, nullptr);
   }
 
+  static PlainTextNode& CreatePlainTextNode(const TextRun& run,
+                                            bool normalize_space,
+                                            bool supports_bidi) {
+    return *MakeGarbageCollected<PlainTextNode>(
+        run, normalize_space, TestFont(), supports_bidi, nullptr);
+  }
+
+  static constexpr bool kDirectionalOverride = true;
   static constexpr bool kNormalizeSpace = true;
-  static constexpr bool kBidiOverridden = true;
   static constexpr bool kSupportsBidi = true;
 };
 
@@ -139,35 +146,65 @@ TEST_F(PlainTextNodeTest, NormalizeSpacesAndMaybeBidiCanvasSpaces) {
 
 TEST_F(PlainTextNodeTest, SegmentTextBasic) {
   TextRun run("hello world");
-  PlainTextNode& node = *MakeGarbageCollected<PlainTextNode>(
-      run, !kNormalizeSpace, !kBidiOverridden, TestFont(), !kSupportsBidi);
+  PlainTextNode& node =
+      CreatePlainTextNode(run, !kNormalizeSpace, !kSupportsBidi);
 
-  ASSERT_EQ(node.ItemList().size(), 1u);
+  ASSERT_EQ(node.ItemList().size(), 3u);
+
   const PlainTextItem& item = node.ItemList()[0];
   EXPECT_EQ(item.StartOffset(), 0u);
-  EXPECT_EQ(item.Length(), 11u);
+  EXPECT_EQ(item.Length(), 5u);
   EXPECT_EQ(item.Direction(), TextDirection::kLtr);
-  EXPECT_EQ(item.Text(), "hello world");
+  EXPECT_EQ(item.Text(), "hello");
+
+  const PlainTextItem& item2 = node.ItemList()[1];
+  EXPECT_EQ(item2.StartOffset(), 5u);
+  EXPECT_EQ(item2.Length(), 1u);
+  EXPECT_EQ(item2.Direction(), TextDirection::kLtr);
+  EXPECT_EQ(item2.Text(), " ");
+
+  const PlainTextItem& item3 = node.ItemList()[2];
+  EXPECT_EQ(item3.StartOffset(), 6u);
+  EXPECT_EQ(item3.Length(), 5u);
+  EXPECT_EQ(item3.Direction(), TextDirection::kLtr);
+  EXPECT_EQ(item3.Text(), "world");
 }
 
 TEST_F(PlainTextNodeTest, SegmentTextNormalizeSpaces) {
   TextRun run("hello\t world\n");
-  PlainTextNode& node = *MakeGarbageCollected<PlainTextNode>(
-      run, kNormalizeSpace, !kBidiOverridden, TestFont(), !kSupportsBidi);
+  PlainTextNode& node =
+      CreatePlainTextNode(run, kNormalizeSpace, !kSupportsBidi);
 
-  ASSERT_EQ(node.ItemList().size(), 1u);
+  ASSERT_EQ(node.ItemList().size(), 5u);
+
   const PlainTextItem& item = node.ItemList()[0];
   EXPECT_EQ(item.StartOffset(), 0u);
-  EXPECT_EQ(item.Length(), 13u);
+  EXPECT_EQ(item.Length(), 5u);
   EXPECT_EQ(item.Direction(), TextDirection::kLtr);
-  EXPECT_EQ(item.Text(), "hello  world ");
+  EXPECT_EQ(item.Text(), "hello");
+
+  EXPECT_EQ(node.ItemList()[1].Text(), " ");
+  EXPECT_EQ(node.ItemList()[2].Text(), " ");
+  EXPECT_EQ(node.ItemList()[3].Text(), "world");
+  EXPECT_EQ(node.ItemList()[4].Text(), " ");
+}
+
+TEST_F(PlainTextNodeTest, SegmentTextIdeograph) {
+  String text = u"\u611F\u3058foo";
+  TextRun run(text);
+  PlainTextNode& node =
+      CreatePlainTextNode(run, !kNormalizeSpace, kSupportsBidi);
+  ASSERT_EQ(node.ItemList().size(), 3u);
+  EXPECT_EQ(node.ItemList()[0].Text(), u"\u611F");
+  EXPECT_EQ(node.ItemList()[1].Text(), u"\u3058");
+  EXPECT_EQ(node.ItemList()[2].Text(), "foo");
 }
 
 TEST_F(PlainTextNodeTest, SegmentTextBidi) {
   String text = u"123\u05E9\u05DC\u05D5\u05DD456";  // Hebrew characters
   TextRun run(text, TextDirection::kRtl);
-  PlainTextNode& node = *MakeGarbageCollected<PlainTextNode>(
-      run, !kNormalizeSpace, !kBidiOverridden, TestFont(), kSupportsBidi);
+  PlainTextNode& node =
+      CreatePlainTextNode(run, !kNormalizeSpace, kSupportsBidi);
 
   ASSERT_EQ(node.ItemList().size(), 3u);
 
@@ -187,13 +224,72 @@ TEST_F(PlainTextNodeTest, SegmentTextBidi) {
 TEST_F(PlainTextNodeTest, SegmentTextBidiNoSupport) {
   String text = u"123\u05E9\u05DC\u05D5\u05DD456";  // Hebrew characters
   TextRun run(text, TextDirection::kRtl);
-  PlainTextNode& node = *MakeGarbageCollected<PlainTextNode>(
-      run, !kNormalizeSpace, !kBidiOverridden, TestFont(), !kSupportsBidi);
+  PlainTextNode& node =
+      CreatePlainTextNode(run, !kNormalizeSpace, !kSupportsBidi);
 
   ASSERT_EQ(node.ItemList().size(), 1u);
   const PlainTextItem& item1 = node.ItemList()[0];
   EXPECT_EQ(item1.Direction(), TextDirection::kRtl);
   EXPECT_EQ(item1.Text(), u"123\u05E9\u05DC\u05D5\u05DD456");
+}
+
+TEST_F(PlainTextNodeTest, SegmentTextBidiOverride) {
+  String text = u"123\u05E9\u05DC\u05D5\u05DD456";  // Hebrew characters
+  TextRun run(text, TextDirection::kLtr, kDirectionalOverride);
+  PlainTextNode& node =
+      CreatePlainTextNode(run, !kNormalizeSpace, kSupportsBidi);
+
+  ASSERT_EQ(node.ItemList().size(), 1u);
+
+  const PlainTextItem& item1 = node.ItemList()[0];
+  EXPECT_EQ(item1.StartOffset(), 0u);
+  EXPECT_EQ(item1.Length(), 10u);
+  EXPECT_EQ(item1.Direction(), TextDirection::kLtr);
+  EXPECT_EQ(item1.Text(), text);
+}
+
+TEST_F(PlainTextNodeTest, SegmentTextBidiOverrideNested) {
+  String text =
+      u"123\u202E\u05E9\u05DC\u05D5\u05DD\u202C456";  // Hebrew characters
+  TextRun run(text, TextDirection::kLtr, kDirectionalOverride);
+  PlainTextNode& node =
+      CreatePlainTextNode(run, !kNormalizeSpace, kSupportsBidi);
+
+  ASSERT_EQ(node.ItemList().size(), 5u);
+
+  const PlainTextItem& item1 = node.ItemList()[0];
+  EXPECT_EQ(item1.StartOffset(), 0u);
+  EXPECT_EQ(item1.Direction(), TextDirection::kLtr);
+  EXPECT_EQ(item1.Text(), "123");
+
+  const PlainTextItem& item2 = node.ItemList()[1];
+  EXPECT_EQ(item2.StartOffset(), 4u);
+  EXPECT_EQ(item2.Direction(), TextDirection::kRtl);
+  EXPECT_EQ(item2.Text(), u"\u05E9\u05DC\u05D5\u05DD");
+
+  const PlainTextItem& item3 = node.ItemList()[2];
+  EXPECT_EQ(item3.StartOffset(), 3u);
+  EXPECT_EQ(item3.Direction(), TextDirection::kRtl);
+  EXPECT_EQ(item3.Text(), u"\u200B");
+
+  const PlainTextItem& item4 = node.ItemList()[3];
+  EXPECT_EQ(item4.StartOffset(), 8u);
+  EXPECT_EQ(item4.Direction(), TextDirection::kLtr);
+  EXPECT_EQ(item4.Text(), u"\u200B");
+
+  const PlainTextItem& item5 = node.ItemList()[4];
+  EXPECT_EQ(item5.StartOffset(), 9u);
+  EXPECT_EQ(item5.Direction(), TextDirection::kLtr);
+  EXPECT_EQ(item5.Text(), u"456");
+}
+
+TEST_F(PlainTextNodeTest, Shape) {
+  TextRun run("hello world");
+  PlainTextNode& node =
+      CreatePlainTextNode(run, !kNormalizeSpace, kSupportsBidi);
+  for (const PlainTextItem& item : node.ItemList()) {
+    EXPECT_NE(item.GetShapeResult(), nullptr);
+  }
 }
 
 }  // namespace blink

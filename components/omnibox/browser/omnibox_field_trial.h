@@ -415,30 +415,21 @@ bool IsZeroSuggestPrefetchingEnabled();
 bool IsZeroSuggestPrefetchingEnabledInContext(
     metrics::OmniboxEventProto::PageClassification page_classification);
 
+// Returns whether on-focus zero-suggest is enabled in the given context.
+bool IsOnFocusZeroSuggestEnabledInContext(
+    metrics::OmniboxEventProto::PageClassification page_classification);
+
+// Returns whether suggestion group headers should be hidden in the Omnibox
+// popup in the given context.
+bool IsHideSuggestionGroupHeadersEnabledInContext(
+    metrics::OmniboxEventProto::PageClassification page_classification);
+
 // Rich autocompletion.
 bool IsRichAutocompletionEnabled();
-bool RichAutocompletionShowAdditionalText();
-extern const base::FeatureParam<bool> kRichAutocompletionAutocompleteTitles;
-extern const base::FeatureParam<bool>
-    kRichAutocompletionAutocompleteTitlesShortcutProvider;
-extern const base::FeatureParam<int>
+extern const base::FeatureParam<size_t>
     kRichAutocompletionAutocompleteTitlesMinChar;
-extern const base::FeatureParam<bool>
-    kRichAutocompletionAutocompleteNonPrefixAll;
-extern const base::FeatureParam<bool>
-    kRichAutocompletionAutocompleteNonPrefixShortcutProvider;
-extern const base::FeatureParam<int>
-    kRichAutocompletionAutocompleteNonPrefixMinChar;
-extern const base::FeatureParam<bool> kRichAutocompletionShowAdditionalText;
-extern const base::FeatureParam<bool>
-    kRichAutocompletionAdditionalTextWithParenthesis;
-extern const base::FeatureParam<bool>
-    kRichAutocompletionAutocompleteShortcutText;
-extern const base::FeatureParam<int>
+extern const base::FeatureParam<size_t>
     kRichAutocompletionAutocompleteShortcutTextMinChar;
-extern const base::FeatureParam<bool> kRichAutocompletionCounterfactual;
-extern const base::FeatureParam<bool>
-    kRichAutocompletionAutocompletePreferUrlsOverPrefixes;
 
 // Specifies the relevance scores for the Site Search Starter Pack ACMatches
 // (e.g. @bookmarks, @history) provided by the Builtin Provider.
@@ -743,12 +734,16 @@ extern const base::FeatureParam<int>
 // DB or TemplateURLService's copy of the URL.
 extern const base::FeatureParam<std::string> kGeminiUrlOverride;
 
-// Whether the expansion pack for the site search starter pack is enabled.
+// Whether the expansion pack (the StarterPackID::kGemini keyword/engine) for
+// the site search starter pack is enabled.
 bool IsStarterPackExpansionEnabled();
 
 // When true, enables an informational IPH message at the bottom of the Omnibox
 // directing users to certain starter pack engines.
 bool IsStarterPackIPHEnabled();
+
+// Whether the starter pack page scope is enabled.
+bool IsStarterPackPageEnabled();
 
 // <- Site Search Starter Pack
 // ---------------------------------------------------------
@@ -758,13 +753,37 @@ bool IsStarterPackIPHEnabled();
 // primitives are included.
 #if BUILDFLAG(IS_ANDROID)
 constexpr base::FeatureParam<bool> kAndroidHubSearchEnableBookmarkProvider{
-    &omnibox::kAndroidHubSearch, "enable_bookmark_provider", false};
+    &omnibox::kAndroidHubSearch, "enable_bookmark_provider", true};
 
 constexpr base::FeatureParam<bool> kAndroidHubSearchEnableHistoryProvider{
-    &omnibox::kAndroidHubSearch, "enable_history_provider", false};
+    &omnibox::kAndroidHubSearch, "enable_history_provider", true};
 #endif
 
 // <- Android Hub Search
+// ---------------------------------------------------------
+// Power Tools -->
+constexpr base::FeatureParam<size_t> kOmniboxNumNtpZpsRecentSearches{
+    &omnibox::kNumNtpZpsRecentSearches, "omnibox_num_ntp_zps_recent_searches",
+    15};
+constexpr base::FeatureParam<size_t> kOmniboxNumNtpZpsTrendingSearches{
+    &omnibox::kNumNtpZpsTrendingSearches,
+    "omnibox_num_ntp_zps_trending_searches", 5};
+constexpr base::FeatureParam<size_t> kOmniboxNumWebZpsRecentSearches{
+    &omnibox::kNumWebZpsRecentSearches, "omnibox_num_web_zps_recent_searches",
+    15};
+constexpr base::FeatureParam<size_t> kOmniboxNumWebZpsRelatedSearches{
+    &omnibox::kNumWebZpsRelatedSearches, "omnibox_num_web_zps_related_searches",
+    8};
+constexpr base::FeatureParam<size_t> kOmniboxNumWebZpsMostVisitedUrls{
+    &omnibox::kNumWebZpsMostVisitedUrls,
+    "omnibox_num_web_zps_most_visited_urls", 10};
+constexpr base::FeatureParam<size_t> kOmniboxNumSrpZpsRecentSearches{
+    &omnibox::kNumSrpZpsRecentSearches, "omnibox_num_srp_zps_recent_searches",
+    15};
+constexpr base::FeatureParam<size_t> kOmniboxNumSrpZpsRelatedSearches{
+    &omnibox::kNumSrpZpsRelatedSearches, "omnibox_num_srp_zps_related_searches",
+    15};
+// <- Power Tools
 // ---------------------------------------------------------
 // Diagnostics -->
 #if BUILDFLAG(IS_ANDROID)

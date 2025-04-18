@@ -26,6 +26,7 @@ import("//components/optimization_guide/features.gni")
 import("//extensions/buildflags/buildflags.gni")
 import("//media/media_options.gni")
 import("//ppapi/buildflags/buildflags.gni")
+import("//third_party/angle/gni/angle.gni")
 import("//third_party/blink/public/public_features.gni")
 import("//third_party/widevine/cdm/widevine.gni")
 import("//tools/resources/generate_resource_allowlist.gni")
@@ -86,7 +87,10 @@ if (is_win) {
 
     # initialexe/ is used so that the we can reorder imports and write back to
     # the final destination at $root_out_dir/.
-    inputs = [ "$root_out_dir/initialexe/nw.exe" ]
+    inputs = [
+      "$root_out_dir/initialexe/nw.exe",
+      "$root_out_dir/initialexe/nw.exe.pdb",
+    ]
     outputs = [
       "$root_out_dir/nw.exe",
       "$root_out_dir/nw.exe.pdb",
@@ -1186,8 +1190,8 @@ if (is_win || (is_linux && !is_component_build)) {
       "//content/public/app",
       "//headless:headless_shell_lib",
       #"//third_party/cld_3/src/src:cld_3",
-      "//ui/events:dom_keycode_converter",
       "//tools/v8_context_snapshot:buildflags",
+      "//ui/events:dom_keycode_converter",
     ]
 
     if (is_chromeos) {
@@ -1775,7 +1779,7 @@ if (is_linux || is_chromeos) {
       if (is_linux) {
         deps += [ ":swiftshader_vk_symbols" ]
       }
-      if (!is_chromeos) {
+      if (!is_chromeos && angle_shared_libvulkan) {
         deps += [ ":angle_libvulkan_symbols" ]
       }
       if (build_with_internal_optimization_guide) {
@@ -1842,7 +1846,7 @@ if (is_linux || is_chromeos) {
 
       deps = [ "//third_party/angle:libGLESv2" ]
     }
-    if (!is_chromeos) {
+    if (!is_chromeos && angle_shared_libvulkan) {
       extract_symbols("angle_libvulkan_symbols") {
         binary = "$root_out_dir/lib/libvulkan.so.1"
 

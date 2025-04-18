@@ -801,7 +801,7 @@ TEST_F(DesktopNativeWidgetAuraTest, MAYBE_WindowMouseModalityTest) {
   // Create a view and validate that a mouse moves makes it to the view.
   EventCountView* widget_view = new EventCountView();
   widget_view->SetBounds(0, 0, 10, 10);
-  top_level_widget.GetRootView()->AddChildView(widget_view);
+  top_level_widget.GetRootView()->AddChildViewRaw(widget_view);
 
   gfx::Point cursor_location_main(5, 5);
   ui::MouseEvent move_main(ui::EventType::kMouseMoved, cursor_location_main,
@@ -818,7 +818,8 @@ TEST_F(DesktopNativeWidgetAuraTest, MAYBE_WindowMouseModalityTest) {
   // the main view within the dialog.
 
   // This instance will be destroyed when the dialog is destroyed.
-  auto dialog_delegate = std::make_unique<DialogDelegateView>();
+  auto dialog_delegate =
+      std::make_unique<DialogDelegateView>(DialogDelegateView::CreatePassKey());
   dialog_delegate->SetModalType(ui::mojom::ModalType::kWindow);
 
   Widget* modal_dialog_widget = views::DialogDelegate::CreateDialogWidget(
@@ -826,7 +827,7 @@ TEST_F(DesktopNativeWidgetAuraTest, MAYBE_WindowMouseModalityTest) {
   modal_dialog_widget->SetBounds(gfx::Rect(100, 100, 200, 200));
   EventCountView* dialog_widget_view = new EventCountView();
   dialog_widget_view->SetBounds(0, 0, 50, 50);
-  modal_dialog_widget->GetRootView()->AddChildView(dialog_widget_view);
+  modal_dialog_widget->GetRootView()->AddChildViewRaw(dialog_widget_view);
   modal_dialog_widget->Show();
   EXPECT_TRUE(modal_dialog_widget->IsVisible());
 
@@ -873,7 +874,8 @@ TEST_F(DesktopNativeWidgetAuraTest, WindowModalityActivationTest) {
   // says no, when a modal dialog is active.
   widget_delegate.SetCanActivate(false);
 
-  auto dialog_delegate = std::make_unique<DialogDelegateView>();
+  auto dialog_delegate =
+      std::make_unique<DialogDelegateView>(DialogDelegateView::CreatePassKey());
   dialog_delegate->SetModalType(ui::mojom::ModalType::kWindow);
 
   Widget* modal_dialog_widget = views::DialogDelegate::CreateDialogWidget(

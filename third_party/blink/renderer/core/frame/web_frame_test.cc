@@ -690,10 +690,10 @@ TEST_F(WebFrameTest, ExecuteScriptWithPromiseWithoutWait) {
   // Since the caller specified the script shouldn't wait for the promise to
   // be resolved, the callback should have completed normally and the result
   // value should be the promise.
-  // As `V8ValueConverterForTest` fails to convert the promise to `base::Value`,
-  // the callback receives `std::nullopt`.
+  // `V8ValueConverterForTest` converts the promise to `base::Value` which the
+  // callback receives.
   EXPECT_TRUE(callback_helper.DidComplete());
-  EXPECT_FALSE(callback_helper.HasAnyResults());
+  EXPECT_TRUE(callback_helper.HasAnyResults());
 }
 
 TEST_F(WebFrameTest, ExecuteScriptWithPromiseFulfilled) {
@@ -7650,6 +7650,7 @@ class TestNewWindowWebFrameClient
       const WebURLRequest&,
       const WebWindowFeatures&,
       const WebString&,
+      const gfx::Rect&,
       WebNavigationPolicy,
       network::mojom::blink::WebSandboxFlags,
       const SessionStorageNamespaceId&,
@@ -13749,6 +13750,8 @@ std::vector<TextRunDOMNodeIdInfo> GetPrintedTextRunDOMNodeIds(
 }  // namespace
 
 TEST_F(WebFrameTest, PrintSomePages) {
+  ScopedNoFontAntialiasingForTest disable_no_font_antialiasing_for_test(false);
+
   RegisterMockedHttpURLLoad("print-pages.html");
   frame_test_helpers::WebViewHelper web_view_helper;
   web_view_helper.InitializeAndLoad(base_url_ + "print-pages.html");
@@ -13764,6 +13767,8 @@ TEST_F(WebFrameTest, PrintSomePages) {
 }
 
 TEST_F(WebFrameTest, PrintAllPages) {
+  ScopedNoFontAntialiasingForTest disable_no_font_antialiasing_for_test(false);
+
   RegisterMockedHttpURLLoad("print-pages.html");
   frame_test_helpers::WebViewHelper web_view_helper;
   web_view_helper.InitializeAndLoad(base_url_ + "print-pages.html");

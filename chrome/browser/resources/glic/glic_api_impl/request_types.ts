@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 import {type WebClientInitialState} from '../glic.mojom-webui.js';
-import type {AnnotatedPageData, ChromeVersion, DraggableArea, ErrorReasonTypes, ErrorWithReason, FocusedTabCandidate, FocusedTabData, InvalidCandidateError, NoCandidateTabError, OpenPanelInfo, PanelState, PdfDocumentData, Screenshot, ScrollToParams, TabContextOptions, TabContextResult, TabData, UserProfileInfo} from '../glic_api/glic_api.js';
+import type {ActInFocusedTabParams, ActInFocusedTabResult, AnnotatedPageData, ChromeVersion, DraggableArea, ErrorReasonTypes, ErrorWithReason, FocusedTabDataHasFocus, FocusedTabDataHasNoFocus, OpenPanelInfo, OpenSettingsOptions, PageMetadata, PanelOpeningData, PanelState, PdfDocumentData, Screenshot, ScrollToParams, TabContextOptions, TabContextResult, TabData, UserProfileInfo} from '../glic_api/glic_api.js';
 
 /*
 This file defines messages sent over postMessage in-between the Glic WebUI
@@ -57,7 +57,9 @@ export declare interface HostRequestTypes {
       tabData?: TabDataPrivate,
     },
   };
-  glicBrowserOpenGlicSettingsPage: {};
+  glicBrowserOpenGlicSettingsPage: {
+    request: {options?: OpenSettingsOptions},
+  };
   glicBrowserClosePanel: {};
   glicBrowserShowProfilePicker: {};
   glicBrowserGetContextFromFocusedTab: {
@@ -66,6 +68,14 @@ export declare interface HostRequestTypes {
     },
     response: {
       tabContextResult: TabContextResultPrivate,
+    },
+  };
+  glicBrowserActInFocusedTab: {
+    request: {
+      actInFocusedTabParams: ActInFocusedTabParams,
+    },
+    response: {
+      actInFocusedTabResult: ActInFocusedTabResultPrivate,
     },
   };
   glicBrowserCaptureScreenshot: {
@@ -84,9 +94,22 @@ export declare interface HostRequestTypes {
       },
     },
   };
+  glicBrowserEnableDragResize: {
+    request: {
+      enabled: boolean,
+    },
+  };
   glicBrowserSetWindowDraggableAreas: {
     request: {
       areas: DraggableArea[],
+    },
+  };
+  glicBrowserSetMinimumWidgetSize: {
+    request: {
+      size: {
+        width: number,
+        height: number,
+      },
     },
   };
   glicBrowserSetMicrophonePermissionState: {
@@ -142,26 +165,31 @@ export declare interface HostRequestTypes {
   glicBrowserScrollTo: {
     request: {params: ScrollToParams},
   };
+  glicBrowserSetSyntheticExperimentState: {
+    request: {
+      trialName: string,
+      groupName: string,
+    },
+  };
+  glicBrowserOpenOsPermissionSettingsMenu: {request: {permission: string}};
+  glicBrowserGetOsMicrophonePermissionStatus: {
+    response: {
+      enabled: boolean,
+    },
+  };
 }
 
 // Types of requests to the GlicWebClient.
 export declare interface WebClientRequestTypes {
   glicWebClientNotifyPanelWillOpen: {
     request: {
-      panelState: PanelState,
+      panelOpeningData: PanelOpeningData,
     },
     response: {
       openPanelInfo?: OpenPanelInfo,
     },
   };
   glicWebClientNotifyPanelWasClosed: {
-  };
-  glicWebClientNotifyPanelOpened: {
-    request: {
-      attachedToWindowId: string|undefined,
-    },
-  };
-  glicWebClientNotifyPanelClosed: {
   };
   glicWebClientPanelStateChanged: {
     request: {
@@ -188,6 +216,11 @@ export declare interface WebClientRequestTypes {
       enabled: boolean,
     },
   };
+  glicWebClientNotifyOsLocationPermissionStateChanged: {
+    request: {
+      enabled: boolean,
+    },
+  };
   glicWebClientNotifyFocusedTabChanged: {
     request: {
       focusedTabDataPrivate: FocusedTabDataPrivate,
@@ -198,6 +231,77 @@ export declare interface WebClientRequestTypes {
       panelActive: boolean,
     },
   };
+  glicWebClientCheckResponsive: {};
+  glicWebClientNotifyManualResizeChanged: {
+    request: {
+      resizing: boolean,
+    },
+  };
+  glicWebClientBrowserIsOpenChanged: {
+    request: {
+      browserIsOpen: boolean,
+    },
+  };
+  glicWebClientNotifyOsHotkeyStateChanged: {
+    request: {
+      hotkey: string,
+    },
+  };
+}
+
+
+type RemoveStringPrefix<S extends string, Prefix extends string> =
+    S extends `${Prefix}${infer Rest}` ? Rest : 'prefixNotFound!';
+
+type HostRequestEnumNamesType = {
+  [K in keyof HostRequestTypes as RemoveStringPrefix<K, 'glicBrowser'>]: 0;
+};
+
+() => {
+  // LINT.IfChange(ApiRequestType)
+  // The sole purpose of this is to prompt you to update histograms.xml!
+  const apiRequestTypes: HostRequestEnumNamesType = {
+    WebClientCreated: 0,
+    WebClientInitialized: 0,
+    CreateTab: 0,
+    OpenGlicSettingsPage: 0,
+    ClosePanel: 0,
+    ShowProfilePicker: 0,
+    GetContextFromFocusedTab: 0,
+    ActInFocusedTab: 0,
+    CaptureScreenshot: 0,
+    ResizeWindow: 0,
+    EnableDragResize: 0,
+    SetWindowDraggableAreas: 0,
+    SetMinimumWidgetSize: 0,
+    SetMicrophonePermissionState: 0,
+    SetLocationPermissionState: 0,
+    SetTabContextPermissionState: 0,
+    SetContextAccessIndicator: 0,
+    GetUserProfileInfo: 0,
+    RefreshSignInCookies: 0,
+    AttachPanel: 0,
+    DetachPanel: 0,
+    SetAudioDucking: 0,
+    OnUserInputSubmitted: 0,
+    OnResponseStarted: 0,
+    OnResponseStopped: 0,
+    OnSessionTerminated: 0,
+    OnResponseRated: 0,
+    ScrollTo: 0,
+    SetSyntheticExperimentState: 0,
+    OpenOsPermissionSettingsMenu: 0,
+    GetOsMicrophonePermissionStatus: 0,
+  };
+  return apiRequestTypes;
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/glic/histograms.xml:ApiRequestType)
+};
+
+export function requestTypeToHistogramSuffix(type: string): string|undefined {
+  if (!type.startsWith('glicBrowser')) {
+    return undefined;
+  }
+  return type.substring(11);
 }
 
 export type AllRequestTypes = HostRequestTypes&WebClientRequestTypes;
@@ -267,6 +371,12 @@ export type WebClientInitialStatePrivate =
       chromeVersion: ChromeVersion,
       focusedTabData: FocusedTabDataPrivate,
       scrollToEnabled: boolean,
+      actInFocusedTabEnabled: boolean,
+      loggingEnabled: boolean,
+      // Whether or not the web client should resize the content to fit the
+      // window size.
+      fitWindow: boolean,
+      dragResizeEnabled: boolean,
     }>;
 
 // TabData format for postMessage transport.
@@ -296,18 +406,10 @@ export enum ImageColorType {
 }
 
 // FocusedTabData data for postMessage transport.
-export declare interface FocusedTabDataPrivate extends Omit<
-    FocusedTabData, 'focusedTab'|'focusedTabCandidate'|'noCandidateTabError'> {
-  focusedTab?: TabDataPrivate;
-  focusedTabCandidate?: FocusedTabCandidatePrivate;
-  noCandidateTabError?: NoCandidateTabError;
-}
-
-// FocusedTabDataCandidate data for postMessage transport.
-export declare interface FocusedTabCandidatePrivate extends Omit<
-    FocusedTabCandidate, 'focusedTabCandidateData'|'invalidCandidateError'> {
-  focusedTabCandidateData?: TabDataPrivate;
-  invalidCandidateError?: InvalidCandidateError;
+export declare interface FocusedTabDataPrivate {
+  hasFocus?: Omit<FocusedTabDataHasFocus, 'tabData'>&{tabData: TabDataPrivate};
+  hasNoFocus?: Omit<FocusedTabDataHasNoFocus, 'tabFocusCandidateData'>&
+      {tabFocusCandidateData?: TabDataPrivate};
 }
 
 // TabContextResult data for postMessage transport.
@@ -316,6 +418,11 @@ export declare interface TabContextResultPrivate extends
   tabData: TabDataPrivate;
   pdfDocumentData?: PdfDocumentDataPrivate;
   annotatedPageData?: AnnotatedPageDataPrivate;
+}
+
+export declare interface ActInFocusedTabResultPrivate extends
+    Omit<ActInFocusedTabResult, 'tabContextResult'> {
+  tabContextResult: TabContextResultPrivate;
 }
 
 export declare interface UserProfileInfoPrivate extends
@@ -331,8 +438,8 @@ export declare interface PdfDocumentDataPrivate extends
 export declare interface AnnotatedPageDataPrivate extends
     Omit<AnnotatedPageData, 'annotatedPageContent'> {
   annotatedPageContent?: ArrayBuffer;
+  metadata?: PageMetadata;
 }
-
 
 export class ErrorWithReasonImpl<T extends keyof ErrorReasonTypes> extends Error
     implements ErrorWithReason<T> {

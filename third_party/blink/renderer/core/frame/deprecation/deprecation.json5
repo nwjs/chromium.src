@@ -243,12 +243,31 @@
       ],
     },
     {
+      name: "H1UserAgentFontSizeInSection",
+      message: "Found an <h1> tag within an <article>, <aside>, <nav>, or <section> which does not have a specified font-size. The size of this heading text will be changing in this browser in the near future. See https://developer.mozilla.org/en-US/docs/Web/HTML/Element/Heading_Elements#specifying_a_uniform_font_size_for_h1 for more information.",
+      translation_note: "This warning occurs when a site uses <h1> inside <article>, <aside>, <nav>, or <section>. It means the behavior (font size) may change in a future Chrome release, when some special rules are removed from the browser.",
+      web_features: [
+        "kH1UserAgentFontSizeInSectionApplied",
+      ],
+      chrome_status_feature: 6192419898654720,
+      milestone: 136,
+    },
+    {
       name: "HostCandidateAttributeGetter",
       message: "`RTCPeerConnectionIceErrorEvent.hostCandidate` is deprecated. Please use `RTCPeerConnectionIceErrorEvent.address` or `RTCPeerConnectionIceErrorEvent.port` instead.",
       translation_note: "A deprecation warning shown to developers in the DevTools Issues tab when code tries to use the deprecated hostCandidate field, guiding developers to use the equivalent information in the .address and .port fields instead.",
       web_features: [
         "kHostCandidateAttributeGetter",
       ],
+    },
+    {
+      name: "IdentityDigitalCredentials",
+      message: "This format for the navigator.credentials.get() request for digital credentials is deprecated, please update your call to use the new format.",
+      translation_note: "A deprecation warning shown in the DevTools Issues tab, when a request for digital credentials API is formatted using a deprecated format.",
+      web_features: [
+        "kIdentityDigitalCredentials",
+      ],
+      chrome_status_feature: 5166035265650688,
     },
     {
       name: "IdentityInCanMakePaymentEvent",
@@ -581,26 +600,6 @@
         "kV8SharedArrayBufferConstructedInExtensionWithoutIsolation",
       ],
       milestone: 96,
-    },
-    {
-      name: "WebGPULimitMaxInterStageShaderComponents",
-      message: "The WebGPU limit `maxInterStageShaderComponents` is deprecated, instead use the WebGPU limit `maxInterStageShaderVariables`.",
-      translation_note: "This warning occurs when the website attempts to use the deprecated WebGPU limit `maxInterStageShaderComponents`.",
-      web_features: [
-        "kMaxInterStageShaderComponentsRequiredLimit",
-        "kV8GPUSupportedLimits_MaxInterStageShaderComponents_AttributeGetter",
-      ],
-      chrome_status_feature: 4853767735083008,
-    },
-    {
-      name: "WebSQL",
-      message: "Web SQL is deprecated. Please use SQLite WebAssembly or Indexed Database",
-      translation_note: "Warning displayed to developers when the Web SQL API is used to let them know this API is deprecated.",
-      web_features: [
-        "kOpenWebDatabase",
-      ],
-      chrome_status_feature: 5134293578285056,
-      milestone: 115,
     },
     {
       name: "XHRJSONEncodingDetection",

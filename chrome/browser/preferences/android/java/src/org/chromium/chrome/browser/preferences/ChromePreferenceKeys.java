@@ -56,6 +56,19 @@ public final class ChromePreferenceKeys {
     public static final String ADDRESS_BAR_SETTINGS_VIEW_COUNT =
             "Chrome.AddressBar.SettingsViewCount";
 
+    /** Timestamp of last time ai feature availability was checked. */
+    public static final String AI_ASSISTANT_ANALYZE_ATTACHMENT_AVAILABILITY =
+            "Chrome.AiAssistant.AnalyzeAttachmentAvailability";
+
+    public static final String AI_ASSISTANT_AVAILABILITY_CHECK_TIMESTAMP_MS =
+            "Chrome.AiAssistant.AvailabilityCheckTimestampMs";
+    public static final String AI_ASSISTANT_WEB_SUMMARIZATION_AVAILABILITY =
+            "Chrome.AiAssistant.WebSummarizationAvailability";
+
+    public static final String APPEARANCE_SETTINGS_CLICKED = "Chrome.Appearance.SettingsClicked";
+    public static final String APPEARANCE_SETTINGS_VIEW_COUNT =
+            "Chrome.Appearance.SettingsViewCount";
+
     /** The language code to override application language with. */
     public static final String APPLICATION_OVERRIDE_LANGUAGE =
             "Chrome.Language.ApplicationOverrideLanguage";
@@ -239,8 +252,16 @@ public final class ChromePreferenceKeys {
             "Chrome.RequestDesktopSiteGlobalSetting.DefaultEnabled";
 
     /**
-     * Indicates that Chrome should show an alert to the user about data privacy if the device
-     * lock is removed.
+     * Indicates the state of the Android-OS-provided advanced-protection setting when Chrome was
+     * last opened. Used to determine whether to show on startup a message informing the user about
+     * the setting change.
+     */
+    public static final String DEFAULT_OS_ADVANCED_PROTECTION_SETTING =
+            "Chrome.OsAdvancedProtection.DefaultEnabled";
+
+    /**
+     * Indicates that Chrome should show an alert to the user about data privacy if the device lock
+     * is removed.
      */
     public static final String DEVICE_LOCK_SHOW_ALERT_IF_REMOVED =
             "Chrome.DeviceLock.ShowAlertIfRemoved";
@@ -786,6 +807,9 @@ public final class ChromePreferenceKeys {
     public static final String SIGNIN_PROMO_HISTORY_PAGE_DECLINED =
             "Chrome.SigninPromoHistoryPage.Declined";
 
+    public static final String SIGNIN_PROMO_HISTORY_PAGE_LAST_SHOWN_TIME =
+            "Chrome.SigninPromoHistoryPage.LastShownTime";
+
     /** SyncPromo Show Count preference. */
     public static final KeyPrefix SYNC_PROMO_SHOW_COUNT =
             new KeyPrefix("Chrome.SyncPromo.ShowCount.*");
@@ -947,6 +971,11 @@ public final class ChromePreferenceKeys {
                 ADAPTIVE_TOOLBAR_CUSTOMIZATION_SETTINGS,
                 ADDRESS_BAR_SETTINGS_CLICKED,
                 ADDRESS_BAR_SETTINGS_VIEW_COUNT,
+                AI_ASSISTANT_ANALYZE_ATTACHMENT_AVAILABILITY,
+                AI_ASSISTANT_AVAILABILITY_CHECK_TIMESTAMP_MS,
+                AI_ASSISTANT_WEB_SUMMARIZATION_AVAILABILITY,
+                APPEARANCE_SETTINGS_CLICKED,
+                APPEARANCE_SETTINGS_VIEW_COUNT,
                 AUTOFILL_ASSISTANT_FIRST_TIME_LITE_SCRIPT_USER,
                 AUTOFILL_ASSISTANT_PROACTIVE_HELP_ENABLED,
                 AUTOFILL_THIRD_PARTY_MODE_STATE,
@@ -984,6 +1013,7 @@ public final class ChromePreferenceKeys {
                 DEFAULT_BROWSER_PROMO_PROMOED_COUNT,
                 DEFAULT_BROWSER_PROMO_SESSION_COUNT,
                 DEFAULT_ENABLED_DESKTOP_SITE_GLOBAL_SETTING,
+                DEFAULT_OS_ADVANCED_PROTECTION_SETTING,
                 DEPRECATED_HOMEPAGE_LOCATION_POLICY,
                 DEPRECATED_HOMEPAGE_PARTNER_CUSTOMIZED_DEFAULT_URI,
                 DEVICE_LOCK_SHOW_ALERT_IF_REMOVED,
@@ -1071,6 +1101,7 @@ public final class ChromePreferenceKeys {
                 SHARING_TABS_WITH_OS,
                 SYNC_PROMO_SHOW_COUNT.pattern(),
                 SIGNIN_PROMO_HISTORY_PAGE_DECLINED,
+                SIGNIN_PROMO_HISTORY_PAGE_LAST_SHOWN_TIME,
                 SIGNIN_PROMO_NTP_FIRST_SHOWN_TIME,
                 SIGNIN_PROMO_NTP_LAST_SHOWN_TIME,
                 SYNC_PROMO_TOTAL_SHOW_COUNT,

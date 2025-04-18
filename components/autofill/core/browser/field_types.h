@@ -486,9 +486,9 @@ enum FieldType {
   // should be used.
   PASSPORT_NAME_TAG = 168,
   PASSPORT_NUMBER = 169,
-  PASSPORT_ISSUING_COUNTRY_TAG = 170,
-  PASSPORT_EXPIRATION_DATE_TAG = 171,
-  PASSPORT_ISSUE_DATE_TAG = 172,
+  PASSPORT_ISSUING_COUNTRY = 170,
+  PASSPORT_EXPIRATION_DATE = 171,
+  PASSPORT_ISSUE_DATE = 172,
 
   // Types corresponding to the "Loyalty card" entity from
   // components/autofill/core/browser/data_model/autofill_ai/entity_schema.json.
@@ -509,8 +509,11 @@ enum FieldType {
   DRIVERS_LICENSE_NAME_TAG = 180,
   DRIVERS_LICENSE_REGION = 181,
   DRIVERS_LICENSE_NUMBER = 182,
-  DRIVERS_LICENSE_EXPIRATION_DATE_TAG = 183,
-  DRIVERS_LICENSE_ISSUE_DATE_TAG = 184,
+  DRIVERS_LICENSE_EXPIRATION_DATE = 183,
+  DRIVERS_LICENSE_ISSUE_DATE = 184,
+
+  VEHICLE_YEAR = 185,
+  VEHICLE_PLATE_STATE = 186,
 
   // No new types can be added without a corresponding change to the Autofill
   // server.
@@ -522,7 +525,7 @@ enum FieldType {
   // If the newly added type is a storable type of AutofillProfile, update
   // AutofillProfile.StorableTypes in
   // tools/metrics/histograms/metadata/autofill/histograms.xml.
-  MAX_VALID_FIELD_TYPE = 185,
+  MAX_VALID_FIELD_TYPE = 187,
 };
 // LINT.ThenChange(//chrome/common/extensions/api/autofill_private.idl)
 

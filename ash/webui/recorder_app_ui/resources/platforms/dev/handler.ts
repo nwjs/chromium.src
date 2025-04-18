@@ -377,6 +377,10 @@ export class PlatformHandler extends PlatformHandlerBase {
     return substituteI18nString(label, ...args);
   }
 
+  static override getDeviceType(): string {
+    return 'Chromebook';
+  }
+
   override readonly canCaptureSystemAudioWithLoopback = computed(
     () => devSettings.value.canCaptureSystemAudioWithLoopback,
   );
@@ -407,6 +411,10 @@ export class PlatformHandler extends PlatformHandlerBase {
 
     this.initPerfEventWatchers();
     return Promise.resolve();
+  }
+
+  override getDefaultLanguage(): LanguageCode {
+    return LanguageCode.EN_US;
   }
 
   override getLangPackList(): readonly LangPackInfo[] {

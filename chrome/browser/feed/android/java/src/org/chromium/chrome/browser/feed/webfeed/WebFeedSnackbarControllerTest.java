@@ -30,7 +30,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.MockitoAnnotations;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
@@ -111,7 +110,6 @@ public final class WebFeedSnackbarControllerTest {
         LocaleUtils.setDefaultLocalesFromConfiguration(config);
 
         ProfileManager.setLastUsedProfileForTesting(mProfile);
-        MockitoAnnotations.initMocks(this);
         WebFeedBridgeJni.setInstanceForTesting(mWebFeedBridgeJniMock);
         FeedServiceBridgeJni.setInstanceForTesting(mFeedServideBridgeJniMock);
         mContext = Robolectric.setupActivity(Activity.class);
@@ -312,8 +310,6 @@ public final class WebFeedSnackbarControllerTest {
         mWebFeedSnackbarController.showPostSuccessfulFollowHelp(
                 sTitle, true, StreamKind.FOR_YOU, mTab, sTestUrl);
 
-        View currentDialog =
-                mDialogManager.getCurrentDialogForTest().get(ModalDialogProperties.CUSTOM_VIEW);
         assertTrue("Dialog should be showing.", mDialogManager.isShowing());
         // TODO(b/243676323): figure out how to test the positive_button label, which is out of the
         // currentDialog hierarchy.
@@ -335,8 +331,6 @@ public final class WebFeedSnackbarControllerTest {
                 sTitle, true, StreamKind.FOLLOWING, mTab, sTestUrl);
 
         verify(mSnackbarManager, times(0)).showSnackbar(any());
-        View currentDialog =
-                mDialogManager.getCurrentDialogForTest().get(ModalDialogProperties.CUSTOM_VIEW);
         assertTrue("Dialog should be showing.", mDialogManager.isShowing());
         // TODO(b/243676323): figure out how to test the positive_button label, which is out of the
         // currentDialog hierarchy.
@@ -475,7 +469,7 @@ public final class WebFeedSnackbarControllerTest {
         assertEquals(sTestUrl, mPageInformationCaptor.getValue().mUrl);
         assertEquals(mTab, mPageInformationCaptor.getValue().mTab);
         verify(mFeedServideBridgeJniMock)
-                .reportOtherUserAction(
+                .reportOtherUserActionForStream(
                         StreamKind.UNKNOWN, FeedUserActionType.TAPPED_FOLLOW_TRY_AGAIN_ON_SNACKBAR);
     }
 
@@ -585,7 +579,7 @@ public final class WebFeedSnackbarControllerTest {
                         eq(WebFeedBridge.CHANGE_REASON_WEB_PAGE_MENU),
                         any());
         verify(mFeedServideBridgeJniMock)
-                .reportOtherUserAction(
+                .reportOtherUserActionForStream(
                         StreamKind.UNKNOWN, FeedUserActionType.TAPPED_FOLLOW_TRY_AGAIN_ON_SNACKBAR);
     }
 
@@ -615,7 +609,7 @@ public final class WebFeedSnackbarControllerTest {
                         eq(WebFeedBridge.CHANGE_REASON_WEB_PAGE_MENU),
                         any());
         verify(mFeedServideBridgeJniMock)
-                .reportOtherUserAction(
+                .reportOtherUserActionForStream(
                         StreamKind.UNKNOWN,
                         FeedUserActionType.TAPPED_REFOLLOW_AFTER_UNFOLLOW_ON_SNACKBAR);
     }
@@ -646,7 +640,7 @@ public final class WebFeedSnackbarControllerTest {
                         eq(WebFeedBridge.CHANGE_REASON_WEB_PAGE_MENU),
                         any());
         verify(mFeedServideBridgeJniMock)
-                .reportOtherUserAction(
+                .reportOtherUserActionForStream(
                         StreamKind.UNKNOWN,
                         FeedUserActionType.TAPPED_REFOLLOW_AFTER_UNFOLLOW_ON_SNACKBAR);
     }
@@ -679,7 +673,7 @@ public final class WebFeedSnackbarControllerTest {
                         eq(WebFeedBridge.CHANGE_REASON_WEB_PAGE_MENU),
                         any());
         verify(mFeedServideBridgeJniMock)
-                .reportOtherUserAction(
+                .reportOtherUserActionForStream(
                         StreamKind.UNKNOWN,
                         FeedUserActionType.TAPPED_UNFOLLOW_TRY_AGAIN_ON_SNACKBAR);
     }
@@ -712,7 +706,7 @@ public final class WebFeedSnackbarControllerTest {
                         eq(WebFeedBridge.CHANGE_REASON_WEB_PAGE_MENU),
                         any());
         verify(mFeedServideBridgeJniMock)
-                .reportOtherUserAction(
+                .reportOtherUserActionForStream(
                         StreamKind.UNKNOWN,
                         FeedUserActionType.TAPPED_UNFOLLOW_TRY_AGAIN_ON_SNACKBAR);
     }
@@ -745,7 +739,6 @@ public final class WebFeedSnackbarControllerTest {
                 sTitle,
                 WebFeedBridge.CHANGE_REASON_WEB_PAGE_MENU);
         verify(mSnackbarManager).showSnackbar(mSnackbarCaptor.capture());
-        Snackbar snackbar = mSnackbarCaptor.getValue();
 
         FeedSurfaceTracker.getInstance().surfaceOpened();
         verify(mSnackbarManager).dismissSnackbars(eq(mSnackbarCaptor.getValue().getController()));

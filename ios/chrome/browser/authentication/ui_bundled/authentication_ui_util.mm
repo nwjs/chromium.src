@@ -17,13 +17,14 @@
 #import "components/sync/base/account_pref_utils.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
 #import "ios/chrome/browser/policy/model/browser_policy_connector_ios.h"
-#import "ios/chrome/browser/policy/model/cloud/user_policy_switch.h"
 #import "ios/chrome/browser/shared/coordinator/alert/action_sheet_coordinator.h"
 #import "ios/chrome/browser/shared/coordinator/alert/alert_coordinator.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
+#import "ios/chrome/browser/shared/model/profile/profile_attributes_storage_ios.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
+#import "ios/chrome/browser/shared/model/profile/profile_manager_ios.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/model/account_profile_mapper.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
@@ -93,7 +94,7 @@ NSString* GetActionSheetCoordinatorMessage(
       // If `kIdentityDiscAccountMenu` is enabled, signing out may also cause
       // tabs to be closed, see `MainControllerAuthenticationServiceDelegate::
       //    ClearBrowsingDataForSignedinPeriod`.
-      return base::FeatureList::IsEnabled(kIdentityDiscAccountMenu)
+      return IsIdentityDiscAccountMenuEnabled()
                  ? l10n_util::GetNSString(
                        IDS_IOS_SIGNOUT_CLOSES_TABS_AND_CLEARS_DATA_DIALOG_MESSAGE_WITH_MANAGED_ACCOUNT)
                  : l10n_util::GetNSString(
@@ -200,19 +201,12 @@ AlertCoordinator* ManagedConfirmationDialogContentForHostedDomain(
     UIViewController* view_controller,
     ProceduralBlock accept_block,
     ProceduralBlock cancel_block) {
-  // Show the legacy managed confirmation dialog if User Policy is disabled.
-  // Otherwise, show the release version of the managed confirmation dialog for
-  // User Policy if User Policy is enabled and there is no Sync consent.
-  bool user_policy_enabled = policy::IsAnyUserPolicyFeatureEnabled();
   NSString* title = l10n_util::GetNSString(IDS_IOS_MANAGED_SIGNIN_TITLE);
-  NSString* subtitle = l10n_util::GetNSStringF(
-      user_policy_enabled ? IDS_IOS_MANAGED_SIGNIN_WITH_USER_POLICY_SUBTITLE
-                          : IDS_IOS_MANAGED_SIGNIN_SUBTITLE,
-      base::SysNSStringToUTF16(hosted_domain));
+  NSString* subtitle =
+      l10n_util::GetNSStringF(IDS_IOS_MANAGED_SIGNIN_WITH_USER_POLICY_SUBTITLE,
+                              base::SysNSStringToUTF16(hosted_domain));
   NSString* accept_label = l10n_util::GetNSString(
-      user_policy_enabled
-          ? IDS_IOS_MANAGED_SIGNIN_WITH_USER_POLICY_CONTINUE_BUTTON_LABEL
-          : IDS_IOS_MANAGED_SIGNIN_ACCEPT_BUTTON);
+      IDS_IOS_MANAGED_SIGNIN_WITH_USER_POLICY_CONTINUE_BUTTON_LABEL);
   NSString* cancel_label = l10n_util::GetNSString(IDS_CANCEL);
 
   AlertCoordinator* managed_confirmation_alert_coordinator =
@@ -278,8 +272,7 @@ BOOL ShouldShowManagedConfirmationForHostedDomain(
     return NO;
   }
 
-  // Show the dialog if User Policy is enabled.
-  return policy::IsAnyUserPolicyFeatureEnabled();
+  return YES;
 }
 
 SignedInUserState GetSignedInUserState(
@@ -302,19 +295,24 @@ SignedInUserState GetSignedInUserState(
 }
 
 bool ForceLeavingPrimaryAccountConfirmationDialog(
-    SignedInUserState signed_in_user_state) {
+    SignedInUserState signed_in_user_state,
+    std::string_view profile_name) {
   switch (signed_in_user_state) {
     case SignedInUserState::kNotSyncingAndReplaceSyncWithSignin:
       return false;
     case SignedInUserState::kManagedAccountClearsDataOnSignout:
     case SignedInUserState::kManagedAccountAndMigratedFromSyncing:
-      if (base::FeatureList::IsEnabled(kSeparateProfilesForManagedAccounts)) {
-        // TODO(crbug.com/375604649): Might need to update this implementation
-        // for pre-existing managed account in the personal profile.
-        return false;
-      } else {
+      if (!AreSeparateProfilesForManagedAccountsEnabled()) {
         return true;
       }
+
+      // Show the dialog only if a managed account is signing out from the
+      // personal profile. (This can only happen for managed accounts that were
+      // already signed in before there was multi-profile support.)
+      return GetApplicationContext()
+                 ->GetProfileManager()
+                 ->GetProfileAttributesStorage()
+                 ->GetPersonalProfileName() == profile_name;
   }
   NOTREACHED();
 }
@@ -419,7 +417,7 @@ ActionSheetCoordinator* GetLeavingPrimaryAccountConfirmationDialog(
       break;
     }
     case SignedInUserState::kManagedAccountAndMigratedFromSyncing: {
-      if (base::FeatureList::IsEnabled(kIdentityDiscAccountMenu)) {
+      if (IsIdentityDiscAccountMenuEnabled()) {
         actionSheetCoordinator.alertStyle = UIAlertControllerStyleAlert;
       }
       NSString* const clearFromDeviceTitle =

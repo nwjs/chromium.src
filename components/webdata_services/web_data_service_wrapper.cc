@@ -27,6 +27,8 @@
 #include "components/autofill/core/browser/webdata/payments/autofill_wallet_sync_bridge.h"
 #include "components/autofill/core/browser/webdata/payments/autofill_wallet_usage_data_sync_bridge.h"
 #include "components/autofill/core/browser/webdata/payments/payments_autofill_table.h"
+#include "components/autofill/core/browser/webdata/valuables/valuable_sync_bridge.h"
+#include "components/autofill/core/browser/webdata/valuables/valuables_table.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/plus_addresses/webdata/plus_address_table.h"
@@ -87,6 +89,15 @@ void InitWalletOfferSyncBridgeOnDBSequence(
 }
 
 #if !BUILDFLAG(IS_IOS)
+void InitValuableSyncBridgeOnDBSequence(
+    scoped_refptr<base::SequencedTaskRunner> db_task_runner,
+    const scoped_refptr<autofill::AutofillWebDataService>& autofill_web_data,
+    autofill::AutofillWebDataBackend* autofill_backend) {
+  DCHECK(db_task_runner->RunsTasksInCurrentSequence());
+  autofill::ValuableSyncBridge::CreateForWebDataServiceAndBackend(
+      autofill_backend, autofill_web_data.get());
+}
+
 void InitWalletUsageDataSyncBridgeOnDBSequence(
     scoped_refptr<base::SequencedTaskRunner> db_task_runner,
     const scoped_refptr<autofill::AutofillWebDataService>& autofill_web_data,
@@ -120,9 +131,10 @@ WebDataServiceWrapper::WebDataServiceWrapper(
     os_crypt_async::OSCryptAsync* os_crypt,
     bool use_in_memory_autofill_account_database) {
   base::FilePath path = context_path.Append(kWebDataFilename);
-  auto db_task_runner = base::ThreadPool::CreateSequencedTaskRunner(
+  auto db_task_runner = base::ThreadPool::CreateSequencedTaskRunnerForResource(
       {base::MayBlock(), base::TaskPriority::USER_VISIBLE,
-       base::TaskShutdownBehavior::BLOCK_SHUTDOWN});
+       base::TaskShutdownBehavior::BLOCK_SHUTDOWN},
+      path);
   profile_database_ = base::MakeRefCounted<WebDatabaseService>(
       path, ui_task_runner, db_task_runner);
 
@@ -212,6 +224,11 @@ WebDataServiceWrapper::WebDataServiceWrapper(
       std::make_unique<autofill::AutofillSyncMetadataTable>());
   account_database_->AddTable(
       std::make_unique<autofill::PaymentsAutofillTable>());
+#if !BUILDFLAG(IS_IOS)
+  if (base::FeatureList::IsEnabled(syncer::kSyncAutofillLoyaltyCard)) {
+    account_database_->AddTable(std::make_unique<autofill::ValuablesTable>());
+  }
+#endif
   account_database_->LoadDatabase(os_crypt);
 
   account_autofill_web_data_ =
@@ -225,8 +242,12 @@ WebDataServiceWrapper::WebDataServiceWrapper(
   account_autofill_web_data_->GetAutofillBackend(
       base::BindOnce(&InitWalletOfferSyncBridgeOnDBSequence, db_task_runner,
                      account_autofill_web_data_));
-
 #if !BUILDFLAG(IS_IOS)
+  if (base::FeatureList::IsEnabled(syncer::kSyncAutofillLoyaltyCard)) {
+    account_autofill_web_data_->GetAutofillBackend(
+        base::BindOnce(&InitValuableSyncBridgeOnDBSequence, db_task_runner,
+                       account_autofill_web_data_));
+  }
   account_autofill_web_data_->GetAutofillBackend(
       base::BindOnce(&InitWalletUsageDataSyncBridgeOnDBSequence, db_task_runner,
                      account_autofill_web_data_));

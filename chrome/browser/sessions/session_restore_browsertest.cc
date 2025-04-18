@@ -95,6 +95,7 @@
 #include "components/keep_alive_registry/keep_alive_types.h"
 #include "components/keep_alive_registry/scoped_keep_alive.h"
 #include "components/memory_pressure/fake_memory_pressure_monitor.h"
+#include "components/saved_tab_groups/internal/saved_tab_group_model.h"
 #include "components/saved_tab_groups/public/features.h"
 #include "components/saved_tab_groups/public/saved_tab_group.h"
 #include "components/saved_tab_groups/public/tab_group_sync_service.h"
@@ -701,48 +702,6 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest,
   ASSERT_TRUE(entry);
   EXPECT_EQ(timestamp, entry->GetTimestamp());
   EXPECT_EQ(http_status_code, entry->GetHttpStatusCode());
-}
-
-// Flaky on Linux. https://crbug.com/537592.
-// Flaky on Mac. https://crbug.com/1334914.
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC)
-#define MAYBE_WindowWithOneTab DISABLED_WindowWithOneTab
-#else
-#define MAYBE_WindowWithOneTab WindowWithOneTab
-#endif
-IN_PROC_BROWSER_TEST_F(SessionRestoreTest, MAYBE_WindowWithOneTab) {
-  GURL url(ui_test_utils::GetTestUrl(
-      base::FilePath(base::FilePath::kCurrentDirectory),
-      base::FilePath(FILE_PATH_LITERAL("title1.html"))));
-
-  // Add a single tab.
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
-
-  sessions::TabRestoreService* service =
-      TabRestoreServiceFactory::GetForProfile(browser()->profile());
-  service->ClearEntries();
-  EXPECT_EQ(0U, service->entries().size());
-
-  // Close the window.
-  browser()->window()->Close();
-
-  // Expect the window to be converted to a tab by the TRS.
-  EXPECT_EQ(1U, service->entries().size());
-  ASSERT_EQ(sessions::tab_restore::Type::TAB, service->entries().front()->type);
-  auto* tab = static_cast<const sessions::tab_restore::Tab*>(
-      service->entries().front().get());
-
-  // Restore the tab.
-  std::vector<sessions::LiveTab*> content = service->RestoreEntryById(
-      nullptr, tab->id, WindowOpenDisposition::UNKNOWN);
-  ASSERT_EQ(1U, content.size());
-  ASSERT_TRUE(content[0]);
-  EXPECT_EQ(url, static_cast<sessions::ContentLiveTab*>(content[0])
-                     ->web_contents()
-                     ->GetURL());
-
-  // Make sure the restore was successful.
-  EXPECT_EQ(0U, service->entries().size());
 }
 
 #if !BUILDFLAG(IS_CHROMEOS)
@@ -3015,10 +2974,6 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest, RestoreWithTabRemovedFromGroup) {
           browser()->profile());
   ASSERT_NE(saved_tab_group_keyed_service, nullptr);
 
-  if (!tab_groups::IsTabGroupsSaveV2Enabled()) {
-    saved_tab_group_keyed_service->SaveGroup(tab_group_id);
-  }
-
   ASSERT_TRUE(saved_tab_group_keyed_service);
 
   auto* saved_tab_group =
@@ -4506,13 +4461,10 @@ class SavedTabGroupSessionRestoreTest
   SavedTabGroupSessionRestoreTest() {
     if (GetParam()) {
       feature_list_.InitWithFeatures(
-          {tab_groups::kTabGroupsSaveV2,
-           tab_groups::kTabGroupSyncServiceDesktopMigration},
-          {});
+          {tab_groups::kTabGroupSyncServiceDesktopMigration}, {});
     } else {
       feature_list_.InitWithFeatures(
-          {tab_groups::kTabGroupsSaveV2},
-          {tab_groups::kTabGroupSyncServiceDesktopMigration});
+          {}, {tab_groups::kTabGroupSyncServiceDesktopMigration});
     }
   }
   SavedTabGroupSessionRestoreTest(const SavedTabGroupSessionRestoreTest&) =
@@ -4558,14 +4510,18 @@ IN_PROC_BROWSER_TEST_P(SavedTabGroupSessionRestoreTest,
           browser()->profile());
   ASSERT_TRUE(service);
 
-  service->SetIsInitializedForTesting(true);
-  EXPECT_EQ(0u, service->GetAllGroups().size());
+  service->SetIsInitializedForTesting(false);
+  WaitForPostedTasks();
 
   // Close the browser and restore the last session
   Browser* restored = QuitBrowserAndRestore(browser());
   TabStripModel* tab_strip_model = restored->tab_strip_model();
   const int tabs = tab_strip_model->count();
+
   ASSERT_EQ(2, tabs);
+
+  service->SetIsInitializedForTesting(true);
+  WaitForPostedTasks();
 
   // Expect the unsaved group has been saved at this point.
   EXPECT_EQ(1u, service->GetAllGroups().size());

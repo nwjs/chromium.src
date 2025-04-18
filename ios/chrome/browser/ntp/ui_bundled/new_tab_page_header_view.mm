@@ -12,6 +12,8 @@
 #import "base/feature_list.h"
 #import "components/prefs/pref_service.h"
 #import "components/strings/grit/components_strings.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/content_suggestions_collection_utils.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/ntp_home_constant.h"
 #import "ios/chrome/browser/lens/ui_bundled/lens_availability.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_constants.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_delegate.h"
@@ -34,8 +36,6 @@
 #import "ios/chrome/browser/toolbar/ui_bundled/public/toolbar_utils.h"
 #import "ios/chrome/browser/toolbar/ui_bundled/tab_groups/ui/tab_group_indicator_constants.h"
 #import "ios/chrome/browser/toolbar/ui_bundled/tab_groups/ui/tab_group_indicator_view.h"
-#import "ios/chrome/browser/ui/content_suggestions/content_suggestions_collection_utils.h"
-#import "ios/chrome/browser/ui/content_suggestions/ntp_home_constant.h"
 #import "ios/chrome/common/material_timing.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/elements/gradient_view.h"
@@ -268,19 +268,12 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
   self.identityDiscView.translatesAutoresizingMaskIntoConstraints = NO;
   CGFloat dimension =
       ntp_home::kIdentityAvatarDimension + 2 * ntp_home::kHeaderIconMargin;
-  CGFloat identityAvatarPadding = ntp_home::kIdentityAvatarPadding;
-  if (base::FeatureList::IsEnabled(kIdentityDiscAccountMenu)) {
+  if (IsIdentityDiscAccountMenuEnabled()) {
     // Add extra margin to show the error badge if any.
     dimension += ntp_home::kHeaderIconMargin;
-    // And remove the padding so that the disc does not move
-    identityAvatarPadding -= ntp_home::kHeaderIconMargin / 2;
   }
   [NSLayoutConstraint activateConstraints:@[
     [self.identityDiscView.heightAnchor constraintEqualToConstant:dimension],
-    [self.identityDiscView.widthAnchor constraintEqualToConstant:dimension],
-    [self.identityDiscView.trailingAnchor
-        constraintEqualToAnchor:self.safeAreaLayoutGuide.trailingAnchor
-                       constant:-identityAvatarPadding],
     [self.identityDiscView.centerYAnchor
         constraintEqualToAnchor:self.toolBarView.centerYAnchor],
   ]];

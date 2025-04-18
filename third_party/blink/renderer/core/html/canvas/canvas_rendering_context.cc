@@ -26,6 +26,7 @@
 #include "third_party/blink/renderer/core/html/canvas/canvas_rendering_context.h"
 
 #include "services/metrics/public/cpp/ukm_builders.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/core/animation_frame/worker_animation_frame_provider.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
@@ -36,29 +37,10 @@
 
 namespace blink {
 
-namespace {
-
-// Serves as killswitch for changing CanCreateCanvasResourceProvider() to
-// create resource provider internally rather than Canvas2DLayerBridge.
-// TODO(crbug.com/40280152): Eliminate post safe-rollout.
-BASE_FEATURE(kAdjustCanCreateCanvas2dResourceProvider,
-             "AdjustCanCreateCanvas2dResourceProvider",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Serves as killswitch for migrating CanvasRenderingContext2D::IsPaintable()
-// from checking the existence of the canvas' Canvas2DLayerBridge to checking
-// for the existence of its resource provider.
-// NOTE: Do not check this feature directly: Check
-// CheckProviderInCanvas2DRenderingContextIsPaintable() instead.
-// TODO(crbug.com/40280152): Eliminate post safe-rollout.
-BASE_FEATURE(kIsPaintableChecksResourceProviderInsteadOfBridge,
-             "IsPaintableChecksResourceProviderInsteadOfBridge",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-}  // namespace
-
 bool CanvasRenderingContext::
     CheckProviderInCanCreateCanvas2dResourceProvider() {
-  return base::FeatureList::IsEnabled(kAdjustCanCreateCanvas2dResourceProvider);
+  return base::FeatureList::IsEnabled(
+      features::kAdjustCanCreateCanvas2dResourceProvider);
 }
 
 // static
@@ -74,7 +56,7 @@ bool CanvasRenderingContext::
   }
 
   return base::FeatureList::IsEnabled(
-      kIsPaintableChecksResourceProviderInsteadOfBridge);
+      features::kIsPaintableChecksResourceProviderInsteadOfBridge);
 }
 
 CanvasRenderingContext::CanvasRenderingContext(
@@ -259,7 +241,6 @@ CanvasRenderingContext::RenderingAPIFromId(const String& id) {
 
 void CanvasRenderingContext::Trace(Visitor* visitor) const {
   visitor->Trace(host_);
-  ScriptWrappable::Trace(visitor);
   ActiveScriptWrappable::Trace(visitor);
 }
 

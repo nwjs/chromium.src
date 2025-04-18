@@ -149,6 +149,12 @@ BASE_FEATURE(kGpuYieldRasterization,
              "GpuYieldRasterization",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Controls how one component textures are supported over raster decoder for
+// VideoResourceUpdater.
+BASE_FEATURE(kDisableOneComponentTextureConditionally,
+             "DisableOneComponentTextureConditionally",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Controls how many ops are rastered before checking if we should yield.
 const base::FeatureParam<int> kGpuYieldRasterizationOpCount(
     &kGpuYieldRasterization,
@@ -782,6 +788,9 @@ class RasterDecoderImpl final : public RasterDecoder,
   void DeletePaintCachePathsINTERNALHelper(
       GLsizei n,
       const volatile GLuint* paint_cache_ids);
+  void DeletePaintCacheEffectsINTERNALHelper(
+      GLsizei n,
+      const volatile GLuint* paint_cache_ids);
   void DoClearPaintCacheINTERNAL();
 
 #if defined(NDEBUG)
@@ -1078,7 +1087,7 @@ ContextResult RasterDecoderImpl::Initialize(
 
   query_manager_ = std::make_unique<RasterQueryManager>(shared_context_state_);
 
-  if (attrib_helper.enable_oop_rasterization) {
+  if (attrib_helper.enable_gpu_rasterization) {
     DCHECK(gr_context() || graphite_context());
     use_gpu_raster_ = true;
     paint_cache_ = std::make_unique<cc::ServicePaintCache>();
@@ -1179,11 +1188,27 @@ Capabilities RasterDecoderImpl::GetCapabilities() {
       feature_info()->feature_flags().chromium_image_ycbcr_p010;
   caps.render_buffer_format_bgra8888 =
       feature_info()->feature_flags().ext_render_buffer_format_bgra8888;
-  // Vulkan currently doesn't support single-component cross-thread shared
-  // images.
-  caps.disable_one_component_textures =
-      workarounds().avoid_one_component_egl_images ||
-      (display_context_on_another_thread_ && features::IsUsingVulkan());
+
+  if (base::FeatureList::IsEnabled(kDisableOneComponentTextureConditionally)) {
+    if (shared_context_state_->GrContextIsGL()) {
+      caps.disable_one_component_textures =
+          display_context_on_another_thread_ &&
+          workarounds().avoid_one_component_egl_images;
+    } else if (shared_context_state_->GrContextIsVulkan() ||
+               shared_context_state_->IsGraphiteDawnVulkan()) {
+      // Vulkan currently doesn't support single-component cross-thread shared
+      // images for WebView.
+      const bool is_drdc = features::IsDrDcEnabled() &&
+                           !feature_info()->workarounds().disable_drdc;
+      caps.disable_one_component_textures =
+          display_context_on_another_thread_ && !is_drdc;
+    }
+  } else {
+    caps.disable_one_component_textures =
+        workarounds().avoid_one_component_egl_images ||
+        (display_context_on_another_thread_ && features::IsUsingVulkan());
+  }
+
   caps.angle_rgbx_internal_format =
       feature_info()->feature_flags().angle_rgbx_internal_format;
   caps.chromium_gpu_fence = feature_info()->feature_flags().chromium_gpu_fence;
@@ -2790,6 +2815,19 @@ void RasterDecoderImpl::DeletePaintCachePathsINTERNALHelper(
   }
 
   paint_cache_->Purge(cc::PaintCacheDataType::kPath, n, paint_cache_ids);
+}
+
+void RasterDecoderImpl::DeletePaintCacheEffectsINTERNALHelper(
+    GLsizei n,
+    const volatile GLuint* paint_cache_ids) {
+  if (!use_gpu_raster_) {
+    LOCAL_SET_GL_ERROR(GL_INVALID_OPERATION,
+                       "glDeletePaintCacheEntriesINTERNAL",
+                       "No chromium raster support");
+    return;
+  }
+  paint_cache_->Purge(cc::PaintCacheDataType::kSkRuntimeEffect, n,
+                      paint_cache_ids);
 }
 
 void RasterDecoderImpl::DoClearPaintCacheINTERNAL() {

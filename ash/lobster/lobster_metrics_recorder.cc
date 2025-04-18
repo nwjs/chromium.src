@@ -51,6 +51,15 @@ void RecordLobsterBlockedReason(LobsterSystemCheck failed_reason) {
     case LobsterSystemCheck::kUnsupportedInKioskMode:
       RecordLobsterState(LobsterMetricState::kBlockedByKioskMode);
       return;
+    case LobsterSystemCheck::kUnsupportedFormFactor:
+      RecordLobsterState(LobsterMetricState::kBlockedByFormFactor);
+      return;
+    case LobsterSystemCheck::kUnsupportedPolicy:
+      RecordLobsterState(LobsterMetricState::kBlockedByPolicy);
+      return;
+    case LobsterSystemCheck::kForcedDisabledOnManagedUsers:
+      // TODO: b:407471938 - add the relevant blocked metrics.
+      return;
   }
 }
 

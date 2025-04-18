@@ -9,6 +9,8 @@
 
 #include "chrome/browser/webauthn/android/cable_module_android.h"
 
+#include <variant>
+
 #include "base/android/jni_array.h"
 #include "base/base64.h"
 #include "base/feature_list.h"
@@ -49,7 +51,6 @@
 // These "headers" actually contains function definitions and thus can only be
 // included once across Chromium.
 #include "chrome/browser/webauthn/android/jni_headers/CableAuthenticatorModuleProvider_jni.h"
-#include "chrome/browser/webauthn/android/jni_headers/PrivacySettingsFragment_jni.h"
 
 using device::cablev2::authenticator::Registration;
 
@@ -350,7 +351,7 @@ syncer::DeviceInfo::PhoneAsASecurityKeyInfo::StatusOrInfo CacheResult(
   // encoded `PhoneAsASecurityKeyInfo`.
   constexpr char kNoSupportString[] = ",";
 
-  if (absl::get_if<syncer::DeviceInfo::PhoneAsASecurityKeyInfo::NotReady>(
+  if (std::get_if<syncer::DeviceInfo::PhoneAsASecurityKeyInfo::NotReady>(
           &result)) {
     const std::string previous_result_serialized_b64 =
         state->GetString(kSerializedPaaskFieldsName);
@@ -374,13 +375,13 @@ syncer::DeviceInfo::PhoneAsASecurityKeyInfo::StatusOrInfo CacheResult(
     }
     return *paask_info;
   } else if (auto* paask_info =
-                 absl::get_if<syncer::DeviceInfo::PhoneAsASecurityKeyInfo>(
+                 std::get_if<syncer::DeviceInfo::PhoneAsASecurityKeyInfo>(
                      &result)) {
     SetPrefIfDifferent(
         state, kSerializedPaaskFieldsName,
         base::Base64Encode(internal::CBORFromPaaskInfo(*paask_info)));
     return result;
-  } else if (absl::get_if<
+  } else if (std::get_if<
                  syncer::DeviceInfo::PhoneAsASecurityKeyInfo::NoSupport>(
                  &result)) {
     SetPrefIfDifferent(state, kSerializedPaaskFieldsName, kNoSupportString);
@@ -448,14 +449,4 @@ static void JNI_CableAuthenticatorModuleProvider_OnHaveWorkProfileResult(
                          base::Unretained(reinterpret_cast<SystemInterface*>(
                              static_cast<uintptr_t>(system_interface_pointer))),
                          in_work_profile));
-}
-
-static void JNI_PrivacySettingsFragment_RevokeAllLinkedDevices(JNIEnv* env) {
-  // Invalidates the current cloud messaging (GCM) token and creates a new one.
-  // This causes the tunnel server to reject connection attempts with a 410
-  // (Gone) error. Since linking keys are derived from the root secret by using
-  // the GCM token, this also invalidates all existing linking keys.
-  webauthn::authenticator::GetRegistrationState()
-      ->linking_registration()
-      ->RotateContactID();
 }

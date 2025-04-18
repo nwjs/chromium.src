@@ -45,6 +45,7 @@
 #include "components/history/core/test/test_history_database.h"
 #include "components/omnibox/browser/autocomplete_provider.h"
 #include "components/user_manager/fake_user_manager.h"
+#include "components/user_manager/test_helper.h"
 #include "content/public/test/test_utils.h"
 #include "google_apis/gaia/gaia_id.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
@@ -192,8 +193,7 @@ class QuickInsertClientImplTest : public BrowserWithTestWindowTest {
 
   TestingProfile* CreateProfile(const std::string& profile_name) override {
     return profile_manager()->CreateTestingProfile(
-        profile_name, GetTestingFactories(), /*is_main_profile=*/false,
-        test_shared_url_loader_factory_);
+        profile_name, GetTestingFactories(), test_shared_url_loader_factory_);
   }
 
   TestingProfile::TestingFactories GetTestingFactories() override {
@@ -226,10 +226,7 @@ class QuickInsertClientImplTest : public BrowserWithTestWindowTest {
     const AccountId account_id = AccountId::FromUserEmailGaiaId(email, gaia_id);
     user_manager()->AddGaiaUser(account_id, user_manager::UserType::kRegular);
     user_manager()->UserLoggedIn(
-        account_id,
-        user_manager::FakeUserManager::GetFakeUsernameHash(account_id),
-        /*browser_restart=*/false,
-        /*is_child=*/false);
+        account_id, user_manager::TestHelper::GetFakeUsernameHash(account_id));
   }
 
   void SwitchActiveUser(const std::string& email) override {

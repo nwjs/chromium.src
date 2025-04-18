@@ -7,14 +7,15 @@
 #include <memory>
 
 #include "base/check.h"
+#include "base/metrics/histogram_functions.h"
 #include "chrome/browser/background/glic/glic_controller.h"
 #include "chrome/browser/background/glic/glic_launcher_configuration.h"
 #include "chrome/browser/background/glic/glic_status_icon.h"
 #include "chrome/browser/background/startup_launch_manager.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/glic/glic_enabling.h"
-#include "chrome/browser/glic/glic_enums.h"
 #include "chrome/browser/glic/glic_keyed_service_factory.h"
+#include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/global_features.h"
 #include "chrome/browser/profiles/nuke_profile_directory_utils.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -42,7 +43,9 @@ GlicBackgroundModeManager::GlicBackgroundModeManager(StatusTray* status_tray)
   UpdateState();
 }
 
-GlicBackgroundModeManager::~GlicBackgroundModeManager() = default;
+GlicBackgroundModeManager::~GlicBackgroundModeManager() {
+  g_browser_process->profile_manager()->RemoveObserver(this);
+}
 
 GlicBackgroundModeManager* GlicBackgroundModeManager::GetInstance() {
   return g_browser_process->GetFeatures()->glic_background_mode_manager();
@@ -71,7 +74,14 @@ void GlicBackgroundModeManager::OnKeyPressed(
     const ui::Accelerator& accelerator) {
   CHECK(accelerator == actual_registered_hotkey_);
   CHECK(actual_registered_hotkey_ == expected_registered_hotkey_);
-  controller_->Toggle(InvocationSource::kOsHotkey);
+  controller_->Toggle(mojom::InvocationSource::kOsHotkey);
+  // Record hotkey usage.
+  const ui::Accelerator default_hotkey =
+      GlicLauncherConfiguration::GetDefaultHotkey();
+  base::UmaHistogramEnumeration("Glic.Usage.Hotkey",
+                                accelerator == default_hotkey
+                                    ? glic::HotkeyUsage::kDefault
+                                    : glic::HotkeyUsage::kCustom);
 }
 
 void GlicBackgroundModeManager::ExecuteCommand(
@@ -85,10 +95,10 @@ void GlicBackgroundModeManager::OnProfileAdded(Profile* profile) {
   if (!service) {
     return;
   }
-  GlicEnabling* enabling = service->enabling();
+  GlicEnabling& enabling = service->enabling();
   profile_subscriptions_.emplace(
-      profile, enabling->RegisterEnableChanged(base::BindRepeating(
-                   &GlicBackgroundModeManager::OnProfileEnableChanged,
+      profile, enabling.RegisterAllowedChanged(base::BindRepeating(
+                   &GlicBackgroundModeManager::OnProfileAllowedChanged,
                    base::Unretained(this))));
   auto [it, inserted] = profile_observers_.emplace(profile, this);
   it->second.Observe(profile);
@@ -193,7 +203,7 @@ void GlicBackgroundModeManager::UpdateState() {
   }
 }
 
-void GlicBackgroundModeManager::OnProfileEnableChanged() {
+void GlicBackgroundModeManager::OnProfileAllowedChanged() {
   // Recompute whether the background launcher should change state based on the
   // updated policy.
   UpdateState();

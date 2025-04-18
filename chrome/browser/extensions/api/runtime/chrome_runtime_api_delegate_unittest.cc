@@ -214,7 +214,7 @@ class ChromeRuntimeAPIDelegateTest : public ExtensionServiceTestWithInstall {
     InitializeExtensionServiceWithUpdater();
     runtime_delegate_ =
         std::make_unique<ChromeRuntimeAPIDelegate>(browser_context());
-    service()->updater()->SetExtensionCacheForTesting(nullptr);
+    ExtensionUpdater::Get(profile())->SetExtensionCacheForTesting(nullptr);
     EventRouterFactory::GetInstance()->SetTestingFactory(
         browser_context(),
         base::BindRepeating(&TestEventRouterFactoryFunction));
@@ -223,8 +223,9 @@ class ChromeRuntimeAPIDelegateTest : public ExtensionServiceTestWithInstall {
     // installation until the extension is idle.
     update_install_gate_ =
         std::make_unique<UpdateInstallGate>(service()->profile());
-    service()->delayed_install_manager()->RegisterInstallGate(
-        ExtensionPrefs::DelayReason::kWaitForIdle, update_install_gate_.get());
+    DelayedInstallManager::Get(browser_context())
+        ->RegisterInstallGate(ExtensionPrefs::DelayReason::kWaitForIdle,
+                              update_install_gate_.get());
     static_cast<TestExtensionSystem*>(ExtensionSystem::Get(browser_context()))
         ->SetReady();
   }

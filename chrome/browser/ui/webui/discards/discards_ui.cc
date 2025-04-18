@@ -142,9 +142,8 @@ class DiscardsDetailsProviderImpl : public discards::mojom::DetailsProvider {
           tab_lifecycle_unit_external->GetWebContents();
 
       info->tab_url = contents->GetLastCommittedURL().spec();
-      info->title = base::UTF16ToUTF8(lifecycle_unit->GetTitle());
-      info->visibility =
-          GetLifecycleUnitVisibility(lifecycle_unit->GetVisibility());
+      info->title = base::UTF16ToUTF8(contents->GetTitle());
+      info->visibility = GetLifecycleUnitVisibility(contents->GetVisibility());
       info->loading_state = lifecycle_unit->GetLoadingState();
       info->state = lifecycle_unit->GetState();
 
@@ -222,7 +221,9 @@ class DiscardsDetailsProviderImpl : public discards::mojom::DetailsProvider {
               GetPrimaryPageNodeForWebContents(web_contents);
       CHECK(page_node);
 
-      performance_manager::user_tuning::DiscardPage(page_node.get(), reason);
+      performance_manager::user_tuning::DiscardPage(
+          page_node.get(), reason,
+          /*ignore_minimum_time_in_background=*/true);
     }
     std::move(callback).Run();
   }
@@ -246,7 +247,8 @@ class DiscardsDetailsProviderImpl : public discards::mojom::DetailsProvider {
 
   void Discard(DiscardCallback callback) override {
     performance_manager::user_tuning::DiscardAnyPage(
-        mojom::LifecycleUnitDiscardReason::URGENT);
+        mojom::LifecycleUnitDiscardReason::URGENT,
+        /*ignore_minimum_time_in_background=*/true);
     std::move(callback).Run();
   }
 

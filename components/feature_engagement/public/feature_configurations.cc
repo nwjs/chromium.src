@@ -720,7 +720,7 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     FeatureConfig config;
     config.valid = true;
     config.availability = Comparator(ANY, 0);
-    config.session_rate = Comparator(ANY, 0);
+    config.session_rate = Comparator(EQUAL, 0);
     config.trigger = EventConfig("android_tab_declutter_iph_triggered",
                                  Comparator(EQUAL, 0), 7, 7);
     config.event_configs.insert(
@@ -1567,6 +1567,24 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     return config;
   }
 
+  if (kIPHPdfPageDownloadFeature.name == feature->name) {
+    // A config that allows the pdf page download IPH to be shown to users.
+    // This will be triggered a maximum of 3 times (once per 2 weeks) with pdf
+    // opened, and if the user has not used the app menu to download pdf in a
+    // span of a year.
+    FeatureConfig config;
+    config.valid = true;
+    config.availability = Comparator(ANY, 0);
+    config.session_rate = Comparator(LESS_THAN, 1);
+    config.used = EventConfig("app_menu_pdf_page_downloaded",
+                              Comparator(EQUAL, 0), 360, 360);
+    config.trigger = EventConfig("pdf_page_download_iph_trigger",
+                                 Comparator(LESS_THAN, 3), 360, 360);
+    config.event_configs.insert(EventConfig("pdf_page_download_iph_trigger",
+                                            Comparator(EQUAL, 0), 14, 14));
+    return config;
+  }
+
   if (kIPHRestoreTabsOnFREFeature.name == feature->name) {
     // A config that allows the restore tabs on FRE promo to be shown:
     // * If the user has gone through the FRE workflow.
@@ -1725,18 +1743,14 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_FUCHSIA)
 
   if (kIPHAutofillCreditCardBenefitFeature.name == feature->name) {
-    // Credit card benefit IPH is shown:
-    // * once for an installation, 10-year window is used as the maximum
-    // * when a credit card benefit is displayed for the first time
+    // The credit card benefit IPH appears up to three times over 10 years and
+    // only once per session. Dismissing it stops it from showing again.
     FeatureConfig config;
     config.valid = true;
     config.availability = Comparator(ANY, 0);
-    config.session_rate = Comparator(ANY, 0);
-    config.session_rate_impact.type = SessionRateImpact::Type::NONE;
-    config.trigger =
-        EventConfig("autofill_credit_card_benefit_iph_trigger",
-                    Comparator(EQUAL, 0), feature_engagement::kMaxStoragePeriod,
-                    feature_engagement::kMaxStoragePeriod);
+    config.session_rate = Comparator(LESS_THAN, 1);
+    config.trigger = EventConfig("autofill_credit_card_benefit_iph_trigger",
+                                 Comparator(LESS_THAN, 3), 90, 360);
     config.used =
         EventConfig("autofill_credit_card_benefit_iph_accepted",
                     Comparator(EQUAL, 0), feature_engagement::kMaxStoragePeriod,
@@ -2087,6 +2101,51 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     return config;
   }
 
+  if (kIPHiOSFeedSwipeAnimatedFeature.name == feature->name) {
+    // The animated IPH to promote scrolling on the feed.
+
+    FeatureConfig config;
+    config.valid = true;
+    config.availability = Comparator(GREATER_THAN_OR_EQUAL, 3);
+    config.session_rate = Comparator(EQUAL, 0);
+    // The IPH is shown at most once.
+    config.trigger =
+        EventConfig("iph_feed_swipe_animated_trigger", Comparator(EQUAL, 0),
+                    feature_engagement::kMaxStoragePeriod,
+                    feature_engagement::kMaxStoragePeriod);
+    // The user hasn't scrolled on the NTP while the feed is visible.
+    config.used =
+        EventConfig(feature_engagement::events::kIOSScrolledOnFeed,
+                    Comparator(EQUAL, 0), feature_engagement::kMaxStoragePeriod,
+                    feature_engagement::kMaxStoragePeriod);
+    // The IPH only shows when user has engaged with the feed in any way.
+    config.event_configs.insert(EventConfig(
+        feature_engagement::events::kIOSActionOnFeed,
+        Comparator(GREATER_THAN, 0), feature_engagement::kMaxStoragePeriod,
+        feature_engagement::kMaxStoragePeriod));
+    return config;
+  }
+
+  if (kIPHiOSFeedSwipeStaticFeature.name == feature->name) {
+    // The static IPH to promote scrolling on the feed.
+
+    FeatureConfig config;
+    config.valid = true;
+    config.availability = Comparator(ANY, 0);
+    config.session_rate = Comparator(EQUAL, 0);
+    // The IPH is shown at most once.
+    config.trigger =
+        EventConfig("iph_feed_swipe_static_trigger", Comparator(EQUAL, 0),
+                    feature_engagement::kMaxStoragePeriod,
+                    feature_engagement::kMaxStoragePeriod);
+    // The user hasn't scrolled on the NTP while the feed is visible.
+    config.used =
+        EventConfig(feature_engagement::events::kIOSScrolledOnFeed,
+                    Comparator(EQUAL, 0), feature_engagement::kMaxStoragePeriod,
+                    feature_engagement::kMaxStoragePeriod);
+    return config;
+  }
+
   if (kIPHiOSHistoryOnOverflowMenuFeature.name == feature->name) {
     FeatureConfig config;
     config.valid = true;
@@ -2404,6 +2463,35 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
                     feature_engagement::kMaxStoragePeriod);
     config.blocked_by.type = BlockedBy::Type::NONE;
     config.blocking.type = Blocking::Type::NONE;
+    return config;
+  }
+
+  if (kIPHiOSSettingsInOverflowMenuBubbleFeature.name == feature->name) {
+    // A config that allows the Settings-in-overflow-menu IPH to be shown to
+    // users. This will be triggered a maximum of 2 times (once per day), and it
+    // will stop triggering once the user opens Settings via the overflow menu.
+    FeatureConfig config;
+    config.valid = true;
+    config.availability = Comparator(ANY, 0);
+    config.session_rate = Comparator(ANY, 0);
+
+    constexpr char kSettingsInOverflowTriggerEvent[] =
+        "settings_in_overflow_trigger";
+
+    // Show at most 2 times total.
+    config.trigger =
+        EventConfig(kSettingsInOverflowTriggerEvent, Comparator(LESS_THAN, 2),
+                    feature_engagement::kMaxStoragePeriod,
+                    feature_engagement::kMaxStoragePeriod);
+    // Show at most once per day.
+    config.event_configs.emplace(kSettingsInOverflowTriggerEvent,
+                                 Comparator(EQUAL, 0), 1, 1);
+    // Stop showing once the user opens settings via the overflow menu.
+    config.used =
+        EventConfig(events::kSettingsOnOverflowMenuUsed, Comparator(EQUAL, 0),
+                    feature_engagement::kMaxStoragePeriod,
+                    feature_engagement::kMaxStoragePeriod);
+
     return config;
   }
 #endif  // BUILDFLAG(IS_IOS)

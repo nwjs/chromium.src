@@ -31,6 +31,8 @@
 #include "components/policy/policy_constants.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
+#include "components/regional_capabilities/access/country_access_reason.h"
+#include "components/regional_capabilities/regional_capabilities_country_id.h"
 #include "components/regional_capabilities/regional_capabilities_service.h"
 #include "components/regional_capabilities/regional_capabilities_utils.h"
 #include "components/search_engines/search_engine_choice/search_engine_choice_metrics_service_accessor.h"
@@ -46,6 +48,8 @@
 #if !BUILDFLAG(IS_FUCHSIA)
 #include "components/variations/service/variations_service.h"  // nogncheck
 #endif
+
+using ::country_codes::CountryId;
 
 namespace search_engines {
 namespace {
@@ -115,17 +119,6 @@ void MarkSearchEngineChoiceCompleted(PrefService& prefs) {
                   version_info::GetVersionNumber());
 }
 
-std::optional<base::Time> GetChoiceScreenCompletionTimestamp(
-    PrefService& prefs) {
-  if (!prefs.HasPrefPath(
-          prefs::kDefaultSearchProviderChoiceScreenCompletionTimestamp)) {
-    return std::nullopt;
-  }
-
-  return base::Time::FromDeltaSinceWindowsEpoch(base::Seconds(prefs.GetInt64(
-      prefs::kDefaultSearchProviderChoiceScreenCompletionTimestamp)));
-}
-
 // Returns true if the version is valid and can be compared to the current
 // Chrome version.
 bool IsValidVersionFormat(const base::Version& version) {
@@ -160,16 +153,16 @@ void LogSearchRepromptKeyHistograms(RepromptResult result, bool is_wildcard) {
   }
 }
 
-int GetVariationsCountryId(variations::VariationsService* variations_service) {
+CountryId GetVariationsCountryId(
+    variations::VariationsService* variations_service) {
 #if BUILDFLAG(IS_FUCHSIA)
   // We can't add a dependency from Fuchsia to
   // `//components/variations/service`.
-  return country_codes::kCountryIDUnknown;
+  return CountryId();
 #else
-  return variations_service
-             ? country_codes::CountryStringToCountryID(
-                   base::ToUpperASCII(variations_service->GetLatestCountry()))
-             : country_codes::kCountryIDUnknown;
+  return variations_service ? CountryId(base::ToUpperASCII(
+                                  variations_service->GetLatestCountry()))
+                            : CountryId();
 #endif
 }
 
@@ -181,7 +174,7 @@ SearchEngineChoiceService::SearchEngineChoiceService(
     regional_capabilities::RegionalCapabilitiesService& regional_capabilities,
     TemplateURLPrepopulateData::Resolver& prepopulate_data_resolver,
     bool is_profile_eligbile_for_dse_guest_propagation,
-    int variations_country_id)
+    CountryId variations_country_id)
     : profile_prefs_(profile_prefs),
       local_state_(local_state),
       regional_capabilities_service_(regional_capabilities),
@@ -329,10 +322,6 @@ SearchEngineChoiceService::GetDynamicChoiceScreenConditions(
 #endif
 }
 
-int SearchEngineChoiceService::GetCountryId() {
-  return regional_capabilities_service_->GetCountryId();
-}
-
 std::unique_ptr<search_engines::ChoiceScreenData>
 SearchEngineChoiceService::GetChoiceScreenData(
     const SearchTermsData& search_terms_data) {
@@ -352,7 +341,11 @@ SearchEngineChoiceService::GetChoiceScreenData(
 
   return std::make_unique<search_engines::ChoiceScreenData>(
       std::move(owned_template_urls),
-      regional_capabilities_service_->GetCountryId(), search_terms_data);
+      regional_capabilities_service_->GetCountryId().GetRestricted(
+          regional_capabilities::CountryAccessKey(
+              regional_capabilities::CountryAccessReason::
+                  kSearchEngineChoiceServiceCacheChoiceScreenData)),
+      search_terms_data);
 }
 
 void SearchEngineChoiceService::RecordChoiceMade(
@@ -379,7 +372,7 @@ void SearchEngineChoiceService::RecordChoiceMade(
 void SearchEngineChoiceService::MaybeRecordChoiceScreenDisplayState(
     const ChoiceScreenDisplayState& display_state,
     bool is_from_cached_state) {
-  if (!IsEeaChoiceCountry(display_state.country_id)) {
+  if (!regional_capabilities::IsEeaCountry(display_state.country_id)) {
     // Tests or command line can force this, but we want to avoid polluting the
     // histograms with unwanted country data.
     return;
@@ -473,7 +466,7 @@ void SearchEngineChoiceService::PreprocessPrefsForReprompt() {
   auto* command_line = base::CommandLine::ForCurrentProcess();
   if (command_line->HasSwitch(switches::kForceSearchEngineChoiceScreen)) {
     WipeSearchEngineChoicePrefs(profile_prefs_.get(),
-                                WipeSearchEngineChoiceReason::kCommandLineFlag);
+                                SearchEngineChoiceWipeReason::kCommandLineFlag);
     return;
   }
 
@@ -500,7 +493,7 @@ void SearchEngineChoiceService::PreprocessPrefsForReprompt() {
           prefs::kDefaultSearchProviderChoiceScreenCompletionVersion)) {
     WipeSearchEngineChoicePrefs(
         profile_prefs_.get(),
-        WipeSearchEngineChoiceReason::kMissingChoiceVersion);
+        SearchEngineChoiceWipeReason::kMissingChoiceVersion);
     return;
   }
 
@@ -509,16 +502,20 @@ void SearchEngineChoiceService::PreprocessPrefsForReprompt() {
   if (!IsValidVersionFormat(choice_version)) {
     WipeSearchEngineChoicePrefs(
         profile_prefs_.get(),
-        WipeSearchEngineChoiceReason::kInvalidChoiceVersion);
+        SearchEngineChoiceWipeReason::kInvalidChoiceVersion);
     return;
   }
 
   const base::Version& current_version = version_info::GetVersion();
-  int country_id = GetCountryId();
+  CountryId country_id =
+      regional_capabilities_service_->GetCountryId().GetRestricted(
+          regional_capabilities::CountryAccessKey(
+              regional_capabilities::CountryAccessReason::
+                  kSearchEngineChoiceServiceReprompting));
   const std::string wildcard_string("*");
   // Explicit country key takes precedence over the wildcard.
   for (const std::string& key :
-       {country_codes::CountryIDToCountryString(country_id), wildcard_string}) {
+       {std::string(country_id.CountryCode()), wildcard_string}) {
     bool is_wildcard = key == wildcard_string;
     const std::string* reprompt_version_string =
         reprompt_params_json->FindString(key);
@@ -555,7 +552,7 @@ void SearchEngineChoiceService::PreprocessPrefsForReprompt() {
     // Wipe the choice to force a reprompt.
     LogSearchRepromptKeyHistograms(RepromptResult::kReprompt, is_wildcard);
     WipeSearchEngineChoicePrefs(profile_prefs_.get(),
-                                WipeSearchEngineChoiceReason::kReprompt);
+                                SearchEngineChoiceWipeReason::kReprompt);
     return;
   }
 }

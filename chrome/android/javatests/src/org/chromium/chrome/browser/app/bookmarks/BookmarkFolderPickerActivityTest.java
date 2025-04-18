@@ -31,17 +31,20 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
+import org.chromium.base.CallbackUtils;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.BaseJUnit4ClassRunner;
 import org.chromium.base.test.util.ApplicationTestUtils;
 import org.chromium.base.test.util.Batch;
+import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.Feature;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.bookmarks.BookmarkManagerOpener;
+import org.chromium.chrome.browser.bookmarks.BookmarkManagerOpenerImpl;
 import org.chromium.chrome.browser.bookmarks.BookmarkModel;
 import org.chromium.chrome.browser.bookmarks.BookmarkModelObserver;
-import org.chromium.chrome.browser.bookmarks.BookmarkUtils;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
@@ -73,7 +76,9 @@ public class BookmarkFolderPickerActivityTest {
     private static BookmarkId sOtherFolderId;
     private static BookmarkId sLocalOrSyncableReadingListFolder;
 
+    private final BookmarkManagerOpener mBookmarkManagerOpener = new BookmarkManagerOpenerImpl();
     private BookmarkFolderPickerActivity mActivity;
+    private Runnable mRunnable = CallbackUtils.emptyRunnable();
 
     @BeforeClass
     public static void setUpBeforeClass() throws TimeoutException {
@@ -111,6 +116,9 @@ public class BookmarkFolderPickerActivityTest {
         BookmarkId bookmark =
                 addBookmark(sMobileFolderId, 0, "bookmark", new GURL("https://google.com"));
         BookmarkId folder = addFolder(sMobileFolderId, 1, "folder");
+
+        CallbackHelper callbackHelper = new CallbackHelper();
+        mRunnable = callbackHelper::notifyCalled;
         startFolderPickerActivity(bookmark);
 
         ThreadUtils.runOnUiThreadBlocking(() -> sBookmarkModel.addObserver(mBookmarkModelObserver));
@@ -125,6 +133,7 @@ public class BookmarkFolderPickerActivityTest {
         verifyNoMoreInteractions(mBookmarkModelObserver);
 
         CriteriaHelper.pollUiThread(() -> mActivity.isFinishing());
+        callbackHelper.waitForNext();
     }
 
     @Test
@@ -189,9 +198,10 @@ public class BookmarkFolderPickerActivityTest {
                         BookmarkFolderPickerActivity.class,
                         Stage.RESUMED,
                         () -> {
-                            BookmarkUtils.startFolderPickerActivity(
+                            mBookmarkManagerOpener.startFolderPickerActivity(
                                     sActivityTestRule.getActivity(),
                                     sActivityTestRule.getProfile(false),
+                                    mRunnable,
                                     ids);
                         });
     }

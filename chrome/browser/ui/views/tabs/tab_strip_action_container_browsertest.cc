@@ -5,15 +5,19 @@
 #include "chrome/browser/ui/views/tabs/tab_strip_action_container.h"
 
 #include "base/feature_list.h"
+#include "base/memory/memory_pressure_monitor.h"
+#include "base/path_service.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/contextual_cueing/contextual_cueing_features.h"
-#include "chrome/browser/glic/glic_test_environment.h"
+#include "chrome/browser/glic/test_support/glic_test_environment.h"
 #include "chrome/browser/optimization_guide/browser_test_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/tabs/glic_nudge_controller.h"
 #include "chrome/browser/ui/tabs/organization/tab_organization_service.h"
 #include "chrome/browser/ui/tabs/organization/tab_organization_utils.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -23,6 +27,7 @@
 #include "chrome/browser/ui/views/tabs/glic_button.h"
 #include "chrome/browser/ui/views/tabs/tab_search_button.h"
 #include "chrome/common/chrome_features.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/views/chrome_views_test_base.h"
 #include "components/optimization_guide/core/model_execution/model_execution_features.h"
@@ -35,8 +40,12 @@
 #include "ui/gfx/animation/slide_animation.h"
 
 #if BUILDFLAG(ENABLE_GLIC)
+#include "chrome/browser/glic/fre/glic_fre.mojom.h"
+#include "chrome/browser/glic/fre/glic_fre_controller.h"
 #include "chrome/browser/glic/glic_keyed_service_factory.h"
-#include "chrome/browser/glic/glic_test_util.h"
+#include "chrome/browser/glic/glic_profile_manager.h"
+#include "chrome/browser/glic/test_support/glic_test_util.h"
+#include "chrome/browser/glic/widget/glic_window_controller.h"
 #endif  // BUILDFLAG(ENABLE_GLIC)
 
 class TabStripActionContainerBrowserTest : public InProcessBrowserTest {
@@ -45,7 +54,9 @@ class TabStripActionContainerBrowserTest : public InProcessBrowserTest {
     feature_list_.InitWithFeatures(
         {
             features::kTabOrganization,
+#if BUILDFLAG(ENABLE_GLIC)
             features::kGlic,
+#endif
             features::kTabstripComboButton,
             features::kTabstripDeclutter,
             contextual_cueing::kContextualCueing,
@@ -54,14 +65,40 @@ class TabStripActionContainerBrowserTest : public InProcessBrowserTest {
     TabOrganizationUtils::GetInstance()->SetIgnoreOptGuideForTesting(true);
   }
 
+#if BUILDFLAG(ENABLE_GLIC)
+  void SetUp() override {
+    // This will temporarily disable preloading.
+    glic::GlicProfileManager::ForceMemoryPressureForTesting(
+        &forced_memory_pressure_);
+    fre_server_.ServeFilesFromDirectory(
+        base::PathService::CheckedGet(base::DIR_ASSETS)
+            .AppendASCII("gen/chrome/test/data/webui/glic/"));
+    ASSERT_TRUE(fre_server_.Start());
+    fre_url_ = fre_server_.GetURL("/glic/test_client/fre.html");
+    InProcessBrowserTest::SetUp();
+  }
+
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    command_line->AppendSwitchASCII(switches::kGlicFreURL, fre_url_.spec());
+  }
+
+  void TearDown() override {
+    InProcessBrowserTest::TearDown();
+    glic::GlicProfileManager::ForceMemoryPressureForTesting(nullptr);
+  }
+
   void SetUpOnMainThread() override {
     InProcessBrowserTest::SetUpOnMainThread();
 
-#if BUILDFLAG(ENABLE_GLIC)
     glic_test_environment_ =
         std::make_unique<glic::GlicTestEnvironment>(browser()->profile());
-#endif
   }
+
+  void TearDownOnMainThread() override {
+    InProcessBrowserTest::TearDownOnMainThread();
+    glic_test_environment_.reset();
+  }
+#endif
 
   void SetUpInProcessBrowserTestFixture() override {
     InProcessBrowserTest::SetUpInProcessBrowserTestFixture();
@@ -139,6 +176,15 @@ class TabStripActionContainerBrowserTest : public InProcessBrowserTest {
     }
   }
 
+#if BUILDFLAG(ENABLE_GLIC)
+  void ResetMemoryPressure() {
+    forced_memory_pressure_ = base::MemoryPressureMonitor::MemoryPressureLevel::
+        MEMORY_PRESSURE_LEVEL_NONE;
+  }
+
+  const GURL& fre_url() { return fre_url_; }
+#endif
+
  private:
   void OnWillCreateBrowserContextServices(content::BrowserContext* context) {
     IdentityTestEnvironmentProfileAdaptor::
@@ -150,7 +196,12 @@ class TabStripActionContainerBrowserTest : public InProcessBrowserTest {
       identity_test_environment_adaptor_;
   base::CallbackListSubscription create_services_subscription_;
 #if BUILDFLAG(ENABLE_GLIC)
+  base::MemoryPressureMonitor::MemoryPressureLevel forced_memory_pressure_ =
+      base::MemoryPressureMonitor::MemoryPressureLevel::
+          MEMORY_PRESSURE_LEVEL_CRITICAL;
   std::unique_ptr<glic::GlicTestEnvironment> glic_test_environment_;
+  net::EmbeddedTestServer fre_server_;
+  GURL fre_url_;
 #endif
 };
 
@@ -197,6 +248,12 @@ IN_PROC_BROWSER_TEST_F(TabStripActionContainerBrowserTest,
 
   ShowTabStripNudgeButton(TabDeclutterButton());
 
+  // Finish showing declutter chip.
+  tab_strip_action_container()
+      ->animation_session_for_testing()
+      ->ResetAnimationForTesting(1);
+  tab_strip_action_container()->GetWidget()->LayoutRootViewIfNecessary();
+
   OnButtonClicked(TabDeclutterButton());
 
   histogram_tester.ExpectUniqueSample(
@@ -215,6 +272,12 @@ IN_PROC_BROWSER_TEST_F(TabStripActionContainerBrowserTest,
 
   ShowTabStripNudgeButton(TabDeclutterButton());
 
+  // Finish showing declutter chip.
+  tab_strip_action_container()
+      ->animation_session_for_testing()
+      ->ResetAnimationForTesting(1);
+  tab_strip_action_container()->GetWidget()->LayoutRootViewIfNecessary();
+
   OnButtonDismissed(TabDeclutterButton());
 
   histogram_tester.ExpectUniqueSample(
@@ -226,6 +289,12 @@ IN_PROC_BROWSER_TEST_F(TabStripActionContainerBrowserTest,
   base::HistogramTester histogram_tester;
 
   ShowTabStripNudgeButton(TabDeclutterButton());
+
+  // Finish showing declutter chip.
+  tab_strip_action_container()
+      ->animation_session_for_testing()
+      ->ResetAnimationForTesting(1);
+  tab_strip_action_container()->GetWidget()->LayoutRootViewIfNecessary();
 
   OnTabStripNudgeButtonTimeout(TabDeclutterButton());
 
@@ -385,12 +454,54 @@ IN_PROC_BROWSER_TEST_F(TabStripActionContainerBrowserTest,
                        LogsWhenGlicNudgeButtonClicked) {
   ShowTabStripNudgeButton(GlicNudgeButton());
 
+  tab_strip_action_container()
+      ->animation_session_for_testing()
+      ->ResetAnimationForTesting(1);
+  tab_strip_action_container()->GetWidget()->LayoutRootViewIfNecessary();
+
   OnButtonClicked(GlicNudgeButton());
   auto* const glic_keyed_service =
       glic::GlicKeyedServiceFactory::GetGlicKeyedService(
           browser()->GetProfile());
 
   EXPECT_TRUE(glic_keyed_service->IsWindowShowing());
+}
+
+IN_PROC_BROWSER_TEST_F(TabStripActionContainerBrowserTest, PreloadFreOnNudge) {
+  // We set an artificial activity callback here because it is required for
+  // OnTriggerGlicNudgeUI to actually show the nudge.
+  auto* nudge_controller =
+      browser()->browser_window_features()->glic_nudge_controller();
+  nudge_controller->SetNudgeActivityCallbackForTesting();
+
+  auto* service = glic::GlicKeyedServiceFactory::GetGlicKeyedService(
+      browser()->GetProfile());
+  auto& window_controller = service->window_controller();
+  glic::SetFRECompletion(browser()->profile(), false);
+  EXPECT_TRUE(window_controller.fre_controller()->ShouldShowFreDialog());
+  EXPECT_FALSE(window_controller.fre_controller()->IsWarmed());
+
+  // This will enable preloading again.
+  ResetMemoryPressure();
+
+  base::RunLoop run_loop;
+  auto subscription =
+      window_controller.fre_controller()->AddWebUiStateChangedCallback(
+          base::BindRepeating(
+              [](base::RunLoop* run_loop,
+                 glic::mojom::FreWebUiState new_state) {
+                if (new_state == glic::mojom::FreWebUiState::kReady) {
+                  run_loop->Quit();
+                }
+              },
+              base::Unretained(&run_loop)));
+
+  tab_strip_action_container()->OnTriggerGlicNudgeUI("test");
+  ShowTabStripNudgeButton(GlicNudgeButton());
+
+  // Wait for the FRE to preload.
+  run_loop.Run();
+  EXPECT_TRUE(window_controller.fre_controller()->IsWarmed());
 }
 
 IN_PROC_BROWSER_TEST_F(TabStripActionContainerBrowserTest,

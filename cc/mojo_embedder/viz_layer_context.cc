@@ -22,6 +22,7 @@
 #include "cc/animation/keyframe_effect.h"
 #include "cc/animation/keyframe_model.h"
 #include "cc/layers/layer_impl.h"
+#include "cc/layers/mirror_layer_impl.h"
 #include "cc/layers/picture_layer_impl.h"
 #include "cc/layers/surface_layer_impl.h"
 #include "cc/tiles/picture_layer_tiling.h"
@@ -52,12 +53,14 @@ void ComputePropertyTreeNodeUpdate(
       old_node->element_id == new_node.element_id &&
       old_node->local == new_node.local &&
       old_node->origin == new_node.origin &&
+      old_node->post_translation == new_node.post_translation &&
+      old_node->to_parent == new_node.to_parent &&
       old_node->sticky_position_constraint_id ==
           new_node.sticky_position_constraint_id &&
       old_node->anchor_position_scroll_data_id ==
           new_node.anchor_position_scroll_data_id &&
       old_node->sorting_context_id == new_node.sorting_context_id &&
-      old_node->scroll_offset == new_node.scroll_offset &&
+      old_node->scroll_offset() == new_node.scroll_offset() &&
       old_node->snap_amount == new_node.snap_amount &&
       old_node->has_potential_animation == new_node.has_potential_animation &&
       old_node->is_currently_animating == new_node.is_currently_animating &&
@@ -84,6 +87,8 @@ void ComputePropertyTreeNodeUpdate(
   wire->element_id = new_node.element_id;
   wire->local = new_node.local;
   wire->origin = new_node.origin;
+  wire->post_translation = new_node.post_translation;
+  wire->to_parent = new_node.to_parent;
   if (new_node.sticky_position_constraint_id >= 0) {
     wire->sticky_position_constraint_id =
         base::checked_cast<uint32_t>(new_node.sticky_position_constraint_id);
@@ -93,7 +98,7 @@ void ComputePropertyTreeNodeUpdate(
         base::checked_cast<uint32_t>(new_node.anchor_position_scroll_data_id);
   }
   wire->sorting_context_id = new_node.sorting_context_id;
-  wire->scroll_offset = new_node.scroll_offset;
+  wire->scroll_offset = new_node.scroll_offset();
   wire->snap_amount = new_node.snap_amount;
   wire->has_potential_animation = new_node.has_potential_animation;
   wire->is_currently_animating = new_node.is_currently_animating;
@@ -109,6 +114,7 @@ void ComputePropertyTreeNodeUpdate(
       new_node.delegates_to_parent_for_backface;
   wire->will_change_transform = new_node.will_change_transform;
   wire->visible_frame_element_id = new_node.visible_frame_element_id;
+  wire->damage_reasons_bit_mask = new_node.damage_reasons().ToEnumBitmask();
   container.push_back(std::move(wire));
 }
 
@@ -146,14 +152,42 @@ void ComputePropertyTreeNodeUpdate(
       old_node->opacity == new_node.opacity &&
       old_node->render_surface_reason == new_node.render_surface_reason &&
       old_node->surface_contents_scale == new_node.surface_contents_scale &&
+      old_node->subtree_capture_id == new_node.subtree_capture_id &&
+      old_node->subtree_size == new_node.subtree_size &&
       old_node->blend_mode == new_node.blend_mode &&
       old_node->target_id == new_node.target_id &&
-      old_node->backdrop_mask_element_id == new_node.backdrop_mask_element_id &&
       old_node->has_copy_request == new_node.has_copy_request &&
-      old_node->subtree_has_copy_request == new_node.subtree_has_copy_request &&
-      old_node->closest_ancestor_with_copy_request_id ==
-          new_node.closest_ancestor_with_copy_request_id &&
+      old_node->filters == new_node.filters &&
       old_node->backdrop_filters == new_node.backdrop_filters &&
+      old_node->backdrop_filter_bounds == new_node.backdrop_filter_bounds &&
+      old_node->backdrop_filter_quality == new_node.backdrop_filter_quality &&
+      old_node->backdrop_mask_element_id == new_node.backdrop_mask_element_id &&
+      old_node->cache_render_surface == new_node.cache_render_surface &&
+      old_node->hidden_by_backface_visibility ==
+          new_node.hidden_by_backface_visibility &&
+      old_node->double_sided == new_node.double_sided &&
+      old_node->trilinear_filtering == new_node.trilinear_filtering &&
+      old_node->is_drawn == new_node.is_drawn &&
+      old_node->only_draws_visible_content ==
+          new_node.only_draws_visible_content &&
+      old_node->subtree_hidden == new_node.subtree_hidden &&
+      old_node->has_potential_filter_animation ==
+          new_node.has_potential_filter_animation &&
+      old_node->has_potential_backdrop_filter_animation ==
+          new_node.has_potential_backdrop_filter_animation &&
+      old_node->has_potential_opacity_animation ==
+          new_node.has_potential_opacity_animation &&
+      old_node->has_masking_child == new_node.has_masking_child &&
+      old_node->subtree_has_copy_request == new_node.subtree_has_copy_request &&
+      old_node->is_fast_rounded_corner == new_node.is_fast_rounded_corner &&
+      old_node->node_or_ancestor_has_fast_rounded_corner ==
+          new_node.node_or_ancestor_has_fast_rounded_corner &&
+      old_node->lcd_text_disallowed_by_filter ==
+          new_node.lcd_text_disallowed_by_filter &&
+      old_node->lcd_text_disallowed_by_backdrop_filter ==
+          new_node.lcd_text_disallowed_by_backdrop_filter &&
+      old_node->may_have_backdrop_effect == new_node.may_have_backdrop_effect &&
+      old_node->has_2d_scale_transform == new_node.has_2d_scale_transform &&
       copy_requests.empty()) {
     return;
   }
@@ -168,14 +202,32 @@ void ComputePropertyTreeNodeUpdate(
   wire->has_render_surface =
       new_node.render_surface_reason != RenderSurfaceReason::kNone;
   wire->surface_contents_scale = new_node.surface_contents_scale;
+  wire->subtree_capture_id = new_node.subtree_capture_id;
+  wire->subtree_size = new_node.subtree_size;
   wire->blend_mode = base::checked_cast<uint32_t>(new_node.blend_mode);
   wire->target_id = new_node.target_id;
-  wire->backdrop_mask_element_id = new_node.backdrop_mask_element_id;
   wire->copy_output_requests = std::move(copy_requests);
-  wire->subtree_has_copy_request = new_node.subtree_has_copy_request;
-  wire->closest_ancestor_with_copy_request_id =
-      new_node.closest_ancestor_with_copy_request_id;
+  wire->filters = new_node.filters;
   wire->backdrop_filters = new_node.backdrop_filters;
+  wire->backdrop_filter_bounds = new_node.backdrop_filter_bounds;
+  wire->backdrop_filter_quality = new_node.backdrop_filter_quality;
+  wire->backdrop_mask_element_id = new_node.backdrop_mask_element_id;
+
+  wire->cache_render_surface = new_node.cache_render_surface;
+  wire->double_sided = new_node.double_sided;
+  wire->trilinear_filtering = new_node.trilinear_filtering;
+  wire->subtree_hidden = new_node.subtree_hidden;
+  wire->has_potential_filter_animation =
+      new_node.has_potential_filter_animation;
+  wire->has_potential_backdrop_filter_animation =
+      new_node.has_potential_backdrop_filter_animation;
+  wire->has_potential_opacity_animation =
+      new_node.has_potential_opacity_animation;
+  wire->subtree_has_copy_request = new_node.subtree_has_copy_request;
+  wire->is_fast_rounded_corner = new_node.is_fast_rounded_corner;
+  wire->may_have_backdrop_effect = new_node.may_have_backdrop_effect;
+  wire->has_2d_scale_transform = new_node.has_2d_scale_transform;
+
   container.push_back(std::move(wire));
 }
 
@@ -434,6 +486,11 @@ void SerializePictureLayerTileUpdates(
   }
 }
 
+void SerializeMirrorLayerExtra(MirrorLayerImpl& layer,
+                               viz::mojom::MirrorLayerExtraPtr& extra) {
+  extra->mirrored_layer_id = layer.mirrored_layer_id();
+}
+
 void SerializeSurfaceLayerExtra(SurfaceLayerImpl& layer,
                                 viz::mojom::SurfaceLayerExtraPtr& extra) {
   extra->surface_range = layer.range();
@@ -470,6 +527,14 @@ void SerializeLayer(LayerImpl& layer,
   wire.effect_tree_index = layer.effect_tree_index();
   wire.scroll_tree_index = layer.scroll_tree_index();
   switch (layer.GetLayerType()) {
+    case mojom::LayerType::kMirror: {
+      auto mirror_layer_extra = viz::mojom::MirrorLayerExtra::New();
+      SerializeMirrorLayerExtra(static_cast<MirrorLayerImpl&>(layer),
+                                mirror_layer_extra);
+      wire.layer_extra = viz::mojom::LayerExtra::NewMirrorLayerExtra(
+          std::move(mirror_layer_extra));
+      break;
+    }
     case mojom::LayerType::kSurface: {
       auto surface_layer_extra = viz::mojom::SurfaceLayerExtra::New();
       SerializeSurfaceLayerExtra(static_cast<SurfaceLayerImpl&>(layer),
@@ -748,11 +813,17 @@ void VizLayerContext::SetVisible(bool visible) {
 void VizLayerContext::UpdateDisplayTreeFrom(
     LayerTreeImpl& tree,
     viz::ClientResourceProvider& resource_provider,
-    viz::RasterContextProvider& context_provider) {
+    viz::RasterContextProvider& context_provider,
+    const gfx::Rect& viewport_damage_rect) {
   auto& property_trees = *tree.property_trees();
   auto update = viz::mojom::LayerTreeUpdate::New();
+  update->begin_frame_args = tree.CurrentBeginFrameArgs();
   update->source_frame_number = tree.source_frame_number();
   update->trace_id = tree.trace_id().value();
+  update->page_scale_factor = tree.page_scale_factor()->Current(true);
+  update->min_page_scale_factor = tree.min_page_scale_factor();
+  update->max_page_scale_factor = tree.max_page_scale_factor();
+  update->external_page_scale_factor = tree.external_page_scale_factor();
   update->device_viewport = tree.GetDeviceViewport();
   update->device_scale_factor = tree.device_scale_factor();
   update->painted_device_scale_factor = tree.painted_device_scale_factor();
@@ -768,6 +839,8 @@ void VizLayerContext::UpdateDisplayTreeFrom(
   update->inner_scroll = property_ids.inner_scroll;
   update->outer_clip = property_ids.outer_clip;
   update->outer_scroll = property_ids.outer_scroll;
+
+  update->viewport_damage_rect = viewport_damage_rect;
 
   // This flag will be set if and only if a new layer list was pushed to the
   // active tree during activation, implying that at least one layer addition or

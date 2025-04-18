@@ -25,7 +25,7 @@ import org.chromium.chrome.browser.bookmarks.BookmarkUiPrefs.BookmarkRowDisplayP
 import org.chromium.chrome.browser.bookmarks.ImprovedBookmarkSaveFlowProperties.FolderText;
 import org.chromium.chrome.browser.bookmarks.PowerBookmarkMetrics.PriceTrackingState;
 import org.chromium.chrome.browser.commerce.PriceTrackingUtils;
-import org.chromium.chrome.browser.price_tracking.PriceDropNotificationManagerFactory;
+import org.chromium.chrome.browser.price_tracking.PriceDropNotificationManager;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.components.bookmarks.BookmarkId;
 import org.chromium.components.bookmarks.BookmarkItem;
@@ -51,6 +51,8 @@ public class BookmarkSaveFlowMediator extends BookmarkModelObserver
     private final ShoppingService mShoppingService;
     private final Profile mProfile;
     private final IdentityManager mIdentityManager;
+    private final BookmarkManagerOpener mBookmarkManagerOpener;
+    private final PriceDropNotificationManager mPriceDropNotificationManager;
 
     private BookmarkId mBookmarkId;
     private PowerBookmarkMeta mPowerBookmarkMeta;
@@ -70,6 +72,8 @@ public class BookmarkSaveFlowMediator extends BookmarkModelObserver
      * @param bookmarkImageFetcher Used to fetch images/favicons for bookmarks.
      * @param profile The current chrome profile.
      * @param identityManager The {@link IdentityManager} which supplies the account data.
+     * @param bookmarkManagerOpener The BookmarkManagerOpener used to open bookmark activites.
+     * @param priceDropNotificationManager Manages price drop notifications.
      */
     public BookmarkSaveFlowMediator(
             @NonNull BookmarkModel bookmarkModel,
@@ -79,7 +83,9 @@ public class BookmarkSaveFlowMediator extends BookmarkModelObserver
             @NonNull ShoppingService shoppingService,
             @NonNull BookmarkImageFetcher bookmarkImageFetcher,
             @NonNull Profile profile,
-            @NonNull IdentityManager identityManager) {
+            @NonNull IdentityManager identityManager,
+            @NonNull BookmarkManagerOpener bookmarkManagerOpener,
+            @NonNull PriceDropNotificationManager priceDropNotificationManager) {
         mBookmarkModel = bookmarkModel;
         mBookmarkModel.addObserver(this);
 
@@ -95,6 +101,8 @@ public class BookmarkSaveFlowMediator extends BookmarkModelObserver
         mBookmarkImageFetcher = bookmarkImageFetcher;
         mProfile = profile;
         mIdentityManager = identityManager;
+        mBookmarkManagerOpener = bookmarkManagerOpener;
+        mPriceDropNotificationManager = priceDropNotificationManager;
     }
 
     /**
@@ -237,7 +245,7 @@ public class BookmarkSaveFlowMediator extends BookmarkModelObserver
 
         mBookmarkImageFetcher.fetchImageForBookmarkWithFaviconFallback(
                 item,
-                BookmarkUtils.getImageIconSize(
+                BookmarkViewUtils.getImageIconSize(
                         mContext.getResources(), BookmarkRowDisplayPref.VISUAL),
                 callback);
     }
@@ -321,7 +329,7 @@ public class BookmarkSaveFlowMediator extends BookmarkModelObserver
 
         // Make sure the notification channel is initialized when the user tracks the product.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            PriceDropNotificationManagerFactory.create(mProfile).createNotificationChannel();
+            mPriceDropNotificationManager.createNotificationChannel();
         }
     }
 
@@ -357,7 +365,7 @@ public class BookmarkSaveFlowMediator extends BookmarkModelObserver
 
     private void onEditClicked(View v) {
         RecordUserAction.record("MobileBookmark.SaveFlow.EditBookmark");
-        BookmarkUtils.startEditActivity(mContext, mProfile, mBookmarkId);
+        mBookmarkManagerOpener.startEditActivity(mContext, mProfile, mBookmarkId);
         mCloseRunnable.run();
     }
 

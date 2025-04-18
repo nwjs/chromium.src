@@ -14,6 +14,7 @@
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_mock_time_task_runner.h"
@@ -1602,7 +1603,8 @@ TEST_F(TileManagerTilePriorityQueueTest,
       host_impl()->resource_pool()->AcquireResource(
           gfx::Size(256, 256), viz::SinglePlaneFormat::kRGBA_8888,
           gfx::ColorSpace());
-  resource.set_backing(std::make_unique<ResourcePool::Backing>());
+  resource.set_backing(std::make_unique<ResourcePool::Backing>(
+      resource.size(), resource.format(), resource.color_space()));
 
   host_impl()->tile_manager()->CheckIfMoreTilesNeedToBePreparedForTesting();
   EXPECT_FALSE(host_impl()->is_likely_to_require_a_draw());
@@ -1931,6 +1933,44 @@ TEST_F(TileManagerTest, AllWorkFinished) {
     host_impl()->tile_manager()->CheckIfMoreTilesNeedToBePreparedForTesting();
     run_loop.Run();
   }
+}
+
+// Same test as `AllWorkFinished` above, but with kFastPathNoRaster enabled.
+TEST_F(TileManagerTest, FastPathWhenNoRasterWork) {
+  base::test::ScopedFeatureList feature_list{features::kFastPathNoRaster};
+  base::HistogramTester histogram_tester;
+
+  host_impl()->tile_manager()->DisbleMetricsSubsamplingForTesting();
+
+  // Check with no tile work enqueued.
+  {
+    base::RunLoop run_loop;
+    EXPECT_FALSE(
+        host_impl()->tile_manager()->HasScheduledTileTasksForTesting());
+    EXPECT_CALL(MockHostImpl(), NotifyReadyToDraw());
+    EXPECT_CALL(MockHostImpl(), NotifyAllTileTasksCompleted())
+        .WillOnce(testing::Invoke([&run_loop]() { run_loop.Quit(); }));
+    host_impl()->tile_manager()->PrepareTiles(host_impl()->global_tile_state());
+    EXPECT_TRUE(host_impl()->tile_manager()->HasScheduledTileTasksForTesting());
+    run_loop.Run();
+  }
+
+  // Check that the "schedule more work" path also triggers the expected
+  // callback.
+  {
+    base::RunLoop run_loop;
+    EXPECT_FALSE(
+        host_impl()->tile_manager()->HasScheduledTileTasksForTesting());
+    EXPECT_CALL(MockHostImpl(), NotifyReadyToDraw());
+    EXPECT_CALL(MockHostImpl(), NotifyAllTileTasksCompleted())
+        .WillOnce(testing::Invoke([&run_loop]() { run_loop.Quit(); }));
+    host_impl()->tile_manager()->PrepareTiles(host_impl()->global_tile_state());
+    host_impl()->tile_manager()->SetMoreTilesNeedToBeRasterizedForTesting();
+    EXPECT_TRUE(host_impl()->tile_manager()->HasScheduledTileTasksForTesting());
+    run_loop.Run();
+  }
+  histogram_tester.ExpectTotalCount(
+      "Compositing.TileManager.RasterTasksDuration", 2u);
 }
 
 TEST_F(TileManagerTest, ActivateAndDrawWhenOOM) {
@@ -2353,9 +2393,9 @@ void RunPartialRasterCheck(std::unique_ptr<LayerTreeHostImpl> host_impl,
           kTileSize, viz::SinglePlaneFormat::kBGRA_8888,
           gfx::ColorSpace::CreateSRGB());
 
-  auto backing = std::make_unique<ResourcePool::Backing>();
-  backing->set_shared_image(gpu::ClientSharedImage::CreateForTesting(
-      viz::SinglePlaneFormat::kBGRA_8888, GL_TEXTURE_2D));
+  auto backing = std::make_unique<ResourcePool::Backing>(
+      resource.size(), resource.format(), resource.color_space());
+  backing->CreateSharedImageForTesting();
   backing->mailbox_sync_token.Set(gpu::GPU_IO,
                                   gpu::CommandBufferId::FromUnsafeValue(1), 1);
 
@@ -2537,7 +2577,8 @@ class InvalidResourceRasterBufferProvider
       bool depends_on_hardware_accelerated_jpeg_candidates,
       bool depends_on_hardware_accelerated_webp_candidates) override {
     if (!resource.backing()) {
-      auto backing = std::make_unique<ResourcePool::Backing>();
+      auto backing = std::make_unique<ResourcePool::Backing>(
+          resource.size(), resource.format(), resource.color_space());
       // Don't set a mailbox to signal invalid resource.
       resource.set_backing(std::move(backing));
     }
@@ -2614,9 +2655,9 @@ class MockReadyToDrawRasterBufferProviderImpl
       bool depends_on_hardware_accelerated_jpeg_candidates,
       bool depends_on_hardware_accelerated_webp_candidates) override {
     if (!resource.backing()) {
-      auto backing = std::make_unique<ResourcePool::Backing>();
-      backing->set_shared_image(gpu::ClientSharedImage::CreateForTesting(
-          viz::SinglePlaneFormat::kBGRA_8888, GL_TEXTURE_2D));
+      auto backing = std::make_unique<ResourcePool::Backing>(
+          resource.size(), resource.format(), resource.color_space());
+      backing->CreateSharedImageForTesting();
       backing->mailbox_sync_token.Set(
           gpu::GPU_IO, gpu::CommandBufferId::FromUnsafeValue(1), 1);
       resource.set_backing(std::move(backing));

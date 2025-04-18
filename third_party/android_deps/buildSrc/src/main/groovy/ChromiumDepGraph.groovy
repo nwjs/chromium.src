@@ -13,6 +13,8 @@ import org.gradle.api.artifacts.result.*
 import java.util.concurrent.*
 import java.time.*
 import org.gradle.api.logging.Logger
+import java.nio.file.Path
+import java.nio.file.Paths
 
 /**
  * Parses the project dependencies and generates a graph of {@link ChromiumDepGraph.DependencyDescription} objects to
@@ -29,10 +31,6 @@ class ChromiumDepGraph {
                     url: 'https://maven.google.com/androidx/multidex/multidex/2.0.0/multidex-2.0.0.aar'),
             com_google_android_datatransport_transport_api: new PropertyOverride(
                     description: 'Interfaces for data logging in gmscore SDKs.'),
-            com_google_android_datatransport_transport_backend_cct: new PropertyOverride(
-                    exclude: true),  // We're not using datatransport functionality.
-            com_google_android_datatransport_transport_runtime: new PropertyOverride(
-                    exclude: true),  // We're not using datatransport functionality.
             com_google_android_gms_play_services_cloud_messaging: new PropertyOverride(
                     description: 'Firebase Cloud Messaging library that interfaces with gmscore.'),
             com_google_android_gms_play_services_location: new PropertyOverride(
@@ -71,8 +69,6 @@ class ChromiumDepGraph {
                     description: 'Common classes for Firebase SDKs.'),
             com_google_firebase_firebase_components: new PropertyOverride(
                     description: 'Provides dependency management for Firebase SDKs.'),
-            com_google_firebase_firebase_datatransport: new PropertyOverride(
-                    exclude: true),  // We're not using datatransport functionality.
             com_google_firebase_firebase_encoders_json: new PropertyOverride(
                     description: 'JSON encoders used in Firebase SDKs.'),
             com_google_firebase_firebase_encoders: new PropertyOverride(
@@ -280,6 +276,10 @@ class ChromiumDepGraph {
     Project[] projects
     Logger logger
     boolean skipLicenses
+    boolean warnOnStaleDeps
+
+    // TODO: remove (set to true) when AUTOROLL_MIGRATION_IN_PROGRESS = false
+    boolean tagTargetsAsAutorolled
 
     private static String makeModuleIdInner(String group, String module, String version) {
         // Does not include version because by default the resolution strategy for gradle is to use the newest version
@@ -307,6 +307,15 @@ class ChromiumDepGraph {
         return makeModuleIdInner(componentId.group, componentId.module, componentId.version)
     }
 
+    static boolean anyContains(String value, Set<String>... sets) {
+        for (Set<String> curSet : sets) {
+            if (curSet.contains(value)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     void collectDependencies() {
         Set<ResolvedDependency> deps = [] as Set
         Map<String, SortedSet<String>> resolvedDeps = [:]
@@ -323,9 +332,6 @@ class ChromiumDepGraph {
                 'androidTestCompileLatest',
                 'buildCompileNoDeps'
         ]
-        String[] autorolledConfigNames = configNames.findAll { configName ->
-            configName.endsWith('Latest')
-        }
         timeIt('** Resolving all deps') {
             for (Project project : projects) {
                 for (String configName : configNames) {
@@ -362,51 +368,60 @@ class ChromiumDepGraph {
             taskList.each { task -> task.get() }
         }
 
-        topLevelIds.each { id -> dependencies.get(id).visible = true }
-
-        (resolvedDeps['testCompile'] + resolvedDeps['testCompileLatest']).each { id ->
-            DependencyDescription dep = dependencies.get(id)
-            assert dep: "No dependency collected for artifact ${id}"
-            dep.testOnly = true
-        }
-
-        (resolvedDeps['androidTestCompile'] + resolvedDeps['androidTestCompileLatest']).each { id ->
-            DependencyDescription dep = dependencies.get(id)
-            assert dep: "No dependency collected for artifact ${id}"
-            dep.supportsAndroid = true
-            dep.testOnly = true
-        }
-
-        (resolvedDeps['buildCompile'] + resolvedDeps['buildCompileNoDeps'] + resolvedDeps['buildCompileLatest']).each { id ->
-            DependencyDescription dep = dependencies.get(id)
-            assert dep: "No dependency collected for artifact ${id}"
-            dep.usedInBuild = true
-            dep.testOnly = false
-        }
-
-        (resolvedDeps['compile'] + resolvedDeps['compileLatest']).each { id ->
-            DependencyDescription dep = dependencies.get(id)
-            assert dep: "No dependency collected for artifact ${id}"
-            dep.supportsAndroid = true
-            dep.testOnly = false
-            dep.isShipped = true
-        }
-        autorolledConfigNames.each { configName ->
-            resolvedDeps[configName].each { id ->
-                DependencyDescription dep = dependencies.get(id)
-                dep.isAutorolled = true
+        // Collect these using prefix match to allow variants "Latest", "NoDeps", "Autorolled".
+        Set<String> compileIds = [] as Set
+        Set<String> testIds = [] as Set
+        Set<String> androidTestIds = [] as Set
+        Set<String> buildIds = [] as Set
+        Set<String> autorolledIds = [] as Set
+        resolvedDeps.each { key, values ->
+            if (key.startsWith('compile')) {
+                compileIds.addAll(values);
+            } else if (key.startsWith('testCompile')) {
+                testIds.addAll(values);
+            } else if (key.startsWith('androidTest')) {
+                androidTestIds.addAll(values);
+            } else if (key.startsWith('build')) {
+                buildIds.addAll(values);
+            } else {
+                assert false : 'Unknown config ' + key
+            }
+            if (tagTargetsAsAutorolled && key.endsWith("Latest")) {
+                autorolledIds.addAll(values)
             }
         }
 
-        // We only add testOnly after constructing the dependencies map, so now go through and see
-        // if we need to add testOnly to anything which depends on testOnly. In theory, this may
-        // need some recursion or looping to deal with multiple levels of unmarked targets, but I
-        // think in practice the only things getting annotated here will be a single level of
-        // synthetic groups which depend on testOnly targets.
-        dependencies.each { _, dep ->
-            dep.testOnly |= dep.children.any { id ->
-                dependencies.get(id).testOnly
+        dependencies.each { id, dep ->
+            dep.visible = topLevelIds.contains(id)
+            dep.isRobolectric = !anyContains(id, compileIds, androidTestIds, buildIds)
+            dep.testOnly = !anyContains(id, compileIds, buildIds)
+            dep.supportsAndroid = anyContains(id, compileIds, androidTestIds)
+            dep.requiresAndroid = dep.supportsAndroid && !anyContains(id, buildIds)
+            dep.usedInBuild = anyContains(id, buildIds)
+            dep.isShipped = anyContains(id, compileIds)
+            dep.isAutorolled = anyContains(id, autorolledIds)
+        }
+
+        // Find all reachable deps and mark unreachable ones as excluded.
+        // Required to prune deps of excluded deps.
+        Set<String> seen = new HashSet<>(topLevelIds);
+        seen.addAll(BuildConfigGenerator.EXISTING_LIBS.keySet());
+        ArrayList<String> workList = new ArrayList<>(topLevelIds);
+        while (!workList.isEmpty()) {
+          String id = workList.remove(workList.size() - 1);
+          DependencyDescription dep = dependencies.get(id)
+          dep.children.each { childId ->
+            DependencyDescription childDep = dependencies.get(childId)
+            if (!childDep.exclude && seen.add(childId)) {
+              workList.add(childId);
             }
+          }
+        }
+
+        dependencies.each { id, dep ->
+          if (!seen.contains(id)) {
+            dep.exclude = true
+          }
         }
 
         PROPERTY_OVERRIDES.each { id, overrides ->
@@ -427,10 +442,9 @@ class ChromiumDepGraph {
                 }
                 dep.versionFilter = overrides.versionFilter
             } else {
-                // TODO: only output this warning if we are in the main project,
-                // since it is expected that subprojects do not have all the
-                // deps.
-                logger.warn('PROPERTY_OVERRIDES has stale dep: ' + id)
+                if (warnOnStaleDeps) {
+                    logger.warn('PROPERTY_OVERRIDES has stale dep: ' + id)
+                }
             }
         }
     }
@@ -539,7 +553,7 @@ class ChromiumDepGraph {
                 children: Collections.unmodifiableList(new ArrayList<>(childModules)),
                 directoryName: id.toLowerCase(),
                 displayName: dependency.module.id.name,
-                exclude: false,
+                exclude: childModules.isEmpty(),
                 cipdSuffix: DEFAULT_CIPD_SUFFIX,
         ))
     }
@@ -672,10 +686,6 @@ class ChromiumDepGraph {
                 url = overrides.url ?: url
                 cipdSuffix = overrides.cipdSuffix ?: cipdSuffix
                 cpePrefix = overrides.cpePrefix ?: cpePrefix
-                // Boolean properties require explicit null checks instead of only when truish.
-                if (overrides.generateTarget != null) {
-                    generateTarget = overrides.generateTarget
-                }
                 if (overrides.exclude != null) {
                     exclude = overrides.exclude
                 }
@@ -831,8 +841,10 @@ class ChromiumDepGraph {
         // lowercase since 3pp uses the directory name as part of the CIPD names. However CIPD does not allow uppercase
         // in names.
         String directoryName
-        boolean supportsAndroid, visible, exclude, testOnly, isShipped, usedInBuild
-        boolean generateTarget = true
+        boolean visible, exclude, testOnly, isShipped, usedInBuild
+        boolean supportsAndroid
+        boolean requiresAndroid
+        boolean isRobolectric
         boolean isAutorolled = false
         boolean licenseAndroidCompatible
         ComponentIdentifier componentId
@@ -846,6 +858,88 @@ class ChromiumDepGraph {
         // When set, //third_party/android_deps/fetch_common.py will only versions that contain this string to be valid.
         // This variable is not used in groovy code.
         String versionFilter
+
+        String getDirectoryPath() {
+            return BuildConfigGenerator.LIBS_DIRECTORY + '/' + directoryName
+        }
+
+        String getArtifactDirectoryPath() {
+            if (artifactPrefix) {
+                return "$artifactPrefix/$directoryPath"
+            }
+            return directoryPath
+        }
+
+        String getArtifactPrefix() {
+            // All artifacts live under cipd/ in all projects
+            return 'cipd'
+        }
+
+        String getCommittedDirectoryPath() {
+            if (committedPrefix) {
+                return "$committedPrefix/$directoryPath"
+            }
+            return directoryPath
+        }
+
+        String getCommittedPrefix() {
+            if (isAndroidx || isAutorolled) {
+                return 'committed'
+            }
+            // Main project does not have committed subdir since it is all
+            // "committed".
+            return null
+        }
+
+        String getRebasePrefix(String basePath) {
+            return Paths.get(basePath).relativize(Paths.get(this.projectPath)).toString()
+        }
+
+        // When writing the BUILD.gn, the paths of autorolled deps is rebased
+        // with respect to the main project path since the autorolled BUILD.gn
+        // is imported to the main BUILD.gn
+        String getRebasedCommittedDirectoryPath(String currentProjectPath) {
+            if (currentProjectPath == this.projectPath) {
+                return this.committedDirectoryPath
+            }
+            String rebasePrefix = getRebasePrefix(currentProjectPath)
+            return "${rebasePrefix}/$committedDirectoryPath"
+        }
+
+        String getRebasedArtifactDirectoryPath(String currentProjectPath) {
+            if (currentProjectPath == this.projectPath) {
+                return this.artifactDirectoryPath
+            }
+            String rebasePrefix = getRebasePrefix(currentProjectPath)
+            return "${rebasePrefix}/$artifactDirectoryPath"
+        }
+
+        boolean getIsAndroidx() {
+            return id.startsWith('androidx')
+        }
+
+        // This indicates which build.gradle subproject the target belongs to.
+        // Used to determine whether to process the target for this run.
+        String getProjectPath() {
+            if (isAndroidx) {
+                return BuildConfigGenerator.ANDROIDX_PROJECT_PATH
+            }
+            if (isAutorolled) {
+                return BuildConfigGenerator.AUTOROLLED_PROJECT_PATH
+            }
+            return BuildConfigGenerator.MAIN_PROJECT_PATH
+        }
+
+        // Indicates which BUILD.gn file the target lives in
+        String getBuildGnPath() {
+            if (isAndroidx) {
+                return BuildConfigGenerator.ANDROIDX_PROJECT_PATH
+            }
+            // While autorolled targets are generated as part of
+            // AUTOROLLED_PROJECT_PATH's BUILD.gn, it is declared inside a gn
+            // template to be imported into the MAIN_PROJECT_PATH's BUILD.gn.
+            return BuildConfigGenerator.MAIN_PROJECT_PATH
+        }
     }
 
     static class LicenseSpec {
@@ -866,8 +960,6 @@ class ChromiumDepGraph {
         Boolean supportsAndroid
         // Set to true if this dependency is not needed.
         Boolean exclude
-        // Set to false to skip creation of BUILD.gn target.
-        Boolean generateTarget
         Boolean overrideLatest
         String versionFilter
 

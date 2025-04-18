@@ -212,6 +212,7 @@ test("components_unittests") {
     "//components/cross_device/logging:unit_tests",
     "//components/crx_file:unit_tests",
     "//components/data_sharing:unit_tests",
+    "//components/data_sharing/data_sharing_internals/webui:unit_tests",
     "//components/device_event_log:unit_tests",
     "//components/device_reauth:unit_tests",
     "//components/device_signals/core:unit_tests",
@@ -305,6 +306,7 @@ test("components_unittests") {
     "//components/reporting/metrics:unit_tests",
     "//components/reporting/storage:unit_tests",
     "//components/reporting/util:unit_tests",
+    "//components/safe_browsing/core/browser:referring_app_info_unittest",
     "//components/safe_browsing/core/browser:safe_browsing_hats_delegate_unittest",
     "//components/safe_browsing/core/browser:safe_browsing_metrics_collector_unittest",
     "//components/safe_browsing/core/browser:token_fetcher_unit_tests",
@@ -349,6 +351,7 @@ test("components_unittests") {
     "//components/sync_user_events:unit_tests",
     "//components/system_cpu:unit_tests",
     "//components/system_media_controls:unit_tests",
+    "//components/tab_collections:unit_tests",
     "//components/test:run_all_unittests",
     "//components/tpcd/metadata/browser:unit_tests",
     "//components/tpcd/metadata/common:unit_tests",
@@ -447,6 +450,7 @@ test("components_unittests") {
       "//components/contextual_search/core/browser:unit_tests",
       "//components/continuous_search/browser:unit_tests",
       "//components/continuous_search/common:unit_tests",
+      "//components/credential_management:unit_tests",
       "//components/custom_handlers:unit_tests",
       "//components/devtools/simple_devtools_protocol_client:unit_tests",
       "//components/discardable_memory/client:unit_tests",
@@ -515,7 +519,6 @@ test("components_unittests") {
       "//components/subresource_filter/content/browser:unit_tests",
       "//components/subresource_filter/content/renderer:unit_tests",
       "//components/subresource_filter/content/shared/browser:unit_tests",
-      "//components/text_encoder:unit_tests",
       "//components/tracing:unit_tests",
       "//components/translate/content/browser:unit_tests",
       "//components/translate/content/renderer:unit_tests",
@@ -640,6 +643,7 @@ test("components_unittests") {
       "//components/content_settings/android:unit_tests",
       "//components/crash/android:java",
       "//components/crash/android:unit_tests",
+      "//components/credential_management/android:unit_tests",
       "//components/data_sharing/internal:internal_java",
       "//components/data_sharing/internal:native_test_helper_java",
       "//components/download/internal/common:internal_java",
@@ -679,6 +683,8 @@ test("components_unittests") {
       "//components/translate/content/android:unit_tests",
       "//components/variations:variations_associated_data",
       "//components/variations/android:variations_java",
+      "//components/visited_url_ranking/internal:internal_java",
+      "//components/visited_url_ranking/internal:native_test_helper_java",
       "//components/webapps/browser/android:java",
       "//components/webapps/browser/android:unit_tests",
       "//components/webauthn/android:unit_tests",
@@ -889,6 +895,14 @@ test("components_unittests") {
     assert_no_deps += ios_assert_no_deps
     assert_no_deps += [ "//ios/chrome/*" ]
   }
+
+  fuzztests = [
+    "FilterDataTest.Matches",
+    "OsRegistrationTest.Parses",
+    "RegistrationInfoTest.Parses",
+    "SourceRegistrationTest.Parses",
+    "TriggerRegistrationTest.Parses",
+  ]
 }
 
 repack("components_tests_pak") {
@@ -1284,6 +1298,7 @@ if (is_android) {
       "//components/commerce/core/android:junit_tests",
       "//components/content_capture/android/junit:components_content_capture_junit_tests",
       "//components/crash/android:junit",
+      "//components/credential_management/android:junit_tests",
       "//components/data_sharing/internal:data_sharing_junit_tests",
       "//components/download/network:junit",
       "//components/embedder_support/android:components_embedder_support_junit_tests",

@@ -41,6 +41,7 @@ void BabelOrcaManager::RegisterProfilePrefs(
                                 false);
   registry->RegisterStringPref(babelorca::prefs::kTranslateTargetLanguageCode,
                                kEnglish);
+  registry->RegisterStringPref(babelorca::prefs::kTachyonClientUuid, "");
 }
 
 // static
@@ -50,19 +51,22 @@ std::unique_ptr<BabelOrcaManager> BabelOrcaManager::CreateAsProducer(
     std::unique_ptr<captions::CaptionBubbleContext> caption_bubble_context,
     std::unique_ptr<babelorca::BabelOrcaSpeechRecognizer> speech_recognizer,
     std::unique_ptr<babelorca::BabelOrcaCaptionTranslator> translator,
+    base::RepeatingClosure on_local_caption_closed_cb,
     PrefService* pref_service,
     const std::string& application_locale) {
   auto caption_controller = std::make_unique<babelorca::CaptionController>(
       std::move(caption_bubble_context), pref_service, application_locale,
       std::make_unique<babelorca::CaptionBubbleSettingsImpl>(
           pref_service,
-          /*caption_language_code=*/application_locale));
+          /*caption_language_code=*/application_locale,
+          on_local_caption_closed_cb));
   ControllerFactory controller_factory =
       base::BindOnce(babelorca::BabelOrcaProducer::Create, url_loader_factory,
                      std::move(speech_recognizer),
                      std::move(caption_controller), std::move(translator));
-  return std::make_unique<BabelOrcaManager>(
-      identity_manager, url_loader_factory, std::move(controller_factory));
+  return std::make_unique<BabelOrcaManager>(pref_service, identity_manager,
+                                            url_loader_factory,
+                                            std::move(controller_factory));
 }
 
 // static
@@ -73,26 +77,30 @@ std::unique_ptr<BabelOrcaManager> BabelOrcaManager::CreateAsConsumer(
     const GaiaId& gaia_id,
     std::string school_tools_url_base,
     std::unique_ptr<babelorca::BabelOrcaCaptionTranslator> translator,
+    base::RepeatingClosure on_local_caption_closed_cb,
     PrefService* pref_service,
     const std::string& application_locale) {
   auto caption_controller = std::make_unique<babelorca::CaptionController>(
       std::move(caption_bubble_context), pref_service, application_locale,
       std::make_unique<babelorca::CaptionBubbleSettingsImpl>(
           pref_service,
-          /*caption_language_code=*/application_locale));
+          /*caption_language_code=*/application_locale,
+          on_local_caption_closed_cb));
   ControllerFactory controller_factory = base::BindOnce(
       babelorca::BabelOrcaConsumer::Create, url_loader_factory,
       identity_manager, gaia_id, school_tools_url_base,
       std::move(caption_controller), std::move(translator), pref_service);
-  return std::make_unique<BabelOrcaManager>(
-      identity_manager, url_loader_factory, std::move(controller_factory));
+  return std::make_unique<BabelOrcaManager>(pref_service, identity_manager,
+                                            url_loader_factory,
+                                            std::move(controller_factory));
 }
 
 BabelOrcaManager::BabelOrcaManager(
+    PrefService* pref_service,
     signin::IdentityManager* identity_manager,
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
     ControllerFactory controller_factory)
-    : client_uuid_(base::Uuid::GenerateRandomV4().AsLowercaseString()),
+    : pref_service_(pref_service),
       token_manager_(
           std::make_unique<babelorca::OAuthTokenFetcher>(identity_manager)),
       authed_client_(
@@ -146,6 +154,14 @@ void BabelOrcaManager::OnLocalCaptionConfigUpdated(
       config.captions_enabled());
 }
 
+void BabelOrcaManager::OnLocalCaptionClosed() {
+  if (!babel_orca_controller_) {
+    return;
+  }
+  babel_orca_controller_->OnLocalCaptionConfigUpdated(
+      /*local_captions_enabled=*/false);
+}
+
 bool BabelOrcaManager::IsCaptioningAvailable() {
   // TODO(b/361086008): Implement IsCaptioningAvailable();
   return true;
@@ -153,7 +169,18 @@ bool BabelOrcaManager::IsCaptioningAvailable() {
 
 void BabelOrcaManager::SigninToTachyonAndRespond(
     base::OnceCallback<void(bool)> on_response_cb) {
-  registrar_.Register(client_uuid_, base::BindOnce(std::move(on_response_cb)));
+  if (registrar_.GetTachyonToken()) {
+    std::move(on_response_cb).Run(true);
+    return;
+  }
+  if (pref_service_->GetString(babelorca::prefs::kTachyonClientUuid).empty()) {
+    pref_service_->SetString(
+        babelorca::prefs::kTachyonClientUuid,
+        base::Uuid::GenerateRandomV4().AsLowercaseString());
+  }
+  registrar_.Register(
+      pref_service_->GetString(babelorca::prefs::kTachyonClientUuid),
+      base::BindOnce(std::move(on_response_cb)));
 }
 
 std::optional<std::string> BabelOrcaManager::session_id() const {

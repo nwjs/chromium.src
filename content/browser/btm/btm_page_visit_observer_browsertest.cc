@@ -7,6 +7,7 @@
 #include "base/feature_list.h"
 #include "base/test/simple_test_clock.h"
 #include "components/ukm/content/source_url_recorder.h"
+#include "content/browser/btm/btm_browsertest_utils.h"
 #include "content/browser/btm/btm_page_visit_observer_test_utils.h"
 #include "content/browser/btm/btm_test_utils.h"
 #include "content/browser/btm/btm_utils.h"
@@ -19,12 +20,15 @@
 #include "content/public/test/prerender_test_util.h"
 #include "content/shell/browser/shell.h"
 #include "net/dns/mock_host_resolver.h"
+#include "net/http/http_status_code.h"
+#include "net/test/embedded_test_server/controllable_http_response.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/mojom/frame/frame.mojom-shared.h"
 #include "url/gurl.h"
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "components/network_session_configurator/common/network_switches.h"
+#include "content/browser/renderer_host/cookie_access_observers.h"
 #include "content/public/browser/scoped_authenticator_environment_for_testing.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/test/content_mock_cert_verifier.h"
@@ -49,12 +53,21 @@ class BtmPageVisitObserverBrowserTest : public ContentBrowserTest {
     embedded_https_test_server().SetSSLConfig(
         net::EmbeddedTestServer::CERT_TEST_NAMES);
     ASSERT_TRUE(embedded_https_test_server().Start());
+
+    ukm_recorder_.emplace();
   }
 
   void PreRunTestOnMainThread() override {
     ContentBrowserTest::PreRunTestOnMainThread();
     ukm::InitializeSourceUrlRecorderForWebContents(shell()->web_contents());
   }
+
+  const ukm::TestAutoSetUkmRecorder& ukm_recorder() {
+    return ukm_recorder_.value();
+  }
+
+ protected:
+  std::optional<ukm::TestAutoSetUkmRecorder> ukm_recorder_;
 };
 
 IN_PROC_BROWSER_TEST_F(BtmPageVisitObserverBrowserTest, SmokeTest) {
@@ -72,10 +85,21 @@ IN_PROC_BROWSER_TEST_F(BtmPageVisitObserverBrowserTest, SmokeTest) {
   ASSERT_TRUE(NavigateToURL(web_contents, url3));
   ASSERT_TRUE(recorder.WaitForSize(3));
 
-  ASSERT_THAT(recorder.visits(),
-              ElementsAre(AllOf(PreviousPage(HasUrl(GURL())), HasUrl(url1)),
-                          AllOf(PreviousPage(HasUrl(url1)), HasUrl(url2)),
-                          AllOf(PreviousPage(HasUrl(url2)), HasUrl(url3))));
+  EXPECT_THAT(recorder.visits()[0].prev_page, HasUrlAndSourceIdForBlankPage());
+  EXPECT_THAT(recorder.visits()[0].navigation.destination,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+
+  EXPECT_THAT(recorder.visits()[1].prev_page,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+  EXPECT_THAT(recorder.visits()[1].navigation.destination,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+
+  EXPECT_THAT(recorder.visits()[2].prev_page,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+  EXPECT_THAT(recorder.visits()[2].navigation.destination,
+              HasUrlAndMatchingSourceId(url3, &ukm_recorder()));
+
+  EXPECT_EQ(recorder.visits().size(), 3u);
 }
 
 IN_PROC_BROWSER_TEST_F(BtmPageVisitObserverBrowserTest, CreatedWhileOnPage) {
@@ -85,7 +109,6 @@ IN_PROC_BROWSER_TEST_F(BtmPageVisitObserverBrowserTest, CreatedWhileOnPage) {
       embedded_https_test_server().GetURL("b.test", "/empty.html");
   const GURL url3 =
       embedded_https_test_server().GetURL("c.test", "/empty.html");
-  ukm::TestAutoSetUkmRecorder ukm_recorder;
   WebContents* web_contents = shell()->web_contents();
 
   ASSERT_TRUE(NavigateToURL(web_contents, url1));
@@ -95,17 +118,58 @@ IN_PROC_BROWSER_TEST_F(BtmPageVisitObserverBrowserTest, CreatedWhileOnPage) {
   ASSERT_TRUE(NavigateToURL(web_contents, url3));
   ASSERT_TRUE(recorder.WaitForSize(2));
 
-  EXPECT_THAT(
-      recorder.visits(),
-      // The first visit should have a previous page URL of url1, rather
-      // than a blank URL.
-      ElementsAre(
-          AllOf(PreviousPage(AllOf(HasUrl(url1),
-                                   HasSourceIdForUrl(url1, &ukm_recorder))),
-                HasUrl(url2)),
-          AllOf(PreviousPage(AllOf(HasUrl(url2),
-                                   HasSourceIdForUrl(url2, &ukm_recorder))),
-                HasUrl(url3))));
+  const BtmPageVisitRecorder::VisitTuple& first_visit = recorder.visits()[0];
+  // Should be the URL we were on when observation started, instead of blank.
+  EXPECT_THAT(first_visit.prev_page,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+  EXPECT_THAT(first_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+
+  const BtmPageVisitRecorder::VisitTuple& second_visit = recorder.visits()[1];
+  EXPECT_THAT(second_visit.prev_page,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+  EXPECT_THAT(second_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url3, &ukm_recorder()));
+
+  EXPECT_EQ(recorder.visits().size(), 2u);
+}
+
+IN_PROC_BROWSER_TEST_F(BtmPageVisitObserverBrowserTest,
+                       SameDocumentNavigation) {
+  const GURL url1 =
+      embedded_https_test_server().GetURL("a.test", "/fragment.html");
+  const GURL url1b =
+      embedded_https_test_server().GetURL("a.test", "/fragment.html#fragment");
+  const GURL url2 =
+      embedded_https_test_server().GetURL("b.test", "/fragment.html#fragment");
+  WebContents* web_contents = shell()->web_contents();
+  BtmPageVisitRecorder recorder(web_contents);
+
+  ASSERT_TRUE(NavigateToURL(web_contents, url1));
+  // Perform a same-document navigation to a fragment. `NavigateToURL()`
+  // automatically detects that the navigation should be same-document, since
+  // the URLs differ only by fragment.
+  ASSERT_TRUE(NavigateToURL(web_contents, url1b));
+  // Perform a cross-document navigation to a fragment
+  ASSERT_TRUE(NavigateToURL(web_contents, url2));
+  ASSERT_TRUE(recorder.WaitForSize(2));
+
+  const BtmPageVisitObserver::VisitTuple& first_visit = recorder.visits()[0];
+  EXPECT_THAT(first_visit.prev_page, HasUrlAndSourceIdForBlankPage());
+  EXPECT_THAT(first_visit.navigation.server_redirects, IsEmpty());
+  EXPECT_THAT(first_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+
+  const BtmPageVisitObserver::VisitTuple& second_visit = recorder.visits()[1];
+  EXPECT_THAT(second_visit.prev_page,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+  // Same-document navigations shouldn't be reported as server redirects.
+  EXPECT_THAT(first_visit.navigation.server_redirects, IsEmpty());
+  // Same-document navigations shouldn't be counted as page visits.
+  EXPECT_THAT(second_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+
+  EXPECT_EQ(recorder.visits().size(), 2u);
 }
 
 IN_PROC_BROWSER_TEST_F(BtmPageVisitObserverBrowserTest, Redirects) {
@@ -119,7 +183,6 @@ IN_PROC_BROWSER_TEST_F(BtmPageVisitObserverBrowserTest, Redirects) {
       "b.test", "/cross-site?c.test%2Fempty.html");
   const GURL url3 =
       embedded_https_test_server().GetURL("c.test", "/empty.html");
-  ukm::TestAutoSetUkmRecorder ukm_recorder;
   WebContents* web_contents = shell()->web_contents();
   BtmPageVisitRecorder recorder(web_contents);
 
@@ -127,22 +190,136 @@ IN_PROC_BROWSER_TEST_F(BtmPageVisitObserverBrowserTest, Redirects) {
   ASSERT_TRUE(NavigateToURL(web_contents, url2, url3));
   ASSERT_TRUE(recorder.WaitForSize(2));
 
-  // The first redirect accessed cookies, and the second did not.
-  EXPECT_THAT(
-      recorder.visits(),
-      ElementsAre(
-          AllOf(PreviousPage(
-                    AllOf(HasUrl(GURL()), HasSourceId(ukm::kInvalidSourceId))),
-                Navigation(ServerRedirects(IsEmpty())), HasUrl(url1)),
-          AllOf(
-              PreviousPage(
-                  AllOf(HasUrl(url1), HasSourceIdForUrl(url1, &ukm_recorder))),
-              Navigation(ServerRedirects(ElementsAre(
-                  AllOf(HasUrl(url2), HasSourceIdForUrl(url2, &ukm_recorder),
-                        DidWriteCookies(true)),
-                  AllOf(HasUrl(url2b), HasSourceIdForUrl(url2b, &ukm_recorder),
-                        DidWriteCookies(false))))),
-              HasUrl(url3))));
+  const BtmPageVisitObserver::VisitTuple& first_visit = recorder.visits()[0];
+  EXPECT_THAT(first_visit.prev_page, HasUrlAndSourceIdForBlankPage());
+  EXPECT_THAT(first_visit.navigation.server_redirects, IsEmpty());
+  EXPECT_THAT(first_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+
+  const BtmPageVisitObserver::VisitTuple& second_visit = recorder.visits()[1];
+  EXPECT_THAT(second_visit.prev_page,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+  EXPECT_EQ(second_visit.navigation.server_redirects.size(), 2u);
+  EXPECT_THAT(second_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url3, &ukm_recorder()));
+
+  const BtmServerRedirectInfo& first_server_redirect =
+      second_visit.navigation.server_redirects[0];
+  EXPECT_THAT(first_server_redirect,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+  EXPECT_TRUE(first_server_redirect.did_write_cookies);
+
+  const BtmServerRedirectInfo& second_server_redirect =
+      second_visit.navigation.server_redirects[1];
+  EXPECT_THAT(second_server_redirect,
+              HasUrlAndMatchingSourceId(url2b, &ukm_recorder()));
+  EXPECT_FALSE(second_server_redirect.did_write_cookies);
+
+  EXPECT_EQ(recorder.visits().size(), 2u);
+}
+
+IN_PROC_BROWSER_TEST_F(BtmPageVisitObserverBrowserTest, RedirectToSelf) {
+  // ControllableHttpResponse registers a request handler which is only
+  // allowed before EmbeddedTestServer is started, so we create a separate
+  // test server which we can start after constructing ControllableHttpResponse.
+  net::EmbeddedTestServer https_server(net::EmbeddedTestServer::TYPE_HTTPS);
+  https_server.AddDefaultHandlers(GetTestDataFilePath());
+  https_server.SetSSLConfig(net::EmbeddedTestServer::CERT_TEST_NAMES);
+
+  // Create a ControllableHttpResponse to intercept the first request to
+  // `title1.html`.
+  net::test_server::ControllableHttpResponse response(&https_server,
+                                                      "/title1.html");
+  ASSERT_TRUE(https_server.Start());
+
+  const GURL url1 = https_server.GetURL("a.test", "/empty.html");
+  const GURL url2 = https_server.GetURL("b.test", "/title1.html");
+  const GURL url3 = https_server.GetURL("c.test", "/empty.html");
+  WebContents* web_contents = shell()->web_contents();
+  BtmPageVisitRecorder recorder(web_contents);
+
+  ASSERT_TRUE(NavigateToURL(web_contents, url1));
+
+  // Intercept the first navigation to `url2` and force it to redirect to
+  // itself.
+  TestNavigationObserver observer(web_contents);
+  shell()->LoadURL(url2);
+  response.WaitForRequest();
+  response.Send(net::HTTP_MOVED_PERMANENTLY, "text/html",
+                "<!doctype html><p>Redirecting to /title1.html",
+                /*cookies=*/{},
+                // Disable the cache otherwise the navigation will get stuck in
+                // an infinite redirection loop.
+                {"Location: /title1.html", "Cache-control: no-store"});
+  response.Done();
+  observer.Wait();
+
+  // Write cookies after the page redirects to itself, then navigate to `url3`.
+  ASSERT_TRUE(ExecJs(web_contents, "window.cookieStore.set('foo', 'bar');"));
+  ASSERT_TRUE(NavigateToURL(web_contents, url3));
+  ASSERT_TRUE(recorder.WaitForSize(3));
+
+  const BtmPageVisitObserver::VisitTuple& second_visit = recorder.visits()[1];
+  EXPECT_THAT(second_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+  EXPECT_EQ(second_visit.navigation.server_redirects.size(), 1u);
+
+  const BtmServerRedirectInfo& first_server_redirect =
+      second_visit.navigation.server_redirects[0];
+  EXPECT_THAT(first_server_redirect,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+  // A non-navigation cookie write shouldn't be attributed to previous
+  // redirects. (We sometimes incorrectly attribute them to previous redirects
+  // for navigation cookie writes.)
+  EXPECT_FALSE(first_server_redirect.did_write_cookies);
+
+  const BtmPageVisitObserver::VisitTuple& third_visit = recorder.visits()[2];
+  EXPECT_THAT(third_visit.prev_page,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+  // The non-navigation cookie write is correctly attributed to the previous
+  // page.
+  EXPECT_TRUE(third_visit.prev_page.had_qualifying_storage_access);
+  EXPECT_THAT(third_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url3, &ukm_recorder()));
+
+  EXPECT_EQ(recorder.visits().size(), 3u);
+}
+
+IN_PROC_BROWSER_TEST_F(BtmPageVisitObserverBrowserTest, IframeRedirect) {
+  const GURL top_level_url1 = embedded_https_test_server().GetURL(
+      "a.test", "/page_with_blank_iframe.html");
+  // Set in //content/test/data/page_with_blank_iframe.html.
+  const std::string kIframeId = "test_iframe";
+  // Starts a chain of 2 server redirects.
+  const GURL iframe_redirector_url = embedded_https_test_server().GetURL(
+      "b.test", "/server-redirect?%2Fcross-site%3Fc.test%252Fempty.html");
+  const GURL top_level_url2 =
+      embedded_https_test_server().GetURL("d.test", "/empty.html");
+  WebContents* web_contents = shell()->web_contents();
+  BtmPageVisitRecorder recorder(web_contents);
+
+  ASSERT_TRUE(NavigateToURL(web_contents, top_level_url1));
+  ASSERT_TRUE(
+      NavigateIframeToURL(web_contents, kIframeId, iframe_redirector_url));
+  ASSERT_TRUE(NavigateToURL(web_contents, top_level_url2));
+  ASSERT_TRUE(recorder.WaitForSize(2));
+
+  const BtmPageVisitObserver::VisitTuple& first_visit = recorder.visits()[0];
+  EXPECT_THAT(first_visit.prev_page, HasUrlAndSourceIdForBlankPage());
+  EXPECT_THAT(first_visit.navigation.server_redirects, IsEmpty());
+  EXPECT_THAT(first_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(top_level_url1, &ukm_recorder()));
+
+  const BtmPageVisitObserver::VisitTuple& second_visit = recorder.visits()[1];
+  EXPECT_THAT(second_visit.prev_page,
+              HasUrlAndMatchingSourceId(top_level_url1, &ukm_recorder()));
+  // Only redirects in top-level navigations should be reported; redirects in
+  // iframes should be ignored.
+  EXPECT_THAT(second_visit.navigation.server_redirects, IsEmpty());
+  EXPECT_THAT(second_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(top_level_url2, &ukm_recorder()));
+
+  EXPECT_EQ(recorder.visits().size(), 2u);
 }
 
 IN_PROC_BROWSER_TEST_F(BtmPageVisitObserverBrowserTest, DocumentCookie) {
@@ -161,18 +338,28 @@ IN_PROC_BROWSER_TEST_F(BtmPageVisitObserverBrowserTest, DocumentCookie) {
   ASSERT_TRUE(NavigateToURL(web_contents, url3));
   ASSERT_TRUE(recorder.WaitForSize(3));
 
+  const BtmPageVisitObserver::VisitTuple& first_visit = recorder.visits()[0];
+  EXPECT_THAT(first_visit.prev_page, HasUrlAndSourceIdForBlankPage());
+  EXPECT_FALSE(first_visit.prev_page.had_qualifying_storage_access);
+  EXPECT_THAT(first_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+
+  const BtmPageVisitObserver::VisitTuple& second_visit = recorder.visits()[1];
+  EXPECT_THAT(second_visit.prev_page,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+  EXPECT_FALSE(second_visit.prev_page.had_qualifying_storage_access);
+  EXPECT_THAT(second_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+
+  const BtmPageVisitObserver::VisitTuple& third_visit = recorder.visits()[2];
+  EXPECT_THAT(third_visit.prev_page,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
   // url2 accessed cookies; no other page did.
-  ASSERT_THAT(
-      recorder.visits(),
-      ElementsAre(AllOf(PreviousPage(AllOf(HasUrl(GURL()),
-                                           HadQualifyingStorageAccess(false))),
-                        HasUrl(url1)),
-                  AllOf(PreviousPage(AllOf(HasUrl(url1),
-                                           HadQualifyingStorageAccess(false))),
-                        HasUrl(url2)),
-                  AllOf(PreviousPage(AllOf(HasUrl(url2),
-                                           HadQualifyingStorageAccess(true))),
-                        HasUrl(url3))));
+  EXPECT_TRUE(third_visit.prev_page.had_qualifying_storage_access);
+  EXPECT_THAT(third_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url3, &ukm_recorder()));
+
+  EXPECT_EQ(recorder.visits().size(), 3u);
 }
 
 IN_PROC_BROWSER_TEST_F(BtmPageVisitObserverBrowserTest, UserActivation) {
@@ -188,14 +375,20 @@ IN_PROC_BROWSER_TEST_F(BtmPageVisitObserverBrowserTest, UserActivation) {
   ASSERT_TRUE(NavigateToURL(web_contents, url2));
   ASSERT_TRUE(recorder.WaitForSize(2));
 
-  ASSERT_THAT(
-      recorder.visits(),
-      ElementsAre(
-          AllOf(PreviousPage(
-                    AllOf(HasUrl(GURL()), ReceivedUserActivation(false))),
-                HasUrl(url1)),
-          AllOf(PreviousPage(AllOf(HasUrl(url1), ReceivedUserActivation(true))),
-                HasUrl(url2))));
+  const BtmPageVisitObserver::VisitTuple& first_visit = recorder.visits()[0];
+  EXPECT_THAT(first_visit.prev_page, HasUrlAndSourceIdForBlankPage());
+  EXPECT_FALSE(first_visit.prev_page.received_user_activation);
+  EXPECT_THAT(first_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+
+  const BtmPageVisitObserver::VisitTuple& second_visit = recorder.visits()[1];
+  EXPECT_THAT(second_visit.prev_page,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+  EXPECT_TRUE(second_visit.prev_page.received_user_activation);
+  EXPECT_THAT(second_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+
+  EXPECT_EQ(recorder.visits().size(), 2u);
 }
 
 IN_PROC_BROWSER_TEST_F(BtmPageVisitObserverBrowserTest, NavigationInitiation) {
@@ -216,16 +409,30 @@ IN_PROC_BROWSER_TEST_F(BtmPageVisitObserverBrowserTest, NavigationInitiation) {
   ASSERT_TRUE(NavigateToURLFromRendererWithoutUserGesture(web_contents, url3));
   ASSERT_TRUE(recorder.WaitForSize(3));
 
-  EXPECT_THAT(recorder.visits(),
-              ElementsAre(AllOf(Navigation(AllOf(WasRendererInitiated(false),
-                                                 WasUserInitiated(true))),
-                                HasUrl(url1)),
-                          AllOf(Navigation(AllOf(WasRendererInitiated(true),
-                                                 WasUserInitiated(true))),
-                                HasUrl(url2)),
-                          AllOf(Navigation(AllOf(WasRendererInitiated(true),
-                                                 WasUserInitiated(false))),
-                                HasUrl(url3))));
+  const BtmPageVisitObserver::VisitTuple& first_visit = recorder.visits()[0];
+  EXPECT_THAT(first_visit.prev_page, HasUrlAndSourceIdForBlankPage());
+  EXPECT_FALSE(first_visit.navigation.was_renderer_initiated);
+  EXPECT_TRUE(first_visit.navigation.was_user_initiated);
+  EXPECT_THAT(first_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+
+  const BtmPageVisitObserver::VisitTuple& second_visit = recorder.visits()[1];
+  EXPECT_THAT(second_visit.prev_page,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+  EXPECT_TRUE(second_visit.navigation.was_renderer_initiated);
+  EXPECT_TRUE(second_visit.navigation.was_user_initiated);
+  EXPECT_THAT(second_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+
+  const BtmPageVisitObserver::VisitTuple& third_visit = recorder.visits()[2];
+  EXPECT_THAT(third_visit.prev_page,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+  EXPECT_TRUE(third_visit.navigation.was_renderer_initiated);
+  EXPECT_FALSE(third_visit.navigation.was_user_initiated);
+  EXPECT_THAT(third_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url3, &ukm_recorder()));
+
+  EXPECT_EQ(recorder.visits().size(), 3u);
 }
 
 IN_PROC_BROWSER_TEST_F(BtmPageVisitObserverBrowserTest, VisitDuration) {
@@ -252,19 +459,28 @@ IN_PROC_BROWSER_TEST_F(BtmPageVisitObserverBrowserTest, VisitDuration) {
   ASSERT_TRUE(NavigateToURL(web_contents, url3));
   ASSERT_TRUE(recorder.WaitForSize(3));
 
-  ASSERT_THAT(
-      recorder.visits(),
-      ElementsAre(
-          AllOf(PreviousPage(
-                    AllOf(HasUrl(GURL()),
-                          VisitDuration(time_elapsed_before_first_page_visit))),
-                HasUrl(url1)),
-          AllOf(
-              PreviousPage(AllOf(HasUrl(url1), VisitDuration(visit_duration1))),
-              HasUrl(url2)),
-          AllOf(
-              PreviousPage(AllOf(HasUrl(url2), VisitDuration(visit_duration2))),
-              HasUrl(url3))));
+  const BtmPageVisitObserver::VisitTuple& first_visit = recorder.visits()[0];
+  EXPECT_THAT(first_visit.prev_page, HasUrlAndSourceIdForBlankPage());
+  EXPECT_EQ(first_visit.prev_page.visit_duration,
+            time_elapsed_before_first_page_visit);
+  EXPECT_THAT(first_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+
+  const BtmPageVisitObserver::VisitTuple& second_visit = recorder.visits()[1];
+  EXPECT_THAT(second_visit.prev_page,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+  EXPECT_EQ(second_visit.prev_page.visit_duration, visit_duration1);
+  EXPECT_THAT(second_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+
+  const BtmPageVisitObserver::VisitTuple& third_visit = recorder.visits()[2];
+  EXPECT_THAT(third_visit.prev_page,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+  EXPECT_EQ(third_visit.prev_page.visit_duration, visit_duration2);
+  EXPECT_THAT(third_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url3, &ukm_recorder()));
+
+  EXPECT_EQ(recorder.visits().size(), 3u);
 }
 
 IN_PROC_BROWSER_TEST_F(BtmPageVisitObserverBrowserTest, PageTransition) {
@@ -290,18 +506,156 @@ IN_PROC_BROWSER_TEST_F(BtmPageVisitObserverBrowserTest, PageTransition) {
                                              1);
   ASSERT_TRUE(recorder.WaitForSize(3));
 
-  EXPECT_THAT(
-      recorder.visits(),
-      ElementsAre(AllOf(PreviousPage(HasUrl(GURL())),
-                        Navigation(PageTransitionCoreTypeIs(
-                            ui::PageTransition::PAGE_TRANSITION_TYPED)),
-                        HasUrl(url1)),
-                  AllOf(PreviousPage(HasUrl(url1)),
-                        Navigation(PageTransitionCoreTypeIs(transition_type2)),
-                        HasUrl(url2)),
-                  AllOf(PreviousPage(HasUrl(url2)),
-                        Navigation(PageTransitionCoreTypeIs(transition_type3)),
-                        HasUrl(url3))));
+  const BtmPageVisitObserver::VisitTuple& first_visit = recorder.visits()[0];
+  EXPECT_THAT(first_visit.prev_page, HasUrlAndSourceIdForBlankPage());
+  EXPECT_THAT(first_visit.navigation.page_transition,
+              CoreTypeIs(ui::PageTransition::PAGE_TRANSITION_TYPED));
+  EXPECT_THAT(first_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+
+  const BtmPageVisitObserver::VisitTuple& second_visit = recorder.visits()[1];
+  EXPECT_THAT(second_visit.prev_page,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+  EXPECT_THAT(second_visit.navigation.page_transition,
+              CoreTypeIs(transition_type2));
+  EXPECT_THAT(second_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+
+  const BtmPageVisitObserver::VisitTuple& third_visit = recorder.visits()[2];
+  EXPECT_THAT(third_visit.prev_page,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+  EXPECT_THAT(third_visit.navigation.page_transition,
+              CoreTypeIs(transition_type3));
+  EXPECT_THAT(third_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url3, &ukm_recorder()));
+
+  EXPECT_EQ(recorder.visits().size(), 3u);
+}
+
+IN_PROC_BROWSER_TEST_F(BtmPageVisitObserverBrowserTest,
+                       NavigationalCookieAccesses) {
+  const GURL url1 =
+      embedded_https_test_server().GetURL("a.test", "/set-cookie?foo=bar");
+  const GURL url2 =
+      embedded_https_test_server().GetURL("a.test", "/empty.html");
+  const GURL url3 =
+      embedded_https_test_server().GetURL("b.test", "/empty.html");
+  WebContents* web_contents = shell()->web_contents();
+  BtmPageVisitRecorder recorder(web_contents);
+
+  // Perform a navigational cookie write for a.test.
+  ASSERT_TRUE(NavigateToURL(web_contents, url1));
+  // Perform a navigational cookie read for a.test.
+  ASSERT_TRUE(NavigateToURL(web_contents, url2));
+  // End the second page visit on a.test by navigating away.
+  ASSERT_TRUE(NavigateToURL(web_contents, url3));
+  ASSERT_TRUE(recorder.WaitForSize(3));
+
+  BtmPageVisitRecorder::VisitTuple first_visit = recorder.visits()[0];
+  EXPECT_THAT(first_visit.prev_page, HasUrlAndSourceIdForBlankPage());
+  EXPECT_THAT(first_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+
+  BtmPageVisitRecorder::VisitTuple second_visit = recorder.visits()[1];
+  EXPECT_THAT(second_visit.prev_page,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+  // Navigational cookie writes are active storage accesses and should be
+  // reported.
+  EXPECT_TRUE(second_visit.prev_page.had_qualifying_storage_access);
+  EXPECT_THAT(second_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+
+  BtmPageVisitRecorder::VisitTuple third_visit = recorder.visits()[2];
+  EXPECT_THAT(third_visit.prev_page,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+  // Navigational cookie reads are passive storage accesses and shouldn't be
+  // reported.
+  EXPECT_FALSE(third_visit.prev_page.had_qualifying_storage_access);
+  EXPECT_THAT(third_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url3, &ukm_recorder()));
+
+  EXPECT_EQ(recorder.visits().size(), 3u);
+}
+
+IN_PROC_BROWSER_TEST_F(BtmPageVisitObserverBrowserTest,
+                       DelayedNavigationalCookieAccesses) {
+  const GURL url1 =
+      embedded_https_test_server().GetURL("a.test", "/set-cookie?foo=bar");
+  const GURL url2 =
+      embedded_https_test_server().GetURL("b.test", "/empty.html");
+  WebContents* web_contents = shell()->web_contents();
+
+  CookieAccessInterceptor interceptor(*web_contents);
+  BtmPageVisitRecorder recorder(web_contents);
+  URLCookieAccessObserver access_observer(web_contents, url1,
+                                          CookieOperation::kChange);
+
+  // Perform a navigational cookie write for a.test.
+  ASSERT_TRUE(NavigateToURL(web_contents, url1));
+  // TODO: crbug.com/394059601 - Replace with Resume() once
+  // CookieAccessInterceptor supports frame accesses.
+  access_observer.Wait();
+
+  // End the page visit on `url1` by navigating away.
+  ASSERT_TRUE(NavigateToURL(web_contents, url2));
+  ASSERT_TRUE(recorder.WaitForSize(2));
+
+  BtmPageVisitRecorder::VisitTuple first_visit = recorder.visits()[0];
+  ASSERT_THAT(first_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+
+  BtmPageVisitRecorder::VisitTuple second_visit = recorder.visits()[1];
+  ASSERT_THAT(second_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+  ASSERT_THAT(second_visit.prev_page,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+
+  // Navigational cookie writes are active storage accesses and should be
+  // reported.
+  EXPECT_TRUE(second_visit.prev_page.had_qualifying_storage_access);
+}
+
+IN_PROC_BROWSER_TEST_F(BtmPageVisitObserverBrowserTest,
+                       DelayedServerRedirectCookieAccess) {
+  const GURL url1 = embedded_https_test_server().GetURL(
+      "a.test", "/server-redirect-with-cookie?/empty.html");
+  const GURL url1b =
+      embedded_https_test_server().GetURL("a.test", "/empty.html");
+  const GURL url2 =
+      embedded_https_test_server().GetURL("b.test", "/empty.html");
+  WebContents* web_contents = shell()->web_contents();
+
+  CookieAccessInterceptor interceptor(*web_contents);
+  BtmPageVisitRecorder recorder(web_contents);
+  URLCookieAccessObserver access_observer(web_contents, url1,
+                                          CookieOperation::kChange);
+
+  // Start a navigation to `url1` which will write cookies and redirect to
+  // `url1b`.
+  ASSERT_TRUE(NavigateToURL(web_contents, url1, url1b));
+  // TODO: crbug.com/394059601 - Replace with Resume() once
+  // CookieAccessInterceptor supports frame accesses.
+  access_observer.Wait();
+
+  // End the page visit on `url1b` by navigating away.
+  ASSERT_TRUE(NavigateToURL(web_contents, url2));
+  ASSERT_TRUE(recorder.WaitForSize(2));
+
+  BtmPageVisitRecorder::VisitTuple first_visit = recorder.visits()[0];
+  ASSERT_THAT(first_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url1b, &ukm_recorder()));
+  // The navigational cookie write of the redirect should be reported even
+  // if delayed.
+  EXPECT_TRUE(first_visit.navigation.server_redirects[0].did_write_cookies);
+
+  BtmPageVisitRecorder::VisitTuple second_visit = recorder.visits()[1];
+  ASSERT_THAT(second_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+  ASSERT_THAT(second_visit.prev_page,
+              HasUrlAndMatchingSourceId(url1b, &ukm_recorder()));
+
+  // The navigational cookie write was done by the redirect not the page.
+  EXPECT_FALSE(second_visit.prev_page.had_qualifying_storage_access);
 }
 
 IN_PROC_BROWSER_TEST_F(BtmPageVisitObserverBrowserTest, SubresourceCookie) {
@@ -327,91 +681,194 @@ IN_PROC_BROWSER_TEST_F(BtmPageVisitObserverBrowserTest, SubresourceCookie) {
   ASSERT_TRUE(NavigateToURL(web_contents, url3));
   ASSERT_TRUE(recorder.WaitForSize(3));
 
-  // `url1` accessed cookies; no other page did.
-  ASSERT_THAT(
-      recorder.visits(),
-      ElementsAre(AllOf(PreviousPage(AllOf(HasUrl(GURL()),
-                                           HadQualifyingStorageAccess(false))),
-                        HasUrl(url1)),
-                  AllOf(PreviousPage(AllOf(HasUrl(url1),
-                                           HadQualifyingStorageAccess(true))),
-                        HasUrl(url2)),
-                  AllOf(PreviousPage(AllOf(HasUrl(url2),
-                                           HadQualifyingStorageAccess(false))),
-                        HasUrl(url3))));
+  const BtmPageVisitObserver::VisitTuple& first_visit = recorder.visits()[0];
+  EXPECT_THAT(first_visit.prev_page, HasUrlAndSourceIdForBlankPage());
+  EXPECT_FALSE(first_visit.prev_page.had_qualifying_storage_access);
+  EXPECT_THAT(first_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+
+  const BtmPageVisitObserver::VisitTuple& second_visit = recorder.visits()[1];
+  EXPECT_THAT(second_visit.prev_page,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+  EXPECT_TRUE(second_visit.prev_page.had_qualifying_storage_access);
+  EXPECT_THAT(second_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+
+  const BtmPageVisitObserver::VisitTuple& third_visit = recorder.visits()[2];
+  EXPECT_THAT(third_visit.prev_page,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+  EXPECT_FALSE(third_visit.prev_page.had_qualifying_storage_access);
+  EXPECT_THAT(third_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url3, &ukm_recorder()));
+
+  EXPECT_EQ(recorder.visits().size(), 3u);
 }
 
 IN_PROC_BROWSER_TEST_F(BtmPageVisitObserverBrowserTest,
                        IframeNavigationCookie) {
   const GURL url1 = embedded_https_test_server().GetURL(
       "a.test", "/page_with_blank_iframe.html");
-  const GURL url2 =
-      embedded_https_test_server().GetURL("b.test", "/empty.html");
-  const GURL url3 =
-      embedded_https_test_server().GetURL("c.test", "/empty.html");
+  const GURL url2 = embedded_https_test_server().GetURL(
+      "b.test", "/page_with_blank_iframe.html");
+  const GURL url3 = embedded_https_test_server().GetURL(
+      "c.test", "/page_with_blank_iframe.html");
+  const GURL url4 =
+      embedded_https_test_server().GetURL("d.test", "/empty.html");
   WebContents* web_contents = shell()->web_contents();
   BtmPageVisitRecorder recorder(web_contents);
 
+  // End index-0 page visit; start index-1 page visit.
   ASSERT_TRUE(NavigateToURL(web_contents, url1));
-  ASSERT_TRUE(NavigateIframeToURL(
-      web_contents, "test_iframe",
-      embedded_https_test_server().GetURL("a.test", "/set-cookie?foo=bar")));
+  const GURL iframe_1p_cookie_url = embedded_https_test_server().GetURL(
+      url1.host_piece(), "/set-cookie?foo=bar");
+  ASSERT_TRUE(
+      NavigateIframeToURL(web_contents, "test_iframe", iframe_1p_cookie_url));
+  // End index-1 page visit; start index-2 page visit.
   ASSERT_TRUE(NavigateToURL(web_contents, url2));
+  const GURL iframe_3p_unpartitioned_cookie_url =
+      embedded_https_test_server().GetURL(
+          "a.test", "/set-cookie?bar=baz;SameSite=None;Secure;");
+  ASSERT_TRUE(NavigateIframeToURL(web_contents, "test_iframe",
+                                  iframe_3p_unpartitioned_cookie_url));
+  // End index-2 page visit; start index-3 page visit.
   ASSERT_TRUE(NavigateToURL(web_contents, url3));
-  ASSERT_TRUE(recorder.WaitForSize(3));
+  const GURL iframe_3p_partitioned_cookie_url =
+      embedded_https_test_server().GetURL(
+          "a.test",
+          "/set-cookie?__Host-baz=quux;SameSite=None;Secure;Path=/"
+          ";Partitioned;");
+  ASSERT_TRUE(NavigateIframeToURL(web_contents, "test_iframe",
+                                  iframe_3p_partitioned_cookie_url));
+  // End index-3 page visit.
+  ASSERT_TRUE(NavigateToURL(web_contents, url4));
+  ASSERT_TRUE(recorder.WaitForSize(4));
 
-  // `url1` accessed cookies; no other page did.
-  ASSERT_THAT(
-      recorder.visits(),
-      ElementsAre(AllOf(PreviousPage(AllOf(HasUrl(GURL()),
-                                           HadQualifyingStorageAccess(false))),
-                        HasUrl(url1)),
-                  AllOf(PreviousPage(AllOf(HasUrl(url1),
-                                           HadQualifyingStorageAccess(true))),
-                        HasUrl(url2)),
-                  AllOf(PreviousPage(AllOf(HasUrl(url2),
-                                           HadQualifyingStorageAccess(false))),
-                        HasUrl(url3))));
+  const BtmPageVisitObserver::VisitTuple& first_visit = recorder.visits()[0];
+  EXPECT_THAT(first_visit.prev_page, HasUrlAndSourceIdForBlankPage());
+  EXPECT_FALSE(first_visit.prev_page.had_qualifying_storage_access);
+  EXPECT_THAT(first_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+
+  const BtmPageVisitObserver::VisitTuple& second_visit = recorder.visits()[1];
+  EXPECT_THAT(second_visit.prev_page,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+  // 1P cookie accesses in iframes should be reported.
+  EXPECT_TRUE(second_visit.prev_page.had_qualifying_storage_access);
+  EXPECT_THAT(second_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+
+  const BtmPageVisitObserver::VisitTuple& third_visit = recorder.visits()[2];
+  EXPECT_THAT(third_visit.prev_page,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+  // Non-CHIPS 3P cookie accesses in iframes should be ignored.
+  EXPECT_FALSE(third_visit.prev_page.had_qualifying_storage_access);
+  EXPECT_THAT(third_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url3, &ukm_recorder()));
+
+  const BtmPageVisitObserver::VisitTuple& fourth_visit = recorder.visits()[3];
+  EXPECT_THAT(fourth_visit.prev_page,
+              HasUrlAndMatchingSourceId(url3, &ukm_recorder()));
+  // CHIPS 3P cookie accesses in iframes should be reported.
+  EXPECT_TRUE(fourth_visit.prev_page.had_qualifying_storage_access);
+  EXPECT_THAT(fourth_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url4, &ukm_recorder()));
+
+  EXPECT_EQ(recorder.visits().size(), 4u);
 }
 
 IN_PROC_BROWSER_TEST_F(BtmPageVisitObserverBrowserTest, IframeDocumentCookie) {
   const GURL url1 =
       embedded_https_test_server().GetURL("a.test", "/page_with_iframe.html");
-  const GURL url2 =
-      embedded_https_test_server().GetURL("b.test", "/empty.html");
-  const GURL url3 =
-      embedded_https_test_server().GetURL("c.test", "/empty.html");
+  const GURL url2 = embedded_https_test_server().GetURL(
+      "b.test", "/page_with_blank_iframe.html");
+  const GURL url3 = embedded_https_test_server().GetURL(
+      "c.test", "/page_with_blank_iframe.html");
+  const GURL url4 =
+      embedded_https_test_server().GetURL("d.test", "/empty.html");
   WebContents* web_contents = shell()->web_contents();
   BtmPageVisitRecorder recorder(web_contents);
+  // If the bfcache is disabled, we often don't receive cookie access
+  // notifications unless we wait for them before navigating away. If the
+  // bfcache *is* enabled, we *don't* want to wait — part of the point of this
+  // test is to make sure we properly handle late notifications.
+  bool should_await_cookie_access_notifications =
+      !base::FeatureList::IsEnabled(features::kBackForwardCache);
 
+  // End index-0 page visit; start index-1 page visit.
   ASSERT_TRUE(NavigateToURL(web_contents, url1));
-  RenderFrameHost* iframe = ChildFrameAt(web_contents, 0);
-  FrameCookieAccessObserver cookie_observer(web_contents, iframe,
-                                            CookieOperation::kChange);
-  ASSERT_TRUE(ExecJs(iframe, "document.cookie = 'foo=bar';"));
-  if (!base::FeatureList::IsEnabled(features::kBackForwardCache)) {
-    // If the bfcache is disabled, we often don't receive the cookie
-    // notification unless we wait for it before navigating away. (If the
-    // bfcache *is* enabled, we *don't* want to wait -- that's part of the point
-    // of this test.)
-    cookie_observer.Wait();
+  RenderFrameHost* iframe1 = ChildFrameAt(web_contents, 0);
+  FrameCookieAccessObserver cookie_observer1(web_contents, iframe1,
+                                             CookieOperation::kChange);
+  ASSERT_TRUE(ExecJs(iframe1, "document.cookie = '1PC=1';"));
+  if (should_await_cookie_access_notifications) {
+    cookie_observer1.Wait();
   }
+  // End index-1 page visit; start index-2 page visit.
   ASSERT_TRUE(NavigateToURL(web_contents, url2));
+  RenderFrameHost* iframe2 = ChildFrameAt(web_contents, 0);
+  ASSERT_TRUE(NavigateIframeToURL(
+      web_contents, "test_iframe",
+      embedded_https_test_server().GetURL("d.test", "/title1.html")));
+  iframe2 = ChildFrameAt(web_contents, 0);
+  FrameCookieAccessObserver cookie_observer2(web_contents, iframe2,
+                                             CookieOperation::kChange);
+  ASSERT_TRUE(
+      ExecJs(iframe2,
+             "document.cookie = "
+             "'__Host-CHIPS_3PC=1;SameSite=None;Secure;Path=/;Partitioned;';"));
+  if (should_await_cookie_access_notifications) {
+    cookie_observer2.Wait();
+  }
+  // End index-2 page visit; start index-3 page visit.
   ASSERT_TRUE(NavigateToURL(web_contents, url3));
-  ASSERT_TRUE(recorder.WaitForSize(3));
+  RenderFrameHost* iframe3 = ChildFrameAt(web_contents, 0);
+  ASSERT_TRUE(NavigateIframeToURL(
+      web_contents, "test_iframe",
+      embedded_https_test_server().GetURL("d.test", "/title1.html")));
+  iframe3 = ChildFrameAt(web_contents, 0);
+  FrameCookieAccessObserver cookie_observer3(web_contents, iframe3,
+                                             CookieOperation::kChange);
+  ASSERT_TRUE(ExecJs(
+      iframe3,
+      "document.cookie = 'unpartitioned_3PC=1;SameSite=None;Secure;Path=/;';"));
+  if (should_await_cookie_access_notifications) {
+    cookie_observer3.Wait();
+  }
+  // End index-3 page visit.
+  ASSERT_TRUE(NavigateToURL(web_contents, url4));
+  ASSERT_TRUE(recorder.WaitForSize(4));
 
-  // `url1` accessed cookies; no other page did.
-  ASSERT_THAT(
-      recorder.visits(),
-      ElementsAre(AllOf(PreviousPage(AllOf(HasUrl(GURL()),
-                                           HadQualifyingStorageAccess(false))),
-                        HasUrl(url1)),
-                  AllOf(PreviousPage(AllOf(HasUrl(url1),
-                                           HadQualifyingStorageAccess(true))),
-                        HasUrl(url2)),
-                  AllOf(PreviousPage(AllOf(HasUrl(url2),
-                                           HadQualifyingStorageAccess(false))),
-                        HasUrl(url3))));
+  const BtmPageVisitObserver::VisitTuple& first_visit = recorder.visits()[0];
+  EXPECT_THAT(first_visit.prev_page, HasUrlAndSourceIdForBlankPage());
+  EXPECT_FALSE(first_visit.prev_page.had_qualifying_storage_access);
+  EXPECT_THAT(first_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+
+  const BtmPageVisitObserver::VisitTuple& second_visit = recorder.visits()[1];
+  EXPECT_THAT(second_visit.prev_page,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+  // Iframe 1P cookie accesses should be reported.
+  EXPECT_TRUE(second_visit.prev_page.had_qualifying_storage_access);
+  EXPECT_THAT(second_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+
+  const BtmPageVisitObserver::VisitTuple& third_visit = recorder.visits()[2];
+  EXPECT_THAT(third_visit.prev_page,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+  // CHIPS 3PC accesses should be reported.
+  EXPECT_TRUE(third_visit.prev_page.had_qualifying_storage_access);
+  EXPECT_THAT(third_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url3, &ukm_recorder()));
+
+  const BtmPageVisitObserver::VisitTuple& fourth_visit = recorder.visits()[3];
+  EXPECT_THAT(fourth_visit.prev_page,
+              HasUrlAndMatchingSourceId(url3, &ukm_recorder()));
+  // Non-CHIPS 3PC accesses should be ignored.
+  EXPECT_FALSE(fourth_visit.prev_page.had_qualifying_storage_access);
+  EXPECT_THAT(fourth_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url4, &ukm_recorder()));
+
+  EXPECT_EQ(recorder.visits().size(), 4u);
 }
 
 IN_PROC_BROWSER_TEST_F(BtmPageVisitObserverBrowserTest,
@@ -438,19 +895,135 @@ IN_PROC_BROWSER_TEST_F(BtmPageVisitObserverBrowserTest,
   ASSERT_TRUE(NavigateToURL(web_contents, url3));
   ASSERT_TRUE(recorder.WaitForSize(3));
 
-  // `url1` accessed cookies; no other page did.
-  ASSERT_THAT(
-      recorder.visits(),
-      ElementsAre(AllOf(PreviousPage(AllOf(HasUrl(GURL()),
-                                           HadQualifyingStorageAccess(false))),
-                        HasUrl(url1)),
-                  AllOf(PreviousPage(AllOf(HasUrl(url1),
-                                           HadQualifyingStorageAccess(true))),
-                        HasUrl(url2)),
-                  AllOf(PreviousPage(AllOf(HasUrl(url2),
-                                           HadQualifyingStorageAccess(false))),
-                        HasUrl(url3))));
+  const BtmPageVisitObserver::VisitTuple& first_visit = recorder.visits()[0];
+  EXPECT_THAT(first_visit.prev_page, HasUrlAndSourceIdForBlankPage());
+  EXPECT_FALSE(first_visit.prev_page.had_qualifying_storage_access);
+  EXPECT_THAT(first_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+
+  const BtmPageVisitObserver::VisitTuple& second_visit = recorder.visits()[1];
+  EXPECT_THAT(second_visit.prev_page,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+  EXPECT_TRUE(second_visit.prev_page.had_qualifying_storage_access);
+  EXPECT_THAT(second_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+
+  const BtmPageVisitObserver::VisitTuple& third_visit = recorder.visits()[2];
+  EXPECT_THAT(third_visit.prev_page,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+  EXPECT_FALSE(third_visit.prev_page.had_qualifying_storage_access);
+  EXPECT_THAT(third_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url3, &ukm_recorder()));
+
+  EXPECT_EQ(recorder.visits().size(), 3u);
 }
+
+class BtmPageVisitObserverClientRedirectBrowserTest
+    : public BtmPageVisitObserverBrowserTest,
+      public testing::WithParamInterface<BtmClientRedirectMethod> {
+ protected:
+  BtmClientRedirectMethod client_redirect_type() { return GetParam(); }
+};
+
+IN_PROC_BROWSER_TEST_P(BtmPageVisitObserverClientRedirectBrowserTest,
+                       ClientRedirect) {
+  const GURL url1 =
+      embedded_https_test_server().GetURL("a.test", "/empty.html");
+  const GURL url2 =
+      embedded_https_test_server().GetURL("b.test", "/empty.html");
+  const GURL url3 =
+      embedded_https_test_server().GetURL("c.test", "/empty.html");
+  WebContents* web_contents = shell()->web_contents();
+  BtmPageVisitRecorder recorder(web_contents);
+
+  ASSERT_TRUE(NavigateToURL(web_contents, url1));
+  ASSERT_TRUE(NavigateToURL(web_contents, url2));
+  ASSERT_TRUE(
+      PerformClientRedirect(client_redirect_type(), web_contents, url3));
+  ASSERT_TRUE(recorder.WaitForSize(3));
+
+  const BtmPageVisitObserver::VisitTuple& first_visit = recorder.visits()[0];
+  EXPECT_THAT(first_visit.prev_page, HasUrlAndSourceIdForBlankPage());
+  // The client redirector shouldn't be reported as a server redirector.
+  EXPECT_THAT(first_visit.navigation.server_redirects, IsEmpty());
+  // The client redirector should be reported as a page visit instead.
+  EXPECT_THAT(first_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+
+  const BtmPageVisitObserver::VisitTuple& second_visit = recorder.visits()[1];
+  EXPECT_THAT(second_visit.prev_page,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+  EXPECT_THAT(second_visit.navigation.server_redirects, IsEmpty());
+  EXPECT_THAT(second_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+
+  const BtmPageVisitObserver::VisitTuple& third_visit = recorder.visits()[2];
+  EXPECT_THAT(third_visit.prev_page,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+  EXPECT_THAT(third_visit.navigation.server_redirects, IsEmpty());
+  EXPECT_THAT(third_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url3, &ukm_recorder()));
+
+  EXPECT_EQ(recorder.visits().size(), 3u);
+}
+
+IN_PROC_BROWSER_TEST_P(BtmPageVisitObserverClientRedirectBrowserTest,
+                       MixOfClientAndServerRedirects) {
+  const GURL url1 = embedded_https_test_server().GetURL(
+      "a.test", "/cross-site?b.test%2Fempty.html");
+  const GURL url2 =
+      embedded_https_test_server().GetURL("b.test", "/empty.html");
+  const GURL url3 = embedded_https_test_server().GetURL(
+      "c.test", "/cross-site-with-cookie?d.test%2Fempty.html");
+  const GURL url4 =
+      embedded_https_test_server().GetURL("d.test", "/empty.html");
+  WebContents* web_contents = shell()->web_contents();
+  BtmPageVisitRecorder recorder(web_contents);
+
+  // Navigate to a.test, which server-redirects to b.test.
+  ASSERT_TRUE(NavigateToURL(web_contents, url1, url2));
+  // Client-redirect from b.test to c.test, which in turn server-redirects to
+  // d.test.
+  ASSERT_TRUE(
+      PerformClientRedirect(client_redirect_type(), web_contents, url3, url4));
+  ASSERT_TRUE(recorder.WaitForSize(2));
+
+  const BtmPageVisitObserver::VisitTuple& first_visit = recorder.visits()[0];
+  EXPECT_THAT(first_visit.prev_page, HasUrlAndSourceIdForBlankPage());
+  // Server redirector should be reported with correct URL, source ID, and
+  // cookie access.
+  EXPECT_EQ(first_visit.navigation.server_redirects.size(), 1u);
+  EXPECT_THAT(first_visit.navigation.server_redirects[0],
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+  EXPECT_FALSE(first_visit.navigation.server_redirects[0].did_write_cookies);
+  // Client redirectors should be reported as page visits.
+  EXPECT_THAT(first_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+
+  const BtmPageVisitObserver::VisitTuple& second_visit = recorder.visits()[1];
+  EXPECT_THAT(second_visit.prev_page,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+  // Server redirector should be reported with correct URL, source ID, and
+  // cookie access.
+  EXPECT_EQ(second_visit.navigation.server_redirects.size(), 1u);
+  EXPECT_THAT(second_visit.navigation.server_redirects[0],
+              HasUrlAndMatchingSourceId(url3, &ukm_recorder()));
+  EXPECT_TRUE(second_visit.navigation.server_redirects[0].did_write_cookies);
+  EXPECT_THAT(second_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url4, &ukm_recorder()));
+
+  EXPECT_EQ(recorder.visits().size(), 2u);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    BtmPageVisitObserverClientRedirectBrowserTest,
+    kAllBtmClientRedirectMethods,
+    [](const testing::TestParamInfo<
+        BtmPageVisitObserverClientRedirectBrowserTest::ParamType>& param_info) {
+      BtmClientRedirectMethod client_redirect_method = param_info.param;
+      return StringifyBtmClientRedirectMethod(client_redirect_method);
+    });
 
 class BtmPageVisitObserverSiteDataAccessBrowserTest
     : public BtmPageVisitObserverBrowserTest,
@@ -494,17 +1067,29 @@ IN_PROC_BROWSER_TEST_P(BtmPageVisitObserverSiteDataAccessBrowserTest,
   ASSERT_TRUE(NavigateToURL(web_contents, url3));
   ASSERT_TRUE(recorder.WaitForSize(3));
 
-  EXPECT_THAT(
-      recorder.visits(),
-      ElementsAre(AllOf(PreviousPage(AllOf(HasUrl(GURL()),
-                                           HadQualifyingStorageAccess(false))),
-                        HasUrl(url1)),
-                  AllOf(PreviousPage(AllOf(HasUrl(url1),
-                                           HadQualifyingStorageAccess(true))),
-                        HasUrl(url2)),
-                  AllOf(PreviousPage(AllOf(HasUrl(url2),
-                                           HadQualifyingStorageAccess(false))),
-                        HasUrl(url3))));
+  const BtmPageVisitObserver::VisitTuple& first_visit = recorder.visits()[0];
+  EXPECT_THAT(first_visit.prev_page, HasUrlAndSourceIdForBlankPage());
+  EXPECT_FALSE(first_visit.prev_page.had_qualifying_storage_access);
+  EXPECT_THAT(first_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+
+  const BtmPageVisitObserver::VisitTuple& second_visit = recorder.visits()[1];
+  EXPECT_THAT(second_visit.prev_page,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+  // Storage accesses by the primary main frame should be attributed to that
+  // page's visit.
+  EXPECT_TRUE(second_visit.prev_page.had_qualifying_storage_access);
+  EXPECT_THAT(second_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+
+  const BtmPageVisitObserver::VisitTuple& third_visit = recorder.visits()[2];
+  EXPECT_THAT(third_visit.prev_page,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+  EXPECT_FALSE(third_visit.prev_page.had_qualifying_storage_access);
+  EXPECT_THAT(third_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url3, &ukm_recorder()));
+
+  EXPECT_EQ(recorder.visits().size(), 3u);
 }
 
 IN_PROC_BROWSER_TEST_P(BtmPageVisitObserverSiteDataAccessBrowserTest,
@@ -525,17 +1110,28 @@ IN_PROC_BROWSER_TEST_P(BtmPageVisitObserverSiteDataAccessBrowserTest,
   ASSERT_TRUE(NavigateToURL(web_contents, url3));
   ASSERT_TRUE(recorder.WaitForSize(3));
 
-  EXPECT_THAT(
-      recorder.visits(),
-      ElementsAre(AllOf(PreviousPage(AllOf(HasUrl(GURL()),
-                                           HadQualifyingStorageAccess(false))),
-                        HasUrl(url1)),
-                  AllOf(PreviousPage(AllOf(HasUrl(url1),
-                                           HadQualifyingStorageAccess(true))),
-                        HasUrl(url2)),
-                  AllOf(PreviousPage(AllOf(HasUrl(url2),
-                                           HadQualifyingStorageAccess(false))),
-                        HasUrl(url3))));
+  const BtmPageVisitObserver::VisitTuple& first_visit = recorder.visits()[0];
+  EXPECT_THAT(first_visit.prev_page, HasUrlAndSourceIdForBlankPage());
+  EXPECT_FALSE(first_visit.prev_page.had_qualifying_storage_access);
+  EXPECT_THAT(first_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+
+  const BtmPageVisitObserver::VisitTuple& second_visit = recorder.visits()[1];
+  EXPECT_THAT(second_visit.prev_page,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+  // Storage accesses by iframes should be attributed to the top-level frame.
+  EXPECT_TRUE(second_visit.prev_page.had_qualifying_storage_access);
+  EXPECT_THAT(second_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+
+  const BtmPageVisitObserver::VisitTuple& third_visit = recorder.visits()[2];
+  EXPECT_THAT(third_visit.prev_page,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+  EXPECT_FALSE(third_visit.prev_page.had_qualifying_storage_access);
+  EXPECT_THAT(third_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url3, &ukm_recorder()));
+
+  EXPECT_EQ(recorder.visits().size(), 3u);
 }
 
 IN_PROC_BROWSER_TEST_P(BtmPageVisitObserverSiteDataAccessBrowserTest,
@@ -559,15 +1155,21 @@ IN_PROC_BROWSER_TEST_P(BtmPageVisitObserverSiteDataAccessBrowserTest,
   ASSERT_TRUE(NavigateToURL(web_contents, url2));
   ASSERT_TRUE(recorder.WaitForSize(2));
 
+  const BtmPageVisitObserver::VisitTuple& first_visit = recorder.visits()[0];
+  EXPECT_THAT(first_visit.prev_page, HasUrlAndSourceIdForBlankPage());
+  EXPECT_FALSE(first_visit.prev_page.had_qualifying_storage_access);
+  EXPECT_THAT(first_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+
+  const BtmPageVisitObserver::VisitTuple& second_visit = recorder.visits()[1];
+  EXPECT_THAT(second_visit.prev_page,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
   // Storage accesses in fenced frames should be ignored.
-  EXPECT_THAT(
-      recorder.visits(),
-      ElementsAre(AllOf(PreviousPage(AllOf(HasUrl(GURL()),
-                                           HadQualifyingStorageAccess(false))),
-                        HasUrl(url1)),
-                  AllOf(PreviousPage(AllOf(HasUrl(url1),
-                                           HadQualifyingStorageAccess(false))),
-                        HasUrl(url2))));
+  EXPECT_FALSE(second_visit.prev_page.had_qualifying_storage_access);
+  EXPECT_THAT(second_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+
+  EXPECT_EQ(recorder.visits().size(), 2u);
 }
 
 IN_PROC_BROWSER_TEST_P(BtmPageVisitObserverSiteDataAccessBrowserTest,
@@ -605,15 +1207,21 @@ IN_PROC_BROWSER_TEST_P(BtmPageVisitObserverSiteDataAccessBrowserTest,
   ASSERT_TRUE(NavigateToURL(web_contents, url2));
   ASSERT_TRUE(recorder.WaitForSize(2));
 
+  const BtmPageVisitObserver::VisitTuple& first_visit = recorder.visits()[0];
+  EXPECT_THAT(first_visit.prev_page, HasUrlAndSourceIdForBlankPage());
+  EXPECT_FALSE(first_visit.prev_page.had_qualifying_storage_access);
+  EXPECT_THAT(first_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+
+  const BtmPageVisitObserver::VisitTuple& second_visit = recorder.visits()[1];
+  EXPECT_THAT(second_visit.prev_page,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
   // Storage accesses in prerendered pages should be ignored.
-  EXPECT_THAT(
-      recorder.visits(),
-      ElementsAre(AllOf(PreviousPage(AllOf(HasUrl(GURL()),
-                                           HadQualifyingStorageAccess(false))),
-                        HasUrl(url1)),
-                  AllOf(PreviousPage(AllOf(HasUrl(url1),
-                                           HadQualifyingStorageAccess(false))),
-                        HasUrl(url2))));
+  EXPECT_FALSE(second_visit.prev_page.had_qualifying_storage_access);
+  EXPECT_THAT(second_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+
+  EXPECT_EQ(recorder.visits().size(), 2u);
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -679,6 +1287,13 @@ class BtmPageVisitObserverWebAuthnTest : public ContentBrowserTest {
 
     auth_env_ = std::make_unique<ScopedAuthenticatorEnvironmentForTesting>(
         std::move(virtual_device_factory));
+
+    ukm_recorder_.emplace();
+  }
+
+  void PreRunTestOnMainThread() override {
+    ContentBrowserTest::PreRunTestOnMainThread();
+    ukm::InitializeSourceUrlRecorderForWebContents(shell()->web_contents());
   }
 
   void PostRunTestOnMainThread() override {
@@ -708,12 +1323,17 @@ class BtmPageVisitObserverWebAuthnTest : public ContentBrowserTest {
                            EXECUTE_SCRIPT_NO_USER_GESTURE));
   }
 
+  const ukm::TestAutoSetUkmRecorder& ukm_recorder() {
+    return ukm_recorder_.value();
+  }
+
   ContentMockCertVerifier::CertVerifier* mock_cert_verifier() {
     return mock_cert_verifier_.mock_cert_verifier();
   }
 
  protected:
   const std::string authn_hostname = std::string("a.test");
+  std::optional<ukm::TestAutoSetUkmRecorder> ukm_recorder_;
 
  private:
   ContentMockCertVerifier mock_cert_verifier_;
@@ -736,18 +1356,28 @@ IN_PROC_BROWSER_TEST_F(BtmPageVisitObserverWebAuthnTest, SuccessfulWAA) {
   ASSERT_TRUE(NavigateToURL(web_contents, url3));
   ASSERT_TRUE(recorder.WaitForSize(3));
 
-  EXPECT_THAT(
-      recorder.visits(),
-      ElementsAre(
-          AllOf(PreviousPage(AllOf(HasUrl(GURL()),
-                                   HadSuccessfulWebAuthnAssertion(false))),
-                HasUrl(url1)),
-          AllOf(PreviousPage(
-                    AllOf(HasUrl(url1), HadSuccessfulWebAuthnAssertion(true))),
-                HasUrl(url2)),
-          AllOf(PreviousPage(
-                    AllOf(HasUrl(url2), HadSuccessfulWebAuthnAssertion(false))),
-                HasUrl(url3))));
+  const BtmPageVisitObserver::VisitTuple& first_visit = recorder.visits()[0];
+  EXPECT_THAT(first_visit.prev_page, HasUrlAndSourceIdForBlankPage());
+  EXPECT_FALSE(first_visit.prev_page.had_successful_web_authn_assertion);
+  EXPECT_THAT(first_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+
+  const BtmPageVisitObserver::VisitTuple& second_visit = recorder.visits()[1];
+  EXPECT_THAT(second_visit.prev_page,
+              HasUrlAndMatchingSourceId(url1, &ukm_recorder()));
+  // Successful WAAs should be reported.
+  EXPECT_TRUE(second_visit.prev_page.had_successful_web_authn_assertion);
+  EXPECT_THAT(second_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+
+  const BtmPageVisitObserver::VisitTuple& third_visit = recorder.visits()[2];
+  EXPECT_THAT(third_visit.prev_page,
+              HasUrlAndMatchingSourceId(url2, &ukm_recorder()));
+  EXPECT_FALSE(third_visit.prev_page.had_successful_web_authn_assertion);
+  EXPECT_THAT(third_visit.navigation.destination,
+              HasUrlAndMatchingSourceId(url3, &ukm_recorder()));
+
+  EXPECT_EQ(recorder.visits().size(), 3u);
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
 

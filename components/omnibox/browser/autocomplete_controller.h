@@ -321,6 +321,10 @@ class AutocompleteController : public AutocompleteProviderListener,
                            FilterMatchesForInstantKeywordWithBareAt);
   FRIEND_TEST_ALL_PREFIXES(AutocompleteControllerTest,
                            NoActionsAttachedToLensSearchboxMatches);
+  FRIEND_TEST_ALL_PREFIXES(AutocompleteControllerTest,
+                           ContextualSearchActionAttachedPageKeywordMode);
+  FRIEND_TEST_ALL_PREFIXES(AutocompleteControllerTest,
+                           ContextualSearchActionAttachedInZeroSuggest);
   FRIEND_TEST_ALL_PREFIXES(AutocompleteProviderTest,
                            RedundantKeywordsIgnoredInResult);
   FRIEND_TEST_ALL_PREFIXES(AutocompleteProviderTest, UpdateSearchboxStats);
@@ -367,9 +371,8 @@ class AutocompleteController : public AutocompleteProviderListener,
   FRIEND_TEST_ALL_PREFIXES(OmniboxPopupViewViewsTest,
                            AccessibleSelectionOnResultSelection);
   FRIEND_TEST_ALL_PREFIXES(OmniboxPopupViewViewsTest, AccessibleResultName);
-  FRIEND_TEST_ALL_PREFIXES(
-      OmniboxEditModelPopupTest,
-      GetMatchIconForFeaturedEnterpriseSearchAggregatorUsesDoesNotUseFavicon);
+  FRIEND_TEST_ALL_PREFIXES(OmniboxEditModelPopupTest,
+                           GetMatchIconForFeaturedEnterpriseSearchAggregator);
   FRIEND_TEST_ALL_PREFIXES(
       OmniboxEditModelPopupTest,
       GetMatchIconForFeaturedEnterpriseSearchAggregatorContentSuggestion);
@@ -382,6 +385,7 @@ class AutocompleteController : public AutocompleteProviderListener,
   FRIEND_TEST_ALL_PREFIXES(OmniboxEditModelPopupTest,
                            GetIconForExtensionWithImageURL);
   FRIEND_TEST_ALL_PREFIXES(RealboxHandlerTest, RealboxUpdatesEditModelInput);
+  FRIEND_TEST_ALL_PREFIXES(OmniboxViewPopupTest, GetIcon_IconUrl);
 
   // A minimal representation of the previous `AutocompleteResult`. Used by
   // `UpdateResult()`'s helper methods.
@@ -446,6 +450,10 @@ class AutocompleteController : public AutocompleteProviderListener,
   // For each AutocompleteMatch in `result`, updates the searchbox stats iff the
   // provider's TemplateURL supports it.
   void UpdateSearchboxStats(AutocompleteResult* result);
+
+  // For each AutocompleteMatch in `result`, updates the "shown in session" data
+  // that's needed in order to ensure proper client-side metrics logging.
+  void UpdateShownInSession(AutocompleteResult* result);
 
   // Update the tail suggestions' `tail_suggest_common_prefix`.
   void UpdateTailSuggestPrefix(AutocompleteResult* result);

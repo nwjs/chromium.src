@@ -289,6 +289,10 @@ class FakeProfileManagerIOS : public ProfileManagerIOS {
     return profile_attributes_storage_.IsProfileMarkedForDeletion(name);
   }
 
+  void PurgeProfilesMarkedForDeletion(base::OnceClosure callback) override {
+    NOTREACHED();
+  }
+
   ProfileAttributesStorageIOS* GetProfileAttributesStorage() override {
     return &profile_attributes_storage_;
   }
@@ -1168,10 +1172,8 @@ TEST_F(AccountProfileMapperAccountsInSeparateProfilesTest,
   // Simulate that the user signs in with the managed account, and chooses to
   // take existing local data along, i.e. convert the personal profile into a
   // managed profile.
-  base::test::TestFuture<void> conversion_done;
   account_profile_mapper_->MakePersonalProfileManagedWithGaiaID(
-      GaiaId(google_identity.gaiaID), conversion_done.GetCallback());
-  ASSERT_TRUE(conversion_done.Wait());
+      GaiaId(google_identity.gaiaID));
 
   // What should have happened:
   // * The original personal profile should have become managed.
@@ -1256,10 +1258,8 @@ TEST_F(AccountProfileMapperAccountsInSeparateProfilesTest,
   // Simulate that the user signs in with the managed account, and chooses to
   // take existing local data along, i.e. convert the personal profile into a
   // managed profile.
-  base::test::TestFuture<void> conversion_done;
   account_profile_mapper_->MakePersonalProfileManagedWithGaiaID(
-      GaiaId(google_identity.gaiaID), conversion_done.GetCallback());
-  ASSERT_TRUE(conversion_done.Wait());
+      GaiaId(google_identity.gaiaID));
 
   // What should have happened:
   // * The original personal profile should have become managed.

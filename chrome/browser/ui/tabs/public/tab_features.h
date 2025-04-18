@@ -15,6 +15,7 @@
 
 class ChromeAutofillAiClient;
 class LensOverlayController;
+class LensSearchController;
 class PinnedTranslateActionListener;
 class Profile;
 class ReadAnythingSidePanelController;
@@ -54,6 +55,10 @@ class GlicTabIndicatorHelper;
 
 namespace memory_saver {
 class MemorySaverChipController;
+}
+
+namespace zoom {
+class ZoomViewController;
 }
 
 namespace permissions {
@@ -108,8 +113,8 @@ class TabFeatures {
       base::RepeatingCallback<std::unique_ptr<TabFeatures>()>;
   static void ReplaceTabFeaturesForTesting(TabFeaturesFactory factory);
 
-  LensOverlayController* lens_overlay_controller() {
-    return lens_overlay_controller_.get();
+  LensSearchController* lens_search_controller() {
+    return lens_search_controller_.get();
   }
 
   enterprise_data_protection::DataProtectionNavigationController*
@@ -177,9 +182,15 @@ class TabFeatures {
     return collaboration_messaging_tab_data_.get();
   }
 
+  zoom::ZoomViewController* zoom_view_controller() {
+    return zoom_view_controller_.get();
+  }
+
   memory_saver::MemorySaverChipController* memory_saver_chip_controller() {
     return memory_saver_chip_controller_.get();
   }
+
+  LensOverlayController* lens_overlay_controller();
 
   // Called exactly once to initialize features.
   // Can be overridden in tests to initialize nothing.
@@ -190,9 +201,8 @@ class TabFeatures {
 
   // Override these methods to stub out individual feature controllers for
   // testing.
-  virtual std::unique_ptr<LensOverlayController> CreateLensController(
-      TabInterface* tab,
-      Profile* profile);
+  virtual std::unique_ptr<LensSearchController> CreateLensController(
+      TabInterface* tab);
 
   virtual std::unique_ptr<commerce::CommerceUiTabHelper>
   CreateCommerceUiTabHelper(content::WebContents* web_contents,
@@ -216,7 +226,7 @@ class TabFeatures {
       permission_indicators_tab_data_;
 
   std::unique_ptr<SidePanelRegistry> side_panel_registry_;
-  std::unique_ptr<LensOverlayController> lens_overlay_controller_;
+  std::unique_ptr<LensSearchController> lens_search_controller_;
 
   // Responsible for the customize chrome tab-scoped side panel.
   std::unique_ptr<customize_chrome::SidePanelController>
@@ -271,6 +281,9 @@ class TabFeatures {
   // Responsible for managing the "Translate" page action.
   std::unique_ptr<TranslatePageActionController>
       translate_page_action_controller_;
+
+  // Responsible for managing the "Zoom" page action and bubble.
+  std::unique_ptr<zoom::ZoomViewController> zoom_view_controller_;
 
   // Contains the recent collaboration message for a shared tab.
   std::unique_ptr<tab_groups::CollaborationMessagingTabData>

@@ -242,6 +242,9 @@ void AddChromeColorMixer(ui::ColorProvider* provider,
       ui::GetColorWithMaxContrast({ui::kColorFrameActive});
   mixer[kColorFrameCaptionInactive] =
       ui::GetColorWithMaxContrast({ui::kColorFrameInactive});
+
+  mixer[kColorGlicBackground] = {ui::kColorBubbleBackground};
+
   mixer[kColorInfoBarBackground] = {kColorToolbar};
   mixer[kColorInfoBarButtonIcon] = {kColorToolbarButtonIcon};
   mixer[kColorInfoBarButtonIconDisabled] = {kColorToolbarButtonIconDisabled};
@@ -279,6 +282,10 @@ void AddChromeColorMixer(ui::ColorProvider* provider,
       PickGoogleColor(ui::kColorAccent, kColorToolbar,
                       color_utils::kMinimumVisibleContrastRatio);
   mixer[kColorMediaRouterIconWarning] = {ui::kColorAlertMediumSeverityIcon};
+  mixer[kColorMulitContentsViewActiveContentOutline] = {
+      ui::kColorSysOnSurfacePrimary};
+  mixer[kColorMulitContentsViewInactiveContentOutline] = {
+      ui::kColorSysNeutralOutline};
   mixer[kColorOmniboxChipBackground] = {kColorTabBackgroundActiveFrameActive};
   mixer[kColorOmniboxChipBlockedActivityIndicatorBackground] = {
       kColorInfoBarBackground};
@@ -312,6 +319,10 @@ void AddChromeColorMixer(ui::ColorProvider* provider,
   mixer[kColorPageInfoChosenObjectDeleteButtonIcon] = {ui::kColorIcon};
   mixer[kColorPageInfoChosenObjectDeleteButtonIconDisabled] = {
       ui::kColorIconDisabled};
+  mixer[kColorParentAccessViewLocalWebApprovalBackground] = {
+      // The background needs to match a custom static color used in Google Kids
+      // Ui server.
+      dark_mode ? SkColorSetARGB(0xFF, 0x2A, 0x2A, 0x2A) : SK_ColorWHITE};
   mixer[kColorPaymentsFeedbackTipBackground] = {
       ui::kColorSubtleEmphasisBackground};
   mixer[kColorPaymentsFeedbackTipBorder] = {ui::kColorBubbleFooterBorder};

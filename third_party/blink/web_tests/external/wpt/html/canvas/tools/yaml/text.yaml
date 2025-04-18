@@ -134,11 +134,11 @@
     ctx.font = 'italic 300 12px serif';
     @assert ctx.font === 'italic 300 12px serif';
 
-- name: 2d.text.lang.default.tentative
+- name: 2d.text.lang.default
   code: |
     @assert ctx.lang === 'inherit';
 
-- name: 2d.text.lang.valid.tentative
+- name: 2d.text.lang.valid
   code: |
     ctx.lang = '';
     @assert ctx.lang === '';
@@ -233,11 +233,11 @@
   code: |
     @assert ctx.textBaseline === 'alphabetic';
 
-- name: 2d.text.direction.default.tentative
+- name: 2d.text.direction.default
   code: |
     @assert ctx.direction === 'inherit';
 
-- name: 2d.text.direction.valid.tentative
+- name: 2d.text.direction.valid
   code: |
     ctx.direction = 'ltr';
     @assert ctx.direction === 'ltr';
@@ -2058,22 +2058,22 @@
     // Should return 6 clusters(A|B|C| |☺️|❤️).
     @assert clusters.length === 6;
     // A from position 0 to 1.
-    @assert clusters[0].begin === 0;
+    @assert clusters[0].start === 0;
     @assert clusters[0].end === 1;
     // B from position 1 to 2.
-    @assert clusters[1].begin === 1;
+    @assert clusters[1].start === 1;
     @assert clusters[1].end === 2;
     // C from position 2 to 3.
-    @assert clusters[2].begin === 2;
+    @assert clusters[2].start === 2;
     @assert clusters[2].end === 3;
     // space from position 3 to 4.
-    @assert clusters[3].begin === 3;
+    @assert clusters[3].start === 3;
     @assert clusters[3].end === 4;
     // ☺️ from position 4 to 6.
-    @assert clusters[4].begin === 4;
+    @assert clusters[4].start === 4;
     @assert clusters[4].end === 6;
     // ❤️ from position 6 to 8.
-    @assert clusters[5].begin === 6;
+    @assert clusters[5].start === 6;
     @assert clusters[5].end === 8;
 
 - name: 2d.text.measure.text-clusters-exceptions.tentative
@@ -2717,6 +2717,67 @@
     ctx.wordSpacing = '10PX';
     @assert ctx.letterSpacing === '1px';
     @assert ctx.wordSpacing === '10px';
+
+- name: 2d.text.measure.lang
+  desc: Testing the lang attribute
+  test_type: promise
+  fonts:
+  - Lato-Medium
+  code: |
+    {{ load_font }}
+
+    ctx.font = '50px Lato-Medium';
+    ctx.lang = 'tr';
+    const text = 'fi';
+    const tm_tr = ctx.measureText(text);
+    const tr_width = tm_tr.width;
+
+    ctx.lang = 'en';
+    const tm_en = ctx.measureText(text);
+    const en_width = tm_en.width;
+
+    @assert tr_width > en_width;
+  variants:
+  - *load-font-variant-definition
+
+- name: 2d.text.measure.lang.inherit
+  desc: Testing the lang attribute
+  test_type: promise
+  canvas_types: ['HtmlCanvas', 'OffscreenCanvas']
+  fonts:
+  - Lato-Medium
+  canvas: 'lang="tr"'
+  code: |
+    {{ load_font }}
+
+    ctx.font = '50px Lato-Medium';
+    ctx.lang = 'inherit';
+    const text = 'fi';
+    const tm_tr = ctx.measureText(text);
+    const tr_width = tm_tr.width;
+
+    ctx.lang = 'en';
+    const tm_en = ctx.measureText(text);
+    const en_width = tm_en.width;
+
+    @assert tr_width > en_width;
+  variants:
+  - &load-font-variant-definitio-and-set-lang
+    HtmlCanvas:
+      append_variants_to_name: false
+      canvas_types: ['HtmlCanvas']
+      load_font: |-
+        await document.fonts.ready;
+    OffscreenCanvas:
+      append_variants_to_name: false
+      canvas_types: ['OffscreenCanvas']
+      load_font: |-
+        document.documentElement.setAttribute('lang','tr');
+        var f = new FontFace("{{ fonts[0] }}", "url('/fonts/{{ fonts[0] }}.ttf')");
+        f.load();
+        {% set root = 'self' if canvas_type == 'Worker' else 'document' %}
+        {{ root }}.fonts.add(f);
+        await {{ root }}.fonts.ready;
 
 - name: 2d.text.drawing.style.font-relative.spacing
   desc: Testing letter spacing and word spacing with font-relative length

@@ -189,7 +189,7 @@ export class SummarizationView extends ReactiveLitElement {
   private readonly downloadRequested = signal(false);
 
   private readonly modelState =
-    computed(() => this.platformHandler.summaryModelLoader.state.value);
+    computed(() => this.platformHandler.getGenAiModelState());
 
   get summaryContainerForTest(): HTMLDivElement {
     return assertExists(this.summaryContainer.value);
@@ -320,27 +320,25 @@ export class SummarizationView extends ReactiveLitElement {
   }
 
   private onDownloadClicked() {
-    // TODO: b/399016315 - Have a wrapper to download models together.
-    this.platformHandler.summaryModelLoader.download();
-    this.platformHandler.titleSuggestionModelLoader.download();
+    this.platformHandler.downloadGenAiModel();
   }
 
   private renderDownloadStatus(state: ModelState) {
     switch (state.kind) {
       case 'installing':
         return html`<spoken-message role="status" aria-live="polite">
-            ${i18n.summaryDownloadStartedStatusMessage}
+            ${i18n.genAiDownloadStartedStatusMessage}
           </spoken-message>`;
       case 'error':
         return html`<spoken-message role="status" aria-live="polite">
-            ${i18n.summaryDownloadErrorStatusMessage}
+            ${i18n.genAiDownloadErrorStatusMessage}
           </spoken-message>`;
       case 'installed':
         if (!this.downloadRequested.value) {
           return nothing;
         }
         return html`<spoken-message role="status" aria-live="polite">
-            ${i18n.summaryDownloadFinishedStatusMessage}
+            ${i18n.genAiDownloadFinishedStatusMessage}
           </spoken-message>`;
       case 'notInstalled':
       case 'unavailable':
@@ -381,7 +379,7 @@ export class SummarizationView extends ReactiveLitElement {
     if (state.kind === 'installing') {
       progress = html`
         <span class="progress">
-          ${i18n.summaryDownloadingProgressDescription(state.progress)}
+          ${i18n.summaryGenAiDownloadingProgressDescription(state.progress)}
         </span>
       `;
     }

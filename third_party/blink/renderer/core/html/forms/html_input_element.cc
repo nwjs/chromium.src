@@ -1839,6 +1839,16 @@ HTMLElement* HTMLInputElement::listForBinding() const {
     return nullptr;
   }
 
+  if (RuntimeEnabledFeatures::ShadowRootReferenceTargetEnabled(
+          GetExecutionContext())) {
+    if (IsA<HTMLDataListElement>(GetElementAttributeResolvingReferenceTarget(
+            html_names::kListAttr))) {
+      // Return the host to avoid exposing the shadow dom.
+      return DynamicTo<HTMLElement>(GetElementAttribute(html_names::kListAttr));
+    }
+    return nullptr;
+  }
+
   return DynamicTo<HTMLDataListElement>(
       GetElementAttribute(html_names::kListAttr));
 }
@@ -2208,9 +2218,8 @@ bool HTMLInputElement::SetupDateTimeChooserParameters(
   parameters.double_value = input_type_->ValueAsDouble();
   parameters.focused_field_index = input_type_view_->FocusedFieldIndex();
   parameters.is_anchor_element_rtl =
-      GetLayoutObject()
-          ? input_type_view_->ComputedTextDirection() == TextDirection::kRtl
-          : false;
+      GetLayoutObject() &&
+      input_type_view_->ComputedTextDirection() == TextDirection::kRtl;
   if (HTMLDataListElement* data_list = DataList()) {
     HTMLDataListOptionsCollection* options = data_list->options();
     for (unsigned i = 0; HTMLOptionElement* option = options->Item(i); ++i) {

@@ -44,7 +44,7 @@ class CORE_EXPORT InvalidationSetToSelectorMap final
     Member<StyleRule> style_rule_;
     unsigned selector_index_;
   };
-  using IndexedSelectorList = HeapHashSet<Member<IndexedSelector>>;
+  using IndexedSelectorList = GCedHeapHashSet<Member<IndexedSelector>>;
 
   enum class SelectorFeatureType {
     kUnknown,
@@ -58,7 +58,8 @@ class CORE_EXPORT InvalidationSetToSelectorMap final
   // Instantiates a new mapping if a diagnostic tracing session with the
   // appropriate configuration has started, or deletes an existing mapping if
   // tracing is no longer enabled.
-  static void StartOrStopTrackingIfNeeded(StyleEngine& style_engine);
+  static void StartOrStopTrackingIfNeeded(const TreeScope& tree_scope,
+                                          StyleEngine& style_engine);
 
   // Call at the start and end of indexing rules within a StyleSheetContents.
   static void BeginStyleSheetContents(const StyleSheetContents* contents);
@@ -129,12 +130,16 @@ class CORE_EXPORT InvalidationSetToSelectorMap final
   // execution.
   using InvalidationSetEntry = std::pair<SelectorFeatureType, AtomicString>;
   using InvalidationSetEntryMap =
-      HeapHashMap<InvalidationSetEntry, Member<IndexedSelectorList>>;
+      GCedHeapHashMap<InvalidationSetEntry, Member<IndexedSelectorList>>;
   using InvalidationSetMap =
-      HeapHashMap<const InvalidationSet*, Member<InvalidationSetEntryMap>>;
+      GCedHeapHashMap<const InvalidationSet*, Member<InvalidationSetEntryMap>>;
 
   // Holds the back-map described above.
   Member<InvalidationSetMap> invalidation_set_map_;
+
+  // Holds the set of stylesheets that have been revisited for indexing into
+  // the back-map.
+  HeapHashSet<Member<const StyleSheetContents>> revisited_style_sheets_;
 
   // Used during back-map construction.
   // Holds the stylesheet currently being analyzed.

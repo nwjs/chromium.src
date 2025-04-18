@@ -90,6 +90,14 @@ class BrowserWindowInterface : public content::PageNavigator {
   // Returns the top container view.
   virtual views::View* TopContainer() = 0;
 
+  // Returns true if the window is minimized.
+  virtual bool IsMinimized() const = 0;
+
+  virtual base::WeakPtr<BrowserWindowInterface> GetWeakPtr() = 0;
+
+  // Returns the view that houses the Lens overlay.
+  virtual views::View* LensOverlayView() = 0;
+
   using ActiveTabChangeCallback =
       base::RepeatingCallback<void(BrowserWindowInterface*)>;
   virtual base::CallbackListSubscription RegisterActiveTabDidChange(
@@ -121,11 +129,9 @@ class BrowserWindowInterface : public content::PageNavigator {
   // Whether the window is active.
   // The definition of "active" aligns with the window being painted as active
   // instead of the top level widget having focus.
-  // Note this is different from "active" for BrowserList which is based on if
-  // the top level widget has focus and doesn't account for child widgets.
   // Note that this does not work correctly for mac PWA windows, as those are
   // hosted in a separate application with a stub in the browser process.
-  virtual bool IsActive() = 0;
+  virtual bool IsActive() const = 0;
 
   // Register for these two callbacks to detect changes to IsActive().
   using DidBecomeActiveCallback =

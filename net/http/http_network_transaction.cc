@@ -31,6 +31,7 @@
 #include "net/base/io_buffer.h"
 #include "net/base/load_flags.h"
 #include "net/base/load_timing_info.h"
+#include "net/base/load_timing_internal_info.h"
 #include "net/base/net_errors.h"
 #include "net/base/proxy_chain.h"
 #include "net/base/proxy_server.h"
@@ -63,6 +64,7 @@
 #include "net/http/transport_security_state.h"
 #include "net/http/url_security_manager.h"
 #include "net/log/net_log_event_type.h"
+#include "net/log/net_log_util.h"
 #include "net/proxy_resolution/proxy_info.h"
 #include "net/socket/client_socket_factory.h"
 #include "net/socket/next_proto.h"
@@ -559,6 +561,16 @@ bool HttpNetworkTransaction::GetLoadTimingInfo(
   return true;
 }
 
+void HttpNetworkTransaction::PopulateLoadTimingInternalInfo(
+    LoadTimingInternalInfo* load_timing_internal_info) const {
+  if (!initialize_stream_start_time_.is_null() &&
+      !initialize_stream_end_time_.is_null()) {
+    CHECK_LE(initialize_stream_start_time_, initialize_stream_end_time_);
+    load_timing_internal_info->initialize_stream_delay =
+        initialize_stream_end_time_ - initialize_stream_start_time_;
+  }
+}
+
 bool HttpNetworkTransaction::GetRemoteEndpoint(IPEndPoint* endpoint) const {
   if (remote_endpoint_.address().empty())
     return false;
@@ -937,6 +949,8 @@ int HttpNetworkTransaction::DoNotifyBeforeCreateStream() {
 }
 
 int HttpNetworkTransaction::DoCreateStream() {
+  TRACE_EVENT("net", "HttpNetworkTransaction::CreateStream",
+              NetLogWithSourceToFlow(net_log_));
   response_.network_accessed = true;
 
   next_state_ = STATE_CREATE_STREAM_COMPLETE;
@@ -964,6 +978,8 @@ int HttpNetworkTransaction::DoCreateStream() {
 }
 
 int HttpNetworkTransaction::DoCreateStreamComplete(int result) {
+  TRACE_EVENT("net", "HttpNetworkTransaction::CreateStreamComplete",
+              NetLogWithSourceToFlow(net_log_), "result", result);
   RecordStreamRequestResult(result);
   CopyConnectionAttemptsFromStreamRequest();
   if (result == OK) {
@@ -1000,9 +1016,11 @@ int HttpNetworkTransaction::DoCreateStreamComplete(int result) {
 
 int HttpNetworkTransaction::DoInitStream() {
   DCHECK(stream_.get());
+  TRACE_EVENT("net", "HttpNetworkTransaction::InitStream",
+              NetLogWithSourceToFlow(net_log_));
   next_state_ = STATE_INIT_STREAM_COMPLETE;
 
-  base::TimeTicks now = base::TimeTicks::Now();
+  initialize_stream_start_time_ = base::TimeTicks::Now();
   int rv = stream_->InitializeStream(can_send_early_data_, priority_, net_log_,
                                      io_callback_);
 
@@ -1010,7 +1028,7 @@ int HttpNetworkTransaction::DoInitStream() {
   // completes.
   bool blocked = rv == ERR_IO_PENDING;
   if (blocked) {
-    blocked_initialize_stream_start_time_ = now;
+    blocked_initialize_stream_start_time_ = initialize_stream_start_time_;
   }
   base::UmaHistogramBoolean(
       base::StrCat({"Net.NetworkTransaction.InitializeStreamBlocked",
@@ -1021,6 +1039,10 @@ int HttpNetworkTransaction::DoInitStream() {
 }
 
 int HttpNetworkTransaction::DoInitStreamComplete(int result) {
+  TRACE_EVENT("net", "HttpNetworkTransaction::InitStreamComplete",
+              NetLogWithSourceToFlow(net_log_), "result", result);
+  initialize_stream_end_time_ = base::TimeTicks::Now();
+
   // TODO(crbug.com/359404121): Remove this histogram after the investigation
   // completes.
   if (!blocked_initialize_stream_start_time_.is_null()) {
@@ -1029,7 +1051,7 @@ int HttpNetworkTransaction::DoInitStreamComplete(int result) {
             {"Net.NetworkTransaction.InitializeStreamBlockTime",
              IsGoogleHostWithAlpnH3(url_.host()) ? "GoogleHost." : ".",
              NegotiatedProtocolToHistogramSuffix(negotiated_protocol_)}),
-        base::TimeTicks::Now() - blocked_initialize_stream_start_time_);
+        initialize_stream_end_time_ - blocked_initialize_stream_start_time_);
   }
 
   if (result != OK) {
@@ -1051,6 +1073,8 @@ int HttpNetworkTransaction::DoInitStreamComplete(int result) {
 }
 
 int HttpNetworkTransaction::DoConnectedCallback() {
+  TRACE_EVENT("net", "HttpNetworkTransaction::ConnectedCallback",
+              NetLogWithSourceToFlow(net_log_));
   // Register the HttpRequestInfo object on the stream here so that it's
   // available when invoking the `connected_callback_`, as
   // HttpStream::GetAcceptChViaAlps() needs the HttpRequestInfo to retrieve
@@ -1096,6 +1120,8 @@ int HttpNetworkTransaction::DoConnectedCallback() {
 }
 
 int HttpNetworkTransaction::DoConnectedCallbackComplete(int result) {
+  TRACE_EVENT("net", "HttpNetworkTransaction::ConnectedCallbackComplete",
+              NetLogWithSourceToFlow(net_log_), "result", result);
   if (result != OK) {
     if (stream_) {
       stream_->Close(/*not_reusable=*/false);
@@ -1268,6 +1294,8 @@ int HttpNetworkTransaction::BuildRequestHeaders(
 }
 
 int HttpNetworkTransaction::DoInitRequestBody() {
+  TRACE_EVENT("net", "HttpNetworkTransaction::InitRequestBody",
+              NetLogWithSourceToFlow(net_log_));
   next_state_ = STATE_INIT_REQUEST_BODY_COMPLETE;
   int rv = OK;
   if (request_->upload_data_stream)
@@ -1279,12 +1307,16 @@ int HttpNetworkTransaction::DoInitRequestBody() {
 }
 
 int HttpNetworkTransaction::DoInitRequestBodyComplete(int result) {
+  TRACE_EVENT("net", "HttpNetworkTransaction::InitRequestBodyComplete",
+              NetLogWithSourceToFlow(net_log_), "result", result);
   if (result == OK)
     next_state_ = STATE_BUILD_REQUEST;
   return result;
 }
 
 int HttpNetworkTransaction::DoBuildRequest() {
+  TRACE_EVENT("net", "HttpNetworkTransaction::BuildRequest",
+              NetLogWithSourceToFlow(net_log_));
   next_state_ = STATE_BUILD_REQUEST_COMPLETE;
   headers_valid_ = false;
 
@@ -1299,12 +1331,17 @@ int HttpNetworkTransaction::DoBuildRequest() {
 }
 
 int HttpNetworkTransaction::DoBuildRequestComplete(int result) {
-  if (result == OK)
+  TRACE_EVENT("net", "HttpNetworkTransaction::BuildRequestComplete",
+              NetLogWithSourceToFlow(net_log_), "result", result);
+  if (result == OK) {
     next_state_ = STATE_SEND_REQUEST;
+  }
   return result;
 }
 
 int HttpNetworkTransaction::DoSendRequest() {
+  TRACE_EVENT("net", "HttpNetworkTransaction::SendRequest",
+              NetLogWithSourceToFlow(net_log_));
   send_start_time_ = base::TimeTicks::Now();
   next_state_ = STATE_SEND_REQUEST_COMPLETE;
 
@@ -1313,6 +1350,8 @@ int HttpNetworkTransaction::DoSendRequest() {
 }
 
 int HttpNetworkTransaction::DoSendRequestComplete(int result) {
+  TRACE_EVENT("net", "HttpNetworkTransaction::SendRequestComplete",
+              NetLogWithSourceToFlow(net_log_), "result", result);
   send_end_time_ = base::TimeTicks::Now();
 
   if (result == ERR_HTTP_1_1_REQUIRED ||
@@ -1327,11 +1366,15 @@ int HttpNetworkTransaction::DoSendRequestComplete(int result) {
 }
 
 int HttpNetworkTransaction::DoReadHeaders() {
+  TRACE_EVENT("net", "HttpNetworkTransaction::ReadHeaders",
+              NetLogWithSourceToFlow(net_log_));
   next_state_ = STATE_READ_HEADERS_COMPLETE;
   return stream_->ReadResponseHeaders(io_callback_);
 }
 
 int HttpNetworkTransaction::DoReadHeadersComplete(int result) {
+  TRACE_EVENT("net", "HttpNetworkTransaction::ReadHeadersComplete",
+              NetLogWithSourceToFlow(net_log_), "result", result);
   // We can get a ERR_SSL_CLIENT_AUTH_CERT_NEEDED here due to SSL renegotiation.
   // Server certificate errors are impossible. Rather than reverify the new
   // server certificate, BoringSSL forbids server certificates from changing.
@@ -1528,6 +1571,8 @@ int HttpNetworkTransaction::DoReadHeadersComplete(int result) {
 }
 
 int HttpNetworkTransaction::DoReadBody() {
+  TRACE_EVENT("net", "HttpNetworkTransaction::ReadBody",
+              NetLogWithSourceToFlow(net_log_));
   DCHECK(read_buf_.get());
   DCHECK_GT(read_buf_len_, 0);
   DCHECK(stream_ != nullptr);
@@ -1546,6 +1591,10 @@ int HttpNetworkTransaction::DoReadBodyComplete(int result) {
   } else {
     received_body_bytes_ += result;
   }
+
+  TRACE_EVENT("net", "HttpNetworkTransaction::ReadBodyComplete",
+              NetLogWithSourceToFlow(net_log_), "result", result,
+              "received_body_bytes", received_body_bytes_);
 
   // Clean up connection if we are done.
   if (done) {

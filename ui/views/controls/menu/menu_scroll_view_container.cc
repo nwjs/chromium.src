@@ -8,12 +8,12 @@
 #include <memory>
 #include <optional>
 #include <utility>
+#include <variant>
 
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
 #include "build/build_config.h"
 #include "cc/paint/paint_flags.h"
-#include "third_party/abseil-cpp/absl/types/variant.h"
 #include "third_party/skia/include/core/SkPath.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_node_data.h"
@@ -114,7 +114,7 @@ class MenuScrollButton : public View {
         ui::NativeTheme::kMenuItemBackground, ui::NativeTheme::kNormal,
         GetLocalBounds(),
         ui::NativeTheme::ExtraParams(
-            absl::in_place_type<ui::NativeTheme::MenuItemExtraParams>));
+            std::in_place_type<ui::NativeTheme::MenuItemExtraParams>));
 
     // Then the arrow.
     const int x = width() / 2;
@@ -439,14 +439,13 @@ void MenuScrollViewContainer::CreateDefaultBorder() {
   // When a custom background color is used, ensure that the border uses
   // the custom background color for its insets.
   if (border_color_id_.has_value()) {
-    SetBorder(
-        views::CreateThemedSolidSidedBorder(insets, border_color_id_.value()));
+    SetBorder(views::CreateSolidSidedBorder(insets, border_color_id_.value()));
     return;
   }
 
-  SetBackground(CreateThemedRoundedRectBackground(
-      ui::kColorMenuBackground, corner_radius_,
-      views::RoundRectPainter::kBorderWidth));
+  SetBackground(
+      CreateRoundedRectBackground(ui::kColorMenuBackground, corner_radius_,
+                                  views::RoundRectPainter::kBorderWidth));
 
   const auto* const color_provider = GetColorProvider();
   SkColor color = color_provider
@@ -527,7 +526,7 @@ void MenuScrollViewContainer::CreateBubbleBorder() {
         CreateEmptyBorder(std::exchange(additional_insets_, {})));
 
     background_view_->SetBackground(
-        CreateThemedRoundedRectBackground(id, corner_radius_));
+        CreateRoundedRectBackground(id, corner_radius_));
     background_view_->layer()->SetRoundedCornerRadius(GetRoundedCorners());
 
 #if BUILDFLAG(IS_CHROMEOS)

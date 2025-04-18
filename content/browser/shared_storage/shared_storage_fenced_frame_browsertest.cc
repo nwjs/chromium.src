@@ -8,6 +8,7 @@
 #include <string>
 #include <tuple>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "base/check.h"
@@ -60,7 +61,6 @@
 #include "services/network/public/cpp/features.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/abseil-cpp/absl/types/variant.h"
 #include "third_party/blink/public/common/chrome_debug_urls.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/features_generated.h"
@@ -94,7 +94,7 @@ bool IsInfoMessage(const content::WebContentsConsoleObserver::Message& msg) {
 class SharedStorageFencedFrameInteractionBrowserTestBase
     : public SharedStorageBrowserTestBase {
  public:
-  using FencedFrameNavigationTarget = absl::variant<GURL, std::string>;
+  using FencedFrameNavigationTarget = std::variant<GURL, std::string>;
 
   // TODO(crbug.com/40256120): This function should be removed. Use
   // `CreateFencedFrame` in fenced_frame_test_util.h instead.
@@ -127,16 +127,16 @@ class SharedStorageFencedFrameInteractionBrowserTestBase
                                    const FencedFrameNavigationTarget& target) {
     return EvalJs(
         root,
-        absl::visit(base::Overloaded{
-                        [](const GURL& url) {
-                          return JsReplace(
-                              "f.config = new FencedFrameConfig($1);", url);
-                        },
-                        [](const std::string& config) {
-                          return JsReplace("f.config = window[$1]", config);
-                        },
-                    },
-                    target));
+        std::visit(base::Overloaded{
+                       [](const GURL& url) {
+                         return JsReplace(
+                             "f.config = new FencedFrameConfig($1);", url);
+                       },
+                       [](const std::string& config) {
+                         return JsReplace("f.config = window[$1]", config);
+                       },
+                   },
+                   target));
   }
 
   // Precondition: There is exactly one existing fenced frame.
@@ -1678,6 +1678,14 @@ IN_PROC_BROWSER_TEST_F(
       get_result.error,
       testing::HasSubstr("Cannot call get() in a fenced frame with feature "
                          "FencedFramesLocalUnpartitionedDataAccess disabled."));
+
+  // Check that a histogram was logged for the failed get() operation.
+  content::FetchHistogramsFromChildProcesses();
+  histogram_tester_.ExpectTotalCount(
+      blink::kSharedStorageGetInFencedFrameOutcome, 1);
+  histogram_tester_.ExpectBucketCount(
+      blink::kSharedStorageGetInFencedFrameOutcome,
+      blink::SharedStorageGetInFencedFrameOutcome::kFeatureDisabled, 1);
 }
 
 class SharedStorageFencedFrameDocumentGetBrowserTest
@@ -1721,6 +1729,14 @@ IN_PROC_BROWSER_TEST_F(SharedStorageFencedFrameDocumentGetBrowserTest,
   )");
 
   EXPECT_EQ(get_result, "apple");
+
+  // Check that a histogram was logged for the get() result.
+  content::FetchHistogramsFromChildProcesses();
+  histogram_tester_.ExpectTotalCount(
+      blink::kSharedStorageGetInFencedFrameOutcome, 1);
+  histogram_tester_.ExpectBucketCount(
+      blink::kSharedStorageGetInFencedFrameOutcome,
+      blink::SharedStorageGetInFencedFrameOutcome::kSuccess, 1);
 }
 
 IN_PROC_BROWSER_TEST_F(SharedStorageFencedFrameDocumentGetBrowserTest,
@@ -1745,6 +1761,14 @@ IN_PROC_BROWSER_TEST_F(SharedStorageFencedFrameDocumentGetBrowserTest,
           "sharedStorage.get() is not allowed in a fenced frame until network "
           "access for it and all descendent frames has been revoked with "
           "window.fence.disableUntrustedNetwork()"));
+
+  // Check that a histogram was logged for the get() result.
+  content::FetchHistogramsFromChildProcesses();
+  histogram_tester_.ExpectTotalCount(
+      blink::kSharedStorageGetInFencedFrameOutcome, 1);
+  histogram_tester_.ExpectBucketCount(
+      blink::kSharedStorageGetInFencedFrameOutcome,
+      blink::SharedStorageGetInFencedFrameOutcome::kWithoutRevokeNetwork, 1);
 }
 
 IN_PROC_BROWSER_TEST_F(SharedStorageFencedFrameDocumentGetBrowserTest,
@@ -1794,6 +1818,12 @@ IN_PROC_BROWSER_TEST_F(SharedStorageFencedFrameDocumentGetBrowserTest,
   EXPECT_THAT(
       get_result_main_frame.error,
       testing::HasSubstr("Cannot call get() outside of a fenced frame."));
+
+  // The "Blink.FencedFrame.SharedStorageGetInFencedFrameOutcome" histogram
+  // should not log since get() was not called from within a fenced frame.
+  content::FetchHistogramsFromChildProcesses();
+  histogram_tester_.ExpectTotalCount(
+      blink::kSharedStorageGetInFencedFrameOutcome, 0);
 }
 
 IN_PROC_BROWSER_TEST_F(SharedStorageFencedFrameDocumentGetBrowserTest,
@@ -1815,6 +1845,12 @@ IN_PROC_BROWSER_TEST_F(SharedStorageFencedFrameDocumentGetBrowserTest,
   EXPECT_THAT(
       get_result_iframe.error,
       testing::HasSubstr("Cannot call get() outside of a fenced frame."));
+
+  // The "Blink.FencedFrame.SharedStorageGetInFencedFrameOutcome" histogram
+  // should not log since get() was not called from within a fenced frame.
+  content::FetchHistogramsFromChildProcesses();
+  histogram_tester_.ExpectTotalCount(
+      blink::kSharedStorageGetInFencedFrameOutcome, 0);
 }
 
 IN_PROC_BROWSER_TEST_F(
@@ -1866,6 +1902,13 @@ IN_PROC_BROWSER_TEST_F(SharedStorageFencedFrameDocumentGetBrowserTest,
 
   EXPECT_THAT(get_result.error,
               testing::HasSubstr("is not allowed in an opaque origin context"));
+
+  // The "Blink.FencedFrame.SharedStorageGetInFencedFrameOutcome" histogram
+  // should not log since opaque origins are treated as being outside of a
+  // fenced frame tree.
+  content::FetchHistogramsFromChildProcesses();
+  histogram_tester_.ExpectTotalCount(
+      blink::kSharedStorageGetInFencedFrameOutcome, 0);
 }
 
 IN_PROC_BROWSER_TEST_F(
@@ -1910,6 +1953,14 @@ IN_PROC_BROWSER_TEST_F(
           "sharedStorage.get() is not allowed in a fenced frame until network "
           "access for it and all descendent frames has been revoked with "
           "window.fence.disableUntrustedNetwork()"));
+
+  // Check that a histogram was logged for the get() result.
+  content::FetchHistogramsFromChildProcesses();
+  histogram_tester_.ExpectTotalCount(
+      blink::kSharedStorageGetInFencedFrameOutcome, 1);
+  histogram_tester_.ExpectBucketCount(
+      blink::kSharedStorageGetInFencedFrameOutcome,
+      blink::SharedStorageGetInFencedFrameOutcome::kWithoutRevokeNetwork, 1);
 }
 
 class SharedStorageSelectURLNotAllowedInFencedFrameBrowserTest

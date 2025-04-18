@@ -10,6 +10,7 @@
 #include <string>
 
 @protocol GREYMatcher;
+class GURL;
 
 namespace chrome_test_util {
 
@@ -236,6 +237,10 @@ id<GREYMatcher> BookmarksNavigationBarDoneButton();
 
 // Returns a matcher for the back button on the Bookmarks navigation bar.
 id<GREYMatcher> BookmarksNavigationBarBackButton();
+
+// Returns a matcher for the back button on the Managed profile creation
+// navigation bar.
+id<GREYMatcher> ManagedProfileCreationNavigationBarBackButton();
 
 // Returns a matcher for the add account accounts button.
 id<GREYMatcher> AddAccountButton();
@@ -629,6 +634,9 @@ id<GREYMatcher> RegularTabGrid();
 // Returns a matcher for the incognito tab grid.
 id<GREYMatcher> IncognitoTabGrid();
 
+// Returns a matcher for the Inactive Tabs tab grid.
+id<GREYMatcher> InactiveTabGrid();
+
 // Returns a matcher for the button to close the cell at `index` in the
 // tab grid.
 id<GREYMatcher> TabGridCloseButtonForCellAtIndex(unsigned int index);
@@ -668,6 +676,7 @@ id<GREYMatcher> ContentViewSmallerThanScrollView();
 
 // Returns a matcher for a history entry with `url` and `title`.
 id<GREYMatcher> HistoryEntry(const std::string& url, const std::string& title);
+id<GREYMatcher> HistoryEntry(const GURL& url, const std::string& title);
 
 // Returns a matcher to the add button in the toolbar in the settings view.
 id<GREYMatcher> SettingsToolbarAddButton();
@@ -699,10 +708,10 @@ id<GREYMatcher> UseSuggestedPasswordMatcher();
 #pragma mark - Promo style view controller
 
 // Returns matcher for the primary action button.
-id<GREYMatcher> PromoStylePrimaryActionButtonMatcher();
+id<GREYMatcher> PromoScreenPrimaryButtonMatcher();
 
 // Returns matcher for the secondary action button.
-id<GREYMatcher> PromoStyleSecondaryActionButtonMatcher();
+id<GREYMatcher> PromoScreenSecondaryButtonMatcher();
 
 #pragma mark - Incognito Interstitial
 

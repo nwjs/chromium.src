@@ -42,6 +42,7 @@
 #include "components/sync/model/string_ordinal.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "components/user_manager/scoped_user_manager.h"
+#include "components/user_manager/test_helper.h"
 #include "components/user_manager/user_manager.h"
 #include "content/public/test/browser_task_environment.h"
 #include "extensions/common/constants.h"
@@ -167,10 +168,9 @@ class ChromeShelfPrefsTest : public testing::Test {
     AccountId account_id = AccountId::FromUserEmail(email);
     auto* fake_user_manager = static_cast<ash::FakeChromeUserManager*>(
         user_manager::UserManager::Get());
-    const user_manager::User* user = fake_user_manager->AddUser(account_id);
-    fake_user_manager->UserLoggedIn(account_id, user->username_hash(),
-                                    /*browser_restart=*/false,
-                                    /*is_child=*/false);
+    fake_user_manager->AddUser(account_id);
+    fake_user_manager->UserLoggedIn(
+        account_id, user_manager::TestHelper::GetFakeUsernameHash(account_id));
   }
 
   void InstallApp(apps::AppPtr app) {
@@ -220,6 +220,7 @@ class ChromeShelfPrefsTest : public testing::Test {
         {
             {app_constants::kChromeAppId, "chrome"},
             {ash::kGeminiAppId, "gemini"},
+            {ash::kMallSystemAppId, "mall"},
             {ash::kGmailAppId, "gmail"},
             {ash::kGoogleCalendarAppId, "cal"},
             {file_manager::kFileManagerSwaAppId, "files"},
@@ -528,10 +529,11 @@ TEST_F(ChromeShelfPrefsTest, PinPreloadApps) {
   InstallApp(gmail);
   InstallApp(youtube);
 
-  EXPECT_EQ(GetPinned(),
-            base::StrCat(
-                {"chrome, ", IsGoogleChromeBranded() ? "gemini, " : "",
-                 "gmail, cal, files, messages, meet, play, youtube, photos"}));
+  EXPECT_EQ(
+      GetPinned(),
+      base::StrCat(
+          {"chrome, ", IsGoogleChromeBranded() ? "gemini, " : "",
+           "mall, gmail, cal, files, messages, meet, play, youtube, photos"}));
 
   // Simulate installation finishing in unpredictable order.
   // Install app2, comes after chrome since app1 is not installed yet.
@@ -546,32 +548,31 @@ TEST_F(ChromeShelfPrefsTest, PinPreloadApps) {
       GetPinned(),
       base::StrCat(
           {"app4, chrome, app2, ", IsGoogleChromeBranded() ? "gemini, " : "",
-           "gmail, cal, files, messages, meet, play, youtube, photos"}));
+           "mall, gmail, cal, files, messages, meet, play, youtube, photos"}));
 
   // Install app3, comes after gmail.
   InstallApp(app3);
-  EXPECT_EQ(
-      GetPinned(),
-      base::StrCat(
-          {"app4, chrome, app2, ", IsGoogleChromeBranded() ? "gemini, " : "",
-           "gmail, app3, cal, files, messages, meet, play, youtube, photos"}));
+  EXPECT_EQ(GetPinned(),
+            base::StrCat({"app4, chrome, app2, ",
+                          IsGoogleChromeBranded() ? "gemini, " : "",
+                          "mall, gmail, app3, cal, files, messages, meet, "
+                          "play, youtube, photos"}));
 
   // Install app5, which should not get pinned since it is not in first list.
   InstallApp(app5);
-  EXPECT_EQ(
-      GetPinned(),
-      base::StrCat(
-          {"app4, chrome, app2, ", IsGoogleChromeBranded() ? "gemini, " : "",
-           "gmail, app3, cal, files, messages, meet, play, youtube, photos"}));
+  EXPECT_EQ(GetPinned(),
+            base::StrCat({"app4, chrome, app2, ",
+                          IsGoogleChromeBranded() ? "gemini, " : "",
+                          "mall, gmail, app3, cal, files, messages, meet, "
+                          "play, youtube, photos"}));
 
   // Install app1, comes after chrome.
   InstallApp(app1);
-  EXPECT_EQ(
-      GetPinned(),
-      base::StrCat(
-          {"app4, chrome, app1, app2, ",
-           IsGoogleChromeBranded() ? "gemini, " : "",
-           "gmail, app3, cal, files, messages, meet, play, youtube, photos"}));
+  EXPECT_EQ(GetPinned(),
+            base::StrCat({"app4, chrome, app1, app2, ",
+                          IsGoogleChromeBranded() ? "gemini, " : "",
+                          "mall, gmail, app3, cal, files, messages, meet, "
+                          "play, youtube, photos"}));
 }
 
 TEST_F(ChromeShelfPrefsTest, PinPreloadRepeats) {
@@ -585,7 +586,7 @@ TEST_F(ChromeShelfPrefsTest, PinPreloadRepeats) {
   std::vector<apps::PackageId> pin_order({app1, app2, app3, chrome});
   std::string default_apps = base::StrCat(
       {"chrome, ", IsGoogleChromeBranded() ? "gemini, " : "",
-       "gmail, cal, files, messages, meet, play, youtube, photos"});
+       "mall, gmail, cal, files, messages, meet, play, youtube, photos"});
 
   // Request to pin app1, and app2, but only install app1.
   shelf_prefs_->OnGetPinPreloadApps({app1, app2}, pin_order);
@@ -608,10 +609,11 @@ TEST_F(ChromeShelfPrefsTest, PinPreloadEmpty) {
       "chromeapp:" + std::string(app_constants::kChromeAppId));
   apps::PackageId app1 = *apps::PackageId::FromString("chromeapp:app1");
   InstallApp(chrome);
-  EXPECT_EQ(GetPinned(),
-            base::StrCat(
-                {"chrome, ", IsGoogleChromeBranded() ? "gemini, " : "",
-                 "gmail, cal, files, messages, meet, play, youtube, photos"}));
+  EXPECT_EQ(
+      GetPinned(),
+      base::StrCat(
+          {"chrome, ", IsGoogleChromeBranded() ? "gemini, " : "",
+           "mall, gmail, cal, files, messages, meet, play, youtube, photos"}));
   auto get_prefs = [&]() {
     return profile_->GetPrefs()
         ->GetList(prefs::kShelfDefaultPinLayoutRolls)
@@ -628,10 +630,11 @@ TEST_F(ChromeShelfPrefsTest, PinPreloadEmpty) {
   EXPECT_EQ(get_prefs(), "[ \"default\", \"preload\" ]\n");
   shelf_prefs_->OnGetPinPreloadApps({app1}, pin_order);
   InstallApp(app1);
-  EXPECT_EQ(GetPinned(),
-            base::StrCat(
-                {"chrome, ", IsGoogleChromeBranded() ? "gemini, " : "",
-                 "gmail, cal, files, messages, meet, play, youtube, photos"}));
+  EXPECT_EQ(
+      GetPinned(),
+      base::StrCat(
+          {"chrome, ", IsGoogleChromeBranded() ? "gemini, " : "",
+           "mall, gmail, cal, files, messages, meet, play, youtube, photos"}));
 
   // Further calls to OnGetPinPreloadApps() should not write additional values
   // of 'preload' to prefs (crbug.com/350769496).

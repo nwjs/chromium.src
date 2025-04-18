@@ -78,13 +78,14 @@
   // one so the user can edit the profile.
   autofill::PersonalDataManager* personalDataManager =
       autofill::PersonalDataManagerFactory::GetForProfile(
-          self.browser->GetProfile()->GetOriginalProfile());
+          self.profile->GetOriginalProfile());
 
   _mediator = [[AutofillProfileEditMediator alloc]
          initWithDelegate:self
       personalDataManager:personalDataManager
           autofillProfile:_autofillProfile.get()
-        isMigrationPrompt:NO];
+        isMigrationPrompt:NO
+         addManualAddress:NO];
 
   _viewController = [[AutofillSettingsProfileEditTableViewController alloc]
                       initWithDelegate:_mediator
@@ -94,7 +95,8 @@
       initWithDelegate:_mediator
              userEmail:[self userEmail]
             controller:_viewController
-          settingsView:YES];
+          settingsView:YES
+      addManualAddress:NO];
   _mediator.consumer = _sharedViewController;
   _viewController.handler = _sharedViewController;
   _viewController.snackbarCommandsHandler = HandlerForProtocol(
@@ -165,7 +167,7 @@
 
 - (NSString*)userEmail {
   AuthenticationService* authenticationService =
-      AuthenticationServiceFactory::GetForProfile(self.browser->GetProfile());
+      AuthenticationServiceFactory::GetForProfile(self.profile);
   CHECK(authenticationService);
   id<SystemIdentity> identity =
       authenticationService->GetPrimaryIdentity(signin::ConsentLevel::kSignin);

@@ -40,6 +40,7 @@
 #include "third_party/blink/renderer/core/layout/layout_view.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/core/style/font_size_style.h"
+#include "third_party/blink/renderer/platform/wtf/text/character_names.h"
 
 namespace blink {
 
@@ -120,7 +121,7 @@ float CSSToLengthConversionData::FontSizes::Rex(float zoom) const {
 
 float CSSToLengthConversionData::FontSizes::Ch(float zoom) const {
   DCHECK(font_);
-  const SimpleFontData* font_data = font_->PrimaryFont();
+  const SimpleFontData* font_data = font_->PrimaryFontWithDigitZero();
   if (!font_data) {
     return 0;
   }
@@ -131,7 +132,7 @@ float CSSToLengthConversionData::FontSizes::Ch(float zoom) const {
 
 float CSSToLengthConversionData::FontSizes::Rch(float zoom) const {
   DCHECK(root_font_);
-  const SimpleFontData* font_data = root_font_->PrimaryFont();
+  const SimpleFontData* font_data = root_font_->PrimaryFontWithDigitZero();
   if (!font_data) {
     return 0;
   }
@@ -142,7 +143,7 @@ float CSSToLengthConversionData::FontSizes::Rch(float zoom) const {
 
 float CSSToLengthConversionData::FontSizes::Ic(float zoom) const {
   DCHECK(font_);
-  const SimpleFontData* font_data = font_->PrimaryFont();
+  const SimpleFontData* font_data = font_->PrimaryFontWithCjkWater();
   std::optional<float> full_width;
   if (font_data) {
     full_width = font_data->IdeographicInlineSize();
@@ -157,7 +158,7 @@ float CSSToLengthConversionData::FontSizes::Ic(float zoom) const {
 
 float CSSToLengthConversionData::FontSizes::Ric(float zoom) const {
   DCHECK(root_font_);
-  const SimpleFontData* font_data = root_font_->PrimaryFont();
+  const SimpleFontData* font_data = root_font_->PrimaryFontWithCjkWater();
   std::optional<float> full_width;
   if (font_data) {
     full_width = font_data->IdeographicInlineSize();

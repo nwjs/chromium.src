@@ -14,13 +14,13 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/tabs/public/tab_interface.h"
 #include "chrome/browser/ui/webui/top_chrome/webui_url_utils.h"
 #include "chrome/common/url_constants.h"
 #include "components/prefs/pref_service.h"
 #include "components/spellcheck/browser/pref_names.h"
 #include "components/spellcheck/browser/spellcheck_platform.h"
 #include "components/spellcheck/common/spellcheck_panel.mojom.h"
+#include "components/tab_collections/public/tab_interface.h"
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
 #include "content/public/browser/preloading.h"
 #include "content/public/browser/render_frame_host.h"
@@ -252,11 +252,6 @@
   return NO;
 }
 
-- (void)rendererHandledWheelEvent:(const blink::WebMouseWheelEvent&)event
-                         consumed:(BOOL)consumed {
-  [_historySwiper rendererHandledWheelEvent:event consumed:consumed];
-}
-
 - (void)rendererHandledGestureScrollEvent:(const blink::WebGestureEvent&)event
                                  consumed:(BOOL)consumed {
   [_historySwiper rendererHandledGestureScrollEvent:event consumed:consumed];
@@ -448,8 +443,7 @@
           Profile::FromBrowserContext(webContents->GetBrowserContext());
       glic::GlicEnabling::IsProfileEligible(profile)) {
     glic::GlicKeyedService* glic_service =
-        glic::GlicKeyedServiceFactory::GetGlicKeyedService(profile,
-                                                           /*create=*/false);
+        glic::GlicKeyedServiceFactory::GetGlicKeyedService(profile);
     if (glic_service && glic_service->IsActiveWebContents(webContents)) {
       return kAcceptMouseEventsInActiveApp;
     }

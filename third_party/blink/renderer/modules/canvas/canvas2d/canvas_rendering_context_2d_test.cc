@@ -53,7 +53,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/v8_image_bitmap_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_image_data_settings.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_typedefs.h"
-#include "third_party/blink/renderer/bindings/core/v8/v8_union_float32array_uint16array_uint8clampedarray.h"  // IWYU pragma: keep (https://github.com/clangd/clangd/issues/2043)
+#include "third_party/blink/renderer/bindings/core/v8/v8_union_float16array_float32array_uint8clampedarray.h"  // IWYU pragma: keep (https://github.com/clangd/clangd/issues/2043)
 #include "third_party/blink/renderer/bindings/modules/v8/v8_begin_layer_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_canvas_rendering_context_2d_settings.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_canvas_will_read_frequently.h"
@@ -94,7 +94,6 @@
 #include "third_party/blink/renderer/platform/graphics/canvas_resource.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_resource_provider.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
-#include "third_party/blink/renderer/platform/graphics/graphics_types.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_types_3d.h"
 #include "third_party/blink/renderer/platform/graphics/image.h"
 #include "third_party/blink/renderer/platform/graphics/image_orientation.h"
@@ -199,8 +198,7 @@ class FakeImageSource : public CanvasImageSource {
 
   scoped_refptr<Image> GetSourceImageForCanvas(FlushReason,
                                                SourceImageStatus*,
-                                               const gfx::SizeF&,
-                                               const AlphaDisposition) override;
+                                               const gfx::SizeF&) override;
 
   bool WouldTaintOrigin() const override { return false; }
   gfx::SizeF ElementSize(const gfx::SizeF&,
@@ -230,8 +228,7 @@ FakeImageSource::FakeImageSource(gfx::Size size, BitmapOpacity opacity)
 scoped_refptr<Image> FakeImageSource::GetSourceImageForCanvas(
     FlushReason,
     SourceImageStatus* status,
-    const gfx::SizeF&,
-    const AlphaDisposition) {
+    const gfx::SizeF&) {
   if (status)
     *status = kNormalSourceImageStatus;
   return image_;
@@ -294,9 +291,10 @@ class CanvasRenderingContext2DTest : public ::testing::Test,
 
   void TearDown() override;
 
-  void TearDownHost() {
-    // To tear down the host it is both necessary and sufficient to tear down
-    // the document, as the document effectively owns the host.
+  void TearDownPage() {
+    // Synchronously tears down the page, which causes ContextDestroyed() to be
+    // invoked on the canvas element (which in turn causes Stop() to be invoked
+    // on the rendering context).
     web_view_helper_ = nullptr;
   }
 
@@ -494,6 +492,7 @@ class FakeCanvasResourceProvider : public CanvasResourceProvider {
   bool SupportsDirectCompositing() const override {
     return supports_direct_compositing_;
   }
+  bool IsSingleBuffered() const override { return false; }
   bool IsValid() const override { return true; }
   sk_sp<SkSurface> CreateSkSurface() const override {
     return SkSurfaces::Raster(GetSkImageInfo());
@@ -1475,7 +1474,7 @@ TEST_P(CanvasRenderingContext2DTest,
   EXPECT_FALSE(
       CanvasElement()
           .GetOrCreateCanvasResourceProvider(RasterModeHint::kPreferCPU)
-          ->SupportsSingleBuffering());
+          ->IsSingleBuffered());
   EXPECT_EQ(CanvasElement().GetRasterMode(), RasterMode::kCPU);
 }
 
@@ -2155,10 +2154,10 @@ TEST_P(CanvasRenderingContext2DTestAccelerated, TeardownEndsHibernation) {
   EXPECT_TRUE(handler.IsHibernating());
   EXPECT_TRUE(CanvasElement().IsResourceValid());
 
-  // Verify that tearing down the host ends hibernation synchronously.
+  // Verify that tearing down the page ends hibernation synchronously.
   {
     base::HistogramTester histogram_tester;
-    TearDownHost();
+    TearDownPage();
     histogram_tester.ExpectUniqueSample(
         "Blink.Canvas.HibernationEvents",
         CanvasHibernationHandler::HibernationEvent::
@@ -2167,10 +2166,15 @@ TEST_P(CanvasRenderingContext2DTestAccelerated, TeardownEndsHibernation) {
   }
 }
 
+// Tests that when `kIsPaintableChecksResourceProviderInsteadOfBridge` is
+// disabled, tearing down the page causes a pending hibernation to be aborted
+// because the hibernation handler was torn down.
 TEST_P(CanvasRenderingContext2DTestAccelerated,
-       TeardownWhileHibernationIsPendingAbortsHibernation) {
+       TeardownWhileHibernationIsPendingAbortsHibernationDueToBridgeTeardown) {
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures({features::kCanvas2DHibernation}, {});
+  scoped_feature_list.InitWithFeatures(
+      {features::kCanvas2DHibernation},
+      {features::kIsPaintableChecksResourceProviderInsteadOfBridge});
 
   CreateContext(kNonOpaque);
   CanvasElement().GetOrCreateCanvasResourceProvider(RasterModeHint::kPreferGPU);
@@ -2197,8 +2201,8 @@ TEST_P(CanvasRenderingContext2DTestAccelerated,
     EXPECT_FALSE(handler.IsHibernating());
   }
 
-  // Tear down the host while hibernation is pending.
-  TearDownHost();
+  // Tear down the page while hibernation is pending.
+  TearDownPage();
 
   // Verify that running the hibernation task aborts hibernation (and doesn't
   // crash by calling into the destroyed state).
@@ -2216,6 +2220,65 @@ TEST_P(CanvasRenderingContext2DTestAccelerated,
         "Blink.Canvas.HibernationEvents",
         CanvasHibernationHandler::HibernationEvent::
             kHibernationAbortedDueToDestructionWhileHibernatePending,
+        1);
+  }
+}
+
+// Tests that when `kIsPaintableChecksResourceProviderInsteadOfBridge` is
+// enabled, tearing down the page causes a pending hibernation to be aborted
+// because the page teardown causes the resource provider to be discarded.
+TEST_P(CanvasRenderingContext2DTestAccelerated,
+       TeardownWhileHibernationIsPendingAbortsHibernationDueToSurfaceLoss) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      {features::kCanvas2DHibernation,
+       features::kIsPaintableChecksResourceProviderInsteadOfBridge},
+      {});
+
+  CreateContext(kNonOpaque);
+  CanvasElement().GetOrCreateCanvasResourceProvider(RasterModeHint::kPreferGPU);
+  EXPECT_EQ(CanvasElement().GetRasterMode(), RasterMode::kGPU);
+
+  auto& handler = CHECK_DEREF(CanvasElement().GetHibernationHandler());
+
+  // Install a minimal delay for testing to ensure that the test remains fast
+  // to execute.
+  handler.SetBeforeCompressionDelayForTesting(base::Microseconds(10));
+
+  EXPECT_FALSE(handler.IsHibernating());
+
+  // Verify that going to the background triggers hibernation asynchronously.
+  {
+    base::HistogramTester histogram_tester;
+    GetDocument().GetPage()->SetVisibilityState(
+        mojom::blink::PageVisibilityState::kHidden,
+        /*is_initial_state=*/false);
+
+    histogram_tester.ExpectUniqueSample(
+        "Blink.Canvas.HibernationEvents",
+        CanvasHibernationHandler::HibernationEvent::kHibernationScheduled, 1);
+    EXPECT_FALSE(handler.IsHibernating());
+  }
+
+  // Tear down the page while hibernation is pending.
+  TearDownPage();
+
+  // Verify that running the hibernation task aborts hibernation (and doesn't
+  // crash by calling into the destroyed state).
+  {
+    base::HistogramTester histogram_tester;
+
+    // Run the task that initiates hibernation, which has been posted as an idle
+    // task.
+    ThreadScheduler::Current()
+        ->ToMainThreadScheduler()
+        ->StartIdlePeriodForTesting();
+    blink::test::RunPendingTasks();
+
+    histogram_tester.ExpectUniqueSample(
+        "Blink.Canvas.HibernationEvents",
+        CanvasHibernationHandler::HibernationEvent::
+            kHibernationAbortedBecauseNoSurface,
         1);
   }
 }
@@ -2866,7 +2929,7 @@ TEST_P(CanvasRenderingContext2DTestAccelerated, LowLatencyIsNotSingleBuffered) {
   EXPECT_FALSE(
       CanvasElement()
           .GetOrCreateCanvasResourceProvider(RasterModeHint::kPreferGPU)
-          ->SupportsSingleBuffering());
+          ->IsSingleBuffered());
   EXPECT_EQ(CanvasElement().GetRasterMode(), RasterMode::kGPU);
 }
 
@@ -3101,7 +3164,7 @@ TEST_P(CanvasRenderingContext2DTestImageChromium, LowLatencyIsSingleBuffered) {
   EXPECT_EQ(CanvasElement().GetRasterMode(), RasterMode::kGPU);
   EXPECT_TRUE(CanvasElement()
                   .GetOrCreateCanvasResourceProvider(RasterModeHint::kPreferGPU)
-                  ->SupportsSingleBuffering());
+                  ->IsSingleBuffered());
   auto frame1_resource =
       CanvasElement()
           .GetOrCreateCanvasResourceProvider(RasterModeHint::kPreferGPU)
@@ -3151,7 +3214,7 @@ TEST_P(CanvasRenderingContext2DTestSwapChain, LowLatencyIsSingleBuffered) {
   EXPECT_EQ(CanvasElement().GetRasterMode(), RasterMode::kGPU);
   EXPECT_TRUE(CanvasElement()
                   .GetOrCreateCanvasResourceProvider(RasterModeHint::kPreferGPU)
-                  ->SupportsSingleBuffering());
+                  ->IsSingleBuffered());
   auto frame1_resource =
       CanvasElement()
           .GetOrCreateCanvasResourceProvider(RasterModeHint::kPreferGPU)

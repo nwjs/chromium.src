@@ -362,6 +362,13 @@ class CORE_EXPORT CSSPrimitiveValue : public CSSValue {
   // "global" information that cannot be changed by CSS.
   bool IsComputationallyIndependent() const;
 
+  // Returns true if the value has a calculation that depends on an element
+  // context. For instance sibling-index().
+  //
+  // Note that font-relative units are not element-dependent since they resolve
+  // against the initial font outside an element context.
+  bool IsElementDependent() const;
+
   // True if this value contains any of cq[w,h,i,b,min,max], false otherwise.
   bool HasContainerRelativeUnits() const;
 
@@ -438,10 +445,6 @@ class CORE_EXPORT CSSPrimitiveValue : public CSSValue {
 
   float GetFloatValue() const { return GetValue<float>(); }
   int GetIntValue() const { return GetValue<int>(); }
-  template <typename T>
-  inline T GetValue() const {
-    return ClampTo<T>(GetDoubleValue());
-  }
 
   template <typename T>
     requires std::integral<T> || std::floating_point<T>
@@ -456,7 +459,9 @@ class CORE_EXPORT CSSPrimitiveValue : public CSSValue {
   // ConsumeNumberOrPercent() and call ComputeNumber() on whatever we get
   // back.
   double ComputeNumber(const CSSLengthResolver&) const;
-  double ComputePercentage(const CSSLengthResolver&) const;
+
+  template <typename T = double>
+  T ComputePercentage(const CSSLengthResolver&) const;
   double ComputeValueInCanonicalUnit(const CSSLengthResolver&) const;
 
   std::optional<double> GetValueIfKnown() const;
@@ -495,6 +500,11 @@ class CORE_EXPORT CSSPrimitiveValue : public CSSValue {
   bool IsResolvableLength() const;
 
  private:
+  template <typename T>
+  inline T GetValue() const {
+    return ClampTo<T>(GetDoubleValue());
+  }
+
   bool InvolvesLayout() const;
   const CSSMathExpressionNode* ToMathExpressionNode() const;
 };

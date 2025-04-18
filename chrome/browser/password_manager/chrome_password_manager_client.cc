@@ -41,6 +41,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
+#include "chrome/browser/signin/signin_ui_util.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/browser/ui/passwords/password_cross_domain_confirmation_popup_controller_impl.h"
@@ -95,6 +96,7 @@
 #include "components/signin/public/base/signin_metrics.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/site_isolation/site_isolation_policy.h"
+#include "components/sync/base/user_selectable_type.h"
 #include "components/sync/service/sync_service.h"
 #include "components/sync/service/sync_user_settings.h"
 #include "components/translate/core/browser/translate_manager.h"
@@ -161,22 +163,16 @@
 #include "chrome/browser/ui/hats/hats_service.h"
 #include "chrome/browser/ui/hats/hats_service_factory.h"
 #include "chrome/browser/ui/hats/survey_config.h"
-#include "chrome/browser/ui/webauthn/ambient/ambient_signin_controller.h"
 #include "components/policy/core/common/features.h"
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "extensions/common/constants.h"
-
-#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
-#include "chrome/browser/extensions/api/safe_browsing_private/safe_browsing_private_event_router.h"
-#include "chrome/browser/extensions/api/safe_browsing_private/safe_browsing_private_event_router_factory.h"
-#endif  // BUILDFLAG(SAFE_BROWSING_AVAILABLE)
-
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
 #if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
-#include "chrome/browser/enterprise/connectors/reporting/reporting_event_router.h"
+#include "chrome/browser/enterprise/connectors/reporting/reporting_event_router_factory.h"
+#include "components/enterprise/connectors/core/reporting_event_router.h"
 #endif
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
@@ -195,6 +191,7 @@ using autofill::password_generation::PasswordGenerationType;
 using password_manager::BadMessageReason;
 using password_manager::ContentPasswordManagerDriverFactory;
 using password_manager::FieldInfoManager;
+using password_manager::PasswordCredentialFillerImpl;
 using password_manager::PasswordForm;
 using password_manager::PasswordManagerClientHelper;
 using password_manager::PasswordManagerDriver;
@@ -210,7 +207,7 @@ using Logger = autofill::SavePasswordProgressLogger;
 
 namespace {
 
-#if !BUILDFLAG(IS_ANDROID) && BUILDFLAG(SAFE_BROWSING_AVAILABLE)
+#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
 constexpr char kPasswordBreachEntryTrigger[] = "PASSWORD_ENTRY";
 #endif
 
@@ -559,25 +556,24 @@ void ChromePasswordManagerClient::ShowPasswordManagerErrorMessage(
 
 void ChromePasswordManagerClient::ShowKeyboardReplacingSurface(
     password_manager::PasswordManagerDriver* driver,
-    const password_manager::PasswordFillingParams& password_filling_params,
-    bool is_webauthn_form,
-    base::OnceCallback<void(bool)> shown_cb) {
-  if (keyboard_replacing_surface_visibility_controller_ &&
-      !keyboard_replacing_surface_visibility_controller_->CanBeShown()) {
-    std::move(shown_cb).Run(
-        keyboard_replacing_surface_visibility_controller_->IsVisible());
-    return;
-  }
-
+    const autofill::PasswordSuggestionRequest& request) {
   password_manager::ContentPasswordManagerDriver* content_driver =
       static_cast<password_manager::ContentPasswordManagerDriver*>(driver);
 
+  if (keyboard_replacing_surface_visibility_controller_ &&
+      !keyboard_replacing_surface_visibility_controller_->CanBeShown()) {
+    if (!keyboard_replacing_surface_visibility_controller_->IsVisible()) {
+      content_driver->ShowPasswordSuggestionsForField(request.field);
+    }
+    return;
+  }
+
   if (GetOrCreateCredManController()->Show(
           GetWebAuthnCredManDelegateForDriver(driver),
-          std::make_unique<password_manager::PasswordCredentialFillerImpl>(
-              driver->AsWeakPtr(), password_filling_params),
-          content_driver->AsWeakPtrImpl(), is_webauthn_form)) {
-    std::move(shown_cb).Run(true);
+          std::make_unique<PasswordCredentialFillerImpl>(driver->AsWeakPtr(),
+                                                         request),
+          content_driver->AsWeakPtrImpl(),
+          request.field.show_webauthn_credentials)) {
     return;
   }
 
@@ -587,18 +583,22 @@ void ChromePasswordManagerClient::ShowKeyboardReplacingSurface(
       base::BindOnce(&ChromePasswordManagerClient::
                          ShowKeyboardReplacingSurfaceOnAccountStorageNoticeDone,
                      base::Unretained(this), content_driver->AsWeakPtrImpl(),
-                     password_filling_params, std::move(shown_cb)));
+                     request.field,  // Intentional & cheap copy.
+                     std::make_unique<PasswordCredentialFillerImpl>(
+                         driver->AsWeakPtr(), request)));
 }
 
 void ChromePasswordManagerClient::
     ShowKeyboardReplacingSurfaceOnAccountStorageNoticeDone(
         base::WeakPtr<password_manager::ContentPasswordManagerDriver>
             weak_driver,
-        const password_manager::PasswordFillingParams& password_filling_params,
-        base::OnceCallback<void(bool)> shown_cb) {
+        autofill::TriggeringField triggering_field,
+        std::unique_ptr<PasswordCredentialFillerImpl> filler) {
   // TODO(crbug.com/346748438): Maybe don't show TTF if there was a navigation.
   if (!weak_driver) {
-    return std::move(shown_cb).Run(false);
+    // No further suggestions are possible: without the driver, there is no
+    // PasswordAutofillManager anymore.
+    return;
   }
 
   password_manager::ContentPasswordManagerDriver* driver = weak_driver.get();
@@ -613,16 +613,12 @@ void ChromePasswordManagerClient::
           webauthn_delegate->IsSecurityKeyOrHybridFlowAvailable();
     }
   }
-  auto filler =
-      std::make_unique<password_manager::PasswordCredentialFillerImpl>(
-          driver->AsWeakPtr(), password_filling_params);
   const PasswordForm* form_to_fill = password_manager_.GetParsedObservedForm(
-      driver, password_filling_params.focused_field_renderer_id_);
+      driver, triggering_field.element_id);
   auto ttf_controller_autofill_delegate =
       std::make_unique<TouchToFillControllerAutofillDelegate>(
           this, GetDeviceAuthenticator(), webauthn_delegate->AsWeakPtr(),
-          std::move(filler), form_to_fill,
-          password_filling_params.focused_field_renderer_id_,
+          std::move(filler), form_to_fill, triggering_field.element_id,
           TouchToFillControllerAutofillDelegate::ShowHybridOption(
               should_show_hybrid_option));
 
@@ -632,10 +628,10 @@ void ChromePasswordManagerClient::
           .GetCredentialStore(URLToOrigin(driver->GetLastCommittedURL()))
           .GetCredentials(),
       std::move(passkeys), driver->AsWeakPtrImpl());
-  const bool shown =
-      ttf_controller->Show(std::move(ttf_controller_autofill_delegate),
-                           GetWebAuthnCredManDelegateForDriver(driver));
-  std::move(shown_cb).Run(shown);
+  if (!ttf_controller->Show(std::move(ttf_controller_autofill_delegate),
+                            GetWebAuthnCredManDelegateForDriver(driver))) {
+    driver->ShowPasswordSuggestionsForField(triggering_field);
+  }
 }
 #endif
 
@@ -1177,13 +1173,11 @@ void ChromePasswordManagerClient::MaybeReportEnterpriseLoginEvent(
   // is enabled by the admin.
   router->OnLoginEvent(url, is_federated, federated_origin, login_user_name);
 }
-#endif  // BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
 
-#if BUILDFLAG(ENABLE_EXTENSIONS) && BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 void ChromePasswordManagerClient::MaybeReportEnterprisePasswordBreachEvent(
     const std::vector<std::pair<GURL, std::u16string>>& identities) const {
-  extensions::SafeBrowsingPrivateEventRouter* router =
-      extensions::SafeBrowsingPrivateEventRouterFactory::GetForProfile(
+  enterprise_connectors::ReportingEventRouter* router =
+      enterprise_connectors::ReportingEventRouterFactory::GetForBrowserContext(
           profile_);
   if (!router) {
     return;
@@ -1193,7 +1187,7 @@ void ChromePasswordManagerClient::MaybeReportEnterprisePasswordBreachEvent(
   // is enabled by the admin.
   router->OnPasswordBreach(kPasswordBreachEntryTrigger, identities);
 }
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS) && BUILDFLAG(SAFE_BROWSING_AVAILABLE)
+#endif  // BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
 
 ukm::SourceId ChromePasswordManagerClient::GetUkmSourceId() {
   return web_contents()->GetPrimaryMainFrame()->GetPageUkmSourceId();
@@ -1246,6 +1240,11 @@ favicon::FaviconService* ChromePasswordManagerClient::GetFaviconService() {
 }
 
 signin::IdentityManager* ChromePasswordManagerClient::GetIdentityManager() {
+  return IdentityManagerFactory::GetForProfile(profile_->GetOriginalProfile());
+}
+
+const signin::IdentityManager* ChromePasswordManagerClient::GetIdentityManager()
+    const {
   return IdentityManagerFactory::GetForProfile(profile_->GetOriginalProfile());
 }
 
@@ -1418,18 +1417,11 @@ ChromePasswordManagerClient::ShowCrossDomainConfirmationPopup(
 #endif  // BUILDFLAG(IS_ANDROID)
 }
 
-void ChromePasswordManagerClient::ShowCredentialsInAmbientBubble(
-    std::vector<std::unique_ptr<password_manager::PasswordForm>> forms,
-    int credential_type_flags,
-    CredentialsCallback callback) {
-#if !BUILDFLAG(IS_ANDROID)
-  auto* controller =
-      ambient_signin::AmbientSigninController::GetOrCreateForCurrentDocument(
-          web_contents()->GetPrimaryMainFrame());
-  controller->AddAndShowPasswordMethods(std::move(forms), credential_type_flags,
-                                        std::move(callback));
-#else
-  NOTREACHED();
+void ChromePasswordManagerClient::TriggerSignIn(
+    signin_metrics::AccessPoint access_point) const {
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+  signin_ui_util::ShowReauthForPrimaryAccountWithAuthError(profile_,
+                                                           access_point);
 #endif
 }
 

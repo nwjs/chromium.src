@@ -85,6 +85,7 @@
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "chrome/test/base/web_feature_histogram_tester.h"
 #include "components/services/app_service/public/cpp/app_launch_util.h"
 #include "components/webapps/browser/features.h"
 #include "components/webapps/browser/installable/installable_metrics.h"
@@ -105,6 +106,7 @@
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/manifest/display_mode.mojom-shared.h"
 #include "third_party/blink/public/mojom/manifest/manifest.mojom.h"
+#include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom-shared.h"
 #include "third_party/blink/public/mojom/use_counter/metrics/webdx_feature.mojom-shared.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/base_window.h"
@@ -310,6 +312,112 @@ class WebAppBrowserTest : public WebAppBrowserTestBase {
     return result;
   }
 };
+
+using WebAppLaunchUseCounterBrowserTest = WebAppBrowserTest;
+
+IN_PROC_BROWSER_TEST_F(WebAppLaunchUseCounterBrowserTest,
+                       InstallMeasuresCounterOnce) {
+  WebFeatureHistogramTester web_feature_histogram_tester;
+  GURL test_url = https_server()->GetURL("/banners/manifest_test_page.html");
+  NavigateViaLinkClickToURLAndWait(browser(), test_url);
+
+  const webapps::AppId app_id = test::InstallPwaForCurrentUrl(browser());
+
+  EXPECT_EQ(1, web_feature_histogram_tester.GetCount(
+                   blink::mojom::WebFeature::kInstalledManifestApplied));
+}
+
+IN_PROC_BROWSER_TEST_F(WebAppLaunchUseCounterBrowserTest,
+                       InstallAndLaunchMeasuresTwice) {
+  WebFeatureHistogramTester web_feature_histogram_tester;
+  GURL test_url = https_server()->GetURL("/banners/manifest_test_page.html");
+  NavigateViaLinkClickToURLAndWait(browser(), test_url);
+
+  const webapps::AppId app_id = test::InstallPwaForCurrentUrl(browser());
+  Browser* const app_browser = LaunchWebAppBrowserAndWait(app_id);
+  content::WaitForLoadStop(
+      app_browser->tab_strip_model()->GetActiveWebContents());
+
+  // Measured twice, since launching creates a new app browser.
+  EXPECT_EQ(2, web_feature_histogram_tester.GetCount(
+                   blink::mojom::WebFeature::kInstalledManifestApplied));
+}
+
+IN_PROC_BROWSER_TEST_F(WebAppLaunchUseCounterBrowserTest,
+                       NonInstallableSiteNoMeasure) {
+  WebFeatureHistogramTester web_feature_histogram_tester;
+  GURL test_url = https_server()->GetURL("/banners/no_manifest_test_page.html");
+  NavigateViaLinkClickToURLAndWait(browser(), test_url);
+
+  const webapps::AppId app_id = test::InstallPwaForCurrentUrl(browser());
+
+  EXPECT_EQ(0, web_feature_histogram_tester.GetCount(
+                   blink::mojom::WebFeature::kInstalledManifestApplied));
+}
+
+IN_PROC_BROWSER_TEST_F(WebAppLaunchUseCounterBrowserTest,
+                       MultiNavigationsMeasureMultipleTimes) {
+  WebFeatureHistogramTester web_feature_histogram_tester;
+  GURL test_url = https_server()->GetURL("/banners/manifest_test_page.html");
+  NavigateViaLinkClickToURLAndWait(browser(), test_url);
+
+  const webapps::AppId app_id = test::InstallPwaForCurrentUrl(browser());
+  Browser* const app_browser = LaunchWebAppBrowserAndWait(app_id);
+  content::WaitForLoadStop(
+      app_browser->tab_strip_model()->GetActiveWebContents());
+
+  EXPECT_EQ(2, web_feature_histogram_tester.GetCount(
+                   blink::mojom::WebFeature::kInstalledManifestApplied));
+
+  // Navigate the existing app window to an in scope url.
+  ui_test_utils::NavigateToURLBlockUntilNavigationsComplete(
+      app_browser, test_url, /*number_of_navigations=*/1);
+  content::WaitForLoadStop(
+      app_browser->tab_strip_model()->GetActiveWebContents());
+
+  // Use counter count changes as per navigations.
+  EXPECT_EQ(3, web_feature_histogram_tester.GetCount(
+                   blink::mojom::WebFeature::kInstalledManifestApplied));
+}
+
+IN_PROC_BROWSER_TEST_F(WebAppLaunchUseCounterBrowserTest,
+                       OutOfScopeNavigationsNotMeasured) {
+  WebFeatureHistogramTester web_feature_histogram_tester;
+  GURL test_url = https_server()->GetURL("/banners/scope_a/page_1.html");
+  NavigateViaLinkClickToURLAndWait(browser(), test_url);
+
+  const webapps::AppId app_id = test::InstallPwaForCurrentUrl(browser());
+  Browser* const app_browser = LaunchWebAppBrowserAndWait(app_id);
+  content::WaitForLoadStop(
+      app_browser->tab_strip_model()->GetActiveWebContents());
+
+  EXPECT_EQ(2, web_feature_histogram_tester.GetCount(
+                   blink::mojom::WebFeature::kInstalledManifestApplied));
+
+  GURL out_of_scope_url =
+      https_server()->GetURL("/banners/scope_b/scope_b.html");
+
+  // Navigate the existing app window to an out of scope url.
+  ui_test_utils::NavigateToURLBlockUntilNavigationsComplete(
+      app_browser, out_of_scope_url, /*number_of_navigations=*/1);
+  content::WaitForLoadStop(
+      app_browser->tab_strip_model()->GetActiveWebContents());
+
+  // Use counter does not change for out of scope navigations.
+  EXPECT_EQ(2, web_feature_histogram_tester.GetCount(
+                   blink::mojom::WebFeature::kInstalledManifestApplied));
+
+  // Navigate the existing app window to an in scope url (the initial install
+  // url).
+  ui_test_utils::NavigateToURLBlockUntilNavigationsComplete(
+      app_browser, test_url, /*number_of_navigations=*/1);
+  content::WaitForLoadStop(
+      app_browser->tab_strip_model()->GetActiveWebContents());
+
+  // Use counter will increment for an in-scope navigations.
+  EXPECT_EQ(3, web_feature_histogram_tester.GetCount(
+                   blink::mojom::WebFeature::kInstalledManifestApplied));
+}
 
 using WebAppWebDXManifestBrowserTest = WebAppBrowserTest;
 
@@ -1506,12 +1614,7 @@ IN_PROC_BROWSER_TEST_F(WebAppBrowserTest,
   // install source.
   EXPECT_FALSE(provider->registrar_unsafe().CanUserUninstallWebApp(app_id));
   const WebApp& web_app = *provider->registrar_unsafe().GetAppById(app_id);
-  if (base::FeatureList::IsEnabled(
-          features::kWebAppDontAddExistingAppsToSync)) {
     EXPECT_TRUE(web_app.GetSources().Has(WebAppManagement::kUserInstalled));
-  } else {
-    EXPECT_TRUE(web_app.IsSynced());
-  }
   EXPECT_TRUE(web_app.IsPolicyInstalledApp());
 }
 
@@ -2089,8 +2192,8 @@ IN_PROC_BROWSER_TEST_F(WebAppBrowserTest, SubframeRedirectsToWebApp) {
 }
 
 #if BUILDFLAG(IS_MAC)
-
-IN_PROC_BROWSER_TEST_F(WebAppBrowserTest, NewAppWindow) {
+// TODO(crbug.com/402249843): Flaky on Mac. Debug and re-enable.
+IN_PROC_BROWSER_TEST_F(WebAppBrowserTest, DISABLED_NewAppWindow) {
   BrowserList* const browser_list = BrowserList::GetInstance();
   const GURL app_url = GetSecureAppURL();
   const webapps::AppId app_id = InstallPWA(app_url);
@@ -2257,6 +2360,143 @@ IN_PROC_BROWSER_TEST_F(WebAppBrowserTest, ManifestShortcut) {
   histogram_tester.ExpectBucketCount("Blink.UseCounter.WebDXFeatures",
                                      blink::mojom::WebDXFeature::kAppShortcuts,
                                      1);
+}
+
+IN_PROC_BROWSER_TEST_F(WebAppBrowserTest, ManifestWithUseCounterFields) {
+  constexpr char kUseCounterHistogram[] = "Blink.UseCounter.Features";
+
+  base::HistogramTester histogram_tester;
+  GURL test_url = https_server()->GetURL(
+      "/banners/"
+      "manifest_test_page.html?manifest=manifest_with_use_counter_fields.json");
+  NavigateViaLinkClickToURLAndWait(browser(), test_url);
+
+  const webapps::AppId app_id = test::InstallPwaForCurrentUrl(browser());
+
+  histogram_tester.ExpectBucketCount(
+      kUseCounterHistogram, blink::mojom::WebFeature::kWebAppManifestStartUrl,
+      1);
+  histogram_tester.ExpectBucketCount(
+      kUseCounterHistogram, blink::mojom::WebFeature::kWebAppManifestIdField,
+      1);
+  histogram_tester.ExpectBucketCount(
+      kUseCounterHistogram, blink::mojom::WebFeature::kWebAppManifestDisplay,
+      1);
+  histogram_tester.ExpectBucketCount(
+      kUseCounterHistogram, blink::mojom::WebFeature::kWebAppManifestIcons, 1);
+  histogram_tester.ExpectBucketCount(
+      kUseCounterHistogram,
+      blink::mojom::WebFeature::kWebAppManifestScreenshots, 1);
+  histogram_tester.ExpectBucketCount(
+      kUseCounterHistogram, blink::mojom::WebFeature::kWebAppManifestScope, 1);
+  histogram_tester.ExpectBucketCount(
+      kUseCounterHistogram, blink::mojom::WebFeature::kWebAppManifestLockScreen,
+      1);
+  histogram_tester.ExpectBucketCount(
+      kUseCounterHistogram, blink::mojom::WebFeature::kWebAppManifestNoteTaking,
+      1);
+  histogram_tester.ExpectBucketCount(
+      kUseCounterHistogram,
+      blink::mojom::WebFeature::kWebAppManifestPermissionsPolicy, 1);
+  histogram_tester.ExpectBucketCount(
+      kUseCounterHistogram,
+      blink::mojom::WebFeature::kWebAppManifestPrefer_Related_Applications, 1);
+  histogram_tester.ExpectBucketCount(
+      kUseCounterHistogram, blink::mojom::WebFeature::kWebAppManifestThemeColor,
+      1);
+  histogram_tester.ExpectBucketCount(
+      kUseCounterHistogram,
+      blink::mojom::WebFeature::kWebAppManifestBackgroundColor, 1);
+  histogram_tester.ExpectBucketCount(
+      kUseCounterHistogram, blink::mojom::WebFeature::kWebAppManifestVersion,
+      1);
+  histogram_tester.ExpectBucketCount(
+      kUseCounterHistogram,
+      blink::mojom::WebFeature::kWebAppManifestRelated_Applications, 1);
+}
+
+IN_PROC_BROWSER_TEST_F(WebAppBrowserTest, ManifestWithNoUseCounterFields) {
+  base::HistogramTester histogram_tester;
+  GURL test_url = https_server()->GetURL(
+      "/banners/"
+      "manifest_test_page.html?manifest=manifest_with_no_use_counter_fields."
+      "json");
+  NavigateViaLinkClickToURLAndWait(browser(), test_url);
+
+  const webapps::AppId app_id = test::InstallPwaForCurrentUrl(browser());
+
+  histogram_tester.ExpectBucketCount(
+      "Blink.UseCounter.Features",
+      blink::mojom::WebFeature::kWebAppManifestStartUrl, 0);
+  histogram_tester.ExpectBucketCount(
+      "Blink.UseCounter.Features",
+      blink::mojom::WebFeature::kWebAppManifestIdField, 0);
+  histogram_tester.ExpectBucketCount(
+      "Blink.UseCounter.Features",
+      blink::mojom::WebFeature::kWebAppManifestScope, 0);
+}
+
+IN_PROC_BROWSER_TEST_F(WebAppBrowserTest, ManifestWithDisplayBrowser) {
+  WebFeatureHistogramTester web_feature_histogram_tester;
+  GURL test_url = https_server()->GetURL(
+      "/banners/"
+      "manifest_test_page.html?manifest=manifest_display_browser."
+      "json");
+  NavigateViaLinkClickToURLAndWait(browser(), test_url);
+
+  const webapps::AppId app_id = test::InstallPwaForCurrentUrl(browser());
+
+  EXPECT_EQ(1, web_feature_histogram_tester.GetCount(
+                   blink::mojom::WebFeature::kWebAppManifestDisplay));
+  EXPECT_EQ(1, web_feature_histogram_tester.GetCount(
+                   blink::mojom::WebFeature::kWebAppManifestDisplayBrowser));
+}
+
+IN_PROC_BROWSER_TEST_F(WebAppBrowserTest, ManifestWithDisplayMinimalUI) {
+  WebFeatureHistogramTester web_feature_histogram_tester;
+  GURL test_url = https_server()->GetURL(
+      "/banners/"
+      "manifest_test_page.html?manifest=minimal-ui."
+      "json");
+  NavigateViaLinkClickToURLAndWait(browser(), test_url);
+
+  const webapps::AppId app_id = test::InstallPwaForCurrentUrl(browser());
+
+  EXPECT_EQ(1, web_feature_histogram_tester.GetCount(
+                   blink::mojom::WebFeature::kWebAppManifestDisplay));
+  EXPECT_EQ(1, web_feature_histogram_tester.GetCount(
+                   blink::mojom::WebFeature::kWebAppManifestDisplayMinimalUI));
+}
+
+IN_PROC_BROWSER_TEST_F(WebAppBrowserTest, ManifestWithDisplayFullscreen) {
+  WebFeatureHistogramTester web_feature_histogram_tester;
+  GURL test_url = https_server()->GetURL(
+      "/banners/"
+      "manifest_test_page.html?manifest=fullscreen."
+      "json");
+  NavigateViaLinkClickToURLAndWait(browser(), test_url);
+
+  const webapps::AppId app_id = test::InstallPwaForCurrentUrl(browser());
+
+  EXPECT_EQ(1, web_feature_histogram_tester.GetCount(
+                   blink::mojom::WebFeature::kWebAppManifestDisplay));
+  EXPECT_EQ(1, web_feature_histogram_tester.GetCount(
+                   blink::mojom::WebFeature::kWebAppManifestDisplayFullscreen));
+}
+
+IN_PROC_BROWSER_TEST_F(WebAppBrowserTest, ManifestWithDisplayStandalone) {
+  WebFeatureHistogramTester web_feature_histogram_tester;
+  GURL test_url = https_server()->GetURL(
+      "/banners/"
+      "manifest_test_page.html?");
+  NavigateViaLinkClickToURLAndWait(browser(), test_url);
+
+  const webapps::AppId app_id = test::InstallPwaForCurrentUrl(browser());
+
+  EXPECT_EQ(1, web_feature_histogram_tester.GetCount(
+                   blink::mojom::WebFeature::kWebAppManifestDisplay));
+  EXPECT_EQ(1, web_feature_histogram_tester.GetCount(
+                   blink::mojom::WebFeature::kWebAppManifestDisplayStandalone));
 }
 
 IN_PROC_BROWSER_TEST_F(WebAppBrowserTest_Borderless, Borderless) {

@@ -14,9 +14,11 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <variant>
 
 #include "base/check.h"
 #include "base/containers/contains.h"
+#include "base/containers/flat_set.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/observer_list.h"
@@ -601,7 +603,8 @@ void DebugDrawFrame(
                         base::NumberToString(static_cast<int>(quad->material)));
       DBG_DRAW_TEXT_OPT(
           "frame.render_pass.layer_id", DBG_OPT_BLUE, display_rect.origin(),
-          base::StringPrintf("%u:%u", sqs->layer_namespace_id, sqs->layer_id));
+          base::StringPrintf("%u:%u:%u", sqs->layer_namespace_id.first,
+                             sqs->layer_namespace_id.second, sqs->layer_id));
       DBG_DRAW_TEXT_OPT("frame.render_pass.display_rect", DBG_OPT_GREEN,
                         display_rect.origin(), display_rect.ToString());
       DBG_DRAW_TEXT_OPT(
@@ -735,9 +738,9 @@ void Display::MaybeLogQuadsProperties(
     if (!candidate.is_opaque) {
       num_nonopaque_quads++;
     }
-    if (!absl::holds_alternative<gfx::OverlayTransform>(candidate.transform) ||
-        absl::get<gfx::OverlayTransform>(candidate.transform) !=
-             gfx::OVERLAY_TRANSFORM_NONE) {
+    if (!std::holds_alternative<gfx::OverlayTransform>(candidate.transform) ||
+        std::get<gfx::OverlayTransform>(candidate.transform) !=
+            gfx::OVERLAY_TRANSFORM_NONE) {
       num_transformation_quads++;
     }
     if (candidate.is_solid_color) {
@@ -813,6 +816,7 @@ OverdrawTracker::OverdrawTimeSeries Display::StopTrackingOverdraw() {
 
 bool Display::DrawAndSwap(const DrawAndSwapParams& params) {
   TRACE_EVENT0("viz", "Display::DrawAndSwap");
+  VIZ_HIT_PATH("DrawAndSwap");
   if (debug_settings_->show_aggregated_damage !=
       aggregator_->HasFrameAnnotator()) {
     if (debug_settings_->show_aggregated_damage) {
@@ -909,6 +913,7 @@ bool Display::DrawAndSwap(const DrawAndSwapParams& params) {
     // aggregated again so that the trail exists for a single frame.
     target_damage_bounding_rect.Union(
         renderer_->GetDelegatedInkTrailDamageRect());
+    VIZ_HIT_PATH("Aggregate");
     frame = aggregator_->Aggregate(
         current_surface_id_, params.expected_display_time,
         current_display_transform, target_damage_bounding_rect,
@@ -1114,7 +1119,8 @@ bool Display::DrawAndSwap(const DrawAndSwapParams& params) {
         std::move(animation_thread_ids), std::move(renderer_main_thread_ids),
         boost_type);
 
-    bool has_interactive_or_animated_frame = false;
+    bool has_interactive_frame = false;
+    bool has_animated_frame = false;
     for (const auto& surface_id : aggregator_->previous_contained_surfaces()) {
       surface = surface_manager_->GetSurfaceForId(surface_id);
       if (surface) {
@@ -1124,10 +1130,12 @@ bool Display::DrawAndSwap(const DrawAndSwapParams& params) {
           presentation_group_timing.AddPresentationHelper(std::move(helper));
         }
 
-        has_interactive_or_animated_frame |=
+        has_interactive_frame |=
             surface->HasActiveFrame() &&
-            (surface->GetActiveFrameMetadata().is_handling_interaction ||
-             surface->GetActiveFrameMetadata().is_handling_animation);
+            surface->GetActiveFrameMetadata().is_handling_interaction;
+        has_animated_frame |=
+            surface->HasActiveFrame() &&
+            surface->GetActiveFrameMetadata().is_handling_animation;
       }
     }
 
@@ -1163,8 +1171,8 @@ bool Display::DrawAndSwap(const DrawAndSwapParams& params) {
     swap_frame_data.ca_layer_error_code =
         overlay_processor_->GetCALayerErrorCode();
 #endif
-    swap_frame_data.is_handling_interaction_or_animation =
-        has_interactive_or_animated_frame;
+    swap_frame_data.is_handling_interaction = has_interactive_frame;
+    swap_frame_data.is_handling_animation = has_animated_frame;
 
     // We must notify scheduler and increase |pending_swaps_| before calling
     // SwapBuffers() as it can call DidReceiveSwapBuffersAck synchronously.
@@ -1476,7 +1484,7 @@ bool Display::OutputSurfaceSupportsSetFrameRate() {
 void Display::SetFrameIntervalOnOutputSurface(base::TimeDelta interval) {
   float interval_s = interval.InSecondsF();
   float frame_rate = interval_s == 0 ? 0 : (1 / interval_s);
-  output_surface_->SetFrameRate(frame_rate);
+  output_surface_->SetFrameRate({.frame_rate = frame_rate});
 }
 
 base::ScopedClosureRunner Display::GetCacheBackBufferCb() {

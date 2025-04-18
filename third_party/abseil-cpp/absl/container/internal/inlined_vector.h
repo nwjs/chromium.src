@@ -229,7 +229,7 @@ class AllocationTransaction {
     return result.data;
   }
 
-  ABSL_MUST_USE_RESULT Allocation<A> Release() && {
+  [[nodiscard]] Allocation<A> Release() && {
     Allocation<A> result = {GetData(), GetCapacity()};
     Reset();
     return result;
@@ -543,7 +543,7 @@ class Storage {
       (std::max)(N, sizeof(Allocated) / sizeof(ValueType<A>));
 
   struct Inlined {
-    alignas(ValueType<A>) char inlined_data[sizeof(
+    alignas(ValueType<A>) unsigned char inlined_data[sizeof(
         ValueType<A>[kOptimalInlinedSize])];
   };
 

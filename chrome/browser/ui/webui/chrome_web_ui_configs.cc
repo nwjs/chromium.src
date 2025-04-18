@@ -99,6 +99,7 @@
 #include "chrome/browser/ui/webui/settings/settings_ui.h"
 #include "chrome/browser/ui/webui/side_panel/bookmarks/bookmarks_side_panel_ui.h"
 #include "chrome/browser/ui/webui/side_panel/customize_chrome/customize_chrome_ui.h"
+#include "chrome/browser/ui/webui/side_panel/history/history_side_panel_ui.h"
 #include "chrome/browser/ui/webui/side_panel/history_clusters/history_clusters_side_panel_ui.h"
 #include "chrome/browser/ui/webui/side_panel/reading_list/reading_list_ui.h"
 #include "chrome/browser/ui/webui/signin/sync_confirmation_ui.h"
@@ -139,6 +140,7 @@
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 #include "chrome/browser/ui/webui/app_settings/web_app_settings_ui.h"
 #include "chrome/browser/ui/webui/browser_switch/browser_switch_ui.h"
+#include "chrome/browser/ui/webui/signin/history_sync_optin/history_sync_optin_ui.h"
 #include "chrome/browser/ui/webui/whats_new/whats_new_ui.h"
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
@@ -188,8 +190,8 @@
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
 #if BUILDFLAG(ENABLE_GLIC)
-#include "chrome/browser/glic/glic_fre_ui.h"
-#include "chrome/browser/glic/glic_ui.h"
+#include "chrome/browser/glic/fre/glic_fre_ui.h"
+#include "chrome/browser/glic/host/glic_ui.h"
 #endif
 
 #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
@@ -286,6 +288,7 @@ void RegisterChromeWebUIConfigs() {
   map.AddWebUIConfig(std::make_unique<DownloadsUIConfig>());
   map.AddWebUIConfig(std::make_unique<FeedbackUIConfig>());
   map.AddWebUIConfig(std::make_unique<HistoryUIConfig>());
+  map.AddWebUIConfig(std::make_unique<HistorySidePanelUIConfig>());
   map.AddWebUIConfig(std::make_unique<HistoryClustersSidePanelUIConfig>());
   map.AddWebUIConfig(std::make_unique<InspectUIConfig>());
 #if BUILDFLAG(ENABLE_SESSION_SERVICE)
@@ -347,9 +350,10 @@ void RegisterChromeWebUIConfigs() {
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
   map.AddWebUIConfig(std::make_unique<BrowserSwitchUIConfig>());
+  map.AddWebUIConfig(std::make_unique<HistorySyncOptinUIConfig>());
+  map.AddWebUIConfig(std::make_unique<OnDeviceTranslationInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<WebAppSettingsUIConfig>());
   map.AddWebUIConfig(std::make_unique<WhatsNewUIConfig>());
-  map.AddWebUIConfig(std::make_unique<OnDeviceTranslationInternalsUIConfig>());
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \

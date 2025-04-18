@@ -20,12 +20,14 @@
 #include "ash/system/notification_center/test_notifier_settings_controller.h"
 #include "base/memory/raw_ptr.h"
 #include "base/test/scoped_command_line.h"
+#include "base/types/pass_key.h"
 #include "chromeos/ash/components/system/fake_statistics_provider.h"
 #include "chromeos/ash/services/bluetooth_config/scoped_bluetooth_config_test_helper.h"
 #include "chromeos/ash/services/federated/public/cpp/fake_service_connection.h"
 #include "chromeos/ash/services/federated/public/cpp/service_connection.h"
 #include "ui/aura/test/aura_test_helper.h"
 
+class BrowserWithTestWindowTest;
 class PrefService;
 
 namespace aura {
@@ -58,6 +60,11 @@ class SavedDeskTestHelper;
 class TestKeyboardControllerObserver;
 class TestNewWindowDelegate;
 class TestWallpaperControllerClient;
+class AshTestBase;
+
+namespace floating_workspace {
+class FloatingWorkspaceServiceTest;
+}  // namespace floating_workspace
 
 namespace hotspot_config {
 class CrosHotspotConfigTestHelper;
@@ -132,21 +139,20 @@ class AshTestHelper : public aura::test::AuraTestHelper {
 
   display::Display GetSecondaryDisplay() const;
 
-  // Simulates a user sign-in. It creates a new user session, adds it to
-  // existing user sessions and makes it the active user session.
-  // `is_new_profile` indicates whether the logged-in account is new.
-  void SimulateUserLogin(
-      const AccountId& account_id,
-      user_manager::UserType user_type = user_manager::UserType::kRegular,
-      bool is_new_profile = false,
+  // Simulates a user sign-in. It creates and adds a new session based on the
+  // information provided in `login_info`, `account_id` and `pref_service',
+  // switches the active user, then may enter to the active session state if
+  // `LoginInfo.activate_session` is true. It returns AccountId for the new
+  // session.  Please see `TestSessionControllerClient::AddUserSession` for more
+  // details.
+  AccountId SimulateUserLogin(
+      LoginInfo login_info,
+      std::optional<AccountId> account_id,
       std::unique_ptr<PrefService> pref_service = nullptr);
 
   // Stabilizes the variable UI components (such as the battery view).
   void StabilizeUIForPixelTest();
 
-  TestSessionControllerClient* test_session_controller_client() {
-    return session_controller_client_.get();
-  }
   TestNotifierSettingsController* notifier_settings_controller() {
     return notifier_settings_controller_.get();
   }
@@ -191,6 +197,15 @@ class AshTestHelper : public aura::test::AuraTestHelper {
 
   FakeDlcserviceClient* dlc_service_client() {
     return dlc_service_client_.get();
+  }
+
+  template <typename T>
+    requires std::same_as<T, ::BrowserWithTestWindowTest> ||
+             std::same_as<T, AshTestBase> ||
+             std::same_as<T, floating_workspace::FloatingWorkspaceServiceTest>
+  TestSessionControllerClient* test_session_controller_client(
+      base::PassKey<T>) {
+    return session_controller_client_.get();
   }
 
  private:

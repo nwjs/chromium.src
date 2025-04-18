@@ -9,6 +9,7 @@
 #include <stdint.h>
 
 #include <algorithm>
+#include <optional>
 #include <ostream>
 #include <string_view>
 
@@ -301,6 +302,7 @@ int CreditCard::IconResourceId(Suggestion::Icon icon) {
     case Suggestion::Icon::kDelete:
     case Suggestion::Icon::kDevice:
     case Suggestion::Icon::kVehicle:
+    case Suggestion::Icon::kWork:
     case Suggestion::Icon::kEdit:
     case Suggestion::Icon::kEmail:
     case Suggestion::Icon::kError:
@@ -309,7 +311,7 @@ int CreditCard::IconResourceId(Suggestion::Icon icon) {
     case Suggestion::Icon::kGoogleMonochrome:
     case Suggestion::Icon::kGooglePasswordManager:
     case Suggestion::Icon::kGooglePay:
-    case Suggestion::Icon::kGooglePayDark:
+    case Suggestion::Icon::kHome:
     case Suggestion::Icon::kHttpsInvalid:
     case Suggestion::Icon::kHttpWarning:
     case Suggestion::Icon::kIdCard:
@@ -967,6 +969,16 @@ std::pair<std::u16string, std::u16string> CreditCard::LabelPieces() const {
     return std::make_pair(name_on_card_, std::u16string());
   }
 
+  if (base::FeatureList::IsEnabled(
+          features::kAutofillEnableNewFopDisplayDesktop)) {
+    if (CardIdentifierForAutofillDisplay().has_value()) {
+      return std::make_pair(CardIdentifierForAutofillDisplay().value(),
+                            NetworkAndLastFourDigits(/*obfuscation_length=*/2));
+    }
+    return std::make_pair(NetworkAndLastFourDigits(/*obfuscation_length=*/2),
+                          std::u16string());
+  }
+
   return std::make_pair(CardNameAndLastFourDigits(), name_on_card_);
 }
 
@@ -1046,8 +1058,7 @@ std::u16string CreditCard::CardNameForAutofillDisplay(
   if (HasNonEmptyValidNickname() || !customized_nickname.empty()) {
     return customized_nickname.empty() ? nickname_ : customized_nickname;
   }
-  if (base::FeatureList::IsEnabled(features::kAutofillEnableCardProductName) &&
-      !product_description_.empty()) {
+  if (!product_description_.empty()) {
     return product_description_;
   }
   return NetworkForDisplay();
@@ -1073,6 +1084,20 @@ std::u16string CreditCard::CardIdentifierStringAndDescriptiveExpiration(
       IDS_AUTOFILL_CREDIT_CARD_TWO_LINE_LABEL_FROM_NAME,
       CardNameAndLastFourDigits(customized_nickname),
       GetInfo(CREDIT_CARD_EXP_DATE_2_DIGIT_YEAR, app_locale));
+}
+
+std::optional<std::u16string> CreditCard::CardIdentifierForAutofillDisplay(
+    const std::u16string& customized_nickname) const {
+  if (!customized_nickname.empty()) {
+    return customized_nickname;
+  }
+  if (HasNonEmptyValidNickname()) {
+    return nickname_;
+  }
+  if (!product_description_.empty()) {
+    return product_description_;
+  }
+  return std::nullopt;
 }
 
 std::u16string CreditCard::DescriptiveExpiration(

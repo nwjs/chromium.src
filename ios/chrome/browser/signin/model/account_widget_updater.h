@@ -24,16 +24,13 @@ class AccountWidgetUpdater : public SystemIdentityManagerObserver {
   // SystemIdentityManagerObserver implementation.
   void OnIdentityListChanged() final;
   void OnIdentityUpdated(id<SystemIdentity> identity) final;
-  void OnIdentityRefreshTokenUpdated(id<SystemIdentity> identity) final;
-  void OnIdentityAccessTokenRefreshFailed(
-      id<SystemIdentity> identity,
-      id<RefreshAccessTokenError> error) final;
 
  private:
   SystemIdentityManager::IteratorResult StoreIdentityDataInDict(
       NSMutableDictionary* dictionary,
       id<SystemIdentity> identity);
   void UpdateLoadedAccounts();
+  void HandleMigrationIfNeeded();
 
   raw_ptr<SystemIdentityManager> system_identity_manager_;
 

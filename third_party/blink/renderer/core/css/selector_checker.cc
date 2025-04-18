@@ -46,6 +46,7 @@
 #include "third_party/blink/renderer/core/dom/nth_index_cache.h"
 #include "third_party/blink/renderer/core/dom/popover_data.h"
 #include "third_party/blink/renderer/core/dom/scroll_button_pseudo_element.h"
+#include "third_party/blink/renderer/core/dom/scroll_marker_group_data.h"
 #include "third_party/blink/renderer/core/dom/scroll_marker_pseudo_element.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/dom/slot_assignment_engine.h"
@@ -62,6 +63,7 @@
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_option_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_select_element.h"
+#include "third_party/blink/renderer/core/html/html_anchor_element.h"
 #include "third_party/blink/renderer/core/html/html_details_element.h"
 #include "third_party/blink/renderer/core/html/html_dialog_element.h"
 #include "third_party/blink/renderer/core/html/html_document.h"
@@ -1452,7 +1454,8 @@ bool SelectorChecker::CheckPseudoHas(const SelectorCheckingContext& context,
   bool match_in_shadow_tree = context.selector->HasArgumentMatchInShadowTree();
 
   if (match_in_shadow_tree && !has_anchor_element->GetShadowRoot()) {
-    NOTREACHED();
+    // Able to reach here when :host is after :has(). (e.g. ':has(div):host')
+    return false;
   }
 
   DCHECK(context.selector->SelectorList());
@@ -2074,6 +2077,12 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
     case CSSSelector::kPseudoTargetCurrent: {
       if (element.IsScrollMarkerPseudoElement()) {
         return To<ScrollMarkerPseudoElement>(element).IsSelected();
+      }
+      if (auto* anchor_element = DynamicTo<HTMLAnchorElement>(element)) {
+        if (ScrollMarkerGroupData* data =
+                anchor_element->GetScrollMarkerGroupContainerData()) {
+          return data->Selected() == element;
+        }
       }
       break;
     }

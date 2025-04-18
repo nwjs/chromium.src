@@ -285,56 +285,7 @@ void ManifestManager::ParseManifestFromPage(const KURL& document_url,
 
   // At this point, the manifest is validly parsed, and is not the default one.
   UseCounter::CountWebDXFeature(GetSupplementable(), WebDXFeature::kManifest);
-  RecordMetrics(result.manifest());
   ResolveCallbacks(std::move(result));
-}
-
-void ManifestManager::RecordMetrics(const mojom::blink::Manifest& manifest) {
-  if (manifest.has_custom_id) {
-    UseCounter::Count(GetSupplementable(), WebFeature::kWebAppManifestIdField);
-  }
-
-  if (manifest.capture_links != mojom::blink::CaptureLinks::kUndefined) {
-    UseCounter::Count(GetSupplementable(),
-                      WebFeature::kWebAppManifestCaptureLinks);
-  }
-
-  if (!manifest.launch_handler.is_null()) {
-    UseCounter::Count(GetSupplementable(),
-                      WebFeature::kWebAppManifestLaunchHandler);
-  }
-
-  if (!manifest.protocol_handlers.empty()) {
-    UseCounter::Count(GetSupplementable(),
-                      WebFeature::kWebAppManifestProtocolHandlers);
-  }
-
-  if (!manifest.scope_extensions.empty()) {
-    UseCounter::Count(GetSupplementable(),
-                      WebFeature::kWebAppManifestScopeExtensions);
-  }
-
-  if (!manifest.share_target.is_null()) {
-    UseCounter::CountWebDXFeature(GetSupplementable(),
-                                  WebDXFeature::kAppShareTargets);
-  }
-
-  if (!manifest.shortcuts.empty()) {
-    UseCounter::CountWebDXFeature(GetSupplementable(),
-                                  WebDXFeature::kAppShortcuts);
-  }
-
-  for (const mojom::blink::DisplayMode& display_override :
-       manifest.display_override) {
-    if (display_override == mojom::blink::DisplayMode::kWindowControlsOverlay) {
-      UseCounter::Count(GetSupplementable(),
-                        WebFeature::kWebAppWindowControlsOverlay);
-    } else if (display_override == mojom::blink::DisplayMode::kBorderless) {
-      UseCounter::Count(GetSupplementable(), WebFeature::kWebAppBorderless);
-    } else if (display_override == mojom::blink::DisplayMode::kTabbed) {
-      UseCounter::Count(GetSupplementable(), WebFeature::kWebAppTabbed);
-    }
-  }
 }
 
 void ManifestManager::ResolveCallbacks(Result result) {

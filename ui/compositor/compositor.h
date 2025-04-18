@@ -82,10 +82,6 @@ class Rect;
 class Size;
 }  // namespace gfx
 
-namespace gpu {
-class GpuMemoryBufferManager;
-}  // namespace gpu
-
 namespace viz {
 namespace mojom {
 class DisplayPrivate;
@@ -104,7 +100,6 @@ class ScopedAnimationDurationScaleMode;
 class ScrollInputHandler;
 class CompositorMetricsTracker;
 class CompositorPropertyTreeDelegate;
-struct PendingBeginFrameArgs;
 
 constexpr int kCompositorLockTimeoutMs = 67;
 
@@ -127,9 +122,6 @@ class COMPOSITOR_EXPORT ContextFactory {
 
   // Destroys per-compositor data.
   virtual void RemoveCompositor(Compositor* compositor) = 0;
-
-  // Gets the GPU memory buffer manager.
-  virtual gpu::GpuMemoryBufferManager* GetGpuMemoryBufferManager() = 0;
 
   // Gets the task graph runner.
   virtual cc::TaskGraphRunner* GetTaskGraphRunner() = 0;
@@ -383,10 +375,14 @@ class COMPOSITOR_EXPORT Compositor : public base::PowerSuspendObserver,
   void RequestSuccessfulPresentationTimeForNextFrame(
       SuccessfulPresentationTimeCallback callback);
 
+#if BUILDFLAG(IS_IOS)
+  void IssueExternalBeginFrameNoAck(const viz::BeginFrameArgs& args);
+#else
   void IssueExternalBeginFrame(
       const viz::BeginFrameArgs& args,
       bool force,
       base::OnceCallback<void(const viz::BeginFrameAck&)> callback);
+#endif
 
   // Creates a CompositorMetricsTracker for tracking this Compositor.
   CompositorMetricsTracker RequestNewCompositorMetricsTracker();
@@ -610,7 +606,24 @@ class COMPOSITOR_EXPORT Compositor : public base::PowerSuspendObserver,
   raw_ptr<ExternalBeginFrameControllerClientFactory>
       external_begin_frame_controler_client_factory_;
 
-  std::unique_ptr<PendingBeginFrameArgs> pending_begin_frame_args_;
+  // Used to hold on to IssueExternalBeginFrame(NoAck) arguments if
+  // |external_begin_frame_controller_| isn't ready yet.
+#if BUILDFLAG(IS_IOS)
+  using PendingBeginFrameArgs = viz::BeginFrameArgs;
+#else
+  struct PendingBeginFrameArgs {
+    PendingBeginFrameArgs(
+        const viz::BeginFrameArgs& args,
+        bool force,
+        base::OnceCallback<void(const viz::BeginFrameAck&)> callback);
+    ~PendingBeginFrameArgs();
+
+    const viz::BeginFrameArgs args;
+    const bool force;
+    base::OnceCallback<void(const viz::BeginFrameAck&)> callback;
+  };
+#endif
+  std::optional<PendingBeginFrameArgs> pending_begin_frame_args_;
 
   ui::HostBeginFrameObserver::SimpleBeginFrameObserverList
       simple_begin_frame_observers_;

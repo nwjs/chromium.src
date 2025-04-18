@@ -24,7 +24,6 @@
 #include "third_party/blink/renderer/core/style/computed_style_base_constants.h"
 #include "third_party/blink/renderer/core/style/style_view_transition_group.h"
 #include "third_party/blink/renderer/platform/allow_discouraged_type.h"
-#include "third_party/blink/renderer/platform/graphics/graphics_types.h"
 #include "third_party/blink/renderer/platform/graphics/paint/effect_paint_property_node.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_map.h"
 #include "third_party/blink/renderer/platform/heap/heap_traits.h"
@@ -87,6 +86,9 @@ class ViewTransitionStyleTracker
       Document& document,
       const blink::ViewTransitionToken& transition_token);
   ViewTransitionStyleTracker(Document& document, ViewTransitionState);
+  ViewTransitionStyleTracker(
+      Element& element,
+      const blink::ViewTransitionToken& transition_token);
   ~ViewTransitionStyleTracker();
 
   void AddTransitionElementsFromCSS();
@@ -333,7 +335,7 @@ class ViewTransitionStyleTracker
       PaintLayer*,
       const TreeScope*,
       Vector<AtomicString>& containing_group_stack,
-      const AtomicString& current_containing_group_name);
+      const AtomicString& nearest_group_with_contain);
 
   void InvalidateHitTestingCache();
 
@@ -353,6 +355,11 @@ class ViewTransitionStyleTracker
       PhysicalRect& visual_overflow_rect_in_layout_space,
       std::optional<gfx::RectF>& captured_rect_in_layout_space) const;
 
+  // Computes a transform for the participant's border box relative to the
+  // viewport in the case of a document transition, or the padding box rect of
+  // the scope element in the case of a scoped transition.
+  gfx::Transform ComputeTransformForParticipant(const LayoutObject&) const;
+
   viz::ViewTransitionElementResourceId GenerateResourceId(
       bool for_subframe_snapshot = false) const;
 
@@ -362,7 +369,14 @@ class ViewTransitionStyleTracker
   // found in one of the ancestors of the given element.
   AtomicString ComputeContainingGroupName(Element*) const;
 
+  // This is the scope element in the case of a scoped transition, or the
+  // root (html) element in the case of a document transition. It can be null
+  // in the rare case that the root element has been removed from the DOM.
+  Element* OriginatingElement() const;
+
   Member<Document> document_;
+
+  Member<Element> element_;
 
   // Indicates which step during the transition we're currently at.
   State state_ = State::kIdle;
@@ -434,6 +448,8 @@ class ViewTransitionStyleTracker
   HashMap<AtomicString, AncestorGroupNames> group_state_map_;
 
   base::Token token_;
+
+  HashMap<AtomicString, AtomicString> id_to_auto_name_map_;
 };
 
 }  // namespace blink

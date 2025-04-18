@@ -397,21 +397,6 @@ class BubbleDialogDelegate::BubbleWidgetObserver : public WidgetObserver {
       this};
 };
 
-class BubbleDialogDelegate::ThemeObserver : public ViewObserver {
- public:
-  explicit ThemeObserver(BubbleDialogDelegate* delegate) : delegate_(delegate) {
-    observation_.Observe(delegate->GetContentsView());
-  }
-
-  void OnViewThemeChanged(views::View* view) override {
-    delegate_->UpdateColorsFromTheme();
-  }
-
- private:
-  const raw_ptr<BubbleDialogDelegate> delegate_;
-  base::ScopedObservation<View, ViewObserver> observation_{this};
-};
-
 class BubbleDialogDelegateView::CloseOnDeactivatePin::Pins {
  public:
   Pins() = default;
@@ -476,11 +461,8 @@ BubbleDialogDelegate::BubbleDialogDelegate(View* anchor_view,
 
   RegisterWidgetInitializedCallback(base::BindOnce(
       [](BubbleDialogDelegate* bubble_delegate) {
-        bubble_delegate->theme_observer_ =
-            std::make_unique<ThemeObserver>(bubble_delegate);
-        // Call the theme callback to make sure the initial theme is picked up
-        // by the BubbleDialogDelegate.
-        bubble_delegate->UpdateColorsFromTheme();
+        // Update the frame colors, once the frame is initialized.
+        bubble_delegate->UpdateFrameColors();
       },
       this));
 
@@ -549,9 +531,6 @@ Widget* BubbleDialogDelegateView::CreateBubble(
     Widget::InitParams::Ownership ownership) {
   return CreateBubble(base::WrapUnique(delegate_view), ownership);
 }
-
-BubbleDialogDelegateView::BubbleDialogDelegateView()
-    : BubbleDialogDelegateView(nullptr, BubbleBorder::TOP_LEFT) {}
 
 BubbleDialogDelegateView::BubbleDialogDelegateView(View* anchor_view,
                                                    BubbleBorder::Arrow arrow,
@@ -663,7 +642,7 @@ void BubbleDialogDelegate::OnBubbleWidgetActivationChanged(bool active) {
   // Install |mac_bubble_closer_| the first time the widget becomes active.
   if (active && !mac_bubble_closer_) {
     mac_bubble_closer_ = std::make_unique<ui::BubbleCloser>(
-        GetWidget()->GetNativeWindow().GetNativeNSWindow(),
+        GetWidget()->GetNativeWindow(),
         base::BindRepeating(&BubbleDialogDelegate::OnDeactivate,
                             base::Unretained(this)));
   }
@@ -1120,23 +1099,23 @@ void BubbleDialogDelegate::SetSubtitleAllowCharacterBreak(bool allow) {
   }
 }
 
-void BubbleDialogDelegate::UpdateColorsFromTheme() {
-  View* const contents_view = GetContentsView();
-  DCHECK(contents_view);
-
+void BubbleDialogDelegate::UpdateFrameColors() {
   BubbleFrameView* frame_view = GetBubbleFrameView();
   if (frame_view) {
     frame_view->SetBackgroundColor(background_color());
   }
 
+  View* const contents_view = GetContentsView();
+  CHECK(contents_view);
+
   // When there's an opaque layer, the bubble border background won't show
   // through, so explicitly paint a background color.
   const bool contents_layer_opaque =
       contents_view->layer() && contents_view->layer()->fills_bounds_opaquely();
-  contents_view->SetBackground(
-      contents_layer_opaque || force_create_contents_background_
-          ? CreateSolidOrThemedBackground(background_color())
-          : nullptr);
+  contents_view->SetBackground(contents_layer_opaque ||
+                                       force_create_contents_background_
+                                   ? CreateSolidBackground(background_color())
+                                   : nullptr);
 }
 
 void BubbleDialogDelegate::OnBubbleWidgetVisibilityChanged(bool visible) {

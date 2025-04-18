@@ -43,6 +43,10 @@
 #include "services/network/public/mojom/fetch_api.mojom-shared.h"
 #include "third_party/zlib/google/compression_utils.h"
 
+#if BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/sync/test/integration/sync_test_utils_android.h"
+#endif  // BUILDFLAG(IS_ANDROID)
+
 using syncer::SyncCycleSnapshot;
 using syncer::SyncServiceImpl;
 
@@ -114,6 +118,21 @@ class SyncSetupChecker : public SingleClientStatusChangeChecker {
 
  private:
   const State wait_for_state_;
+};
+
+class SyncTransportStateChecker : public SingleClientStatusChangeChecker {
+ public:
+  SyncTransportStateChecker(SyncServiceImpl* service,
+                            syncer::SyncService::TransportState state)
+      : SingleClientStatusChangeChecker(service), state_(state) {}
+
+  bool IsExitConditionSatisfied(std::ostream* os) override {
+    *os << "Waiting for sync transport state to change";
+    return service()->GetTransportState() == state_;
+  }
+
+ private:
+  const syncer::SyncService::TransportState state_;
 };
 
 // Same as reset on chrome.google.com/sync.
@@ -208,6 +227,15 @@ signin::GaiaIdHash SyncServiceImplHarness::GetGaiaIdHashForPrimaryAccount()
           .gaia);
 }
 
+GaiaId SyncServiceImplHarness::GetGaiaIdForDefaultTestAccount() const {
+#if !BUILDFLAG(IS_ANDROID)
+  return signin::GetTestGaiaIdForEmail(username_);
+#else   // !BUILDFLAG(IS_ANDROID)
+  // TODO(crbug.com/40165479): pass `username_` once supported.
+  return sync_test_utils_android::GetGaiaIdForDefaultTestAccount();
+#endif  // !BUILDFLAG(IS_ANDROID)
+}
+
 bool SyncServiceImplHarness::SignInPrimaryAccount(
     signin::ConsentLevel consent_level) {
   DCHECK(!username_.empty());
@@ -282,6 +310,24 @@ bool SyncServiceImplHarness::ExitSyncPausedStateForPrimaryAccount() {
       IdentityManagerFactory::GetForProfile(profile_));
   // The engine was off in the sync-paused state, so wait for it to start.
   return AwaitSyncSetupCompletion();
+}
+
+bool SyncServiceImplHarness::EnterSignInPendingStateForPrimaryAccount() {
+  CHECK_EQ(service_->GetTransportState(),
+           syncer::SyncServiceImpl::TransportState::ACTIVE);
+  signin::IdentityManager* identity_manager =
+      IdentityManagerFactory::GetForProfile(profile_);
+  CHECK(identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin));
+  signin::SetInvalidRefreshTokenForPrimaryAccount(identity_manager);
+  return AwaitSyncTransportPaused();
+}
+
+bool SyncServiceImplHarness::ExitSignInPendingStateForPrimaryAccount() {
+  CHECK_EQ(service_->GetTransportState(),
+           syncer::SyncService::TransportState::PAUSED);
+  signin::SetRefreshTokenForPrimaryAccount(
+      IdentityManagerFactory::GetForProfile(profile_));
+  return AwaitSyncTransportActive();
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
 
@@ -423,6 +469,16 @@ bool SyncServiceImplHarness::AwaitSyncTransportActive() {
   return true;
 }
 
+bool SyncServiceImplHarness::AwaitSyncTransportPaused() {
+  if (!SyncTransportStateChecker(service(),
+                                 syncer::SyncService::TransportState::PAUSED)
+           .Wait()) {
+    LOG(ERROR) << "SyncTransportStateChecker timed out.";
+    return false;
+  }
+  return true;
+}
+
 bool SyncServiceImplHarness::AwaitInvalidationsStatus(bool expected_status) {
   return InvalidationsStatusChecker(service(), expected_status).Wait();
 }
@@ -555,6 +611,14 @@ SyncCycleSnapshot SyncServiceImplHarness::GetLastCycleSnapshot() const {
     return service()->GetLastCycleSnapshotForDebugging();
   }
   return SyncCycleSnapshot();
+}
+
+base::test::TestFuture<syncer::DataTypeSet>
+SyncServiceImplHarness::GetTypesWithUnsyncedData(
+    syncer::DataTypeSet requested_types) const {
+  base::test::TestFuture<syncer::DataTypeSet> future;
+  service()->GetTypesWithUnsyncedData(requested_types, future.GetCallback());
+  return future;
 }
 
 std::string SyncServiceImplHarness::GetServiceStatus() {

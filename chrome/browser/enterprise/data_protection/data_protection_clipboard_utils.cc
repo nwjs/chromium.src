@@ -7,11 +7,13 @@
 #include <algorithm>
 #include <memory>
 #include <queue>
+#include <variant>
 
 #include "base/no_destructor.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/enterprise/data_controls/chrome_rules_service.h"
 #include "chrome/browser/enterprise/data_protection/paste_allowed_request.h"
+#include "chrome/browser/profiles/profile.h"
 #include "components/enterprise/common/files_scan_data.h"
 #include "components/enterprise/connectors/core/connectors_prefs.h"
 #include "components/enterprise/content/clipboard_restriction_service.h"
@@ -512,7 +514,7 @@ void PasteIfAllowedByPolicy(
   }
 #else
   if (ui::DataTransferPolicyController::HasInstance()) {
-    absl::variant<size_t, std::vector<base::FilePath>> pasted_content;
+    std::variant<size_t, std::vector<base::FilePath>> pasted_content;
     if (clipboard_paste_data.file_paths.empty()) {
       DCHECK(metadata.size.has_value());
       pasted_content = *metadata.size;

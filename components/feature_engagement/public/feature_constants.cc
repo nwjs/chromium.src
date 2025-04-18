@@ -103,6 +103,12 @@ const base::FeatureParam<std::string> kIPHLensOverlayUrlAllowFilters{
     &feature_engagement::kIPHLensOverlayFeature, "x_url_allow_filters", "[]"};
 const base::FeatureParam<std::string> kIPHLensOverlayUrlBlockFilters{
     &feature_engagement::kIPHLensOverlayFeature, "x_url_block_filters", "[]"};
+const base::FeatureParam<std::string> kIPHLensOverlayUrlPathMatchAllowPatterns{
+    &feature_engagement::kIPHLensOverlayFeature,
+    "x_url_path_match_allow_patterns", "[]"};
+const base::FeatureParam<std::string> kIPHLensOverlayUrlPathMatchBlockPatterns{
+    &feature_engagement::kIPHLensOverlayFeature,
+    "x_url_path_match_block_patterns", "[]"};
 const base::FeatureParam<base::TimeDelta> kIPHLensOverlayDelayTime{
     &feature_engagement::kIPHLensOverlayFeature, "x_wait_time",
     base::Seconds(7)};
@@ -202,6 +208,9 @@ BASE_FEATURE(kIPHTabOrganizationSuccessFeature,
 BASE_FEATURE(kIPHTabSearchFeature,
              "IPH_TabSearch",
              base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHTabSearchToolbarButtonFeature,
+             "IPH_TabSearchToolbarButton",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHWebUITabStripFeature,
              "IPH_WebUITabStrip",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -235,6 +244,9 @@ BASE_FEATURE(kIPHAndroidTabDeclutter,
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHAdaptiveButtonInTopToolbarCustomizationNewTabFeature,
              "IPH_AdaptiveButtonInTopToolbarCustomization_NewTab",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHAdaptiveButtonInTopToolbarCustomizationOpenInBrowserFeature,
+             "IPH_AdaptiveButtonInTopToolbarCustomization_OpenInBrowser",
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHAdaptiveButtonInTopToolbarCustomizationShareFeature,
              "IPH_AdaptiveButtonInTopToolbarCustomization_Share",
@@ -397,6 +409,9 @@ BASE_FEATURE(kIPHPageInfoStoreInfoFeature,
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHPageZoomFeature,
              "IPH_PageZoom",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHPdfPageDownloadFeature,
+             "IPH_PdfPageDownload",
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHPreviewsOmniboxUIFeature,
              "IPH_PreviewsOmniboxUI",
@@ -652,7 +667,7 @@ BASE_FEATURE(kIPHiOSLensOverlayEntrypointTipFeature,
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHiOSLensOverlayEscapeHatchTipFeature,
              "IPH_iOSLensOverlayEscapeHatchTip",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHiOSSharedTabGroupForeground,
              "IPH_iOSSharedTabGroupForeground",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -664,6 +679,19 @@ BASE_FEATURE(kIPHiOSReminderNotificationsOverflowMenuBubbleFeature,
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHiOSReminderNotificationsOverflowMenuNewBadgeFeature,
              "IPH_iOSReminderNotificationsOverflowMenuNewBadgeFeature",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+// Note: This IPH will only be triggered if `kIdentityDiscAccountMenu` is
+// enabled.
+BASE_FEATURE(kIPHiOSSettingsInOverflowMenuBubbleFeature,
+             "IPH_iOSSettingsInOverflowMenuBubbleFeature",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+// Note: Feed swipe IPHs will only be triggered if `kFeedSwipeInProductHelp` is
+// enabled.
+BASE_FEATURE(kIPHiOSFeedSwipeStaticFeature,
+             "IPH_iOSFeedSwipeStaticFeature",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHiOSFeedSwipeAnimatedFeature,
+             "IPH_iOSFeedSwipeAnimatedFeature",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Non-FET feature.
@@ -684,6 +712,9 @@ BASE_FEATURE(kDefaultBrowserTriggerCriteriaExperiment,
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_FUCHSIA)
+BASE_FEATURE(kIPHAutofillBnplAffirmOrZipSuggestionFeature,
+             "IPH_AutofillBnplAffirmOrZipSuggestion",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHAutofillCardInfoRetrievalSuggestionFeature,
              "IPH_AutofillCardInfoRetrievalSuggestion",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -696,8 +727,11 @@ BASE_FEATURE(kIPHAutofillDisabledVirtualCardSuggestionFeature,
 BASE_FEATURE(kIPHAutofillExternalAccountProfileSuggestionFeature,
              "IPH_AutofillExternalAccountProfileSuggestion",
              base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE(kIPHAutofillPredictionImprovementsFeature,
-             "IPH_AutofillPredictionImprovements",
+BASE_FEATURE(kIPHAutofillHomeWorkProfileSuggestionFeature,
+             "IPH_AutofillHomeWorkProfileSuggestion",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHAutofillAiOptInFeature,
+             "IPH_AutofillAiOptIn",
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHAutofillVirtualCardCVCSuggestionFeature,
              "IPH_AutofillVirtualCardCVCSuggestion",

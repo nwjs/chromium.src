@@ -490,6 +490,9 @@ AccessibilityPrivateIsFeatureEnabledFunction::Run() {
     case accessibility_private::AccessibilityFeature::kFaceGaze:
       enabled = ::features::IsAccessibilityFaceGazeEnabled();
       break;
+    case accessibility_private::AccessibilityFeature::kCaptionsOnBrailleDisplay:
+      enabled = ::features::IsAccessibilityCaptionsOnBrailleDisplayEnabled();
+      break;
     case accessibility_private::AccessibilityFeature::kNone:
       return RespondNow(Error("Unrecognized feature"));
   }
@@ -939,15 +942,23 @@ AccessibilityPrivateSetKeyboardListenerFunction::Run() {
   return RespondNow(NoArguments());
 }
 
+AccessibilityPrivateSetNativeAccessibilityEnabledFunction::
+    AccessibilityPrivateSetNativeAccessibilityEnabledFunction() = default;
+
+AccessibilityPrivateSetNativeAccessibilityEnabledFunction::
+    ~AccessibilityPrivateSetNativeAccessibilityEnabledFunction() = default;
+
 ExtensionFunction::ResponseAction
 AccessibilityPrivateSetNativeAccessibilityEnabledFunction::Run() {
   EXTENSION_FUNCTION_VALIDATE(args().size() >= 1);
   EXTENSION_FUNCTION_VALIDATE(args()[0].is_bool());
   bool enabled = args()[0].GetBool();
   if (enabled) {
-    content::BrowserAccessibilityState::GetInstance()->EnableAccessibility();
+    scoped_accessibility_mode_ =
+        content::BrowserAccessibilityState::GetInstance()
+            ->CreateScopedModeForProcess(ui::kAXModeComplete);
   } else {
-    content::BrowserAccessibilityState::GetInstance()->DisableAccessibility();
+    scoped_accessibility_mode_.reset();
   }
   return RespondNow(NoArguments());
 }

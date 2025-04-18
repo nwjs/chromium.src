@@ -103,6 +103,7 @@
 #include "net/base/test_completion_callback.h"
 #include "net/cert/cert_status_flags.h"
 #include "net/dns/mock_host_resolver.h"
+#include "net/filter/filter_source_stream_test_util.h"
 #include "net/http/http_status_code.h"
 #include "net/test/embedded_test_server/default_handlers.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
@@ -2293,8 +2294,14 @@ struct ServiceWorkerScriptChecksumInfo {
 class ServiceWorkerSha256ScriptChecksumBrowserTest
     : public ServiceWorkerBrowserTest,
       public testing::WithParamInterface<
-          std::tuple<ServiceWorkerScriptImportType, bool, bool>> {
+          std::tuple<ServiceWorkerScriptImportType, bool, bool, bool>> {
  public:
+  ServiceWorkerSha256ScriptChecksumBrowserTest() {
+    if (IsCompressed()) {
+      scoped_feature_list_.InitWithFeatures(
+          {network::features::kRendererSideContentDecoding}, {});
+    }
+  }
   void SetUpOnMainThread() override {
     ServiceWorkerBrowserTest::SetUpOnMainThread();
     // Set a custom request handler for Sha256ScriptChecksum test.
@@ -2389,6 +2396,7 @@ class ServiceWorkerSha256ScriptChecksumBrowserTest
   }
   bool IsMainScriptChanged() { return std::get<1>(GetParam()); }
   bool IsImportedScriptChanged() { return std::get<2>(GetParam()); }
+  bool IsCompressed() { return std::get<3>(GetParam()); }
 
  private:
   std::unique_ptr<net::test_server::HttpResponse>
@@ -2444,7 +2452,13 @@ class ServiceWorkerSha256ScriptChecksumBrowserTest
     auto http_response =
         std::make_unique<net::test_server::BasicHttpResponse>();
     http_response->set_code(net::HTTP_OK);
-    http_response->set_content(updated_content);
+    if (IsCompressed()) {
+      auto compressed = net::CompressGzip(updated_content);
+      http_response->set_content(base::as_string_view(compressed));
+      http_response->AddCustomHeader("Content-Encoding", "gzip");
+    } else {
+      http_response->set_content(updated_content);
+    }
     http_response->set_content_type("text/javascript");
     http_response->AddCustomHeader("Service-Worker-Allowed", "/");
 
@@ -2453,6 +2467,7 @@ class ServiceWorkerSha256ScriptChecksumBrowserTest
 
   int64_t request_counter_for_main_script_ = 0;
   int64_t request_counter_for_imported_script_ = 0;
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_P(ServiceWorkerSha256ScriptChecksumBrowserTest,
@@ -2548,6 +2563,7 @@ INSTANTIATE_TEST_SUITE_P(
     testing::Combine(
         testing::Values(ServiceWorkerScriptImportType::kImportScripts,
                         ServiceWorkerScriptImportType::kStaticImport),
+        testing::Bool(),
         testing::Bool(),
         testing::Bool()));
 
@@ -4211,12 +4227,9 @@ class ServiceWorkerBrowserTestWithStoragePartitioning
     : public base::test::WithFeatureOverride,
       public ServiceWorkerBrowserTest {
  public:
-  // Dedicated worker clients only exist with PlzDedicatedWorker enabled, so
-  // turn on that flag.
   ServiceWorkerBrowserTestWithStoragePartitioning()
       : base::test::WithFeatureOverride(
-            net::features::kThirdPartyStoragePartitioning),
-        scoped_feature_list_(blink::features::kPlzDedicatedWorker) {}
+            net::features::kThirdPartyStoragePartitioning) {}
   bool ThirdPartyStoragePartitioningEnabled() const {
     return IsParamFeatureEnabled();
   }
@@ -4355,9 +4368,6 @@ class ServiceWorkerBrowserTestWithStoragePartitioning
           testing::UnorderedElementsAre(child_url));
     }
   }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 INSTANTIATE_FEATURE_OVERRIDE_TEST_SUITE(
@@ -5229,9 +5239,16 @@ IN_PROC_BROWSER_TEST_P(
           network::mojom::ServiceWorkerRouterSourceType::kNetwork));
 }
 
+// TODO(crbug.com/406829401): Re-enable this test
+#if defined(THREAD_SANITIZER)
+#define MAYBE_NetworkRequest_Wins_PassThrough \
+  DISABLED_NetworkRequest_Wins_PassThrough
+#else
+#define MAYBE_NetworkRequest_Wins_PassThrough NetworkRequest_Wins_PassThrough
+#endif
 IN_PROC_BROWSER_TEST_P(
     ServiceWorkerStaticRouterRaceNetworkAndFetchHandlerSourceBrowserTest,
-    NetworkRequest_Wins_PassThrough) {
+    MAYBE_NetworkRequest_Wins_PassThrough) {
   // Register the ServiceWorker and navigate to the in scope URL.
   SetupAndRegisterServiceWorker();
   // Capture the response head.
@@ -5371,9 +5388,17 @@ IN_PROC_BROWSER_TEST_P(
             GetInnerText());
 }
 
+// TODO(crbug.com/406829401): Re-enable this test
+#if defined(THREAD_SANITIZER)
+#define MAYBE_NetworkRequest_Wins_Fetch_No_Respond \
+  DISABLED_NetworkRequest_Wins_Fetch_No_Respond
+#else
+#define MAYBE_NetworkRequest_Wins_Fetch_No_Respond \
+  FetchHandler_NetworkRequest_Wins_Fetch_No_Respond
+#endif
 IN_PROC_BROWSER_TEST_P(
     ServiceWorkerStaticRouterRaceNetworkAndFetchHandlerSourceBrowserTest,
-    NetworkRequest_Wins_Fetch_No_Respond) {
+    MAYBE_NetworkRequest_Wins_Fetch_No_Respond) {
   // Register the ServiceWorker and navigate to the in scope URL.
   SetupAndRegisterServiceWorker();
   NavigateToURLBlockUntilNavigationsComplete(
@@ -5681,9 +5706,15 @@ IN_PROC_BROWSER_TEST_P(
   EXPECT_EQ(1, GetRequestCount(path_after_redirect));
 }
 
+// TODO(crbug.com/406829401): Re-enable this test
+#if defined(THREAD_SANITIZER)
+#define MAYBE_FetchHandler_PassThrough DISABLED_FetchHandler_PassThrough
+#else
+#define MAYBE_FetchHandler_PassThrough FetchHandler_PassThrough
+#endif
 IN_PROC_BROWSER_TEST_P(
     ServiceWorkerStaticRouterRaceNetworkAndFetchHandlerSourceBrowserTest,
-    FetchHandler_PassThrough) {
+    MAYBE_FetchHandler_PassThrough) {
   // Register the ServiceWorker and navigate to the in scope URL.
   scoped_refptr<ServiceWorkerVersion> version = SetupAndRegisterServiceWorker();
   // Capture the response head.
@@ -5712,9 +5743,16 @@ IN_PROC_BROWSER_TEST_P(
   EXPECT_EQ(1, GetRequestCount(relative_url));
 }
 
+// TODO(crbug.com/406829401): Re-enable this test
+#if defined(THREAD_SANITIZER)
+#define MAYBE_FetchHandler_PassThrough_Clone \
+  DISABLED_FetchHandler_PassThrough_Clone
+#else
+#define MAYBE_FetchHandler_PassThrough_Clone FetchHandler_PassThrough_Clone
+#endif
 IN_PROC_BROWSER_TEST_P(
     ServiceWorkerStaticRouterRaceNetworkAndFetchHandlerSourceBrowserTest,
-    FetchHandler_PassThrough_Clone) {
+    MAYBE_FetchHandler_PassThrough_Clone) {
   // Register the ServiceWorker and navigate to the in scope URL.
   scoped_refptr<ServiceWorkerVersion> version = SetupAndRegisterServiceWorker();
   // URL which create a cloned request and pass-through.

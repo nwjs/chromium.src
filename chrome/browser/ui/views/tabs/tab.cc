@@ -123,15 +123,15 @@ bool g_show_hover_card_on_mouse_hover = true;
 
 // Helper functions ------------------------------------------------------------
 
-// Returns the coordinate for an object of size |item_size| centered in a region
-// of size |size|, biasing towards placing any extra space ahead of the object.
+// Returns the coordinate for an object of size `item_size` centered in a region
+// of size `size`, biasing towards placing any extra space ahead of the object.
 int Center(int size, int item_size) {
   int extra_space = size - item_size;
   // Integer division below truncates, thus effectively "rounding toward zero";
   // to always place extra space ahead of the object, we want to round towards
   // positive infinity, which means we need to bias the division only when the
   // size difference is positive.  (Adding one unconditionally will stack with
-  // the truncation if |extra_space| is negative, resulting in off-by-one
+  // the truncation if `extra_space` is negative, resulting in off-by-one
   // errors.)
   if (extra_space > 0) {
     ++extra_space;
@@ -230,7 +230,7 @@ Tab::Tab(TabSlotController* controller)
   title_->SetAutoColorReadabilityEnabled(false);
   title_->SetText(CoreTabHelper::GetDefaultTitle());
   title_->SetBackgroundColor(SK_ColorTRANSPARENT);
-  // |title_| paints on top of an opaque region (the tab background) of a
+  // `title_` paints on top of an opaque region (the tab background) of a
   // non-opaque layer (the tabstrip's layer), which cannot currently be detected
   // by the subpixel-rendering opacity check.
   // TODO(crbug.com/40725997): Improve the check so that this case doen't
@@ -616,7 +616,6 @@ void Tab::OnMouseCaptureLost() {
 }
 
 void Tab::OnMouseMoved(const ui::MouseEvent& event) {
-  tab_style_views()->SetHoverLocation(event.location());
   controller_->OnMouseEventInTab(this, event);
 
   // Linux enter/leave events are sometimes flaky, so we don't want to "miss"
@@ -655,9 +654,7 @@ void Tab::MaybeUpdateHoverStatus(const ui::MouseEvent& event) {
 #endif
 
   mouse_hovered_ = true;
-  tab_style_views()->ShowHover(TabStyle::ShowHoverStyle::kSubtle);
-  UpdateForegroundColors();
-  DeprecatedLayoutImmediately();
+  controller_->ShowHover(this, TabStyle::ShowHoverStyle::kSubtle);
   if (g_show_hover_card_on_mouse_hover) {
     controller_->UpdateHoverCard(
         this, TabSlotController::HoverCardUpdateType::kHover);
@@ -669,9 +666,7 @@ void Tab::OnMouseExited(const ui::MouseEvent& event) {
     return;
   }
   mouse_hovered_ = false;
-  tab_style_views()->HideHover(TabStyle::HideHoverStyle::kGradual);
-  UpdateForegroundColors();
-  DeprecatedLayoutImmediately();
+  controller_->HideHover(this, TabStyle::HideHoverStyle::kGradual);
 }
 
 void Tab::OnGestureEvent(ui::GestureEvent* event) {
@@ -719,6 +714,18 @@ void Tab::OnGestureEvent(ui::GestureEvent* event) {
   event->SetHandled();
 }
 
+void Tab::ShowHover(TabStyle::ShowHoverStyle style) {
+  tab_style_views()->ShowHover(style);
+  UpdateForegroundColors();
+  DeprecatedLayoutImmediately();
+}
+
+void Tab::HideHover(TabStyle::HideHoverStyle style) {
+  tab_style_views()->HideHover(style);
+  UpdateForegroundColors();
+  DeprecatedLayoutImmediately();
+}
+
 // This function updates the accessible name for the tab whenever any of the
 // parameters that influence the accessible name change. It ultimately calls
 // BrowserView::GetAccessibleTabLabel to get the updated accessible name.
@@ -732,7 +739,7 @@ void Tab::UpdateAccessibleName() {
   if (!name.empty()) {
     GetViewAccessibility().SetName(name);
   } else {
-    // Under some conditions, |GetAccessibleTabName| returns an empty string.
+    // Under some conditions, `GetAccessibleTabName` returns an empty string.
     GetViewAccessibility().SetName(
         std::string(), ax::mojom::NameFrom::kAttributeExplicitlyEmpty);
   }
@@ -752,7 +759,7 @@ void Tab::SetGroup(std::optional<tab_groups::TabGroupId> group) {
 
 gfx::Size Tab::CalculatePreferredSize(
     const views::SizeBounds& available_size) const {
-  return gfx::Size(tab_style()->GetStandardWidth(),
+  return gfx::Size(GetTabSizeInfo().standard_width,
                    GetLayoutConstant(TAB_HEIGHT));
 }
 
@@ -811,7 +818,8 @@ TabSlotView::ViewType Tab::GetTabSlotViewType() const {
 TabSizeInfo Tab::GetTabSizeInfo() const {
   return {tab_style()->GetPinnedWidth(), tab_style()->GetMinimumActiveWidth(),
           tab_style()->GetMinimumInactiveWidth(),
-          tab_style()->GetStandardWidth()};
+          split().has_value() ? tab_style()->GetStandardSplitWidth()
+                              : tab_style()->GetStandardWidth()};
 }
 
 void Tab::SetClosing(bool closing) {
@@ -886,7 +894,14 @@ ui::ColorId Tab::GetAlertIndicatorColor(TabAlertState state) const {
 }
 
 bool Tab::IsActive() const {
-  return controller_->IsActiveTab(this);
+  if (split()) {
+    return std::ranges::any_of(controller()->GetTabsInSplit(this),
+                               [this](const Tab* split_tab) {
+                                 return controller_->IsActiveTab(split_tab);
+                               });
+  } else {
+    return controller_->IsActiveTab(this);
+  }
 }
 
 void Tab::ActiveStateChanged() {
@@ -979,7 +994,7 @@ void Tab::SetData(TabRendererData data) {
   if (!data_.pinned && old.pinned) {
     is_animating_from_pinned_ = true;
     // We must set this to true early, because we don't want to set
-    // |is_animating_from_pinned_| to false if we lay out before the animation
+    // `is_animating_from_pinned_` to false if we lay out before the animation
     // begins.
     set_animating(true);
   }

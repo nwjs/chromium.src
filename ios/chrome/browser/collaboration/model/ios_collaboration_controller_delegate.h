@@ -7,6 +7,7 @@
 
 #import <UIKit/UIKit.h>
 
+#import "base/ios/block_types.h"
 #import "base/memory/weak_ptr.h"
 #import "components/collaboration/public/collaboration_controller_delegate.h"
 
@@ -40,7 +41,7 @@ class IOSCollaborationControllerDelegate
                      ResultCallback result) override;
   void ShowError(const ErrorInfo& error, ResultCallback result) override;
   void Cancel(ResultCallback result) override;
-  void ShowAuthenticationUi(ResultCallback result) override;
+  void ShowAuthenticationUi(FlowType flow_type, ResultCallback result) override;
   void NotifySignInAndSyncStatusChange() override;
   void ShowJoinDialog(const data_sharing::GroupToken& token,
                       const data_sharing::SharedDataPreview& preview_data,
@@ -65,6 +66,23 @@ class IOSCollaborationControllerDelegate
   void OnAuthenticationComplete(ResultCallback result,
                                 SigninCoordinatorResult sign_in_result,
                                 id<SystemIdentity> completion_info);
+
+  // Called when the join flow has successfully joined the collaboration group,
+  // but the tab group hasn't been sync'ed yet. `dismiss_join_screen` needs to
+  // be called to dismiss the join screen.
+  void OnCollaborationJoinSuccess(ProceduralBlock dismiss_join_screen);
+
+  // Called when a group is about to be unshared. The unsharing is blocked until
+  // `continuation_block` is called.
+  void WillUnshareGroup(std::optional<tab_groups::LocalTabGroupID> local_id,
+                        void (^continuation_block)(BOOL));
+
+  // Called when the collaboration group is deleted, making the group unshared.
+  void DidUnshareGroup(std::optional<tab_groups::LocalTabGroupID> local_id,
+                       NSError* error);
+
+  // Callback called when the user acknowledge the error.
+  void ErrorAccepted(ResultCallback result);
 
   // Returns the local tab group that matches `either_id`.
   const TabGroup* GetLocalGroup(const tab_groups::EitherGroupID& either_id);
@@ -105,6 +123,9 @@ class IOSCollaborationControllerDelegate
   // The scrim displayed on top of the base view to let the user know that
   // something is happening and prevent interaction with the rest of the app.
   UIView* scrim_view_ = nil;
+
+  // Callback that needs to be called to dismiss the join screen.
+  base::OnceCallback<void()> dismiss_join_screen_callback_;
 
   base::WeakPtrFactory<IOSCollaborationControllerDelegate> weak_ptr_factory_{
       this};

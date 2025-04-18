@@ -169,7 +169,7 @@ public class TabStateFileManagerUnitTest {
         Assert.assertEquals(
                 "Need to increment 1 to expected value each time a LaunchTypeAtCreation "
                         + "is added. Also need to add any new LaunchTypeAtCreation to this test.",
-                29,
+                30,
                 TabLaunchTypeAtCreation.names.length);
     }
 
@@ -180,7 +180,7 @@ public class TabStateFileManagerUnitTest {
                         + " FlatBufferTabStateSerializer#getLaunchTypeFromFlatBuffer,"
                         + " FlatBufferTabStateSerializer#getLaunchTypeToFlatBuffer"
                         + " and this test file.",
-                27,
+                28,
                 TabLaunchType.SIZE);
     }
 
@@ -558,7 +558,7 @@ public class TabStateFileManagerUnitTest {
         assertEquals(PARENT_ID, state.parentId);
         assertEquals(OPENER_APP_ID, state.openerAppId);
         assertEquals(VERSION, state.contentsState.version());
-        assertEquals(THEME_COLOR, state.getThemeColor());
+        assertEquals(THEME_COLOR, state.themeColor);
         assertEquals(LAUNCH_TYPE_AT_CREATION, state.tabLaunchTypeAtCreation);
         assertEquals(ROOT_ID, state.rootId);
         assertEquals(USER_AGENT, state.userAgent);

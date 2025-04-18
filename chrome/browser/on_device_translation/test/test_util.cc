@@ -23,14 +23,10 @@ using ::testing::Invoke;
 namespace on_device_translation {
 
 MockComponentManager::MockComponentManager(const base::FilePath& package_dir)
-    : package_dir_(package_dir) {
-  ComponentManager::SetForTesting(this);
-}
+    : package_dir_(package_dir),
+      mock_component_manager_(ComponentManager::SetForTesting(this)) {}
 
-MockComponentManager::~MockComponentManager() {
-  ComponentManager::SetForTesting(nullptr);
-}
-
+MockComponentManager::~MockComponentManager() = default;
 void MockComponentManager::DoNotExpectCallRegisterTranslateKitComponent() {
   EXPECT_CALL(*this, RegisterTranslateKitComponentImpl()).Times(0);
 }
@@ -141,6 +137,15 @@ void MockComponentManager::InstallMockLanguagePackLater(
                      weak_ptr_factory_.GetWeakPtr(), language_pack_key));
 }
 
+MockTranslationManagerImpl::MockTranslationManagerImpl(
+    content::BrowserContext* browser_context,
+    const url::Origin& origin)
+    : TranslationManagerImpl(browser_context, origin),
+      mock_translation_manager_impl_(
+          TranslationManagerImpl::SetForTesting(this)) {}
+
+MockTranslationManagerImpl::~MockTranslationManagerImpl() = default;
+
 std::string CreateFakeDictionaryData(const std::string_view sourceLang,
                                      const std::string_view targetLang) {
   return base::StringPrintf("%s to %s: ", sourceLang, targetLang);
@@ -163,7 +168,7 @@ void TestSimpleTranslationWorks(Browser* browser,
                    base::StringPrintf(R"(
         (async () => {
           try {
-            const translator = await ai.translator.create({
+            const translator = await Translator.create({
               sourceLanguage: '%s',
               targetLanguage: '%s',
             });
@@ -194,7 +199,7 @@ void TestCreateTranslator(Browser* browser,
                    base::StringPrintf(R"(
   (async () => {
     try {
-      await ai.translator.create({
+      await Translator.create({
           sourceLanguage: '%s',
           targetLanguage: '%s',
         });
@@ -209,48 +214,8 @@ void TestCreateTranslator(Browser* browser,
             result);
 }
 
-// Tests that the AITranslatorCapabilities.available returns the expected
-// result.
-void TestTranslatorCapabilitiesAvailable(Browser* browser,
-                                         const std::string_view result) {
-  ASSERT_EQ(EvalJs(browser->tab_strip_model()->GetActiveWebContents(),
-                   R"(
-  (async () => {
-    try {
-      return (await ai.translator.capabilities()).available;
-    } catch (e) {
-      return e.toString();
-    }
-    })();
-  )")
-                .ExtractString(),
-            result);
-}
-
-// Tests that the AITranslatorCapabilities.languagePairAvailable() returns the
-// expected result.
-void TestLanguagePairAvailable(Browser* browser,
-                               const std::string_view sourceLang,
-                               const std::string_view targetLang,
-                               const std::string_view result) {
-  ASSERT_EQ(EvalJs(browser->tab_strip_model()->GetActiveWebContents(),
-                   base::StringPrintf(R"(
-  (async () => {
-    try {
-      const capabilities = await ai.translator.capabilities();
-      return capabilities.languagePairAvailable('%s','%s');
-    } catch (e) {
-      return e.toString();
-    }
-    })();
-  )",
-                                      sourceLang, targetLang))
-                .ExtractString(),
-            result);
-}
-
-// Tests that the capabilities availability() method returns the expected
-// result for the given languages.
+// Tests that availability() method returns the expected result for the given
+// languages.
 void TestTranslationAvailable(Browser* browser,
                               const std::string_view sourceLang,
                               const std::string_view targetLang,
@@ -259,7 +224,7 @@ void TestTranslationAvailable(Browser* browser,
                    base::StringPrintf(R"(
   (async () => {
     try {
-      return await ai.translator.availability({
+      return await Translator.availability({
           sourceLanguage: '%s',
           targetLanguage: '%s',
         });

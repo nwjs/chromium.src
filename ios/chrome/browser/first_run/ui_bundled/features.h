@@ -40,13 +40,13 @@ enum class BestFeaturesScreenVariationType {
   kGeneralScreenWithPasswordItemAfterDBPromo,
   // For "Shopping" classified users, show the Shopping-specific screen. For all
   // other users, show screen in kGeneralScreenWithPasswordItem arm. Appears
-  // before Default Browser promo.
-  kShoppingUsersWithFallbackBeforeDBPromo,
+  // after Default Browser promo.
+  kShoppingUsersWithFallbackAfterDBPromo,
   // For signed-in users, show the "signed-in" specific screen. For all other
   // users, don't show screen. Appears after Default Browser promo.
   kSignedInUsersOnlyAfterDBPromo,
   // Show the address bar promo instead of the Best Features screen.
-  kAddressBarPromoInsteadOfDBPromo,
+  kAddressBarPromoInsteadOfBestFeaturesScreen,
 };
 
 // Enum to represent arms of feature kUpdatedFirstRunSequence.

@@ -15,6 +15,7 @@
 #include "base/unguessable_token.h"
 #include "chromeos/crosapi/mojom/video_conference.mojom-shared.h"
 #include "chromeos/crosapi/mojom/video_conference.mojom.h"
+#include "components/search_engines/template_url.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 
@@ -252,6 +253,18 @@ class ASH_PUBLIC_EXPORT CaptureModeDelegate {
   virtual void DetectTextInImage(const SkBitmap& image,
                                  OnTextDetectionComplete callback) = 0;
 
+  // Sends the captured `image` to the Lens Web API for image search and text
+  // detection (if enabled). Invokes `search_callback` when the image search
+  // response is fetched, then `text_callback` when the text detection response
+  // is fetched. Invokes `error_callback` if an error occurs or an unexpected
+  // response is received.
+  virtual void SendLensWebRegionSearch(
+      const gfx::Image& image,
+      const bool is_standalone_session,
+      OnSearchUrlFetchedCallback search_callback,
+      OnTextDetectionComplete text_callback,
+      base::OnceCallback<void()> error_callback) = 0;
+
   // Sends the captured `region` and `image` to the backend. Invokes `callback`
   // when the response is fetched.
   virtual void SendRegionSearch(const SkBitmap& image,
@@ -273,6 +286,10 @@ class ASH_PUBLIC_EXPORT CaptureModeDelegate {
   // Deletes the remote file under `path` and calls `callback` with result.
   virtual void DeleteRemoteFile(const base::FilePath& path,
                                 base::OnceCallback<void(bool)> callback) = 0;
+
+  // Returns true if Google is the default search engine for the active user,
+  // and false otherwise.
+  virtual bool ActiveUserDefaultSearchProviderIsGoogle() const = 0;
 };
 
 }  // namespace ash

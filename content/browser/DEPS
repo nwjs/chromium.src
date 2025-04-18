@@ -11,6 +11,7 @@ include_rules = [
   "+components/download/database",
   "+components/download/public/common",
   "+components/embedder_support/switches.h",
+  "+components/embedder_support/user_agent_utils.h",
   "+components/file_access",
   "+components/filename_generation",
   "+components/grit",
@@ -187,9 +188,6 @@ specific_include_rules = {
     # These files do not cycle back to SiteInstance or BrowsingInstance.
     "+content/browser/renderer_host/render_process_host_impl.h",
     "+content/browser/renderer_host/agent_scheduling_group_host.h",
-  ],
-  "stable_video_decoder_factory\.cc" : [
-    "+ui/ozone/public/ozone_switches.h",
   ],
   "storage_partition_impl_unittest\.cc": [
     "+services/network/cookie_manager.h",

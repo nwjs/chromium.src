@@ -23,7 +23,7 @@ import {assert} from 'chrome://resources/js/assert.js';
 import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import {DeepLinkingMixin} from '../common/deep_linking_mixin.js';
-import {isAssistantAllowed, isLobsterSettingsToggleVisible, isMagicBoostFeatureEnabled, isMagicBoostNoticeBannerVisible, isQuickAnswersSupported, isScannerSettingsToggleVisible, isSunfishSettingsToggleVisible} from '../common/load_time_booleans.js';
+import {isAssistantAllowed, isLobsterSettingsToggleVisible, isMagicBoostFeatureEnabled, isMagicBoostNoticeBannerVisible, isQuickAnswersSupported, isScannerSettingsToggleVisible} from '../common/load_time_booleans.js';
 import {RouteOriginMixin} from '../common/route_origin_mixin.js';
 import type {PrefsState} from '../common/types.js';
 import {Setting} from '../mojom-webui/setting.mojom-webui.js';
@@ -82,20 +82,18 @@ export class SearchAndAssistantSettingsCardElement extends
         },
       },
 
-      isSunfishSettingsToggleVisible_: {
-        type: Boolean,
-        readOnly: true,
-        value: () => {
-          return isSunfishSettingsToggleVisible();
-        },
-      },
-
       isScannerSettingsToggleVisible_: {
         type: Boolean,
         readOnly: true,
         value: () => {
           return isScannerSettingsToggleVisible();
         },
+      },
+
+      isLobsterAllowedByEnterprisePolicy_: {
+        type: Boolean,
+        computed: 'isEnterprisePolicyAllowed_(' +
+            'prefs.settings.lobster.enterprise_settings.value)',
       },
 
       isScannerAllowedByEnterprisePolicy_: {
@@ -152,7 +150,6 @@ export class SearchAndAssistantSettingsCardElement extends
   private isAssistantAllowed_: boolean;
   private isQuickAnswersSupported_: boolean;
   private isMagicBoostFeatureEnabled_: boolean;
-  private readonly isSunfishSettingsToggleVisible_: boolean;
   private readonly isScannerSettingsToggleVisible_: boolean;
 
   constructor() {

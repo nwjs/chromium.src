@@ -6,6 +6,7 @@
 
 #include "base/containers/contains.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/to_string.h"
 #include "components/policy/core/common/cloud/cloud_policy_client.h"
 #include "components/policy/core/common/cloud/cloud_policy_constants.h"
 #include "components/policy/core/common/cloud/device_management_service.h"
@@ -181,6 +182,7 @@ DMServerJobConfiguration::DMServerJobConfiguration(CreateParams params)
     : JobConfigurationBase(params.type,
                            std::move(params.auth_data),
                            std::move(params.oauth_token),
+                           params.use_cookies,
                            params.factory),
       server_url_(params.service->configuration()->GetDMServerUrl()),
       callback_(std::move(params.callback)) {
@@ -364,7 +366,7 @@ GURL DMServerJobConfiguration::GetURL(int last_error) const {
 
   GURL url(server_url_);
   url = net::AppendQueryParameter(url, dm_protocol::kParamRetry,
-                                  last_error == 0 ? "false" : "true");
+                                  base::ToString(last_error != 0));
 
   if (last_error != 0) {
     url = net::AppendQueryParameter(url, dm_protocol::kParamLastError,

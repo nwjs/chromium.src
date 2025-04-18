@@ -7,6 +7,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "components/optimization_guide/core/model_execution/multimodal_message.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
+#include "components/optimization_guide/core/optimization_guide_model_executor.h"
 
 namespace optimization_guide {
 
@@ -22,8 +23,9 @@ OnDeviceOptions::OnDeviceOptions(const OnDeviceOptions& orig)
       adapter(orig.adapter),
       safety_checker(std::make_unique<SafetyChecker>(*orig.safety_checker)),
       token_limits(orig.token_limits),
-      logger(orig.logger),
-      log_uploader(orig.log_uploader) {}
+      capabilities(orig.capabilities),
+      sampling_params(orig.sampling_params),
+      logger(orig.logger) {}
 
 bool OnDeviceOptions::ShouldUse() const {
   return model_client->ShouldUse();
@@ -53,7 +55,12 @@ OnDeviceContext::GetOrCreateSession() {
   if (session_) {
     return session_;
   }
-  opts_.model_client->StartSession(session_.BindNewPipeAndPassReceiver());
+  auto params = on_device_model::mojom::SessionParams::New();
+  params->capabilities = opts_.capabilities;
+  params->top_k = opts_.sampling_params.top_k;
+  params->temperature = opts_.sampling_params.temperature;
+  opts_.model_client->StartSession(session_.BindNewPipeAndPassReceiver(),
+                                   std::move(params));
   session_.reset_on_disconnect();
   if (input_ && input_->pieces.size() > 0) {
     AddContext();

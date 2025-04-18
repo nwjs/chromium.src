@@ -7,9 +7,9 @@
 #include "base/functional/bind.h"
 #include "chrome/browser/ui/tabs/public/tab_dialog_manager.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
-#include "chrome/browser/ui/tabs/public/tab_interface.h"
 #include "chrome/browser/ui/views/autofill/payments/bnpl_tos_dialog.h"
 #include "components/autofill/core/browser/ui/payments/bnpl_tos_controller.h"
+#include "components/tab_collections/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
 
 using tabs::TabInterface;
@@ -35,22 +35,9 @@ BnplTosViewDesktop::BnplTosViewDesktop(
       tab_interface->GetTabFeatures()
           ->tab_dialog_manager()
           ->CreateShowDialogAndBlockTabInteraction(dialog_view.release());
-  dialog_widget_->MakeCloseSynchronous(base::BindOnce(
-      &BnplTosViewDesktop::CloseWidget, weak_ptr_factory_.GetWeakPtr()));
 }
 
 BnplTosViewDesktop::~BnplTosViewDesktop() = default;
-
-void BnplTosViewDesktop::CloseWidget(
-    views::Widget::ClosedReason closed_reason) {
-  BnplTosDialog* dialog_view =
-      AsViewClass<BnplTosDialog>(dialog_widget_->GetClientContentsView());
-  CHECK(dialog_view);
-  // The following call will result in the destruction of this and, indirectly,
-  // the `dialog_widget_`. Do not access this after the following call.
-  dialog_view->controller()->OnViewClosing(
-      closed_reason == views::Widget::ClosedReason::kAcceptButtonClicked);
-}
 
 void BnplTosViewDesktop::OpenLink(const GURL& url) {
   web_contents_->OpenURL(

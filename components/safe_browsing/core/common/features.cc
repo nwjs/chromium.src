@@ -46,7 +46,7 @@ BASE_FEATURE(kAddWarningShownTSToClientSafeBrowsingReport,
 
 BASE_FEATURE(kClientSideDetectionAcceptHCAllowlist,
              "ClientSideDetectionAcceptHCAllowlist",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kClientSideDetectionBrandAndIntentForScamDetection,
              "ClientSideDetectionBrandAndIntentForScamDetection",
@@ -78,6 +78,10 @@ BASE_FEATURE(kClientSideDetectionNotificationPrompt,
 
 BASE_FEATURE(kClientSideDetectionSamplePing,
              "ClientSideDetectionSamplePing",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kClientSideDetectionShowLlamaScamVerdictWarning,
+             "ClientSideDetectionShowLlamaScamVerdictWarning",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kClientSideDetectionShowScamVerdictWarning,
@@ -100,10 +104,6 @@ BASE_FEATURE(kCreateWarningShownClientSafeBrowsingReports,
              "CreateWarningShownClientSafeBrowsingReports",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kDeepScanningCriteria,
-             "SafeBrowsingDeepScanningCriteria",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kDelayedWarnings,
              "SafeBrowsingDelayedWarnings",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -121,10 +121,6 @@ BASE_FEATURE(kDlpRegionalizedEndpoints,
 
 BASE_FEATURE(kDownloadsPageReferrerUrl,
              "DownloadsPageReferrerUrl",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kDownloadTailoredWarnings,
-             "DownloadTailoredWarnings",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kDownloadWarningSurvey,
@@ -200,6 +196,10 @@ BASE_FEATURE(kExternalAppRedirectTelemetry,
              "SafeBrowsingExternalAppRedirectTelemetry",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kGoogleStandardDeviceBoundSessionCredentials,
+             "GoogleStandardDeviceBoundSessionCredentials",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kGooglePlayProtectInApkTelemetry,
              "SafeBrowsingGooglePlayProtectInApkTelemetry",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -217,10 +217,6 @@ constexpr base::FeatureParam<std::string> kHashPrefixRealTimeLookupsRelayUrl{
     "SafeBrowsingHashPrefixRealTimeLookupsRelayUrl",
     /*default_value=*/
     "https://google-ohttp-relay-safebrowsing.fastly-edge.com/"};
-
-BASE_FEATURE(kHashPrefixRealTimeLookupsFasterOhttpKeyRotation,
-             "SafeBrowsingHashPrefixRealTimeLookupsFasterOhttpKeyRotation",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kHashPrefixRealTimeLookupsSamplePing,
              "SafeBrowsingHashPrefixRealTimeLookupsSamplePing",
@@ -243,8 +239,22 @@ BASE_FEATURE(kMaliciousApkDownloadCheck,
              "MaliciousApkDownloadCheck",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-constexpr base::FeatureParam<bool> kMaliciousApkDownloadCheckTelemetryOnly{
-    &kMaliciousApkDownloadCheck, "telemetry_only", /*default_value=*/false};
+BASE_FEATURE_PARAM(bool,
+                   kMaliciousApkDownloadCheckTelemetryOnly,
+                   &kMaliciousApkDownloadCheck,
+                   "telemetry_only",
+                   /*default_value=*/false);
+
+BASE_FEATURE_PARAM(int,
+                   kMaliciousApkDownloadCheckSamplePercentage,
+                   &kMaliciousApkDownloadCheck,
+                   "sample_percentage",
+                   /*default_value=*/100);
+
+constexpr base::FeatureParam<std::string>
+    kMaliciousApkDownloadCheckServiceUrlOverride{&kMaliciousApkDownloadCheck,
+                                                 "service_url_override",
+                                                 /*default_value=*/""};
 #endif
 
 BASE_FEATURE(kOnDeviceNotificationContentDetectionModel,
@@ -259,12 +269,7 @@ constexpr base::FeatureParam<int>
 
 BASE_FEATURE(kPasswordLeakToggleMove,
              "PasswordLeakToggleMove",
-#if BUILDFLAG(IS_ANDROID)
-             base::FEATURE_DISABLED_BY_DEFAULT
-#else
-             base::FEATURE_ENABLED_BY_DEFAULT
-#endif
-);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kRedWarningSurvey,
              "RedWarningSurvey",
@@ -279,12 +284,6 @@ constexpr base::FeatureParam<std::string> kRedWarningSurveyReportTypeFilter{
 constexpr base::FeatureParam<std::string> kRedWarningSurveyDidProceedFilter{
     &kRedWarningSurvey, "RedWarningSurveyDidProceedFilter",
     /*default_value=*/"TRUE,FALSE"};
-
-#if BUILDFLAG(IS_IOS)
-BASE_FEATURE(kSafeBrowsingAsyncRealTimeCheck,
-             "SafeBrowsingAsyncRealTimeCheck",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
 
 BASE_FEATURE(kSafeBrowsingDailyPhishingReportsLimit,
              "SafeBrowsingDailyPhishingReportsLimit",
@@ -378,7 +377,6 @@ base::Value::List GetFeatureStatusList() {
       &kCreateNotificationsAcceptedClientSafeBrowsingReports,
       &kDelayedWarnings,
       &kDlpRegionalizedEndpoints,
-      &kDownloadTailoredWarnings,
       &kEnhancedFieldsForSecOps,
       &kEnhancedSafeBrowsingPromo,
       &kEnterprisePasswordReuseUiRefresh,
@@ -387,7 +385,6 @@ base::Value::List GetFeatureStatusList() {
       &kExtensionTelemetryForEnterprise,
       &kExternalAppRedirectTelemetry,
       &kHashPrefixRealTimeLookups,
-      &kHashPrefixRealTimeLookupsFasterOhttpKeyRotation,
       &kLocalIpAddressInEvents,
       &kLocalListsUseSBv5,
       &kOnDeviceNotificationContentDetectionModel,

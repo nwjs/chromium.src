@@ -201,9 +201,7 @@ export class SettingsMenu extends ReactiveLitElement {
       s.summaryEnabled = SummaryEnableState.ENABLED;
     });
     this.platformHandler.perfLogger.start({kind: 'summaryModelDownload'});
-    this.platformHandler.summaryModelLoader.download();
-    // The settings download both the model for summary and title suggestion.
-    this.platformHandler.titleSuggestionModelLoader.download();
+    this.platformHandler.downloadGenAiModel();
     this.summaryDownloadRequested.value = true;
   }
 
@@ -216,7 +214,7 @@ export class SettingsMenu extends ReactiveLitElement {
   }
 
   private renderSummaryModelDownloadStatus() {
-    const state = this.platformHandler.summaryModelLoader.state.value.kind;
+    const state = this.platformHandler.getGenAiModelState().kind;
     switch (state) {
       case 'unavailable':
         return assertNotReached(
@@ -231,7 +229,7 @@ export class SettingsMenu extends ReactiveLitElement {
             role="status"
             aria-live="polite"
           >
-            ${i18n.summaryDownloadErrorStatusMessage}
+            ${i18n.genAiDownloadErrorStatusMessage}
           </spoken-message>
         `;
       case 'installed':
@@ -244,13 +242,13 @@ export class SettingsMenu extends ReactiveLitElement {
             role="status"
             aria-live="polite"
           >
-            ${i18n.summaryDownloadFinishedStatusMessage}
+            ${i18n.genAiDownloadFinishedStatusMessage}
           </spoken-message>
         `;
       case 'installing':
         return html`
           <spoken-message slot="status" role="status" aria-live="polite">
-            ${i18n.summaryDownloadStartedStatusMessage}
+            ${i18n.genAiDownloadStartedStatusMessage}
           </spoken-message>
         `;
       default:
@@ -259,14 +257,14 @@ export class SettingsMenu extends ReactiveLitElement {
   }
 
   private renderSummaryModelDescriptionAndAction() {
-    const state = this.platformHandler.summaryModelLoader.state.value;
+    const state = this.platformHandler.getGenAiModelState();
     const downloadButton = html`
       <cra-button
         slot="action"
         button-style="secondary"
-        .label=${i18n.settingsOptionsSummaryDownloadButton}
+        .label=${i18n.settingsOptionsGenAiDownloadButton}
         @click=${this.onDownloadSummaryClick}
-        aria-label=${i18n.settingsOptionsSummaryDownloadButtonAriaLabel}
+        aria-label=${i18n.settingsOptionsGenAiDownloadButtonAriaLabel}
       ></cra-button>
     `;
     if (state.kind === 'notInstalled') {
@@ -275,14 +273,14 @@ export class SettingsMenu extends ReactiveLitElement {
       // case, but might happen if DLC is cleared manually by any mean.
       return html`
         <span slot="description">
-          ${i18n.settingsOptionsSummaryDescription}
+          ${i18n.settingsOptionsGenAiDescription}
           <a
             href=${HELP_URL}
             target="_blank"
             @click=${stopPropagation}
-            aria-label=${i18n.settingsOptionsSummaryLearnMoreLinkAriaLabel}
+            aria-label=${i18n.settingsOptionsGenAiLearnMoreLinkAriaLabel}
           >
-            ${i18n.settingsOptionsSummaryLearnMoreLink}
+            ${i18n.settingsOptionsGenAiLearnMoreLink}
           </a>
         </span>
         ${downloadButton}
@@ -294,7 +292,7 @@ export class SettingsMenu extends ReactiveLitElement {
       // that users can try download again later.
       return html`
         <span slot="description" class="error">
-          ${i18n.settingsOptionsSummaryErrorDescription}
+          ${i18n.settingsOptionsGenAiErrorDescription}
         </span>
         ${downloadButton}
       `;
@@ -305,7 +303,7 @@ export class SettingsMenu extends ReactiveLitElement {
         slot="action"
         .selected=${this.summaryEnabled}
         @change=${this.onSummaryToggle}
-        aria-label=${i18n.settingsOptionsSummaryLabel}
+        aria-label=${i18n.settingsOptionsGenAiLabel}
       >
       </cros-switch>
     `;
@@ -320,7 +318,7 @@ export class SettingsMenu extends ReactiveLitElement {
         );
       case 'installing': {
         const progressDescription =
-          i18n.settingsOptionsSummaryDownloadingProgressDescription(
+          i18n.settingsOptionsGenAiDownloadingProgressDescription(
             state.progress,
           );
         return html`
@@ -328,7 +326,7 @@ export class SettingsMenu extends ReactiveLitElement {
           <cra-button
             slot="action"
             button-style="secondary"
-            .label=${i18n.settingsOptionsSummaryDownloadingButton}
+            .label=${i18n.settingsOptionsGenAiDownloadingButton}
             disabled
           >
             <md-circular-progress indeterminate slot="leading-icon">
@@ -344,13 +342,12 @@ export class SettingsMenu extends ReactiveLitElement {
   }
 
   private renderSummaryModelSettings() {
-    if (this.platformHandler.summaryModelLoader.state.value.kind ===
-        'unavailable') {
+    if (this.platformHandler.getGenAiModelState().kind === 'unavailable') {
       return nothing;
     }
     return html`
       <settings-row>
-        <span slot="label">${i18n.settingsOptionsSummaryLabel}</span>
+        <span slot="label">${i18n.settingsOptionsGenAiLabel}</span>
         ${this.renderSummaryModelDescriptionAndAction()}
         ${this.renderSummaryModelDownloadStatus()}}
       </settings-row>

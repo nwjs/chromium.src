@@ -61,6 +61,18 @@ BASE_DECLARE_FEATURE(kLensOverlaySimplifiedSelection);
 COMPONENT_EXPORT(LENS_FEATURES)
 BASE_DECLARE_FEATURE(kLensOverlayUpdatedClientContext);
 
+// Enables opening the Lens overlay MGT feature in the side panel.
+COMPONENT_EXPORT(LENS_FEATURES)
+BASE_DECLARE_FEATURE(kLensOverlayMGTInSidePanel);
+
+// Enables uploading chunking for the Lens overlay.
+COMPONENT_EXPORT(LENS_FEATURES)
+BASE_DECLARE_FEATURE(kLensOverlayUploadChunking);
+
+// Enables recontextualizing on each query for the Lens overlay.
+COMPONENT_EXPORT(LENS_FEATURES)
+BASE_DECLARE_FEATURE(kLensOverlayRecontextualizeOnQuery);
+
 // The base URL for Lens.
 COMPONENT_EXPORT(LENS_FEATURES)
 extern const base::FeatureParam<std::string> kHomepageURLForLens;
@@ -387,6 +399,10 @@ extern bool UseApcAsContext();
 COMPONENT_EXPORT(LENS_FEATURES)
 extern bool SendPageUrlForContextualization();
 
+// Returns whether to include the page title in the page content upload request.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern bool SendPageTitleForContextualization();
+
 // The timeout set for page content upload requests in milliseconds.
 COMPONENT_EXPORT(LENS_FEATURES)
 extern int GetLensOverlayPageContentRequestTimeoutMs();
@@ -603,7 +619,16 @@ extern bool IsLensOverlayTranslateLanguagesFetchEnabled();
 COMPONENT_EXPORT(LENS_FEATURES)
 extern std::string GetLensOverlayTranslateEndpointURL();
 
-// Returns whether to show the ghost loader in the contextual searchbox.
+// Returns whether to show the ghost loader component for the contextual
+// searchbox. This includes the loading indicator, the error state, and the hint
+// text if the loading state is disabled via the feature flag below.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern bool EnableContextualSearchboxGhostLoader();
+
+// Returns whether to show the ghost loader loading state in the contextual
+// searchbox. If this is false, but the ghost loader is enabled, the ghost
+// loader will still be shown on searchbox focuswith hint text instead of the
+// loading indicator.
 COMPONENT_EXPORT(LENS_FEATURES)
 extern bool ShowContextualSearchboxGhostLoaderLoadingState();
 
@@ -720,9 +745,53 @@ extern bool PageContentUploadRequestIdFixEnabled();
 COMPONENT_EXPORT(LENS_FEATURES)
 extern bool UpdateViewportEachQueryEnabled();
 
+// Whether to send the current page for PDFs.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern bool SendPdfCurrentPageEnabled();
+
+// Whether to show zero prefix suggestions in the contextual searchbox.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern bool ShowContextualSearchboxZeroPrefixSuggest();
+
 // Whether to use the updated client context.
 COMPONENT_EXPORT(LENS_FEATURES)
 extern bool IsUpdatedClientContextEnabled();
-}  // namespace lens::features
 
+// Whether to show open MGT search pages in the side panel.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern bool ShouldShowMGTInSidePanel();
+
+// Whether to use the alt loading hint when overlay is opened on web pages.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern bool ShouldUseAltLoadingHintWeb();
+
+// Whether to use the alt loading hint when overlay is opened on pdfs.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern bool ShouldUseAltLoadingHintPdf();
+
+// Whether to enable upload chunking in the Lens Overlay.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern bool IsLensOverlayUploadChunkingEnabled();
+
+// Returns the max number of bytes to allow for upload chunking.
+COMPONENT_EXPORT(LENS_FEATURES)
+uint32_t GetLensOverlayChunkSizeBytes();
+
+// The endpoint URL for upload chunking.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern std::string GetLensOverlayUploadChunkEndpointURL();
+
+// Whether to enable debug options for upload chunking.
+COMPONENT_EXPORT(LENS_FEATURES)
+bool IsLensOverlayUploadChunkingUseDebugOptionsEnabled();
+
+// The timeout set for upload chunk requests in milliseconds.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern int GetLensOverlayUploadChunkRequestTimeoutMs();
+
+// Whether to recontextualize on each query.
+COMPONENT_EXPORT(LENS_FEATURES)
+bool ShouldLensOverlayRecontextualizeOnQuery();
+
+}  // namespace lens::features
 #endif  // COMPONENTS_LENS_LENS_FEATURES_H_

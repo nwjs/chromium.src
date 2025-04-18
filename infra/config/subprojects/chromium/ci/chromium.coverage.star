@@ -45,6 +45,7 @@ ci.defaults.set(
     execution_timeout = 20 * time.hour,
     health_spec = health_spec.DEFAULT,
     priority = ci.DEFAULT_FYI_PRIORITY,
+    reclient_enabled = False,
     service_account = ci.DEFAULT_SERVICE_ACCOUNT,
     shadow_service_account = ci.DEFAULT_SHADOW_SERVICE_ACCOUNT,
     siso_enabled = True,
@@ -128,6 +129,7 @@ coverage_builder(
         targets = [
             "android_pie_coverage_instrumentation_tests",
             "chromium_junit_tests_scripts",
+            "gtests_once",
         ],
         mixins = [
             "chromium_pixel_2_pie",
@@ -270,6 +272,7 @@ coverage_builder(
                 ),
             ),
             "chromium_android_scripts",
+            "gtests_once",
         ],
         additional_compile_targets = [
             "chrome_nocompile_tests",
@@ -463,6 +466,7 @@ coverage_builder(
     targets = targets.bundle(
         targets = [
             "chromium_android_gtests",
+            "gtests_once",
         ],
         mixins = [
             "chromium_pixel_2_pie",
@@ -808,6 +812,7 @@ coverage_builder(
     targets = targets.bundle(
         targets = [
             "fuchsia_gtests",
+            "gtests_once",
             targets.bundle(
                 targets = "gpu_angle_fuchsia_unittests_isolated_scripts",
                 mixins = "expand-as-isolated-script",
@@ -1020,6 +1025,7 @@ coverage_builder(
     targets = targets.bundle(
         targets = [
             "linux_chromeos_gtests",
+            "gtests_once",
         ],
         additional_compile_targets = [
             "gn_all",
@@ -1220,6 +1226,58 @@ coverage_builder(
 
 # Experimental builder. Does not export_coverage_to_zoss.
 coverage_builder(
+    name = "linux-centipede-fuzz-coverage",
+    description_html = "This builder collects code coverage for centipede.",
+    executable = "recipe:chromium/fuzz",
+    builder_spec = builder_config.builder_spec(
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+            apply_configs = ["use_clang_coverage"],
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium_clang",
+            apply_configs = [
+                "clobber",
+                "mb",
+            ],
+            build_config = builder_config.build_config.RELEASE,
+            target_bits = 64,
+            target_platform = builder_config.target_platform.LINUX,
+        ),
+    ),
+    gn_args = gn_args.config(
+        configs = [
+            "use_clang_coverage",
+            "static",
+            "mojo_fuzzer",
+            "centipede",
+            "dcheck_off",
+            "remoteexec",
+            "chromeos_codecs",
+            "pdf_xfa",
+            "release",
+            "linux",
+            "x64",
+        ],
+    ),
+    builderless = True,
+    os = os.LINUX_DEFAULT,
+    console_view_entry = [
+        consoles.console_view_entry(
+            category = "linux-fuzz",
+            short_name = "centipede",
+        ),
+    ],
+    contact_team_email = "chrome-fuzzing-core@google.com",
+    notifies = ["chrome-fuzzing-core"],
+    properties = {
+        "collect_fuzz_coverage": True,
+        "fuzz_engine": "centipede",
+    },
+)
+
+# Experimental builder. Does not export_coverage_to_zoss.
+coverage_builder(
     name = "linux-x64-fuzzilli-coverage",
     description_html = "This builder collects code coverage for V8 Fuzzilli tests.",
     executable = "recipe:chromium/fuzz",
@@ -1306,6 +1364,7 @@ coverage_builder(
             "chromium_linux_gtests",
             "chromium_linux_rel_isolated_scripts_code_coverage",
             "gpu_dawn_webgpu_cts",
+            "gtests_once",
             "chromium_linux_scripts",
         ],
         mixins = [
@@ -1437,6 +1496,7 @@ coverage_builder(
             "chromium_mac_gtests",
             "chromium_mac_rel_isolated_scripts_code_coverage",
             # TODO(crbug.com/40249801): Enable gpu_dawn_webgpu_cts
+            "gtests_once",
         ],
         mixins = [
             "isolate_profile_data",
@@ -1512,6 +1572,7 @@ coverage_builder(
             "chromium_win_gtests",
             "chromium_win_rel_isolated_scripts_code_coverage",
             "gpu_dawn_webgpu_cts",
+            "gtests_once",
         ],
         mixins = [
             "isolate_profile_data",

@@ -2,17 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-source_set("metrics") {
-  sources = [
-    "metrics.h",
-    "metrics.mm",
-  ]
-  deps = [
-    ":tracking_source",
-    "//base",
-  ]
-}
-
 source_set("tracking_source") {
   sources = [ "tracking_source.h" ]
 }
@@ -26,17 +15,6 @@ source_set("features") {
     "//components/prefs",
     "//components/variations/service",
     "//ios/chrome/browser/shared/model/application_context",
-    "//ios/chrome/browser/shared/model/prefs:pref_names",
-  ]
-}
-
-source_set("opt_in_status") {
-  sources = [
-    "parcel_tracking_opt_in_status.h",
-    "parcel_tracking_opt_in_status.mm",
-  ]
-  deps = [
-    "//components/prefs",
     "//ios/chrome/browser/shared/model/prefs:pref_names",
   ]
 }

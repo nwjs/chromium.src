@@ -10,6 +10,7 @@
 #include <memory>
 #include <string_view>
 #include <utility>
+#include <variant>
 
 #include "base/barrier_closure.h"
 #include "base/base64.h"
@@ -266,20 +267,24 @@ class CookieRetrieverNetworkService
                   const net::CookieAccessResultList& excluded_cookies) {
     for (const auto& cookie_with_access_result : cookies) {
       const net::CanonicalCookie& cookie = cookie_with_access_result.cookie;
-      // TODO (crbug.com/326605834) Once ancestor chain bit changes are
-      // implemented update this method utilize the ancestor bit.
+
       base::expected<net::CookiePartitionKey::SerializedCookiePartitionKey,
                      std::string>
           serialized_partition_key =
               net::CookiePartitionKey::Serialize(cookie.PartitionKey());
       // We could be missing cookies that have unserializable partition key.
       // Reference the CookiePartitionKey::IsSerializable docs for more details.
+      // Default to true for has_cross_site_ancestor if the partition key is
+      // unserializable to avoid false positives.
       std::string key = base::StringPrintf(
-          "%s::%s::%s::%d::%s", cookie.Name().c_str(), cookie.Domain().c_str(),
+          "%s::%s::%s::%d::%s::%d", cookie.Name().c_str(), cookie.Domain().c_str(),
           cookie.Path().c_str(), cookie.SecureAttribute(),
           serialized_partition_key.has_value()
               ? serialized_partition_key->TopLevelSite().c_str()
-              : serialized_partition_key.error().c_str());
+              : serialized_partition_key.error().c_str(),
+          serialized_partition_key.has_value()
+              ? serialized_partition_key->has_cross_site_ancestor()
+              : true);
       all_cookies_.emplace(std::move(key), cookie);
     }
   }
@@ -327,12 +332,9 @@ std::vector<net::CanonicalCookie> FilterCookies(
            partition_key->GetTopLevelSite())) {
         continue;
       }
-      // TODO(crbug.com/328043119): Remove checks for
-      // AncestorChainBitEnabledInPartitionedCookies after feature is removed.
-      if (base::FeatureList::IsEnabled(
-              net::features::kAncestorChainBitEnabledInPartitionedCookies) &&
-          (serialized_result->has_cross_site_ancestor() !=
-           partition_key->GetHasCrossSiteAncestor())) {
+
+      if (serialized_result->has_cross_site_ancestor() !=
+           partition_key->GetHasCrossSiteAncestor()) {
         continue;
       }
     }
@@ -366,7 +368,7 @@ void DeleteFilteredCookies(
   }
 }
 
-absl::variant<net::CookieSourceScheme, Response> GetSourceSchemeFromProtocol(
+std::variant<net::CookieSourceScheme, Response> GetSourceSchemeFromProtocol(
     const std::string& source_scheme) {
   if (source_scheme == Network::CookieSourceSchemeEnum::Unset) {
     return net::CookieSourceScheme::kUnset;
@@ -378,7 +380,7 @@ absl::variant<net::CookieSourceScheme, Response> GetSourceSchemeFromProtocol(
   return Response::InvalidParams("Invalid cookie source scheme");
 }
 
-absl::variant<int, Response> GetCookieSourcePort(int source_port) {
+std::variant<int, Response> GetCookieSourcePort(int source_port) {
   // Only {url::PORT_UNSPECIFIED, [1,65535]} are valid.
   if (source_port == url::PORT_UNSPECIFIED ||
       (source_port >= 1 && source_port <= 65535)) {
@@ -390,7 +392,7 @@ absl::variant<int, Response> GetCookieSourcePort(int source_port) {
 
 }  // namespace
 
-absl::variant<std::unique_ptr<net::CanonicalCookie>, Response>
+std::variant<std::unique_ptr<net::CanonicalCookie>, Response>
 MakeCookieFromProtocolValues(
     const std::string& name,
     const std::string& value,
@@ -488,11 +490,11 @@ MakeCookieFromProtocolValues(
   if (source_scheme.has_value()) {
     auto cookie_source_scheme_or_error =
         GetSourceSchemeFromProtocol(source_scheme.value());
-    if (absl::holds_alternative<Response>(cookie_source_scheme_or_error)) {
-      return absl::get<Response>(std::move(cookie_source_scheme_or_error));
+    if (std::holds_alternative<Response>(cookie_source_scheme_or_error)) {
+      return std::get<Response>(std::move(cookie_source_scheme_or_error));
     }
     net::CookieSourceScheme cookie_source_scheme =
-        absl::get<net::CookieSourceScheme>(cookie_source_scheme_or_error);
+        std::get<net::CookieSourceScheme>(cookie_source_scheme_or_error);
     if (cookie->SecureAttribute() &&
         cookie_source_scheme == net::CookieSourceScheme::kNonSecure) {
       return Response::InvalidParams(
@@ -507,10 +509,10 @@ MakeCookieFromProtocolValues(
   // keep the value that was implied from `url` via CreateSanitizedCookie.
   if (source_port.has_value()) {
     auto cookie_source_port_or_error = GetCookieSourcePort(source_port.value());
-    if (absl::holds_alternative<Response>(cookie_source_port_or_error)) {
-      return absl::get<Response>(std::move(cookie_source_port_or_error));
+    if (std::holds_alternative<Response>(cookie_source_port_or_error)) {
+      return std::get<Response>(std::move(cookie_source_port_or_error));
     }
-    int port_value = absl::get<int>(cookie_source_port_or_error);
+    int port_value = std::get<int>(cookie_source_port_or_error);
 
     // If the url has a port specified it must match the source_port value.
     // Otherwise this set cookie request is considered malformed.
@@ -1001,6 +1003,11 @@ GetProtocolBlockedCookieReason(net::CookieInclusionStatus status) {
   if (status.HasExclusionReason(net::CookieInclusionStatus::ExclusionReason::
                                     EXCLUDE_SCHEME_MISMATCH)) {
     blockedReasons->push_back(Network::CookieBlockedReasonEnum::SchemeMismatch);
+  }
+  if (status.HasExclusionReason(net::CookieInclusionStatus::ExclusionReason::
+                                    EXCLUDE_ANONYMOUS_CONTEXT)) {
+    blockedReasons->push_back(
+        Network::CookieBlockedReasonEnum::AnonymousContext);
   }
   return blockedReasons;
 }
@@ -1744,12 +1751,12 @@ void NetworkHandler::SetCookie(
       expires.value_or(-1), priority.value_or(""), source_scheme, source_port,
       partition_key);
 
-  if (absl::holds_alternative<Response>(cookie_or_error)) {
-    callback->sendFailure(absl::get<Response>(std::move(cookie_or_error)));
+  if (std::holds_alternative<Response>(cookie_or_error)) {
+    callback->sendFailure(std::get<Response>(std::move(cookie_or_error)));
     return;
   }
   std::unique_ptr<net::CanonicalCookie> cookie =
-      absl::get<std::unique_ptr<net::CanonicalCookie>>(
+      std::get<std::unique_ptr<net::CanonicalCookie>>(
           std::move(cookie_or_error));
 
   net::CookieOptions options;
@@ -1802,13 +1809,13 @@ void NetworkHandler::SetCookies(
         cookie->GetHttpOnly(false), cookie->GetSameSite(""),
         cookie->GetExpires(-1), cookie->GetPriority(""), source_scheme,
         source_port, partition_key);
-    if (absl::holds_alternative<Response>(net_cookie_or_error)) {
+    if (std::holds_alternative<Response>(net_cookie_or_error)) {
       // TODO: Investiage whether we can report the error as a protocol error
       // (this might be a breaking CDP change).
       std::move(callback).Run(false);
       return;
     }
-    net_cookies.push_back(absl::get<std::unique_ptr<net::CanonicalCookie>>(
+    net_cookies.push_back(std::get<std::unique_ptr<net::CanonicalCookie>>(
         std::move(net_cookie_or_error)));
   }
 
@@ -2863,7 +2870,7 @@ void NetworkHandler::OnSignedExchangeReceived(
             .SetExpires(sig.expires)
             .Build();
     if (sig.cert_sha256) {
-      signature->SetCertSha256(base::HexEncode(sig.cert_sha256->data));
+      signature->SetCertSha256(base::HexEncode(*sig.cert_sha256));
     }
     if (certificate) {
       auto encoded_certificates = std::make_unique<protocol::Array<String>>();
@@ -3430,8 +3437,7 @@ void NetworkHandler::OnResponseReceivedExtraInfo(
     return;
 
   std::unique_ptr<Network::CookiePartitionKey> frontend_partition_key;
-  // TODO (crbug.com/326605834) Once ancestor chain bit changes are implemented
-  // update this method utilize the ancestor bit.
+
   if (cookie_partition_key) {
     base::expected<net::CookiePartitionKey::SerializedCookiePartitionKey,
                    std::string>
@@ -3814,6 +3820,8 @@ String NetworkHandler::BuildPrivateNetworkRequestPolicy(
     case network::mojom::PrivateNetworkRequestPolicy::kPermissionBlock:
       return protocol::Network::PrivateNetworkRequestPolicyEnum::
           PermissionBlock;
+    case network::mojom::PrivateNetworkRequestPolicy::kPermissionWarn:
+      return protocol::Network::PrivateNetworkRequestPolicyEnum::PermissionWarn;
   }
 }
 

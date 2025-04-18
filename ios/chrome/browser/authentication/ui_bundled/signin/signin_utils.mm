@@ -191,9 +191,6 @@ bool ShouldPresentUserSigninUpgrade(ProfileIOS* profile,
 
   AuthenticationService* auth_service =
       AuthenticationServiceFactory::GetForProfile(profile);
-  if (auth_service->HasPrimaryIdentity(signin::ConsentLevel::kSync)) {
-    return false;
-  }
   if (auth_service->HasPrimaryIdentity(signin::ConsentLevel::kSignin)) {
     syncer::SyncService* sync_service =
         SyncServiceFactory::GetForProfile(profile);
@@ -372,22 +369,6 @@ void RecordUpgradePromoSigninStarted(
   [defaults setInteger:display_count forKey:kSigninPromoViewDisplayCountKey];
 }
 
-IdentitySigninState GetPrimaryIdentitySigninState(ProfileIOS* profile) {
-  AuthenticationService* auth_service =
-      AuthenticationServiceFactory::GetForProfile(profile);
-  syncer::SyncService* syncService = SyncServiceFactory::GetForProfile(profile);
-  // TODO(crbug.com/40066949): After phase 3 migration of kSync users, Remove
-  // this usage.
-  if (auth_service->HasPrimaryIdentity(signin::ConsentLevel::kSync) &&
-      syncService->GetUserSettings()->IsInitialSyncFeatureSetupComplete()) {
-    return IdentitySigninStateSignedInWithSyncEnabled;
-  } else if (auth_service->HasPrimaryIdentity(signin::ConsentLevel::kSignin)) {
-    return IdentitySigninStateSignedInWithSyncDisabled;
-  } else {
-    return IdentitySigninStateSignedOut;
-  }
-}
-
 Tribool TriboolFromCapabilityResult(SystemIdentityCapabilityResult result) {
   switch (result) {
     case SystemIdentityCapabilityResult::kTrue:
@@ -464,10 +445,6 @@ void MultiProfileSignOut(Browser* browser,
 
   if (signout_source ==
       signin_metrics::ProfileSignout::kUserClickedSignoutSettings) {
-    // TODO(crbug.com/375605174): Verify that This signout source is only used
-    // when signing out from Accounts settings page. For now, it is also used
-    // in the signout button in ManageAccounts view, which will no longer be
-    // shown once kSeparateProfilesForManagedAccounts is enabled.
     ChangeProfileContinuation postSignoutContinuation =
         CreateChangeProfileSettingsContinuation();
     continuation = ChainChangeProfileContinuations(

@@ -67,14 +67,14 @@ std::vector<std::string> GetCannotDiscardReasonsForPageNode(
 #if BUILDFLAG(IS_ANDROID)
   return {};
 #else
-  auto* discarding_helper = policies::PageDiscardingHelper::GetFromGraph(
+  auto* discarding_helper = policies::DiscardEligibilityPolicy::GetFromGraph(
       PerformanceManager::GetGraph());
   CHECK(discarding_helper);
   CHECK(page_node);
 
   std::vector<policies::CannotDiscardReason> cannot_discard_reasons;
   discarding_helper->CanDiscard(
-      page_node, policies::PageDiscardingHelper::DiscardReason::PROACTIVE,
+      page_node, policies::DiscardEligibilityPolicy::DiscardReason::PROACTIVE,
       policies::kNonVisiblePagesUrgentProtectionTime, &cannot_discard_reasons);
 
   std::vector<std::string> results;
@@ -87,23 +87,31 @@ std::vector<std::string> GetCannotDiscardReasonsForPageNode(
 }
 
 void DiscardPage(const PageNode* page_node,
-                 ::mojom::LifecycleUnitDiscardReason reason) {
+                 ::mojom::LifecycleUnitDiscardReason reason,
+                 bool ignore_minimum_time_in_background) {
 #if !BUILDFLAG(IS_ANDROID)
   auto* discarding_helper = policies::PageDiscardingHelper::GetFromGraph(
       PerformanceManager::GetGraph());
   CHECK(discarding_helper);
   CHECK(page_node);
   discarding_helper->ImmediatelyDiscardMultiplePages(
-      {page_node}, reason, policies::kNonVisiblePagesUrgentProtectionTime);
+      {page_node}, reason,
+      ignore_minimum_time_in_background
+          ? base::TimeDelta()
+          : policies::kNonVisiblePagesUrgentProtectionTime);
 #endif
 }
 
-void DiscardAnyPage(::mojom::LifecycleUnitDiscardReason reason) {
+void DiscardAnyPage(::mojom::LifecycleUnitDiscardReason reason,
+                    bool ignore_minimum_time_in_background) {
 #if !BUILDFLAG(IS_ANDROID)
   auto* discarding_helper = policies::PageDiscardingHelper::GetFromGraph(
       PerformanceManager::GetGraph());
   CHECK(discarding_helper);
-  discarding_helper->DiscardAPage(reason);
+  discarding_helper->DiscardAPage(
+      reason, ignore_minimum_time_in_background
+                  ? base::TimeDelta()
+                  : policies::kNonVisiblePagesUrgentProtectionTime);
 #endif
 }
 

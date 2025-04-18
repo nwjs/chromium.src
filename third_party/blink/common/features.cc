@@ -40,6 +40,12 @@ BASE_FEATURE_PARAM(int,
                    "ad-auction-signals-max-size-bytes",
                    10000);
 
+// Serves as killswitch for changing CanCreateCanvasResourceProvider() to
+// create resource provider internally rather than Canvas2DLayerBridge.
+BASE_FEATURE(kAdjustCanCreateCanvas2dResourceProvider,
+             "AdjustCanCreateCanvas2dResourceProvider",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Avoids copying ResourceRequest::TrustedParams when possible.
 BASE_FEATURE(kAvoidTrustedParamsCopies,
              "AvoidTrustedParamsCopies",
@@ -484,6 +490,12 @@ BASE_FEATURE_PARAM(int,
                    "max_disk_capacity_mb",
                    -1);
 
+// When enabled, CreateNewWindow() and ShowCreatedWindow() mojo calls are
+// coalesced into a single call to CreateNewWindow().
+BASE_FEATURE(kCombineNewWindowIPCs,
+             "CombineNewWindowIPCs",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Controls off-thread code cache consumption.
 BASE_FEATURE(kConsumeCodeCacheOffThread,
              "ConsumeCodeCacheOffThread",
@@ -706,7 +718,14 @@ BASE_FEATURE(kDropInputEventsWhilePaintHolding,
 
 BASE_FEATURE(kEstablishGpuChannelAsync,
              "EstablishGpuChannelAsync",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_ANDROID)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             // TODO(crbug.com/1278147): Experiment with this more on desktop to
+             // see if it can help.
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
 
 // Whether to respect loading=lazy attribute for images when they are on
 // invisible pages.
@@ -873,6 +892,16 @@ BASE_FEATURE_PARAM(std::string,
                    "FledgeBiddingAndAuctionKeyConfig",
                    "");
 
+// See https://github.com/WICG/turtledove/issues/1334
+BASE_FEATURE(kFledgeOriginScopedKeys,
+             "FledgeOriginScopedKeys",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE_PARAM(std::string,
+                   kFledgeOriginScopedKeyConfig,
+                   &kFledgeOriginScopedKeys,
+                   "FledgeOriginScopedKeyConfig",
+                   "");
+
 // See in the header.
 BASE_FEATURE(kFledgeConsiderKAnonymity,
              "FledgeConsiderKAnonymity",
@@ -985,6 +1014,33 @@ BASE_FEATURE_PARAM(int,
 // privateAggregation.contributeToHistogramOnEvent.
 BASE_FEATURE(kFledgeEnforcePermissionPolicyContributeOnEvent,
              "FledgeEnforcePermissionPolicyContributeOnEvent",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kFledgeDisableLocalAdsAuctions,
+             "FledgeDisableLocalAdsAuctions",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Provides a configurable limit on the number of
+// `selectableBuyerAndSellerReportingIds` for which the browser fetches k-anon
+// keys. If the `SelectableBuyerAndSellerReportingIdsFetchedFromKAnonLimit` is
+// negative, no limit is enforced.
+BASE_FEATURE(kFledgeLimitSelectableBuyerAndSellerReportingIdsFetchedFromKAnon,
+             "FledgeLimitSelectableBuyerAndSellerReportingIdsFetchedFromKAnon",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE_PARAM(
+    int,
+    kFledgeSelectableBuyerAndSellerReportingIdsFetchedFromKAnonLimit,
+    &kFledgeLimitSelectableBuyerAndSellerReportingIdsFetchedFromKAnon,
+    "SelectableBuyerAndSellerReportingIdsFetchedFromKAnonLimit",
+    -1);
+
+// Feature flag to truncate the set of `selectableBuyerAndSellerReportingIds`
+// to only those for which k-anon status was fetched, as limited by the
+// `kFledgeSelectableBuyerAndSellerReportingIdsFetchedFromKAnonLimit` parameter
+// defined above. This is only meaningful if
+// `kFledgeSelectableBuyerAndSellerReportingIdsFetchedFromKAnonLimit` is >= 0.
+BASE_FEATURE(kFledgeTruncateSelectableBuyerAndSellerReportingIdsToKAnonLimit,
+             "FledgeTruncateSelectableBuyerAndSellerReportingIdsToKAnonLimit",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kForceHighPerformanceGPUForWebGL,
@@ -1114,6 +1170,14 @@ BASE_FEATURE(kInputPredictorTypeChoice,
              "InputPredictorTypeChoice",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kInputScenarioPriorityBoost,
+             "InputScenarioPriorityBoost",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+constexpr base::FeatureParam<bool> kInputScenarioPriorityBoostIncludesLoading{
+    &features::kInputScenarioPriorityBoost,
+    "input_scenario_priority_boost_includes_loading", false};
+
 // When enabled, wake ups from throttleable TaskQueues are limited to 1 per
 // minute in a page that has been backgrounded for 5 minutes.
 //
@@ -1166,6 +1230,17 @@ BASE_FEATURE_ENUM_PARAM(IsolateSandboxedIframesGrouping,
                         IsolateSandboxedIframesGrouping::kPerOrigin,
                         &isolated_sandboxed_iframes_grouping_types);
 
+// Serves as killswitch for migrating CanvasRenderingContext2D::IsPaintable()
+// from checking the existence of the canvas' Canvas2DLayerBridge to checking
+// for the existence of its resource provider as well as the associated
+// necessary change of changing GetOrCreateCanvasResourceProvider() away
+// from using GetOrCreateCanvas2DLayerBridge() for 2D contexts.
+// NOTE: Do not check this feature directly: Check
+// CheckProviderInCanvas2DRenderingContextIsPaintable() instead.
+BASE_FEATURE(kIsPaintableChecksResourceProviderInsteadOfBridge,
+             "IsPaintableChecksResourceProviderInsteadOfBridge",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kKalmanDirectionCutOff,
              "KalmanDirectionCutOff",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1182,7 +1257,6 @@ BASE_FEATURE(kAttributionReportingInBrowserMigration,
              "AttributionReportingInBrowserMigration",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Killswitch M135.
 BASE_FEATURE(kLimitLayerMergeDistance,
              "LimitLayerMergeDistance",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -1190,7 +1264,7 @@ BASE_FEATURE_PARAM(size_t,
                    kLayerMergeDistanceLimit,
                    &kLimitLayerMergeDistance,
                    "limit",
-                   16);
+                   0x10000000);
 
 BASE_FEATURE(kLCPCriticalPathPredictor,
              "LCPCriticalPathPredictor",
@@ -1259,9 +1333,9 @@ BASE_FEATURE_PARAM(int,
                    100);
 
 BASE_FEATURE_PARAM(int,
-                   kLCPCriticalPathPredictorHistogramSlidingWindowSize,
+                   kLCPCriticalPathPredictorSlidingWindowSize,
                    &kLCPCriticalPathPredictor,
-                   "lcpp_histogram_sliding_window_size",
+                   "lcpp_sliding_window_size",
                    1000);
 
 BASE_FEATURE_PARAM(int,
@@ -1306,6 +1380,18 @@ BASE_FEATURE_PARAM(bool,
                    "lcpscriptobserver_adjust_image_load_priority",
                    false);
 
+BASE_FEATURE_PARAM(int,
+                   kLCPScriptObserverSlidingWindowSize,
+                   &kLCPScriptObserver,
+                   "lcpscriptobserver_sliding_window_size",
+                   1000);
+
+BASE_FEATURE_PARAM(int,
+                   kLCPScriptObserverMaxHistogramBuckets,
+                   &kLCPScriptObserver,
+                   "lcpscriptobserver_max_histogram_buckets",
+                   10);
+
 BASE_FEATURE(kLCPTimingPredictorPrerender2,
              "LCPTimingPredictorPrerender2",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1325,6 +1411,18 @@ BASE_FEATURE_PARAM(int,
                    &kLCPPAutoPreconnectLcpOrigin,
                    "lcpp_preconnect_max_origins",
                    2);
+
+BASE_FEATURE_PARAM(int,
+                   kLCPPAutoPreconnectSlidingWindowSize,
+                   &kLCPPAutoPreconnectLcpOrigin,
+                   "lcpp_preconnect_sliding_window_size",
+                   1000);
+
+BASE_FEATURE_PARAM(int,
+                   kLCPPAutoPreconnectMaxHistogramBuckets,
+                   &kLCPPAutoPreconnectLcpOrigin,
+                   "lcpp_preconnect_max_histogram_buckets",
+                   10);
 
 BASE_FEATURE(kLCPPDeferUnusedPreload,
              "LCPPDeferUnusedPreload",
@@ -1383,6 +1481,18 @@ BASE_FEATURE_ENUM_PARAM(LcppDeferUnusedPreloadTiming,
                         LcppDeferUnusedPreloadTiming::kPostTask,
                         &lcpp_defer_unused_preload_timing);
 
+BASE_FEATURE_PARAM(int,
+                   kLCPPDeferUnusedPreloadSlidingWindowSize,
+                   &kLCPPDeferUnusedPreload,
+                   "lcpp_unused_preload_sliding_window_size",
+                   1000);
+
+BASE_FEATURE_PARAM(int,
+                   kLCPPDeferUnusedPreloadMaxHistogramBuckets,
+                   &kLCPPDeferUnusedPreload,
+                   "lcpp_unused_preload_max_histogram_buckets",
+                   10);
+
 BASE_FEATURE(kLCPPFontURLPredictor,
              "LCPPFontURLPredictor",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1432,6 +1542,18 @@ BASE_FEATURE_PARAM(bool,
                    &kLCPPFontURLPredictor,
                    "lcpp_cross_site_font_prediction_allowed",
                    false);
+
+BASE_FEATURE_PARAM(int,
+                   kLCPPFontURLPredictorSlidingWindowSize,
+                   &kLCPPFontURLPredictor,
+                   "lcpp_font_sliding_window_size",
+                   1000);
+
+BASE_FEATURE_PARAM(int,
+                   kLCPPFontURLPredictorMaxHistogramBuckets,
+                   &kLCPPFontURLPredictor,
+                   "lcpp_font_max_histogram_buckets",
+                   10);
 
 BASE_FEATURE(kLCPPInitiatorOrigin,
              "LCPPInitiatorOrigin",
@@ -1573,6 +1695,18 @@ BASE_FEATURE_PARAM(bool,
                    &kHttpDiskCachePrewarming,
                    "http_disk_cache_prewarming_skip_during_browser_startup",
                    true);
+
+BASE_FEATURE_PARAM(int,
+                   kHttpDiskCachePrewarmingSlidingWindowSize,
+                   &kHttpDiskCachePrewarming,
+                   "http_disk_cache_prewarming_sliding_window_size",
+                   1000);
+
+BASE_FEATURE_PARAM(int,
+                   kHttpDiskCachePrewarmingMaxHistogramBuckets,
+                   &kHttpDiskCachePrewarming,
+                   "http_disk_cache_prewarming_max_histogram_buckets",
+                   10);
 
 BASE_FEATURE(kLegacyParsingOfXContentTypeOptions,
              "LegacyParsingOfXContentTypeOptions",
@@ -1777,6 +1911,15 @@ BASE_FEATURE_PARAM(int,
                    "memory_cache_strong_ref_resource_size_threshold",
                    3 * 1024 * 1024);
 
+BASE_FEATURE(kMemorySaverModeRenderTuning,
+             "MemorySaverModeRenderTuning",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE_PARAM(int,
+                   kAvailableMemoryThresholdParamMb,
+                   &kMemorySaverModeRenderTuning,
+                   "available_memory_threshold_mb",
+                   740);
+
 BASE_FEATURE(kMHTML_Improvements,
              "MHTML_Improvements",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1819,6 +1962,10 @@ BASE_FEATURE(kNoForcedFrameUpdatesForWebTests,
 
 BASE_FEATURE(kNoThrottlingVisibleAgent,
              "NoThrottlingVisibleAgent",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kNoThrowForCSPBlockedWorker,
+             "NoThrowForCSPBlockedWorker",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kOpenAllUrlsOrFilesOnDrop,
@@ -1866,12 +2013,6 @@ BASE_FEATURE(kPartitionVisitedLinkDatabase,
 BASE_FEATURE(kPath2DPaintCache,
              "Path2DPaintCache",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enable browser-initiated dedicated worker script loading
-// (PlzDedicatedWorker). https://crbug.com/906991
-BASE_FEATURE(kPlzDedicatedWorker,
-             "PlzDedicatedWorker",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kDedicatedWorkerAblationStudyEnabled,
              "DedicatedWorkerAblationStudyEnabled",
@@ -1984,10 +2125,6 @@ const char kPrerender2MemoryAcceptablePercentOfSystemMemoryParamName[] =
 BASE_FEATURE(kPrerender2EarlyDocumentLifecycleUpdate,
              "Prerender2EarlyDocumentLifecycleUpdate",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kPrerender2NoVarySearch,
-             "Prerender2NoVarySearch",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kPrerender2WarmUpCompositor,
              "Prerender2WarmUpCompositor",
@@ -2255,7 +2392,7 @@ BASE_FEATURE(kServiceWorkerUpdateDelay,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // If disabled, client_id and resultingClientId behavior keeps the old
-// Chromium behavior even after the PlzDedicatedWorker is enabled.
+// Chromium behavior.
 // This is workaround for crbug.com/1520512 until the fix gets ready.
 BASE_FEATURE(kServiceWorkerClientIdAlignedWithSpec,
              "ServiceWorkerClientIdAlignedWithSpec",
@@ -2434,6 +2571,12 @@ BASE_FEATURE(kThreadedPreloadScanner,
              "ThreadedPreloadScanner",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE_PARAM(bool,
+                   kThrottleFrameRateOnInitialization,
+                   &features::kRenderBlockingFullFrameRate,
+                   "throttle-frame-rate-on-initialization",
+                   false);
+
 // Enable throttling of fetch() requests from service workers in the
 // installing state.  The limit of 3 was chosen to match the limit
 // in background main frames.  In addition, trials showed that this
@@ -2488,14 +2631,16 @@ BASE_FEATURE(kEmulateLoadStartedForInspectorOncePerResource,
              "kEmulateLoadStartedForInspectorOncePerResource",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kThreadedScrollPreventRenderingStarvation,
-             "ThreadedScrollPreventRenderingStarvation",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // If enabled, the usage of unload handlers causes a blocklisted reason for
 // BFCache. The purpose is to capture their source location.
 BASE_FEATURE(kUnloadBlocklisted,
              "UnloadBlocklisted",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When BeginMainFrame() is throttled, whether input-related BeginMainFrame()s
+// are marked urgent, and thus unthtrottled.
+BASE_FEATURE(kUrgentMainFrameForInput,
+             "UrgentMainFrameForInput",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Uses page viewport instead of frame viewport in the Largest Contentful Paint
@@ -2604,6 +2749,19 @@ BASE_FEATURE_PARAM(bool,
                    "latency_exact",
                    true);
 
+// This feature flag controls whether the WebAudio destination resampler is
+// bypassed. When enabled, if the WebAudio context's sample rate differs from
+// the hardware's sample rate, the resampling step that normally occurs within
+// the WebAudio destination node is skipped. This allows the AudioService to
+// handle any necessary resampling, potentially reducing latency and overhead.
+BASE_FEATURE(kWebAudioRemoveAudioDestinationResampler,
+             "WebAudioRemoveAudioDestinationResampler",
+#if BUILDFLAG(IS_ANDROID)
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#else
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_ANDROID)
+
 /// Enables cache-aware WebFonts loading. See https://crbug.com/570205.
 // The feature is disabled on Android for WebView API issue discussed at
 // https://crbug.com/942440.
@@ -2659,11 +2817,6 @@ BASE_FEATURE(kWebRtcUseMinMaxVEADimensions,
 
 // Allow access to WebSQL APIs.
 BASE_FEATURE(kWebSQLAccess, "kWebSQLAccess", base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Allow access to WebSQL on Android WebView.
-BASE_FEATURE(kWebSQLWebViewAccess,
-             "WebSQLWebViewAccess",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Kill switch for https://crbug.com/338955051.
 BASE_FEATURE(kWebUSBTransferSizeLimit,

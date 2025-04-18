@@ -11,6 +11,7 @@ import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.Log;
 import org.chromium.base.task.AsyncTask;
+import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.partnerbookmarks.PartnerBookmark.BookmarkIterator;
 import org.chromium.components.embedder_support.util.UrlConstants;
@@ -18,6 +19,7 @@ import org.chromium.components.embedder_support.util.UrlConstants;
 import java.util.NoSuchElementException;
 
 /** Imports bookmarks from partner content provider using the private provider API. */
+@NullMarked
 public class PartnerBookmarksProviderIterator implements PartnerBookmark.BookmarkIterator {
     private static final String TAG = "PartnerBookmarks";
     private static final String PROVIDER_AUTHORITY = "com.android.partnerbookmarks";
@@ -114,7 +116,7 @@ public class PartnerBookmarksProviderIterator implements PartnerBookmark.Bookmar
     }
 
     @Override
-    public PartnerBookmark next() {
+    public @Nullable PartnerBookmark next() {
         if (mCursor == null) throw new IllegalStateException();
         if (!mCursor.moveToNext()) throw new NoSuchElementException();
 

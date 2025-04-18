@@ -168,6 +168,7 @@
 #include "chrome/browser/metrics/cros_healthd_metrics_provider.h"
 #include "chrome/browser/metrics/cros_pre_consent_metrics_manager.h"
 #include "chrome/browser/metrics/family_user_metrics_provider.h"
+#include "chrome/browser/metrics/k12_age_classification_metrics_provider.h"
 #include "chrome/browser/metrics/per_user_state_manager_chromeos.h"
 #include "chrome/browser/metrics/update_engine_metrics_provider.h"
 #include "chrome/browser/ui/ash/shelf/chrome_shelf_metrics_provider.h"
@@ -207,7 +208,6 @@
 #if !BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/metrics/family_link_user_metrics_provider.h"
 #include "chrome/browser/signin/chrome_signin_and_sync_status_metrics_provider.h"
-#include "components/metrics/content/accessibility_metrics_provider.h"
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_MAC)
@@ -703,13 +703,10 @@ void ChromeMetricsServiceClient::Initialize() {
     identifiability_study_state_ =
         std::make_unique<IdentifiabilityStudyState>(local_state);
 
-    uint64_t client_id = 0;
-
     ukm_service_ = std::make_unique<ukm::UkmService>(
         local_state, this,
         MakeDemographicMetricsProvider(
-            metrics::MetricsLogUploader::MetricServiceType::UKM),
-        client_id);
+            metrics::MetricsLogUploader::MetricServiceType::UKM));
     ukm_service_->SetIsWebstoreExtensionCallback(
         base::BindRepeating(&IsWebstoreExtension));
     ukm_service_->RegisterEventFilter(
@@ -939,14 +936,17 @@ void ChromeMetricsServiceClient::RegisterMetricsServiceProviders() {
       std::make_unique<WallpaperMetricsProvider>());
   metrics_service_->RegisterMetricsProvider(
       std::make_unique<arc::VmmMetricsProvider>());
+  if (base::FeatureList::IsEnabled(
+          ::features::kK12AgeClassificationMetricsProvider)) {
+    metrics_service_->RegisterMetricsProvider(
+        std::make_unique<K12AgeClassificationMetricsProvider>());
+  }
+
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if !BUILDFLAG(IS_CHROMEOS)
   metrics_service_->RegisterMetricsProvider(
       std::make_unique<ChromeSigninAndSyncStatusMetricsProvider>());
-  // ChromeOS uses ChromeOSMetricsProvider for accessibility metrics provider.
-  metrics_service_->RegisterMetricsProvider(
-      std::make_unique<metrics::AccessibilityMetricsProvider>());
   // ChromeOS uses ChromeOSFamilyLinkUserMetricsProvider to categorize the user
   // based on Family Link user type.
   metrics_service_->RegisterMetricsProvider(
@@ -985,8 +985,7 @@ void ChromeMetricsServiceClient::RegisterMetricsServiceProviders() {
 }
 
 void ChromeMetricsServiceClient::RegisterUKMProviders() {
-  // Note: if you make changes here please also consider whether they should go
-  // in AndroidMetricsServiceClient::CreateUkmService().
+  // LINT.IfChange(UkmProviders)
   ukm_service_->RegisterMetricsProvider(
       std::make_unique<AccessibilityStateProvider>());
 
@@ -1033,6 +1032,7 @@ void ChromeMetricsServiceClient::RegisterUKMProviders() {
 
   ukm_service_->RegisterMetricsProvider(
       std::make_unique<metrics::EntropyStateProvider>(local_state));
+  // LINT.ThenChange(/ios/chrome/browser/metrics/model/ios_chrome_metrics_service_client.mm:UkmProviders)
 }
 
 void ChromeMetricsServiceClient::NotifyApplicationNotIdle() {

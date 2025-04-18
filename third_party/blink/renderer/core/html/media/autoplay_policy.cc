@@ -392,7 +392,7 @@ void AutoplayPolicy::OnIntersectionChangedForAutoplay(
 
       if (self->element_->can_autoplay_ && self->element_->Autoplay()) {
         self->element_->PauseInternal(
-            HTMLMediaElement::PlayPromiseError::kPaused_AutoplayAutoPause);
+            WebMediaPlayer::PauseReason::kAutoplayAutoPause);
         self->element_->can_autoplay_ = true;
       }
     };

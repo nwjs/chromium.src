@@ -42,10 +42,12 @@
 #include "third_party/blink/renderer/core/css/css_property_names.h"
 #include "third_party/blink/renderer/core/css/properties/computed_style_utils.h"
 #include "third_party/blink/renderer/core/css/properties/css_property.h"
+#include "third_party/blink/renderer/core/css/properties/css_unresolved_property.h"
 #include "third_party/blink/renderer/core/css/properties/longhand.h"
 #include "third_party/blink/renderer/core/css/properties/longhands.h"
 #include "third_party/blink/renderer/core/css/resolver/style_resolver.h"
 #include "third_party/blink/renderer/core/dom/document.h"
+#include "third_party/blink/renderer/core/dom/pseudo_element.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/html/forms/html_legend_element.h"
@@ -67,6 +69,7 @@
 #include "third_party/blink/renderer/core/style/content_data.h"
 #include "third_party/blink/renderer/core/style/coord_box_offset_path_operation.h"
 #include "third_party/blink/renderer/core/style/cursor_data.h"
+#include "third_party/blink/renderer/core/style/gap_data.h"
 #include "third_party/blink/renderer/core/style/reference_offset_path_operation.h"
 #include "third_party/blink/renderer/core/style/shadow_list.h"
 #include "third_party/blink/renderer/core/style/shape_offset_path_operation.h"
@@ -558,25 +561,25 @@ bool ComputedStyle::HighlightPseudoElementStylesDependOnRelativeUnits() const {
 bool ComputedStyle::HighlightPseudoElementStylesDependOnContainerUnits() const {
   const StyleHighlightData& highlight_data = HighlightData();
   if (highlight_data.Selection() &&
-      highlight_data.Selection()->HasContainerRelativeUnits()) {
+      highlight_data.Selection()->HasContainerRelativeValue()) {
     return true;
   }
   if (highlight_data.TargetText() &&
-      highlight_data.TargetText()->HasContainerRelativeUnits()) {
+      highlight_data.TargetText()->HasContainerRelativeValue()) {
     return true;
   }
   if (highlight_data.SpellingError() &&
-      highlight_data.SpellingError()->HasContainerRelativeUnits()) {
+      highlight_data.SpellingError()->HasContainerRelativeValue()) {
     return true;
   }
   if (highlight_data.GrammarError() &&
-      highlight_data.GrammarError()->HasContainerRelativeUnits()) {
+      highlight_data.GrammarError()->HasContainerRelativeValue()) {
     return true;
   }
   const CustomHighlightsStyleMap& custom_highlights =
       highlight_data.CustomHighlights();
   for (auto custom_highlight : custom_highlights) {
-    if (custom_highlight.value->HasContainerRelativeUnits()) {
+    if (custom_highlight.value->HasContainerRelativeValue()) {
       return true;
     }
   }
@@ -1065,18 +1068,23 @@ bool ComputedStyle::DiffNeedsNormalPaintInvalidation(
     return true;
   }
 
-  if (field_diff & kBackgroundCurrentColor) {
-    // If the background-image or background-color depends on currentColor
-    // (e.g., background-image: linear-gradient(currentColor, #fff) or
-    // background-color: color-mix(in srgb, currentcolor ...)), and the color
-    // has changed, we need to recompute it even though VisuallyEqual()
-    // thinks the old and new background styles are identical.
-    if ((BackgroundInternal().AnyLayerUsesCurrentColor() ||
-         BackgroundColor().IsUnresolvedColorFunction() ||
-         InternalVisitedBackgroundColor().IsUnresolvedColorFunction()) &&
-        (GetCurrentColor() != other.GetCurrentColor() ||
+  if (field_diff & kCurrentcolor) {
+    // If a property has a value that contains a <color> that depends on
+    // 'currentcolor', for example:
+    //
+    //   background-image: linear-gradient(currentColor, #fff)
+    //   background-color: color-mix(in srgb, currentcolor ...)
+    //
+    // If the (current)color has changed, we need to recompute it even though
+    // the old and new property values are identical.
+    //
+    // NOTE: This is also handled to some degree by
+    // LayoutObject::AdjustStyleDifference. We should probably re-distribute
+    // the responsibilities between these two locations.
+    if ((GetCurrentColor() != other.GetCurrentColor() ||
          GetInternalVisitedCurrentColor() !=
-             other.GetInternalVisitedCurrentColor())) {
+             other.GetInternalVisitedCurrentColor()) &&
+        HasPropertyDependingOnCurrentColor()) {
       return true;
     }
   }
@@ -1262,8 +1270,10 @@ static bool HasPropertyThatCreatesStackingContext(
       case CSSPropertyID::kScale:
       case CSSPropertyID::kOffsetPath:
       case CSSPropertyID::kOffsetPosition:
-      case CSSPropertyID::kMask:
-      case CSSPropertyID::kWebkitMaskBoxImage:
+      case CSSPropertyID::kMask:  // Matches longhand.
+      case CSSPropertyID::kMaskImage:
+      case CSSPropertyID::kWebkitMaskBoxImage:  // Matches longhand
+      case CSSPropertyID::kWebkitMaskBoxImageSource:
       case CSSPropertyID::kClipPath:
       case CSSPropertyID::kWebkitBoxReflect:
       case CSSPropertyID::kFilter:
@@ -1589,10 +1599,10 @@ PointAndTangent ComputedStyle::CalculatePointAndTangentOnBasicShape(
     // but that argument is omitted, and the element defines
     // an offset starting position via offset-position,
     // it uses the specified offset starting position for that argument.
-    circle_or_ellipse->GetPathFromCenter(
-        path, starting_point, gfx::RectF(reference_box_size), EffectiveZoom());
+    path = circle_or_ellipse->GetPathFromCenter(
+        starting_point, gfx::RectF(reference_box_size), EffectiveZoom());
   } else {
-    shape.GetPath(path, gfx::RectF(reference_box_size), EffectiveZoom());
+    path = shape.GetPath(gfx::RectF(reference_box_size), EffectiveZoom());
   }
   float shape_length = path.length();
   float path_length = FloatValueForLength(OffsetDistance(), shape_length);
@@ -1676,9 +1686,8 @@ void ComputedStyle::ApplyMotionPathTransform(float origin_x,
       }
       case BasicShape::kStyleShapeType: {
         const StyleShape& shape = To<StyleShape>(basic_shape);
-        Path path;
-        shape.GetPath(path, bounding_box, EffectiveZoom());
-        path_position = CalculatePointAndTangentOnPath(path);
+        path_position = CalculatePointAndTangentOnPath(
+            shape.GetPath(bounding_box, EffectiveZoom()));
         break;
       }
       case BasicShape::kStyleRayType: {
@@ -1732,7 +1741,7 @@ void ComputedStyle::ApplyMotionPathTransform(float origin_x,
     }
   } else if (IsA<CoordBoxOffsetPathOperation>(offset_path)) {
     if (box && box->ContainingBlock()) {
-      scoped_refptr<BasicShapeInset> inset = BasicShapeInset::Create();
+      BasicShapeInset* inset = MakeGarbageCollected<BasicShapeInset>();
       inset->SetTop(Length::Fixed(0));
       inset->SetBottom(Length::Fixed(0));
       inset->SetLeft(Length::Fixed(0));
@@ -2219,6 +2228,18 @@ const StyleNonInheritedVariables* ComputedStyle::NonInheritedVariables() const {
   return NonInheritedVariablesInternal().Get();
 }
 
+bool ComputedStyle::HasPropertyDependingOnCurrentColor() const {
+  for (CSSPropertyID property_id : kCSSIncludesCurrentColorProperties) {
+    auto& property = CSSProperty::Get(property_id);
+    DCHECK(property.IsLonghand());
+    if (static_cast<const Longhand&>(property).IsAffectedByCurrentColor(
+            *this)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 namespace {
 
 template <typename T>
@@ -2335,7 +2356,7 @@ Length ComputedStyle::LineHeight() const {
   if (lh.IsFixed()) {
     float multiplier = TextAutosizingMultiplier();
     return Length::Fixed(TextAutosizer::ComputeAutosizedFontSize(
-        lh.Value(), multiplier, EffectiveZoom()));
+        lh.Pixels(), multiplier, EffectiveZoom()));
   }
 
   return lh;
@@ -2355,7 +2376,8 @@ float ComputedStyle::ComputedLineHeight(const Length& lh, const Font& font) {
         lh, LayoutUnit(font.GetFontDescription().ComputedSize()));
   }
 
-  return lh.Value();
+  DCHECK(lh.IsFixed());
+  return lh.Pixels();
 }
 
 float ComputedStyle::ComputedLineHeight() const {
@@ -2377,7 +2399,8 @@ LayoutUnit ComputedStyle::ComputedLineHeightAsFixed(const Font& font) const {
     return MinimumValueForLength(lh, ComputedFontSizeAsFixed(font));
   }
 
-  return LayoutUnit::FromFloatRound(lh.Value());
+  DCHECK(lh.IsFixed());
+  return LayoutUnit::FromFloatRound(lh.Pixels());
 }
 
 LayoutUnit ComputedStyle::ComputedLineHeightAsFixed() const {
@@ -2663,7 +2686,7 @@ bool ComputedStyle::ShadowListHasCurrentColor(const ShadowList* shadow_list) {
   return shadow_list &&
          std::ranges::any_of(shadow_list->Shadows(),
                              [](const ShadowData& shadow) {
-                               return shadow.GetColor().IsCurrentColor();
+                               return shadow.GetColor().DependsOnCurrentColor();
                              });
 }
 

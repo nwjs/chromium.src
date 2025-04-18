@@ -641,16 +641,18 @@ class CORE_EXPORT BoxFragmentBuilder final : public FragmentBuilder {
     use_last_baseline_for_inline_baseline_ = true;
   }
 
-  void SetGapGeometry(GapFragmentData::GapGeometry* gap_geometry) {
+  void SetGapGeometry(GapGeometry* gap_geometry) {
     gap_geometry_ = gap_geometry;
   }
+
+  const GapGeometry* GetGapGeometryForTest() { return gap_geometry_; }
 
   void SetTableGridRect(const LogicalRect& table_grid_rect) {
     table_grid_rect_ = table_grid_rect;
   }
 
   void SetTableColumnGeometries(
-      const TableFragmentData::ColumnGeometries& table_column_geometries) {
+      const TableColumnGeometries& table_column_geometries) {
     table_column_geometries_ = table_column_geometries;
   }
 
@@ -659,7 +661,7 @@ class CORE_EXPORT BoxFragmentBuilder final : public FragmentBuilder {
   }
 
   void SetTableCollapsedBordersGeometry(
-      std::unique_ptr<TableFragmentData::CollapsedBordersGeometry>
+      std::unique_ptr<CollapsedTableBordersGeometry>
           table_collapsed_borders_geometry) {
     table_collapsed_borders_geometry_ =
         std::move(table_collapsed_borders_geometry);
@@ -832,13 +834,13 @@ class CORE_EXPORT BoxFragmentBuilder final : public FragmentBuilder {
   std::optional<LayoutUnit> last_baseline_;
   LayoutUnit math_italic_correction_;
 
-  GapFragmentData::GapGeometry* gap_geometry_ = nullptr;
+  GapGeometry* gap_geometry_ = nullptr;
 
   // Table specific types.
   std::optional<LogicalRect> table_grid_rect_;
-  TableFragmentData::ColumnGeometries table_column_geometries_;
+  TableColumnGeometries table_column_geometries_;
   const TableBorders* table_collapsed_borders_ = nullptr;
-  std::unique_ptr<TableFragmentData::CollapsedBordersGeometry>
+  std::unique_ptr<CollapsedTableBordersGeometry>
       table_collapsed_borders_geometry_;
   std::optional<wtf_size_t> table_column_count_;
 

@@ -6,7 +6,9 @@
 
 #include "base/command_line.h"
 #include "chrome/browser/glic/glic_pref_names.h"
+#include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/profiles/profile_attributes_storage.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
@@ -17,20 +19,9 @@
 
 namespace glic {
 
-bool GlicEnabling::IsEnabledByFlags() {
-  // Check that the feature flags are enabled.
-  return base::FeatureList::IsEnabled(features::kGlic) &&
-         base::FeatureList::IsEnabled(features::kTabstripComboButton);
-}
-
-bool GlicEnabling::IsProfileEligible(const Profile* profile) {
-  // Glic is supported only in regular profiles, i.e. disable in incognito,
-  // guest, system profile, etc.
-  return IsEnabledByFlags() && profile && profile->IsRegularProfile();
-}
-
-bool GlicEnabling::IsEnabledForProfile(Profile* profile) {
-  if (!IsProfileEligible(profile)) {
+namespace {
+bool IsNonEnterpriseEnabled(Profile* profile) {
+  if (!GlicEnabling::IsProfileEligible(profile)) {
     return false;
   }
 
@@ -57,20 +48,51 @@ bool GlicEnabling::IsEnabledForProfile(Profile* profile) {
     return false;
   }
 
+  return true;
+}
+
+bool IsEnterpriseEnabled(Profile* profile) {
   return profile->GetPrefs()->GetInteger(::prefs::kGeminiSettings) ==
          static_cast<int>(glic::prefs::SettingsPolicyState::kEnabled);
+}
+}  // namespace
+
+bool GlicEnabling::IsEnabledByFlags() {
+  // Check that the feature flags are enabled.
+  return base::FeatureList::IsEnabled(features::kGlic) &&
+         base::FeatureList::IsEnabled(features::kTabstripComboButton);
+}
+
+bool GlicEnabling::IsProfileEligible(const Profile* profile) {
+  // Glic is supported only in regular profiles, i.e. disable in incognito,
+  // guest, system profile, etc.
+  return IsEnabledByFlags() && profile && profile->IsRegularProfile();
+}
+
+bool GlicEnabling::IsEnabledForProfile(Profile* profile) {
+  return IsNonEnterpriseEnabled(profile) && IsEnterpriseEnabled(profile);
 }
 
 bool GlicEnabling::IsEnabledAndConsentForProfile(Profile* profile) {
   if (!IsEnabledForProfile(profile)) {
     return false;
   }
-  return profile->GetPrefs()->GetBoolean(glic::prefs::kGlicCompletedFre);
+  return (profile->GetPrefs()->GetInteger(glic::prefs::kGlicCompletedFre) ==
+          static_cast<int>(prefs::FreStatus::kCompleted));
 }
 
 bool GlicEnabling::IsReadyForProfile(Profile* profile) {
+  return GetProfileReadyState(profile) == mojom::ProfileReadyState::kReady;
+}
+
+mojom::ProfileReadyState GlicEnabling::GetProfileReadyState(Profile* profile) {
   if (!IsEnabledAndConsentForProfile(profile)) {
-    return false;
+    return mojom::ProfileReadyState::kUnknownError;
+  }
+
+  auto* command_line = base::CommandLine::ForCurrentProcess();
+  if (command_line->HasSwitch(::switches::kGlicAutomation)) {
+    return mojom::ProfileReadyState::kReady;
   }
 
   signin::IdentityManager* identity_manager =
@@ -79,12 +101,35 @@ bool GlicEnabling::IsReadyForProfile(Profile* profile) {
   // Check that profile is not currently paused.
   CoreAccountInfo core_account_info =
       identity_manager->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin);
-  return !core_account_info.IsEmpty() &&
-         !identity_manager->HasAccountWithRefreshTokenInPersistentErrorState(
-             core_account_info.account_id);
+  if (core_account_info.IsEmpty()) {
+    return mojom::ProfileReadyState::kUnknownError;
+  }
+  if (identity_manager->HasAccountWithRefreshTokenInPersistentErrorState(
+          core_account_info.account_id)) {
+    return mojom::ProfileReadyState::kSignInRequired;
+  }
+  return mojom::ProfileReadyState::kReady;
 }
 
-GlicEnabling::GlicEnabling(Profile* profile) : profile_(profile) {
+bool GlicEnabling::ShouldShowSettingsPage(Profile* profile) {
+  if (!IsEnterpriseEnabled(profile)) {
+    // If the feature is disabled by enterprise policy, the settings page should
+    // be shown (it will be shown in a policy-disabled state) only if all other
+    // non-enterprise conditions are met: the account has all appropriate
+    // permissions and has previously completed the FRE before the policy went
+    // into effect.
+    return IsNonEnterpriseEnabled(profile) &&
+           profile->GetPrefs()->GetInteger(glic::prefs::kGlicCompletedFre) ==
+               static_cast<int>(prefs::FreStatus::kCompleted);
+  }
+
+  return IsEnabledAndConsentForProfile(profile);
+}
+
+GlicEnabling::GlicEnabling(Profile* profile,
+                           ProfileAttributesStorage* profile_attributes_storage)
+    : profile_(profile),
+      profile_attributes_storage_(profile_attributes_storage) {
   pref_registrar_.Init(profile_->GetPrefs());
   pref_registrar_.Add(
       ::prefs::kGeminiSettings,
@@ -97,36 +142,59 @@ GlicEnabling::GlicEnabling(Profile* profile) : profile_(profile) {
 }
 GlicEnabling::~GlicEnabling() = default;
 
-bool GlicEnabling::IsEnabled() {
+bool GlicEnabling::IsAllowed() {
   return IsEnabledForProfile(profile_);
 }
 
-base::CallbackListSubscription GlicEnabling::RegisterEnableChanged(
+base::CallbackListSubscription GlicEnabling::RegisterAllowedChanged(
     EnableChangedCallback callback) {
   return enable_changed_callback_list_.Add(std::move(callback));
 }
 
 void GlicEnabling::OnGlicSettingsPolicyChanged() {
-  enable_changed_callback_list_.Notify();
+  UpdateEnabledStatus();
 }
 
 void GlicEnabling::OnPrimaryAccountChanged(
     const signin::PrimaryAccountChangeEvent& event_details) {
-  enable_changed_callback_list_.Notify();
+  UpdateEnabledStatus();
 }
 
 void GlicEnabling::OnExtendedAccountInfoUpdated(const AccountInfo& info) {
-  enable_changed_callback_list_.Notify();
+  UpdateEnabledStatus();
+}
+
+void GlicEnabling::OnExtendedAccountInfoRemoved(const AccountInfo& info) {
+  UpdateEnabledStatus();
 }
 
 void GlicEnabling::OnRefreshTokensLoaded() {
-  enable_changed_callback_list_.Notify();
+  UpdateEnabledStatus();
+}
+void GlicEnabling::OnRefreshTokenRemovedForAccount(
+    const CoreAccountId& account_id) {
+  UpdateEnabledStatus();
 }
 
 void GlicEnabling::OnErrorStateOfRefreshTokenUpdatedForAccount(
     const CoreAccountInfo& account_info,
     const GoogleServiceAuthError& error,
     signin_metrics::SourceForRefreshTokenOperation token_operation_source) {
+  // Check that the account info here is the same as the primary account, and
+  // ignore all events that are not about the primary account.
+  if (identity_manager_observation_.GetSource()->GetPrimaryAccountInfo(
+          signin::ConsentLevel::kSignin) != account_info) {
+    return;
+  }
+  UpdateEnabledStatus();
+}
+
+void GlicEnabling::UpdateEnabledStatus() {
+  if (ProfileAttributesEntry* entry =
+          profile_attributes_storage_->GetProfileAttributesWithPath(
+              profile_->GetPath())) {
+    entry->SetIsGlicEligible(IsAllowed());
+  }
   enable_changed_callback_list_.Notify();
 }
 

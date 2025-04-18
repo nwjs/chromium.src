@@ -14,6 +14,7 @@
 #include <set>
 #include <string_view>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "base/check.h"
@@ -23,8 +24,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/strings/strcat.h"
-#include "content/browser/private_aggregation/private_aggregation_features.h"
-#include "third_party/abseil-cpp/absl/types/variant.h"
+#include "third_party/blink/public/common/features_generated.h"
 #include "third_party/blink/public/mojom/aggregation_service/aggregatable_report.mojom.h"
 #include "third_party/blink/public/mojom/private_aggregation/private_aggregation_host.mojom.h"
 
@@ -37,7 +37,8 @@ PrivateAggregationPendingContributions::PrivateAggregationPendingContributions(
     std::vector<std::string_view> histogram_suffixes)
     : max_contributions_(max_contributions),
       histogram_suffixes_(histogram_suffixes) {
-  CHECK(base::FeatureList::IsEnabled(kPrivateAggregationApiErrorReporting));
+  CHECK(base::FeatureList::IsEnabled(
+      blink::features::kPrivateAggregationApiErrorReporting));
 }
 
 PrivateAggregationPendingContributions::PrivateAggregationPendingContributions(
@@ -189,7 +190,7 @@ PrivateAggregationPendingContributions::CompileFinalUnmergedContributions(
   ApplyTestBudgeterResults(std::move(test_budgeter_results),
                            pending_report_limit_result, null_report_behavior);
 
-  was_error_triggered_[PAErrorEvent::kAlreadyTriggeredNonInternalError] = true;
+  was_error_triggered_[PAErrorEvent::kAlreadyTriggeredExternalError] = true;
 
   std::set<ContributionMergeKey> accepted_merge_keys;
   std::set<ContributionMergeKey> truncated_merge_keys;
@@ -341,14 +342,16 @@ void PrivateAggregationPendingContributions::RecordTruncationHistogram(
 PrivateAggregationPendingContributions::Wrapper::Wrapper(
     PrivateAggregationPendingContributions pending_contributions)
     : contributions_(std::move(pending_contributions)) {
-  CHECK(base::FeatureList::IsEnabled(kPrivateAggregationApiErrorReporting));
+  CHECK(base::FeatureList::IsEnabled(
+      blink::features::kPrivateAggregationApiErrorReporting));
 }
 
 PrivateAggregationPendingContributions::Wrapper::Wrapper(
     std::vector<blink::mojom::AggregatableReportHistogramContribution>
         contributions_vector)
     : contributions_(std::move(contributions_vector)) {
-  CHECK(!base::FeatureList::IsEnabled(kPrivateAggregationApiErrorReporting));
+  CHECK(!base::FeatureList::IsEnabled(
+      blink::features::kPrivateAggregationApiErrorReporting));
 }
 
 PrivateAggregationPendingContributions::Wrapper::Wrapper(
@@ -362,14 +365,16 @@ PrivateAggregationPendingContributions::Wrapper::~Wrapper() = default;
 
 PrivateAggregationPendingContributions&
 PrivateAggregationPendingContributions::Wrapper::GetPendingContributions() {
-  CHECK(base::FeatureList::IsEnabled(kPrivateAggregationApiErrorReporting));
-  return absl::get<0>(contributions_);
+  CHECK(base::FeatureList::IsEnabled(
+      blink::features::kPrivateAggregationApiErrorReporting));
+  return std::get<0>(contributions_);
 }
 
 std::vector<blink::mojom::AggregatableReportHistogramContribution>&
 PrivateAggregationPendingContributions::Wrapper::GetContributionsVector() {
-  CHECK(!base::FeatureList::IsEnabled(kPrivateAggregationApiErrorReporting));
-  return absl::get<1>(contributions_);
+  CHECK(!base::FeatureList::IsEnabled(
+      blink::features::kPrivateAggregationApiErrorReporting));
+  return std::get<1>(contributions_);
 }
 
 }  // namespace content

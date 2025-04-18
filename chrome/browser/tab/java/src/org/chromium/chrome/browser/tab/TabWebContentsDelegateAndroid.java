@@ -6,14 +6,19 @@ package org.chromium.chrome.browser.tab;
 
 import android.graphics.Rect;
 
+import org.chromium.base.lifetime.Destroyable;
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.components.embedder_support.delegate.WebContentsDelegateAndroid;
 import org.chromium.content_public.browser.WebContents;
 
 /** A basic {@link WebContentsDelegateAndroid} that proxies methods into Tab. */
-public abstract class TabWebContentsDelegateAndroid extends WebContentsDelegateAndroid {
+@NullMarked
+public abstract class TabWebContentsDelegateAndroid extends WebContentsDelegateAndroid
+        implements Destroyable {
     /**
-     * Returns whether the page should resume accepting requests for the new window. This is
-     * used when window creation is asynchronous and the navigations need to be delayed.
+     * Returns whether the page should resume accepting requests for the new window. This is used
+     * when window creation is asynchronous and the navigations need to be delayed.
      */
     protected abstract boolean shouldResumeRequestsForCreatedWindow();
 
@@ -94,7 +99,7 @@ public abstract class TabWebContentsDelegateAndroid extends WebContentsDelegateA
      * @return the WebAPK manifest scope. This gives frames within the scope increased privileges
      * such as autoplaying media unmuted.
      */
-    protected String getManifestScope() {
+    protected @Nullable String getManifestScope() {
         return null;
     }
 

@@ -23,6 +23,7 @@
 #include "third_party/blink/public/mojom/ai/ai_manager.mojom-shared.h"
 #include "third_party/blink/public/mojom/ai/ai_manager.mojom.h"
 #include "third_party/blink/public/mojom/ai/ai_rewriter.mojom.h"
+#include "third_party/blink/public/mojom/ai/ai_summarizer.mojom.h"
 #include "third_party/blink/public/mojom/ai/ai_writer.mojom.h"
 
 using optimization_guide::MockSession;
@@ -41,6 +42,14 @@ class AIManagerTest : public AITestUtils::AITestBase {
             [&] { return std::make_unique<NiceMock<MockSession>>(&session_); });
     ON_CALL(session_, GetTokenLimits())
         .WillByDefault(AITestUtils::GetFakeTokenLimits);
+    ON_CALL(session_, GetContextSizeInTokens(_, _))
+        .WillByDefault(
+            [&](optimization_guide::MultimodalMessageReadView request_metadata,
+                optimization_guide::OptimizationGuideModelSizeInTokenCallback
+                    callback) {
+              std::move(callback).Run(
+                  blink::mojom::kWritingAssistanceMaxInputTokenSize);
+            });
     ON_CALL(session_, GetOnDeviceFeatureMetadata())
         .WillByDefault(AITestUtils::GetFakeFeatureMetadata);
     ON_CALL(*mock_optimization_guide_keyed_service_,
@@ -113,8 +122,9 @@ TEST_F(AIManagerTest, AIContextBoundObjectSet) {
       blink::mojom::AILanguageModelCreateOptions::New(
           /*sampling_params=*/nullptr,
           /*system_prompt=*/std::nullopt,
-          std::vector<blink::mojom::AILanguageModelInitialPromptPtr>(),
-          std::vector<blink::mojom::AILanguageCodePtr>()));
+          /*initial_prompts=*/
+          std::vector<blink::mojom::AILanguageModelPromptPtr>(),
+          /*expected_inputs=*/std::nullopt));
   run_loop.Run();
   ASSERT_EQ(1u, GetAIManagerContextBoundObjectSetSize());
 

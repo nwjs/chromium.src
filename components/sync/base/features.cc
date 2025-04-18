@@ -16,6 +16,10 @@ BASE_FEATURE(kSyncAutofillLoyaltyCard,
              "SyncAutofillLoyaltyCard",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kSyncSharedTabGroupAccountData,
+             "SyncSharedTabGroupAccountData",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 #if BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kEnableBatchUploadFromSettings,
              "EnableBatchUploadFromSettings",
@@ -47,15 +51,6 @@ BASE_FEATURE(kSkipInvalidationOptimizationsWhenDeviceInfoUpdated,
 BASE_FEATURE(kSyncEnableContactInfoDataTypeForCustomPassphraseUsers,
              "SyncEnableContactInfoDataTypeForCustomPassphraseUsers",
 #if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT
-#endif
-);
-
-BASE_FEATURE(kEnablePasswordsAccountStorageForSyncingUsers,
-             "EnablePasswordsAccountStorageForSyncingUsers",
-#if BUILDFLAG(IS_ANDROID)
              base::FEATURE_ENABLED_BY_DEFAULT
 #else
              base::FEATURE_DISABLED_BY_DEFAULT
@@ -145,7 +140,7 @@ BASE_FEATURE(kSyncIncreaseNudgeDelayForSingleClient,
 
 BASE_FEATURE(kMoveThemePrefsToSpecifics,
              "MoveThemePrefsToSpecifics",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kWebApkBackupAndRestoreBackend,

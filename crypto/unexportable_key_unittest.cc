@@ -8,10 +8,8 @@
 #include <tuple>
 
 #include "base/logging.h"
-#include "base/test/scoped_feature_list.h"
 #include "base/time/time.h"
-#include "crypto/features.h"
-#include "crypto/scoped_mock_unexportable_key_provider.h"
+#include "crypto/scoped_fake_unexportable_key_provider.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 #if BUILDFLAG(IS_MAC)
@@ -22,13 +20,13 @@ namespace {
 
 enum class Provider {
   kTPM,
-  kMock,
+  kFake,
   kMicrosoftSoftware,
 };
 
 const Provider kAllProviders[] = {
     Provider::kTPM,
-    Provider::kMock,
+    Provider::kFake,
     Provider::kMicrosoftSoftware,
 };
 
@@ -45,8 +43,8 @@ std::string ToString(Provider provider) {
   switch (provider) {
     case Provider::kTPM:
       return "TPM";
-    case Provider::kMock:
-      return "Mock";
+    case Provider::kFake:
+      return "Fake";
     case Provider::kMicrosoftSoftware:
       return "Microsoft Software";
   }
@@ -54,24 +52,8 @@ std::string ToString(Provider provider) {
 
 class UnexportableKeySigningTest
     : public testing::TestWithParam<
-          std::tuple<crypto::SignatureVerifier::SignatureAlgorithm,
-                     Provider,
-                     bool>> {
- public:
-  void SetUp() override {
-    bool label_win_keys = std::get<2>(GetParam());
-#if BUILDFLAG(IS_WIN)
-    scoped_feature_list.InitWithFeatureState(
-        crypto::features::kLabelWindowsUnexportableKeys, label_win_keys);
-#else
-    if (label_win_keys) {
-      GTEST_SKIP() << "Skipping Windows-specific flag on non Windows";
-    }
-#endif
-  }
-
+          std::tuple<crypto::SignatureVerifier::SignatureAlgorithm, Provider>> {
  private:
-  base::test::ScopedFeatureList scoped_feature_list;
 #if BUILDFLAG(IS_MAC)
   crypto::ScopedFakeAppleKeychainV2 scoped_fake_apple_keychain_{
       kTestKeychainAccessGroup};
@@ -81,8 +63,7 @@ class UnexportableKeySigningTest
 INSTANTIATE_TEST_SUITE_P(All,
                          UnexportableKeySigningTest,
                          testing::Combine(testing::ValuesIn(kAllAlgorithms),
-                                          testing::ValuesIn(kAllProviders),
-                                          testing::Bool()));
+                                          testing::ValuesIn(kAllProviders)));
 
 TEST_P(UnexportableKeySigningTest, RoundTrip) {
   const crypto::SignatureVerifier::SignatureAlgorithm algo =
@@ -103,9 +84,9 @@ TEST_P(UnexportableKeySigningTest, RoundTrip) {
   SCOPED_TRACE(static_cast<int>(algo));
   SCOPED_TRACE(ToString(provider_type));
 
-  std::optional<crypto::ScopedMockUnexportableKeyProvider> mock;
-  if (provider_type == Provider::kMock) {
-    mock.emplace();
+  std::optional<crypto::ScopedFakeUnexportableKeyProvider> fake;
+  if (provider_type == Provider::kFake) {
+    fake.emplace();
   }
 
   const crypto::SignatureVerifier::SignatureAlgorithm algorithms[] = {algo};

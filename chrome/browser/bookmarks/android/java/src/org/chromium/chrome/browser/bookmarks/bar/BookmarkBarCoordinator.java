@@ -4,8 +4,12 @@
 
 package org.chromium.chrome.browser.bookmarks.bar;
 
+import static org.chromium.ui.accessibility.KeyboardFocusUtil.setFocus;
+import static org.chromium.ui.accessibility.KeyboardFocusUtil.setFocusOnFirstFocusableDescendant;
+
 import android.app.Activity;
 import android.view.LayoutInflater;
+import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewStub;
 
@@ -34,13 +38,13 @@ public class BookmarkBarCoordinator {
     /**
      * Constructs the bookmark bar coordinator.
      *
-     * @param activity the activity which is hosting the bookmark bar.
-     * @param browserControlsStateProvider the state provider for browser control
-     *     positioning/visibility.
-     * @param heightChangeCallback a callback to notify of bookmark bar height change events.
-     * @param profileSupplier the supplier for the currently active profile.
-     * @param viewStub the stub used to inflate the bookmark bar.
-     * @param bookmarkOpener used to open bookmarks.
+     * @param activity The activity which is hosting the bookmark bar.
+     * @param browserControlsStateProvider The state provider for browser controls.
+     * @param heightChangeCallback A callback to notify of bookmark bar height change events.
+     * @param profileSupplier The supplier for the currently active profile.
+     * @param viewStub The stub used to inflate the bookmark bar.
+     * @param bookmarkOpener Used to open bookmarks.
+     * @param bookmarkManagerOpenerSupplier Used to open the bookmark manager.
      */
     public BookmarkBarCoordinator(
             @NonNull Activity activity,
@@ -101,15 +105,40 @@ public class BookmarkBarCoordinator {
     }
 
     /**
-     * @return the supplier which provides the current height of the bookmark bar.
+     * @return The supplier which provides the current height of the bookmark bar.
      */
     public ObservableSupplier<Integer> getHeightSupplier() {
         return mMediator.getHeightSupplier();
+    }
+
+    /**
+     * @return The view for the bookmark bar.
+     */
+    public @NonNull View getView() {
+        return mView;
     }
 
     private @NonNull BookmarkBarButton inflateBookmarkBarButton(@NonNull ViewGroup parent) {
         return (BookmarkBarButton)
                 LayoutInflater.from(parent.getContext())
                         .inflate(R.layout.bookmark_bar_button, parent, false);
+    }
+
+    /** Requests focus within the bookmark bar. */
+    public void requestFocus() {
+        if (setFocusOnFirstFocusableDescendant(
+                mView.findViewById(R.id.bookmark_bar_items_container))) {
+            // If we set focus on a bookmark in the RecyclerView of user bookmarks, we are done.
+            return;
+        }
+        // Otherwise (there were no user bookmarks), focus on the all bookmarks button at the end.
+        setFocus(mView.findViewById(R.id.bookmark_bar_all_bookmarks_button));
+    }
+
+    /**
+     * @return Whether keyboard focus is within this view.
+     */
+    public boolean hasKeyboardFocus() {
+        return mView.getFocusedChild() != null;
     }
 }

@@ -272,6 +272,21 @@ inline constexpr const char kRateLimitSelectSourceReportingOriginsBySiteSql[] =
     " AND time>?";
 
 inline constexpr const char
+    kRateLimitCountUniqueReportingOriginsPerReportingSiteForSourceSql[] =
+        "SELECT COUNT(DISTINCT reporting_origin)FROM rate_limits "
+        "WHERE " RATE_LIMIT_SOURCE_CONDITION
+        " AND reporting_site=?"
+        " AND time>?";
+
+inline constexpr const char
+    kRateLimitCountUniqueReportingOriginsPerSitesForSourceSql[] =
+        "SELECT COUNT(DISTINCT reporting_origin)FROM rate_limits "
+        "WHERE " RATE_LIMIT_SOURCE_CONDITION
+        " AND destination_site=?"
+        " AND reporting_site=?"
+        " AND time>?";
+
+inline constexpr const char
     kRateLimitCountUniqueReportingOriginsPerSiteForAttributionSql[] =
         "SELECT COUNT(DISTINCT reporting_origin)FROM rate_limits "
         "WHERE " RATE_LIMIT_ATTRIBUTION_CONDITION
@@ -347,9 +362,14 @@ inline constexpr const char kDeleteOsRegistrationsRangeSql[] =
     "DELETE FROM os_registrations "
     "WHERE time BETWEEN ?1 AND ?2";
 
-inline constexpr const char kDeleteOsRegistrationSql[] =
+inline constexpr const char kDeleteOsRegistrationAtTimeSql[] =
     "DELETE FROM os_registrations "
     "WHERE registration_origin=? AND time=?";
+
+inline constexpr const char kDeleteOsRegistrationSql[] =
+    "DELETE FROM os_registrations "
+    "WHERE registration_origin=? "
+    "AND time BETWEEN ? AND ?";
 
 inline constexpr const char kGetOsRegistrationDataKeysSql[] =
     "SELECT DISTINCT registration_origin FROM os_registrations";

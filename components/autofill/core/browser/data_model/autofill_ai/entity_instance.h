@@ -7,6 +7,7 @@
 
 #include <ostream>
 #include <string>
+#include <variant>
 
 #include "base/compiler_specific.h"
 #include "base/containers/flat_set.h"
@@ -14,6 +15,7 @@
 #include "base/time/time.h"
 #include "base/types/cxx23_to_underlying.h"
 #include "base/types/optional_ref.h"
+#include "base/types/strong_alias.h"
 #include "base/uuid.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_component.h"
 #include "components/autofill/core/browser/data_model/addresses/contact_info.h"
@@ -23,7 +25,6 @@
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/common/dense_set.h"
 #include "components/autofill/core/common/is_required.h"
-#include "third_party/abseil-cpp/absl/types/variant.h"
 #include "url/gurl.h"
 
 namespace autofill {
@@ -68,9 +69,9 @@ class EntityTable;
 // `AttributeInstance::GetNormalizedType()` and the getter/setter methods for
 // how this problem is handled.
 class AttributeInstance final {
-  // TODO(crbug.com/389625753): Also add support for states.
+  using StateInfo = base::StrongAlias<class StateInfoTag, std::u16string>;
   using InfoStructure =
-      absl::variant<CountryInfo, DateInfo, NameInfo, std::u16string>;
+      std::variant<CountryInfo, DateInfo, NameInfo, StateInfo, std::u16string>;
 
  public:
   // Transparent less-than relation based on the AttributeType.
@@ -101,11 +102,24 @@ class AttributeInstance final {
   // and is assumed to be just the attribute-type-equivalent field type for
   // unstructured ones.
 
+  // Returns a string that contains all information stored in this attribute
+  // instance, formatted according to the given `app_locale`.
+  //
+  // For more control over over which, see GetInfo().
+  std::u16string GetCompleteInfo(const std::string& app_locale) const {
+    return GetInfo(type().field_type(), app_locale, std::nullopt);
+  }
+
   // Returns the value stored in this attribute instance for a specific `type`,
-  // formatted according to a given `app_locale`.
-  std::u16string GetInfo(FieldType type,
-                         const std::string& app_locale,
-                         std::u16string_view format_string = u"") const;
+  // formatted according to a given `app_locale` and `format_string`.
+  //
+  // Currently, the `format_string` only matters for dates. If it is empty, it
+  // defaults to u"YYYY-MM-DD". See AutofillField::format_string() for the
+  // grammar of format strings.
+  std::u16string GetInfo(
+      FieldType type,
+      const std::string& app_locale,
+      base::optional_ref<const std::u16string> format_string) const;
 
   class GetRawInfoPassKey {
     constexpr GetRawInfoPassKey() = default;
@@ -124,26 +138,27 @@ class AttributeInstance final {
 
   // Populates the attribute with a value for a specific `type`, according to a
   // given `app_locale`.
+  //
+  // Currently, the `format_string` only matters for dates. Dates are updated
+  // incrementally, e.g., SetInfo(..., u"16", ..., u"DD", ...) only changes the
+  // day and does not reset the month or year. If `value` doesn't fully match
+  // the `format_string`, the function is a no-op, e.g.,
+  // SetInfo(..., u"16/12/2022", ..., u"DD", ...) is a no-op.
+  // See AutofillField::format_string() for the grammar of format strings.
   void SetInfo(FieldType type,
                const std::u16string& value,
-               const std::string& app_locale);
-
-  // Similar to `SetInfo` but also assigns a verification status to the set
-  // value.
-  // TODO(crbug.com/396325496): Add `format_string` parameter.
-  void SetInfoWithVerificationStatus(FieldType type,
-                                     const std::u16string& value,
-                                     const std::string& app_locale,
-                                     const VerificationStatus status);
+               const std::string& app_locale,
+               std::u16string_view format_string,
+               VerificationStatus status);
 
   // Same as `SetInfoWithVerificationStatus`, but for structured types this
   // function does nothing but modify the information in `type`, while the other
   // function might perform additional steps (e.g., name formatting). This
   // function should only be used by database logic and settings page logic.
   // TODO(crbug.com/389625753): Investigate merging SetInfo* and SetRawInfo*.
-  void SetRawInfoWithVerificationStatus(FieldType type,
-                                        const std::u16string& value,
-                                        VerificationStatus status);
+  void SetRawInfo(FieldType type,
+                  const std::u16string& value,
+                  VerificationStatus status);
 
   // Returns the set of `FieldType`s for which the setter/getter functions above
   // may be called.
@@ -152,10 +167,6 @@ class AttributeInstance final {
   // Returns the types which are stored in the database for this attribute
   // to be able to correctly reconstruct it at database loading time.
   FieldTypeSet GetDatabaseStoredTypes() const;
-
-  // Returns the FieldType that represents the whole value stored in this
-  // attribute.
-  FieldType GetTopLevelType() const;
 
   // This is a no-op for unstructured attributes, and for structured attributes
   // the function propagates changes in a component to its subcomponents. This

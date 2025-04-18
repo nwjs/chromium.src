@@ -71,6 +71,12 @@ base::AtomicSequenceNumber g_next_video_resource_updater_id;
 
 gfx::ProtectedVideoType ProtectedVideoTypeFromMetadata(
     const VideoFrameMetadata& metadata) {
+  // DisplayCompositor doesn't have access to contents of the VideoFrame in this
+  // case,
+  if (metadata.dcomp_surface) {
+    return gfx::ProtectedVideoType::kHardwareProtected;
+  }
+
   if (!metadata.protected_video) {
     return gfx::ProtectedVideoType::kClear;
   }
@@ -98,14 +104,6 @@ VideoFrameResourceType ExternalResourceTypeForHardware(const VideoFrame& frame,
         case GL_TEXTURE_EXTERNAL_OES:
 #if BUILDFLAG(IS_ANDROID)
           return VideoFrameResourceType::STREAM_TEXTURE;
-#elif BUILDFLAG(IS_WIN)
-          // TODO(sunnyps): It's odd to reuse the Android path on Windows. There
-          // could be other unknown assumptions in other parts of the rendering
-          // stack about stream video quads. Investigate alternative solutions.
-          if (frame.metadata().dcomp_surface) {
-            return VideoFrameResourceType::STREAM_TEXTURE;
-          }
-          [[fallthrough]];
 #endif
         case GL_TEXTURE_2D:
         case GL_TEXTURE_RECTANGLE_ARB:
@@ -419,7 +417,6 @@ class VideoResourceUpdater::FrameResource {
   // Various methods for managing references. See |ref_count_| for details.
   void add_ref() { ++ref_count_; }
   void remove_ref() { --ref_count_; }
-  void clear_refs() { ref_count_ = 0; }
   bool has_refs() const { return ref_count_ != 0; }
 
  private:
@@ -444,13 +441,11 @@ class VideoResourceUpdater::SoftwareFrameResource
       uint32_t frame_resource_id,
       const gfx::Size& size,
       const gfx::ColorSpace& color_space,
-      scoped_refptr<gpu::SharedImageInterface> shared_image_interface,
-      VideoResourceUpdater* video_resource_updater)
+      scoped_refptr<gpu::SharedImageInterface> shared_image_interface)
       : FrameResource(frame_resource_id,
                       size,
                       viz::SinglePlaneFormat::kBGRA_8888,
-                      /*is_software=*/true),
-        video_resource_updater_(video_resource_updater) {
+                      /*is_software=*/true) {
     shared_image_ =
         shared_image_interface->CreateSharedImageForSoftwareCompositor(
             {viz::SinglePlaneFormat::kBGRA_8888, size, color_space,
@@ -466,24 +461,6 @@ class VideoResourceUpdater::SoftwareFrameResource
   ~SoftwareFrameResource() override {
     DCHECK(shared_image_);
     shared_image_->UpdateDestructionSyncToken(sync_token_);
-
-    // Delete shared_image_ first so the flush can propagate the destroy to the
-    // service side.
-    mapping_.reset();
-    shared_image_.reset();
-
-    // DestroySharedImage is a DeferredRequest, so it doesn't trigger IPC
-    // itself. We need a flush here to trigger IPC, otherwise there will be
-    // memory regression. There used to be GenVerifiedSyncToken() (which does an
-    // internal flush too) for MakeSoftwareSharedImage(). Now we move
-    // GenVerifiedSyncToken() to where shared_image is created, so a flush has
-    // to be added to the destructor here after that change.
-
-    // |shared_image_interface| can be null when Gpu channel is shutting down or
-    // is lost after gpu crash.
-    if (video_resource_updater_->shared_image_interface()) {
-      video_resource_updater_->shared_image_interface()->Flush();
-    }
   }
 
   const scoped_refptr<gpu::ClientSharedImage>& shared_image() const {
@@ -495,8 +472,6 @@ class VideoResourceUpdater::SoftwareFrameResource
 
  private:
   // Used for SharedImage.
-  // SoftwareFrameResource is called only in VideoResourceUpdater.
-  const raw_ptr<VideoResourceUpdater> video_resource_updater_;
   gpu::SyncToken sync_token_;
   scoped_refptr<gpu::ClientSharedImage> shared_image_;
 
@@ -723,22 +698,16 @@ void VideoResourceUpdater::AppendQuad(
 
 void VideoResourceUpdater::ClearFrameResources() {
   // Delete recycled resources that are not in use anymore.
-  bool cleared_resources = std::erase_if(
-      all_resources_, [](const std::unique_ptr<FrameResource>& resource) {
-        // Resources that are still being used can't be deleted.
-        return !resource->has_refs();
-      });
+  std::erase_if(all_resources_,
+                [](const std::unique_ptr<FrameResource>& resource) {
+                  // Resources that are still being used can't be deleted.
+                  return !resource->has_refs();
+                });
 
-  // May have destroyed resources above, make sure that it gets to the other
-  // side. SharedImage destruction (which may be triggered by the removal of
-  // canvas resources above) is a deferred message, we need to flush pending
-  // work to ensure that it is not merely queued, but is executed on the service
-  // side.
-  if (cleared_resources && context_provider_) {
-    if (auto* context_support = context_provider_->ContextSupport()) {
-      context_support->FlushPendingWork();
-    }
-  }
+  // May have destroyed resources above that contains shared images.
+  // ClientSharedImage destructor calls DestroySharedImage which in turn ensures
+  // that the deferred destroy request from above is flushed. Thus,
+  // SharedImageInterface::Flush in not needed here explicitly.
 }
 
 VideoFrameExternalResource
@@ -819,7 +788,7 @@ VideoResourceUpdater::FrameResource* VideoResourceUpdater::AllocateResource(
     DCHECK(shared_image_interface());
 
     all_resources_.push_back(std::make_unique<SoftwareFrameResource>(
-        resource_id, size, color_space, shared_image_interface(), this));
+        resource_id, size, color_space, shared_image_interface()));
   } else {
     all_resources_.push_back(std::make_unique<HardwareFrameResource>(
         resource_id, size, format, color_space,
@@ -896,8 +865,6 @@ VideoFrameExternalResource VideoResourceUpdater::CreateForHardwareFrame(
 
   external_resource.type =
       ExternalResourceTypeForHardware(*video_frame, target);
-  external_resource.bits_per_channel = video_frame->BitDepth();
-
   if (external_resource.type == VideoFrameResourceType::NONE) {
     DLOG(ERROR) << "Unsupported Texture format"
                 << VideoPixelFormatToString(video_frame->format());
@@ -933,8 +900,8 @@ VideoFrameExternalResource VideoResourceUpdater::CreateForHardwareFrame(
   transfer_resource.ycbcr_info = video_frame->ycbcr_info();
 
 #if BUILDFLAG(IS_ANDROID)
-  transfer_resource.is_backed_by_surface_texture =
-      video_frame->metadata().texture_owner;
+  transfer_resource.is_backed_by_surface_view =
+      video_frame->metadata().in_surface_view;
 #endif
 
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_WIN)
@@ -1353,8 +1320,6 @@ VideoFrameExternalResource VideoResourceUpdater::CreateForSoftwareFrame(
   frame_resource->add_ref();
 
   VideoFrameExternalResource external_resource;
-  external_resource.bits_per_channel = bits_per_channel;
-
   if (software_compositor() || texture_needs_rgb_conversion ||
       IsFrameFormat32BitRGB(input_frame_format)) {
     CHECK(output_si_format.is_single_plane());

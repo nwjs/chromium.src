@@ -6,9 +6,9 @@
 
 #include "build/build_config.h"
 #include "third_party/blink/renderer/core/layout/base_layout_algorithm_test.h"
+#include "third_party/blink/renderer/core/layout/grid/grid_track_sizing_algorithm.h"
 #include "third_party/blink/renderer/core/layout/length_utils.h"
 #include "third_party/blink/renderer/core/layout/physical_box_fragment.h"
-#include "third_party/blink/renderer/platform/heap/persistent.h"
 
 namespace blink {
 
@@ -24,6 +24,22 @@ namespace {
   EXPECT_EQ(area.columns.EndLine(), expected_column_end);                  \
   EXPECT_EQ(area.rows.StartLine(), expected_row_start);                    \
   EXPECT_EQ(area.rows.EndLine(), expected_row_end);
+#define EXPECT_GAP_INTERSECTIONS(actual_intersections, expected_intersections) \
+  EXPECT_EQ(actual_intersections.size(), expected_intersections.size());       \
+  for (size_t i = 0; i < actual_intersections.size(); ++i) {                   \
+    EXPECT_EQ(actual_intersections[i].size(),                                  \
+              expected_intersections[i].size());                               \
+    for (size_t j = 0; j < actual_intersections[i].size(); ++j) {              \
+      EXPECT_EQ(actual_intersections[i][j].inline_offset,                      \
+                expected_intersections[i][j].inline_offset);                   \
+      EXPECT_EQ(actual_intersections[i][j].block_offset,                       \
+                expected_intersections[i][j].block_offset);                    \
+      EXPECT_EQ(actual_intersections[i][j].is_blocked_before,                  \
+                expected_intersections[i][j].is_blocked_before);               \
+      EXPECT_EQ(actual_intersections[i][j].is_blocked_after,                   \
+                expected_intersections[i][j].is_blocked_after);                \
+    }                                                                          \
+  }
 
 }  // namespace
 
@@ -31,21 +47,36 @@ class GridLayoutAlgorithmTest : public BaseLayoutAlgorithmTest {
  protected:
   void SetUp() override { BaseLayoutAlgorithmTest::SetUp(); }
 
-  void BuildGridItemsAndTrackCollections(GridLayoutAlgorithm& algorithm) {
-    LayoutUnit unused_intrinsic_block_size;
+  void BuildGridGeometry(const GridLayoutAlgorithm& algorithm,
+                         GapGeometry* gap_geometry = nullptr) {
     auto grid_sizing_tree = algorithm.BuildGridSizingTree();
 
-    algorithm.ComputeGridGeometry(grid_sizing_tree,
-                                  &unused_intrinsic_block_size);
+    algorithm.InitializeTrackSizes(&grid_sizing_tree);
+    algorithm.CompleteTrackSizingAlgorithm(
+        kForColumns, SizingConstraint::kLayout, &grid_sizing_tree);
+    algorithm.CompleteTrackSizingAlgorithm(kForRows, SizingConstraint::kLayout,
+                                           &grid_sizing_tree);
 
-    auto& tree_data = grid_sizing_tree.TreeRootData();
+    layout_data_ = std::move(grid_sizing_tree.LayoutData());
+    for (const auto& grid_item : grid_sizing_tree.GetGridItems()) {
+      GridItemCachedData item_data;
 
-    cached_grid_items_ = &tree_data.GetGridItems();
-    layout_data_ = std::move(tree_data.layout_data);
-  }
+      item_data.available_row_size =
+          grid_item.CalculateAvailableSize(layout_data_.Rows());
+      item_data.column_span_properties = grid_item.column_span_properties;
+      item_data.row_span_properties = grid_item.row_span_properties;
+      item_data.resolved_position = grid_item.resolved_position;
+      grid_items_data_.emplace_back(std::move(item_data));
+    }
 
-  const GridItemData& GridItem(wtf_size_t index) {
-    return cached_grid_items_->At(index);
+    if (!gap_geometry) {
+      return;
+    }
+
+    algorithm.BuildGapIntersectionPoints(layout_data_, gap_geometry);
+    for (const auto& grid_item : grid_sizing_tree.GetGridItems()) {
+      algorithm.MarkBlockedStatusForGapIntersections(grid_item, gap_geometry);
+    }
   }
 
   const GridSizingTrackCollection& TrackCollection(
@@ -60,36 +91,22 @@ class GridLayoutAlgorithmTest : public BaseLayoutAlgorithmTest {
     return TrackCollection(track_direction).ranges_;
   }
 
-  LayoutUnit BaseRowSizeForChild(wtf_size_t index) {
-    return GridItem(index).CalculateAvailableSize(layout_data_.Rows());
-  }
+  // Helper methods to access private data on `GridLayoutAlgorithm`. This class
+  // is a friend of `GridLayoutAlgorithm` but the individual tests are not.
+  wtf_size_t GridItemCount() { return grid_items_data_.size(); }
 
-  void RunBuildGapGeometry(GridTrackSizingDirection track_direction,
-                           GridLayoutAlgorithm& algorithm,
-                           HeapVector<LayoutUnit>& intersection_points,
-                           GapFragmentData::GapGeometry* gap_geometry) {
-    algorithm.BuildGapGeometry(track_direction, layout_data_,
-                               intersection_points, gap_geometry);
-  }
-
-  void RunPopulateGapIntersectionPoints(
-      GridLayoutAlgorithm& algorithm,
-      const HeapVector<LayoutUnit>& intersection_points,
-      GapFragmentData::GapBoundaries& gap_boundaries) {
-    algorithm.PopulateGapIntersectionPoints(intersection_points,
-                                            gap_boundaries);
-  }
-
-  // Helper methods to access private data on GridLayoutAlgorithm. This class
-  // is a friend of GridLayoutAlgorithm but the individual tests are not.
-  wtf_size_t GridItemCount() {
-    return cached_grid_items_ ? cached_grid_items_->Size() : 0U;
+  Vector<LayoutUnit> GridItemsAvailableRowSize() {
+    Vector<LayoutUnit> results;
+    for (const auto& item_data : grid_items_data_) {
+      results.push_back(item_data.available_row_size);
+    }
+    return results;
   }
 
   Vector<GridArea> GridItemGridAreas() {
     Vector<GridArea> results;
-    for (const auto& grid_item : *cached_grid_items_) {
-      results.push_back(grid_item.resolved_position);
+    for (const auto& item_data : grid_items_data_) {
+      results.push_back(item_data.resolved_position);
     }
     return results;
   }
@@ -97,9 +114,10 @@ class GridLayoutAlgorithmTest : public BaseLayoutAlgorithmTest {
   Vector<wtf_size_t> GridItemsWithColumnSpanProperty(
       TrackSpanProperties::PropertyId property) {
     Vector<wtf_size_t> results;
-    for (wtf_size_t i = 0; i < GridItemCount(); ++i) {
-      if (GridItem(i).column_span_properties.HasProperty(property))
+    for (wtf_size_t i = 0; i < grid_items_data_.size(); ++i) {
+      if (grid_items_data_[i].column_span_properties.HasProperty(property)) {
         results.push_back(i);
+      }
     }
     return results;
   }
@@ -107,9 +125,10 @@ class GridLayoutAlgorithmTest : public BaseLayoutAlgorithmTest {
   Vector<wtf_size_t> GridItemsWithRowSpanProperty(
       TrackSpanProperties::PropertyId property) {
     Vector<wtf_size_t> results;
-    for (wtf_size_t i = 0; i < GridItemCount(); ++i) {
-      if (GridItem(i).row_span_properties.HasProperty(property))
+    for (wtf_size_t i = 0; i < grid_items_data_.size(); ++i) {
+      if (grid_items_data_[i].row_span_properties.HasProperty(property)) {
         results.push_back(i);
+      }
     }
     return results;
   }
@@ -158,11 +177,19 @@ class GridLayoutAlgorithmTest : public BaseLayoutAlgorithmTest {
     return fragment->DumpFragmentTree(flags);
   }
 
-  Persistent<GridItems> cached_grid_items_;
+ private:
+  struct GridItemCachedData {
+    LayoutUnit available_row_size;
+    TrackSpanProperties column_span_properties;
+    TrackSpanProperties row_span_properties;
+    GridArea resolved_position;
+  };
+
+  Vector<GridItemCachedData> grid_items_data_;
   GridLayoutData layout_data_;
 };
 
-TEST_F(GridLayoutAlgorithmTest, GridLayoutAlgorithmBaseSetSizes) {
+TEST_F(GridLayoutAlgorithmTest, GridLayoutAlgorithmAvailableRowSizes) {
   SetBodyInnerHTML(R"HTML(
     <style>
     #grid1 {
@@ -193,12 +220,11 @@ TEST_F(GridLayoutAlgorithmTest, GridLayoutAlgorithmBaseSetSizes) {
       CalculateInitialFragmentGeometry(space, node, /* break_token */ nullptr);
 
   GridLayoutAlgorithm algorithm({node, fragment_geometry, space});
-  BuildGridItemsAndTrackCollections(algorithm);
-  EXPECT_EQ(BaseRowSizeForChild(0), LayoutUnit(0));
-  EXPECT_EQ(BaseRowSizeForChild(1), LayoutUnit(110));
-  EXPECT_EQ(BaseRowSizeForChild(2), LayoutUnit(210));
-  EXPECT_EQ(BaseRowSizeForChild(3), LayoutUnit(100));
-  EXPECT_EQ(BaseRowSizeForChild(4), LayoutUnit(110));
+  BuildGridGeometry(algorithm);
+
+  EXPECT_EQ(GridItemsAvailableRowSize(),
+            Vector<LayoutUnit>({LayoutUnit(0), LayoutUnit(110), LayoutUnit(210),
+                                LayoutUnit(100), LayoutUnit(110)}));
 }
 
 TEST_F(GridLayoutAlgorithmTest, GridLayoutAlgorithmGapGeometry) {
@@ -235,54 +261,37 @@ TEST_F(GridLayoutAlgorithmTest, GridLayoutAlgorithmGapGeometry) {
   FragmentGeometry fragment_geometry =
       CalculateInitialFragmentGeometry(space, node, /* break_token */ nullptr);
   GridLayoutAlgorithm algorithm({node, fragment_geometry, space});
-  BuildGridItemsAndTrackCollections(algorithm);
-  GapFragmentData::GapGeometry* gap_geometry =
-      MakeGarbageCollected<GapFragmentData::GapGeometry>();
 
-  HeapVector<LayoutUnit> inline_intersections;
-  RunBuildGapGeometry(kForColumns, algorithm, inline_intersections,
-                      gap_geometry);
-  // Expect 2 gaps for 3 columns.
-  EXPECT_EQ(gap_geometry->columns.size(), 2U);
-  EXPECT_EQ(gap_geometry->columns[0].start_offset, LayoutUnit(100));
-  EXPECT_EQ(gap_geometry->columns[0].end_offset, LayoutUnit(110));
-  EXPECT_EQ(gap_geometry->columns[1].start_offset, LayoutUnit(210));
-  EXPECT_EQ(gap_geometry->columns[1].end_offset, LayoutUnit(220));
+  auto* gap_geometry =
+      MakeGarbageCollected<GapGeometry>(GapGeometry::ContainerType::kGrid);
+  BuildGridGeometry(algorithm, gap_geometry);
 
-  HeapVector<LayoutUnit> block_intersections;
-  RunBuildGapGeometry(kForRows, algorithm, block_intersections, gap_geometry);
-  // Expect 1 gap for 2 rows.
-  EXPECT_EQ(gap_geometry->rows.size(), 1U);
-  EXPECT_EQ(gap_geometry->rows[0].start_offset, LayoutUnit(100));
-  EXPECT_EQ(gap_geometry->rows[0].end_offset, LayoutUnit(110));
+  Vector<GapIntersectionList> expected_column_intersections = {
+      {
+          GapIntersection(LayoutUnit(105), LayoutUnit()),
+          GapIntersection(LayoutUnit(105), LayoutUnit(105)),
+          GapIntersection(LayoutUnit(105), LayoutUnit(210)),
+      },
+      {
+          GapIntersection(LayoutUnit(215), LayoutUnit()),
+          GapIntersection(LayoutUnit(215), LayoutUnit(105)),
+          GapIntersection(LayoutUnit(215), LayoutUnit(210)),
+      },
+  };
 
-  RunPopulateGapIntersectionPoints(algorithm, block_intersections,
-                                   gap_geometry->GetGapBoundaries(kForColumns));
-  RunPopulateGapIntersectionPoints(algorithm, inline_intersections,
-                                   gap_geometry->GetGapBoundaries(kForRows));
+  Vector<GapIntersectionList> expected_row_intersections = {
+      {
+          GapIntersection(LayoutUnit(), LayoutUnit(105)),
+          GapIntersection(LayoutUnit(105), LayoutUnit(105)),
+          GapIntersection(LayoutUnit(215), LayoutUnit(105)),
+          GapIntersection(LayoutUnit(320), LayoutUnit(105)),
+      },
+  };
 
-  // Expect `num_row_gaps` + 2 intersection points for each column gap.
-  for (const auto& column_gap : gap_geometry->columns) {
-    EXPECT_EQ(column_gap.intersection_points.size(),
-              gap_geometry->rows.size() + 2);
-    // Expect intersections to be block start, intersection with the row gap(s),
-    // and block end.
-    EXPECT_EQ(column_gap.intersection_points[0], LayoutUnit());
-    EXPECT_EQ(column_gap.intersection_points[1], LayoutUnit(105));
-    EXPECT_EQ(column_gap.intersection_points[2], LayoutUnit(210));
-  }
-
-  // Expect `num_column_gaps` + 2 intersection points for each row gap.
-  for (const auto& row_gap : gap_geometry->rows) {
-    EXPECT_EQ(row_gap.intersection_points.size(),
-              gap_geometry->columns.size() + 2);
-    // Expect intersections to be inline start, intersection with the column
-    // gap(s), and inline end.
-    EXPECT_EQ(row_gap.intersection_points[0], LayoutUnit());
-    EXPECT_EQ(row_gap.intersection_points[1], LayoutUnit(105));
-    EXPECT_EQ(row_gap.intersection_points[2], LayoutUnit(215));
-    EXPECT_EQ(row_gap.intersection_points[3], LayoutUnit(320));
-  }
+  EXPECT_GAP_INTERSECTIONS(gap_geometry->GetGapIntersections(kForColumns),
+                           expected_column_intersections);
+  EXPECT_GAP_INTERSECTIONS(gap_geometry->GetGapIntersections(kForRows),
+                           expected_row_intersections);
 }
 
 TEST_F(GridLayoutAlgorithmTest, GapIntersectionsForGridWithSpanners) {
@@ -304,21 +313,19 @@ TEST_F(GridLayoutAlgorithmTest, GapIntersectionsForGridWithSpanners) {
     }
     .item3 {
       grid-column: 3 / 4;
-      grid-row: 1 / 3;
     }
-    .item8 {
+    .item4 {
       grid-column: 2 / 4;
-      grid-row: 3 / 4;
+      grid-row: 2 / 4;
     }
-    </style>
-    <div id="grid1">
+  </style>
+   <div id="grid1">
       <div class="item item1"></div>
       <div class="item item3"></div>
       <div class="item"></div>
+      <div class="item item4"></div>
       <div class="item"></div>
-      <div class="item"></div>
-      <div class="item item8"></div>
-    </div>
+  </div>
   )HTML");
 
   BlockNode node(GetLayoutBoxByElementId("grid1"));
@@ -332,46 +339,73 @@ TEST_F(GridLayoutAlgorithmTest, GapIntersectionsForGridWithSpanners) {
   FragmentGeometry fragment_geometry =
       CalculateInitialFragmentGeometry(space, node, /* break_token */ nullptr);
   GridLayoutAlgorithm algorithm({node, fragment_geometry, space});
-  BuildGridItemsAndTrackCollections(algorithm);
-  GapFragmentData::GapGeometry* gap_geometry =
-      MakeGarbageCollected<GapFragmentData::GapGeometry>();
 
-  HeapVector<LayoutUnit> inline_intersection_points;
-  RunBuildGapGeometry(kForColumns, algorithm, inline_intersection_points,
-                      gap_geometry);
+  auto* gap_geometry =
+      MakeGarbageCollected<GapGeometry>(GapGeometry::ContainerType::kGrid);
+  BuildGridGeometry(algorithm, gap_geometry);
 
-  HeapVector<LayoutUnit> block_intersection_points;
-  RunBuildGapGeometry(kForRows, algorithm, block_intersection_points,
-                      gap_geometry);
+  Vector<GapIntersectionList> expected_column_intersections = {
+      {
+          GapIntersection(LayoutUnit(105), LayoutUnit()),
+          GapIntersection(LayoutUnit(105), LayoutUnit(105)),
+          GapIntersection(LayoutUnit(105), LayoutUnit(215)),
+          GapIntersection(LayoutUnit(105), LayoutUnit(320)),
+      },
+      {
+          GapIntersection(LayoutUnit(215), LayoutUnit()),
+          GapIntersection(LayoutUnit(215), LayoutUnit(105)),
+          GapIntersection(LayoutUnit(215), LayoutUnit(215)),
+          GapIntersection(LayoutUnit(215), LayoutUnit(320)),
+      },
+  };
 
-  RunPopulateGapIntersectionPoints(algorithm, block_intersection_points,
-                                   gap_geometry->GetGapBoundaries(kForColumns));
-  RunPopulateGapIntersectionPoints(algorithm, inline_intersection_points,
-                                   gap_geometry->GetGapBoundaries(kForRows));
+  Vector<GapIntersectionList> expected_row_intersections = {
+      {
+          GapIntersection(LayoutUnit(), LayoutUnit(105)),
+          GapIntersection(LayoutUnit(105), LayoutUnit(105)),
+          GapIntersection(LayoutUnit(215), LayoutUnit(105)),
+          GapIntersection(LayoutUnit(320), LayoutUnit(105)),
+      },
+      {
+          GapIntersection(LayoutUnit(), LayoutUnit(215)),
+          GapIntersection(LayoutUnit(105), LayoutUnit(215)),
+          GapIntersection(LayoutUnit(215), LayoutUnit(215)),
+          GapIntersection(LayoutUnit(320), LayoutUnit(215)),
+      },
+  };
 
-  // Expect `num_row_gaps` + 2 intersection points for each column gap.
-  for (const auto& column_gap : gap_geometry->columns) {
-    EXPECT_EQ(column_gap.intersection_points.size(),
-              gap_geometry->rows.size() + 2);
-    // Expect intersections to be block start, intersection with the row gap(s),
-    // and block end.
-    EXPECT_EQ(column_gap.intersection_points[0], LayoutUnit());
-    EXPECT_EQ(column_gap.intersection_points[1], LayoutUnit(105));
-    EXPECT_EQ(column_gap.intersection_points[2], LayoutUnit(215));
-    EXPECT_EQ(column_gap.intersection_points[3], LayoutUnit(320));
-  }
+  // The rendered version of the grid looks like:
+  // +---+---+---+
+  // |       |   |
+  // +---+---+---+
+  // |   |       |
+  // +---+       +
+  // |   |       |
+  // +---+---+---+
+  // The first column gap has intersection[0] blocked after and
+  // intersection[1] blocked before.
+  // The second column gap has intersection[1] blocked after,
+  // intersection[2] blocked before and blocked after and intersection[3]
+  // blocked before.
+  // The second row gap has intersection[1] blocked after, intersection[2]
+  // blocked before and blocked after and intersection[3] blocked before.
 
-  // Expect `num_column_gaps` + 2 intersection points for each row gap.
-  for (const auto& row_gap : gap_geometry->rows) {
-    EXPECT_EQ(row_gap.intersection_points.size(),
-              gap_geometry->columns.size() + 2);
-    // Expect intersections to be inline start, intersection with the column
-    // gap(s), and inline end.
-    EXPECT_EQ(row_gap.intersection_points[0], LayoutUnit());
-    EXPECT_EQ(row_gap.intersection_points[1], LayoutUnit(105));
-    EXPECT_EQ(row_gap.intersection_points[2], LayoutUnit(215));
-    EXPECT_EQ(row_gap.intersection_points[3], LayoutUnit(320));
-  }
+  // Mark intersection points which are blocked by the spanners.
+  expected_column_intersections[0][0].is_blocked_after = true;
+  expected_column_intersections[0][1].is_blocked_before = true;
+  expected_column_intersections[1][1].is_blocked_after = true;
+  expected_column_intersections[1][2].is_blocked_before = true;
+  expected_column_intersections[1][2].is_blocked_after = true;
+  expected_column_intersections[1][3].is_blocked_before = true;
+  expected_row_intersections[1][1].is_blocked_after = true;
+  expected_row_intersections[1][2].is_blocked_before = true;
+  expected_row_intersections[1][2].is_blocked_after = true;
+  expected_row_intersections[1][3].is_blocked_before = true;
+
+  EXPECT_GAP_INTERSECTIONS(gap_geometry->GetGapIntersections(kForColumns),
+                           expected_column_intersections);
+  EXPECT_GAP_INTERSECTIONS(gap_geometry->GetGapIntersections(kForRows),
+                           expected_row_intersections);
 }
 
 TEST_F(GridLayoutAlgorithmTest, GridLayoutAlgorithmRanges) {
@@ -404,7 +438,7 @@ TEST_F(GridLayoutAlgorithmTest, GridLayoutAlgorithmRanges) {
 
   GridLayoutAlgorithm algorithm({node, fragment_geometry, space});
   EXPECT_EQ(GridItemCount(), 0U);
-  BuildGridItemsAndTrackCollections(algorithm);
+  BuildGridGeometry(algorithm);
   EXPECT_EQ(GridItemCount(), 4U);
 
   const auto& row_ranges = Ranges(kForRows);
@@ -451,7 +485,7 @@ TEST_F(GridLayoutAlgorithmTest, GridLayoutAlgorithmRangesWithAutoRepeater) {
 
   GridLayoutAlgorithm algorithm({node, fragment_geometry, space});
   EXPECT_EQ(GridItemCount(), 0U);
-  BuildGridItemsAndTrackCollections(algorithm);
+  BuildGridGeometry(algorithm);
   EXPECT_EQ(GridItemCount(), 4U);
 
   const auto& row_ranges = Ranges(kForRows);
@@ -520,7 +554,7 @@ TEST_F(GridLayoutAlgorithmTest, GridLayoutAlgorithmRangesImplicit) {
 
   GridLayoutAlgorithm algorithm({node, fragment_geometry, space});
   EXPECT_EQ(GridItemCount(), 0U);
-  BuildGridItemsAndTrackCollections(algorithm);
+  BuildGridGeometry(algorithm);
   EXPECT_EQ(GridItemCount(), 4U);
 
   const auto& column_ranges = Ranges(kForColumns);
@@ -579,7 +613,7 @@ TEST_F(GridLayoutAlgorithmTest, GridLayoutAlgorithmRangesImplicitAutoColumns) {
 
   GridLayoutAlgorithm algorithm({node, fragment_geometry, space});
   EXPECT_EQ(GridItemCount(), 0U);
-  BuildGridItemsAndTrackCollections(algorithm);
+  BuildGridGeometry(algorithm);
   EXPECT_EQ(GridItemCount(), 4U);
 
   const auto& column_ranges = Ranges(kForColumns);
@@ -637,7 +671,7 @@ TEST_F(GridLayoutAlgorithmTest, GridLayoutAlgorithmRangesImplicitAutoRows) {
 
   GridLayoutAlgorithm algorithm({node, fragment_geometry, space});
   EXPECT_EQ(GridItemCount(), 0U);
-  BuildGridItemsAndTrackCollections(algorithm);
+  BuildGridGeometry(algorithm);
   EXPECT_EQ(GridItemCount(), 4U);
 
   const auto& column_ranges = Ranges(kForColumns);
@@ -685,7 +719,7 @@ TEST_F(GridLayoutAlgorithmTest, GridLayoutAlgorithmRangesImplicitMixed) {
 
   GridLayoutAlgorithm algorithm({node, fragment_geometry, space});
   EXPECT_EQ(GridItemCount(), 0U);
-  BuildGridItemsAndTrackCollections(algorithm);
+  BuildGridGeometry(algorithm);
   EXPECT_EQ(GridItemCount(), 5U);
 
   const auto& column_ranges = Ranges(kForColumns);
@@ -762,11 +796,11 @@ TEST_F(GridLayoutAlgorithmTest, GridLayoutAlgorithmAutoGridPositions) {
 
   GridLayoutAlgorithm algorithm({node, fragment_geometry, space});
   EXPECT_EQ(GridItemCount(), 0U);
-  BuildGridItemsAndTrackCollections(algorithm);
+  BuildGridGeometry(algorithm);
   EXPECT_EQ(GridItemCount(), 4U);
 
-  Vector<GridArea> grid_positions = GridItemGridAreas();
-  ASSERT_EQ(grid_positions.size(), 4U);
+  const Vector<GridArea> grid_positions = GridItemGridAreas();
+  EXPECT_EQ(grid_positions.size(), 4U);
 
   EXPECT_GRID_AREA(grid_positions[0], 1U, 2U, 1U, 2U);
   EXPECT_GRID_AREA(grid_positions[1], 1U, 2U, 0U, 1U);
@@ -888,11 +922,11 @@ TEST_F(GridLayoutAlgorithmTest, GridLayoutAlgorithmAutoDense) {
 
   GridLayoutAlgorithm algorithm({node, fragment_geometry, space});
   EXPECT_EQ(GridItemCount(), 0U);
-  BuildGridItemsAndTrackCollections(algorithm);
+  BuildGridGeometry(algorithm);
   EXPECT_EQ(GridItemCount(), 16U);
 
-  Vector<GridArea> grid_positions = GridItemGridAreas();
-  ASSERT_EQ(grid_positions.size(), 16U);
+  const Vector<GridArea> grid_positions = GridItemGridAreas();
+  EXPECT_EQ(grid_positions.size(), 16U);
 
   // Expected placements:
   //   0 1 2 3 4 5 6 7 8 9
@@ -970,7 +1004,7 @@ TEST_F(GridLayoutAlgorithmTest, GridLayoutAlgorithmGridPositions) {
 
   GridLayoutAlgorithm algorithm({node, fragment_geometry, space});
   EXPECT_EQ(GridItemCount(), 0U);
-  BuildGridItemsAndTrackCollections(algorithm);
+  BuildGridGeometry(algorithm);
   EXPECT_EQ(GridItemCount(), 3U);
 
   const auto& column_ranges = Ranges(kForColumns);
@@ -1011,7 +1045,7 @@ TEST_F(GridLayoutAlgorithmTest, GridLayoutAlgorithmResolveFixedTrackSizes) {
       CalculateInitialFragmentGeometry(space, node, /* break_token */ nullptr);
 
   GridLayoutAlgorithm algorithm({node, fragment_geometry, space});
-  BuildGridItemsAndTrackCollections(algorithm);
+  BuildGridGeometry(algorithm);
 
   Vector<LayoutUnit> expected_column_base_sizes = {
       LayoutUnit(25), LayoutUnit(60), LayoutUnit(15)};
@@ -1088,7 +1122,7 @@ TEST_F(GridLayoutAlgorithmTest,
       CalculateInitialFragmentGeometry(space, node, /* break_token */ nullptr);
 
   GridLayoutAlgorithm algorithm({node, fragment_geometry, space});
-  BuildGridItemsAndTrackCollections(algorithm);
+  BuildGridGeometry(algorithm);
 
   // Test grid items spanning intrinsic/flexible columns.
   Vector<wtf_size_t> expected_grid_items_spanning_intrinsic_track = {0, 1, 3};

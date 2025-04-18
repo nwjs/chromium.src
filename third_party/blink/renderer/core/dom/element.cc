@@ -194,6 +194,7 @@
 #include "third_party/blink/renderer/core/layout/layout_text_combine.h"
 #include "third_party/blink/renderer/core/layout/layout_text_fragment.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
+#include "third_party/blink/renderer/core/layout/svg/layout_svg_root.h"
 #include "third_party/blink/renderer/core/loader/render_blocking_resource_manager.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/focus_controller.h"
@@ -557,6 +558,25 @@ const AtomicString& V8ShadowRootModeToString(V8ShadowRootMode::Enum mode) {
   return keywords::kClosed;
 }
 
+bool IsInsideLayoutSVGHiddenContainer(const LayoutObject* object) {
+  if (!RuntimeEnabledFeatures::
+          RestrictGetBoundingClientRectForHiddenSVGElementsEnabled()) {
+    return false;
+  }
+
+  for (; object; object = object->Parent()) {
+    // Check if the Element's LayoutObject or any ancestor is a
+    // LayoutSVGHiddenContainer
+    if (object->IsSVGHiddenContainer()) {
+      return true;
+    }
+
+    if (IsA<LayoutSVGRoot>(*object)) {
+      break;
+    }
+  }
+  return false;
+}
 }  // namespace
 
 Element::Element(const QualifiedName& tag_name,
@@ -619,6 +639,56 @@ int Element::DefaultTabIndex() const {
   return -1;
 }
 
+const HeapVector<Member<Node>> Element::ReadingFlowChildren() const {
+  HeapVector<Member<Node>> children;
+  const Element* layout_parent =
+      HasDisplayContentsStyle()
+          ? LayoutTreeBuilderTraversal::LayoutParentElement(*this)
+          : this;
+  if (!layout_parent || !layout_parent->IsReadingFlowContainer()) {
+    return children;
+  }
+  // Add all reading flow items first, in the reading flow order.
+  for (Node* reading_flow_item :
+       layout_parent->GetLayoutBox()->ReadingFlowNodes()) {
+    // reading_flow_item or its ancestor (display: contents) might not be a
+    // direct child of this. Loop the parents and only add the node if its
+    // FlatTreeTraversal::ParentElement is this element.
+    while (reading_flow_item) {
+      auto* parent = FlatTreeTraversal::ParentElement(*reading_flow_item);
+      if (parent == this) {
+        // TODO(dizhangg) this check is O(n^2)
+        if (!children.Contains(reading_flow_item)) {
+          children.push_back(reading_flow_item);
+        }
+        break;
+      }
+      reading_flow_item = parent;
+    }
+  }
+  // Add all non-reading flow items at the end of the reading flow.
+  for (Node& child : FlatTreeTraversal::ChildrenOf(*this)) {
+    // TODO(dizhangg) this check is O(n^2)
+    if (!children.Contains(child)) {
+      children.push_back(child);
+    }
+  }
+  // Now that we have a complete list of children, sort them by reading-order.
+  auto reading_order = [](Node* node) {
+    if (const Element* el = DynamicTo<Element>(node)) {
+      if (const ComputedStyle* style = el->GetComputedStyle()) {
+        return style->ReadingOrder();
+      }
+    }
+    return 0;
+  };
+  std::stable_sort(children.begin(), children.end(),
+                   [&reading_order](const auto& lhs, const auto& rhs) {
+                     return reading_order(lhs) < reading_order(rhs);
+                   });
+  return children;
+}
+
 bool Element::IsFocusableStyle(UpdateBehavior update_behavior) const {
   // TODO(vmpstr): Note that this may be called by accessibility during layout
   // tree attachment, at which point we might not have cleared all of the dirty
@@ -648,7 +718,13 @@ bool Element::IsFocusableStyle(UpdateBehavior update_behavior) const {
   }
   if (update_behavior == UpdateBehavior::kStyleAndLayout) {
     GetDocument().UpdateStyleAndLayoutTreeForElement(
-        this, DocumentUpdateReason::kFocus);
+        this, DocumentUpdateReason::kFocus, /*only_cv_auto=*/true);
+    // Look for ancestors with DisplayLockContext again since the previous
+    // update to style and layout may have created one.
+    if (DisplayLockUtilities::ShouldIgnoreNodeDueToDisplayLock(
+            *this, DisplayLockActivationReason::kUserFocus)) {
+      return false;
+    }
   } else {
     DCHECK(!NeedsStyleRecalc()) << this;
   }
@@ -691,6 +767,95 @@ bool Element::IsFocusableStyle(UpdateBehavior update_behavior) const {
   }
 
   return false;
+}
+
+constexpr unsigned kMinHeadingOffset = 0u;
+// 9 is the maximum heading level recommended by the ARIA
+// specification. See https://w3c.github.io/aria/#aria-level
+// See also AXNodeObject::HeadingLevel():
+// https://source.chromium.org/chromium/chromium/src/+/main:third_party/blink/renderer/modules/accessibility/ax_node_object.cc;l=3225;drc=d99d45a2124f7075b201e6bf5db39fec8971d583
+constexpr unsigned kMaxHeadingOffset = 9u;
+
+void Element::setHeadingOffset(int value) {
+  DCHECK(RuntimeEnabledFeatures::HeadingOffsetEnabled());
+  SetUnsignedIntegralAttribute(html_names::kHeadingoffsetAttr, value,
+                               kMinHeadingOffset);
+}
+
+int Element::headingOffset() const {
+  DCHECK(RuntimeEnabledFeatures::HeadingOffsetEnabled());
+  const AtomicString& headingoffset_value =
+      FastGetAttribute(html_names::kHeadingoffsetAttr);
+  unsigned value = 0;
+  if (!ParseHTMLClampedNonNegativeInteger(
+          headingoffset_value, kMinHeadingOffset, kMaxHeadingOffset, value)) {
+    return kMinHeadingOffset;
+  }
+  return value;
+}
+
+void Element::setHeadingReset(bool value) {
+  DCHECK(RuntimeEnabledFeatures::HeadingOffsetEnabled());
+  SetBooleanAttribute(html_names::kHeadingresetAttr, value);
+}
+
+bool Element::headingReset() const {
+  DCHECK(RuntimeEnabledFeatures::HeadingOffsetEnabled());
+  // Modal dialogs must always reset the headingoffset, because they
+  // effectively act like "mini windows", so an h1 at the root of the
+  // dialog must be an h1.
+  if (auto* dialog = DynamicTo<HTMLDialogElement>(this)) {
+    return dialog->IsModal();
+  }
+  return FastHasAttribute(html_names::kHeadingresetAttr);
+}
+
+int Element::GetComputedHeadingOffset(int max_offset) {
+  if (!RuntimeEnabledFeatures::HeadingOffsetEnabled()) {
+    return 0;
+  }
+
+  int offset = this->headingOffset();
+  if (headingReset()) {
+    return std::min(max_offset, offset);
+  }
+
+  Node* ancestor = this;
+  while (ancestor) {
+    ancestor = FlatTreeTraversal::Parent(*ancestor);
+    auto* element = DynamicTo<Element>(ancestor);
+    if (!element || element->headingReset()) {
+      // When encountering a headingreset, it's important to return the
+      // existing accumulated offset, to allow for deeply nested trees having
+      // children with headingoffsets. Returning to 0 would create a confusing
+      // structure for authors. Consider a deeply nested structure like:
+      //
+      // <div headingreset>
+      //   <h1>First Heading</h1>
+      //   <div headingoffset=1>
+      //     <h1>Second Heading</h1>
+      //   </div>
+      // </div>
+      //
+      // The "First Heading" should be an h1 (h1+reset), but importantly
+      // the "Second Heading" should be an h2 (h1+offset=1+reset). As it walks
+      // the tree, it will accumulate the `headingoffset=1`, then land on the
+      // headingreset, where we hit this line of logic. Our choices are to
+      // return either `0` or `1` (the accumulated offset). Returning `0` makes
+      // "Second Heading" an h1, which is the incorrect heading for the ideal
+      // document structure here. Returning the accumulated offset of 1 makes
+      // it an h2 which is a better heading structure.
+      // Ultimately, `headingreset` may be a poor choice of name, and perhaps
+      // something more like `headingoffsetboundary` better describes the logic
+      // of this attribute.
+      return std::min(offset, max_offset);
+    }
+    offset += element->headingOffset();
+    if (offset >= max_offset) {
+      return max_offset;
+    }
+  }
+  return std::min(offset, max_offset);
 }
 
 Node* Element::Clone(Document& factory,
@@ -852,7 +1017,7 @@ bool Element::HasExplicitlySetAttrAssociatedElements(
   return GetExplicitlySetElementsForAttr(name);
 }
 
-HeapLinkedHashSet<WeakMember<Element>>*
+GCedHeapLinkedHashSet<WeakMember<Element>>*
 Element::GetExplicitlySetElementsForAttr(const QualifiedName& name) const {
   ExplicitlySetAttrElementsMap* element_attribute_map =
       GetDocument().GetExplicitlySetAttrElementsMap(this);
@@ -892,7 +1057,7 @@ void Element::SetElementAttribute(const QualifiedName& name, Element* element) {
   auto result = explicitly_set_attr_elements_map->insert(name, nullptr);
   if (result.is_new_entry) {
     result.stored_value->value =
-        MakeGarbageCollected<HeapLinkedHashSet<WeakMember<Element>>>();
+        MakeGarbageCollected<GCedHeapLinkedHashSet<WeakMember<Element>>>();
   } else {
     result.stored_value->value->clear();
   }
@@ -910,9 +1075,11 @@ Element* Element::GetShadowReferenceTarget(const QualifiedName& name) const {
           GetExecutionContext())) {
     return nullptr;
   }
-
-  // TODO (crbug.com/353750122): Disallow aria-owns from participating in
-  // ReferenceTarget.
+  if (!RuntimeEnabledFeatures::ShadowRootReferenceTargetAriaOwnsEnabled(
+          GetExecutionContext()) &&
+      name == html_names::kAriaOwnsAttr) {
+    return nullptr;
+  }
 
   if (ShadowRoot* shadow_root = GetShadowRoot()) {
     if (Element* target = shadow_root->referenceTargetElement()) {
@@ -928,6 +1095,11 @@ Element* Element::GetShadowReferenceTarget(const QualifiedName& name) const {
 Element* Element::GetShadowReferenceTargetOrSelf(const QualifiedName& name) {
   if (!RuntimeEnabledFeatures::ShadowRootReferenceTargetEnabled(
           GetExecutionContext())) {
+    return this;
+  }
+  if (!RuntimeEnabledFeatures::ShadowRootReferenceTargetAriaOwnsEnabled(
+          GetExecutionContext()) &&
+      name == html_names::kAriaOwnsAttr) {
     return this;
   }
   ShadowRoot* shadow_root = GetShadowRoot();
@@ -969,7 +1141,7 @@ Element* Element::getElementByIdIncludingDisconnected(
 }
 
 Element* Element::GetElementAttribute(const QualifiedName& name) const {
-  HeapLinkedHashSet<WeakMember<Element>>* element_attribute_vector =
+  GCedHeapLinkedHashSet<WeakMember<Element>>* element_attribute_vector =
       GetExplicitlySetElementsForAttr(name);
   if (element_attribute_vector) {
     DCHECK_EQ(element_attribute_vector->size(), 1u);
@@ -1012,7 +1184,7 @@ HeapVector<Member<Element>>* Element::GetAttrAssociatedElements(
   // 1. Let elements be an empty list.
   HeapVector<Member<Element>>* result_elements =
       MakeGarbageCollected<HeapVector<Member<Element>>>();
-  HeapLinkedHashSet<WeakMember<Element>>* explicitly_set_elements =
+  GCedHeapLinkedHashSet<WeakMember<Element>>* explicitly_set_elements =
       GetExplicitlySetElementsForAttr(name);
   if (explicitly_set_elements) {
     // 3. If reflectedTarget's explicitly set attr-elements is not null:
@@ -1036,10 +1208,15 @@ HeapVector<Member<Element>>* Element::GetAttrAssociatedElements(
 
     // Account for labelled vs labeled spelling
     if (attr == html_names::kAriaLabelledbyAttr) {
-      attr = hasAttribute(html_names::kAriaLabeledbyAttr) &&
-                     !hasAttribute(html_names::kAriaLabelledbyAttr)
-                 ? html_names::kAriaLabeledbyAttr
-                 : html_names::kAriaLabelledbyAttr;
+      bool is_alternative_spelling =
+          hasAttribute(html_names::kAriaLabeledbyAttr) &&
+          !hasAttribute(html_names::kAriaLabelledbyAttr);
+      attr = is_alternative_spelling ? html_names::kAriaLabeledbyAttr
+                                     : html_names::kAriaLabelledbyAttr;
+      if (is_alternative_spelling) {
+        UseCounter::Count(GetDocument(),
+                          WebFeature::kAriaLabeledByAlternativeSpelling);
+      }
     }
 
     if (!hasAttribute(attr)) {
@@ -1144,11 +1321,11 @@ void Element::SetElementArrayAttribute(
   // the previous value if necessary to get an empty list, and then populating
   // the list.
   auto it = element_attribute_map->find(name);
-  HeapLinkedHashSet<WeakMember<Element>>* stored_elements =
+  GCedHeapLinkedHashSet<WeakMember<Element>>* stored_elements =
       it != element_attribute_map->end() ? it->value : nullptr;
   if (!stored_elements) {
     stored_elements =
-        MakeGarbageCollected<HeapLinkedHashSet<WeakMember<Element>>>();
+        MakeGarbageCollected<GCedHeapLinkedHashSet<WeakMember<Element>>>();
     element_attribute_map->Set(name, stored_elements);
   } else {
     stored_elements->clear();
@@ -2022,14 +2199,6 @@ double Element::currentCSSZoom() {
   return 1.0;
 }
 
-LayoutBox* Element::GetLayoutBoxForScrolling() const {
-  LayoutBox* box = GetLayoutBox();
-  if (!box || !box->IsScrollContainer()) {
-    return nullptr;
-  }
-  return box;
-}
-
 double Element::scrollLeft() {
   if (!InActiveDocument()) {
     return 0;
@@ -2636,7 +2805,8 @@ void Element::ClientQuads(Vector<gfx::QuadF>& quads) const {
     // TODO(pdr): ObjectBoundingBox does not include stroke and the spec is not
     // clear (see: https://github.com/w3c/svgwg/issues/339, crbug.com/529734).
     // If stroke is desired, we can update this to use AbsoluteQuads, below.
-    if (IsA<SVGGraphicsElement>(svg_element)) {
+    if (IsA<SVGGraphicsElement>(svg_element) &&
+        !IsInsideLayoutSVGHiddenContainer(element_layout_object)) {
       quads.push_back(element_layout_object->LocalToAbsoluteQuad(
           gfx::QuadF(element_layout_object->ObjectBoundingBox())));
     }
@@ -2769,7 +2939,7 @@ String Element::ComputedNameNoLifecycleUpdate() {
 
 void Element::ariaNotify(const String& announcement,
                          const AriaNotificationOptions* options) {
-  DCHECK(RuntimeEnabledFeatures::AriaNotifyEnabled());
+  DCHECK(RuntimeEnabledFeatures::AriaNotifyEnabled(GetExecutionContext()));
 
   if (auto* cache = GetDocument().ExistingAXObjectCache()) {
     cache->HandleAriaNotification(this, announcement, options);
@@ -2908,6 +3078,17 @@ SpecificTrustedType Element::ExpectedTrustedTypeForAttribute(
   return SpecificTrustedType::kNone;
 }
 
+void Element::ProcessElementRenderBlocking(const AtomicString& id_or_name) {
+  if (!GetDocument().HasPendingExpectLinkElements() || !isConnected() ||
+      !IsFinishedParsingChildren() || id_or_name.IsNull() ||
+      id_or_name.empty()) {
+    return;
+  }
+  DCHECK(GetDocument().GetRenderBlockingResourceManager());
+  GetDocument().GetRenderBlockingResourceManager()->RemovePendingParsingElement(
+      id_or_name, this);
+}
+
 DISABLE_CFI_PERF
 void Element::AttributeChanged(const AttributeModificationParams& params) {
   ParseAttribute(params);
@@ -2928,7 +3109,9 @@ void Element::AttributeChanged(const AttributeModificationParams& params) {
       GetDocument().GetStyleEngine().IdChangedForElement(old_id, new_id, *this);
     }
 
-    if (GetDocument().HasRenderBlockingExpectLinkElements() &&
+    ProcessElementRenderBlocking(new_id);
+
+    if (GetDocument().HasPendingExpectLinkElements() &&
         IsFinishedParsingChildren()) {
       DCHECK(GetDocument().GetRenderBlockingResourceManager());
       GetDocument()
@@ -2979,8 +3162,16 @@ void Element::AttributeChanged(const AttributeModificationParams& params) {
     }
   } else if (name == html_names::kSlotAttr) {
     if (params.old_value != params.new_value) {
-      if (ShadowRoot* root = ShadowRootOfParent()) {
-        root->DidChangeHostChildSlotName(params.old_value, params.new_value);
+      if (Element* parent = parentElement()) {
+        if (ShadowRoot* root = parent->GetShadowRoot()) {
+          root->DidChangeHostChildSlotName(params.old_value, params.new_value);
+          if (parent->ChildrenAffectedByBackwardPositionalRules()) {
+            // sibling-index()/sibling-count() may change for children,
+            // as slot assignments may change.
+            GetDocument().GetStyleEngine().ScheduleNthPseudoInvalidations(
+                *parent);
+          }
+        }
       }
     }
   } else if (name == html_names::kFocusgroupAttr) {
@@ -3001,7 +3192,7 @@ void Element::AttributeChanged(const AttributeModificationParams& params) {
       StyleAttributeChanged(params.new_value, params.reason);
     } else if (IsPresentationAttribute(name)) {
       if (name == html_names::kHiddenAttr) {
-        if (params.new_value == "until-found") {
+        if (params.new_value == keywords::kUntilFound) {
           EnsureDisplayLockContext().SetIsHiddenUntilFoundElement(true);
         } else if (DisplayLockContext* context = GetDisplayLockContext()) {
           context->SetIsHiddenUntilFoundElement(false);
@@ -3235,6 +3426,8 @@ Node::InsertionNotificationRequest Element::InsertedInto(
         context->ElementConnected();
       }
     }
+
+    ProcessElementRenderBlocking(GetIdAttribute());
   }
 
   if (isConnected()) {
@@ -3281,6 +3474,11 @@ Node::InsertionNotificationRequest Element::InsertedInto(
     if (GetShadowRoot()) {
       UpdateFocusgroupInShadowRootIfNeeded();
     }
+  }
+
+  EditContext* edit_context = editContext();
+  if (edit_context && edit_context->GetExecutionContext() != context) {
+    edit_context->SetExecutionContext(context);
   }
 
   if (parentElement() && parentElement()->IsInCanvasSubtree()) {
@@ -3474,7 +3672,7 @@ void Element::AttachLayoutTree(AttachContext& context) {
     }
   }
 
-  AttachPseudoElement(kPseudoIdScrollMarkerGroupBefore, context);
+  AttachLayoutPrecedingPseudoElements(context);
 
   AttachContext children_context(context);
   LayoutObject* layout_object = nullptr;
@@ -3504,13 +3702,7 @@ void Element::AttachLayoutTree(AttachContext& context) {
   }
   children_context.use_previous_in_flow = true;
 
-  // The order for buttons is described in
-  // https://drafts.csswg.org/css-overflow-5/#scroll-buttons.
-  AttachPseudoElement(kPseudoIdScrollButtonBlockStart, context);
-  AttachPseudoElement(kPseudoIdScrollButtonInlineStart, context);
-  AttachPseudoElement(kPseudoIdScrollButtonInlineEnd, context);
-  AttachPseudoElement(kPseudoIdScrollButtonBlockEnd, context);
-  AttachPseudoElement(kPseudoIdScrollMarkerGroupAfter, context);
+  AttachLayoutSucceedingPseudoElements(context);
 
   if (skipped_container_descendants &&
       (!layout_object || !layout_object->IsEligibleForSizeContainment())) {
@@ -3587,6 +3779,7 @@ void Element::DetachLayoutTree(bool performing_reattach) {
       data->ClearPseudoElements();
       data->ClearContainerQueryData();
       data->ClearOutOfFlowData();
+      data->RemoveScrollMarkerGroupData();
     } else if (data->GetOutOfFlowData()) {
       GetDocument()
           .GetStyleEngine()
@@ -3995,7 +4188,8 @@ void Element::RecalcStyle(const StyleRecalcChange change,
   if (const ComputedStyle* style = GetComputedStyle()) {
     child_recalc_context
         .has_scroller_ancestor_with_scroll_marker_group_property |=
-        style->IsScrollContainer() && !style->ScrollMarkerGroupNone();
+        (style->IsScrollContainer() || IsDocumentElement()) &&
+        !style->ScrollMarkerGroupNone();
     if (style->CanMatchSizeContainerQueries(*this)) {
       // IsSuppressed() means we are at the root of a container subtree called
       // from UpdateStyleAndLayoutTreeForContainer(). If so, we can not skip
@@ -4120,6 +4314,10 @@ void Element::RecalcStyle(const StyleRecalcChange change,
       UpdateFirstLetterPseudoElement(StyleUpdatePhase::kRecalc,
                                      child_recalc_context);
     }
+    // RecalcTransitionPseudoTreeStyle generally manages the transition pseudo
+    // tree, but it won't be called after the transition is finished, so we need
+    // to clean up here.
+    ClearTransitionPseudoTreeIfNeeded(child_change);
   }
 
   ClearChildNeedsStyleRecalc();
@@ -4353,6 +4551,7 @@ StyleRecalcChange Element::RecalcOwnStyle(
       }
       data->SetContainerQueryEvaluator(nullptr);
       data->ClearPseudoElements();
+      data->RemoveScrollMarkerGroupData();
     }
   }
   SetComputedStyle(new_style);
@@ -4368,6 +4567,15 @@ StyleRecalcChange Element::RecalcOwnStyle(
       (old_style && new_style &&
        old_style->ContainsStyle() != new_style->ContainsStyle())) {
     GetDocument().GetStyleEngine().MarkCountersDirty();
+  }
+
+  if (new_style && !new_style->ScrollMarkerContainNone()) {
+    GetDocument().AddScrollMarkerGroup(&EnsureScrollMarkerGroupData());
+  }
+
+  if (old_style && !old_style->ScrollMarkerContainNone() && new_style &&
+      new_style->ScrollMarkerContainNone()) {
+    RemoveScrollMarkerGroupData();
   }
 
   bool old_style_has_scroll_marker_group =
@@ -4535,6 +4743,15 @@ StyleRecalcChange Element::RecalcOwnStyle(
     }
     layout_object->SetStyle(layout_style, apply_changes);
   }
+
+  if (RuntimeEnabledFeatures::ScopedViewTransitionsEnabled() &&
+      !IsDocumentElement() && ViewTransitionUtils::GetTransition(*this)) {
+    // TODO(kevers): Retrieve vector of VT names from the view transition.
+    // TODO(kevers): Determine if it is safe to remove the call from StyleEngine
+    // for the document element here.
+    RecalcTransitionPseudoTreeStyle({});
+  }
+
   return child_change;
 }
 
@@ -4748,23 +4965,27 @@ void Element::NotifyIfMatchedDocumentRulesSelectorsChanged(
     return;
   }
 
-  auto get_selectors_from_computed_style = [](const ComputedStyle* style) {
-    HeapHashSet<WeakMember<StyleRule>> empty_set;
+  auto get_selectors_from_computed_style = [](const ComputedStyle* style)
+      -> const GCedHeapHashSet<WeakMember<StyleRule>>* {
     if (!style || !style->DocumentRulesSelectors()) {
-      return empty_set;
+      return nullptr;
     }
-    return *style->DocumentRulesSelectors();
+    return style->DocumentRulesSelectors().Get();
   };
 
-  const HeapHashSet<WeakMember<StyleRule>>& old_document_rules_selectors =
+  const GCedHeapHashSet<WeakMember<StyleRule>>* old_document_rules_selectors =
       get_selectors_from_computed_style(old_style);
-  const HeapHashSet<WeakMember<StyleRule>>& new_document_rules_selectors =
+  const GCedHeapHashSet<WeakMember<StyleRule>>* new_document_rules_selectors =
       get_selectors_from_computed_style(new_style);
-  if (old_document_rules_selectors.empty() &&
-      new_document_rules_selectors.empty()) {
+  if ((!old_document_rules_selectors ||
+       old_document_rules_selectors->empty()) &&
+      (!new_document_rules_selectors ||
+       new_document_rules_selectors->empty())) {
     return;
   }
-  if (old_document_rules_selectors != new_document_rules_selectors) {
+
+  if (!old_document_rules_selectors || !new_document_rules_selectors ||
+      (*old_document_rules_selectors != *new_document_rules_selectors)) {
     document_rules->LinkMatchedSelectorsUpdated(link);
   }
 }
@@ -5460,7 +5681,7 @@ bool Element::ShouldRecalcHighlightPseudoStyle(
   // If the originating element is a container for sizes, it means the
   // container has changed from that of the parent highlight, so we need
   // to re-evaluate container units.
-  if (highlight_parent && highlight_parent->HasContainerRelativeUnits() &&
+  if (highlight_parent && highlight_parent->HasContainerRelativeValue() &&
       originating_container == this &&
       originating_style.CanMatchSizeContainerQueries(*this)) {
     return true;
@@ -6186,7 +6407,7 @@ void Element::FinishParsingChildren() {
   CheckForSiblingStyleChanges(kFinishedParsingChildren, nullptr, lastChild(),
                               nullptr);
 
-  if (GetDocument().HasRenderBlockingExpectLinkElements()) {
+  if (GetDocument().HasPendingExpectLinkElements()) {
     DCHECK(GetDocument().GetRenderBlockingResourceManager());
     GetDocument()
         .GetRenderBlockingResourceManager()
@@ -6262,6 +6483,7 @@ void Element::ParseAttribute(const AttributeModificationParams& params) {
   } else if (params.name.Matches(html_names::kInteresttargetAttr)) {
     if (RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled(
             GetDocument().GetExecutionContext())) {
+      UseCounter::Count(GetDocument(), WebFeature::kInterestTarget);
       if (!params.old_value.IsNull() && params.old_value != params.new_value) {
         // We are changing the value of the `interesttarget` attribute, which
         // might "point" it at a different target element. So clear the
@@ -8622,6 +8844,13 @@ PseudoElement* Element::CreatePseudoElementIfNeeded(
 
   PseudoElement* pseudo_element =
       PseudoElement::Create(this, pseudo_id, view_transition_name);
+  if (RuntimeEnabledFeatures::ScopedViewTransitionsEnabled()) {
+    if (!pseudo_element) {
+      // TODO(crbug.com/405117185): Replace with DCHECK(pseudo_element) once we
+      // properly track per-scope view transition names.
+      return nullptr;
+    }
+  }
   EnsureElementRareData().SetPseudoElement(pseudo_id, pseudo_element,
                                            view_transition_name);
   pseudo_element->InsertedInto(*this);
@@ -8676,6 +8905,11 @@ PseudoElement* Element::GetPseudoElement(
   return nullptr;
 }
 
+bool Element::HasViewTransitionGroupChildren() const {
+  ElementRareDataVector* data = GetElementRareData();
+  return data && data->HasViewTransitionGroupPseudoElement();
+}
+
 Element* Element::GetStyledPseudoElement(
     PseudoId pseudo_id,
     const AtomicString& view_transition_name) const {
@@ -8704,9 +8938,12 @@ Element* Element::GetStyledPseudoElement(
     return nullptr;
   }
 
-  // The transition pseudos can currently only exist on the document element.
-  if (!IsDocumentElement()) {
-    return nullptr;
+  if (!RuntimeEnabledFeatures::ScopedViewTransitionsEnabled()) {
+    // The transition pseudos can currently only exist on the document element
+    // unless scoped view transitions are enabled.
+    if (!IsDocumentElement()) {
+      return nullptr;
+    }
   }
 
   // This traverses the pseudo element hierarchy generated in
@@ -8992,8 +9229,7 @@ const ComputedStyle* Element::StyleForSearchTextPseudoElement(
 
 bool Element::CanGeneratePseudoElement(PseudoId pseudo_id) const {
   if (pseudo_id == kPseudoIdViewTransition) {
-    DCHECK_EQ(this, GetDocument().documentElement());
-    return !!ViewTransitionUtils::GetTransition(GetDocument());
+    return !!ViewTransitionUtils::GetTransition(*this);
   }
   if (pseudo_id == kPseudoIdFirstLetter && IsSVGElement()) {
     return false;
@@ -9014,6 +9250,19 @@ bool Element::CanGeneratePseudoElement(PseudoId pseudo_id) const {
     }
   }
   if (const ComputedStyle* style = GetComputedStyle()) {
+    if (IsDocumentElement()) {
+      // The root element is never a scroll container, but is scrolled by the
+      // viewport, which is always (programmatically) scrollable.
+      // ::scroll-marker-group pseudo element boxes are generated as children of
+      // the root element box, and not as siblings which is the case for other
+      // elements.
+      if (pseudo_id == kPseudoIdScrollMarkerGroupBefore) {
+        return style->HasScrollMarkerGroupBefore();
+      }
+      if (pseudo_id == kPseudoIdScrollMarkerGroupAfter) {
+        return style->HasScrollMarkerGroupAfter();
+      }
+    }
     return style->CanGeneratePseudoElement(pseudo_id);
   }
   return false;
@@ -10629,8 +10878,8 @@ void Element::InvalidateStyleAttribute(
 
 void Element::RecalcTransitionPseudoTreeStyle(
     const Vector<AtomicString>& view_transition_names) {
-  DCHECK_EQ(this, GetDocument().documentElement());
-
+  DCHECK(RuntimeEnabledFeatures::ScopedViewTransitionsEnabled() ||
+         this == GetDocument().documentElement());
   DisplayLockStyleScope display_lock_style_scope(this);
   if (!display_lock_style_scope.ShouldUpdateChildStyle()) {
     return;
@@ -10638,7 +10887,8 @@ void Element::RecalcTransitionPseudoTreeStyle(
 
   PseudoElement* old_transition_pseudo =
       GetPseudoElement(kPseudoIdViewTransition);
-  const auto* transition = ViewTransitionUtils::GetTransition(GetDocument());
+  const auto* transition = ViewTransitionUtils::GetTransition(*this);
+
   if (!transition && !old_transition_pseudo) {
     return;
   }
@@ -10734,12 +10984,19 @@ void Element::RecalcTransitionPseudoTreeStyle(
   transition_pseudo->ClearChildNeedsStyleRecalc();
 }
 
+void Element::ClearTransitionPseudoTreeIfNeeded(
+    const StyleRecalcChange change) {
+  PseudoElement* element =
+      GetPseudoElement(kPseudoIdViewTransition, g_null_atom);
+  if (element && change.ShouldUpdatePseudoElement(*element) &&
+      !ViewTransitionUtils::GetTransition(*this)) {
+    ClearPseudoElement(kPseudoIdViewTransition, g_null_atom);
+  }
+}
+
 void Element::RebuildTransitionPseudoLayoutTree(
     const Vector<AtomicString>& view_transition_names) {
-  DCHECK_EQ(this, GetDocument().documentElement());
-
-  const bool has_transition =
-      !!ViewTransitionUtils::GetTransition(GetDocument());
+  const bool has_transition = !!ViewTransitionUtils::GetTransition(*this);
   if (!has_transition) {
     DCHECK(!GetPseudoElement(kPseudoIdViewTransition));
     return;
@@ -10750,8 +11007,7 @@ void Element::RebuildTransitionPseudoLayoutTree(
       [&whitespace_attacher](PseudoElement* pseudo_element) {
         pseudo_element->RebuildLayoutTree(whitespace_attacher);
       };
-  ViewTransitionUtils::ForEachTransitionPseudo(GetDocument(),
-                                               rebuild_pseudo_tree);
+  ViewTransitionUtils::ForEachTransitionPseudo(*this, rebuild_pseudo_tree);
 }
 
 bool Element::IsInertRoot() const {
@@ -10949,7 +11205,9 @@ Element::ValidateAttributeIndex(wtf_size_t index,
   // See https://crbug.com/333739948.
 
   if (index == kNotFound) {
-    return index;
+    return RuntimeEnabledFeatures::TrustedTypesHTMLEnabled()
+               ? FindAttributeIndex(qname)
+               : index;
   }
 
   // If we previously found an attribute, we must also have attribute data.
@@ -10970,9 +11228,52 @@ void Element::SetAttributeWithoutValidation(const QualifiedName& name,
                        AttributeModificationReason::kDirectly);
 }
 
-void Element::SetAttributeWithValidation(const QualifiedName& name,
+void Element::SetAttributeWithValidation(Attr* attribute,
                                          const AtomicString& value,
                                          ExceptionState& exception_state) {
+  if (RuntimeEnabledFeatures::TrustedTypesHTMLEnabled()) {
+    CHECK(attribute);
+    // Corresponds to:
+    // https://whatpr.org/dom/1268.html#set-an-existing-attribute-value
+    // Eventually: https://dom.spec.whatwg.org/#set-an-existing-attribute-value
+
+    // Step 1: If attribute's element is null, then set attribute [...]
+    // Note: Was performed by the caller.
+    // Step 2.1: Let originalElement be attribute's element.
+    // Note: originalElement is this. We already remember that.
+
+    // Step 2.2: Let verifiedValue be [..] verify attribute value [...].
+    AtomicString verified_value = AtomicString(TrustedTypesCheckFor(
+        ExpectedTrustedTypeForAttribute(attribute->GetQualifiedName()), value,
+        GetExecutionContext(), "Element", "setAttribute", exception_state));
+    if (exception_state.HadException()) {
+      return;
+    }
+
+    // Step 2.3: If attribute’s element is null, then set attribute’s value to
+    // value, and return.
+    // Note: Step 2.2 might have changed element_.
+    // Note: Without an owner element, attribute should accept the value without
+    //       additional checking.
+    if (!attribute->ownerElement()) {
+      attribute->setValue(verified_value, ASSERT_NO_EXCEPTION);
+      return;
+    }
+
+    // Step 2.4: If attribute’s element is not originalElement, then return.
+    if (attribute->ownerElement() != this) {
+      return;
+    }
+
+    // Step 2.5: Change attribute to verifiedValue.
+    // Note: We've done all the validations here, so we can now call 'without':
+    SetAttributeWithoutValidation(attribute->GetQualifiedName(),
+                                  verified_value);
+    return;
+  }
+
+  // Legacy behaviour. To be removed once TrustedTypesHTML is perma-enabled.
+  const QualifiedName name = attribute->GetQualifiedName();
   SynchronizeAttribute(name);
 
   AtomicString trusted_value(TrustedTypesCheckFor(
@@ -11016,7 +11317,7 @@ void Element::SetAttributeHinted(AtomicString local_name,
   }
   // The `TrustedTypesCheckFor` call above may run script, which may modify
   // the current element, which in turn may invalidate the index. So we'll
-  // check, and re-calculcate it if necessary.
+  // check, and re-calculate it if necessary.
   index = ValidateAttributeIndex(index, q_name);
 
   SetAttributeInternal(index, q_name, trusted_value,
@@ -11045,7 +11346,7 @@ void Element::SetAttributeHinted(AtomicString local_name,
   }
   // The `TrustedTypesCheckFor` call above may run script, which may modify
   // the current element, which in turn may invalidate the index. So we'll
-  // check, and re-calculcate it if necessary.
+  // check, and re-calculate it if necessary.
   index = ValidateAttributeIndex(index, q_name);
 
   SetAttributeInternal(index, q_name, value,
@@ -11105,6 +11406,14 @@ ALWAYS_INLINE void Element::SetAttributeInternal(
 
 Attr* Element::setAttributeNode(Attr* attr_node,
                                 ExceptionState& exception_state) {
+  AtomicString value(TrustedTypesCheckFor(
+      ExpectedTrustedTypeForAttribute(attr_node->GetQualifiedName()),
+      attr_node->value(), GetExecutionContext(), "Element", "setAttributeNode",
+      exception_state));
+  if (exception_state.HadException()) {
+    return nullptr;
+  }
+
   Attr* old_attr_node = AttrIfExists(attr_node->GetQualifiedName());
   if (old_attr_node == attr_node) {
     return attr_node;  // This Attr is already attached to the element.
@@ -11131,14 +11440,6 @@ Attr* Element::setAttributeNode(Attr* attr_node,
 
   SynchronizeAllAttributes();
   const UniqueElementData& element_data = EnsureUniqueElementData();
-
-  AtomicString value(TrustedTypesCheckFor(
-      ExpectedTrustedTypeForAttribute(attr_node->GetQualifiedName()),
-      attr_node->value(), GetExecutionContext(), "Element", "setAttributeNode",
-      exception_state));
-  if (exception_state.HadException()) {
-    return nullptr;
-  }
 
   AttributeCollection attributes = element_data.Attributes();
   wtf_size_t index = attributes.FindIndex(attr_node->GetQualifiedName());
@@ -11228,6 +11529,35 @@ void Element::RemoveAnchorPositionScrollData() {
 AnchorPositionScrollData* Element::GetAnchorPositionScrollData() const {
   if (const ElementRareDataVector* data = GetElementRareData()) {
     return data->GetAnchorPositionScrollData();
+  }
+  return nullptr;
+}
+
+ScrollMarkerGroupData& Element::EnsureScrollMarkerGroupData() {
+  return EnsureElementRareData().EnsureScrollMarkerGroupData(this);
+}
+
+void Element::RemoveScrollMarkerGroupData() {
+  if (ElementRareDataVector* data = GetElementRareData()) {
+    GetDocument().RemoveScrollMarkerGroup(data->GetScrollMarkerGroupData());
+    data->RemoveScrollMarkerGroupData();
+  }
+}
+
+ScrollMarkerGroupData* Element::GetScrollMarkerGroupData() const {
+  if (const ElementRareDataVector* data = GetElementRareData()) {
+    return data->GetScrollMarkerGroupData();
+  }
+  return nullptr;
+}
+
+void Element::SetScrollMarkerGroupContainerData(ScrollMarkerGroupData* data) {
+  return EnsureElementRareData().SetScrollMarkerGroupContainerData(data);
+}
+
+ScrollMarkerGroupData* Element::GetScrollMarkerGroupContainerData() const {
+  if (const ElementRareDataVector* data = GetElementRareData()) {
+    return data->GetScrollMarkerGroupContainerData();
   }
   return nullptr;
 }

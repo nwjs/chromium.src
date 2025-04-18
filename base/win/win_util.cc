@@ -36,6 +36,7 @@
 #include <tpcshrd.h>
 #include <uiviewsettingsinterop.h>
 #include <wbemidl.h>
+#include <windows.system.profile.systemmanufacturers.h>
 #include <windows.ui.viewmanagement.h>
 #include <winstring.h>
 #include <wrl/client.h>
@@ -71,6 +72,7 @@
 #include "base/win/access_token.h"
 #include "base/win/com_init_util.h"
 #include "base/win/core_winrt_util.h"
+#include "base/win/hstring_reference.h"
 #include "base/win/propvarutil.h"
 #include "base/win/registry.h"
 #include "base/win/scoped_bstr.h"
@@ -817,6 +819,20 @@ void SetAbortBehaviorForCrashReporting() {
   // is left in place, however this allows us to crash earlier. And it also
   // lets us crash in response to code which might directly call raise(SIGABRT)
   signal(SIGABRT, ForceCrashOnSigAbort);
+
+  // Also call the setters in the UCRT dll if it is loaded into the process.
+  // This will handle aborts originating from other modules that dynamically
+  // load UCRT.
+  HMODULE ucrtbase = ::GetModuleHandle(L"ucrtbase.dll");
+  if (!ucrtbase) {
+    return;
+  }
+
+  const auto ucrtbase_signal_fn = reinterpret_cast<decltype(&::signal)>(
+      ::GetProcAddress(ucrtbase, "signal"));
+  if (ucrtbase_signal_fn) {
+    ucrtbase_signal_fn(SIGABRT, ForceCrashOnSigAbort);
+  }
 }
 
 // This method is used to set the right interactions media queries,
@@ -1209,6 +1225,27 @@ bool SetProcessTimerThrottleState(HANDLE process, ProcessPowerState state) {
       process, PROCESS_POWER_THROTTLING_IGNORE_TIMER_RESOLUTION, state);
 }
 
+std::optional<std::wstring> GetSerialNumber() {
+  AssertComInitialized();
+  Microsoft::WRL::ComPtr<ABI::Windows::System::Profile::SystemManufacturers::
+                             ISmbiosInformationStatics>
+      symbios_information_statics;
+  HRESULT hr = ::RoGetActivationFactory(
+      base::win::HStringReference(
+          RuntimeClass_Windows_System_Profile_SystemManufacturers_SmbiosInformation)
+          .Get(),
+      IID_PPV_ARGS(&symbios_information_statics));
+  if (SUCCEEDED(hr)) {
+    HSTRING serial_number;
+    hr = symbios_information_statics->get_SerialNumber(&serial_number);
+    if (SUCCEEDED(hr)) {
+      base::win::ScopedHString scoped_serial_number(serial_number);
+      return std::wstring(scoped_serial_number.Get());
+    }
+  }
+  return std::nullopt;
+}
+
 ScopedDomainStateForTesting::ScopedDomainStateForTesting(bool state)
     : initial_state_(IsEnrolledToDomain()) {
   *GetDomainEnrollmentStateStorage() = state;
@@ -1216,17 +1253,6 @@ ScopedDomainStateForTesting::ScopedDomainStateForTesting(bool state)
 
 ScopedDomainStateForTesting::~ScopedDomainStateForTesting() {
   *GetDomainEnrollmentStateStorage() = initial_state_;
-}
-
-ScopedDeviceRegisteredWithManagementForTesting::
-    ScopedDeviceRegisteredWithManagementForTesting(bool state)
-    : initial_state_(IsDeviceRegisteredWithManagement()) {
-  *GetRegisteredWithManagementStateStorage() = state;
-}
-
-ScopedDeviceRegisteredWithManagementForTesting::
-    ~ScopedDeviceRegisteredWithManagementForTesting() {
-  *GetRegisteredWithManagementStateStorage() = initial_state_;
 }
 
 ScopedAzureADJoinStateForTesting::ScopedAzureADJoinStateForTesting(bool state)

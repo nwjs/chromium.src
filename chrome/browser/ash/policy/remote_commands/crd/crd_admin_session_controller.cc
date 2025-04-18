@@ -32,6 +32,7 @@
 #include "chrome/browser/ash/policy/remote_commands/crd/crd_remote_command_utils.h"
 #include "chrome/browser/ash/policy/remote_commands/crd/crd_session_observer.h"
 #include "chrome/browser/ash/policy/remote_commands/crd/crd_support_host_observer_proxy.h"
+#include "chrome/browser/ash/policy/remote_commands/crd/public/crd_session_result_codes.h"
 #include "chrome/browser/ash/policy/remote_commands/crd/remote_activity_notification_controller.h"
 #include "chrome/browser/device_identity/device_oauth2_token_service_factory.h"
 #include "chrome/common/pref_names.h"
@@ -360,8 +361,11 @@ remoting::ChromeOsEnterpriseParams GetEnterpriseParameters(
   params.allow_reconnections = parameters.allow_reconnections;
   params.allow_file_transfer = parameters.allow_file_transfer;
   params.connection_dialog_required = parameters.show_confirmation_dialog;
-  // TODO(b:397902801): Add `connection_auto_accept_timeout` when the dialog is
-  // auto-approved.
+  params.connection_auto_accept_timeout =
+      parameters.connection_auto_accept_timeout.value_or(base::TimeDelta());
+  params.maximum_session_duration =
+      parameters.maximum_session_duration.value_or(base::TimeDelta());
+
   return params;
 }
 

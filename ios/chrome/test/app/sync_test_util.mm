@@ -32,6 +32,7 @@
 #import "components/sync/engine/loopback_server/loopback_server_entity.h"
 #import "components/sync/protocol/device_info_specifics.pb.h"
 #import "components/sync/protocol/session_specifics.pb.h"
+#import "components/sync/protocol/sync_entity.pb.h"
 #import "components/sync/protocol/sync_enums.pb.h"
 #import "components/sync/service/sync_service.h"
 #import "components/sync/service/sync_service_impl.h"
@@ -411,6 +412,14 @@ void AddTypedURLToClient(const GURL& url, base::Time visitTimestamp) {
                           history::SOURCE_BROWSED, false);
 }
 
+void SetPageTitle(const GURL& url, const std::u16string& title) {
+  ProfileIOS* profile = chrome_test_util::GetOriginalProfile();
+  history::HistoryService* historyService =
+      ios::HistoryServiceFactory::GetForProfile(
+          profile, ServiceAccessType::EXPLICIT_ACCESS);
+  historyService->SetPageTitle(url, title);
+}
+
 void AddHistoryVisitToFakeSyncServer(const GURL& url) {
   sync_pb::EntitySpecifics entitySpecifics;
   sync_pb::HistorySpecifics* history = entitySpecifics.mutable_history();
@@ -571,6 +580,9 @@ void AddCollaborationGroupToFakeServer(const std::string& collaboration_id) {
   sync_pb::EntitySpecifics entity_specifics;
   *entity_specifics.mutable_collaboration_group() = collab_specifics;
 
+  sync_pb::SyncEntity::CollaborationMetadata metadata;
+  metadata.set_collaboration_id(collaboration_id);
+
   std::string client_tag = collab_specifics.collaboration_id();
   int64_t creation_time =
       collab_specifics.changed_at_timestamp_millis_since_unix_epoch();
@@ -579,7 +591,7 @@ void AddCollaborationGroupToFakeServer(const std::string& collaboration_id) {
   gSyncFakeServer->InjectEntity(
       syncer::PersistentUniqueClientEntity::CreateFromSharedSpecificsForTesting(
           "non_unique_name", client_tag, entity_specifics, creation_time,
-          update_time, collaboration_id));
+          update_time, metadata));
 }
 
 void DeleteSharedGroupFromFakeServer(const base::Uuid& uuid) {

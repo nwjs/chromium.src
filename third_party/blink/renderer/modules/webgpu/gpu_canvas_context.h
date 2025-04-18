@@ -29,7 +29,8 @@ class V8UnionHTMLCanvasElementOrOffscreenCanvas;
 
 // A GPUCanvasContext does little by itself and basically just binds a canvas
 // and a GPUSwapChain together and forwards calls from one to the other.
-class GPUCanvasContext : public CanvasRenderingContext,
+class GPUCanvasContext : public ScriptWrappable,
+                         public CanvasRenderingContext,
                          public WebGPUSwapBufferProvider::Client {
   DEFINE_WRAPPERTYPEINFO();
 
@@ -65,10 +66,8 @@ class GPUCanvasContext : public CanvasRenderingContext,
   SkAlphaType GetAlphaType() const override;
   viz::SharedImageFormat GetSharedImageFormat() const override;
   gfx::ColorSpace GetColorSpace() const override;
-  // Produces a snapshot of the current contents of the swap chain if possible.
-  // If that texture has already been sent to the compositor, will produce a
-  // snapshot of the just released texture associated to this gpu context.
-  // todo(crbug/1267243) Make snapshot always return the current frame.
+  // Produces a snapshot of the current contents of the swap chain if possible
+  // or else a snapshot of the most-recently presented contents.
   scoped_refptr<StaticBitmapImage> GetImage(FlushReason) final;
   bool PaintRenderingResultsToCanvas(SourceDrawingBuffer) final;
   bool CopyRenderingResultsToVideoFrame(
@@ -113,6 +112,7 @@ class GPUCanvasContext : public CanvasRenderingContext,
   void SetNeedsCompositingUpdate() override;
 
  private:
+  scoped_refptr<WebGPUMailboxTexture> GetFrontBufferMailboxTexture();
   void DetachSwapBuffers();
   void ReplaceDrawingBuffer(bool destroy_swap_buffers);
   void InitializeAlphaModePipeline(wgpu::TextureFormat format);

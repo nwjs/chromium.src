@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/safe_browsing/chrome_enterprise_url_lookup_service.h"
+#include "components/safe_browsing/core/browser/realtime/chrome_enterprise_url_lookup_service.h"
 
 #include "base/functional/bind.h"
 #include "base/test/bind.h"
@@ -18,6 +18,7 @@
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/enterprise/connectors/core/connectors_prefs.h"
 #include "components/policy/core/common/cloud/dm_token.h"
+#include "components/policy/core/common/management/management_service.h"
 #include "components/policy/core/common/policy_types.h"
 #include "components/safe_browsing/core/browser/referrer_chain_provider.h"
 #include "components/safe_browsing/core/browser/referring_app_info.h"
@@ -28,6 +29,7 @@
 #include "components/safe_browsing/core/common/features.h"
 #include "components/safe_browsing/core/common/proto/csd.pb.h"
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
+#include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "components/sync/test/test_sync_service.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
@@ -51,6 +53,8 @@ namespace {
 constexpr char kRealTimeLookupUrl[] =
     "https://enterprise-safebrowsing.googleapis.com/safebrowsing/clientreport/"
     "realtime";
+
+constexpr char kTestProfileEmail[] = "test@example.com";
 
 class MockReferrerChainProvider : public ReferrerChainProvider {
  public:
@@ -107,6 +111,7 @@ class ChromeEnterpriseRealTimeUrlLookupServiceTest : public PlatformTest {
     EXPECT_TRUE(profile_manager_->SetUp());
     HostContentSettingsMap::RegisterProfilePrefs(test_pref_service_.registry());
     safe_browsing::RegisterProfilePrefs(test_pref_service_.registry());
+    enterprise_connectors::RegisterProfilePrefs(test_pref_service_.registry());
     PlatformTest::SetUp();
 
     test_shared_loader_factory_ =
@@ -125,13 +130,16 @@ class ChromeEnterpriseRealTimeUrlLookupServiceTest : public PlatformTest {
 
     test_profile_ = profile_manager_->CreateTestingProfile("testing_profile");
 
-    signin::IdentityManager* identity_manager =
-        IdentityManagerFactory::GetForProfile(test_profile_);
-    signin::SetPrimaryAccount(identity_manager, "test@example.com",
-                              signin::ConsentLevel::kSignin);
+    identity_test_env_.MakePrimaryAccountAvailable(
+        kTestProfileEmail, signin::ConsentLevel::kSignin);
 
-    enterprise_rt_service_ = CreateServiceAndEnablePolicy(
-        test_profile_, /*set_raw_token_fetcher=*/true);
+    management_service_ = std::make_unique<policy::ManagementService>(
+        std::vector<std::unique_ptr<policy::ManagementStatusProvider>>());
+
+    enterprise_rt_service_ =
+        CreateServiceAndEnablePolicy(test_profile_, /*is_off_the_record=*/false,
+                                     /*is_guest_session=*/false,
+                                     /*set_raw_token_fetcher=*/true);
   }
 
   void TearDown() override {
@@ -141,6 +149,8 @@ class ChromeEnterpriseRealTimeUrlLookupServiceTest : public PlatformTest {
 
   std::unique_ptr<ChromeEnterpriseRealTimeUrlLookupService>
   CreateServiceAndEnablePolicy(Profile* profile,
+                               bool is_off_the_record = false,
+                               bool is_guest_session = false,
                                bool set_raw_token_fetcher = false) {
     auto token_fetcher = std::make_unique<TestSafeBrowsingTokenFetcher>();
     if (set_raw_token_fetcher) {
@@ -149,7 +159,7 @@ class ChromeEnterpriseRealTimeUrlLookupServiceTest : public PlatformTest {
 
     auto enterprise_rt_service = std::make_unique<
         ChromeEnterpriseRealTimeUrlLookupService>(
-        test_shared_loader_factory_, cache_manager_.get(), profile,
+        test_shared_loader_factory_, cache_manager_.get(),
         base::BindRepeating(
             [](Profile* profile, syncer::TestSyncService* test_sync_service) {
               ChromeUserPopulation population =
@@ -164,10 +174,24 @@ class ChromeEnterpriseRealTimeUrlLookupServiceTest : public PlatformTest {
             },
             profile, &test_sync_service_),
         std::move(token_fetcher),
+        // TODO(crbug.com/406211981): Replace with mock ConnectorsServiceBase.
         enterprise_connectors::ConnectorsServiceFactory::GetForBrowserContext(
             profile),
-        referrer_chain_provider_.get(), &test_pref_service_);
+        referrer_chain_provider_.get(), &test_pref_service_,
+        /*webui_delegate=*/nullptr, identity_test_env_.identity_manager(),
+        management_service_.get(), is_off_the_record, is_guest_session,
+        base::BindRepeating([]() -> std::string { return kTestProfileEmail; }),
+        base::BindRepeating([] { return true; }),
+        /*is_command_line_switch_supported=*/true);
 
+    test_pref_service_.SetInteger(
+        enterprise_connectors::kEnterpriseRealTimeUrlCheckMode,
+        enterprise_connectors::REAL_TIME_CHECK_FOR_MAINFRAME_ENABLED);
+    test_pref_service_.SetInteger(
+        enterprise_connectors::kEnterpriseRealTimeUrlCheckScope,
+        policy::POLICY_SCOPE_MACHINE);
+    // ConnectorsService reads from the profile prefs until the dependency on
+    // Profile is removed.
     profile->GetPrefs()->SetInteger(
         enterprise_connectors::kEnterpriseRealTimeUrlCheckMode,
         enterprise_connectors::REAL_TIME_CHECK_FOR_MAINFRAME_ENABLED);
@@ -240,15 +264,20 @@ class ChromeEnterpriseRealTimeUrlLookupServiceTest : public PlatformTest {
         safe_browsing::kLocalIpAddressInEvents);
   }
 
+  // Must be the first member to be initialized first and destroyed last.
+  content::BrowserTaskEnvironment task_environment_;
   network::TestURLLoaderFactory test_url_loader_factory_;
   scoped_refptr<network::SharedURLLoaderFactory> test_shared_loader_factory_;
+  std::unique_ptr<policy::ManagementService> management_service_;
+  signin::IdentityTestEnvironment identity_test_env_;
+  // TestingProfileManager owns `test_profile_` so it must be freed after all
+  // reference to the test profile are freed.
+  std::unique_ptr<TestingProfileManager> profile_manager_;
   std::unique_ptr<ChromeEnterpriseRealTimeUrlLookupService>
       enterprise_rt_service_;
   std::unique_ptr<VerdictCacheManager> cache_manager_;
   scoped_refptr<HostContentSettingsMap> content_setting_map_;
-  content::BrowserTaskEnvironment task_environment_;
   raw_ptr<TestSafeBrowsingTokenFetcher> raw_token_fetcher_ = nullptr;
-  std::unique_ptr<TestingProfileManager> profile_manager_;
   sync_preferences::TestingPrefServiceSyncable test_pref_service_;
   raw_ptr<TestingProfile> test_profile_;
   syncer::TestSyncService test_sync_service_;
@@ -468,20 +497,16 @@ TEST_F(ChromeEnterpriseRealTimeUrlLookupServiceTest, CanPerformFullURLLookup) {
 TEST_F(ChromeEnterpriseRealTimeUrlLookupServiceTest,
        CanPerformFullURLLookup_GuestModeEnabled) {
   SetDMTokenForTesting(policy::DMToken::CreateValidToken("dm_token"));
-  Profile* guest_profile =
-      profile_manager_->CreateGuestProfile()->GetPrimaryOTRProfile(
-          /*create_if_needed=*/true);
-  auto guest_rt_service = CreateServiceAndEnablePolicy(guest_profile);
+  auto guest_rt_service = CreateServiceAndEnablePolicy(
+      test_profile_, /*is_off_the_record=*/false, /*is_guest_session=*/true);
   EXPECT_TRUE(guest_rt_service->CanPerformFullURLLookup());
 }
 
 TEST_F(ChromeEnterpriseRealTimeUrlLookupServiceTest,
        CanPerformFullURLLookup_OffTheRecordDisabled) {
   SetDMTokenForTesting(policy::DMToken::CreateValidToken("dm_token"));
-  Profile* off_the_record_profile =
-      TestingProfile::Builder().BuildIncognito(test_profile_);
   auto off_the_record_rt_service =
-      CreateServiceAndEnablePolicy(off_the_record_profile);
+      CreateServiceAndEnablePolicy(test_profile_, /*is_off_the_record=*/true);
   EXPECT_FALSE(off_the_record_rt_service->CanPerformFullURLLookup());
 }
 

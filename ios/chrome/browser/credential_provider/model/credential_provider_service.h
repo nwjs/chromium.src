@@ -93,6 +93,9 @@ class CredentialProviderService
   // Syncs the credential store to disk.
   void SyncStore();
 
+  // Helper function for asynchronous portion of `SyncStore`.
+  void CompleteSync(NSArray<id<Credential>>* credentials);
+
   // Returns the primary account's gaia id.
   NSString* PrimaryAccountId() const;
 
@@ -175,6 +178,9 @@ class CredentialProviderService
   // comment in {profile,account}_credential_store_ declaration.
   MemoryCredentialStore* GetCredentialStore(
       password_manager::PasswordStoreInterface* store) const;
+
+  // Returns whether multiple profiles are currently fully initialized.
+  bool IsUsingMultiProfile() const;
 
   // The pref service.
   const raw_ptr<PrefService> prefs_;

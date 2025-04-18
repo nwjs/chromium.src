@@ -11,6 +11,7 @@
 #include <set>
 #include <string>
 #include <string_view>
+#include <variant>
 #include <vector>
 
 #include "base/base64.h"
@@ -136,7 +137,7 @@ void AppendRedirect(std::vector<std::string>* redirects,
   redirects->push_back(base::StringPrintf(
       "[%zu/%zu] %s -> %s (%s) -> %s", redirect_index + 1, chain.length,
       FormatURL(chain.initial_url.url).c_str(),
-      FormatURL(redirect.url.url).c_str(),
+      FormatURL(redirect.redirecting_url.url).c_str(),
       std::string(BtmDataAccessTypeToString(redirect.access_type)).c_str(),
       FormatURL(chain.final_url.url).c_str()));
 }
@@ -185,10 +186,10 @@ testing::AssertionResult WaitForRedirectCookieWrite(WebContents* web_contents,
   const BtmRedirectInfo& redirect =
       detector->CommittedRedirectContext()
           [detector->CommittedRedirectContext().size() - 1];
-  if (redirect.url.url != redirect_url) {
+  if (redirect.redirecting_url.url != redirect_url) {
     return testing::AssertionFailure()
            << "Expected redirect at " << redirect_url << "; found "
-           << redirect.url.url;
+           << redirect.redirecting_url.url;
   }
 
   if (!ContainsWrite(redirect.access_type)) {
@@ -334,7 +335,10 @@ void WCOCallbackLogger::OnClientAdded(
     GlobalRenderFrameHostId render_frame_host_id) {
   RenderFrameHost* render_frame_host =
       RenderFrameHost::FromID(render_frame_host_id);
-  GURL scope = GetFirstPartyURL(render_frame_host).value_or(GURL());
+  GURL scope;
+  if (render_frame_host) {
+    scope = GetFirstPartyURL(*render_frame_host);
+  }
 
   log_.push_back(base::StringPrintf("OnSharedWorkerClientAdded(%s)",
                                     FormatURL(scope).c_str()));
@@ -346,10 +350,13 @@ void WCOCallbackLogger::OnWorkerCreated(
     const url::Origin& security_origin,
     DedicatedWorkerCreator creator) {
   const GlobalRenderFrameHostId& render_frame_host_id =
-      absl::get<GlobalRenderFrameHostId>(creator);
+      std::get<GlobalRenderFrameHostId>(creator);
   RenderFrameHost* render_frame_host =
       RenderFrameHost::FromID(render_frame_host_id);
-  GURL scope = GetFirstPartyURL(render_frame_host).value_or(GURL());
+  GURL scope;
+  if (render_frame_host) {
+    scope = GetFirstPartyURL(*render_frame_host);
+  }
 
   log_.push_back(base::StringPrintf("OnDedicatedWorkerCreated(%s)",
                                     FormatURL(scope).c_str()));
@@ -357,7 +364,7 @@ void WCOCallbackLogger::OnWorkerCreated(
 
 void WCOCallbackLogger::DidFinishNavigation(
     NavigationHandle* navigation_handle) {
-  if (!IsInPrimaryPage(navigation_handle)) {
+  if (!IsInPrimaryPage(*navigation_handle)) {
     return;
   }
 
@@ -4055,7 +4062,7 @@ IN_PROC_BROWSER_TEST_P(BtmBounceDetectorBFCacheTest, LateCookieAccessTest) {
   const BtmRedirectContext& context = wco->CommittedRedirectContext();
   ASSERT_EQ(context.size(), 1u);
   const BtmRedirectInfo& redirect = context[0];
-  EXPECT_EQ(redirect.url.url, bounce_url);
+  EXPECT_EQ(redirect.redirecting_url.url, bounce_url);
   // A request to /favicon.ico may cause a cookie read in addition to the write
   // we explicitly performed.
   EXPECT_THAT(
@@ -4170,7 +4177,7 @@ IN_PROC_BROWSER_TEST_P(BtmBounceDetectorBFCacheTest,
   const BtmRedirectContext& context = wco->CommittedRedirectContext();
   ASSERT_EQ(context.size(), 1u);
   const BtmRedirectInfo& redirect = context[0];
-  EXPECT_EQ(redirect.url.url, bounce_url);
+  EXPECT_EQ(redirect.redirecting_url.url, bounce_url);
   EXPECT_THAT(redirect.has_sticky_activation, true);
 }
 
@@ -4180,8 +4187,8 @@ IN_PROC_BROWSER_TEST_P(BtmBounceDetectorBFCacheTest, IsOrWasInPrimaryPage) {
   ASSERT_TRUE(NavigateToURL(
       web_contents, embedded_test_server()->GetURL("a.test", "/empty.html")));
   RenderFrameHost* rfh = web_contents->GetPrimaryMainFrame();
-  EXPECT_TRUE(IsInPrimaryPage(rfh));
-  EXPECT_TRUE(btm::IsOrWasInPrimaryPage(rfh));
+  EXPECT_TRUE(IsInPrimaryPage(*rfh));
+  EXPECT_TRUE(btm::IsOrWasInPrimaryPage(*rfh));
   const GlobalRenderFrameHostId rfh_id = rfh->GetGlobalId();
 
   ASSERT_TRUE(NavigateToURL(
@@ -4194,8 +4201,8 @@ IN_PROC_BROWSER_TEST_P(BtmBounceDetectorBFCacheTest, IsOrWasInPrimaryPage) {
     EXPECT_TRUE(rfh->IsInLifecycleState(
         RenderFrameHost::LifecycleState::kInBackForwardCache));
     // The page is no longer primary, but it used to be:
-    EXPECT_FALSE(IsInPrimaryPage(rfh));
-    EXPECT_TRUE(btm::IsOrWasInPrimaryPage(rfh));
+    EXPECT_FALSE(IsInPrimaryPage(*rfh));
+    EXPECT_TRUE(btm::IsOrWasInPrimaryPage(*rfh));
   } else {
     // If the bfcache is disabled, the RFH may or may not be in memory. If it
     // still is, it's only because it's pending deletion.
@@ -4203,8 +4210,8 @@ IN_PROC_BROWSER_TEST_P(BtmBounceDetectorBFCacheTest, IsOrWasInPrimaryPage) {
       EXPECT_TRUE(rfh->IsInLifecycleState(
           RenderFrameHost::LifecycleState::kPendingDeletion));
       // The page is no longer primary, but it used to be:
-      EXPECT_FALSE(IsInPrimaryPage(rfh));
-      EXPECT_TRUE(btm::IsOrWasInPrimaryPage(rfh));
+      EXPECT_FALSE(IsInPrimaryPage(*rfh));
+      EXPECT_TRUE(btm::IsOrWasInPrimaryPage(*rfh));
     }
   }
 }
@@ -4262,7 +4269,7 @@ IN_PROC_BROWSER_TEST_P(BtmBounceDetectorBFCacheTest,
 
   RenderFrameHost* rfh = RenderFrameHost::FromID(observer.rfh_id());
   ASSERT_TRUE(rfh);
-  EXPECT_FALSE(btm::IsOrWasInPrimaryPage(rfh));
+  EXPECT_FALSE(btm::IsOrWasInPrimaryPage(*rfh));
 
   // Navigating to another site may trigger destruction of the frame.
   ASSERT_TRUE(NavigateToURL(
@@ -4271,7 +4278,7 @@ IN_PROC_BROWSER_TEST_P(BtmBounceDetectorBFCacheTest,
   rfh = RenderFrameHost::FromID(observer.rfh_id());
   if (rfh) {
     // Even if it's still in memory, it was never primary.
-    EXPECT_FALSE(btm::IsOrWasInPrimaryPage(rfh));
+    EXPECT_FALSE(btm::IsOrWasInPrimaryPage(*rfh));
   }
 }
 
@@ -4300,7 +4307,7 @@ IN_PROC_BROWSER_TEST_P(BtmBounceDetectorBFCacheTest,
 
   RenderFrameHost* rfh = RenderFrameHost::FromID(observer.rfh_id());
   ASSERT_TRUE(rfh);
-  EXPECT_FALSE(btm::IsOrWasInPrimaryPage(rfh));
+  EXPECT_FALSE(btm::IsOrWasInPrimaryPage(*rfh));
 
   // Navigate to the prerendered page.
   ASSERT_TRUE(NavigateToURLFromRenderer(
@@ -4312,8 +4319,8 @@ IN_PROC_BROWSER_TEST_P(BtmBounceDetectorBFCacheTest,
 
   rfh = RenderFrameHost::FromID(observer.rfh_id());
   if (rfh) {
-    EXPECT_FALSE(IsInPrimaryPage(rfh));
-    EXPECT_TRUE(btm::IsOrWasInPrimaryPage(rfh));
+    EXPECT_FALSE(IsInPrimaryPage(*rfh));
+    EXPECT_TRUE(btm::IsOrWasInPrimaryPage(*rfh));
   }
 }
 

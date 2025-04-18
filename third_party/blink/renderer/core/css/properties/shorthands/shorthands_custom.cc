@@ -1313,31 +1313,29 @@ bool Flex::ParseShorthand(bool important,
                           const CSSParserContext& context,
                           const CSSParserLocalContext&,
                           HeapVector<CSSPropertyValue, 64>& properties) const {
-  static const double kUnsetValue = -1;
-  double flex_grow = kUnsetValue;
-  double flex_shrink = kUnsetValue;
-  CSSValue* flex_basis = nullptr;
+  const CSSValue* flex_grow = nullptr;
+  const CSSValue* flex_shrink = nullptr;
+  const CSSValue* flex_basis = nullptr;
 
   if (stream.Peek().Id() == CSSValueID::kNone) {
-    flex_grow = 0;
-    flex_shrink = 0;
+    flex_grow =
+        CSSNumericLiteralValue::Create(0, CSSPrimitiveValue::UnitType::kNumber);
+    flex_shrink = flex_grow;
     flex_basis = CSSIdentifierValue::Create(CSSValueID::kAuto);
     stream.ConsumeIncludingWhitespace();
   } else {
     for (;;) {
       CSSParserSavePoint savepoint(stream);
-      double num;
-      if (css_parsing_utils::ConsumeNumberRaw(stream, context, num)) {
-        if (num < 0) {
-          break;
-        }
-        if (flex_grow == kUnsetValue) {
+      if (const CSSPrimitiveValue* num = css_parsing_utils::ConsumeNumber(
+              stream, context, CSSPrimitiveValue::ValueRange::kNonNegative)) {
+        if (!flex_grow) {
           flex_grow = num;
           savepoint.Release();
-        } else if (flex_shrink == kUnsetValue) {
+        } else if (!flex_shrink) {
           flex_shrink = num;
           savepoint.Release();
-        } else if (!num && !flex_basis) {
+        } else if (!flex_basis && num->IsNumericLiteralValue() &&
+                   num->GetDoubleValue() == 0) {
           // Unitless zero is a valid <'flex-basis'>. All other <length>s
           // must have some unit, and are handled by the other branch.
           flex_basis = CSSNumericLiteralValue::Create(
@@ -1366,10 +1364,11 @@ bool Flex::ParseShorthand(bool important,
           // <'flex-basis'> may not appear between <'flex-grow'> and
           // <'flex-shrink'>. We therefore ensure that grow and shrink are
           // either both set, or both unset, once <'flex-basis'> is seen.
-          if (flex_grow != kUnsetValue && flex_shrink == kUnsetValue) {
-            flex_shrink = 1;
+          if (flex_grow && !flex_shrink) {
+            flex_shrink = CSSNumericLiteralValue::Create(
+                1, CSSPrimitiveValue::UnitType::kNumber);
           }
-          DCHECK_EQ(flex_grow == kUnsetValue, flex_shrink == kUnsetValue);
+          DCHECK_EQ(!flex_grow, !flex_shrink);
           savepoint.Release();
         } else {
           break;
@@ -1378,14 +1377,16 @@ bool Flex::ParseShorthand(bool important,
         break;
       }
     }
-    if (flex_grow == kUnsetValue && flex_shrink == kUnsetValue && !flex_basis) {
+    if (!flex_grow && !flex_shrink && !flex_basis) {
       return false;
     }
-    if (flex_grow == kUnsetValue) {
-      flex_grow = 1;
+    if (!flex_grow) {
+      flex_grow = CSSNumericLiteralValue::Create(
+          1, CSSPrimitiveValue::UnitType::kNumber);
     }
-    if (flex_shrink == kUnsetValue) {
-      flex_shrink = 1;
+    if (!flex_shrink) {
+      flex_shrink = CSSNumericLiteralValue::Create(
+          1, CSSPrimitiveValue::UnitType::kNumber);
     }
     if (!flex_basis) {
       flex_basis = CSSNumericLiteralValue::Create(
@@ -1394,17 +1395,11 @@ bool Flex::ParseShorthand(bool important,
   }
 
   css_parsing_utils::AddProperty(
-      CSSPropertyID::kFlexGrow, CSSPropertyID::kFlex,
-      *CSSNumericLiteralValue::Create(ClampTo<float>(flex_grow),
-                                      CSSPrimitiveValue::UnitType::kNumber),
-      important, css_parsing_utils::IsImplicitProperty::kNotImplicit,
-      properties);
+      CSSPropertyID::kFlexGrow, CSSPropertyID::kFlex, *flex_grow, important,
+      css_parsing_utils::IsImplicitProperty::kNotImplicit, properties);
   css_parsing_utils::AddProperty(
-      CSSPropertyID::kFlexShrink, CSSPropertyID::kFlex,
-      *CSSNumericLiteralValue::Create(ClampTo<float>(flex_shrink),
-                                      CSSPrimitiveValue::UnitType::kNumber),
-      important, css_parsing_utils::IsImplicitProperty::kNotImplicit,
-      properties);
+      CSSPropertyID::kFlexShrink, CSSPropertyID::kFlex, *flex_shrink, important,
+      css_parsing_utils::IsImplicitProperty::kNotImplicit, properties);
 
   css_parsing_utils::AddProperty(
       CSSPropertyID::kFlexBasis, CSSPropertyID::kFlex, *flex_basis, important,
@@ -1578,12 +1573,10 @@ bool ConsumeFont(bool important,
       *CSSIdentifierValue::Create(CSSValueID::kNormal), important,
       css_parsing_utils::IsImplicitProperty::kNotImplicit, properties);
 
-  if (RuntimeEnabledFeatures::FontVariantEmojiEnabled()) {
     css_parsing_utils::AddProperty(
         CSSPropertyID::kFontVariantEmoji, CSSPropertyID::kFont,
         *CSSIdentifierValue::Create(CSSValueID::kNormal), important,
         css_parsing_utils::IsImplicitProperty::kNotImplicit, properties);
-  }
 
   css_parsing_utils::AddProperty(
       CSSPropertyID::kFontWeight, CSSPropertyID::kFont,
@@ -1693,12 +1686,10 @@ bool FontVariant::ParseShorthand(
         CSSPropertyID::kFontVariantPosition, CSSPropertyID::kFontVariant,
         *CSSIdentifierValue::Create(CSSValueID::kNormal), important,
         css_parsing_utils::IsImplicitProperty::kNotImplicit, properties);
-    if (RuntimeEnabledFeatures::FontVariantEmojiEnabled()) {
       css_parsing_utils::AddProperty(
           CSSPropertyID::kFontVariantEmoji, CSSPropertyID::kFontVariant,
           *CSSIdentifierValue::Create(CSSValueID::kNormal), important,
           css_parsing_utils::IsImplicitProperty::kNotImplicit, properties);
-    }
     return true;
   }
 
@@ -1768,9 +1759,6 @@ bool FontVariant::ParseShorthand(
       case CSSValueID::kText:
       case CSSValueID::kEmoji:
       case CSSValueID::kUnicode:
-        if (!RuntimeEnabledFeatures::FontVariantEmojiEnabled()) {
-          return false;
-        }
         // Only one emoji value permitted in font-variant grammar.
         if (emoji_value) {
           return false;
@@ -1821,14 +1809,12 @@ bool FontVariant::ParseShorthand(
                      : *CSSIdentifierValue::Create(CSSValueID::kNormal),
       important, css_parsing_utils::IsImplicitProperty::kNotImplicit,
       properties);
-  if (RuntimeEnabledFeatures::FontVariantEmojiEnabled()) {
     css_parsing_utils::AddProperty(
         CSSPropertyID::kFontVariantEmoji, CSSPropertyID::kFontVariant,
         emoji_value ? *emoji_value
                     : *CSSIdentifierValue::Create(CSSValueID::kNormal),
         important, css_parsing_utils::IsImplicitProperty::kNotImplicit,
         properties);
-  }
   return true;
 }
 

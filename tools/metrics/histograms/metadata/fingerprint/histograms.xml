@@ -49,7 +49,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Fingerprint.Enroll.NumCaptures" units="captures"
-    expires_after="2025-07-01">
+    expires_after="2025-08-31">
   <owner>fsammoura@google.com</owner>
   <owner>chromeos-fingerprint@google.com</owner>
   <summary>
@@ -361,7 +361,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Fingerprint.Unlock.PartialAttemptsBeforeSuccess"
-    units="attempts" expires_after="2025-03-30">
+    units="attempts" expires_after="2026-03-30">
   <owner>fsammoura@google.com</owner>
   <owner>tomhughes@google.com</owner>
   <owner>chromeos-fingerprint@google.com</owner>

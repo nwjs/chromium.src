@@ -32,8 +32,7 @@ DataSharingUIConfig::~DataSharingUIConfig() = default;
 
 bool DataSharingUIConfig::IsWebUIEnabled(
     content::BrowserContext* browser_context) {
-  return base::FeatureList::IsEnabled(
-      data_sharing::features::kDataSharingFeature);
+  return data_sharing::features::IsDataSharingFunctionalityEnabled();
 }
 
 bool DataSharingUIConfig::ShouldAutoResizeHost() {
@@ -220,6 +219,24 @@ void DataSharingUI::BindInterface(
 void DataSharingUI::ApiInitComplete() {
   if (delegate_) {
     delegate_->ApiInitComplete();
+  }
+}
+
+void DataSharingUI::OnShareLinkRequested(
+    const std::string& group_id,
+    const std::string& access_token,
+    base::OnceCallback<void(const std::optional<GURL>&)> callback) {
+  if (delegate_) {
+    delegate_->OnShareLinkRequested(group_id, access_token,
+                                    std::move(callback));
+  }
+}
+
+void DataSharingUI::OnGroupAction(
+    data_sharing::mojom::GroupAction action,
+    data_sharing::mojom::GroupActionProgress progress) {
+  if (delegate_) {
+    delegate_->OnGroupAction(action, progress);
   }
 }
 

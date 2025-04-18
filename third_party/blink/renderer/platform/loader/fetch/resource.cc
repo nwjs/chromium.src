@@ -30,6 +30,7 @@
 #include <cassert>
 #include <memory>
 #include <utility>
+#include <variant>
 
 #include "base/feature_list.h"
 #include "base/task/single_thread_task_runner.h"
@@ -73,7 +74,7 @@ namespace blink {
 namespace {
 
 void NotifyFinishObservers(
-    HeapHashSet<WeakMember<ResourceFinishObserver>>* observers) {
+    GCedHeapHashSet<WeakMember<ResourceFinishObserver>>* observers) {
   for (const auto& observer : *observers)
     observer->NotifyFinished();
 }
@@ -210,6 +211,10 @@ void Resource::CheckResourceIntegrity() {
     DCHECK(RuntimeEnabledFeatures::UnencodedDigestEnabled(feature_context));
     integrity_disposition_ =
         ResourceIntegrityDisposition::kFailedUnencodedDigest;
+    integrity_report_.AddConsoleErrorMessage(
+        "The resource '" + Url().ElidedString() +
+        "' has an `unencoded-digest` header which asserts a digest which does "
+        "not match the resource's body.");
     return;
   }
 
@@ -244,7 +249,7 @@ void Resource::CheckResourceIntegrity() {
         if (auto calculated_integrity_hash =
                 SubresourceIntegrity::GetSubresourceIntegrityHash(Data(),
                                                                   algorithm)) {
-          integrity_hashes.insert(algorithm, calculated_integrity_hash.value());
+          integrity_hashes.insert(algorithm, calculated_integrity_hash);
         }
       }
     }
@@ -273,14 +278,14 @@ void Resource::MarkClientFinished(ResourceClient* client) {
 }
 
 void Resource::AppendData(
-    absl::variant<SegmentedBuffer, base::span<const char>> data) {
+    std::variant<SegmentedBuffer, base::span<const char>> data) {
   DCHECK(!IsCacheValidator());
   DCHECK(!ErrorOccurred());
-  if (absl::holds_alternative<SegmentedBuffer>(data)) {
-    AppendDataImpl(std::move(absl::get<SegmentedBuffer>(data)));
+  if (std::holds_alternative<SegmentedBuffer>(data)) {
+    AppendDataImpl(std::move(std::get<SegmentedBuffer>(data)));
   } else {
-    CHECK(absl::holds_alternative<base::span<const char>>(data));
-    AppendDataImpl(absl::get<base::span<const char>>(data));
+    CHECK(std::holds_alternative<base::span<const char>>(data));
+    AppendDataImpl(std::get<base::span<const char>>(data));
   }
 }
 
@@ -334,7 +339,7 @@ void Resource::TriggerNotificationForFinishObservers(
     return;
 
   auto* new_collections =
-      MakeGarbageCollected<HeapHashSet<WeakMember<ResourceFinishObserver>>>(
+      MakeGarbageCollected<GCedHeapHashSet<WeakMember<ResourceFinishObserver>>>(
           std::move(finish_observers_));
   finish_observers_.clear();
 

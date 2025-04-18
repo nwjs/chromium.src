@@ -60,10 +60,12 @@ if (enable_me2me_host) {
     }
   }
 
-  copy("remoting_me2me_host_copy_crash_uploader") {
-    sources = [ "$root_build_dir/remoting_crash_uploader" ]
-    outputs = [ "$root_build_dir/remoting/crash-uploader" ]
-    deps = [ "//remoting/host/crash:remoting_crash_uploader" ]
+  if (!is_linux || !enable_chromoting_crashpad) {
+    copy("remoting_me2me_host_copy_crash_uploader") {
+      sources = [ "$root_build_dir/remoting_crash_uploader" ]
+      outputs = [ "$root_build_dir/remoting/crash-uploader" ]
+      deps = [ "//remoting/host/crash:remoting_crash_uploader" ]
+    }
   }
 
   copy("remoting_me2me_host_copy_libremoting_core") {
@@ -116,20 +118,27 @@ source_set("gvariant") {
     "gvariant_type.cc",
     "gvariant_type.h",
   ]
-  deps = [ "//base" ]
+  deps = [
+    "//base",
+    "//remoting/host/base:base",
+  ]
 }
 
 source_set("utils") {
   sources = [
     "gdbus_connection_ref.cc",
     "gdbus_connection_ref.h",
+    "gdbus_fd_list.cc",
+    "gdbus_fd_list.h",
   ]
   public_deps = [ ":gvariant" ]
   deps = [
     "dbus_interfaces:interface_headers",
     "//base",
+    "//remoting/host/base:base",
     "//ui/base",
   ]
+  configs += [ "//build/linux:gio_config" ]
 }
 
 source_set("platform_impls") {

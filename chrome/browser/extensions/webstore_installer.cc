@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "base/command_line.h"
+#include "base/feature_list.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/metrics/field_trial.h"
@@ -32,6 +33,7 @@
 #include "chrome/browser/download/download_prefs.h"
 #include "chrome/browser/download/download_stats.h"
 #include "chrome/browser/extensions/crx_installer.h"
+#include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/install_approval.h"
 #include "chrome/browser/extensions/install_tracker.h"
 #include "chrome/browser/extensions/install_tracker_factory.h"
@@ -57,6 +59,7 @@
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/install/crx_install_error.h"
 #include "extensions/common/extension.h"
+#include "extensions/common/extension_features.h"
 #include "extensions/common/extension_id.h"
 #include "extensions/common/extension_urls.h"
 #include "extensions/common/manifest_constants.h"
@@ -603,6 +606,15 @@ void WebstoreInstaller::StartDownload(
   params->set_callback(base::BindOnce(&WebstoreInstaller::OnDownloadStarted,
                                       this, extension_id));
   params->set_download_source(download::DownloadSource::EXTENSION_INSTALLER);
+
+  if (base::FeatureList::IsEnabled(
+          extensions_features::kWebstoreInstallerUserGestureKillSwitch)) {
+    // This is set to `true` so that the download stack can correctly apply
+    // download restriction policies and understand that a user gesture started
+    // the extension download.
+    params->set_has_user_gesture(true);
+  }
+
   download_manager->DownloadUrl(std::move(params));
 }
 

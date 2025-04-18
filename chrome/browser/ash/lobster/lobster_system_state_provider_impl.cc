@@ -23,6 +23,8 @@
 #include "net/base/network_change_notifier.h"
 #include "ui/base/ime/ash/extension_ime_util.h"
 #include "ui/base/ime/ash/input_method_manager.h"
+#include "ui/display/screen.h"
+#include "ui/display/tablet_state.h"
 
 namespace {
 
@@ -113,14 +115,16 @@ specialized_features::FeatureAccessConfig CreateFeatureAccessConfig() {
 
 LobsterSystemStateProviderImpl::LobsterSystemStateProviderImpl(
     PrefService* pref,
-    signin::IdentityManager* identity_manager)
+    signin::IdentityManager* identity_manager,
+    bool is_in_demo_mode)
     : pref_(pref),
       access_checker_(CreateFeatureAccessConfig(),
                       pref_,
                       identity_manager,
                       /*variations_service_callback=*/base::BindRepeating([]() {
                         return g_browser_process->variations_service();
-                      })) {}
+                      })),
+      is_in_demo_mode_(is_in_demo_mode) {}
 
 LobsterSystemStateProviderImpl::~LobsterSystemStateProviderImpl() = default;
 
@@ -156,10 +160,11 @@ ash::LobsterSystemState LobsterSystemStateProviderImpl::GetSystemState(
     system_state.failed_checks.Put(ash::LobsterSystemCheck::kInvalidRegion);
   }
 
-  // Performs account capabilities check
-  if (access_checker_failure_set.Has(
-          specialized_features::FeatureAccessFailure::
-              kAccountCapabilitiesCheckFailed)) {
+  // TODO: b:406915099 - Migrate demo mode check into the shared feature checker module.
+  // Performs account capabilities check in non-demo mode only
+  if (!is_in_demo_mode_ && access_checker_failure_set.Has(
+                               specialized_features::FeatureAccessFailure::
+                                   kAccountCapabilitiesCheckFailed)) {
     system_state.status = ash::LobsterStatus::kBlocked;
     system_state.failed_checks.Put(
         ash::LobsterSystemCheck::kInvalidAccountCapabilities);
@@ -179,6 +184,20 @@ ash::LobsterSystemState LobsterSystemStateProviderImpl::GetSystemState(
     system_state.failed_checks.Put(ash::LobsterSystemCheck::kInvalidInputField);
   }
 
+  if (!ash::features::IsLobsterEnabledForManagedUsers() &&
+      pref_->IsManagedPreference(
+          ash::prefs::kLobsterEnterprisePolicySettings)) {
+    system_state.status = ash::LobsterStatus::kBlocked;
+    system_state.failed_checks.Put(
+        ash::LobsterSystemCheck::kForcedDisabledOnManagedUsers);
+  }
+
+  if (pref_->GetInteger(ash::prefs::kLobsterEnterprisePolicySettings) ==
+      base::to_underlying(ash::LobsterEnterprisePolicyValue::kDisabled)) {
+    system_state.status = ash::LobsterStatus::kBlocked;
+    system_state.failed_checks.Put(ash::LobsterSystemCheck::kUnsupportedPolicy);
+  }
+
   if (!pref_->GetBoolean(ash::prefs::kLobsterEnabled)) {
     system_state.status = ash::LobsterStatus::kBlocked;
     system_state.failed_checks.Put(ash::LobsterSystemCheck::kSettingsOff);
@@ -191,8 +210,16 @@ ash::LobsterSystemState LobsterSystemStateProviderImpl::GetSystemState(
         ash::LobsterSystemCheck::kNoInternetConnection);
   }
 
+  // Performs a tablet mode check
+  if (is_in_tablet_mode_) {
+    system_state.status = ash::LobsterStatus::kBlocked;
+    system_state.failed_checks.Put(
+        ash::LobsterSystemCheck::kUnsupportedFormFactor);
+  }
+
   // Performs an IME check
-  if (!IsImeAllowed(GetCurrentImeEngineId())) {
+  if (ash::features::IsLobsterDisabledByInvalidIME() &&
+      !IsImeAllowed(GetCurrentImeEngineId())) {
     system_state.status = ash::LobsterStatus::kBlocked;
     system_state.failed_checks.Put(
         ash::LobsterSystemCheck::kInvalidInputMethod);
@@ -214,4 +241,9 @@ ash::LobsterSystemState LobsterSystemStateProviderImpl::GetSystemState(
   }
 
   return system_state;
+}
+
+void LobsterSystemStateProviderImpl::OnDisplayTabletStateChanged(
+    display::TabletState state) {
+  is_in_tablet_mode_ = (state == display::TabletState::kInTabletMode);
 }

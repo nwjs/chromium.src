@@ -6,7 +6,6 @@
 <translation id="1143896152279775643">Passordet blir lagret i Google Passordlagring for <ph name="EMAIL" />.</translation>
 <translation id="1146503048444965320">Åpne en ny fane i Chrome</translation>
 <translation id="1166460004393506534">Slett nettlesingsdata i Chrome</translation>
-<translation id="1171255741903316750">Slå på «Lås inkognitofaner når du lukker Chrome»</translation>
 <translation id="1179527450541388808">Få raskere tilgang til Chrome fra dokken på Hjem-skjermen på iPad.</translation>
 <translation id="1180362651362502943">Fortsett å bruke Chrome-dataene i Google-kontoen din.</translation>
 <translation id="1200396280085622191">Bruk Chrome hver gang du trykker på linker i meldinger og andre apper.</translation>
@@ -37,12 +36,14 @@ Du bør tenke på følgende:
 <translation id="1634522710245925681">Bruk Chrome som standard for å få prisstatistikk enkelt</translation>
 <translation id="1646463005043273333">Åpner Chrome-innstillingen for å angi Chrome som standardnettleser.</translation>
 <translation id="1670609221633730681">Chrome-tips: Velg plassering for adressefeltet</translation>
+<translation id="1683863426423719967">For å motta påminnelser om faner fra Chrome, slå på varsler i iOS-innstillingene.</translation>
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="1784567647421309104">Lagre passordene dine i Chrome</translation>
 <translation id="1790080846677398234">Legger til de angitte nettadressene i bokmerkene dine i Chrome.</translation>
 <translation id="1799920918471566157">Chrome-tips</translation>
 <translation id="1830634592642484976">Denne adressen er for øyeblikket lagret i Chrome. For å bruke den i alle Google-produkter må du lagre den i Google-kontoen din, <ph name="USER_EMAIL" />.</translation>
 <translation id="1891812034154776216">Skjul åpne inkognitofaner når du går ut av Chrome</translation>
+<translation id="1894434821386148799">Her finner du Chrome-innstillinger med mer</translation>
 <translation id="1917964099031477364">Denne kontoen og eventuelle ulagrede data blir fjernet fra Chrome og andre Google-apper på enheten.</translation>
 <translation id="1919130412786645364">Tillat Chrome-pålogging</translation>
 <translation id="1965935827552890526">Gjør deg ferdig med det du holdt på med i det andre åpne Chrome-vinduet.</translation>
@@ -127,9 +128,9 @@ Prøv å vente i noen minutter før du logger av. Hvis du logger av nå, blir di
 <translation id="4430797724889237570">Åpne linker fra Gmail, Maps, YouTube og andre apper i Chrome</translation>
 <translation id="447252321002412580">Hjelp til med å forbedre funksjonene og ytelsen til Chrome</translation>
 <translation id="4523886039239821078">Noen tillegg fører til at Chrome krasjer. Avinstaller:</translation>
+<translation id="4574806550936185355">Slå på «Lås inkognitofaner når du lukker Chrome»</translation>
 <translation id="4633328489441962921">Chrome kan ikke se etter oppdateringer</translation>
 <translation id="4636900170638246267">Logg på dette nettstedet og Chrome.</translation>
-<translation id="4646014602299206846">Chrome registrerer pakkesporingsnumre på nettsteder du besøker, og viser pakkeoppdateringer på Ny fane-siden. Dataene dine blir delt med Google, slik at vi kan tilby denne funksjonen og gjøre Shopping enda bedre for alle.</translation>
 <translation id="4647910807533196601">Åpne den nyligste fanen min i Chrome.</translation>
 <translation id="4693084815234024320">Du er i Chrome Inkognito</translation>
 <translation id="4724297637870447613">Bruk Chrome overalt</translation>
@@ -160,7 +161,6 @@ Prøv å vente i noen minutter før du logger av. Hvis du logger av nå, blir di
 <translation id="5395376160638294582">Sørg for at du alltid kan bruke Chrome-dataene i Google-kontoen din</translation>
 <translation id="5404252374083197467">Vil du angi Chrome som standard?</translation>
 <translation id="5439191312780166229">Advarer deg om farlige nettsteder, også nettsteder som Google ikke kjenner til fra før, ved å analysere mer data fra nettsteder enn ved standardbeskyttelse. Du kan velge å hoppe over Chrome-advarsler.</translation>
-<translation id="5442013002200339429">Hvis du skjuler «<ph name="MODULE_NAME" />», slutter Chrome å spore fremtidige pakker automatisk, og alle tidligere pakkesporingsdata slettes.</translation>
 <translation id="5460571915754665838">4. Velg Chrome</translation>
 <translation id="5492504007368565877">Google Passordlagring kan ikke sjekke passordene dine.</translation>
 <translation id="5525095647255982834">For å sende denne fanen til en annen enhet, logg på Chrome der.</translation>
@@ -179,6 +179,7 @@ Prøv å vente i noen minutter før du logger av. Hvis du logger av nå, blir di
 <translation id="5716154293141027663">Åpne alltid Chrome når du trykker på linker i andre apper</translation>
 <translation id="5752489513673657785">En tilpasset feed som Google har laget for deg</translation>
 <translation id="5772407442571703917">Last ned Chrome her.</translation>
+<translation id="5777468213129569553">Åpne Chrome</translation>
 <translation id="5779767936254214055">Lås inkognitofanene dine når du går ut av Chrome eller bytter til en annen app.</translation>
 <translation id="5808435672482059465">Se Chrome-loggen din</translation>
 <translation id="5833027901704861726">Noen av Chrome-dataene dine er ikke lagret i <ph name="EMAIL" /> ennå.
@@ -214,7 +215,6 @@ Dataene dine er kryptert med passordfrasen din. Skriv den inn for å bruke og la
 <translation id="6636941099779251629">Organisasjonen din krever at du logger på for å bruke Chrome. <ph name="BEGIN_LINK" />Finn ut mer<ph name="END_LINK" /></translation>
 <translation id="6646696210740573446">Sender en obfuskert del av nettadressen til Google via en personverntjener som skjuler IP-adressen din. Hvis nettsteder prøver å stjele passordet ditt, eller når du laster ned skadelige filer, kan Chrome også sende nettadresser, inkludert deler av sideinnholdet, til Google.</translation>
 <translation id="6647304104688527905">Åpner en ny fane i Chrome.</translation>
-<translation id="6648150602980899529">Du logger på med en konto som administreres av <ph name="DOMAIN" />, og du gir administratoren for dette domenet kontroll over Chrome-dataene dine. Dataene dine blir permanent knyttet til denne kontoen. Når du logger av Chrome, slettes dataene dine fra denne enheten, men de lagres fortsatt i Google-kontoen din.</translation>
 <translation id="6684809838922667136">Gjør Chrome bedre</translation>
 <translation id="6695698548122852044">{THRESHOLD,plural, =1{Dette skjer når Chrome ikke har vært i bruk på {THRESHOLD} minutt. Data som ble lagret kun på denne enheten mens du var logget på, blir slettet. Dette kan omfatte logg og passord.}other{Dette skjer når Chrome ikke har vært i bruk på {THRESHOLD} minutter. Data som ble lagret kun på denne enheten mens du var logget på, blir slettet. Dette kan omfatte logg og passord.}}</translation>
 <translation id="6709398533399187136">Passordet ditt har vært avdekket i et databrudd. Google Passordlagring anbefaler at du endrer det nå.</translation>
@@ -262,6 +262,7 @@ For å se flere innstillinger som bruker data for å forbedre Chrome-opplevelsen
 <translation id="7575971113404272499">Chrome-tips: Bruk Chrome som standard</translation>
 <translation id="7581063337314642333">Gå til fanerutenettet i Chrome</translation>
 <translation id="7599894504325210080">Utvidet autofyllvisning i Chrome</translation>
+<translation id="7617512710641355143">Chrome administreres</translation>
 <translation id="7642373780953416937">Motta varsler om eventuelle personvern- eller sikkerhetsproblemer som Chrome automatisk oppdager for deg.</translation>
 <translation id="7660356333829433649">Kom tilbake hit for å se flere nyttige tips og få mest mulig ut av Chrome.</translation>
 <translation id="7662994914830945754">For å se fanene dine overalt hvor du bruker Chrome, logg på og slå på synkronisering</translation>

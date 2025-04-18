@@ -8,10 +8,15 @@
 #import "base/memory/raw_ptr.h"
 #import "base/memory/weak_ptr.h"
 #import "components/enterprise/common/proto/upload_request_response.pb.h"
+#import "components/enterprise/connectors/core/common.h"
 #import "components/enterprise/connectors/core/realtime_reporting_client_base.h"
 #import "components/policy/core/common/cloud/cloud_policy_client.h"
 
 class ProfileIOS;
+
+namespace signin {
+class IdentityManager;
+}
 
 // The event reporting client that sends an event to the reporting server and
 // it's utilized by the reporting event router.
@@ -29,10 +34,25 @@ class IOSRealtimeReportingClient : public RealtimeReportingClientBase {
   // RealtimeReportingClientBase overrides:
   std::string GetProfileUserName() override;
   base::WeakPtr<RealtimeReportingClientBase> AsWeakPtr() override;
+  std::optional<ReportingSettings> GetReportingSettings() override;
 
   base::WeakPtr<IOSRealtimeReportingClient> AsWeakPtrImpl() {
     return weak_ptr_factory_.GetWeakPtr();
   }
+
+  void SetBrowserCloudPolicyClientForTesting(policy::CloudPolicyClient* client);
+  void SetProfileCloudPolicyClientForTesting(policy::CloudPolicyClient* client);
+
+  void SetIdentityManagerForTesting(signin::IdentityManager* identity_manager);
+
+  // policy::CloudPolicyClient::Observer overrides:
+  void OnClientError(policy::CloudPolicyClient* client) override;
+
+  // Report safe browsing event through real-time reporting channel, if enabled.
+  // Declared as virtual for tests.
+  virtual void ReportRealtimeEvent(const std::string& name,
+                                   const ReportingSettings& settings,
+                                   base::Value::Dict event);
 
  private:
   // RealtimeReportingClientBase overrides (all overrides below):
@@ -57,6 +77,8 @@ class IOSRealtimeReportingClient : public RealtimeReportingClientBase {
 
   std::pair<std::string, policy::CloudPolicyClient*> InitProfileReportingClient(
       const std::string& dm_token) override;
+
+  void RemoveDmTokenFromRejectedSet(const std::string& dm_token);
 
   raw_ptr<ProfileIOS> profile_;
   std::string username_;

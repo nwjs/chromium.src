@@ -159,7 +159,7 @@ SearchAggregatorProvider::SearchAggregatorProvider() {
           .Get();
   scoring_scoped_max_low_quality_matches =
       base::FeatureParam<size_t>(&kSearchAggregatorProvider,
-                                 "scoring_scoped_max_low_quality_matches", 6)
+                                 "scoring_scoped_max_low_quality_matches", 8)
           .Get();
   scoring_unscoped_max_low_quality_matches =
       base::FeatureParam<size_t>(&kSearchAggregatorProvider,
@@ -249,4 +249,78 @@ SuggestionAnswerMigration::SuggestionAnswerMigration() {
   enabled = base::FeatureList::IsEnabled(kOmniboxSuggestionAnswerMigration);
 }
 
+BASE_FEATURE(OmniboxUrlSuggestionsOnFocus::kOmniboxUrlSuggestionsOnFocus,
+             "OmniboxUrlSuggestionsOnFocus",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+OmniboxUrlSuggestionsOnFocus::OmniboxUrlSuggestionsOnFocus() {
+  const char kMvtScoringParamRecencyFactor_Default[] = "default";
+  enabled = base::FeatureList::IsEnabled(kOmniboxUrlSuggestionsOnFocus);
+  show_recently_closed_tabs =
+      base::FeatureParam<bool>(&kOmniboxUrlSuggestionsOnFocus,
+                               "ShowRecentlyClosedTabs", false)
+          .Get();
+  max_suggestions = base::FeatureParam<size_t>(&kOmniboxUrlSuggestionsOnFocus,
+                                               "OnFocusMaxSuggestions", 6)
+                        .Get();
+  max_search_suggestions =
+      base::FeatureParam<size_t>(&kOmniboxUrlSuggestionsOnFocus,
+                                 "OnFocusMaxSearchSuggestions", 3)
+          .Get();
+  max_url_suggestions =
+      base::FeatureParam<size_t>(&kOmniboxUrlSuggestionsOnFocus,
+                                 "OnFocusMaxUrlSuggestions", 3)
+          .Get();
+  most_visited_recency_window =
+      base::FeatureParam<size_t>(&kOmniboxUrlSuggestionsOnFocus,
+                                 "OnFocusMostVisitedRecencyWindow", 0)
+          .Get();
+  most_visited_recency_factor =
+      base::FeatureParam<std::string>(&kOmniboxUrlSuggestionsOnFocus,
+                                      "OnFocusMostVisitedRecencyFactor",
+                                      kMvtScoringParamRecencyFactor_Default)
+          .Get();
+  directly_query_history_service =
+      base::FeatureParam<bool>(&kOmniboxUrlSuggestionsOnFocus,
+                               "OnFocusMostVisitedDirectlyQueryHistoryService",
+                               true)
+          .Get();
+  prefetch_most_visited_sites =
+      base::FeatureParam<bool>(&kOmniboxUrlSuggestionsOnFocus,
+                               "OnFocusPrefetchMostVisitedSites", true)
+          .Get();
+  prefetch_most_visited_sites_delay_ms =
+      base::FeatureParam<int>(&kOmniboxUrlSuggestionsOnFocus,
+                              "OnFocusPrefetchDelay", 300)
+          .Get();
+}
+
+OmniboxUrlSuggestionsOnFocus::OmniboxUrlSuggestionsOnFocus(
+    const OmniboxUrlSuggestionsOnFocus&) = default;
+
+OmniboxUrlSuggestionsOnFocus& OmniboxUrlSuggestionsOnFocus::operator=(
+    const OmniboxUrlSuggestionsOnFocus&) = default;
+
+OmniboxUrlSuggestionsOnFocus::~OmniboxUrlSuggestionsOnFocus() = default;
+
+bool OmniboxUrlSuggestionsOnFocus::MostVisitedPrefetchingEnabled() const {
+  return enabled && prefetch_most_visited_sites;
+}
+
+BASE_FEATURE(HappinessTrackingSurveyForOmniboxOnFocusZps::
+                 kHappinessTrackingSurveyForOmniboxOnFocusZps,
+             "HappinessTrackingSurveyForOmniboxOnFocusZps",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+HappinessTrackingSurveyForOmniboxOnFocusZps::
+    HappinessTrackingSurveyForOmniboxOnFocusZps() {
+  enabled = base::FeatureList::IsEnabled(
+      kHappinessTrackingSurveyForOmniboxOnFocusZps);
+  focus_threshold =
+      base::FeatureParam<size_t>(&kHappinessTrackingSurveyForOmniboxOnFocusZps,
+                                 "FocusThreshold", 5)
+          .Get();
+  survey_delay =
+      base::FeatureParam<size_t>(&kHappinessTrackingSurveyForOmniboxOnFocusZps,
+                                 "SurveyDelay", 7000)
+          .Get();
+}
 }  // namespace omnibox_feature_configs

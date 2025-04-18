@@ -30,11 +30,6 @@ class FedCmAccountSelectionView;
 inline constexpr int kButtonRadius = 16;
 // The fixed, total width of the bubble.
 inline constexpr int kBubbleWidth = 375;
-// The desired size of the avatars of user accounts.
-inline constexpr int kDesiredAvatarSize = 30;
-// The desired size of the IDP icon used as badge for the user account avatar
-// when there are multiple IDPs.
-inline constexpr int kLargeAvatarBadgeSize = 16;
 // The size of the icon of the identity provider in the bubble.
 inline constexpr int kBubbleIdpIconSize = 20;
 // The desired size of the icon for a "login to IDP" secondary view.
@@ -68,12 +63,8 @@ inline constexpr int kModalIdpIconSize = 32;
 // The size of the icons when they are combined i.e. IDP icon + arrow icon + RP
 // icon is shown at the same time in the modal.
 inline constexpr int kModalCombinedIconSize = 20;
-// The size of avatars in the modal dialog.
-inline constexpr int kModalAvatarSize = 36;
 // The size of the horizontal padding for most elements in the modal.
 inline constexpr int kModalHorizontalSpacing = 8;
-// Size of the IDP icon offset when badging the IDP icon in the account button.
-inline constexpr int kIdpBadgeOffset = 8;
 // The size of the arrow icon.
 inline constexpr int kArrowIconSize = 8;
 // The size of the spinner used in place of the IDP icon while it is being
@@ -89,22 +80,18 @@ class BrandIconImageView : public views::ImageView {
   METADATA_HEADER(BrandIconImageView, views::ImageView)
 
  public:
-  BrandIconImageView(
-      int image_size,
-      bool should_circle_crop,
-      base::RepeatingClosure on_image_set = base::DoNothing());
+  explicit BrandIconImageView(int image_size);
   BrandIconImageView(const BrandIconImageView&) = delete;
   BrandIconImageView& operator=(const BrandIconImageView&) = delete;
   ~BrandIconImageView() override;
 
-  void CropAndSetImage(const gfx::Image& image);
+  // This method will crop the given `image` if `should_circle_crop` and will
+  // attempt to set it into the BrandIconImageView. Returns whether the image
+  // was successfully set or not.
+  bool SetBrandIconImage(const gfx::Image& image, bool should_circle_crop);
 
  private:
   int image_size_;
-  bool should_circle_crop_;
-  base::RepeatingClosure on_image_set_;
-
-  base::WeakPtrFactory<BrandIconImageView> weak_ptr_factory_{this};
 };
 
 class AccountHoverButton : public HoverButton {
@@ -169,14 +156,13 @@ class AccountSelectionViewBase {
   virtual ~AccountSelectionViewBase();
 
   // Updates the FedCM dialog to show the "account picker" sheet.
-  // `is_choose_an_account` is true if the dialog must change its title to
-  // 'Choose an account'. This is currently only used on widget mode, when
-  // clicking on the 'Choose an account' button.
+  // `rp_icon` is the RP icon to be displayed on the header of the dialog when
+  // there are multiple IdPs to select from.
   virtual void ShowMultiAccountPicker(
       const std::vector<IdentityRequestAccountPtr>& accounts,
       const std::vector<IdentityProviderDataPtr>& idp_list,
-      bool show_back_button,
-      bool is_choose_an_account) = 0;
+      const gfx::Image& rp_icon,
+      bool show_back_button) = 0;
 
   // Updates the FedCM dialog to show the "verifying" sheet.
   virtual void ShowVerifyingSheet(const IdentityRequestAccountPtr& account,
@@ -203,13 +189,6 @@ class AccountSelectionViewBase {
   // Updates the FedCM dialog to show the "request permission" sheet.
   virtual void ShowRequestPermissionDialog(
       const IdentityRequestAccountPtr& account) = 0;
-
-  // Updates to show a single account along with a button to show all options.
-  // Currently used when there are multiple IDPs and exactly one returning
-  // account.
-  virtual void ShowSingleReturningAccountDialog(
-      const std::vector<IdentityRequestAccountPtr>& accounts,
-      const std::vector<IdentityProviderDataPtr>& idp_list) = 0;
 
   // Gets the title of the dialog.
   virtual std::string GetDialogTitle() const = 0;

@@ -69,7 +69,7 @@ public class TabGroupSyncUtilsUnitTest {
     public void setUp() {
         mTabModel = spy(new MockTabModel(mProfile, null));
         when(mTabGroupModelFilter.getTabModel()).thenReturn(mTabModel);
-        when(mTabGroupModelFilter.isIncognito()).thenReturn(false);
+        when(mTabModel.isIncognito()).thenReturn(false);
 
         mTab1 = mTabModel.addTab(TAB_ID_1);
         mTab2 = mTabModel.addTab(TAB_ID_2);
@@ -175,7 +175,7 @@ public class TabGroupSyncUtilsUnitTest {
             tab.setRootId(rootId);
             tab.setTabGroupId(tabGroupId);
         }
-        when(mTabGroupModelFilter.getRelatedTabListForRootId(eq(rootId))).thenReturn(tabs);
+        when(mTabGroupModelFilter.getTabsInGroup(eq(tabGroupId))).thenReturn(tabs);
         when(mTabGroupModelFilter.getRootIdFromTabGroupId(eq(tabGroupId))).thenReturn(rootId);
         when(mTabGroupModelFilter.getTabGroupIdFromRootId(eq(rootId))).thenReturn(tabGroupId);
     }

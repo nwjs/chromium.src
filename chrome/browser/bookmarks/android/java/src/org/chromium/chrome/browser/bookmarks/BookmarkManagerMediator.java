@@ -35,6 +35,7 @@ import org.chromium.chrome.browser.bookmarks.ImprovedBookmarkRow.Location;
 import org.chromium.chrome.browser.bookmarks.ImprovedBookmarkRowProperties.ImageVisibility;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.partnerbookmarks.PartnerBookmarksReader;
+import org.chromium.chrome.browser.price_tracking.PriceDropNotificationManager;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.sync.ui.bookmark_batch_upload_card.BookmarkBatchUploadCardCoordinator;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
@@ -380,6 +381,8 @@ class BookmarkManagerMediator
             new PendingRunnable(
                     TaskTraits.UI_DEFAULT, mCallbackController.makeCancelable(this::refresh));
     private final BookmarkMoveSnackbarManager mBookmarkMoveSnackbarManager;
+    private final BookmarkManagerOpener mBookmarkManagerOpener;
+    private final PriceDropNotificationManager mPriceDropNotificationManager;
 
     @Nullable private BookmarkBatchUploadCardCoordinator mBookmarkBatchUploadCardCoordinator;
     // Whether this instance has been destroyed.
@@ -418,7 +421,9 @@ class BookmarkManagerMediator
             SnackbarManager snackbarManager,
             BooleanSupplier canShowSigninPromo,
             Consumer<OnScrollListener> onScrollListenerConsumer,
-            BookmarkMoveSnackbarManager bookmarkMoveSnackbarManager) {
+            BookmarkMoveSnackbarManager bookmarkMoveSnackbarManager,
+            BookmarkManagerOpener bookmarkManagerOpener,
+            PriceDropNotificationManager priceDropNotificationManager) {
         mContext = activity;
         mBookmarkModel = bookmarkModel;
         mBookmarkModel.addObserver(mBookmarkModelObserver);
@@ -461,7 +466,8 @@ class BookmarkManagerMediator
         }
         mBookmarkUndoController = bookmarkUndoController;
         mBookmarkMoveSnackbarManager = bookmarkMoveSnackbarManager;
-
+        mBookmarkManagerOpener = bookmarkManagerOpener;
+        mPriceDropNotificationManager = priceDropNotificationManager;
         if (CommerceFeatureUtils.isShoppingListEligible(mShoppingService)) {
             mShoppingService.addSubscriptionsObserver(mSubscriptionsObserver);
         }
@@ -737,14 +743,14 @@ class BookmarkManagerMediator
 
         // Close bookmark UI. Keep the reading list page open.
         if (bookmark != null && bookmark.getType() != BookmarkType.READING_LIST) {
-            BookmarkUtils.finishActivityOnPhone(mContext);
+            mBookmarkManagerOpener.finishActivityOnPhone(mContext);
         }
     }
 
     @Override
     public void openBookmarksInNewTabs(List<BookmarkId> bookmarks, boolean incognito) {
         if (mBookmarkOpener.openBookmarksInNewTabs(bookmarks, incognito)) {
-            BookmarkUtils.finishActivityOnPhone(mContext);
+            mBookmarkManagerOpener.finishActivityOnPhone(mContext);
         }
     }
 
@@ -1471,7 +1477,8 @@ class BookmarkManagerMediator
                         }
                     } else if (textId == R.string.bookmark_item_edit) {
                         BookmarkItem bookmarkItem = mBookmarkModel.getBookmarkById(bookmarkId);
-                        BookmarkUtils.startEditActivity(mContext, mProfile, bookmarkItem.getId());
+                        mBookmarkManagerOpener.startEditActivity(
+                                mContext, mProfile, bookmarkItem.getId());
                     } else if (textId == R.string.reading_list_mark_as_read) {
                         BookmarkItem bookmarkItem = mBookmarkModel.getBookmarkById(bookmarkId);
                         mBookmarkModel.setReadStatusForReadingList(
@@ -1483,7 +1490,8 @@ class BookmarkManagerMediator
                                 bookmarkItem.getId(), /* read= */ false);
                         RecordUserAction.record("Android.BookmarkPage.ReadingList.MarkAsUnread");
                     } else if (textId == R.string.bookmark_item_move) {
-                        mBookmarkMoveSnackbarManager.startFolderPickerAndObserveResult(bookmarkId);
+                        mBookmarkMoveSnackbarManager.startFolderPickerAndObserveResult(
+                                mBookmarkManagerOpener, bookmarkId);
                         RecordUserAction.record("MobileBookmarkManagerMoveToFolder");
                     } else if (textId == R.string.bookmark_item_delete) {
                         if (mBookmarkModel != null) {
@@ -1533,7 +1541,8 @@ class BookmarkManagerMediator
                 mSnackbarManager,
                 mContext.getResources(),
                 mProfile,
-                callback);
+                callback,
+                mPriceDropNotificationManager);
     }
 
     void toggleSelectionForRow(BookmarkId id) {

@@ -4,6 +4,8 @@
 
 #include "chrome/browser/web_applications/isolated_web_apps/key_distribution/iwa_key_distribution_info_provider.h"
 
+#include <variant>
+
 #include "base/base64.h"
 #include "base/containers/extend.h"
 #include "base/files/file_util.h"
@@ -207,7 +209,7 @@ TEST_F(SignedWebBundleSignatureVerifierWithKeyDistributionTest,
   EXPECT_THAT(ht.GetAllSamples(kIwaKeyRotationInfoSource),
               base::BucketsAre(base::Bucket(KeyRotationInfoSource::kNone, 1)));
 
-  auto expected_key = absl::visit(
+  auto expected_key = std::visit(
       [](const auto& key_pair) -> base::span<const uint8_t> {
         return key_pair.public_key.bytes();
       },
@@ -360,8 +362,7 @@ class IwaIwaKeyDistributionInfoProviderReadinessTest
         .WillOnce(ReturnRef(on_demand_updater()));
 
     EXPECT_CALL(on_demand_updater(),
-                OnDemandUpdate("iebhnlpddlcpcfpfalldikcoeakpeoah",
-                               Priority::BACKGROUND, _))
+                OnDemandUpdate("iebhnlpddlcpcfpfalldikcoeakpeoah", _, _))
         .WillOnce(WithoutArgs([&, load_delay] {
           ASSERT_TRUE(installer_);
           InstallComponentAsync(installer_, base::Version("2.0.0"),
@@ -373,8 +374,7 @@ class IwaIwaKeyDistributionInfoProviderReadinessTest
     EXPECT_CALL(component_updater(), GetOnDemandUpdater).Times(0);
 
     EXPECT_CALL(on_demand_updater(),
-                OnDemandUpdate("iebhnlpddlcpcfpfalldikcoeakpeoah",
-                               Priority::BACKGROUND, _))
+                OnDemandUpdate("iebhnlpddlcpcfpfalldikcoeakpeoah", _, _))
         .Times(0);
   }
 
@@ -383,8 +383,7 @@ class IwaIwaKeyDistributionInfoProviderReadinessTest
         .WillOnce(ReturnRef(on_demand_updater()));
 
     EXPECT_CALL(on_demand_updater(),
-                OnDemandUpdate("iebhnlpddlcpcfpfalldikcoeakpeoah",
-                               Priority::BACKGROUND, _));
+                OnDemandUpdate("iebhnlpddlcpcfpfalldikcoeakpeoah", _, _));
   }
 
  private:

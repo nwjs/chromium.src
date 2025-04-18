@@ -10,6 +10,7 @@
 #include "chrome/browser/media/media_engagement_score_details.mojom.h"
 #include "chrome/browser/optimization_guide/optimization_guide_internals_ui.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/views/side_panel/history/history_side_panel_coordinator.h"
 #include "chrome/browser/ui/webui/bluetooth_internals/bluetooth_internals.mojom.h"
 #include "chrome/browser/ui/webui/bluetooth_internals/bluetooth_internals_ui.h"
 #include "chrome/browser/ui/webui/browsing_topics/browsing_topics_internals_ui.h"
@@ -58,7 +59,10 @@
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 #include "chrome/browser/ui/webui/app_settings/web_app_settings_ui.h"
 #include "chrome/browser/ui/webui/on_device_translation_internals/on_device_translation_internals_ui.h"
+#include "chrome/browser/ui/webui/signin/history_sync_optin/history_sync_optin.mojom.h"
+#include "chrome/browser/ui/webui/signin/history_sync_optin/history_sync_optin_ui.h"
 #include "chrome/browser/ui/webui/whats_new/whats_new_ui.h"
+#include "components/signin/public/base/signin_switches.h"
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
@@ -103,6 +107,7 @@
 #include "chrome/browser/ui/webui/side_panel/customize_chrome/customize_chrome.mojom.h"
 #include "chrome/browser/ui/webui/side_panel/customize_chrome/customize_chrome_ui.h"
 #include "chrome/browser/ui/webui/side_panel/customize_chrome/wallpaper_search/wallpaper_search.mojom.h"
+#include "chrome/browser/ui/webui/side_panel/history/history_side_panel_ui.h"
 #include "chrome/browser/ui/webui/side_panel/history_clusters/history_clusters_side_panel_ui.h"
 #include "chrome/browser/ui/webui/side_panel/read_anything/read_anything_untrusted_ui.h"
 #include "chrome/browser/ui/webui/side_panel/reading_list/reading_list.mojom.h"
@@ -339,9 +344,9 @@
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 #if BUILDFLAG(ENABLE_GLIC)
+#include "chrome/browser/glic/fre/glic_fre_ui.h"
 #include "chrome/browser/glic/glic_enabling.h"
-#include "chrome/browser/glic/glic_fre_ui.h"
-#include "chrome/browser/glic/glic_ui.h"
+#include "chrome/browser/glic/host/glic_ui.h"
 #endif
 
 #if BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
@@ -458,6 +463,11 @@ void PopulateChromeWebUIFrameBinders(
   RegisterWebUIControllerInterfaceBinder<
       on_device_translation_internals::mojom::PageHandlerFactory,
       OnDeviceTranslationInternalsUI>(map);
+
+  if (base::FeatureList::IsEnabled(switches::kEnableHistorySyncOptin)) {
+    RegisterWebUIControllerInterfaceBinder<
+        history_sync_optin::mojom::PageHandlerFactory, HistorySyncOptinUI>(map);
+  }
 #endif
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -516,33 +526,62 @@ void PopulateChromeWebUIFrameBinders(
       most_visited::mojom::MostVisitedPageHandlerFactory, NewTabPageUI,
       NewTabPageThirdPartyUI>(map);
 
-  RegisterWebUIControllerInterfaceBinder<history::mojom::PageHandler,
-                                         HistoryUI>(map);
+  if (HistorySidePanelCoordinator::IsSupported()) {
+    RegisterWebUIControllerInterfaceBinder<history::mojom::PageHandler,
+                                           HistorySidePanelUI, HistoryUI>(map);
+  } else {
+    RegisterWebUIControllerInterfaceBinder<history::mojom::PageHandler,
+                                           HistoryUI>(map);
+  }
 
   auto* history_clusters_service =
       HistoryClustersServiceFactory::GetForBrowserContext(
           render_frame_host->GetProcess()->GetBrowserContext());
   if (history_clusters_service &&
       history_clusters_service->is_journeys_feature_flag_enabled()) {
-    RegisterWebUIControllerInterfaceBinder<history_clusters::mojom::PageHandler,
-                                           HistoryUI,
-                                           HistoryClustersSidePanelUI>(map);
+    if (HistorySidePanelCoordinator::IsSupported()) {
+      RegisterWebUIControllerInterfaceBinder<
+          history_clusters::mojom::PageHandler, HistoryUI, HistorySidePanelUI>(
+          map);
+    } else {
+      RegisterWebUIControllerInterfaceBinder<
+          history_clusters::mojom::PageHandler, HistoryUI,
+          HistoryClustersSidePanelUI>(map);
+    }
   }
   if (history_embeddings::IsHistoryEmbeddingsFeatureEnabled()) {
     if (history_clusters_service &&
         history_clusters_service->is_journeys_feature_flag_enabled()) {
-      RegisterWebUIControllerInterfaceBinder<
-          history_embeddings::mojom::PageHandler, HistoryUI,
-          HistoryClustersSidePanelUI>(map);
+      if (HistorySidePanelCoordinator::IsSupported()) {
+        RegisterWebUIControllerInterfaceBinder<
+            history_embeddings::mojom::PageHandler, HistoryUI,
+            HistorySidePanelUI>(map);
+      } else {
+        RegisterWebUIControllerInterfaceBinder<
+            history_embeddings::mojom::PageHandler, HistoryUI,
+            HistoryClustersSidePanelUI>(map);
+      }
     } else {
-      RegisterWebUIControllerInterfaceBinder<
-          history_embeddings::mojom::PageHandler, HistoryUI>(map);
+      if (HistorySidePanelCoordinator::IsSupported()) {
+        RegisterWebUIControllerInterfaceBinder<
+            history_embeddings::mojom::PageHandler, HistorySidePanelUI,
+            HistoryUI>(map);
+      } else {
+        RegisterWebUIControllerInterfaceBinder<
+            history_embeddings::mojom::PageHandler, HistoryUI>(map);
+      }
     }
   }
 
-  RegisterWebUIControllerInterfaceBinder<
-      page_image_service::mojom::PageImageServiceHandler, HistoryUI,
-      HistoryClustersSidePanelUI, NewTabPageUI, BookmarksSidePanelUI>(map);
+  if (HistorySidePanelCoordinator::IsSupported()) {
+    RegisterWebUIControllerInterfaceBinder<
+        page_image_service::mojom::PageImageServiceHandler, HistoryUI,
+        HistorySidePanelUI, NewTabPageUI, BookmarksSidePanelUI>(map);
+  } else {
+    RegisterWebUIControllerInterfaceBinder<
+        page_image_service::mojom::PageImageServiceHandler, HistoryUI,
+        HistoryClustersSidePanelUI, NewTabPageUI, BookmarksSidePanelUI>(map);
+  }
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
   RegisterWebUIControllerInterfaceBinder<whats_new::mojom::PageHandlerFactory,
@@ -1180,10 +1219,8 @@ void PopulateChromeWebUIFrameBinders(
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 #if BUILDFLAG(IS_CHROMEOS)
-  if (ash::features::IsFocusModeEnabled()) {
-    RegisterWebUIControllerInterfaceBinder<
-        ash::focus_mode::mojom::TrackProvider, ash::FocusModeUI>(map);
-  }
+  RegisterWebUIControllerInterfaceBinder<ash::focus_mode::mojom::TrackProvider,
+                                         ash::FocusModeUI>(map);
 
   RegisterWebUIControllerInterfaceBinder<
       ash::sanitize_ui::mojom::SettingsResetter, ash::SanitizeDialogUI>(map);
@@ -1305,8 +1342,7 @@ void PopulateChromeWebUIFrameInterfaceBrokers(
   registry.ForWebUI<ReadAnythingUntrustedUI>()
       .Add<color_change_listener::mojom::PageHandler>();
 
-  if (base::FeatureList::IsEnabled(
-          data_sharing::features::kDataSharingFeature)) {
+  if (data_sharing::features::IsDataSharingFunctionalityEnabled()) {
     registry.ForWebUI<DataSharingUI>()
         .Add<data_sharing::mojom::PageHandlerFactory>()
         .Add<color_change_listener::mojom::PageHandler>();

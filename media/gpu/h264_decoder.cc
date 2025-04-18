@@ -13,6 +13,7 @@
 #include <limits>
 #include <memory>
 #include <optional>
+#include <variant>
 
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
@@ -22,7 +23,6 @@
 #include "base/numerics/safe_conversions.h"
 #include "media/base/media_switches.h"
 #include "media/parsers/h264_level_limits.h"
-#include "third_party/abseil-cpp/absl/types/variant.h"
 
 namespace media {
 namespace {
@@ -980,8 +980,8 @@ bool H264Decoder::SlidingWindowPictureMarking() {
 
   // 8.2.5.3. Ensure the DPB doesn't overflow by discarding the oldest picture.
   int num_ref_pics = dpb_.CountRefPics();
-  DCHECK_LE(num_ref_pics, std::max<int>(sps->max_num_ref_frames, 1));
-  if (num_ref_pics == std::max<int>(sps->max_num_ref_frames, 1)) {
+  int effective_max_num_ref_frames = std::max<int>(sps->max_num_ref_frames, 1);
+  if (num_ref_pics == effective_max_num_ref_frames) {
     // Max number of reference pics reached, need to remove one of the short
     // term ones. Find smallest frame_num_wrap short reference picture and mark
     // it as unused.
@@ -993,6 +993,9 @@ bool H264Decoder::SlidingWindowPictureMarking() {
     }
 
     to_unmark->ref = false;
+  } else if (num_ref_pics > effective_max_num_ref_frames) {
+    DVLOG(1) << "Too many reference pictures in DPB";
+    return false;
   }
 
   return true;
@@ -1002,7 +1005,10 @@ bool H264Decoder::FinishPicture(scoped_refptr<H264Picture> pic) {
   // Finish processing the picture.
   // Start by storing previous picture data for later use.
   if (pic->ref) {
-    ReferencePictureMarking(pic);
+    if (!ReferencePictureMarking(pic)) {
+      return false;
+    }
+
     prev_ref_has_memmgmnt5_ = pic->mem_mgmt_5;
     prev_ref_top_field_order_cnt_ = pic->top_field_order_cnt;
     prev_ref_pic_order_cnt_msb_ = pic->pic_order_cnt_msb;
@@ -1460,8 +1466,9 @@ H264Decoder::H264Accelerator::Status H264Decoder::ProcessCurrentSlice() {
   } while (0)
 
 void H264Decoder::SetStream(int32_t id, const DecoderBuffer& decoder_buffer) {
-  const uint8_t* ptr = decoder_buffer.data();
-  const size_t size = decoder_buffer.size();
+  auto decoder_buffer_span = base::span(decoder_buffer);
+  const uint8_t* ptr = decoder_buffer_span.data();
+  const size_t size = decoder_buffer_span.size();
   const DecryptConfig* decrypt_config = decoder_buffer.decrypt_config();
 
   DCHECK(ptr);
@@ -1709,7 +1716,7 @@ H264Decoder::DecodeResult H264Decoder::Decode() {
           break;
 
         for (const auto& sei_msg : sei.msgs) {
-          if (!absl::visit(
+          if (!std::visit(
                   base::Overloaded{
                       [this](const H264SEIRecoveryPoint& recovery_point) {
                         // If we are after reset, we can also resume from a SEI
@@ -1754,7 +1761,7 @@ H264Decoder::DecodeResult H264Decoder::Decode() {
                         hdr_metadata_->smpte_st_2086 = info.ToGfx();
                         return true;
                       },
-                      [](const absl::monostate) { return true; }},
+                      [](const std::monostate) { return true; }},
                   sei_msg)) {
             SET_ERROR_AND_RETURN();
           }

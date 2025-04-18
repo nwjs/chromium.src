@@ -8,7 +8,6 @@
 #include <deque>
 #include <optional>
 
-#include "base/feature_list.h"
 #include "base/functional/callback_forward.h"
 #include "base/memory/weak_ptr.h"
 #include "base/types/expected.h"
@@ -29,12 +28,6 @@
 #include "third_party/blink/public/mojom/ai/ai_manager.mojom-forward.h"
 #include "third_party/blink/public/mojom/ai/model_streaming_responder.mojom.h"
 
-namespace features {
-
-BASE_DECLARE_FEATURE(kAILanguageModelForceStreamingFullResponse);
-
-}  // namespace features
-
 class AIManager;
 
 // The implementation of `blink::mojom::AILanguageModel`, which exposes the APIs
@@ -42,6 +35,7 @@ class AIManager;
 class AILanguageModel : public AIContextBoundObject,
                         public blink::mojom::AILanguageModel {
  public:
+  using PromptApiRole = optimization_guide::proto::PromptApiRole;
   using PromptApiPrompt = optimization_guide::proto::PromptApiPrompt;
   using PromptApiRequest = optimization_guide::proto::PromptApiRequest;
   using PromptApiMetadata = optimization_guide::proto::PromptApiMetadata;
@@ -59,15 +53,14 @@ class AILanguageModel : public AIContextBoundObject,
   // stored in a FIFO and kept below a limited number of tokens.
   class Context {
    public:
-    // The structure storing the text in context and the number of tokens in the
-    // text.
+    // A piece of the prompt history and it's size.
     struct ContextItem {
       ContextItem();
       ContextItem(const ContextItem&);
       ContextItem(ContextItem&&);
       ~ContextItem();
 
-      google::protobuf::RepeatedPtrField<PromptApiPrompt> prompts;
+      std::vector<blink::mojom::AILanguageModelPromptPtr> prompts;
       uint32_t tokens = 0;
     };
 
@@ -115,20 +108,33 @@ class AILanguageModel : public AIContextBoundObject,
   };
 
   // TODO(crbug.com/385173789): Remove hacky multimodal prototype workarounds.
-  class MultimodalResponder : on_device_model::mojom::StreamingResponder {
+  class MultimodalResponder : public on_device_model::mojom::StreamingResponder,
+                              public on_device_model::mojom::ContextClient {
    public:
     explicit MultimodalResponder(
+        AILanguageModel* model,
+        mojo::PendingReceiver<on_device_model::mojom::StreamingResponder>
+            response_receiver,
+        mojo::PendingReceiver<on_device_model::mojom::ContextClient>
+            context_receiver,
         mojo::PendingRemote<blink::mojom::ModelStreamingResponder> responder);
     ~MultimodalResponder() override;
-    mojo::PendingRemote<on_device_model::mojom::StreamingResponder>
-    BindRemote();
     // on_device_model::mojom::StreamingResponder:
     void OnResponse(on_device_model::mojom::ResponseChunkPtr chunk) override;
     void OnComplete(
         on_device_model::mojom::ResponseSummaryPtr summary) override;
 
+    // on_device_model::mojom::ContextClient:
+    void OnComplete(uint32_t tokens_processed) override;
+
    private:
-    mojo::Receiver<on_device_model::mojom::StreamingResponder> receiver_{this};
+    void OnDisconnect();
+
+    uint32_t tokens_processed_ = 0;
+    raw_ptr<AILanguageModel> model_;
+    mojo::Receiver<on_device_model::mojom::StreamingResponder>
+        response_receiver_;
+    mojo::Receiver<on_device_model::mojom::ContextClient> context_receiver_;
     mojo::Remote<blink::mojom::ModelStreamingResponder> responder_;
     std::string current_response_;
   };
@@ -140,7 +146,6 @@ class AILanguageModel : public AIContextBoundObject,
       mojo::PendingRemote<blink::mojom::AILanguageModel> pending_remote,
       AIContextBoundObjectSet& session_set,
       AIManager& ai_manager,
-      AIUtils::LanguageCodes expected_input_languages,
       const std::optional<const Context>& context = std::nullopt);
   AILanguageModel(const AILanguageModel&) = delete;
   AILanguageModel& operator=(const AILanguageModel&) = delete;
@@ -152,24 +157,23 @@ class AILanguageModel : public AIContextBoundObject,
       const optimization_guide::proto::Any& any);
 
   // `blink::mojom::AILanguageModel` implementation.
-  void Prompt(on_device_model::mojom::InputPtr input,
+  void Prompt(std::vector<blink::mojom::AILanguageModelPromptPtr> prompts,
               mojo::PendingRemote<blink::mojom::ModelStreamingResponder>
                   pending_responder) override;
   void Fork(
       mojo::PendingRemote<blink::mojom::AIManagerCreateLanguageModelClient>
           client) override;
   void Destroy() override;
-  void CountPromptTokens(
+  void MeasureInputUsage(
       const std::string& input,
-      mojo::PendingRemote<blink::mojom::AILanguageModelCountPromptTokensClient>
+      mojo::PendingRemote<blink::mojom::AILanguageModelMeasureInputUsageClient>
           client) override;
 
   // Format the initial prompts, gets the token count, updates the session,
   // and passes the session information back through the callback.
   void SetInitialPrompts(
       const std::optional<std::string> system_prompt,
-      std::vector<blink::mojom::AILanguageModelInitialPromptPtr>
-          initial_prompts,
+      std::vector<blink::mojom::AILanguageModelPromptPtr> initial_prompts,
       CreateLanguageModelCallback callback);
   blink::mojom::AILanguageModelInstanceInfoPtr GetLanguageModelInstanceInfo();
   mojo::PendingRemote<blink::mojom::AILanguageModel> TakePendingRemote();
@@ -177,7 +181,7 @@ class AILanguageModel : public AIContextBoundObject,
  private:
   void PromptGetInputSizeCompletion(mojo::RemoteSetElementId responder_id,
                                     Context::ContextItem current_item,
-                                    uint32_t number_of_tokens);
+                                    std::optional<uint32_t> result);
   void ModelExecutionCallback(
       const Context::ContextItem& current_item,
       mojo::RemoteSetElementId responder_id,
@@ -186,11 +190,7 @@ class AILanguageModel : public AIContextBoundObject,
 
   void InitializeContextWithInitialPrompts(Context::ContextItem initial_prompts,
                                            CreateLanguageModelCallback callback,
-                                           uint32_t size);
-
-  // Returns the copy of `expected_input_languages_` for the
-  // `AILanguageModelInstanceInfo` or cloning.
-  AIUtils::LanguageCodes GetExpectedInputLanguagesCopy();
+                                           std::optional<uint32_t> result);
 
   // The underlying session provided by optimization guide component.
   std::unique_ptr<optimization_guide::OptimizationGuideModelExecutor::Session>
@@ -206,17 +206,14 @@ class AILanguageModel : public AIContextBoundObject,
   base::raw_ref<AIContextBoundObjectSet> context_bound_object_set_;
   base::raw_ref<AIManager> ai_manager_;
 
-  AIUtils::LanguageCodes expected_input_languages_;
-  bool is_on_device_session_streaming_chunk_by_chunk_;
-  // The accumulated current response to simulate the old streaming behavior
-  // that always returns all the response generated so far.
+  // The accumulated response generated so far.
   std::string current_response_;
 
   mojo::PendingRemote<blink::mojom::AILanguageModel> pending_remote_;
   mojo::Receiver<blink::mojom::AILanguageModel> receiver_;
 
   // TODO(crbug.com/385173789): Remove hacky multimodal prototype workarounds.
-  std::vector<std::unique_ptr<MultimodalResponder>> multimodal_responders_;
+  std::unique_ptr<MultimodalResponder> multimodal_responder_;
 
   base::WeakPtrFactory<AILanguageModel> weak_ptr_factory_{this};
 };

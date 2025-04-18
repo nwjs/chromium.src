@@ -4,6 +4,7 @@
 <translation id="1000436330784933699">여기에서 렌즈를 열 수 있습니다.</translation>
 <translation id="1042296835509784301">Chromium에서 비밀번호 관리자를 엽니다.</translation>
 <translation id="1047130070405668746">Chromium을 선택합니다.</translation>
+<translation id="1086486568852410168">Google 렌즈로 검색</translation>
 <translation id="1091252999271033193">Chromium에서 모바일 사이트를 매번 요청함을 의미합니다</translation>
 <translation id="1115463765356382667">아래의 추천 작업을 완료하여 Chromium을 최대한 활용합니다.</translation>
 <translation id="1140315115515116765">Chromium을 기본 브라우저로 사용하면 가격 통계를 쉽게 확인할 수 있습니다</translation>
@@ -90,14 +91,15 @@ Chromium 환경을 개선하는 데 데이터를 사용하는 설정을 더 보�
 <translation id="3054480780637153380">iOS에서 Chromium Settings(Chromium 설정)를 열고 'Default Browser App(기본 브라우저 앱)'을 탭한 다음 Chromium을 선택합니다</translation>
 <translation id="3102849287235003384">웹사이트에 로그인되어 있는 Google 계정에서 모두 로그아웃하려면 <ph name="BEGIN_LINK" />Chromium에서 로그아웃<ph name="END_LINK" />하세요.</translation>
 <translation id="3115956258722352278">Chromium을 기본 브라우저로 지정할까요?</translation>
+<translation id="3180939591219927904">'Chromium 종료 시 시크릿 탭 잠금'을 사용 설정합니다.</translation>
 <translation id="3242612358525156339">기기 설정에서 '<ph name="TEXT_OF_THE_SETTINGS_MENU_ITEM" />'을 열고 'Chromium'을 선택하세요</translation>
 <translation id="328933489847748230">{count,plural, =1{Chromium 창 1개 표시 중}other{Chromium 창 {count}개 표시 중}}</translation>
 <translation id="3344973607274501920">Chromium에서 비밀번호를 확인할 수 없습니다. 인터넷 연결 상태를 확인하세요.</translation>
 <translation id="3366305173356742781">사용자 계정의 Chromium 데이터</translation>
-<translation id="33788334537425157">'Chromium 종료 시 시크릿 탭 잠금'을 사용 설정합니다.</translation>
 <translation id="3387107508582892610">{THRESHOLD,plural, =1{Chromium을 {THRESHOLD}분 동안 사용하지 않으면 유휴 상태가 됩니다. 여기에는 방문 기록 및 자동 완성이 포함될 수 있습니다}other{Chromium을 {THRESHOLD}분 동안 사용하지 않으면 유휴 상태가 됩니다. 여기에는 방문 기록 및 자동 완성이 포함될 수 있습니다}}</translation>
 <translation id="3410395242749598859">Chromium 데이터 중 일부가 아직 <ph name="EMAIL" />에 저장되지 않았습니다.
 잠시 기다렸다가 계정을 전환하세요. 지금 계정을 전환하면 이 데이터가 삭제됩니다.</translation>
+<translation id="3440830787838130530">Google 비밀번호 관리자에서 가족 그룹과 비밀번호 사본을 간편하고 안전하게 공유하세요</translation>
 <translation id="3472200483164753384">Chromium Canary에서 지원되지 않습니다.</translation>
 <translation id="347967311580159871">Chromium 환경을 개선하는 데 데이터를 사용하는 설정을 더 보려면 <ph name="BEGIN_LINK" />Google 서비스<ph name="END_LINK" />로 이동하세요.</translation>
 <translation id="3512168799938877162">비밀번호가 공유되지 않았습니다. 인터넷 연결을 확인하고 Chromium에 로그인되어 있는지 확인하세요. 다시 시도해 보세요.</translation>
@@ -185,6 +187,7 @@ Chromium 환경을 개선하는 데 데이터를 사용하는 설정을 더 보�
 1. 설정을 엽니다.
 2. 'Default Browser App(기본 브라우저 앱)'을 탭합니다.
 3. Chromium을 선택합니다.</translation>
+<translation id="5482686278086727777">Chromium에서 탭 리마인더를 받으려면 iOS 설정에서 알림을 사용 설정하세요.</translation>
 <translation id="5521125884468363740">Chromium을 사용하는 어느 곳에서나 탭을 확인하려면 로그인한 후 동기화를 사용 설정하세요.</translation>
 <translation id="5534584691915394889">Chromium 및 Google 렌즈에서 Apple 캘린더 일정을 만들 때 사용됩니다.</translation>
 <translation id="5571094606370987472">Chromium 최근 탭을 엽니다.</translation>
@@ -206,7 +209,6 @@ Chromium 환경을 개선하는 데 데이터를 사용하는 설정을 더 보�
   • 방문 기록을 Google 계정에 동기화하면 측정항목에 내가 방문한 URL에 관한 정보도 포함될 수 있습니다.<ph name="END_INDENT" /></translation>
 <translation id="5932787118589620366">Chromium에서 인터넷 사용 기록을 삭제합니다.</translation>
 <translation id="593808800391107017">Chromium에서 자동으로 감지한 개인 정보 보호 또는 보안 문제에 대한 알림을 받습니다.</translation>
-<translation id="5945387852661427312"><ph name="DOMAIN" />에서 관리하는 계정으로 로그인합니다. 계정 관리자가 내 Chromium 데이터를 관리하게 되며 데이터는 이 계정에 영구적으로 연결됩니다. Chromium에서 로그아웃하면 데이터가 기기에서 삭제되지만 Google 계정에는 그대로 유지됩니다.</translation>
 <translation id="5951593919357934226">Chromium 최대한 활용하기</translation>
 <translation id="5985254578475526217">Chromium에서 알림을 받으려면 iOS 설정에서 알림을 사용 설정하세요.</translation>
 <translation id="6104024151682120539">Chromium에서 열기</translation>
@@ -216,7 +218,6 @@ Chromium 환경을 개선하는 데 데이터를 사용하는 설정을 더 보�
 <translation id="6154098560469640583">언제든지 메시지, 문서, 다른 앱에서 링크를 탭하여 Chromium을 사용합니다.</translation>
 <translation id="6157162508956739031">Chromium에서 비밀번호와 패스키를 자동 완성하여 앱과 사이트에 빠르게 로그인하세요.</translation>
 <translation id="6170619162539716595">Chromium에서 Google 지도를 사용하여 감지된 주소의 경로 및 지역 정보를 제공하도록 허용합니다</translation>
-<translation id="6197255575340902638">"<ph name="MODULE_NAME" />" 모듈을 숨기면 Chromium에서 더 이상 향후 택배를 자동으로 추적하지 않으며 이전의 모든 배송 추적 데이터가 삭제됩니다.</translation>
 <translation id="6247557882553405851">Google 비밀번호 관리자</translation>
 <translation id="6268381023930128611">Chromium에서 로그아웃</translation>
 <translation id="6301717043141881464">저장된 비밀번호를 다른 앱에서 쉽게 사용하려면 Chromium 자동 완성을 선택하세요</translation>
@@ -261,6 +262,7 @@ Chromium 환경을 개선하는 데 데이터를 사용하는 설정을 더 보�
 <translation id="7337881442233988129">Chromium</translation>
 <translation id="7357211569052832586">선택한 데이터가 Chromium 및 동기화된 기기에서 삭제되었습니다. history.google.com에서 검색이나 기타 Google 서비스에서의 활동 등 내 Google 계정에 있는 다른 형식의 탐색 기록을 확인할 수 있습니다.</translation>
 <translation id="7395825497086981028">비밀번호가 <ph name="EMAIL" />의 비밀번호 관리자에 저장됩니다.</translation>
+<translation id="7504829997542308412">Chromium을 엽니다.</translation>
 <translation id="7531461704633548377">Chromium에서</translation>
 <translation id="7554983317097061001">Chromium 도움말: Chromium을 도크로 이동</translation>
 <translation id="7576863740961052505">Chromium 설정 관리</translation>
@@ -273,11 +275,11 @@ Chromium 환경을 개선하는 데 데이터를 사용하는 설정을 더 보�
 <translation id="7784950022329154821">Chromium 종료 시 시크릿 탭 잠금</translation>
 <translation id="78025249032851484">Chromium이 최신 버전이 아닙니다.</translation>
 <translation id="7859018312476869945">주소 표시줄이나 검색창에 검색어를 입력하면 Chromium은 더 나은 추천 검색어를 제공하기 위해 사용자가 입력한 내용을 기본 검색엔진으로 전송합니다. 시크릿 모드에서는 이 기능이 사용 중지되어 있습니다.</translation>
-<translation id="7859432380288435856">Chromium은 사용자가 방문하는 사이트에서 운송장 번호를 감지하고 새 탭 페이지에 배송 현황을 표시합니다. 이 기능을 제공하고 Google 쇼핑을 개선하기 위해 내 데이터가 Google과 공유됩니다.</translation>
 <translation id="7890287942691234100">Chromium 스캐너 사용 시작</translation>
 <translation id="7905064834449738336">비밀번호를 사용하면 온라인에 비밀번호가 게시된 경우 Chromium에서 경고를 표시합니다. 이렇게 하면 비밀번호 및 사용자 이름이 암호화되어 Google을 포함해 누구도 읽을 수 없습니다.</translation>
 <translation id="7928628054454574139">다른 앱에서 링크를 탭할 때마다 Chromium을 엽니다.</translation>
 <translation id="7934404985878918282">Chromium 읽기 목록 보기</translation>
+<translation id="7935734571048689933">Chromium이 관리됨</translation>
 <translation id="7951793218148208717">Chromium에서 새 탭을 엽니다.</translation>
 <translation id="7980860476903281594">Chromium은 사용자가 허용한 사이트와 위치 정보를 공유합니다.</translation>
 <translation id="7994322153108931467">유용한 Chromium 도움말을 확인하려면 iOS 설정에서 알림을 사용 설정하세요</translation>
@@ -308,6 +310,7 @@ Chromium 환경을 개선하는 데 데이터를 사용하는 설정을 더 보�
 <translation id="8754966941001340678">Chromium에서는 향상된 보호 모드를 권장합니다.</translation>
 <translation id="8759037115129007407">가족 구성원이 비밀번호를 바로 받을 수 없습니다. Chromium을 업데이트하고 비밀번호를 동기화하도록 요청하세요. <ph name="BEGIN_LINK" />자세히 알아보기<ph name="END_LINK" /></translation>
 <translation id="8776843108004031667">이 계정 및 저장되지 않은 모든 데이터가 Chromium에서 삭제됩니다.</translation>
+<translation id="8793333988063379360">여기에서 Chromium 설정 등을 확인할 수 있습니다.</translation>
 <translation id="8805148242934787134">Chromium을 기본 브라우저로 설정</translation>
 <translation id="8826789549860004832">브라우저 설정을 계속하여 Chromium을 최대한 활용해 보세요.</translation>
 <translation id="88376265765385899">Chromium 북마크를 엽니다.</translation>

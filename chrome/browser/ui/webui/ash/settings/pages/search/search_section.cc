@@ -393,6 +393,8 @@ void SearchSection::AddLoadTimeData(content::WebUIDataSource* html_source) {
        IDS_OS_SETTINGS_ENABLE_HELP_ME_WRITE_DESCRIPTION},
       {"enableLobster", IDS_LOBSTER_OS_SETTINGS_ENABLE},
       {"enableLobsterDesc", IDS_LOBSTER_OS_SETTINGS_ENABLE_DESCRIPTION},
+      {"enableScanner", IDS_OS_SETTINGS_ENABLE_SCANNER},
+      {"enableScannerDesc", IDS_OS_SETTINGS_ENABLE_SCANNER_DESCRIPTION},
       {"osSearchEngineLabel", IDS_OS_SETTINGS_SEARCH_ENGINE_LABEL},
       {"searchSubpageTitle", IDS_SETTINGS_SEARCH_SUBPAGE_TITLE},
       {"searchGoogleAssistant", IDS_SETTINGS_SEARCH_GOOGLE_ASSISTANT},
@@ -409,6 +411,8 @@ void SearchSection::AddLoadTimeData(content::WebUIDataSource* html_source) {
                          chrome::kHelpMeReadWriteLearnMoreURL);
 
   html_source->AddString("lobsterLearnMoreUrl", chrome::kLobsterLearnMoreURL);
+
+  html_source->AddString("scannerLearnMoreUrl", chrome::kScannerLearnMoreUrl);
 
   html_source->AddBoolean("isQuickAnswersSupported", IsQuickAnswersSupported());
 
@@ -431,12 +435,6 @@ void SearchSection::AddLoadTimeData(content::WebUIDataSource* html_source) {
 
   html_source->AddBoolean("isLobsterSettingsToggleVisible",
                           IsLobsterSettingsToggleVisible(profile()));
-
-  // We should not use `CanShowSunfishUi` here, as it is false when the toggle
-  // is false.
-  // TODO: crbug.com/395736972 - Add an enterprise policy check.
-  html_source->AddBoolean("isSunfishSettingsToggleVisible",
-                          ash::features::IsSunfishFeatureEnabled());
 
   html_source->AddBoolean("isScannerSettingsToggleVisible",
                           IsScannerSettingsToggleVisible());

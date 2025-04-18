@@ -59,9 +59,13 @@ class CONTENT_EXPORT ServiceWorkerClient final
   using ExecutionReadyCallback = base::OnceClosure;
 
   // Constructor for window clients.
+  //
+  // For clients for prefetch, `ongoing_navigation_frame_tree_node_id` is null.
+  // TODO(https://crbug.com/40947546): Consider explicitly distinguish the
+  // clients for prefetch.
   ServiceWorkerClient(base::WeakPtr<ServiceWorkerContextCore> context,
                       bool is_parent_frame_secure,
-                      FrameTreeNodeId frame_tree_node_id);
+                      FrameTreeNodeId ongoing_navigation_frame_tree_node_id);
 
   // Constructor for worker clients.
   ServiceWorkerClient(base::WeakPtr<ServiceWorkerContextCore> context,
@@ -71,7 +75,7 @@ class CONTENT_EXPORT ServiceWorkerClient final
   ServiceWorkerClient(const ServiceWorkerClient& other) = delete;
   ServiceWorkerClient& operator=(const ServiceWorkerClient& other) = delete;
 
-  virtual ~ServiceWorkerClient();
+  ~ServiceWorkerClient();
 
   ServiceWorkerContainerHostForClient* container_host() {
     return container_host_.get();
@@ -350,6 +354,13 @@ class CONTENT_EXPORT ServiceWorkerClient final
   // client was created with a blob, about:srcdoc or about:blank URL.
   void InheritControllerFrom(ServiceWorkerClient& creator_host,
                              const GURL& client_url);
+
+  // For Window service worker clients served by ServiceWorker-controlled
+  // prefetch. Inherits the controller used for prefetching from
+  // `client_for_prefetch`, while setting `navigation_url`, similar to
+  // `InheritControllerFrom()`.
+  void InheritControllerFromPrefetch(ServiceWorkerClient& client_for_prefetch,
+                                     const GURL& navigation_url);
 
   void SetContainerReady();
 

@@ -14,6 +14,7 @@
 class Browser;
 @class ChromeBroadcastOberverBridge;
 @class FullscreenSystemNotificationObserver;
+enum class FullscreenExitReason;
 
 // Implementation of FullscreenController.
 class FullscreenControllerImpl : public FullscreenController {
@@ -43,7 +44,9 @@ class FullscreenControllerImpl : public FullscreenController {
   UIEdgeInsets GetMaxViewportInsets() const override;
   UIEdgeInsets GetCurrentViewportInsets() const override;
   void EnterFullscreen() override;
+  // Needs to be cleanup.
   void ExitFullscreen() override;
+  void ExitFullscreen(FullscreenExitReason fullscreen_exit_reason) override;
   void ExitFullscreenWithoutAnimation() override;
   bool IsForceFullscreenMode() const override;
   void EnterForceFullscreenMode(bool insets_update_enabled) override;
@@ -51,9 +54,6 @@ class FullscreenControllerImpl : public FullscreenController {
   void ResizeHorizontalViewport() override;
   void SetToolbarsSize(ToolbarsSize* toolbars_size) override;
   ToolbarsSize* GetToolbarsSize() const override;
-
-  // Needs to be cleanup after internal test changes.
-  void SetToolbarUIState(ToolbarUIState* toolbar_ui_state) override;
 
  private:
   // The broadcaster that drives the model.

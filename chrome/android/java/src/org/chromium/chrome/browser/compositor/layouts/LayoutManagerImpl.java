@@ -91,6 +91,12 @@ import java.util.Set;
  */
 public class LayoutManagerImpl
         implements ManagedLayoutManager, LayoutUpdateHost, LayoutProvider, BackPressHandler {
+
+    /** Returns the {@link StripLayoutHelperManager} managed by this class. */
+    public @Nullable StripLayoutHelperManager getStripLayoutHelperManager() {
+        return null;
+    }
+
     /** Sampling at 60 fps. */
     private static final long FRAME_DELTA_TIME_MS = 16;
 
@@ -205,6 +211,7 @@ public class LayoutManagerImpl
             // Open the new tab
             if (type == TabLaunchType.FROM_RESTORE
                     || type == TabLaunchType.FROM_REPARENTING
+                    || type == TabLaunchType.FROM_REPARENTING_BACKGROUND
                     || type == TabLaunchType.FROM_EXTERNAL_APP
                     || type == TabLaunchType.FROM_LAUNCHER_SHORTCUT
                     || type == TabLaunchType.FROM_STARTUP
@@ -431,8 +438,6 @@ public class LayoutManagerImpl
 
         mIsNewEventFilter = layoutFilter != mActiveEventFilter;
         mActiveEventFilter = layoutFilter;
-
-        if (mActiveEventFilter != null) mActiveLayout.unstallImmediately();
 
         return mActiveEventFilter != null;
     }
@@ -980,7 +985,6 @@ public class LayoutManagerImpl
         TopUiThemeColorProvider topUiTheme = mTopUiThemeColorProvider.get();
         layoutTab.initFromHost(
                 topUiTheme.getBackgroundColor(tab),
-                shouldStall(tab),
                 canUseLiveTexture,
                 topUiTheme.getSceneLayerBackground(tab),
                 ThemeUtils.getTextBoxColorForToolbarBackground(
@@ -1001,11 +1005,6 @@ public class LayoutManagerImpl
 
         layoutTab.set(
                 LayoutTab.BACKGROUND_COLOR, mTopUiThemeColorProvider.get().getBackgroundColor(tab));
-    }
-
-    // Whether the tab is ready to display or it should be faded in as it loads.
-    private static boolean shouldStall(Tab tab) {
-        return (tab.isFrozen() || tab.needsReload()) && !tab.isNativePage();
     }
 
     @Override

@@ -17,8 +17,7 @@ typedef NS_ENUM(NSInteger, BubbleViewType);
 
 // Used for the bubble's dismissal callback.
 using CallbackWithIPHDismissalReasonType =
-    void (^)(IPHDismissalReasonType reason,
-             feature_engagement::Tracker::SnoozeAction action);
+    void (^)(IPHDismissalReasonType reason);
 
 @class BubbleViewController;
 
@@ -62,6 +61,11 @@ using CallbackWithIPHDismissalReasonType =
 // `presentInViewController`, otherwise the value will be ignored. This value
 // will be ignored if set to 0 or smaller.
 @property(nonatomic, assign) NSTimeInterval customBubbleVisibilityDuration;
+
+// An override for the pan gesture availability.
+// The default is `NO`. If set, the pan gesture for IPH dismissal will be
+// suppressed, ignoring the pan gesture ablation experiment.
+@property(nonatomic, assign) BOOL forceDisablePanGestureRecognizer;
 
 // Initializes the presenter. `text` is the text displayed by the bubble.
 // `titleString` is the title displayed by the bubble. `arrowDirection` is the

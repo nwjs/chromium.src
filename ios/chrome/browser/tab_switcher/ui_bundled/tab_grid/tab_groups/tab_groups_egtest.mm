@@ -4,6 +4,7 @@
 
 #import "base/strings/sys_string_conversions.h"
 #import "base/test/ios/wait_util.h"
+#import "components/data_sharing/public/features.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin_earl_grey.h"
 #import "ios/chrome/browser/incognito_reauth/ui_bundled/incognito_reauth_util.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
@@ -15,7 +16,6 @@
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_groups/tab_groups_eg_utils.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/test/query_title_server_util.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/test/tabs_egtest_util.h"
-#import "ios/chrome/browser/tabs/model/inactive_tabs/features.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey_ui.h"
@@ -267,13 +267,14 @@ UIViewController* TopPresentedViewController() {
 - (AppLaunchConfiguration)appConfigurationForTestCase {
   AppLaunchConfiguration config;
   config.features_enabled.push_back(kTabGroupsIPad);
-  config.features_enabled.push_back(kModernTabStrip);
   config.features_enabled.push_back(kTabGroupIndicator);
   if ([self isRunningTest:@selector(testCloseFromSelectionSyncDisabled)]) {
     config.features_disabled.push_back(kTabGroupSync);
   } else {
     config.features_enabled.push_back(kTabGroupSync);
   }
+  config.features_enabled.push_back(
+      data_sharing::features::kDataSharingFeature);
   return config;
 }
 
@@ -821,6 +822,32 @@ UIViewController* TopPresentedViewController() {
       assertWithMatcher:grey_notNil()];
   [[EarlGrey selectElementWithMatcher:TabWithTitle(kTab2Title)]
       assertWithMatcher:grey_nil()];
+}
+
+// Tests opening the context menu on a tab then deleting it then adding the tab
+// to a group.
+- (void)testAddTabToGroupAfterDelete {
+  if (@available(iOS 17, *)) {
+  } else if ([ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_SKIPPED(@"Only available on iOS 17+ on iPad.");
+  }
+
+  [ChromeEarlGrey loadURL:GetQueryTitleURL(self.testServer, kTab1Title)];
+  [ChromeEarlGreyUI openTabGrid];
+
+  // Check for the presence of the tab cell with the title `Tab 1` in the grid.
+  [[EarlGrey selectElementWithMatcher:TabWithTitle(kTab1Title)]
+      assertWithMatcher:grey_notNil()];
+
+  DisplayContextMenuForTabCellAtIndex(0);
+
+  [ChromeEarlGrey closeTabAtIndex:0];
+
+  [[EarlGrey
+      selectElementWithMatcher:
+          ContextMenuItemWithAccessibilityLabel(l10n_util::GetPluralNSStringF(
+              IDS_IOS_CONTENT_CONTEXT_ADDTABTONEWTABGROUP, 1))]
+      performAction:grey_tap()];
 }
 
 // Tests ungrouping of a group from the overflow menu in the group view.
@@ -1619,7 +1646,6 @@ UIViewController* TopPresentedViewController() {
 
   AppLaunchConfiguration config = [self appConfigurationForTestCase];
   config.relaunch_policy = ForceRelaunchByCleanShutdown;
-  config.features_enabled.push_back(kInactiveTabsIPadFeature);
   config.additional_args.push_back("-InactiveTabsTestMode");
   config.additional_args.push_back("true");
   [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];

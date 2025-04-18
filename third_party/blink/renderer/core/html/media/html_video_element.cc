@@ -65,6 +65,7 @@
 #include "third_party/blink/renderer/platform/graphics/gpu/extensions_3d_util.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_context.h"
+#include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
 #include "third_party/blink/renderer/platform/graphics/video_frame_image_util.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
@@ -486,7 +487,8 @@ void HTMLVideoElement::EnterFullscreen() {
 void HTMLVideoElement::DidEnterFullscreen() {
   UpdateControlsVisibility();
 
-  if (GetDisplayType() == DisplayType::kPictureInPicture && !IsInAutoPIP()) {
+  if (GetDisplayType() == DisplayType::kVideoPictureInPicture &&
+      !IsInAutoPIP()) {
     PictureInPictureController::From(GetDocument())
         .ExitPictureInPicture(this, nullptr);
   }
@@ -622,8 +624,7 @@ scoped_refptr<StaticBitmapImage> HTMLVideoElement::CreateStaticBitmapImage(
 scoped_refptr<Image> HTMLVideoElement::GetSourceImageForCanvas(
     FlushReason,
     SourceImageStatus* status,
-    const gfx::SizeF&,
-    const AlphaDisposition) {
+    const gfx::SizeF&) {
   scoped_refptr<Image> snapshot = CreateStaticBitmapImage();
   if (!snapshot) {
     *status = kInvalidSourceImageStatus;
@@ -699,7 +700,7 @@ bool HTMLVideoElement::SupportsPictureInPicture() const {
 DisplayType HTMLVideoElement::GetDisplayType() const {
   if (is_auto_picture_in_picture_ ||
       PictureInPictureController::IsElementInPictureInPicture(this)) {
-    return DisplayType::kPictureInPicture;
+    return DisplayType::kVideoPictureInPicture;
   }
 
   if (PictureInPictureController::IsInDocumentPictureInPicture(this)) {
@@ -716,8 +717,26 @@ bool HTMLVideoElement::IsInAutoPIP() const {
   return is_auto_picture_in_picture_;
 }
 
+void HTMLVideoElement::DidPlayerMediaPositionStateChange(
+    double playback_rate,
+    base::TimeDelta duration,
+    base::TimeDelta position,
+    bool end_of_media) {
+  HTMLMediaElement::DidPlayerMediaPositionStateChange(playback_rate, duration,
+                                                      position, end_of_media);
+
+  if (PictureInPictureController::IsElementInPictureInPicture(this)) {
+    PictureInPictureController::From(GetDocument())
+        .OnMediaPositionStateChanged(
+            media_session::mojom::blink::MediaPosition::New(
+                playback_rate, duration, position, base::TimeTicks::Now(),
+                end_of_media));
+  }
+}
+
 void HTMLVideoElement::OnPictureInPictureStateChange() {
-  if (GetDisplayType() != DisplayType::kPictureInPicture || IsInAutoPIP()) {
+  if (GetDisplayType() != DisplayType::kVideoPictureInPicture ||
+      IsInAutoPIP()) {
     return;
   }
 

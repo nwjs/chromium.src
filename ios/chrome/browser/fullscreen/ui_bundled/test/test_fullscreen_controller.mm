@@ -8,6 +8,7 @@
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_controller_observer.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_model.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_model_observer.h"
+#import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_reason.h"
 
 TestFullscreenController::TestFullscreenController()
     : FullscreenController(),
@@ -62,10 +63,6 @@ void TestFullscreenController::SetToolbarsSize(ToolbarsSize* toolbars_size) {
   toolbars_size_ = toolbars_size;
 }
 
-// Needs to be cleanup after internal test changes.
-void TestFullscreenController::SetToolbarUIState(
-    ToolbarUIState* toolbar_ui_state) {}
-
 void TestFullscreenController::BrowserTraitCollectionChangedBegin() {}
 
 void TestFullscreenController::BrowserTraitCollectionChangedEnd() {}
@@ -93,6 +90,13 @@ void TestFullscreenController::EnterFullscreen() {
 }
 
 void TestFullscreenController::ExitFullscreen() {
+  if (model_) {
+    model_->ResetForNavigation();
+  }
+}
+
+void TestFullscreenController::ExitFullscreen(
+    FullscreenExitReason fullscreen_exit_reason) {
   if (model_) {
     model_->ResetForNavigation();
   }

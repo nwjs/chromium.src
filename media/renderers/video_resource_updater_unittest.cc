@@ -507,7 +507,6 @@ TEST_F(VideoResourceUpdaterTestWithR16, HighBitFrame) {
   // With multiplanar shared images, a TextureDrawQuad is created instead of
   // a YUVDrawQuad.
   EXPECT_EQ(VideoFrameResourceType::RGB, resource.type);
-  EXPECT_EQ(resource.bits_per_channel, 10u);
 
   // Create the resource again, to test the path where the
   // resource are cached.
@@ -515,8 +514,7 @@ TEST_F(VideoResourceUpdaterTestWithR16, HighBitFrame) {
       updater->CreateExternalResourceFromVideoFrame(video_frame);
   // With multiplanar shared images, a TextureDrawQuad is created instead of
   // a YUVDrawQuad.
-  EXPECT_EQ(VideoFrameResourceType::RGB, resource.type);
-  EXPECT_EQ(resource2.bits_per_channel, 10u);
+  EXPECT_EQ(VideoFrameResourceType::RGB, resource2.type);
 }
 
 TEST_F(VideoResourceUpdaterTest, NV12FrameSoftwareCompositor) {
@@ -794,7 +792,6 @@ TEST_F(VideoResourceUpdaterTest, CreateForHardwarePlanes_DCompSurface) {
 
   VideoFrameExternalResource resource =
       updater->CreateExternalResourceFromVideoFrame(video_frame);
-  EXPECT_EQ(VideoFrameResourceType::STREAM_TEXTURE, resource.type);
   EXPECT_TRUE(resource.release_callback);
   EXPECT_EQ((GLenum)GL_TEXTURE_EXTERNAL_OES,
             resource.resource.texture_target());
@@ -822,7 +819,8 @@ TEST_F(VideoResourceUpdaterTest, CreateForHardwarePlanes_DCompSurface) {
   const viz::TextureDrawQuad* quad =
       pass->quad_list.ElementAt(0)->DynamicCast<viz::TextureDrawQuad>();
   EXPECT_NE(nullptr, quad);
-  EXPECT_EQ(true, quad->is_stream_video);
+  EXPECT_EQ(gfx::ProtectedVideoType::kHardwareProtected,
+            quad->protected_video_type);
   EXPECT_EQ(viz::OverlayPriority::kRequired, quad->overlay_priority_hint);
 
   updater->ReleaseFrameResource();

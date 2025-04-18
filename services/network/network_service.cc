@@ -86,6 +86,7 @@
 #include "services/network/net_log_exporter.h"
 #include "services/network/net_log_proxy_sink.h"
 #include "services/network/network_context.h"
+#include "services/network/public/cpp/content_decoding_interceptor.h"
 #include "services/network/public/cpp/crash_keys.h"
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/initiator_lock_compatibility.h"
@@ -235,7 +236,11 @@ void HandleBadMessage(const std::string& error) {
   // dump in official build or ipc fuzzer build where it is expected to received
   // bad message, and crash otherwise so that it is more visible when unexpected
   // bad message is encountered in tests.
-#if defined(OFFICIAL_BUILD) || defined(ENABLE_IPC_FUZZER)
+  // Also create dump instead of crash for builds without DCHECK on as some
+  // fuzzing tests are done using builds without ENABLE_IPC_FUZZER, but those
+  // builds are always with DCHECK disabled. As DCHECK is on for most builds,
+  // we still have enough coverage for crashing upon bad message behavior.
+#if defined(OFFICIAL_BUILD) || defined(ENABLE_IPC_FUZZER) || !DCHECK_IS_ON()
   mojo::debug::ScopedMessageErrorCrashKey crash_key_value(error);
   base::debug::DumpWithoutCrashing();
   network::debug::ClearDeserializationCrashKeyString();
@@ -686,6 +691,7 @@ void NetworkService::CreateNetworkContext(
 
 void NetworkService::ConfigureStubHostResolver(
     bool insecure_dns_client_enabled,
+    bool happy_eyeballs_v3_enabled,
     net::SecureDnsMode secure_dns_mode,
     const net::DnsOverHttpsConfig& dns_over_https_config,
     bool additional_dns_types_enabled) {
@@ -706,6 +712,17 @@ void NetworkService::ConfigureStubHostResolver(
       base::FeatureList::IsEnabled(features::kDnsOverHttpsUpgrade);
 
   host_resolver_manager_->SetDnsConfigOverrides(overrides);
+
+  const bool happy_eyeballs_v3_changed =
+      happy_eyeballs_v3_enabled !=
+      host_resolver_manager_->IsHappyEyeballsV3Enabled();
+  host_resolver_manager_->SetIsHappyEyeballsV3Enabled(
+      happy_eyeballs_v3_enabled);
+  if (happy_eyeballs_v3_changed) {
+    for (NetworkContext* network_context : network_contexts_) {
+      network_context->CloseAllConnections(base::DoNothing());
+    }
+  }
 }
 
 void NetworkService::DisableQuic() {
@@ -1009,6 +1026,24 @@ void NetworkService::SetGssapiLibraryLoadObserver(
   gssapi_library_load_observer_.Bind(std::move(gssapi_library_load_observer));
 }
 #endif  // BUILDFLAG(IS_LINUX)
+
+void NetworkService::InterceptUrlLoaderForBodyDecoding(
+    const std::vector<net::SourceStreamType>& content_encoding_types,
+    mojo::ScopedDataPipeConsumerHandle source_body,
+    mojo::ScopedDataPipeProducerHandle dest_body,
+    mojo::PendingRemote<network::mojom::URLLoader> source_url_loader,
+    mojo::PendingReceiver<network::mojom::URLLoaderClient>
+        source_url_loader_client,
+    mojo::PendingReceiver<network::mojom::URLLoader> dest_url_loader,
+    mojo::PendingRemote<network::mojom::URLLoaderClient>
+        dest_url_loader_client) {
+  ContentDecodingInterceptor::Intercept(
+      content_encoding_types, std::move(source_body), std::move(dest_body),
+      std::move(source_url_loader), std::move(source_url_loader_client),
+      std::move(dest_url_loader), std::move(dest_url_loader_client),
+      base::ThreadPool::CreateSequencedTaskRunner(
+          {base::TaskPriority::USER_BLOCKING}));
+}
 
 void NetworkService::StartNetLogBounded(base::File file,
                                         uint64_t max_total_size,

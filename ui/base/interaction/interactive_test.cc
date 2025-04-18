@@ -6,6 +6,7 @@
 
 #include <functional>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <variant>
@@ -174,6 +175,22 @@ InteractionSequence::StepBuilder InteractiveTestApi::ActivateSurface(
   return builder;
 }
 
+InteractionSequence::StepBuilder InteractiveTestApi::FocusElement(
+    ElementSpecifier element) {
+  RequireInteractiveTest();
+  StepBuilder builder;
+  builder.SetDescription("FocusElement()");
+  internal::SpecifyElement(builder, element);
+  builder.SetStartCallback(base::BindOnce(
+      [](InteractiveTestApi* test, InteractionSequence* seq,
+         TrackedElement* el) {
+        test->private_test_impl().HandleActionResult(
+            seq, el, "FocusElement", test->test_util().FocusElement(el));
+      },
+      base::Unretained(this)));
+  return builder;
+}
+
 #if !BUILDFLAG(IS_IOS)
 InteractionSequence::StepBuilder InteractiveTestApi::SendAccelerator(
     ElementSpecifier element,
@@ -193,6 +210,27 @@ InteractionSequence::StepBuilder InteractiveTestApi::SendAccelerator(
       accelerator, base::Unretained(this)));
   return builder;
 }
+
+InteractionSequence::StepBuilder InteractiveTestApi::SendKeyPress(
+    ElementSpecifier element,
+    KeyboardCode key,
+    int flags) {
+  StepBuilder builder;
+  std::ostringstream oss;
+  oss << "SendKeyPress( " << key << ", " << flags << " )";
+  builder.SetDescription(oss.str());
+  internal::SpecifyElement(builder, element);
+  builder.SetStartCallback(base::BindOnce(
+      [](KeyboardCode key, int flags, InteractiveTestApi* test,
+         InteractionSequence* seq, TrackedElement* el) {
+        test->private_test_impl().HandleActionResult(
+            seq, el, "SendKeyPress",
+            test->test_util().SendKeyPress(el, key, flags));
+      },
+      key, flags, base::Unretained(this)));
+  return builder;
+}
+
 #endif  // !BUILDFLAG(IS_IOS)
 
 InteractionSequence::StepBuilder InteractiveTestApi::Confirm(
@@ -388,6 +426,22 @@ bool InteractiveTestApi::RunTestSequenceImpl(
                     InteractionSequence::AbortedReason::kSequenceTimedOut);
                 oss << internal::kInteractiveTestFailedMessagePrefix << data;
                 context = data.context;
+                if (data.step_type != InteractionSequence::StepType::kHidden &&
+                    context && !data.element && data.element_id) {
+                  const size_t elements_in_context =
+                      ui::ElementTracker::GetElementTracker()
+                          ->GetAllMatchingElements(data.element_id, context)
+                          .size();
+                  const size_t total_elements =
+                      ui::ElementTracker::GetElementTracker()
+                          ->GetAllMatchingElementsInAnyContext(data.element_id)
+                          .size();
+                  if (elements_in_context == 0U && total_elements > 0U) {
+                    oss << "\nNote that there were matching elements in other "
+                           "contexts; did you forget InSameContext() or "
+                           "InAnyContext()?";
+                  }
+                }
               } else {
                 oss << "Interactive test: timeout after test sequence "
                        "destroyed; a failure message may already have been "

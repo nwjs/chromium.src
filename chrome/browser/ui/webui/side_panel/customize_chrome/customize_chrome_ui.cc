@@ -98,6 +98,7 @@ CustomizeChromeUI::CustomizeChromeUI(content::WebUI* web_ui)
       {"appearanceHeader", IDS_NTP_CUSTOMIZE_APPEARANCE_LABEL},
       {"cardsHeader", IDS_NTP_CUSTOMIZE_MENU_MODULES_LABEL},
       {"categoriesHeader", IDS_NTP_CUSTOMIZE_THEMES_HEADER},
+      {"footerHeader", IDS_NTP_CUSTOMIZE_FOOTER_HEADER},
       {"shortcutsHeader", IDS_NTP_CUSTOMIZE_MENU_SHORTCUTS_LABEL},
       {"toolbarHeader", IDS_NTP_CUSTOMIZE_MENU_TOOLBAR_LABEL},
       {"extensionsHeader", IDS_NTP_CUSTOMIZE_MENU_EXTENSIONS_LABEL},
@@ -140,6 +141,8 @@ CustomizeChromeUI::CustomizeChromeUI(content::WebUI* web_ui)
       {"showShortcutsToggle", IDS_NTP_CUSTOMIZE_SHOW_SHORTCUTS_LABEL},
       // Card strings.
       {"showCardsToggleTitle", IDS_NTP_CUSTOMIZE_SHOW_CARDS_LABEL},
+      // Footer strings.
+      {"showFooterToggleTitle", IDS_NTP_CUSTOMIZE_SHOW_FOOTER_LABEL},
       // Required by <managed-dialog>.
       {"controlledSettingPolicy", IDS_CONTROLLED_SETTING_POLICY},
       {"close", IDS_NEW_TAB_VOICE_CLOSE_TOOLTIP},
@@ -280,6 +283,9 @@ CustomizeChromeUI::CustomizeChromeUI(content::WebUI* web_ui)
                      base::FeatureList::IsEnabled(
                          ntp_features::kNtpBackgroundImageErrorDetection));
 
+  source->AddBoolean("footerEnabled",
+                     base::FeatureList::IsEnabled(ntp_features::kNtpFooter));
+
   webui::SetupWebUIDataSource(
       source, kSidePanelCustomizeChromeResources,
       IDR_SIDE_PANEL_CUSTOMIZE_CHROME_CUSTOMIZE_CHROME_HTML);
@@ -306,6 +312,14 @@ void CustomizeChromeUI::AttachedTabStateUpdated(
         is_source_tab_first_party_ntp);
   } else {
     is_source_tab_first_party_ntp_ = is_source_tab_first_party_ntp;
+  }
+}
+
+void CustomizeChromeUI::UpdateThemeEditable(bool is_theme_editable) {
+  if (customize_chrome_page_handler_) {
+    customize_chrome_page_handler_->UpdateThemeEditable(is_theme_editable);
+  } else {
+    is_theme_editable_ = is_theme_editable;
   }
 }
 
@@ -399,6 +413,11 @@ void CustomizeChromeUI::CreatePageHandler(
     customize_chrome_page_handler_->AttachedTabStateUpdated(
         is_source_tab_first_party_ntp_.value());
     is_source_tab_first_party_ntp_.reset();
+  }
+  if (is_theme_editable_.has_value()) {
+    customize_chrome_page_handler_->UpdateThemeEditable(
+        is_theme_editable_.value());
+    is_theme_editable_.reset();
   }
 }
 

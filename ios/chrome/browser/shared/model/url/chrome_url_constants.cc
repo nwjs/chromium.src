@@ -37,6 +37,7 @@ const char kChromeUICrashHost[] = "crash";
 const char kChromeUIChromeURLsHost[] = "chrome-urls";
 const char kChromeUICrashesHost[] = "crashes";
 const char kChromeUICreditsHost[] = "credits";
+const char kChromeUIDataSharingInternalsHost[] = "data-sharing-internals";
 const char kChromeUIDinoHost[] = "dino";
 const char kChromeUIDownloadInternalsHost[] = "download-internals";
 const char kChromeUIExternalFileHost[] = "external-file";
@@ -122,9 +123,6 @@ const char kEmbeddedTermsOfServiceURL[] =
 const char kSyncEncryptionHelpURL[] =
     "https://support.google.com/chrome/answer/"
     "1181035?p=settings_encryption&ios=1";
-
-const char kClearBrowsingDataMyActivityUrlInFooterURL[] =
-    "https://history.google.com/history/?utm_source=chrome_cbd";
 
 const char kClearBrowsingDataDSEMyActivityUrlInFooterURL[] =
     "https://myactivity.google.com/myactivity?utm_source=chrome_cbd";

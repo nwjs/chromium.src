@@ -12,6 +12,7 @@
 #import "components/sync/base/data_type.h"
 #import "ios/chrome/browser/signin/model/constants.h"
 
+class Browser;
 @class UIViewController;
 
 // Handles completion of AuthenticationFlowPerformer steps.
@@ -53,6 +54,12 @@
 
 // Indicates that the user cancelled signing in to a managed account.
 - (void)didCancelManagedConfirmation;
+
+// Indicates that switching to a different profile failed.
+- (void)didFailToSwitchToProfile;
+
+// Indicates that switching to a different profile was completed.
+- (void)didSwitchToProfileWithNewProfileBrowser:(Browser*)newProfileBrowser;
 
 // Indicates the account of the user was registered for user policy. `dmToken`
 // is empty when registration failed.

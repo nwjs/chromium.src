@@ -17,9 +17,11 @@ import android.view.View.OnClickListener;
 import androidx.annotation.NonNull;
 
 import org.chromium.base.Callback;
+import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.commerce.ShoppingServiceFactory;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.components.commerce.core.DiscountClusterType;
 import org.chromium.components.commerce.core.DiscountInfo;
 import org.chromium.ui.base.Clipboard;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
@@ -35,22 +37,25 @@ import java.util.Locale;
 /** Mediator for discounts bottom sheet responsible for model list update. */
 public class DiscountsBottomSheetContentMediator {
     private final Context mContext;
-    private final Tab mTab;
+    private final Supplier<Tab> mTabSupplier;
     private final ModelList mModelList;
+
+    private boolean mCopyButtonClickedHistogramRecorded;
 
     public DiscountsBottomSheetContentMediator(
             @NonNull Context context,
             @NonNull Supplier<Tab> tabSupplier,
             @NonNull ModelList modelList) {
         mContext = context;
-        mTab = tabSupplier.get();
+        mTabSupplier = tabSupplier;
         mModelList = modelList;
     }
 
     public void requestShowContent(Callback<Boolean> contentReadyCallback) {
-        ShoppingServiceFactory.getForProfile(mTab.getProfile())
+        mCopyButtonClickedHistogramRecorded = false;
+        ShoppingServiceFactory.getForProfile(mTabSupplier.get().getProfile())
                 .getDiscountInfoForUrl(
-                        mTab.getUrl(),
+                        mTabSupplier.get().getUrl(),
                         (url, infoList) -> {
                             updateModelList(infoList);
                             contentReadyCallback.onResult(mModelList.size() > 0);
@@ -66,17 +71,20 @@ public class DiscountsBottomSheetContentMediator {
             if (info == null || info.discountCode.isEmpty()) {
                 continue;
             }
-            PropertyModel propertyModel =
+            PropertyModel.Builder propertyModelBuilder =
                     new PropertyModel.Builder(ALL_KEYS)
                             .with(DISCOUNT_CODE, info.discountCode.get())
                             .with(DESCRIPTION_DETAIL, info.descriptionDetail)
-                            .with(EXPIRY_TIME, formatExpiryTime(info.expiryTimeSec))
                             .with(
                                     COPY_BUTTON_TEXT,
-                                    mContext.getString(R.string.discount_code_copy_button_text))
-                            .build();
+                                    mContext.getString(R.string.discount_code_copy_button_text));
+            if (info.expiryTimeSec.isPresent()) {
+                propertyModelBuilder.with(EXPIRY_TIME, formatExpiryTime(info.expiryTimeSec.get()));
+            }
+            PropertyModel propertyModel = propertyModelBuilder.build();
             propertyModel.set(
-                    COPY_BUTTON_ON_CLICK_LISTENER, createCopyButtonOnClickListener(propertyModel));
+                    COPY_BUTTON_ON_CLICK_LISTENER,
+                    createCopyButtonOnClickListener(propertyModel, info));
             mModelList.add(new ListItem(0, propertyModel));
         }
     }
@@ -89,8 +97,17 @@ public class DiscountsBottomSheetContentMediator {
         return mContext.getString(R.string.discount_expiration_date_android, expiryTime);
     }
 
-    private OnClickListener createCopyButtonOnClickListener(PropertyModel propertyModel) {
+    private OnClickListener createCopyButtonOnClickListener(
+            PropertyModel propertyModel, DiscountInfo discountInfo) {
         return view -> {
+            if (!mCopyButtonClickedHistogramRecorded) {
+                RecordHistogram.recordEnumeratedHistogram(
+                        "Commerce.Discounts.BottomSheet.ClusterTypeOnCopy",
+                        discountInfo.clusterType,
+                        DiscountClusterType.MAX_VALUE);
+                mCopyButtonClickedHistogramRecorded = true;
+            }
+
             Clipboard.getInstance().setText(propertyModel.get(DISCOUNT_CODE));
             resetCopiedButtonText();
             propertyModel.set(

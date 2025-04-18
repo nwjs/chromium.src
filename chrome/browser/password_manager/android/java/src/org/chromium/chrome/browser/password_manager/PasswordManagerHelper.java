@@ -4,6 +4,8 @@
 
 package org.chromium.chrome.browser.password_manager;
 
+import static org.chromium.chrome.browser.flags.ChromeFeatureList.LOGIN_DB_DEPRECATION_ANDROID;
+
 import android.app.Activity;
 import android.app.PendingIntent;
 import android.app.PendingIntent.CanceledException;
@@ -19,6 +21,7 @@ import android.text.TextUtils;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
+import androidx.fragment.app.FragmentActivity;
 
 import com.google.android.gms.common.api.ApiException;
 
@@ -38,8 +41,11 @@ import org.chromium.chrome.browser.password_manager.PasswordCheckupClientHelper.
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileKeyedMap;
+import org.chromium.chrome.browser.pwm_disabled.PasswordCsvDownloadFlowControllerFactory;
+import org.chromium.chrome.browser.pwm_disabled.PasswordManagerUnavailableDialogCoordinator;
 import org.chromium.chrome.browser.settings.SettingsNavigationFactory;
 import org.chromium.chrome.browser.sync.SyncServiceFactory;
+import org.chromium.components.browser_ui.settings.SettingsCustomTabLauncher;
 import org.chromium.components.browser_ui.settings.SettingsNavigation.SettingsFragment;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.signin.base.CoreAccountInfo;
@@ -156,8 +162,8 @@ public class PasswordManagerHelper {
      *     attempt to launch the credential manager even without syncing enabled.
      * @param account the account for which to open the UI. An empty or null account signals that
      *     the UI should be opened for the local storage.
-     * @param customTabIntentHelper provides an intent to open a custom tab displaying a help center
-     *     article.
+     * @param settingsCustomTabLauncher launcher that can be used to open a custom tab with a help
+     *     center article.
      */
     public void showPasswordSettings(
             Context context,
@@ -165,24 +171,120 @@ public class PasswordManagerHelper {
             Supplier<ModalDialogManager> modalDialogManagerSupplier,
             boolean managePasskeys,
             @Nullable String account,
-            CustomTabIntentHelper customTabIntentHelper) {
+            SettingsCustomTabLauncher settingsCustomTabLauncher) {
         RecordHistogram.recordEnumeratedHistogram(
                 "PasswordManager.ManagePasswordsReferrer",
                 referrer,
                 ManagePasswordsReferrer.MAX_VALUE);
         SyncService syncService = SyncServiceFactory.getForProfile(mProfile);
+
+        if (!ChromeFeatureList.isEnabled(LOGIN_DB_DEPRECATION_ANDROID)) {
+            showPasswordSettingsPreLoginDbDeprecation(
+                    context,
+                    referrer,
+                    modalDialogManagerSupplier,
+                    managePasskeys,
+                    account,
+                    settingsCustomTabLauncher);
+            return;
+        }
+
         PrefService prefService = UserPrefs.get(mProfile);
 
+        if (!PasswordManagerUtilBridge.isPasswordManagerAvailable(prefService)
+                && !prefService.getBoolean(Pref.UPM_UNMIGRATED_PASSWORDS_EXPORTED)) {
+            // The automatic export is ongoing. Usually a dialog offering the user to download
+            // the auto-exported CSV would be shown, but until the CSV is written, the dialog
+            // can't be shown. This is a rare corner-case.
+            return;
+        }
+        if (!showPwmUnavailableOrDownloadCsvDialog(
+                context, modalDialogManagerSupplier, settingsCustomTabLauncher)) {
+            LoadingModalDialogCoordinator loadingDialogCoordinator =
+                    LoadingModalDialogCoordinator.create(modalDialogManagerSupplier, context);
+            launchTheCredentialManager(
+                    referrer,
+                    syncService,
+                    loadingDialogCoordinator,
+                    modalDialogManagerSupplier,
+                    context,
+                    account);
+        }
+    }
+
+    /**
+     * Starts the flow allowing the user to download unmigrated password manger passwords as a CSV.
+     *
+     * @param context instance of a FragmentActivity which will host the entire UI flow
+     * @param settingsCustomTabLauncher used to open a help articcle in a CCT
+     */
+    public void launchDownloadPasswordsCsvFlow(
+            Context context, SettingsCustomTabLauncher settingsCustomTabLauncher) {
+        FragmentActivity activity = (FragmentActivity) ContextUtils.activityFromContext(context);
+        assert activity != null : "Context is expected to be a fragment activity";
+        assert ChromeFeatureList.isEnabled(LOGIN_DB_DEPRECATION_ANDROID);
+        assert settingsCustomTabLauncher != null
+                : "The CSV download dialog requires a SettingsCustomTabLauncher";
+        PasswordCsvDownloadFlowControllerFactory.getOrCreateController()
+                .showDialogAndStartFlow(
+                        activity,
+                        mProfile,
+                        PasswordManagerUtilBridge.isGooglePlayServicesUpdatable(),
+                        PasswordManagerUtilBridge.isPasswordManagerAvailable(
+                                UserPrefs.get(mProfile)),
+                        settingsCustomTabLauncher);
+    }
+
+    private boolean showPwmUnavailableOrDownloadCsvDialog(
+            Context context,
+            Supplier<ModalDialogManager> modalDialogManagerSupplier,
+            SettingsCustomTabLauncher settingsCustomTabLauncher) {
+        if (LoginDbDeprecationUtilBridge.hasPasswordsInCsv(mProfile)) {
+            showDownloadCsvDialog(context, settingsCustomTabLauncher);
+            return true;
+        }
+
+        if (!PasswordManagerUtilBridge.isPasswordManagerAvailable(UserPrefs.get(mProfile))) {
+            new PasswordManagerUnavailableDialogCoordinator()
+                    .showDialog(
+                            context,
+                            modalDialogManagerSupplier.get(),
+                            PasswordManagerUtilBridge.isGooglePlayServicesUpdatable()
+                                    ? GmsUpdateLauncher::launch
+                                    : null);
+            return true;
+        }
+        return false;
+    }
+
+    private void showDownloadCsvDialog(
+            Context context, SettingsCustomTabLauncher settingsCustomTabLauncher) {
+        if (context instanceof FragmentActivity) {
+            launchDownloadPasswordsCsvFlow(context, settingsCustomTabLauncher);
+        } else {
+            PasswordExportLauncher.showMainSettingsAndStartExport(context);
+        }
+    }
+
+    private void showPasswordSettingsPreLoginDbDeprecation(
+            Context context,
+            @ManagePasswordsReferrer int referrer,
+            Supplier<ModalDialogManager> modalDialogManagerSupplier,
+            boolean managePasskeys,
+            @Nullable String account,
+            SettingsCustomTabLauncher settingsCustomTabLauncher) {
         if (PasswordAccessLossDialogHelper.tryShowAccessLossWarning(
                 mProfile,
                 context,
                 referrer,
                 modalDialogManagerSupplier,
-                customTabIntentHelper,
+                settingsCustomTabLauncher,
                 BuildInfo.getInstance())) {
             return;
         }
 
+        PrefService prefService = UserPrefs.get(mProfile);
+        SyncService syncService = SyncServiceFactory.getForProfile(mProfile);
         // Force instantiation of GMSCore password settings if GMSCore update is required. Launching
         // Password settings will fail and instead the blocking dialog with the suggestion to update
         // will be displayed.
@@ -280,12 +382,15 @@ public class PasswordManagerHelper {
      *     for local will show. The purpose of this is to enable showing the checkup for local
      *     storage if the password checkup is launched from the leak detection dialog and the leaked
      *     credential is only saved in the local password storage.
+     * @param settingsCustomTabLauncher launcher that can be used to open a custom tab with a help
+     *     center article.
      */
     public void showPasswordCheckup(
             Context context,
             @PasswordCheckReferrer int referrer,
             Supplier<ModalDialogManager> modalDialogManagerSupplier,
-            @Nullable String accountEmail) {
+            @Nullable String accountEmail,
+            SettingsCustomTabLauncher settingsCustomTabLauncher) {
         assert accountEmail == null || !accountEmail.isEmpty();
 
         // TODO(crbug.com/40945093): Change PasswordCheckupClientHelper.getPasswordCheckupIntent to
@@ -297,7 +402,12 @@ public class PasswordManagerHelper {
                 LoadingModalDialogCoordinator.create(modalDialogManagerSupplier, context);
 
         launchPasswordCheckup(
-                referrer, account, loadingDialogCoordinator, modalDialogManagerSupplier, context);
+                referrer,
+                account,
+                loadingDialogCoordinator,
+                modalDialogManagerSupplier,
+                context,
+                settingsCustomTabLauncher);
     }
 
     /**
@@ -512,7 +622,6 @@ public class PasswordManagerHelper {
             credentialManagerLauncher = getCredentialManagerLauncher();
         } catch (CredentialManagerBackendException exception) {
             if (exception.errorCode != CredentialManagerError.BACKEND_VERSION_NOT_SUPPORTED) return;
-
             showGmsUpdateDialog(modalDialogManagerSupplier, context);
             return;
         }
@@ -550,13 +659,28 @@ public class PasswordManagerHelper {
             Optional<String> account,
             LoadingModalDialogCoordinator loadingDialogCoordinator,
             Supplier<ModalDialogManager> modalDialogManagerSupplier,
-            Context context) {
+            Context context,
+            SettingsCustomTabLauncher settingsCustomTabLauncher) {
         PasswordCheckupClientHelper checkupClient;
         try {
             checkupClient = getPasswordCheckupClientHelper();
         } catch (PasswordCheckBackendException exception) {
+            // This is slightly different than the access to the management UI where if there
+            // is an auto-exported CSV, a dialog shown even if the password manager is available
+            // If a checkup is possible, the results of the checkup are more important than
+            // the CSV. In addition, the CSV issue is being prominently presented on the
+            // main settings view.
+            if (exception.errorCode == CredentialManagerError.PASSWORD_MANAGER_NOT_AVAILABLE) {
+                if (!UserPrefs.get(mProfile).getBoolean(Pref.UPM_UNMIGRATED_PASSWORDS_EXPORTED)) {
+                    // The auto-exported file is not ready, so there it's not possible to show a
+                    // dialog to download the CSV.
+                    return;
+                }
+                showPwmUnavailableOrDownloadCsvDialog(
+                        context, modalDialogManagerSupplier, settingsCustomTabLauncher);
+                return;
+            }
             if (exception.errorCode != CredentialManagerError.BACKEND_VERSION_NOT_SUPPORTED) return;
-
             showGmsUpdateDialog(modalDialogManagerSupplier, context);
             return;
         }
@@ -756,7 +880,7 @@ public class PasswordManagerHelper {
     // TODO(crbug.com/40841269): Exceptions should be thrown by factory, remove this method.
     private PasswordCheckupClientHelper getPasswordCheckupClientHelper()
             throws PasswordCheckBackendException {
-        if (ChromeFeatureList.isEnabled(ChromeFeatureList.LOGIN_DB_DEPRECATION_ANDROID)) {
+        if (ChromeFeatureList.isEnabled(LOGIN_DB_DEPRECATION_ANDROID)) {
             // After login DB deprecation, callers shouldn't need to distinguish between the
             // errors anymore, since there will be no more partial support, so
             // PASSWORD_MANGER_NOT_AVAILABLE will replace and include all the errors.

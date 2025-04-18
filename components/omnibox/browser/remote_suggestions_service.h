@@ -5,7 +5,9 @@
 #ifndef COMPONENTS_OMNIBOX_BROWSER_REMOTE_SUGGESTIONS_SERVICE_H_
 #define COMPONENTS_OMNIBOX_BROWSER_REMOTE_SUGGESTIONS_SERVICE_H_
 
+#include <map>
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "base/functional/callback_forward.h"
@@ -13,6 +15,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "base/observer_list_types.h"
+#include "base/time/time.h"
 #include "base/timer/elapsed_timer.h"
 #include "base/unguessable_token.h"
 #include "components/keyed_service/core/keyed_service.h"
@@ -153,6 +156,14 @@ class RemoteSuggestionsService : public KeyedService {
   RemoteSuggestionsService(const RemoteSuggestionsService&) = delete;
   RemoteSuggestionsService& operator=(const RemoteSuggestionsService&) = delete;
 
+  // Helper to set the time request of type `request_type` has started in
+  // `time_request_sent_`.
+  void SetTimeRequestSent(RemoteRequestType request_type, base::TimeTicks time);
+
+  // Logs how long it has been since a request started at `start_time` sliced by
+  // whether the request was completed or interrupted.
+  void LogResponseTime(RemoteRequestType request_type, bool interrupted);
+
   // Returns the suggest endpoint URL for `template_url`.
   //
   // `template_url` must not be nullptr.
@@ -253,12 +264,14 @@ class RemoteSuggestionsService : public KeyedService {
                              const std::string& request_body);
   // Called when the transfer is done. Notifies `observers_` and calls
   // `completion_callback` passing the response to the caller.
-  void OnRequestCompleted(const base::UnguessableToken& request_id,
-                          RemoteRequestType request_type,
-                          base::ElapsedTimer request_timer,
-                          CompletionCallback completion_callback,
-                          const network::SimpleURLLoader* source,
-                          std::unique_ptr<std::string> response_body);
+  void OnRequestCompleted(
+      const base::UnguessableToken& request_id,
+      RemoteRequestType request_type,
+      base::ElapsedTimer request_timer,
+      metrics::OmniboxEventProto::PageClassification page_classification,
+      CompletionCallback completion_callback,
+      const network::SimpleURLLoader* source,
+      std::unique_ptr<std::string> response_body);
 
   // May be nullptr in OTR profiles. Otherwise guaranteed to outlive this due to
   // the factories' dependency.
@@ -268,6 +281,8 @@ class RemoteSuggestionsService : public KeyedService {
   raw_ptr<EnterpriseSearchAggregatorSuggestionsService>
       enterprise_search_aggregator_suggestions_service_;
   scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory_;
+  // Time request sent for each RemoteRequestType. Used for histogram logging.
+  std::map<RemoteRequestType, base::TimeTicks> time_request_sent_;
   // Observers being notified of request start and completion events.
   base::ObserverList<Observer> observers_;
   // Delegate to which invocation of completion callback is delegated.

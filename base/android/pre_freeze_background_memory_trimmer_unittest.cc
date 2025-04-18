@@ -10,6 +10,7 @@
 
 #include <optional>
 
+#include "base/compiler_specific.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_file.h"
 #include "base/memory/page_size.h"
@@ -132,12 +133,12 @@ class PreFreezeBackgroundMemoryTrimmerTest : public testing::Test {
 class PreFreezeSelfCompactionTest : public testing::Test {
  public:
   void SetUp() override {
-    PreFreezeBackgroundMemoryTrimmer::ResetSelfCompactionForTesting();
+    PreFreezeBackgroundMemoryTrimmer::ResetCompactionForTesting();
   }
 
-  bool ShouldContinueSelfCompaction(base::TimeTicks compaction_started_at) {
+  bool ShouldContinueCompaction(base::TimeTicks compaction_started_at) {
     return PreFreezeBackgroundMemoryTrimmer::Instance()
-        .ShouldContinueSelfCompaction(compaction_started_at);
+        .ShouldContinueCompaction(compaction_started_at);
   }
 
   // |size| is in bytes.
@@ -156,7 +157,7 @@ class PreFreezeSelfCompactionTest : public testing::Test {
     region.end = region.start + size;
     mapped_regions_.push_back(region);
     // We memset to guarantee that the memory we just allocated is resident.
-    memset(addr, 02, size);
+    UNSAFE_TODO(memset(addr, 02, size));
     return addr;
   }
 
@@ -170,8 +171,9 @@ class PreFreezeSelfCompactionTest : public testing::Test {
   }
 
   // Returns a copy of the regions that have been allocated via |Map|.
-  std::vector<debug::MappedMemoryRegion> GetMappedMemoryRegions() const {
-    return mapped_regions_;
+  void GetMappedMemoryRegions(
+      std::vector<debug::MappedMemoryRegion>* regions) const {
+    *regions = mapped_regions_;
   }
 
   test::TaskEnvironment task_environment_{
@@ -682,7 +684,7 @@ TEST_F(PreFreezeSelfCompactionTest, Simple) {
   // MADV_PAGEOUT is only supported starting from Linux 5.4. So, on devices
   // don't support it, we bail out early. This is a known problem on some 32
   // bit devices.
-  if (!PreFreezeBackgroundMemoryTrimmer::SelfCompactionIsSupported()) {
+  if (!PreFreezeBackgroundMemoryTrimmer::CompactionIsSupported()) {
     GTEST_SKIP() << "No kernel support";
   }
 
@@ -696,7 +698,7 @@ TEST_F(PreFreezeSelfCompactionTest, Simple) {
   ASSERT_NE(addr, MAP_FAILED);
 
   // we touch the memory here to dirty it, so that it is definitely resident.
-  memset((void*)addr, 1, size);
+  UNSAFE_TODO(memset((void*)addr, 1, size));
 
   EXPECT_EQ(CountResidentPagesInRange(addr, size), kNumPages);
 
@@ -716,7 +718,7 @@ TEST_F(PreFreezeSelfCompactionTest, File) {
   // MADV_PAGEOUT is only supported starting from Linux 5.4. So, on devices
   // don't support it, we bail out early. This is a known problem on some 32
   // bit devices.
-  if (!PreFreezeBackgroundMemoryTrimmer::SelfCompactionIsSupported()) {
+  if (!PreFreezeBackgroundMemoryTrimmer::CompactionIsSupported()) {
     GTEST_SKIP() << "No kernel support";
   }
 
@@ -738,7 +740,7 @@ TEST_F(PreFreezeSelfCompactionTest, File) {
   ASSERT_NE(addr, MAP_FAILED);
 
   // we touch the memory here to dirty it, so that it is definitely resident.
-  memset((void*)addr, 2, size);
+  UNSAFE_TODO(memset((void*)addr, 2, size));
 
   EXPECT_EQ(CountResidentPagesInRange(addr, size), kNumPages);
 
@@ -758,7 +760,7 @@ TEST_F(PreFreezeSelfCompactionTest, Inaccessible) {
   // MADV_PAGEOUT is only supported starting from Linux 5.4. So, on devices
   // don't support it, we bail out early. This is a known problem on some 32
   // bit devices.
-  if (!PreFreezeBackgroundMemoryTrimmer::SelfCompactionIsSupported()) {
+  if (!PreFreezeBackgroundMemoryTrimmer::CompactionIsSupported()) {
     GTEST_SKIP() << "No kernel support";
   }
 
@@ -785,7 +787,7 @@ TEST_F(PreFreezeSelfCompactionTest, Locked) {
   // MADV_PAGEOUT is only supported starting from Linux 5.4. So, on devices
   // don't support it, we bail out early. This is a known problem on some 32
   // bit devices.
-  if (!PreFreezeBackgroundMemoryTrimmer::SelfCompactionIsSupported()) {
+  if (!PreFreezeBackgroundMemoryTrimmer::CompactionIsSupported()) {
     GTEST_SKIP() << "No kernel support";
   }
 
@@ -803,7 +805,7 @@ TEST_F(PreFreezeSelfCompactionTest, Locked) {
   ASSERT_EQ(mlock(addr, size), 0);
 
   // we touch the memory here to dirty it, so that it is definitely resident.
-  memset((void*)addr, 1, size);
+  UNSAFE_TODO(memset((void*)addr, 1, size));
 
   EXPECT_EQ(CountResidentPagesInRange(addr, size), kNumPages);
 
@@ -821,22 +823,22 @@ TEST_F(PreFreezeSelfCompactionTest, Locked) {
 }
 
 TEST_F(PreFreezeSelfCompactionTest, SimpleCancel) {
-  auto started_at = base::TimeTicks::Now();
+  auto triggered_at = base::TimeTicks::Now();
 
-  EXPECT_TRUE(ShouldContinueSelfCompaction(started_at));
+  EXPECT_TRUE(ShouldContinueCompaction(triggered_at));
 
-  PreFreezeBackgroundMemoryTrimmer::MaybeCancelSelfCompaction(
-      PreFreezeBackgroundMemoryTrimmer::SelfCompactCancellationReason::
+  PreFreezeBackgroundMemoryTrimmer::MaybeCancelCompaction(
+      PreFreezeBackgroundMemoryTrimmer::CompactCancellationReason::
           kPageResumed);
 
-  EXPECT_FALSE(ShouldContinueSelfCompaction(started_at));
+  EXPECT_FALSE(ShouldContinueCompaction(triggered_at));
 }
 
 TEST_F(PreFreezeSelfCompactionTest, Cancel) {
   // MADV_PAGEOUT is only supported starting from Linux 5.4. So, on devices
   // don't support it, we bail out early. This is a known problem on some 32
   // bit devices.
-  if (!PreFreezeBackgroundMemoryTrimmer::SelfCompactionIsSupported()) {
+  if (!PreFreezeBackgroundMemoryTrimmer::CompactionIsSupported()) {
     GTEST_SKIP() << "No kernel support";
   }
 
@@ -848,15 +850,12 @@ TEST_F(PreFreezeSelfCompactionTest, Cancel) {
     ASSERT_NE(addrs[i], MAP_FAILED);
   }
 
-  std::vector<debug::MappedMemoryRegion> regions = GetMappedMemoryRegions();
   base::HistogramTester histograms;
-
-  ASSERT_EQ(regions.size(), 4u);
 
   // We should not record the metric here, because we are not currently
   // running.
-  PreFreezeBackgroundMemoryTrimmer::MaybeCancelSelfCompaction(
-      PreFreezeBackgroundMemoryTrimmer::SelfCompactCancellationReason::
+  PreFreezeBackgroundMemoryTrimmer::MaybeCancelCompaction(
+      PreFreezeBackgroundMemoryTrimmer::CompactCancellationReason::
           kPageResumed);
   histograms.ExpectTotalCount(
       "Memory.SelfCompact2.Renderer.CancellationReason2", 0);
@@ -866,14 +865,19 @@ TEST_F(PreFreezeSelfCompactionTest, Cancel) {
   task_environment_.FastForwardBy(base::Seconds(1));
 
   const auto triggered_at = base::TimeTicks::Now();
+  auto state =
+      std::make_unique<PreFreezeBackgroundMemoryTrimmer::CompactionState>(
+          task_environment_.GetMainThreadTaskRunner(), triggered_at, 1);
+  GetMappedMemoryRegions(&state->regions_);
+  ASSERT_EQ(state->regions_.size(), 4u);
+
   {
     base::AutoLock locker(PreFreezeBackgroundMemoryTrimmer::lock());
-    PreFreezeBackgroundMemoryTrimmer::Instance()
-        .self_compaction_last_triggered_ = triggered_at;
+    PreFreezeBackgroundMemoryTrimmer::Instance().compaction_last_triggered_ =
+        triggered_at;
   }
-  PreFreezeBackgroundMemoryTrimmer::Instance().StartSelfCompaction(
-      task_environment_.GetMainThreadTaskRunner(), std::move(regions), 1,
-      triggered_at);
+  PreFreezeBackgroundMemoryTrimmer::Instance().StartCompaction(
+      std::move(state));
 
   EXPECT_EQ(task_environment_.GetPendingMainThreadTaskCount(), 1u);
 
@@ -882,8 +886,8 @@ TEST_F(PreFreezeSelfCompactionTest, Cancel) {
 
   EXPECT_EQ(task_environment_.GetPendingMainThreadTaskCount(), 1u);
 
-  PreFreezeBackgroundMemoryTrimmer::MaybeCancelSelfCompaction(
-      PreFreezeBackgroundMemoryTrimmer::SelfCompactCancellationReason::
+  PreFreezeBackgroundMemoryTrimmer::MaybeCancelCompaction(
+      PreFreezeBackgroundMemoryTrimmer::CompactCancellationReason::
           kPageResumed);
 
   task_environment_.FastForwardBy(
@@ -902,8 +906,8 @@ TEST_F(PreFreezeSelfCompactionTest, Cancel) {
 
   // Still only expect it to be recorded once, because we were not running the
   // second time we tried to cancel.
-  PreFreezeBackgroundMemoryTrimmer::MaybeCancelSelfCompaction(
-      PreFreezeBackgroundMemoryTrimmer::SelfCompactCancellationReason::
+  PreFreezeBackgroundMemoryTrimmer::MaybeCancelCompaction(
+      PreFreezeBackgroundMemoryTrimmer::CompactCancellationReason::
           kPageResumed);
   histograms.ExpectTotalCount(
       "Memory.SelfCompact2.Renderer.CancellationReason2", 1);
@@ -917,7 +921,7 @@ TEST_F(PreFreezeSelfCompactionTest, NotCanceled) {
   // MADV_PAGEOUT is only supported starting from Linux 5.4. So, on devices
   // don't support it, we bail out early. This is a known problem on some 32
   // bit devices.
-  if (!PreFreezeBackgroundMemoryTrimmer::SelfCompactionIsSupported()) {
+  if (!PreFreezeBackgroundMemoryTrimmer::CompactionIsSupported()) {
     GTEST_SKIP() << "No kernel support";
   }
 
@@ -931,17 +935,18 @@ TEST_F(PreFreezeSelfCompactionTest, NotCanceled) {
     ASSERT_NE(addrs[i], MAP_FAILED);
   }
 
-  std::vector<debug::MappedMemoryRegion> regions = GetMappedMemoryRegions();
+  const auto triggered_at = base::TimeTicks::Now();
+  auto state =
+      std::make_unique<PreFreezeBackgroundMemoryTrimmer::CompactionState>(
+          task_environment_.GetMainThreadTaskRunner(), triggered_at, 1);
+  GetMappedMemoryRegions(&state->regions_);
+  ASSERT_EQ(state->regions_.size(), 4u);
 
-  ASSERT_EQ(regions.size(), 4u);
-
-  const auto started_at = base::TimeTicks::Now();
-  PreFreezeBackgroundMemoryTrimmer::Instance().StartSelfCompaction(
-      task_environment_.GetMainThreadTaskRunner(), std::move(regions), 1,
-      started_at);
+  PreFreezeBackgroundMemoryTrimmer::Instance().StartCompaction(
+      std::move(state));
 
   // We should have 4 sections here, based on the sizes mapped above.
-  // |StartSelfCompaction| doesn't run right away, but rather schedules a task.
+  // |StartCompaction| doesn't run right away, but rather schedules a task.
   // So, we expect to have 4 tasks to run here.
   for (size_t i = 0; i < 4; i++) {
     EXPECT_EQ(task_environment_.GetPendingMainThreadTaskCount(), 1u);
@@ -992,7 +997,7 @@ TEST_F(PreFreezeSelfCompactionTest, Disabled) {
   // Although we are not actually compacting anything, the self compaction
   // code will exit out before metrics are recorded in the case where compaction
   // is not supported.
-  if (!PreFreezeBackgroundMemoryTrimmer::SelfCompactionIsSupported()) {
+  if (!PreFreezeBackgroundMemoryTrimmer::CompactionIsSupported()) {
     GTEST_SKIP() << "No kernel support";
   }
 
@@ -1001,8 +1006,9 @@ TEST_F(PreFreezeSelfCompactionTest, Disabled) {
 
   base::HistogramTester histograms;
 
+  auto triggered_at = base::TimeTicks::Now();
   PreFreezeBackgroundMemoryTrimmer::Instance().CompactSelf(
-      task_environment_.GetMainThreadTaskRunner(), base::TimeTicks::Now());
+      task_environment_.GetMainThreadTaskRunner(), triggered_at);
 
   // Run metrics
   task_environment_.FastForwardBy(base::Seconds(60));
@@ -1031,7 +1037,7 @@ TEST_F(PreFreezeSelfCompactionTest, Disabled) {
   // We also check that no other histograms (other than the ones expected above)
   // were recorded.
   EXPECT_EQ(histograms.GetTotalCountsForPrefix("Memory.SelfCompact2").size(),
-            47);
+            48);
 }
 
 TEST_F(PreFreezeSelfCompactionTest, OnSelfFreezeCancel) {
@@ -1042,13 +1048,13 @@ TEST_F(PreFreezeSelfCompactionTest, OnSelfFreezeCancel) {
       task_environment_.GetMainThreadTaskRunner());
   EXPECT_EQ(task_environment_.GetPendingMainThreadTaskCount(), 1u);
 
-  // We advance here because |MaybeCancelSelfCompaction| relies on the current
+  // We advance here because |MaybeCancelCompaction| relies on the current
   // time to determine cancellation, which will not work correctly with mocked
   // time otherwise.
   task_environment_.FastForwardBy(base::Seconds(1));
 
-  PreFreezeBackgroundMemoryTrimmer::MaybeCancelSelfCompaction(
-      PreFreezeBackgroundMemoryTrimmer::SelfCompactCancellationReason::
+  PreFreezeBackgroundMemoryTrimmer::MaybeCancelCompaction(
+      PreFreezeBackgroundMemoryTrimmer::CompactCancellationReason::
           kPageResumed);
   EXPECT_EQ(task_environment_.GetPendingMainThreadTaskCount(), 1u);
 

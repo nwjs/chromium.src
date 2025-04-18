@@ -6,7 +6,6 @@
 <translation id="1143896152279775643">Jelszavát elmenti a rendszer a fiókhoz (<ph name="EMAIL" />) kapcsolt Google Jelszókezelőbe.</translation>
 <translation id="1146503048444965320">Új lap megnyitása a Chrome-ban</translation>
 <translation id="1166460004393506534">A Chrome-ban tárolt böngészési adatok törlése</translation>
-<translation id="1171255741903316750">Kapcsolja be az „Inkognitó lapok zárolása a Chrome bezárásakor” beállítást.</translation>
 <translation id="1179527450541388808">Gyorsabb hozzáférés a Chrome-hoz a főképernyő Dockjáról.</translation>
 <translation id="1180362651362502943">Továbbra is használhatja a Google-fiókjában lévő Chrome-adatokat.</translation>
 <translation id="1200396280085622191">Bármikor használhatja a Chrome-ot, amikor üzenetekben és más alkalmazásokban linkekre kattint.</translation>
@@ -37,12 +36,14 @@ Megjegyzések:
 <translation id="1634522710245925681">Használja a Chrome-ot alapértelmezett böngészőként, hogy egyszerűen hozzáférhessen az árváltozások és -összehasonlítások funkcióhoz</translation>
 <translation id="1646463005043273333">Megnyitja a Chrome beállításait a Chrome alapértelmezett böngészőként való beállításához.</translation>
 <translation id="1670609221633730681">Chrome-tipp: Válassza ki a címsáv helyét</translation>
+<translation id="1683863426423719967">Ha lapokra vonatkozó emlékeztetőket szeretne kapni a Chrome-tól, kapcsolja be az értesítéseket az iOS beállításaiban.</translation>
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="1784567647421309104">Jelszavak mentése a Chrome-ban</translation>
 <translation id="1790080846677398234">A bevitt URL-eket felveszi a könyvjelzők közé a Chrome-ban.</translation>
 <translation id="1799920918471566157">Chrome-tippek</translation>
 <translation id="1830634592642484976">A címet jelenleg a Chrome-ba menti a rendszer. Ha szeretné más Google-termékekben is használni, mentse saját Google-fiókjába (<ph name="USER_EMAIL" />).</translation>
 <translation id="1891812034154776216">Nyitott inkognitó lapok elrejtése a Chrome elhagyásakor</translation>
+<translation id="1894434821386148799">Itt találja a Chrome beállításait stb.</translation>
 <translation id="1917964099031477364">Ezzel a fiók és a nem mentett adatok eltávolításra kerülnek a Chrome-ból és az eszközön lévő többi Google-alkalmazásból.</translation>
 <translation id="1919130412786645364">Chrome-bejelentkezés engedélyezése</translation>
 <translation id="1965935827552890526">A másik megnyitott Chrome-ablakban fejezze be, amit csinál.</translation>
@@ -127,9 +128,9 @@ A kijelentkezés előtt várjon néhány percet. Ha most jelentkezik ki, akkor e
 <translation id="4430797724889237570">A Gmailből, a Térképből, a YouTube-ról és más alkalmazásokból származó linkek megnyitása a Chrome-ban</translation>
 <translation id="447252321002412580">Hozzájárulás a Chrome funkcióinak és teljesítményének javításához</translation>
 <translation id="4523886039239821078">Bizonyos bővítmények a Chrome összeomlását eredményezik. Távolítsa el a következő(ke)t:</translation>
+<translation id="4574806550936185355">Kapcsolja be az „Inkognitó lapok zárolása a Chrome bezárásakor” beállítást.</translation>
 <translation id="4633328489441962921">A Chrome nem tud frissítéseket keresni</translation>
 <translation id="4636900170638246267">Jelentkezzen be erre a webhelyre és a Chrome-ba.</translation>
-<translation id="4646014602299206846">A Chrome észleli a csomagkövetési számokat az Ön által felkeresett webhelyeken, és csomagokkal kapcsolatos friss információkat jelenít meg az Új lap oldalon. Adatait megosztjuk a Google-lal, hogy biztosítani tudjuk ezt a funkciót, és mindenki számára jobbá tehessük a Shopping szolgáltatást.</translation>
 <translation id="4647910807533196601">A legutóbbi lap megnyitása a Chrome-ban.</translation>
 <translation id="4693084815234024320">A Chrome inkognitó módjában van</translation>
 <translation id="4724297637870447613">A Chrome mindenhol használható</translation>
@@ -160,7 +161,6 @@ A kijelentkezés előtt várjon néhány percet. Ha most jelentkezik ki, akkor e
 <translation id="5395376160638294582">Biztosítsa, hogy mindig használhassa a Google-fiókjában lévő Chrome-adatokat</translation>
 <translation id="5404252374083197467">Beállítja a Chrome-ot alapértelmezett böngészőként?</translation>
 <translation id="5439191312780166229">Figyelmezteti Önt a veszélyes webhelyekre (még azokra is, amelyekről a Google korábban nem tudott), azáltal hogy több, webhelyekről származó adatot elemez, mint a normál védelem. Beállíthatja a Chrome figyelmeztetéseinek kihagyását.</translation>
-<translation id="5442013002200339429">Ha elrejti a(z) „<ph name="MODULE_NAME" />” modult, a Chrome a továbbiakban nem követi automatikusan a jövőbeli csomagjait, és törli az Ön összes korábbi csomagkövetési adatát.</translation>
 <translation id="5460571915754665838">4. Válassza ki a Chrome böngészőt.</translation>
 <translation id="5492504007368565877">A Google Jelszókezelő nem tudja ellenőrizni az Ön jelszavait.</translation>
 <translation id="5525095647255982834">Ha szeretné elküldeni ezt a lapot másik eszközre, jelentkezzen be a Chrome-ba az adott eszközön.</translation>
@@ -179,6 +179,7 @@ A kijelentkezés előtt várjon néhány percet. Ha most jelentkezik ki, akkor e
 <translation id="5716154293141027663">A Chrome megnyitása mindig, amikor más alkalmazásokban lévő linkekre koppint</translation>
 <translation id="5752489513673657785">A Google által az Ön számára létrehozott egyéni feed</translation>
 <translation id="5772407442571703917">Itt letöltheti a Chrome-ot.</translation>
+<translation id="5777468213129569553">A Chrome megnyitása</translation>
 <translation id="5779767936254214055">Zárolhatja az inkognitó lapokat, amikor kilép a Chrome-ból, vagy másik alkalmazásra vált.</translation>
 <translation id="5808435672482059465">Chrome-előzmények megtekintése</translation>
 <translation id="5833027901704861726">Az Ön bizonyos Chrome-adatait még nem mentette a rendszer a(z) <ph name="EMAIL" /> fiókba.
@@ -214,7 +215,6 @@ Adatai az összetett jelszavával vannak titkosítva. Adja meg, ha Google-fiókj
 <translation id="6636941099779251629">Szervezete megköveteli a bejelentkezést a Chrome használatához. <ph name="BEGIN_LINK" />További információ<ph name="END_LINK" />.</translation>
 <translation id="6646696210740573446">Elküldi az URL obfuszkált részét a Google-nak egy adatvédelmi szerveren keresztül, amely elrejti az Ön IP-címét. Ha egy webhely megpróbálja ellopni az Ön jelszavát, illetve ha Ön ártalmas fájlt tölt le, akkor a Chrome elküldheti az URL-eket is (az oldaltartalmak részleteivel együtt) a Google-nak.</translation>
 <translation id="6647304104688527905">Új lapot nyit a Chrome-ban.</translation>
-<translation id="6648150602980899529">Egy <ph name="DOMAIN" /> által felügyelt fiókkal jelentkezik be, és engedélyezi az adminisztrátor számára a Chrome-adatok kezelését. Adatai állandó jelleggel ehhez a fiókhoz lesznek társítva. A Chrome-ból való kijelentkezéssel törli adatait erről az eszközről, de azok továbbra is megmaradnak Google-fiókjában.</translation>
 <translation id="6684809838922667136">A Chrome fejlesztése</translation>
 <translation id="6695698548122852044">{THRESHOLD,plural, =1{Erre akkor kerül sor, ha a Chrome {THRESHOLD} percig nincs használatban. Törlődni fognak azok az adatok, amelyek csak erre az eszközre lettek mentve, miközben be volt jelentkezve. Ezek közé tartozhatnak az előzmények és a jelszavak is.}other{Erre akkor kerül sor, ha a Chrome {THRESHOLD} percig nincs használatban. Törlődni fognak azok az adatok, amelyek csak erre az eszközre lettek mentve, miközben be volt jelentkezve. Ezek közé tartozhatnak az előzmények és a jelszavak is.}}</translation>
 <translation id="6709398533399187136">Jelszava adatvédelmi incidens során nyilvánosságra került. A Google Jelszókezelő a jelszó haladéktalan módosítását javasolja.</translation>
@@ -262,6 +262,7 @@ Az adatokat a Chrome-élmény javítására használó további beállításoké
 <translation id="7575971113404272499">Chrome-tipp: Használja a Chrome-ot alapértelmezett böngészőként</translation>
 <translation id="7581063337314642333">A laprács megnyitása a Chrome-ban</translation>
 <translation id="7599894504325210080">A Chrome automatikus kitöltés funkciójának kibontott nézete</translation>
+<translation id="7617512710641355143">A Chrome felügyelet alatt áll</translation>
 <translation id="7642373780953416937">Értesítéseket kaphat a Chrome által automatikusan észlelt adatvédelmi és biztonsági problémákról.</translation>
 <translation id="7660356333829433649">Térjen vissza ide, ha további hasznos tippeket szeretne kapni arról, hogy miként hozhatja ki a legtöbbet a Chrome-ból.</translation>
 <translation id="7662994914830945754">Jelentkezzen be, és kapcsolja be a szinkronizálást, hogy bárhol hozzáférhessen a lapjaihoz, ahol a Chrome-ot használja.</translation>

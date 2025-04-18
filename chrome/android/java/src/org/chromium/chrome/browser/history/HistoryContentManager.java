@@ -239,7 +239,8 @@ public class HistoryContentManager implements SignInStateObserver, PrefObserver 
                                     mActivity,
                                     profile,
                                     SigninAndHistorySyncActivityLauncherImpl.get(),
-                                    this::updateHistorySyncPromoVisibility));
+                                    this::updateHistorySyncPromoVisibility,
+                                    /* isCreatedInCct= */ launchedForApp));
         } else {
             mHistorySyncPromoCoordinator = null;
         }
@@ -255,6 +256,7 @@ public class HistoryContentManager implements SignInStateObserver, PrefObserver 
         // Create a recycler view.
         mRecyclerView =
                 new RecyclerView(new ContextThemeWrapper(mActivity, R.style.VerticalRecyclerView));
+        mRecyclerView.setId(R.id.history_page_recycler_view);
         mRecyclerView.setLayoutManager(new LinearLayoutManager(mActivity));
         mRecyclerView.setAdapter(mHistoryAdapter);
         mRecyclerView.setHasFixedSize(true);
@@ -598,18 +600,13 @@ public class HistoryContentManager implements SignInStateObserver, PrefObserver 
 
     /**
      * Called after a user removes this HistoryItem.
+     *
      * @param item The item that has been removed.
      */
     public void onItemRemoved(HistoryItem item) {
         mHistoryAdapter.markItemForRemoval(item);
         mHistoryAdapter.removeItems();
-        announceItemRemoved(item);
         mObserver.onItemRemoved(item);
-    }
-
-    void announceItemRemoved(HistoryItem item) {
-        mRecyclerView.announceForAccessibility(
-                mActivity.getString(R.string.delete_message, item.getTitle()));
     }
 
     void maybeResetAppFilterChip() {

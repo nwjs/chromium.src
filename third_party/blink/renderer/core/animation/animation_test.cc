@@ -1474,7 +1474,7 @@ TEST_P(AnimationAnimationTestCompositing, AsynchronousCancel) {
   ASSERT_TRUE(animation->HasActiveAnimationsOnCompositor());
 
   animation->cancel();
-  EXPECT_TRUE(animation->HasActiveAnimationsOnCompositor());
+  EXPECT_FALSE(animation->HasActiveAnimationsOnCompositor());
   EXPECT_TRUE(animation->CompositorPending());
   EXPECT_TRUE(animation->CompositorPendingCancel());
 
@@ -1682,9 +1682,8 @@ TEST_P(AnimationAnimationTestCompositing,
   keyframe_effect->UpdateBoxSizeAndCheckTransformAxisAlignment(
       gfx::SizeF(200, 200));
   // Cancel is deferred to PreCommit.
-  EXPECT_TRUE(animation->HasActiveAnimationsOnCompositor());
   EXPECT_TRUE(animation->CompositorPendingCancel());
-
+  EXPECT_FALSE(animation->HasActiveAnimationsOnCompositor());
   GetDocument().GetPendingAnimations().Update(nullptr, true);
   EXPECT_TRUE(animation->HasActiveAnimationsOnCompositor());
   EXPECT_FALSE(animation->CompositorPendingCancel());
@@ -1693,7 +1692,9 @@ TEST_P(AnimationAnimationTestCompositing,
   keyframe_effect->UpdateBoxSizeAndCheckTransformAxisAlignment(
       gfx::SizeF(200, 300));
   EXPECT_TRUE(animation->CompositorPendingCancel());
+  EXPECT_FALSE(animation->HasActiveAnimationsOnCompositor());
   GetDocument().GetPendingAnimations().Update(nullptr, true);
+  EXPECT_TRUE(animation->HasActiveAnimationsOnCompositor());
   EXPECT_FALSE(animation->CompositorPendingCancel());
 }
 
@@ -1735,9 +1736,8 @@ TEST_P(AnimationAnimationTestCompositing,
   // Width change forces a restart.
   keyframe_effect->UpdateBoxSizeAndCheckTransformAxisAlignment(
       gfx::SizeF(200, 300));
-  EXPECT_TRUE(animation->HasActiveAnimationsOnCompositor());
   EXPECT_TRUE(animation->CompositorPendingCancel());
-
+  EXPECT_FALSE(animation->HasActiveAnimationsOnCompositor());
   GetDocument().GetPendingAnimations().Update(nullptr, true);
   EXPECT_TRUE(animation->HasActiveAnimationsOnCompositor());
   EXPECT_FALSE(animation->CompositorPendingCancel());
@@ -1780,7 +1780,7 @@ TEST_P(AnimationAnimationTestCompositing,
   // Height change forces a restart.
   keyframe_effect->UpdateBoxSizeAndCheckTransformAxisAlignment(
       gfx::SizeF(300, 400));
-  EXPECT_TRUE(animation->HasActiveAnimationsOnCompositor());
+  EXPECT_FALSE(animation->HasActiveAnimationsOnCompositor());
   EXPECT_TRUE(animation->CompositorPending());
   EXPECT_TRUE(animation->CompositorPendingCancel());
 
@@ -2206,6 +2206,116 @@ TEST_P(AnimationAnimationTestNoCompositing,
   EXPECT_EQ("idle", animation->playState());
   EXPECT_FALSE(animation->Update(kTimingUpdateForAnimationFrame));
   EXPECT_FALSE(animation->HasPendingActivity());
+}
+
+TEST_P(AnimationAnimationTestNoCompositing, PendingActivityWithOnceTrigger) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      @keyframes myAnim {
+        from { transform: scaleX(1); }
+        to { transform: scaleX(5); }
+      }
+      .subject {
+        height: 50px;
+        width: 50px;
+        animation: myAnim linear 0.5s none;
+        animation-trigger: scroll() once 50px 100px;
+      }
+     .scroller {
+        overflow-y: scroll;
+        height: 500px;
+        width: 500px;
+        border: solid 1px;
+        position: relative;
+      }
+      #space {
+        width: 50px;
+        height: 600px;
+      }
+    </style>
+    <div id="scroller" class="scroller">
+      <div id="space"></div>
+      <div id="target" class="subject"></div>
+      <div id="space"></div>
+    </div>
+  )HTML");
+  Element* target = GetDocument().getElementById(AtomicString("target"));
+  ElementAnimations* animations = target->GetElementAnimations();
+  animation = (*animations->Animations().begin()).key;
+
+  EXPECT_EQ(animation->GetTriggerState(), AnimationTriggerState::kIdle);
+  EXPECT_TRUE(animation->HasPendingActivity());
+
+  Element* scroller = GetDocument().getElementById(AtomicString("scroller"));
+
+  scroller->scrollTo(0, 75);
+  UpdateAllLifecyclePhasesForTest();
+
+  animation->trigger()->ActionAnimation(animation);
+
+  EXPECT_EQ(animation->GetTriggerState(), AnimationTriggerState::kPrimary);
+  // Finish the animation.
+  animation->finish();
+
+  UpdateAllLifecyclePhasesForTest();
+
+  EXPECT_EQ(animation->GetTriggerState(), AnimationTriggerState::kPrimary);
+  EXPECT_FALSE(animation->HasPendingActivity());
+}
+
+TEST_P(AnimationAnimationTestNoCompositing, PendingActivityWithRepeatTrigger) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      @keyframes myAnim {
+        from { transform: scaleX(1); }
+        to { transform: scaleX(5); }
+      }
+      .subject {
+        height: 50px;
+        width: 50px;
+        animation: myAnim linear 0.5s none;
+        animation-trigger: scroll() repeat 50px 100px;
+      }
+     .scroller {
+        overflow-y: scroll;
+        height: 500px;
+        width: 500px;
+        border: solid 1px;
+        position: relative;
+      }
+      #space {
+        width: 50px;
+        height: 600px;
+      }
+    </style>
+    <div id="scroller" class="scroller">
+      <div id="space"></div>
+      <div id="target" class="subject"></div>
+      <div id="space"></div>
+    </div>
+  )HTML");
+  Element* target = GetDocument().getElementById(AtomicString("target"));
+  ElementAnimations* animations = target->GetElementAnimations();
+  animation = (*animations->Animations().begin()).key;
+
+  EXPECT_EQ(animation->GetTriggerState(), AnimationTriggerState::kIdle);
+  EXPECT_TRUE(animation->HasPendingActivity());
+
+  Element* scroller = GetDocument().getElementById(AtomicString("scroller"));
+
+  scroller->scrollTo(0, 75);
+  UpdateAllLifecyclePhasesForTest();
+
+  animation->trigger()->ActionAnimation(animation);
+
+  EXPECT_EQ(animation->GetTriggerState(), AnimationTriggerState::kPrimary);
+  // Finish the animation.
+  animation->finish();
+
+  UpdateAllLifecyclePhasesForTest();
+
+  EXPECT_EQ(animation->GetTriggerState(), AnimationTriggerState::kPrimary);
+  EXPECT_TRUE(animation->HasPendingActivity());
 }
 
 TEST_P(AnimationAnimationTestCompositing, InvalidExecutionContext) {

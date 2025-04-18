@@ -52,8 +52,11 @@ enum class ASH_PUBLIC_EXPORT LobsterSystemCheck {
   kInvalidInputMethod,
   kInvalidFeatureFlags,  // The feature flag disabled.
   kUnsupportedHardware,
-  kUnsupportedInKioskMode,               // In Kiosk mode.
-  kMaxValue = kUnsupportedInKioskMode,
+  kUnsupportedInKioskMode,  // In Kiosk mode.
+  kUnsupportedFormFactor,
+  kUnsupportedPolicy,
+  kForcedDisabledOnManagedUsers,
+  kMaxValue = kForcedDisabledOnManagedUsers,
 };
 
 enum class ASH_PUBLIC_EXPORT LobsterErrorCode {
@@ -65,6 +68,7 @@ enum class ASH_PUBLIC_EXPORT LobsterErrorCode {
   kBackendFailure,
   kUnsupportedLanguage,
   kRestrictedRegion,
+  kContainsPeople,
 };
 
 }  // namespace ash

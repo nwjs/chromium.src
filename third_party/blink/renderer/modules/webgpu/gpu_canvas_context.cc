@@ -31,7 +31,6 @@
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/webgpu_mailbox_texture.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/webgpu_texture_alpha_clearer.h"
-#include "third_party/blink/renderer/platform/graphics/graphics_types.h"
 #include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
 #include "third_party/blink/renderer/platform/graphics/unaccelerated_static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread_scheduler.h"
@@ -91,6 +90,7 @@ void GPUCanvasContext::Trace(Visitor* visitor) const {
   visitor->Trace(device_);
   visitor->Trace(texture_);
   visitor->Trace(swap_texture_);
+  ScriptWrappable::Trace(visitor);
   CanvasRenderingContext::Trace(visitor);
 }
 
@@ -173,17 +173,17 @@ scoped_refptr<StaticBitmapImage> GPUCanvasContext::GetImage(FlushReason) {
     return SnapshotInternal(swap_texture_->GetHandle(), swap_buffers_->Size());
   }
 
-  // If there is no current texture, we need to get the information of the last
-  // texture reserved, that contains the last mailbox, create a new texture for
-  // it, and use it to create the resource provider.
-  auto mailbox_texture = swap_buffers_->GetLastWebGPUMailboxTexture();
-  if (!mailbox_texture) {
+  // If there is no current texture, return a snapshot of the front buffer if
+  // possible.
+  auto front_buffer_texture = GetFrontBufferMailboxTexture();
+  if (!front_buffer_texture) {
     return nullptr;
   }
 
-  return SnapshotInternal(mailbox_texture->GetTexture(),
-                          gfx::Size(mailbox_texture->GetTexture().GetWidth(),
-                                    mailbox_texture->GetTexture().GetHeight()));
+  return SnapshotInternal(
+      front_buffer_texture->GetTexture(),
+      gfx::Size(front_buffer_texture->GetTexture().GetWidth(),
+                front_buffer_texture->GetTexture().GetHeight()));
 }
 
 bool GPUCanvasContext::PaintRenderingResultsToCanvas(
@@ -203,19 +203,36 @@ bool GPUCanvasContext::PaintRenderingResultsToCanvas(
     return false;
   }
 
-  // TODO(crbug.com/1367056): Handle source_buffer == kFrontBuffer.
-  // By returning false here the canvas will show up as black in the scenarios
-  // that copy the front buffer, such as printing.
-  if (source_buffer != kBackBuffer) {
+  wgpu::Texture texture;
+
+  scoped_refptr<WebGPUMailboxTexture> front_buffer_texture;
+  if (source_buffer == kFrontBuffer) {
+#if BUILDFLAG(IS_LINUX)
+    // By returning false here the canvas will show up as black in the scenarios
+    // that copy the front buffer, such as printing.
+    // TODO(crbug.com/40902474): Support concurrent SharedImage reads via Dawn
+    // on Linux backings and enable the below codepath.
     return false;
+#else
+    // Create a WebGPU texture backed by the front buffer's SharedImage.
+    front_buffer_texture = GetFrontBufferMailboxTexture();
+    if (!front_buffer_texture) {
+      return false;
+    }
+
+    texture = front_buffer_texture->GetTexture();
+#endif
+  } else {
+    texture = texture_->GetHandle();
   }
 
-  if (!texture_) {
+  if (!texture) {
     return false;
   }
 
   return CopyTextureToResourceProvider(
-      texture_->GetHandle(), swap_buffers_->Size(), resource_provider);
+      texture, gfx::Size(texture.GetWidth(), texture.GetHeight()),
+      resource_provider);
 }
 
 bool GPUCanvasContext::CopyRenderingResultsToVideoFrame(
@@ -288,6 +305,9 @@ ImageBitmap* GPUCanvasContext::TransferToImageBitmap(
       black_bitmap.eraseARGB(0, 0, 0, 0);
     }
 
+    // Mark the bitmap as immutable to avoid an unnecessary copy in the
+    // following RasterFromBitmap() call.
+    black_bitmap.setImmutable();
     return MakeGarbageCollected<ImageBitmap>(
         UnacceleratedStaticBitmapImage::Create(
             SkImages::RasterFromBitmap(black_bitmap)));
@@ -320,8 +340,8 @@ ImageBitmap* GPUCanvasContext::TransferToImageBitmap(
           /* shared_image_texture_id = */ 0,
           gfx::Size(texture_descriptor_.size.width,
                     texture_descriptor_.size.height),
-          format, kPremul_SkAlphaType, nullptr, GetContextProviderWeakPtr(),
-          base::PlatformThread::CurrentRef(),
+          format, kPremul_SkAlphaType, gfx::ColorSpace::CreateSRGB(),
+          GetContextProviderWeakPtr(), base::PlatformThread::CurrentRef(),
           ThreadScheduler::Current()->CleanupTaskRunner(),
           std::move(release_callback)));
 }
@@ -381,6 +401,7 @@ void GPUCanvasContext::configure(const GPUCanvasConfiguration* descriptor,
   texture_descriptor_ = {
       // Set the values from the configuration descriptor
       .usage = AsDawnFlags<wgpu::TextureUsage>(descriptor->usage()),
+      .dimension = wgpu::TextureDimension::e2D,
       .size = {static_cast<uint32_t>(host_size.width()),
                static_cast<uint32_t>(host_size.height())},
       .format = AsDawnEnum(descriptor->format()),
@@ -409,6 +430,10 @@ void GPUCanvasContext::configure(const GPUCanvasConfiguration* descriptor,
 #if BUILDFLAG(IS_ANDROID)
   if (texture_descriptor_.format == wgpu::TextureFormat::BGRA8Unorm) {
     // BGRA8Unorm is not natively supported by Android's compositor.
+    copy_to_swap_texture_required_ = true;
+  }
+  if ((texture_descriptor_.usage & wgpu::TextureUsage::StorageBinding) != 0) {
+    // Storage images are not supported on some AHB/gralloc versions.
     copy_to_swap_texture_required_ = true;
   }
 #endif
@@ -683,6 +708,29 @@ GPUTexture* GPUCanvasContext::getCurrentTexture(
                     WebFeature::kWebGPUCanvasContextGetCurrentTexture);
 
   return texture_.Get();
+}
+
+scoped_refptr<WebGPUMailboxTexture>
+GPUCanvasContext::GetFrontBufferMailboxTexture() {
+  auto front_buffer_si = swap_buffers_->GetFrontBufferSharedImage();
+  if (!front_buffer_si) {
+    return nullptr;
+  }
+  wgpu::TextureUsage front_buffer_usage =
+      wgpu::TextureUsage::CopySrc | wgpu::TextureUsage::TextureBinding;
+  wgpu::DawnTextureInternalUsageDescriptor front_buffer_usage_desc = {{
+      .internalUsage = front_buffer_usage,
+  }};
+  wgpu::TextureDescriptor desc = {
+      .size = {base::checked_cast<uint32_t>(front_buffer_si->size().width()),
+               base::checked_cast<uint32_t>(front_buffer_si->size().height())},
+      .format = swap_buffers_->TextureFormat(),
+  };
+  desc.nextInChain = &front_buffer_usage_desc;
+
+  return WebGPUMailboxTexture::FromExistingSharedImage(
+      device_->GetDawnControlClient(), device_->GetHandle(), desc,
+      front_buffer_si, swap_buffers_->GetFrontBufferSyncToken());
 }
 
 void GPUCanvasContext::ReplaceDrawingBuffer(bool destroy_swap_buffers) {

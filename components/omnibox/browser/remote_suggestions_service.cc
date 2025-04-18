@@ -4,12 +4,16 @@
 
 #include "components/omnibox/browser/remote_suggestions_service.h"
 
+#include <map>
 #include <memory>
+#include <optional>
+#include <string>
 #include <utility>
 
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/stringprintf.h"
+#include "base/time/time.h"
 #include "base/timer/elapsed_timer.h"
 #include "components/lens/proto/server/lens_overlay_response.pb.h"
 #include "components/omnibox/browser/base_search_provider.h"
@@ -50,6 +54,9 @@ std::string RequestTypeToString(RemoteRequestType request_type) {
   }
 }
 
+const char kResponseTimeHistogramName[] =
+    "Omnibox.SuggestRequestsSent.ResponseTime2.RequestState";
+
 std::string ResponseCodeToSuccessString(int response_code) {
   return response_code == 200 ? "Successful" : "Failed";
 }
@@ -67,9 +74,11 @@ void LogResponseCode(RemoteRequestType request_type, int response_code) {
       response_code);
 }
 
-void LogResponseTime(RemoteRequestType request_type,
-                     base::TimeDelta response_time,
-                     int response_code) {
+void LogResponseTimeAndCode(
+    metrics::OmniboxEventProto::PageClassification page_classification,
+    RemoteRequestType request_type,
+    base::TimeDelta response_time,
+    int response_code) {
   base::UmaHistogramTimes("Omnibox.SuggestRequestsSent.ResponseTime",
                           response_time);
   base::UmaHistogramTimes(
@@ -83,6 +92,24 @@ void LogResponseTime(RemoteRequestType request_type,
   base::UmaHistogramTimes(
       base::StringPrintf("Omnibox.SuggestRequestsSent.ResponseTime.%s.%s",
                          RequestTypeToString(request_type),
+                         ResponseCodeToSuccessString(response_code)),
+      response_time);
+
+  // Don't slice by page classification for invalid page classifications.
+  if (page_classification == metrics::OmniboxEventProto::INVALID_SPEC) {
+    return;
+  }
+  const std::string page_context =
+      metrics::OmniboxEventProto::PageClassification_Name(page_classification);
+
+  base::UmaHistogramTimes(
+      base::StringPrintf("Omnibox.SuggestRequestsSent.ResponseTime.%s",
+                         page_context),
+      response_time);
+
+  base::UmaHistogramTimes(
+      base::StringPrintf("Omnibox.SuggestRequestsSent.ResponseTime.%s.%s.%s",
+                         page_context, RequestTypeToString(request_type),
                          ResponseCodeToSuccessString(response_code)),
       response_time);
 }
@@ -183,6 +210,48 @@ RemoteSuggestionsService::RemoteSuggestionsService(
 }
 
 RemoteSuggestionsService::~RemoteSuggestionsService() = default;
+
+// TODO(crbug.com/404591650): Create a struct to automate the lifecycle of
+//   `time_request_sent_`.
+void RemoteSuggestionsService::SetTimeRequestSent(
+    RemoteRequestType request_type,
+    base::TimeTicks time) {
+  time_request_sent_[request_type] = time;
+}
+
+void RemoteSuggestionsService::LogResponseTime(RemoteRequestType request_type,
+                                               bool interrupted) {
+  // Get time `request_type` was sent.
+  const auto time = time_request_sent_.find(request_type);
+  std::optional<base::TimeTicks> start_time =
+      time == time_request_sent_.end()
+          ? std::nullopt
+          : std::optional<base::TimeTicks>(time->second);
+
+  // `start_time` must be set for `request_type`
+  CHECK(start_time != std::nullopt);
+
+  const base::TimeDelta elapsed_time =
+      base::TimeTicks::Now() - start_time.value();
+  const std::string kEnterpriseRequestTypeString = RequestTypeToString(
+      RemoteRequestType::kEnterpriseSearchAggregatorSuggest);
+  if (interrupted) {
+    base::UmaHistogramTimes(
+        base::StringPrintf("%s.%s.Interrupted", kResponseTimeHistogramName,
+                           kEnterpriseRequestTypeString),
+        elapsed_time);
+  } else {
+    base::UmaHistogramTimes(
+        base::StringPrintf("%s.%s.Completed", kResponseTimeHistogramName,
+                           kEnterpriseRequestTypeString),
+        elapsed_time);
+  }
+  base::UmaHistogramTimes(
+      base::StringPrintf("%s.%s", kResponseTimeHistogramName,
+                         kEnterpriseRequestTypeString),
+      elapsed_time);
+  SetTimeRequestSent(request_type, base::TimeTicks());
+}
 
 // static
 GURL RemoteSuggestionsService::EndpointUrl(
@@ -289,8 +358,9 @@ RemoteSuggestionsService::StartSuggestionsRequest(
       url_loader_factory_.get(),
       base::BindOnce(&RemoteSuggestionsService::OnRequestCompleted,
                      weak_ptr_factory_.GetWeakPtr(), request_id, request_type,
-                     std::move(request_timer), std::move(completion_callback),
-                     loader.get()));
+                     std::move(request_timer),
+                     search_terms_args.page_classification,
+                     std::move(completion_callback), loader.get()));
 
   OnRequestStarted(request_id, request_type, loader.get(),
                    /*request_body*/ "");
@@ -367,8 +437,9 @@ RemoteSuggestionsService::StartZeroPrefixSuggestionsRequest(
       url_loader_factory_.get(),
       base::BindOnce(&RemoteSuggestionsService::OnRequestCompleted,
                      weak_ptr_factory_.GetWeakPtr(), request_id, request_type,
-                     std::move(request_timer), std::move(completion_callback),
-                     loader.get()));
+                     std::move(request_timer),
+                     search_terms_args.page_classification,
+                     std::move(completion_callback), loader.get()));
 
   OnRequestStarted(request_id, request_type, loader.get(),
                    /*request_body*/ "");
@@ -399,7 +470,9 @@ void RemoteSuggestionsService::CreateDocumentSuggestionsRequest(
       base::BindOnce(&RemoteSuggestionsService::OnRequestCompleted,
                      weak_ptr_factory_.GetWeakPtr(), request_id,
                      /*request_type=*/RemoteRequestType::kDocumentSuggest,
-                     std::move(request_timer), std::move(completion_callback)));
+                     std::move(request_timer),
+                     metrics::OmniboxEventProto::INVALID_SPEC,
+                     std::move(completion_callback)));
 }
 
 void RemoteSuggestionsService::StopCreatingDocumentSuggestionsRequest() {
@@ -438,6 +511,7 @@ void RemoteSuggestionsService::
                          /*request_type=*/
                          RemoteRequestType::kEnterpriseSearchAggregatorSuggest,
                          std::move(request_timer),
+                         metrics::OmniboxEventProto::INVALID_SPEC,
                          std::move(completion_callback)),
           in_keyword_mode);
 }
@@ -506,8 +580,9 @@ RemoteSuggestionsService::StartDeletionRequest(
       base::BindOnce(&RemoteSuggestionsService::OnRequestCompleted,
                      weak_ptr_factory_.GetWeakPtr(), request_id,
                      /*request_type=*/RemoteRequestType::kDeletion,
-                     std::move(request_timer), std::move(completion_callback),
-                     loader.get()));
+                     std::move(request_timer),
+                     metrics::OmniboxEventProto::INVALID_SPEC,
+                     std::move(completion_callback), loader.get()));
 
   OnRequestStarted(request_id, /*request_type=*/RemoteRequestType::kDeletion,
                    loader.get(),
@@ -564,6 +639,7 @@ void RemoteSuggestionsService::OnRequestCompleted(
     const base::UnguessableToken& request_id,
     RemoteRequestType request_type,
     base::ElapsedTimer request_timer,
+    metrics::OmniboxEventProto::PageClassification page_classification,
     CompletionCallback completion_callback,
     const network::SimpleURLLoader* source,
     std::unique_ptr<std::string> response_body) {
@@ -576,7 +652,8 @@ void RemoteSuggestionsService::OnRequestCompleted(
   observers_.Notify(&Observer::OnRequestCompleted, request_id, response_code,
                     response_body);
   LogResponseCode(request_type, response_code);
-  LogResponseTime(request_type, request_timer.Elapsed(), response_code);
+  LogResponseTimeAndCode(page_classification, request_type,
+                         request_timer.Elapsed(), response_code);
 
   // Call the completion callback or delegate it.
   if (delegate_) {

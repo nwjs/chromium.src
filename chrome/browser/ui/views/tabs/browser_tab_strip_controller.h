@@ -157,6 +157,15 @@ class BrowserTabStripController : public TabStripController,
                               int index) override;
   void SetTabNeedsAttentionAt(int index, bool attention) override;
   bool IsFrameButtonsRightAligned() const override;
+
+  void OnSplitTabCreated(std::vector<std::pair<tabs::TabInterface*, int>> tabs,
+                         split_tabs::SplitTabId split_id,
+                         SplitTabAddReason reason,
+                         tabs::SplitTabLayout tab_layout) override;
+  void OnSplitTabRemoved(std::vector<std::pair<tabs::TabInterface*, int>> tabs,
+                         split_tabs::SplitTabId split_id,
+                         SplitTabRemoveReason reason) override;
+
   const Browser* browser() const { return browser_view_->browser(); }
 
   // Test-specific methods.
@@ -190,7 +199,7 @@ class BrowserTabStripController : public TabStripController,
   HoverTabSelector hover_tab_selector_;
 
   // Forces the tabs to use the regular (non-immersive) style and the
-  // top-of-window views to be revealed when the user is dragging |tabstrip|'s
+  // top-of-window views to be revealed when the user is dragging `tabstrip`'s
   // tabs.
   std::unique_ptr<ImmersiveRevealedLock> immersive_reveal_lock_;
 

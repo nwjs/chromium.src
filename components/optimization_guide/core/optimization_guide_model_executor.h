@@ -15,6 +15,7 @@
 #include "components/optimization_guide/core/model_execution/optimization_guide_model_execution_error.h"
 #include "components/optimization_guide/core/model_quality/model_quality_log_entry.h"
 #include "components/optimization_guide/proto/model_execution.pb.h"
+#include "services/on_device_model/public/cpp/capabilities.h"
 #include "services/on_device_model/public/mojom/on_device_model.mojom.h"
 
 namespace optimization_guide {
@@ -58,8 +59,6 @@ struct OptimizationGuideModelStreamingExecutionResult {
       base::expected<const StreamingResponse,
                      OptimizationGuideModelExecutionError> response,
       bool provided_by_on_device,
-      // TODO(372535824): remove this parameter.
-      std::unique_ptr<ModelQualityLogEntry> log_entry = nullptr,
       std::unique_ptr<proto::ModelExecutionInfo> execution_info = nullptr);
 
   ~OptimizationGuideModelStreamingExecutionResult();
@@ -70,8 +69,6 @@ struct OptimizationGuideModelStreamingExecutionResult {
       response;
   // True if the response was computed on-device.
   bool provided_by_on_device = false;
-  // The log entry will be null until `StreamingResponse.is_complete` is true.
-  std::unique_ptr<ModelQualityLogEntry> log_entry;
   // The execution info will be null until `StreamingResponse.is_complete` is
   // true.
   std::unique_ptr<proto::ModelExecutionInfo> execution_info;
@@ -97,7 +94,7 @@ using OptimizationGuideModelExecutionResultStreamingCallback =
 
 // The callback for receiving the token size of the given input.
 using OptimizationGuideModelSizeInTokenCallback =
-    base::OnceCallback<void(uint32_t)>;
+    base::OnceCallback<void(std::optional<uint32_t>)>;
 
 // Params used to control sampling output tokens for the on-device model.
 struct SamplingParams {
@@ -128,6 +125,10 @@ struct SessionConfigParams {
     kAlwaysDisable,
   };
   LoggingMode logging_mode = LoggingMode::kDefault;
+
+  // Capabilities that are enabled for this session when using on-device
+  // execution.
+  on_device_model::Capabilities capabilities;
 };
 
 // Reasons why the on-device model was not available for use.
@@ -297,6 +298,9 @@ class OptimizationGuideModelExecutor {
     // Return the sampling params for the current session.
     virtual const SamplingParams GetSamplingParams() const = 0;
 
+    // Return the capabilities for the current session.
+    virtual on_device_model::Capabilities GetCapabilities() const = 0;
+
     // Returns the feature_metadata from the
     // OnDeviceModelExecutionFeatureConfig.
     virtual const proto::Any& GetOnDeviceFeatureMetadata() const = 0;
@@ -330,6 +334,10 @@ class OptimizationGuideModelExecutor {
   virtual void RemoveOnDeviceModelAvailabilityChangeObserver(
       optimization_guide::ModelBasedCapabilityKey feature,
       OnDeviceModelAvailabilityObserver* observer) {}
+
+  // Returns the capabilities for the on-device model, or empty capabilities if
+  // no model is available.
+  virtual on_device_model::Capabilities GetOnDeviceCapabilities();
 };
 
 }  // namespace optimization_guide

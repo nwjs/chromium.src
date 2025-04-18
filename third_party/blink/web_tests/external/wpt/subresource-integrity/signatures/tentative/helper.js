@@ -18,6 +18,27 @@ const kValidKeys = {
   arbitrary: "xDnP380zcL4rJ76rXYjeHlfMyPZEOqpJYjsjEppbuXE="
 };
 
+// As above in kValidKeys, but in JWK format (including the private key).
+const kValidKeysJWK = {
+  // https://www.rfc-editor.org/rfc/rfc9421.html#name-example-ed25519-test-key
+  rfc: {
+    "kty": "OKP",
+    "crv": "Ed25519",
+    "kid": "test-key-ed25519",
+    "d": "n4Ni-HpISpVObnQMW0wOhCKROaIKqKtW_2ZYb2p9KcU",
+    "x": "JrQLj5P_89iXES9-vFgrIy29clF9CC_oPPsw3c5D0bs"
+  },
+
+  // Matching private key to arbitrary public key above.
+  arbitrary: {
+    "crv": "Ed25519",
+    "d": "MTodZiTA9CBsuIvSfO679TThkG3b7ce6R3sq_CdyVp4",
+    "ext": true,
+    "kty": "OKP",
+    "x": "xDnP380zcL4rJ76rXYjeHlfMyPZEOqpJYjsjEppbuXE"
+  }
+};
+
 // A key with the right length that cannot be used to verify the HTTP response
 // above.
 const kInvalidKey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
@@ -32,24 +53,48 @@ const kAcceptSignature = "accept-signature";
 // Given `{ digest: "...", body: "...", cors: true, type: "..." }`, generates
 // the URL to a script resource that has the given characteristics.
 let counter = 0;
-function resourceURL(data, host) {
+function resourceURL(data, server_origin) {
   counter++;
   data.type ??= "application/javascript";
   data.counter = counter;
   let params = new URLSearchParams(data);
-  let result = new URL("/subresource-integrity/signatures/resource.py?" + params.toString(), self.location);
-  if (host) {
-    result.host = host;
-  }
+  let result = new URL("/subresource-integrity/signatures/resource.py?" + params.toString(), server_origin ?? self.location.origin);
   return result.href;
+}
+
+// Given a signature base (actually an arbitrary string) and a key in JWK
+// format, generates a base64-encoded Ed25519 signature. Only available over
+// HTTPS.
+async function signSignatureBase(signatureBase, privateKeyJWK) {
+  assert_true(self.isSecureContext, "Signatures can only be generated in secure contexts.");
+  const privateKey = await crypto.subtle.importKey(
+    'jwk',
+    privateKeyJWK,
+    'Ed25519',
+    true, // extractable
+    ['sign']
+  );
+
+  const encoder = new TextEncoder();
+  const messageBytes = encoder.encode(signatureBase);
+
+  const signatureBytes = await crypto.subtle.sign(
+    { name: 'Ed25519' },
+    privateKey,
+    messageBytes
+  );
+
+  return btoa(String.fromCharCode(...new Uint8Array(signatureBytes)));
 }
 
 function generate_fetch_test(request_data, options, expectation, description) {
   promise_test(test => {
-    const url = resourceURL(request_data, options.host);
+    const url = resourceURL(request_data, options.origin);
     let fetch_options = {};
     if (options.mode) {
       fetch_options.mode = options.mode;
+    } else if (options.origin) {
+      fetch_options.mode = "cors";
     }
     if (options.integrity) {
       fetch_options.integrity = options.integrity;
@@ -66,7 +111,7 @@ function generate_fetch_test(request_data, options, expectation, description) {
         // in the header.
         if (options.integrity?.includes(`ed25519-${kInvalidKey}`)) {
           assert_equals(r.headers.get(kAcceptSignature),
-                        `sig0=("unencoded-digest";sf);keyid="${kInvalidKey}";tag="sri", sig1=("unencoded-digest";sf);keyid="${kValidKeys['rfc']}";tag="sri"`,
+                        `sig0=("unencoded-digest";sf);keyid="${kValidKeys['rfc']}";tag="sri", sig1=("unencoded-digest";sf);keyid="${kInvalidKey}";tag="sri"`,
                         "`accept-signature` was set.");
         } else if (options.integrity?.includes(`ed25519-${kValidKeys['rfc']}`)) {
           assert_equals(r.headers.get(kAcceptSignature),

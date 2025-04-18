@@ -21,6 +21,7 @@
 #include "gpu/config/gpu_finch_features.h"
 #include "gpu/config/gpu_switches.h"
 #include "media/media_buildflags.h"
+#include "ui/gl/gl_switches.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/build_info.h"
@@ -47,10 +48,6 @@ BASE_FEATURE(kAndroidBcivBottomControls,
              "AndroidBcivBottomControls",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kAndroidBcivZeroBrowserFrames,
-             "AndroidBcivZeroBrowserFrames",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 #endif  // BUILDFLAG(IS_ANDROID)
 
 BASE_FEATURE(kBackdropFilterMirrorEdgeMode,
@@ -68,7 +65,12 @@ BASE_FEATURE(kUseDrmBlackFullscreenOptimization,
 
 BASE_FEATURE(kUseFrameIntervalDecider,
              "UseFrameIntervalDecider",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_ANDROID)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
 
 #if BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kUseFrameIntervalDeciderNewAndroidFeatures,
@@ -229,12 +231,7 @@ BASE_FEATURE(kWebViewEnableADPFRendererMain,
 // otherwise this is a no-op.
 BASE_FEATURE(kWebViewEnableADPFGpuMain,
              "WebViewEnableADPFGpuMain",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enable WebView providing frame rate hints to View system.
-BASE_FEATURE(kWebViewFrameRateHints,
-             "WebViewFrameRateHints",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 #if BUILDFLAG(IS_APPLE)
@@ -437,17 +434,6 @@ BASE_FEATURE(kShutdownForFailedChannelCreation,
              "ShutdownForFailedChannelCreation",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// If enabled, snapshot the root surface when it is evicted.
-BASE_FEATURE(kSnapshotEvictedRootSurface,
-             "SnapshotEvictedRootSurface",
-// TODO(edcourtney): Enable for Android.
-#if BUILDFLAG(IS_ANDROID)
-             base::FEATURE_DISABLED_BY_DEFAULT
-#else
-             base::FEATURE_ENABLED_BY_DEFAULT
-#endif
-);
-
 // If enabled, info for quads from the last render pass will be reported as
 // UMAs.
 BASE_FEATURE(kShouldLogFrameQuadInfo,
@@ -463,11 +449,6 @@ BASE_FEATURE(kShouldLogFrameQuadInfo,
 BASE_FEATURE(kBatchResourceRelease,
              "BatchResourceRelease",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// The scale to use for root surface snapshots on eviction. See
-// `kSnapshotEvictedRootSurface`.
-const base::FeatureParam<double> kSnapshotEvictedRootSurfaceScale{
-    &kSnapshotEvictedRootSurface, "scale", 0.4};
 
 // Do HDR color conversion per render pass update rect in renderer instead of
 // inserting a separate color conversion pass during surface aggregation.
@@ -611,23 +592,11 @@ NumCooldownFramesForAckOnSurfaceActivationDuringInteraction() {
       kNumCooldownFramesForAckOnSurfaceActivationDuringInteraction.Get());
 }
 
-std::optional<double> SnapshotEvictedRootSurfaceScale() {
-  if (!base::FeatureList::IsEnabled(kSnapshotEvictedRootSurface)) {
-    return std::nullopt;
-  }
-  return kSnapshotEvictedRootSurfaceScale.Get();
-}
-
 bool ShouldLogFrameQuadInfo() {
   return base::FeatureList::IsEnabled(features::kShouldLogFrameQuadInfo);
 }
 
 bool IsUsingFrameIntervalDecider() {
-#if BUILDFLAG(IS_ANDROID)
-  if (base::FeatureList::IsEnabled(kWebViewFrameRateHints)) {
-    return true;
-  }
-#endif
   return base::FeatureList::IsEnabled(kUseFrameIntervalDecider);
 }
 
@@ -672,14 +641,11 @@ bool ShouldRemoveRedirectionBitmap() {
   // bitmap via a blit swap chain. DWM_SYSTEMBACKDROP_TYPE is only available
   // on Win11 22H2+, therefore limit the bitmap removal to those versions or
   // higher so that an appropriate background replacement is available.
-  // Note: the DISABLE_DIRECT_COMPOSITION command line check is a workaround for
-  // https://crbug.com/40276881. Additionally, Direct Composition is only
-  // blocklisted for Windows 10 so this feature would not be enabled at the same
-  // time.
+  // Note: the disable-direct-composition command line check is a workaround for
+  // https://crbug.com/40276881.
   return base::win::GetVersion() >= base::win::Version::WIN11_22H2 &&
          !base::CommandLine::ForCurrentProcess()->HasSwitch(
-             gpu::GpuDriverBugWorkaroundTypeToString(
-                 gpu::DISABLE_DIRECT_COMPOSITION)) &&
+             switches::kDisableDirectComposition) &&
          base::FeatureList::IsEnabled(kRemoveRedirectionBitmap);
 }
 #endif

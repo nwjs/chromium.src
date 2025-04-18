@@ -108,8 +108,8 @@ HRESULT GetSidIntegrityLevel(PSID sid, MANDATORY_LEVEL* level) {
   }
   constexpr SID_IDENTIFIER_AUTHORITY kMandatoryLabelAuth =
       SECURITY_MANDATORY_LABEL_AUTHORITY;
-  if (std::memcmp(authority, &kMandatoryLabelAuth,
-                  sizeof(SID_IDENTIFIER_AUTHORITY))) {
+  if (UNSAFE_TODO(std::memcmp(authority, &kMandatoryLabelAuth,
+                              sizeof(SID_IDENTIFIER_AUTHORITY)))) {
     return E_FAIL;
   }
   PUCHAR count = ::GetSidSubAuthorityCount(sid);
@@ -633,8 +633,8 @@ std::optional<base::FilePath> GetGoogleUpdateExePath(UpdaterScope scope) {
     return std::nullopt;
   }
 
-  return goopdate_base_dir.AppendASCII(COMPANY_SHORTNAME_STRING)
-      .AppendASCII("Update")
+  return goopdate_base_dir.AppendUTF8(COMPANY_SHORTNAME_STRING)
+      .Append(L"Update")
       .Append(kLegacyExeName);
 }
 
@@ -946,12 +946,12 @@ std::optional<base::FilePath> GetInstallDirectory(UpdaterScope scope) {
     LOG(ERROR) << "Can't retrieve app data directory.";
     return std::nullopt;
   }
-  return app_data_dir.AppendASCII(COMPANY_SHORTNAME_STRING)
-      .AppendASCII(PRODUCT_FULLNAME_STRING);
+  return app_data_dir.AppendUTF8(COMPANY_SHORTNAME_STRING)
+      .AppendUTF8(PRODUCT_FULLNAME_STRING);
 }
 
 base::FilePath GetExecutableRelativePath() {
-  return base::FilePath::FromASCII(kExecutableName);
+  return base::FilePath::FromUTF8Unsafe(kExecutableName);
 }
 
 bool IsGuid(const std::wstring& s) {
@@ -1456,17 +1456,6 @@ bool StoreRunTimeEnrollmentToken(const std::string& enrollment_token) {
          ERROR_SUCCESS;
 }
 
-std::optional<base::FilePath> GetUniqueTempFilePath(base::FilePath file) {
-  base::FilePath temp_dir;
-  if (file.empty() || !base::GetTempDir(&temp_dir)) {
-    return {};
-  }
-  return temp_dir.Append(base::StrCat(
-      {file.RemoveExtension().BaseName().value(),
-       base::UTF8ToWide(base::Uuid::GenerateRandomV4().AsLowercaseString()),
-       file.Extension()}));
-}
-
 std::optional<base::FilePath> GetBundledEnterpriseCompanionExecutablePath(
     UpdaterScope scope) {
   std::optional<base::FilePath> install_dir =
@@ -1475,11 +1464,12 @@ std::optional<base::FilePath> GetBundledEnterpriseCompanionExecutablePath(
     return std::nullopt;
   }
 
-  return install_dir->AppendASCII(base::StrCat(
-      {base::FilePath::FromASCII(enterprise_companion::kExecutableName)
-           .RemoveExtension()
-           .MaybeAsASCII(),
-       kExecutableSuffix, ".exe"}));
+  return install_dir->AppendUTF8(
+      base::StrCat({base::FilePath()
+                        .AppendUTF8(enterprise_companion::kExecutableName)
+                        .RemoveExtension()
+                        .AsUTF8Unsafe(),
+                    kExecutableSuffix, ".exe"}));
 }
 
 }  // namespace updater

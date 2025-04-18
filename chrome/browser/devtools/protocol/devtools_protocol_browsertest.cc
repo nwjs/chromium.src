@@ -630,9 +630,10 @@ testing::AssertionResult SimulateDipsBounce(content::WebContents* web_contents,
   }
 
   const content::BtmRedirectInfo& redirect = *final_observer.redirects()->at(0);
-  if (redirect.url.url != bounce_url) {
-    return testing::AssertionFailure() << "Expected redirect at " << bounce_url
-                                       << "; found " << redirect.url.url;
+  if (redirect.redirecting_url.url != bounce_url) {
+    return testing::AssertionFailure()
+           << "Expected redirect at " << bounce_url << "; found "
+           << redirect.redirecting_url.url;
   }
 
   if (redirect.access_type != content::BtmDataAccessType::kWrite &&
@@ -1188,12 +1189,10 @@ IN_PROC_BROWSER_TEST_F(ExtensionProtocolTest,
       WaitForNotification("Target.attachedToTarget", true);
   base::Value* targetInfo = attached.Find("targetInfo");
   ASSERT_THAT(targetInfo, testing::NotNull());
-  EXPECT_THAT(
-      targetInfo->GetDict(),
-      base::test::DictionaryHasValue("type", base::Value("service_worker")));
-  EXPECT_THAT(targetInfo->GetDict(),
-              base::test::DictionaryHasValue(
-                  "url", CHECK_DEREF(ext_target.Find("url"))));
+  EXPECT_THAT(*targetInfo, base::test::DictionaryHasValue(
+                               "type", base::Value("service_worker")));
+  EXPECT_THAT(*targetInfo, base::test::DictionaryHasValue(
+                               "url", CHECK_DEREF(ext_target.Find("url"))));
   EXPECT_THAT(attached.FindBool("waitingForDebugger"),
               testing::Optional(false));
 

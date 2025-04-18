@@ -46,6 +46,7 @@ enum class SuggestionType {
   kManageCreditCard = 11,
   kManageIban = 12,
   kManagePlusAddress = 13,
+  kManageLoyaltyCard = 68,
 
   // Compose popup suggestion shown when no Compose session exists.
   kComposeProactiveNudge = 14,
@@ -93,7 +94,7 @@ enum class SuggestionType {
   kViewPasswordDetails = 32,
 
   // Payment suggestions.
-  kShowAccountCards = 24,
+  // kShowAccountCards = 24, // DEPRECATED
   kCreditCardEntry = 33,
   kInsecureContextPaymentDisabledMessage = 34,
   kScanCreditCard = 35,
@@ -112,6 +113,12 @@ enum class SuggestionType {
   // Promotion suggestions.
   kMerchantPromoCodeEntry = 41,
   kSeePromoCodeDetails = 42,
+
+  // Federated profiles suggestions.
+  kIdentityCredential = 66,
+
+  // Loyalty card suggestions.
+  kLoyaltyCardEntry = 67,
 
   // Webauthn suggestions.
   kWebauthnCredential = 43,
@@ -144,7 +151,12 @@ enum class SuggestionType {
   // kAutofillAiError = 59, // DEPRECATED
   // kEditAutofillAiData = 60, // DEPRECATED
 
-  kMaxValue = kManageAutofillAi
+  // kPendingStateSignin suggestion is displayed when the user is in the pending
+  // state. On click the user will be directed to sign in.
+  kPendingStateSignin = 65,
+
+  // Next ID: 69
+  kMaxValue = kManageLoyaltyCard
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/autofill/enums.xml:SuggestionType)
 

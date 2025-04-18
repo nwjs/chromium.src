@@ -368,7 +368,7 @@ void HTMLElement::CollectStyleForPresentationAttribute(
           style, CSSPropertyID::kWebkitUserModify, CSSValueID::kReadOnly);
     }
   } else if (name == html_names::kHiddenAttr) {
-    if (EqualIgnoringASCIICase(value, "until-found")) {
+    if (EqualIgnoringASCIICase(value, keywords::kUntilFound)) {
       AddPropertyToPresentationAttributeStyle(
           style, CSSPropertyID::kContentVisibility, CSSValueID::kHidden);
       UseCounter::Count(GetDocument(), WebFeature::kHiddenUntilFoundAttribute);
@@ -590,6 +590,10 @@ const AttributeTriggers* HTMLElement::TriggersForAttributeName(
        event_type_names::kPointerup, nullptr},
       {html_names::kOnprogressAttr, kNoWebFeature, event_type_names::kProgress,
        nullptr},
+      {html_names::kOnpromptactionAttr, kNoWebFeature,
+       event_type_names::kPromptaction, nullptr},
+      {html_names::kOnpromptdismissAttr, kNoWebFeature,
+       event_type_names::kPromptdismiss, nullptr},
       {html_names::kOnratechangeAttr, kNoWebFeature,
        event_type_names::kRatechange, nullptr},
       {html_names::kOnresetAttr, kNoWebFeature, event_type_names::kReset,
@@ -1150,9 +1154,9 @@ V8UnionBooleanOrStringOrUnrestrictedDouble* HTMLElement::hidden() const {
     return MakeGarbageCollected<V8UnionBooleanOrStringOrUnrestrictedDouble>(
         false);
   }
-  if (attribute == "until-found") {
+  if (EqualIgnoringASCIICase(attribute, keywords::kUntilFound)) {
     return MakeGarbageCollected<V8UnionBooleanOrStringOrUnrestrictedDouble>(
-        String("until-found"));
+        String(keywords::kUntilFound));
   }
   return MakeGarbageCollected<V8UnionBooleanOrStringOrUnrestrictedDouble>(true);
 }
@@ -1172,8 +1176,9 @@ void HTMLElement::setHidden(
       }
       break;
     case V8UnionBooleanOrStringOrUnrestrictedDouble::ContentType::kString:
-      if (EqualIgnoringASCIICase(value->GetAsString(), "until-found")) {
-        setAttribute(html_names::kHiddenAttr, AtomicString("until-found"));
+      if (EqualIgnoringASCIICase(value->GetAsString(), keywords::kUntilFound)) {
+        setAttribute(html_names::kHiddenAttr,
+                     AtomicString(keywords::kUntilFound));
       } else if (value->GetAsString() == "") {
         removeAttribute(html_names::kHiddenAttr);
       } else {
@@ -2488,9 +2493,17 @@ void HTMLElement::setDir(const AtomicString& value) {
   setAttribute(html_names::kDirAttr, value);
 }
 
+HTMLElement* HTMLElement::formForBinding() const {
+  if (const auto* internals = GetElementInternals()) {
+    return internals->RetargetedForm();
+  }
+  return nullptr;
+}
+
 HTMLFormElement* HTMLElement::formOwner() const {
-  if (const auto* internals = GetElementInternals())
+  if (const auto* internals = GetElementInternals()) {
     return internals->Form();
+  }
   return nullptr;
 }
 

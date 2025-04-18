@@ -14,6 +14,7 @@
 #include "base/containers/contains.h"
 #include "base/debug/crash_logging.h"
 #include "base/debug/dump_without_crashing.h"
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/scoped_refptr.h"
@@ -38,6 +39,7 @@
 #include "content/browser/loader/subresource_proxying_url_loader_service.h"
 #include "content/browser/loader/url_loader_factory_utils.h"
 #include "content/browser/navigation_subresource_loader_params.h"
+#include "content/browser/preloading/prefetch/prefetch_features.h"
 #include "content/browser/preloading/prefetch/prefetch_url_loader_interceptor.h"
 #include "content/browser/renderer_host/frame_tree_node.h"
 #include "content/browser/renderer_host/navigation_request.h"
@@ -104,6 +106,7 @@
 #include "services/network/public/cpp/wrapper_shared_url_loader_factory.h"
 #include "services/network/public/mojom/network_context.mojom-forward.h"
 #include "services/network/public/mojom/network_service.mojom.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/loader/mime_sniffing_throttle.h"
 #include "third_party/blink/public/common/loader/record_load_histograms.h"
 #include "third_party/blink/public/common/loader/throttling_url_loader.h"
@@ -331,6 +334,15 @@ std::unique_ptr<network::ResourceRequest> CreateResourceRequest(
       request_info.shared_storage_writable_eligible;
   new_request->is_ad_tagged = request_info.is_ad_tagged;
 
+  // TODO(crbug.com/382291442): Remove feature guarding once launched.
+  if (base::FeatureList::IsEnabled(
+          network::features::kPopulatePermissionsPolicyOnRequest) &&
+      frame_tree_node && frame_tree_node->current_frame_host() &&
+      frame_tree_node->current_frame_host()->GetPermissionsPolicy()) {
+    new_request->permissions_policy =
+        *frame_tree_node->current_frame_host()->GetPermissionsPolicy();
+  }
+
   return new_request;
 }
 
@@ -547,6 +559,11 @@ std::unique_ptr<network::ResourceRequest> CreateResourceRequestForNavigation(
 
   new_request->enable_load_timing = true;
 
+  if (base::FeatureList::IsEnabled(
+          network::features::kRendererSideContentDecoding)) {
+    new_request->client_side_content_decoding_enabled = true;
+  }
+
   return new_request;
 }
 
@@ -663,6 +680,18 @@ void NavigationURLLoaderImpl::CreateInterceptors() {
     // The interceptor may not be created in certain cases (e.g., the origin
     // is not secure).
     if (service_worker_interceptor) {
+      if (base::FeatureList::IsEnabled(features::kPrefetchServiceWorker)) {
+        // Set up an interceptor for ServiceWorker-controlled prefetches. This
+        // is needed before the ServiceWorkerMainResourceLoaderInterceptor which
+        // would also intercept the request for ServiceWorker-controlled URLs.
+        // See the design docs at https://crbug.com/40947546.
+        interceptors_.push_back(std::make_unique<PrefetchURLLoaderInterceptor>(
+            PrefetchServiceWorkerState::kControlled,
+            service_worker_handle_->AsWeakPtr(), frame_tree_node_id_,
+            request_info_->initiator_document_token,
+            request_info_->prefetch_serving_page_metrics_container));
+      }
+
       interceptors_.push_back(std::move(service_worker_interceptor));
     }
   }
@@ -675,8 +704,14 @@ void NavigationURLLoaderImpl::CreateInterceptors() {
   }
 
   // Set up an interceptor for prefetch.
+  // When `features::kPrefetchServiceWorker` is enabled, we intentionally add
+  // two `PrefetchURLLoaderInterceptor`s, one for ServiceWorker-controlled
+  // prefetches above, and one for non-ServiceWorker-controlled prefetches here.
+  // See the design docs at https://crbug.com/40947546.
   interceptors_.push_back(std::make_unique<PrefetchURLLoaderInterceptor>(
-      frame_tree_node_id_, request_info_->initiator_document_token,
+      PrefetchServiceWorkerState::kDisallowed,
+      /*service_worker_handle=*/nullptr, frame_tree_node_id_,
+      request_info_->initiator_document_token,
       request_info_->prefetch_serving_page_metrics_container));
 
   // See if embedders want to add interceptors.
@@ -1299,6 +1334,11 @@ void NavigationURLLoaderImpl::OnAcceptCHFrameReceived(
     const url::Origin& origin,
     const std::vector<network::mojom::WebClientHintsType>& accept_ch_frame,
     OnAcceptCHFrameReceivedCallback callback) {
+  LogQueueTimeHistogram("Navigation.QueueTime.OnAcceptCHFrameReceived",
+                        resource_request_->is_outermost_main_frame);
+  base::ScopedUmaHistogramTimer timer(
+      "Navigation.URLLoader.OnAcceptCHFrameReceived.ExecutionTime",
+      base::ScopedUmaHistogramTimer::ScopedHistogramTiming::kMicrosecondTimes);
   received_accept_ch_frame_ = true;
   if (!base::FeatureList::IsEnabled(network::features::kAcceptCHFrame)) {
     std::move(callback).Run(net::OK);

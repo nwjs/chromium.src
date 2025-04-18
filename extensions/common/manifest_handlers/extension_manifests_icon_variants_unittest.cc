@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include <optional>
+#include <vector>
 
 #include "base/files/file_path.h"
 #include "base/strings/stringprintf.h"
@@ -13,22 +14,26 @@
 #include "extensions/common/features/feature_channel.h"
 #include "extensions/common/icons/extension_icon_set.h"
 #include "extensions/common/manifest_constants.h"
+#include "extensions/common/manifest_handlers/icon_variants_handler.h"
 #include "extensions/common/manifest_handlers/icons_handler.h"
 #include "extensions/common/manifest_test.h"
+#include "extensions/common/warnings_test_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace extensions {
 
-using IconVariantsFeatureFreeManifestTest = ManifestTest;
+// Don't enable the icon variants feature. Warn if the key is used, but don't
+// create an error.
+using NoIconVariantsManifestTest = ManifestTest;
 
-// Test that icon_variants doesn't create an error when the feature isn't
-// enabled, even in the event of warnings.
-TEST_F(IconVariantsFeatureFreeManifestTest, Warnings) {
-  LoadAndExpectWarnings("icon_variants.json",
-                        {"'icon_variants' requires canary channel or newer, "
-                         "but this is the stable channel."});
+TEST_F(NoIconVariantsManifestTest, Warnings) {
+  // Test simple feature's AvailabilityResult::UNSUPPORTED_CHANNEL.
+  LoadAndExpectWarning("icon_variants.json",
+                       "'icon_variants' requires canary channel or newer, "
+                       "but this is the stable channel.");
 }
 
+// Enable the icon variants feature.
 class IconVariantsManifestTest : public ManifestTest {
  public:
   IconVariantsManifestTest() {
@@ -159,8 +164,10 @@ TEST_F(IconVariantsManifestTest, SuccessWithOptionalWarnings) {
   }
 }
 
-// Cases that cause errors and prevent the extension from loading.
-TEST_F(IconVariantsManifestTest, Errors) {
+// Cases that would otherwise cause errors and prevent the extension from
+// loading. However, `icon_variants` aims to avoid causing errors preventing
+// extensions from loading. That makes the key more flexible for later changes.
+TEST_F(IconVariantsManifestTest, WarnOnUnrecognizedIconVariants) {
   static constexpr struct {
     const char* title;
     const char* icon_variants;
@@ -176,8 +183,11 @@ TEST_F(IconVariantsManifestTest, Errors) {
   };
   for (const auto& test_case : test_cases) {
     SCOPED_TRACE(base::StringPrintf("Error: '%s'", test_case.title));
-    LoadAndExpectError(GetManifestData(test_case.icon_variants),
-                       "Error: 'icon_variants' is not valid.");
+    scoped_refptr<extensions::Extension> extension =
+        LoadAndExpectSuccess(GetManifestData(test_case.icon_variants));
+    ASSERT_FALSE(IconVariantsInfo::HasIconVariants(extension.get()));
+    EXPECT_TRUE(warnings_test_util::HasInstallWarning(
+        extension, "'icon_variants' is not valid."));
   }
 }
 
@@ -197,7 +207,6 @@ TEST_F(IconVariantsManifestTest, PreferIconVariantsOverIcons) {
   scoped_refptr<extensions::Extension> extension(
       LoadAndExpectSuccess(manifest_data));
   const ExtensionIconSet& icons = IconsInfo::GetIcons(extension.get());
-
   EXPECT_EQ("icon_variants.16.png",
             icons.Get(extension_misc::EXTENSION_ICON_BITTY,
                       ExtensionIconSet::Match::kExactly));
@@ -252,8 +261,7 @@ TEST_F(IconVariantsManifestTest, GetIconMethods) {
     const ExtensionIconSet& icons =
         !test_case.color_scheme.has_value()
             ? IconsInfo::GetIcons(extension.get())
-            : IconsInfo::GetIcons(extension.get(),
-                                  test_case.color_scheme.value());
+            : IconsInfo::GetIcons(*extension, test_case.color_scheme.value());
     EXPECT_EQ(test_case.expected,
               icons.Get(extension_misc::EXTENSION_ICON_BITTY,
                         ExtensionIconSet::Match::kExactly));

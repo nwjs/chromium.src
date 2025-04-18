@@ -382,10 +382,13 @@ void AttachScrollMarkers(LayoutObject& parent,
     // if the outer one is position:relative, and the inner one has a scroll
     // marker in an absolutely positioned subtree, the marker belongs in the
     // outermost scroll marker group.
-    if (!child->IsScrollMarkerGroup() && !child->GetScrollMarkerGroup()) {
-      AttachScrollMarkers(*child, context, has_absolute_containment,
-                          has_fixed_containment,
-                          has_ancestor_marker || did_attach_marker);
+    if (!child->IsScrollMarkerGroup()) {
+      auto* child_box = DynamicTo<LayoutBox>(child);
+      if (!child_box || !child_box->GetScrollMarkerGroup()) {
+        AttachScrollMarkers(*child, context, has_absolute_containment,
+                            has_fixed_containment,
+                            has_ancestor_marker || did_attach_marker);
+      }
     }
   }
 
@@ -632,8 +635,8 @@ const LayoutResult* BlockNode::Layout(
       // Ensure turning on/off scrollbars only once at most, when we call
       // |LayoutWithAlgorithm| recursively.
       DEFINE_STATIC_LOCAL(
-          Persistent<HeapHashSet<WeakMember<LayoutBox>>>, scrollbar_changed,
-          (MakeGarbageCollected<HeapHashSet<WeakMember<LayoutBox>>>()));
+          Persistent<GCedHeapHashSet<WeakMember<LayoutBox>>>, scrollbar_changed,
+          (MakeGarbageCollected<GCedHeapHashSet<WeakMember<LayoutBox>>>()));
       DCHECK(scrollbar_changed->insert(box_.Get()).is_new_entry);
 #endif
 
@@ -642,9 +645,6 @@ const LayoutResult* BlockNode::Layout(
       box_->SetNeedsLayout(layout_invalidation_reason::kScrollbarChanged,
                            kMarkOnlyThis);
 
-      if (auto* view = DynamicTo<LayoutView>(GetLayoutBox())) {
-        view->InvalidateSvgRootsWithRelativeLengthDescendents();
-      }
       fragment_geometry = CalculateInitialFragmentGeometry(constraint_space,
                                                            *this, break_token);
       layout_result = LayoutWithAlgorithm(params);
@@ -694,7 +694,8 @@ const LayoutResult* BlockNode::SimplifiedLayout(
          box_->ChildLayoutBlockedByDisplayLock());
 
   // Perform layout on ourselves using the previous constraint space.
-  const ConstraintSpace space(previous_result->GetConstraintSpaceForCaching());
+  const ConstraintSpace& space =
+      previous_result->GetConstraintSpaceForCaching();
   const LayoutResult* result = Layout(space, /* break_token */ nullptr);
 
   if (result->Status() != LayoutResult::kSuccess) {
@@ -1417,7 +1418,7 @@ void BlockNode::CopyChildFragmentPosition(
 
   DCHECK(layout_box->Parent()) << "Should be called on children only.";
 
-  LayoutPoint point =
+  DeprecatedLayoutPoint point =
       ComputeBoxLocation(child_fragment, offset, container_fragment,
                          previous_container_break_token);
   layout_box->SetLocation(point);
@@ -1481,7 +1482,8 @@ void BlockNode::CopyFragmentItemsToLayoutBox(
           maybe_flipped_offset.top += previously_consumed_block_size;
         else
           maybe_flipped_offset.left += previously_consumed_block_size;
-        layout_box->SetLocation(maybe_flipped_offset.ToLayoutPoint());
+        layout_box->SetLocation(
+            maybe_flipped_offset.FaultyToDeprecatedLayoutPoint());
         if (layout_box->HasSelfPaintingLayer()) [[unlikely]] {
           layout_box->Layer()->SetNeedsVisualOverflowRecalc();
         }
@@ -1539,7 +1541,11 @@ LogicalSize BlockNode::GetReplacedAspectRatio() const {
     return Style().LogicalAspectRatio();
   }
 
-  if (!ShouldApplySizeContainment()) {
+  // Any size containment should drop the aspect-ratio, however update once the
+  // following CSSWG issue is resolved.
+  //
+  // https://github.com/w3c/csswg-drafts/issues/7583
+  if (!box_->ShouldApplyAnySizeContainment()) {
     const PhysicalNaturalSizingInfo legacy_sizing_info =
         To<LayoutReplaced>(*box_).ComputeNaturalSizingInfo();
     if (!legacy_sizing_info.aspect_ratio.IsEmpty()) {
@@ -1709,9 +1715,9 @@ const LayoutResult* BlockNode::LayoutAtomicInline(
 
   builder.SetAvailableSize(parent_constraint_space.AvailableSize());
   builder.SetPercentageResolutionSize(
-      parent_constraint_space.PercentageResolutionSize());
-  builder.SetReplacedPercentageResolutionSize(
-      parent_constraint_space.ReplacedPercentageResolutionSize());
+      IsReplaced()
+          ? parent_constraint_space.ReplacedChildPercentageResolutionSize()
+          : parent_constraint_space.PercentageResolutionSize());
   ConstraintSpace constraint_space = builder.ToConstraintSpace();
   const LayoutResult* result = Layout(constraint_space);
   if (!DisableLayoutSideEffectsScope::IsDisabled()) {

@@ -16,6 +16,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/global_features.h"
 #include "chrome/browser/prefs/browser_prefs.h"
 #include "chrome/browser/profiles/profile_attributes_entry.h"
 #include "chrome/browser/profiles/profile_attributes_storage.h"
@@ -51,6 +52,7 @@
 #include "ui/gfx/image/image_unittest_util.h"
 
 #if BUILDFLAG(ENABLE_GLIC)
+#include "chrome/browser/background/startup_launch_manager.h"
 #include "chrome/browser/glic/glic_enabling.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #endif
@@ -81,6 +83,14 @@ AccountInfo GetValidAccountInfo(std::string email,
 const char kChromiumOrgDomain[] = "chromium.org";
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
+#if BUILDFLAG(ENABLE_GLIC)
+class TestStartupLaunchManager : public StartupLaunchManager {
+ public:
+  TestStartupLaunchManager() = default;
+  ~TestStartupLaunchManager() override = default;
+};
+#endif
+
 }  // namespace
 
 class GAIAInfoUpdateServiceTest : public testing::Test {
@@ -98,7 +108,11 @@ class GAIAInfoUpdateServiceTest : public testing::Test {
 
   void SetUp() override {
     testing::Test::SetUp();
+#if BUILDFLAG(ENABLE_GLIC)
+    StartupLaunchManager::SetInstanceForTesting(&startup_launch_manager_);
+#endif
     ASSERT_TRUE(testing_profile_manager_.SetUp());
+    TestingBrowserProcess::GetGlobal()->CreateGlobalFeaturesForTesting();
     RecreateGAIAInfoUpdateService();
   }
 
@@ -122,6 +136,10 @@ class GAIAInfoUpdateServiceTest : public testing::Test {
     if (service_) {
       ClearGAIAInfoUpdateService();
     }
+    TestingBrowserProcess::GetGlobal()->GetFeatures()->Shutdown();
+#if BUILDFLAG(ENABLE_GLIC)
+    StartupLaunchManager::SetInstanceForTesting(nullptr);
+#endif
   }
 
   TestingProfile* profile() {
@@ -173,6 +191,9 @@ class GAIAInfoUpdateServiceTest : public testing::Test {
   sync_preferences::TestingPrefServiceSyncable pref_service_;
   std::unique_ptr<GAIAInfoUpdateService> service_;
   network::TestURLLoaderFactory test_url_loader_factory_;
+#if BUILDFLAG(ENABLE_GLIC)
+  TestStartupLaunchManager startup_launch_manager_;
+#endif
 };
 
 TEST_F(GAIAInfoUpdateServiceTest, SyncOnSyncOff) {
@@ -566,33 +587,5 @@ TEST_F(GAIAInfoUpdateServiceWithGlicEnablingTest, LogInLogOut) {
   EXPECT_EQ(nullptr, entry->GetGAIAPicture());
   EXPECT_TRUE(entry->GetHostedDomain().empty());
   EXPECT_FALSE(entry->IsGlicEligible());
-}
-
-TEST_F(GAIAInfoUpdateServiceWithGlicEnablingTest,
-       SignInThenEnableGlicThenRestart) {
-  signin::WaitForRefreshTokensLoaded(identity_manager());
-
-  // Sign in without making the Profile Glic eligible.
-  std::string email = "pat@example.com";
-  AccountInfo info = signin::MakePrimaryAccountAvailable(
-      identity_manager(), email, signin::ConsentLevel::kSignin);
-  info = GetValidAccountInfo(info.email, info.gaia, "Pat", "Pat Foo",
-                             kNoHostedDomainFound);
-  signin::UpdateAccountInfoForAccount(identity_manager(), info);
-  base::RunLoop().RunUntilIdle();
-
-  ProfileAttributesEntry* entry = storage()->GetAllProfilesAttributes().front();
-  EXPECT_FALSE(entry->IsGlicEligible());
-
-  // Clear the service before restarting to ensure the update is not part of the
-  // refresh token update.
-  ClearGAIAInfoUpdateService();
-  MakeProfileGlicEligible();
-  // Information is not yet propagated.
-  EXPECT_FALSE(entry->IsGlicEligible());
-
-  // Simulates a restart which would now propagate the new information.
-  RecreateGAIAInfoUpdateService();
-  EXPECT_TRUE(entry->IsGlicEligible());
 }
 #endif

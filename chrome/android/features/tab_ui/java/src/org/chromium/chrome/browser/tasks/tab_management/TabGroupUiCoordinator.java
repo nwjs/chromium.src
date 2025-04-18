@@ -27,9 +27,8 @@ import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider
 import org.chromium.chrome.browser.collaboration.CollaborationServiceFactory;
 import org.chromium.chrome.browser.data_sharing.DataSharingServiceFactory;
 import org.chromium.chrome.browser.data_sharing.DataSharingTabManager;
-import org.chromium.chrome.browser.data_sharing.ui.shared_image_tiles.SharedImageTilesColor;
+import org.chromium.chrome.browser.data_sharing.ui.shared_image_tiles.SharedImageTilesConfig;
 import org.chromium.chrome.browser.data_sharing.ui.shared_image_tiles.SharedImageTilesCoordinator;
-import org.chromium.chrome.browser.data_sharing.ui.shared_image_tiles.SharedImageTilesType;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -113,7 +112,7 @@ public class TabGroupUiCoordinator implements TabGroupUiMediator.ResetHandler, T
 
             @LayoutRes
             int layoutId =
-                    ChromeFeatureList.isEnabled(ChromeFeatureList.DATA_SHARING)
+                    TabUiUtils.isDataSharingFunctionalityEnabled()
                             ? R.layout.dynamic_bottom_tab_strip_toolbar
                             : R.layout.bottom_tab_strip_toolbar;
             mToolbarView =
@@ -169,7 +168,6 @@ public class TabGroupUiCoordinator implements TabGroupUiMediator.ResetHandler, T
     /** Handle any initialization that occurs once native has been loaded. */
     @Override
     public void initializeWithNative(
-            Activity activity,
             BottomControlsCoordinator.BottomControlsVisibilityController visibilityController,
             Callback<Object> onSnapshotTokenChange) {
         ObservableSupplierImpl<Object> tabStripTokenSupplier = new ObservableSupplierImpl<>();
@@ -224,6 +222,7 @@ public class TabGroupUiCoordinator implements TabGroupUiMediator.ResetHandler, T
             }
 
             @Nullable SharedImageTilesCoordinator sharedImageTilesCoordinator = null;
+            @Nullable SharedImageTilesConfig.Builder sharedImageTilesConfigBuilder = null;
             Profile profile = mTabModelSelector.getModel(/* incognito= */ false).getProfile();
             CollaborationService collaborationService =
                     CollaborationServiceFactory.getForProfile(profile);
@@ -231,11 +230,13 @@ public class TabGroupUiCoordinator implements TabGroupUiMediator.ResetHandler, T
             if (serviceStatus.isAllowedToJoin()) {
                 DataSharingService dataSharingService =
                         DataSharingServiceFactory.getForProfile(profile);
+                sharedImageTilesConfigBuilder =
+                        new SharedImageTilesConfig.Builder(mActivity)
+                                .setIconSizeDp(R.dimen.tab_strip_shared_image_tiles_size);
                 sharedImageTilesCoordinator =
                         new SharedImageTilesCoordinator(
-                                activity,
-                                SharedImageTilesType.DEFAULT,
-                                new SharedImageTilesColor(SharedImageTilesColor.Style.DYNAMIC),
+                                mActivity,
+                                sharedImageTilesConfigBuilder.build(),
                                 dataSharingService,
                                 collaborationService);
                 FrameLayout container =
@@ -248,7 +249,7 @@ public class TabGroupUiCoordinator implements TabGroupUiMediator.ResetHandler, T
                     new TabGroupUiMediator(
                             visibilityController,
                             mHandleBackPressChangedSupplier,
-                            this,
+                            /* resetHandler= */ this,
                             mModel,
                             mTabModelSelector,
                             mTabContentManager,
@@ -257,6 +258,7 @@ public class TabGroupUiCoordinator implements TabGroupUiMediator.ResetHandler, T
                             mTabGridDialogControllerSupplier,
                             mOmniboxFocusStateSupplier,
                             sharedImageTilesCoordinator,
+                            sharedImageTilesConfigBuilder,
                             mThemeColorProvider,
                             onSnapshotTokenChange,
                             tabStripTokenSupplier);

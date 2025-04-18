@@ -4,25 +4,51 @@
 
 import 'chrome://settings/settings.js';
 
-import type {CrCollapseElement, CrShortcutInputElement} from 'chrome://settings/lazy_load.js';
+import type {CrCollapseElement} from 'chrome://settings/lazy_load.js';
 import type {SettingsGlicPageElement, SettingsPrefsElement, SettingsToggleButtonElement} from 'chrome://settings/settings.js';
-import {CrSettingsPrefs, GlicBrowserProxyImpl, loadTimeData, OpenWindowProxyImpl, resetRouterForTesting, Router, routes, SettingsGlicPageFeaturePrefName as PrefName} from 'chrome://settings/settings.js';
+import {CrSettingsPrefs, GlicBrowserProxyImpl, loadTimeData, MetricsBrowserProxyImpl, OpenWindowProxyImpl, resetRouterForTesting, Router, routes, SettingsGlicPageFeaturePrefName as PrefName} from 'chrome://settings/settings.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
-import {keyDownOn} from 'chrome://webui-test/keyboard_mock_interactions.js';
 import {flushTasks} from 'chrome://webui-test/polymer_test_util.js';
 import {TestOpenWindowProxy} from 'chrome://webui-test/test_open_window_proxy.js';
-import {isVisible, microtasksFinished} from 'chrome://webui-test/test_util.js';
+import {isVisible} from 'chrome://webui-test/test_util.js';
 
 import {TestGlicBrowserProxy} from './test_glic_browser_proxy.js';
+import {TestMetricsBrowserProxy} from './test_metrics_browser_proxy.js';
 
 const POLICY_ENABLED_VALUE = 0;
 const POLICY_DISABLED_VALUE = 1;
 
+// Note - if adding tests related to the shortcut control, use
+// glic_page_focus_test.ts instead. That test suite is an interactive_ui_test
+// which correctly deals with focus. The shortcut control relies internally on
+// focus events to work so using this suite results in flaky tests.
 suite('GlicPage', function() {
   let page: SettingsGlicPageElement;
   let settingsPrefs: SettingsPrefsElement;
   let glicBrowserProxy: TestGlicBrowserProxy;
   let openWindowProxy: TestOpenWindowProxy;
+  let metricsBrowserProxy: TestMetricsBrowserProxy;
+
+  function createGlicPage(initialShortcut: string) {
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    metricsBrowserProxy = new TestMetricsBrowserProxy();
+    MetricsBrowserProxyImpl.setInstance(metricsBrowserProxy);
+
+    glicBrowserProxy = new TestGlicBrowserProxy();
+    glicBrowserProxy.setGlicShortcutResponse(initialShortcut);
+    GlicBrowserProxyImpl.setInstance(glicBrowserProxy);
+
+    openWindowProxy = new TestOpenWindowProxy();
+    OpenWindowProxyImpl.setInstance(openWindowProxy);
+
+    page = document.createElement('settings-glic-page');
+    page.prefs = settingsPrefs.prefs;
+    Router.getInstance().navigateTo(routes.GEMINI);
+    document.body.appendChild(page);
+
+    page.setPrefValue(PrefName.SETTINGS_POLICY, POLICY_ENABLED_VALUE);
+    return flushTasks();
+  }
 
   function $<T extends HTMLElement = HTMLElement>(id: string): T|null {
     return page.shadowRoot!.querySelector<T>(`#${id}`);
@@ -52,21 +78,7 @@ suite('GlicPage', function() {
   });
 
   setup(function() {
-    document.body.innerHTML = window.trustedTypes!.emptyHTML;
-    glicBrowserProxy = new TestGlicBrowserProxy();
-    glicBrowserProxy.setGlicShortcutResponse('⌃A');
-    GlicBrowserProxyImpl.setInstance(glicBrowserProxy);
-
-    openWindowProxy = new TestOpenWindowProxy();
-    OpenWindowProxyImpl.setInstance(openWindowProxy);
-
-    page = document.createElement('settings-glic-page');
-    page.prefs = settingsPrefs.prefs;
-    Router.getInstance().navigateTo(routes.GEMINI);
-    document.body.appendChild(page);
-
-    page.setPrefValue(PrefName.SETTINGS_POLICY, POLICY_ENABLED_VALUE);
-    return flushTasks();
+    return createGlicPage(/*initialShortcut=*/ '⌃A');
   });
 
   test('LauncherToggleEnabled', () => {
@@ -103,8 +115,8 @@ suite('GlicPage', function() {
       glicBrowserProxy.reset();
     });
 
-    // Test that the keyboard shortcut is collapsed/invisible when the launcher
-    // is disabled and shown when the launcher is enabled.
+    // Test that the keyboard shortcut is collapsed/invisible when the
+    // launcher is disabled and shown when the launcher is enabled.
     test('KeyboardShortcutVisibility' + clickTypeName, async () => {
       const keyboardShortcutSetting = $('keyboardShortcutSetting');
 
@@ -129,55 +141,6 @@ suite('GlicPage', function() {
       assertTrue(isVisible(keyboardShortcutSetting));
     });
   }
-
-  test('ShortcutInputSuspends', async () => {
-    const shortcutInput = $<CrShortcutInputElement>('shortcutInput')!;
-
-    // Clicking on the edit button should suspend shortcuts because the input is
-    // waiting for a new shortcut to save
-    shortcutInput.$.edit.click();
-    let arg = await glicBrowserProxy.whenCalled('setShortcutSuspensionState');
-    assertTrue(arg);
-    glicBrowserProxy.reset();
-
-    // Pressing the escape key should re-enable shortcuts since the input is no
-    // longer waiting for a shortcut to save
-    shortcutInput.$.edit.click();
-    keyDownOn(shortcutInput.$.input, 27);  // Escape key.
-    arg = await glicBrowserProxy.whenCalled('setShortcutSuspensionState');
-    assertFalse(arg);
-  });
-
-  test('UpdateShortcut', async () => {
-    const shortcutInput = $<CrShortcutInputElement>('shortcutInput')!;
-    const field = shortcutInput.$.input;
-    await microtasksFinished();
-    assertEquals(1, glicBrowserProxy.getCallCount('getGlicShortcut'));
-    assertEquals('⌃A', shortcutInput.shortcut);
-
-    // Clicking on the edit button should clear out the shortcut.
-    glicBrowserProxy.setGlicShortcutResponse('');
-    shortcutInput.$.edit.click();
-    let arg = await glicBrowserProxy.whenCalled('setGlicShortcut');
-    await microtasksFinished();
-    assertEquals('', arg);
-    assertEquals('', shortcutInput.shortcut);
-    glicBrowserProxy.reset();
-
-    // Verify that inputting an invalid shortcut doesn't update the shortcut.
-    keyDownOn(field, 65);
-    await microtasksFinished();
-    assertEquals(0, glicBrowserProxy.getCallCount('setGlicShortcut'));
-    glicBrowserProxy.reset();
-
-    // Inputting a valid shortcut should update the shortcut.
-    glicBrowserProxy.setGlicShortcutResponse('⌃A');
-    keyDownOn(field, 65, ['ctrl']);
-    arg = await glicBrowserProxy.whenCalled('setGlicShortcut');
-    await microtasksFinished();
-    assertEquals('Ctrl+A', arg);
-    assertEquals('⌃A', shortcutInput.shortcut);
-  });
 
   test('GeolocationToggleEnabled', () => {
     page.setPrefValue(PrefName.GEOLOCATION_ENABLED, true);
@@ -338,9 +301,9 @@ suite('GlicPage', function() {
     page.setPrefValue(PrefName.SETTINGS_POLICY, POLICY_DISABLED_VALUE);
     await flushTasks();
 
-    // Now that the policy is disabled, the shortcut edit, info card expand, and
-    // activity button should be removed. Toggles should all show "off" and be
-    // disabled.
+    // Now that the policy is disabled, the shortcut edit, info card expand,
+    // and activity button should be removed. Toggles should all show "off"
+    // and be disabled.
     assertFalse(!!$('shortcutInput'));
     assertFalse(!!$('activityButton'));
     assertFalse(!!$('tabAccessExpandButton'));
@@ -373,7 +336,7 @@ suite('GlicPage', function() {
     assertTrue(!!glicRow);
     assertTrue(isVisible(glicRow));
 
-    glicRow!.click();
+    glicRow.click();
     assertEquals(
         routes.GEMINI.path, Router.getInstance().getCurrentRoute().path);
   });
@@ -387,5 +350,90 @@ suite('GlicPage', function() {
     activityButton.click();
     const url = await openWindowProxy.whenCalled('openUrl');
     assertEquals(page.i18n('glicActivityButtonUrl'), url);
+  });
+
+  // Ensure that the info collapse is initialized correctly when the tab
+  // context pref is enabled when the page is created.
+  test('InfoCollapseInitializiedOpen', async () => {
+    // Clear and re-create a new page rather than using the one initialized in
+    // setup().
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    page = document.createElement('settings-glic-page');
+    page.prefs = settingsPrefs.prefs;
+    page.setPrefValue(PrefName.TAB_CONTEXT_ENABLED, true);
+    Router.getInstance().navigateTo(routes.GEMINI);
+    document.body.appendChild(page);
+
+    await flushTasks();
+
+    const infoCard = $<CrCollapseElement>('tabAccessInfoCollapse');
+    assertTrue(!!infoCard);
+    assertTrue(infoCard.opened);
+  });
+
+  test('InfoCollapseInitializiedClosed', async () => {
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    page = document.createElement('settings-glic-page');
+    page.prefs = settingsPrefs.prefs;
+    page.setPrefValue(PrefName.TAB_CONTEXT_ENABLED, false);
+    Router.getInstance().navigateTo(routes.GEMINI);
+    document.body.appendChild(page);
+
+    await flushTasks();
+
+    const infoCard = $<CrCollapseElement>('tabAccessInfoCollapse');
+    assertTrue(!!infoCard);
+    assertFalse(infoCard.opened);
+  });
+
+  suite('Metrics', () => {
+    async function verifyUserAction(userAction: string) {
+      const userActions = await metricsBrowserProxy.getArgs('recordAction');
+      assertEquals(1, userActions.length);
+      assertTrue(userActions.includes(userAction));
+      metricsBrowserProxy.reset();
+    }
+
+    test('GeolocationToggle', async () => {
+      page.setPrefValue(PrefName.GEOLOCATION_ENABLED, false);
+
+      const geolocationToggle =
+          $<SettingsToggleButtonElement>('geolocationToggle')!;
+      assertTrue(!!geolocationToggle);
+
+      geolocationToggle.click();
+      await verifyUserAction('Glic.Settings.Geolocation.Enabled');
+
+      geolocationToggle.click();
+      await verifyUserAction('Glic.Settings.Geolocation.Disabled');
+    });
+
+    test('MicrophoneToggle', async () => {
+      page.setPrefValue(PrefName.MICROPHONE_ENABLED, false);
+
+      const microphoneToggle =
+          $<SettingsToggleButtonElement>('microphoneToggle')!;
+      assertTrue(!!microphoneToggle);
+
+      microphoneToggle.click();
+      await verifyUserAction('Glic.Settings.Microphone.Enabled');
+
+      microphoneToggle.click();
+      await verifyUserAction('Glic.Settings.Microphone.Disabled');
+    });
+
+    test('TabContextToggle', async () => {
+      page.setPrefValue(PrefName.TAB_CONTEXT_ENABLED, false);
+
+      const tabAccessToggle =
+          $<SettingsToggleButtonElement>('tabAccessToggle')!;
+      assertTrue(!!tabAccessToggle);
+
+      tabAccessToggle.click();
+      await verifyUserAction('Glic.Settings.TabContext.Enabled');
+
+      tabAccessToggle.click();
+      await verifyUserAction('Glic.Settings.TabContext.Disabled');
+    });
   });
 });

@@ -492,18 +492,15 @@ class CORE_EXPORT CSSSelector {
     return *data_.rare_data_->ident_list_;
   }
   bool ContainsPseudoInsideHasPseudoClass() const {
-    return HasRareData() ? data_.rare_data_->bits_.has_.contains_pseudo_
-                         : false;
+    return HasRareData() && data_.rare_data_->bits_.has_.contains_pseudo_;
   }
   bool ContainsComplexLogicalCombinationsInsideHasPseudoClass() const {
-    return HasRareData() ? data_.rare_data_->bits_.has_
-                               .contains_complex_logical_combinations_
-                         : false;
+    return HasRareData() &&
+           data_.rare_data_->bits_.has_.contains_complex_logical_combinations_;
   }
   bool HasArgumentMatchInShadowTree() const {
-    return HasRareData()
-               ? data_.rare_data_->bits_.has_.argument_match_in_shadow_tree_
-               : false;
+    return HasRareData() &&
+           data_.rare_data_->bits_.has_.argument_match_in_shadow_tree_;
   }
 
 #if DCHECK_IS_ON()
@@ -941,8 +938,8 @@ inline CSSSelector::CSSSelector(CSSSelector&& o)
   // constructor (i.e., using similar code as in the copy constructor above)
   // after moving to Oilpan, copying the bits one by one. We already allow
   // memcpy + memset by traits, so we can do it by ourselves, too.
-  memcpy(this, &o, sizeof(*this));
-  memset(&o, 0, sizeof(o));
+  UNSAFE_TODO(memcpy(this, &o, sizeof(*this)));
+  UNSAFE_TODO(memset(&o, 0, sizeof(o)));
 }
 
 inline CSSSelector::~CSSSelector() {
@@ -1007,9 +1004,11 @@ inline bool CSSSelector::IsIdClassOrAttributeSelector() const {
 
 inline void swap(CSSSelector& a, CSSSelector& b) {
   char tmp[sizeof(CSSSelector)];
-  memcpy(tmp, &a, sizeof(CSSSelector));
-  memcpy(&a, &b, sizeof(CSSSelector));
-  memcpy(&b, tmp, sizeof(CSSSelector));
+  UNSAFE_TODO({
+    memcpy(tmp, &a, sizeof(CSSSelector));
+    memcpy(&a, &b, sizeof(CSSSelector));
+    memcpy(&b, tmp, sizeof(CSSSelector));
+  });
 }
 
 // Converts descendant to relative descendant, child to relative child

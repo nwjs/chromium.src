@@ -58,6 +58,10 @@ class MockSaveOrUpdateAutofillAiDataController
               (),
               (const override));
   MOCK_METHOD(bool, IsSavePrompt, (), (const override));
+  MOCK_METHOD((std::pair<int, int>),
+              GetTitleImagesResourceId,
+              (),
+              (const override));
   MOCK_METHOD(void, OnBubbleClosed, (AutofillAiBubbleClosedReason), (override));
   base::WeakPtr<SaveOrUpdateAutofillAiDataController> GetWeakPtr() override {
     return weak_ptr_factory_.GetWeakPtr();
@@ -127,14 +131,9 @@ void SaveOrUpdateAutofillAiDataBubbleViewTest::CreateViewAndShow() {
       EntityAttributeUpdateDetails(
           /*attribute_name=*/u"Country", /*attribute_value=*/u"Brazil",
           EntityAttributeUpdateType::kNewEntityAttributeAdded),
-      // The next three values are saying:
-      // 1. That the user had a name stored as "Jonas doe" and that it was
-      // changed.
-      // 2. That their passport expiry date information has not changed.
-      // 3. That their passport issue date information has not changed.
-      EntityAttributeUpdateDetails(
-          /*attribute_name=*/u"Name", /*attribute_value=*/u"Jonas doe",
-          EntityAttributeUpdateType::kOldEntityAttributeUpdated),
+      // The next two values are saying:
+      // 1. That the user's passport expiry date information has not changed.
+      // 2. That the user's passport issue date information has not changed.
       EntityAttributeUpdateDetails(
           /*attribute_name=*/u"Expiry date",
           /*attribute_value=*/u"12/12/2027",
@@ -168,26 +167,6 @@ TEST_F(SaveOrUpdateAutofillAiDataBubbleViewTest, CancelInvokesTheController) {
   CreateViewAndShow();
   EXPECT_CALL(mock_controller(), OnBubbleClosed);
   view().CancelDialog();
-}
-
-TEST_F(SaveOrUpdateAutofillAiDataBubbleViewTest, ViewHasExpectedSections) {
-  CreateViewAndShow();
-  views::View* new_entity_added_or_updated_attributes_container =
-      view().GetViewByID(SaveOrUpdateAutofillAiDataBubbleView::
-                             kNewEntityAddedOrUpdatedAttributesContainer);
-  EXPECT_EQ(new_entity_added_or_updated_attributes_container->children().size(),
-            2u);
-
-  // Test that there 3 row in the container that stores unchanged values or old
-  // values from the old entity.
-  views::View* new_entity_unchanged_or_old_entity_updated_attributes_container =
-      view().GetViewByID(
-          SaveOrUpdateAutofillAiDataBubbleView::
-              kNewEntityUnchagedOrOldEntityUpdatedAttributesContainer);
-  EXPECT_EQ(new_entity_unchanged_or_old_entity_updated_attributes_container
-                ->children()
-                .size(),
-            3u);
 }
 
 }  // namespace

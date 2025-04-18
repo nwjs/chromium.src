@@ -31,6 +31,7 @@ import android.view.PointerIcon;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewStructure;
+import android.view.WindowInsets;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityNodeProvider;
@@ -2234,6 +2235,7 @@ class WebViewChromium
             mAwContents.cancelAllPrerendering();
             mSharedWebViewChromium.setWebViewClient(client);
             mContentsClientAdapter.setWebViewClient(mSharedWebViewChromium.getWebViewClient());
+            mAwContents.onWebViewClientUpdated(client);
             if (client != null) {
                 ApiImplementationLogger.logWebViewClientImplementation(client);
             }
@@ -3456,6 +3458,11 @@ class WebViewChromium
             recordWebViewSystemApiCall(SystemApiCall.ON_CHECK_IS_TEXT_EDITOR);
             return mAwContents.onCheckIsTextEditor();
         }
+    }
+
+    @Override
+    public WindowInsets onApplyWindowInsets(WindowInsets insets) {
+        return mAwContents.onApplyWindowInsets(insets);
     }
 
     // TODO(crbug.com/40280893): Add override annotation when SDK includes this method.

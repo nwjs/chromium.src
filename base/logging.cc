@@ -178,7 +178,7 @@ std::unique_ptr<VlogInfo> VlogInfoFromCommandLine() {
 #endif  // defined(LEAK_SANITIZER)
   return std::make_unique<VlogInfo>(
       command_line->GetSwitchValueASCII(switches::kV),
-      command_line->GetSwitchValueASCII(switches::kVModule), &g_min_log_level);
+      command_line->GetSwitchValueASCII(switches::kVModule), g_min_log_level);
 }
 
 // If the commandline is initialized for the current process this will
@@ -468,13 +468,13 @@ std::string BuildCrashString(const char* file,
                              const char* message_without_prefix) {
   // Only log last path component.
   if (file) {
-    const char* slash = strrchr(file,
+    const char* slash = UNSAFE_TODO(strrchr(file,
 #if BUILDFLAG(IS_WIN)
-                                '\\'
+                                            '\\'
 #else
-                                '/'
+                                            '/'
 #endif  // BUILDFLAG(IS_WIN)
-    );
+                                            ));
     if (slash) {
       file = UNSAFE_TODO(slash + 1);
     }
@@ -940,8 +940,8 @@ void LogMessage::Flush() {
                 static_cast<DWORD>(str_newline.length()), &num_written,
                 nullptr);
 #elif BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
-      std::ignore =
-          fwrite(str_newline.data(), str_newline.size(), 1, g_log_file);
+      std::ignore = UNSAFE_TODO(
+          fwrite(str_newline.data(), str_newline.size(), 1, g_log_file));
       fflush(g_log_file);
 #else
 #error Unsupported platform
@@ -960,11 +960,20 @@ void LogMessage::Init(const char* file, int line) {
   // Don't let actions from this method affect the system error after returning.
   base::ScopedClearLastError scoped_clear_last_error;
 
-  std::string_view filename(file);
-  size_t last_slash_pos = filename.find_last_of("\\/");
-  if (last_slash_pos != std::string_view::npos) {
-    filename.remove_prefix(last_slash_pos + 1);
-  }
+  // Most logging initializes `file` from __FILE__. Unfortunately, because we
+  // build from out/Foo we get a `../../` (or \) prefix for all of our
+  // __FILE__s. This isn't true for base::Location::Current() which already does
+  // the stripping (and is used for some logging, especially CHECKs).
+  //
+  // Here we strip the first 6 (../../ or ..\..\) characters if `file` starts
+  // with `.` but defensively clamp to strlen(file) just in case.
+  //
+  // TODO(pbos): Consider migrating LogMessage and the LOG() macros to use
+  // base::Location directly. See base/check.h for inspiration.
+  const std::string_view filename =
+      file[0] == '.' ? std::string_view(file).substr(
+                           std::min(std::size_t{6}, strlen(file)))
+                     : file;
 
 #if BUILDFLAG(IS_CHROMEOS)
   if (g_log_format == LogFormat::LOG_FORMAT_SYSLOG) {
@@ -1018,7 +1027,7 @@ void LogMessage::Init(const char* file, int line) {
     } else {
       stream_ << "VERBOSE" << -severity_;
     }
-    stream_ << ":" << filename << "(" << line << ")] ";
+    stream_ << ":" << filename << ":" << line << "] ";
   }
   message_start_ = stream_.str().length();
 }
@@ -1026,7 +1035,8 @@ void LogMessage::Init(const char* file, int line) {
 void LogMessage::HandleFatal(size_t stack_start,
                              const std::string& str_newline) const {
   char str_stack[1024];
-  base::strlcpy(str_stack, str_newline.data(), std::size(str_stack));
+  UNSAFE_TODO(
+      base::strlcpy(str_stack, str_newline.data(), std::size(str_stack)));
   base::debug::Alias(&str_stack);
 
   if (!GetLogAssertHandlerStack().empty()) {
@@ -1316,7 +1326,7 @@ VlogInfo* ScopedVmoduleSwitches::CreateVlogInfoWithSwitches(
   VlogInfo* base_vlog_info = GetVlogInfo();
   if (!base_vlog_info) {
     // Base is |nullptr|, so just create it from scratch.
-    return new VlogInfo(/*v_switch_=*/"", vmodule_switch, &g_min_log_level);
+    return new VlogInfo(/*v_switch_=*/"", vmodule_switch, g_min_log_level);
   }
   return base_vlog_info->WithSwitches(vmodule_switch);
 }

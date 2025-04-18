@@ -18,6 +18,7 @@
 #include "base/memory/ptr_util.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
+#include "chrome/browser/autofill_ai/autofill_ai_util.h"
 #include "chrome/browser/browser_features.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/commerce/shopping_service_factory.h"
@@ -45,6 +46,7 @@
 #include "chrome/browser/ui/managed_ui.h"
 #include "chrome/browser/ui/passwords/ui_utils.h"
 #include "chrome/browser/ui/tabs/organization/tab_organization_utils.h"
+#include "chrome/browser/ui/toasts/toast_features.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/side_panel/customize_chrome/customize_chrome_utils.h"
 #include "chrome/browser/ui/webui/cr_components/customize_color_scheme_mode/customize_color_scheme_mode_handler.h"
@@ -536,12 +538,9 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       base::FeatureList::IsEnabled(
           blink::features::kMediaSessionEnterPictureInPicture));
 
-  html_source->AddBoolean(
-      "capturedSurfaceControlEnabled",
-      base::FeatureList::IsEnabled(
-          features::kCapturedSurfaceControlKillswitch) &&
-          base::FeatureList::IsEnabled(
-              features::kCapturedSurfaceControlStickyPermissions));
+  html_source->AddBoolean("capturedSurfaceControlEnabled",
+                          base::FeatureList::IsEnabled(
+                              features::kCapturedSurfaceControlKillswitch));
 
   html_source->AddBoolean("enableAutomaticFullscreenContentSetting",
                           base::FeatureList::IsEnabled(
@@ -569,10 +568,16 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       "enableWebAppInstallation",
       base::FeatureList::IsEnabled(blink::features::kWebAppInstallation));
 
+  html_source->AddBoolean(
+      "enableLocalNetworkAccessSetting",
+      base::FeatureList::IsEnabled(
+          network::features::kLocalNetworkAccessChecks) &&
+          !network::features::kLocalNetworkAccessChecksWarn.Get());
+
   bool glic_enabled = false;
 #if BUILDFLAG(ENABLE_GLIC)
   AddSettingsPageUIHandler(std::make_unique<GlicHandler>());
-  glic_enabled = glic::GlicEnabling::IsEnabledAndConsentForProfile(profile);
+  glic_enabled = glic::GlicEnabling::ShouldShowSettingsPage(profile);
   html_source->AddBoolean("showGlicSettings", glic_enabled);
 #endif
 
@@ -582,12 +587,6 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
 
   if (ai_settings_refresh_enabled) {
 #if 0
-    const bool show_ai_settings_for_testing =
-        optimization_guide::features::kShowAiSettingsForTesting.Get();
-
-    html_source->AddBoolean("showAiSettingsForTesting",
-                            show_ai_settings_for_testing);
-
     const bool use_is_setting_visible = base::FeatureList::IsEnabled(
         optimization_guide::features::kAiSettingsPageEnterpriseDisabledUi);
 
@@ -610,10 +609,19 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
          // TODO(crbug.com/391131625): Update accordingly to enterprise
          // requirements.
          PasswordChangeServiceFactory::GetForProfile(profile) &&
-         PasswordChangeServiceFactory::GetForProfile(profile)
-             ->IsPasswordChangeAvailable()},
+             PasswordChangeServiceFactory::GetForProfile(profile)
+                 ->IsPasswordChangeAvailable()},
+        // The code checks only once, when setting is loaded, whether the
+        // Autofill Ai section should be shown.
+        // The code cannot dynamically check whether the Autofill Ai section
+        // should be shown, because otherwise the user could reach weird states,
+        // such as navigating to the Ai Page when the Ai Page has 0 entries.
+        {"showAutofillAiControl", autofill_ai::CanShowAutofillAiPageInSettings(
+                                      profile, web_ui->GetWebContents())},
     };
 
+    const bool show_ai_settings_for_testing =
+        optimization_guide::features::kShowAiSettingsForTesting.Get();
     bool show_ai_page = show_ai_settings_for_testing;
     for (auto [name, visible] : optimization_guide_features) {
       html_source->AddBoolean(name, visible || show_ai_settings_for_testing);
@@ -671,6 +679,13 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
   html_source->AddBoolean(
       "enableDeleteBrowsingDataRevamp",
       base::FeatureList::IsEnabled(features::kDbdRevampDesktop));
+
+#if !BUILDFLAG(IS_CHROMEOS)
+  // A11y page
+  html_source->AddBoolean(
+      "enableToastRefinements",
+      base::FeatureList::IsEnabled(toast_features::kToastRefinements));
+#endif
 
   TryShowHatsSurveyWithTimeout();
 }

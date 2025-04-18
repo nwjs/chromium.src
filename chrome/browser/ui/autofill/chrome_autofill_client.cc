@@ -24,6 +24,8 @@
 #include "build/build_config.h"
 #include "chrome/browser/autofill/address_normalizer_factory.h"
 #include "chrome/browser/autofill/autocomplete_history_manager_factory.h"
+#include "chrome/browser/autofill/autofill_ai_model_cache_factory.h"
+#include "chrome/browser/autofill/autofill_ai_model_executor_factory.h"
 #include "chrome/browser/autofill/autofill_entity_data_manager_factory.h"
 #include "chrome/browser/autofill/autofill_optimization_guide_factory.h"
 #include "chrome/browser/autofill/personal_data_manager_factory.h"
@@ -33,6 +35,7 @@
 #include "chrome/browser/device_reauth/chrome_device_authenticator_factory.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/keyboard_accessory/android/manual_filling_controller.h"
+#include "chrome/browser/metrics/variations/google_groups_manager_factory.h"
 #include "chrome/browser/password_manager/chrome_password_manager_client.h"
 #include "chrome/browser/password_manager/password_manager_settings_service_factory.h"
 #include "chrome/browser/plus_addresses/plus_address_service_factory.h"
@@ -66,15 +69,19 @@
 #include "chrome/common/webui_url_constants.h"
 #include "components/autofill/content/browser/content_autofill_driver.h"
 #include "components/autofill/content/browser/content_autofill_driver_factory.h"
+#include "components/autofill/content/browser/content_identity_credential_delegate.h"
 #include "components/autofill/core/browser/autofill_type.h"
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
 #include "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
 #include "components/autofill/core/browser/filling/filling_product.h"
 #include "components/autofill/core/browser/form_import/form_data_importer.h"
+#include "components/autofill/core/browser/foundations/autofill_client.h"
 #include "components/autofill/core/browser/foundations/browser_autofill_manager.h"
 #include "components/autofill/core/browser/integrators/autofill_optimization_guide.h"
 #include "components/autofill/core/browser/integrators/autofill_plus_address_delegate.h"
+#include "components/autofill/core/browser/integrators/identity_credential_delegate.h"
+#include "components/autofill/core/browser/integrators/valuables/valuable_manager.h"
 #include "components/autofill/core/browser/logging/log_router.h"
 #include "components/autofill/core/browser/payments/payments_network_interface.h"
 #include "components/autofill/core/browser/single_field_fillers/single_field_fill_router.h"
@@ -92,7 +99,9 @@
 #include "components/autofill/core/common/unique_ids.h"
 #include "components/compose/buildflags.h"
 #include "components/feature_engagement/public/feature_constants.h"
+#include "components/optimization_guide/content/browser/page_content_proto_provider.h"
 #include "components/optimization_guide/machine_learning_tflite_buildflags.h"
+#include "components/optimization_guide/proto/features/common_quality_data.pb.h"
 #include "components/password_manager/content/browser/content_password_manager_driver.h"
 #include "components/password_manager/content/browser/password_form_classification_util.h"
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
@@ -114,12 +123,15 @@
 #include "components/sync/service/sync_service.h"
 #include "components/translate/core/browser/translate_manager.h"
 #include "components/unified_consent/pref_names.h"
+#include "components/variations/service/google_groups_manager.h"
 #include "components/variations/service/variations_service.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/ssl_status.h"
 #include "content/public/browser/storage_partition.h"
+#include "content/public/common/content_features.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
+#include "third_party/blink/public/mojom/content_extraction/ai_page_content.mojom.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/gfx/geometry/rect.h"
 #include "url/origin.h"
@@ -154,9 +166,9 @@
 #include "chrome/browser/ui/tabs/public/tab_features.h"  // nogncheck
 #include "chrome/browser/ui/toasts/api/toast_id.h"
 #include "chrome/browser/ui/toasts/toast_controller.h"
+#include "chrome/browser/ui/views/autofill/popup/popup_view_views.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service_factory.h"
 #include "components/autofill/core/browser/integrators/autofill_ai_delegate.h"
-#include "components/autofill_ai/core/browser/autofill_ai_features.h"  // nogncheck
 #include "components/autofill_ai/core/browser/autofill_ai_manager.h"  // nogncheck
 #endif  // BUILDFLAG(IS_ANDROID)
 
@@ -190,7 +202,7 @@ AutoselectFirstSuggestion ShouldAutofillPopupAutoselectFirstSuggestion(
 const base::Feature& GetFeature(AutofillClient::IphFeature iph_feature) {
   switch (iph_feature) {
     case AutofillClient::IphFeature::kAutofillAi:
-      return feature_engagement::kIPHAutofillPredictionImprovementsFeature;
+      return feature_engagement::kIPHAutofillAiOptInFeature;
   }
   NOTREACHED();
 }
@@ -198,7 +210,7 @@ const base::Feature& GetFeature(AutofillClient::IphFeature iph_feature) {
 ui::ElementIdentifier GetElementId(AutofillClient::IphFeature iph_feature) {
   switch (iph_feature) {
     case AutofillClient::IphFeature::kAutofillAi:
-      return kAutofillPredictionImprovementsIphElementId;
+      return autofill::PopupViewViews::kAutofillAiOptInIphElementId;
   }
   NOTREACHED();
 }
@@ -466,6 +478,24 @@ AutofillPlusAddressDelegate* ChromeAutofillClient::GetPlusAddressDelegate() {
       web_contents()->GetBrowserContext());
 }
 
+void ChromeAutofillClient::GetAiPageContent(GetAiPageContentCallback callback) {
+  blink::mojom::AIPageContentOptionsPtr extraction_options =
+      optimization_guide::DefaultAIPageContentOptions();
+  extraction_options->on_critical_path = false;
+  optimization_guide::GetAIPageContent(
+      web_contents(), std::move(extraction_options),
+      base::BindOnce([](std::optional<optimization_guide::AIPageContentResult>
+                            result)
+                         -> std::optional<
+                             optimization_guide::proto::AnnotatedPageContent> {
+        if (!result) {
+          return std::nullopt;
+        }
+        // For now, discard all other metadata about the request.
+        return std::move(result)->proto;
+      }).Then(std::move(callback)));
+}
+
 AutofillAiDelegate* ChromeAutofillClient::GetAutofillAiDelegate() {
 #if !BUILDFLAG(IS_ANDROID)
   if (tabs::TabInterface* tab = tabs::TabInterface::MaybeGetFromContents(
@@ -476,6 +506,27 @@ AutofillAiDelegate* ChromeAutofillClient::GetAutofillAiDelegate() {
   }
 #endif
   return nullptr;
+}
+
+AutofillAiModelCache* ChromeAutofillClient::GetAutofillAiModelCache() {
+  Profile* profile =
+      Profile::FromBrowserContext(web_contents()->GetBrowserContext());
+  return AutofillAiModelCacheFactory::GetForProfile(profile);
+}
+
+AutofillAiModelExecutor* ChromeAutofillClient::GetAutofillAiModelExecutor() {
+  Profile* profile =
+      Profile::FromBrowserContext(web_contents()->GetBrowserContext());
+  return AutofillAiModelExecutorFactory::GetForProfile(profile);
+}
+
+IdentityCredentialDelegate*
+ChromeAutofillClient::GetIdentityCredentialDelegate() {
+  if (!base::FeatureList::IsEnabled(::features::kFedCmDelegation)) {
+    return nullptr;
+  }
+
+  return &identity_credential_delegate_;
 }
 
 void ChromeAutofillClient::OfferPlusAddressCreation(
@@ -537,6 +588,16 @@ const signin::IdentityManager* ChromeAutofillClient::GetIdentityManager()
   return IdentityManagerFactory::GetForProfile(profile->GetOriginalProfile());
 }
 
+const GoogleGroupsManager* ChromeAutofillClient::GetGoogleGroupsManager()
+    const {
+  // Always return the GoogleGroupsManager of the original profile to allow us
+  // to do per-profile feature checks.
+  Profile* profile =
+      Profile::FromBrowserContext(web_contents()->GetBrowserContext());
+  return GoogleGroupsManagerFactory::GetForBrowserContext(
+      profile->GetOriginalProfile());
+}
+
 FormDataImporter* ChromeAutofillClient::GetFormDataImporter() {
   if (!form_data_importer_) {
     Profile* profile =
@@ -551,6 +612,10 @@ FormDataImporter* ChromeAutofillClient::GetFormDataImporter() {
 payments::ChromePaymentsAutofillClient*
 ChromeAutofillClient::GetPaymentsAutofillClient() {
   return &payments_autofill_client_;
+}
+
+ValuableManager* ChromeAutofillClient::GetValuableManager() {
+  return &valuable_manager_;
 }
 
 StrikeDatabase* ChromeAutofillClient::GetStrikeDatabase() {
@@ -1014,7 +1079,8 @@ void ChromeAutofillClient::NotifyIphFeatureUsed(
 ChromeAutofillClient::ChromeAutofillClient(content::WebContents* web_contents)
     : ContentAutofillClient(web_contents),
       content::WebContentsObserver(web_contents),
-      ablation_study_(g_browser_process->local_state()) {
+      ablation_study_(g_browser_process->local_state()),
+      identity_credential_delegate_(web_contents) {
   // Initialize StrikeDatabase so its cache will be loaded and ready to use
   // when requested by other Autofill classes.
   GetStrikeDatabase();

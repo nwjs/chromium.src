@@ -28,6 +28,7 @@ include_rules = [
   "+ios/chrome/browser/prerender/model",
   "+ios/chrome/browser/profile/model",
   "+ios/chrome/browser/promos_manager/model",
+  "+ios/chrome/browser/reader_mode/model",
   "+ios/chrome/browser/reading_list/model",
   "+ios/chrome/browser/safe_browsing/model",
   "+ios/chrome/browser/search_engines/model",
@@ -51,9 +52,6 @@ specific_include_rules = {
   ],
   "page_placeholder_tab_helper.h": [
     "+ios/chrome/browser/shared/ui/elements/top_aligned_image_view.h",
-  ],
-  "browser_about_rewriter.cc": [
-    "+ios/chrome/browser/ui/ui_feature_flags.h",
   ],
   # web::HttpServer is deprecated in favor of net::EmbeddedTestServer.
   # TODO:(crbug.com/891834) Remove this exception.

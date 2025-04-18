@@ -48,6 +48,8 @@ source_set("audio") {
     "agc_audio_stream.h",
     "alive_checker.cc",
     "alive_checker.h",
+    "application_loopback_device_helper.cc",
+    "application_loopback_device_helper.h",
     "audio_debug_file_writer.cc",
     "audio_debug_file_writer.h",
     "audio_debug_recording_helper.cc",
@@ -214,6 +216,8 @@ source_set("audio") {
     sources += [
       "win/audio_device_listener_win.cc",
       "win/audio_device_listener_win.h",
+      "win/audio_ducker_win.cc",
+      "win/audio_ducker_win.h",
       "win/audio_low_latency_input_win.cc",
       "win/audio_low_latency_input_win.h",
       "win/audio_low_latency_output_win.cc",
@@ -413,6 +417,7 @@ source_set("unit_tests") {
   sources = [
     "aecdump_recording_manager_unittest.cc",
     "alive_checker_unittest.cc",
+    "application_loopback_device_helper_unittest.cc",
     "audio_debug_file_writer_unittest.cc",
     "audio_debug_recording_helper_unittest.cc",
     "audio_debug_recording_manager_unittest.cc",

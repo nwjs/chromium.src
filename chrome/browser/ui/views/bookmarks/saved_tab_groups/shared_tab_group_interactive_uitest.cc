@@ -26,7 +26,6 @@
 #include "components/data_sharing/public/data_sharing_service.h"
 #include "components/data_sharing/public/features.h"
 #include "components/data_sharing/public/group_data.h"
-#include "components/saved_tab_groups/internal/tab_group_sync_service_impl.h"
 #include "components/saved_tab_groups/public/features.h"
 #include "components/saved_tab_groups/public/tab_group_sync_service.h"
 #include "components/signin/public/base/consent_level.h"
@@ -59,8 +58,7 @@ class SharedTabGroupInteractiveUiTest : public InteractiveBrowserTest {
 
   void SetUp() override {
     scoped_feature_list_.InitWithFeatures(
-        {tab_groups::kTabGroupsSaveV2,
-         tab_groups::kTabGroupSyncServiceDesktopMigration,
+        {tab_groups::kTabGroupSyncServiceDesktopMigration,
          data_sharing::features::kDataSharingFeature},
         {});
     InProcessBrowserTest::SetUp();
@@ -119,8 +117,8 @@ class SharedTabGroupInteractiveUiTest : public InteractiveBrowserTest {
                      std::string collaboration_id,
                      data_sharing::MemberRole member_role,
                      bool should_sign_in) {
-    TabGroupSyncServiceImpl* service = static_cast<TabGroupSyncServiceImpl*>(
-        TabGroupSyncServiceFactory::GetForProfile(browser()->profile()));
+    TabGroupSyncService* service =
+        TabGroupSyncServiceFactory::GetForProfile(browser()->profile());
     service->MakeTabGroupSharedForTesting(group_id, collaboration_id);
 
     // Additional Properties.
@@ -460,9 +458,10 @@ IN_PROC_BROWSER_TEST_F(SharedTabGroupInteractiveUiTest,
       HoverTabGroupHeader(group_id), ClickMouse(ui_controls::RIGHT),
       WaitForShow(kTabGroupEditorBubbleId),
       PressButton(kTabGroupEditorBubbleDeleteGroupButtonId),
-      WaitForShow(kDeletionDialogCancelButtonId),
-      PressButton(kDeletionDialogCancelButtonId),
-      WaitForHide(kDeletionDialogCancelButtonId), FinishTabstripAnimations());
+      WaitForShow(kDataSharingSigninPromptDialogCancelButtonElementId),
+      PressButton(kDataSharingSigninPromptDialogCancelButtonElementId),
+      WaitForHide(kDataSharingSigninPromptDialogCancelButtonElementId),
+      FinishTabstripAnimations());
 
   histogram_tester.ExpectUniqueSample(
       kManageHistogram,
@@ -477,15 +476,12 @@ IN_PROC_BROWSER_TEST_F(SharedTabGroupInteractiveUiTest, LeaveGroupPressed) {
   ShareTabGroup(group_id, "fake_collaboration_id",
                 data_sharing::MemberRole::kMember, /*should_sign_in=*/true);
 
-  RunTestSequence(
-      WaitForShow(kTabGroupHeaderElementId), FinishTabstripAnimations(),
-      HoverTabGroupHeader(group_id), ClickMouse(ui_controls::RIGHT),
-      WaitForShow(kTabGroupEditorBubbleId),
-      PressButton(kTabGroupEditorBubbleLeaveGroupButtonId),
-      WaitForHide(kTabGroupEditorBubbleLeaveGroupButtonId),
-      WaitForShow(kDeletionDialogCancelButtonId),
-      PressButton(kDeletionDialogCancelButtonId),
-      WaitForHide(kDeletionDialogCancelButtonId), FinishTabstripAnimations());
+  RunTestSequence(WaitForShow(kTabGroupHeaderElementId),
+                  FinishTabstripAnimations(), HoverTabGroupHeader(group_id),
+                  ClickMouse(ui_controls::RIGHT),
+                  WaitForShow(kTabGroupEditorBubbleId),
+                  EnsurePresent(kTabGroupEditorBubbleLeaveGroupButtonId),
+                  FinishTabstripAnimations());
 }
 
 // Verify members see the leave group button instead of the delete button in the
@@ -496,17 +492,34 @@ IN_PROC_BROWSER_TEST_F(SharedTabGroupInteractiveUiTest,
   ShareTabGroup(group_id, "fake_collaboration_id",
                 data_sharing::MemberRole::kMember, /*should_sign_in=*/true);
 
+  RunTestSequence(WaitForShow(kTabGroupHeaderElementId),
+                  FinishTabstripAnimations(),
+                  PressButton(kToolbarAppMenuButtonElementId),
+                  WaitForShow(AppMenuModel::kTabGroupsMenuItem),
+                  SelectMenuItem(AppMenuModel::kTabGroupsMenuItem),
+                  SelectMenuItem(STGEverythingMenu::kTabGroup),
+                  EnsurePresent(STGTabsMenuModel::kLeaveGroupMenuItem),
+                  FinishTabstripAnimations());
+}
+
+// Verify remove last tab will display the close last tab dialog.
+IN_PROC_BROWSER_TEST_F(SharedTabGroupInteractiveUiTest, GroupCloseLastTab) {
+  TabGroupId group_id = CreateNewTabGroup();
+  ShareTabGroup(group_id, "fake_collaboration_id",
+                data_sharing::MemberRole::kMember, /*should_sign_in=*/false);
+
   RunTestSequence(
       WaitForShow(kTabGroupHeaderElementId), FinishTabstripAnimations(),
-      PressButton(kToolbarAppMenuButtonElementId),
-      WaitForShow(AppMenuModel::kTabGroupsMenuItem),
-      SelectMenuItem(AppMenuModel::kTabGroupsMenuItem),
-      SelectMenuItem(STGEverythingMenu::kTabGroup),
-      EnsurePresent(STGTabsMenuModel::kLeaveGroupMenuItem),
-      SelectMenuItem(STGTabsMenuModel::kLeaveGroupMenuItem),
-      WaitForShow(kDeletionDialogCancelButtonId),
-      PressButton(kDeletionDialogCancelButtonId), FinishTabstripAnimations(),
-      WaitForHide(kDeletionDialogCancelButtonId));
+      Do([&]() {
+        BrowserView* browser_view =
+            static_cast<BrowserView*>(browser()->window());
+        browser_view->tabstrip()->CloseTab(browser_view->tabstrip()->tab_at(0),
+                                           CloseTabSource::kFromMouse);
+      }),
+      WaitForShow(kDataSharingSigninPromptDialogCancelButtonElementId),
+      PressButton(kDataSharingSigninPromptDialogCancelButtonElementId),
+      WaitForHide(kDataSharingSigninPromptDialogCancelButtonElementId),
+      FinishTabstripAnimations());
 }
 
 // Verify members see the recent activity button when activity exists.

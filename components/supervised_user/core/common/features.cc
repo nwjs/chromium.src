@@ -45,9 +45,19 @@ const base::FeatureParam<int> kLocalWebApprovalBottomSheetLoadTimeoutMs{
 #endif  // BUILDFLAG(IS_IOS) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_WIN)
 
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
+BASE_FEATURE(kEnableLocalWebApprovalErrorDialog,
+             "EnableLocalWebApprovalErrorDialog",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
+
 BASE_FEATURE(kLocalWebApprovalsWidgetSupportsUrlPayload,
              "PacpWidgetSupportsUrlPayload",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kSupervisedUserBlockInterstitialV3,
+             "SupervisedUserBlockInterstitialV3",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsGoogleBrandedBuild() {
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
@@ -55,6 +65,10 @@ bool IsGoogleBrandedBuild() {
 #else
   return false;
 #endif
+}
+
+bool IsBlockInterstitialV3Enabled() {
+  return base::FeatureList::IsEnabled(kSupervisedUserBlockInterstitialV3);
 }
 
 bool IsLocalWebApprovalsEnabled() {
@@ -140,7 +154,7 @@ BASE_FEATURE(kEnableSupervisedUserVersionSignOutDialog,
 
 BASE_FEATURE(kForceSupervisedUserReauthenticationForYouTube,
              "ForceSupervisedUserReauthenticationForYouTube",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // TODO(crbug.com/378636321): Clean-up this flag once
 // `ForceSupervisedUserReauthenticationForYouTube` is enabled.
@@ -177,12 +191,4 @@ BASE_FEATURE(kWaitUntilAccessTokenAvailableForClassifyUrl,
 #endif
 );
 
-#if BUILDFLAG(IS_IOS)
-BASE_FEATURE(kReplaceSupervisionPrefsWithAccountCapabilitiesOnIOS,
-             "ReplaceSupervisionPrefsWithAccountCapabilitiesOnIOS",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE(kReplaceSupervisionSystemCapabilitiesWithAccountCapabilitiesOnIOS,
-             "ReplaceSupervisionSystemCapabilitiesWithAccountCapabilitiesOnIOS",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
 }  // namespace supervised_user

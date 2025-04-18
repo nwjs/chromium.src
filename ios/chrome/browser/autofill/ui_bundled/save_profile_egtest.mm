@@ -8,6 +8,7 @@
 #import "base/strings/utf_string_conversions.h"
 #import "base/test/ios/wait_util.h"
 #import "base/time/time.h"
+#import "components/autofill/core/browser/field_types.h"
 #import "components/autofill/core/common/autofill_features.h"
 #import "components/autofill/ios/common/features.h"
 #import "components/strings/grit/components_strings.h"
@@ -55,28 +56,26 @@ constexpr char kEmail[] = "foo1@gmail.com";
 
 // Matcher for the banner button.
 id<GREYMatcher> BannerButtonMatcher() {
-  return grey_accessibilityLabel(l10n_util::GetNSString(
+  return chrome_test_util::ButtonWithAccessibilityLabel(l10n_util::GetNSString(
       IDS_IOS_AUTOFILL_SAVE_ADDRESS_MESSAGE_PRIMARY_ACTION));
 }
 
 // Matcher for the update banner button.
 id<GREYMatcher> UpdateBannerButtonMatcher() {
-  return grey_accessibilityLabel(l10n_util::GetNSString(
+  return chrome_test_util::ButtonWithAccessibilityLabel(l10n_util::GetNSString(
       IDS_IOS_AUTOFILL_UPDATE_ADDRESS_MESSAGE_PRIMARY_ACTION));
 }
 
 // Matcher for the "Save Address" modal button.
 id<GREYMatcher> ModalButtonMatcher() {
-  return grey_allOf(grey_accessibilityLabel(l10n_util::GetNSString(
-                        IDS_AUTOFILL_SAVE_ADDRESS_PROMPT_OK_BUTTON_LABEL)),
-                    grey_accessibilityTrait(UIAccessibilityTraitButton), nil);
+  return chrome_test_util::ButtonWithAccessibilityLabel(
+      l10n_util::GetNSString(IDS_AUTOFILL_SAVE_ADDRESS_PROMPT_OK_BUTTON_LABEL));
 }
 
 // Matcher for the "Update Address" modal button.
 id<GREYMatcher> UpdateModalButtonMatcher() {
-  return grey_allOf(grey_accessibilityLabel(l10n_util::GetNSString(
-                        IDS_AUTOFILL_UPDATE_ADDRESS_PROMPT_OK_BUTTON_LABEL)),
-                    grey_accessibilityTrait(UIAccessibilityTraitButton), nil);
+  return chrome_test_util::ButtonWithAccessibilityLabel(l10n_util::GetNSString(
+      IDS_AUTOFILL_UPDATE_ADDRESS_PROMPT_OK_BUTTON_LABEL));
 }
 
 // Matcher for the modal button.
@@ -87,10 +86,8 @@ id<GREYMatcher> ModalEditButtonMatcher() {
 
 // Matcher for the migration button in modal view.
 id<GREYMatcher> ModalMigrationButtonMatcher() {
-  return grey_allOf(
-      grey_accessibilityLabel(l10n_util::GetNSString(
-          IDS_AUTOFILL_ADDRESS_MIGRATION_TO_ACCOUNT_PROMPT_OK_BUTTON_LABEL)),
-      grey_accessibilityTrait(UIAccessibilityTraitButton), nil);
+  return chrome_test_util::ButtonWithAccessibilityLabel(l10n_util::GetNSString(
+      IDS_AUTOFILL_ADDRESS_MIGRATION_TO_ACCOUNT_PROMPT_OK_BUTTON_LABEL));
 }
 
 // Matcher for a country entry with the given accessibility label.
@@ -693,6 +690,54 @@ void TypeTextInXframeField(NSString* fieldID, NSString* text) {
 
   [[EarlGrey selectElementWithMatcher:saveChangesAlert]
       performAction:grey_tap()];
+}
+
+// Tests that the 'Save' button is only enabled when all the required fields are
+// filled.
+// TODO(crbug.com/407573862): Re-enable after the test is fixed for
+// ios-fieldtrial-rel.
+- (void)DISABLED_testSaveButtonEnabledStateDependingOnRequiredFields {
+  // TODO(crbug.com/407506623): Fix EGTests on iPad.
+  if ([ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_SKIPPED(@"Test fails on iPad currently.");
+  }
+
+  [SigninEarlGreyUI signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
+  [ChromeEarlGrey waitForSyncTransportStateActiveWithTimeout:base::Seconds(10)];
+
+  // Fill and submit the form.
+  [self fillPresidentProfileAndShowSaveModal];
+
+  // Edit the profile.
+  [[EarlGrey selectElementWithMatcher:ModalEditButtonMatcher()]
+      performAction:grey_tap()];
+
+  // Ensure the 'Save' button is initially enabled.
+  [[EarlGrey selectElementWithMatcher:ModalButtonMatcher()]
+      assertWithMatcher:grey_enabled()];
+
+  NSString* streetAddressLabel = base::SysUTF8ToNSString(
+      autofill::FieldTypeToDeveloperRepresentationString(
+          autofill::ADDRESS_HOME_STREET_ADDRESS));
+
+  // Empty the street address field, which is required.
+  [[EarlGrey selectElementWithMatcher:TextFieldWithLabel(streetAddressLabel)]
+      performAction:grey_replaceText(@"")];
+
+  // Ensure the 'Save' button is disabled.
+  [[EarlGrey selectElementWithMatcher:ModalButtonMatcher()]
+      assertWithMatcher:grey_not(grey_enabled())];
+
+  // Re-fill the street address field.
+  [[EarlGrey selectElementWithMatcher:TextFieldWithLabel(streetAddressLabel)]
+      performAction:grey_replaceText(@"Street")];
+
+  // Ensure the 'Save' button is enabled.
+  [[EarlGrey selectElementWithMatcher:ModalButtonMatcher()]
+      assertWithMatcher:grey_enabled()];
+
+  // Sign out.
+  [SigninEarlGrey signOut];
 }
 
 @end

@@ -22,6 +22,7 @@ import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.theme.TopUiThemeColorProvider;
 import org.chromium.chrome.browser.toolbar.ControlContainer;
+import org.chromium.chrome.browser.toolbar.ToolbarManager;
 import org.chromium.ui.resources.dynamics.DynamicResourceLoader;
 
 /**
@@ -32,6 +33,9 @@ public class LayoutManagerChromePhone extends LayoutManagerChrome {
     // TODO(crbug.com/40282469): Rename SimpleAnimationLayout to NewTabAnimationLayout once it is
     // rolled out.
     private final ObservableSupplier<CompositorViewHolder> mCompositorViewHolderSupplier;
+    private final ToolbarManager mToolbarManager;
+    private final ObservableSupplier<Boolean> mScrimVisibilitySupplier;
+    private final ViewGroup mContentView;
     private Layout mSimpleAnimationLayout;
 
     /**
@@ -46,7 +50,10 @@ public class LayoutManagerChromePhone extends LayoutManagerChrome {
      * @param tabContentManagerSupplier Supplier of the {@link TabContentManager} instance.
      * @param topUiThemeColorProvider {@link ThemeColorProvider} for top UI.
      * @param hubLayoutDependencyHolder The dependency holder for creating {@link HubLayout}.
-     * @param compositorViewHolderSupplier Supplier to the {@link CompositorViewHolder} instance.
+     * @param compositorViewHolderSupplier Supplier of the {@link CompositorViewHolder} instance.
+     * @param contentView The base content view.
+     * @param toolbarManager The {@link ToolbarManager} instance.
+     * @param scrimVisibilitySupplier Supplier for the Scrim visibility.
      */
     public LayoutManagerChromePhone(
             LayoutManagerHost host,
@@ -56,7 +63,10 @@ public class LayoutManagerChromePhone extends LayoutManagerChrome {
             ObservableSupplier<TabContentManager> tabContentManagerSupplier,
             Supplier<TopUiThemeColorProvider> topUiThemeColorProvider,
             HubLayoutDependencyHolder hubLayoutDependencyHolder,
-            ObservableSupplier<CompositorViewHolder> compositorViewHolderSupplier) {
+            ObservableSupplier<CompositorViewHolder> compositorViewHolderSupplier,
+            ViewGroup contentView,
+            ToolbarManager toolbarManager,
+            ObservableSupplier<Boolean> scrimVisibilitySupplier) {
         super(
                 host,
                 contentContainer,
@@ -66,6 +76,9 @@ public class LayoutManagerChromePhone extends LayoutManagerChrome {
                 topUiThemeColorProvider,
                 hubLayoutDependencyHolder);
         mCompositorViewHolderSupplier = compositorViewHolderSupplier;
+        mContentView = contentView;
+        mToolbarManager = toolbarManager;
+        mScrimVisibilitySupplier = scrimVisibilitySupplier;
     }
 
     @Override
@@ -94,7 +107,11 @@ public class LayoutManagerChromePhone extends LayoutManagerChrome {
                             this,
                             renderHost,
                             getContentContainer(),
-                            mCompositorViewHolderSupplier);
+                            mCompositorViewHolderSupplier,
+                            mContentView,
+                            mToolbarManager,
+                            getBrowserControlsManager(),
+                            mScrimVisibilitySupplier);
         } else {
             mSimpleAnimationLayout =
                     new SimpleAnimationLayout(context, this, renderHost, getContentContainer());

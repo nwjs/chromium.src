@@ -76,7 +76,7 @@ abstract class OnDeviceModel<T> implements Model<T> {
   async execute(content: string, language: LanguageCode):
     Promise<ModelResponse<T>> {
     const session = new SessionRemote();
-    this.remote.startSession(session.$.bindNewPipeAndPassReceiver());
+    this.remote.startSession(session.$.bindNewPipeAndPassReceiver(), null);
     const result =
       await this.executeInRemoteSession(content, language, session);
     session.$.close();
@@ -158,8 +158,8 @@ abstract class OnDeviceModel<T> implements Model<T> {
     session.generate(
       {
         maxOutputTokens: 0,
-        topK: 1,
-        temperature: 0,
+        topK: null,
+        temperature: null,
       },
       responseRouter.$.bindNewPipeAndPassRemote(),
     );

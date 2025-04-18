@@ -186,6 +186,7 @@ declare_args() {
   # Unsafe buffers. Location of file used by plugins to track portions of
   # the codebase which have been made manifestly safe.
   clang_unsafe_buffers_paths = ""
+  clang_warning_suppression_file = ""
 }
 
 # ==============================================================================
@@ -317,6 +318,7 @@ is_ios = current_os == "ios"
 is_linux = current_os == "linux"
 is_mac = current_os == "mac"
 is_nacl = current_os == "nacl"
+is_wasm = current_os == "emscripten"
 is_watchos = current_os == "watchos"
 is_win = current_os == "win" || current_os == "winuwp"
 
@@ -560,13 +562,27 @@ foreach(_target_type,
       if (is_clang && (!defined(invoker.use_libcxx_modules) ||
                        invoker.use_libcxx_modules)) {
         # This is necessary for Clang modules builds.
-        deps += [ "//buildtools/third_party/libc++:std" ]
+        deps += [
+          "//buildtools/third_party/libc++:std",
+          "//buildtools/third_party/libc++:std_config",
+          "//buildtools/third_party/libc++:std_core",
+          "//buildtools/third_party/libc++:std_ctype_h",
+          "//buildtools/third_party/libc++:std_errno_h",
+          "//buildtools/third_party/libc++:std_fenv_h",
+          "//buildtools/third_party/libc++:std_float_h",
+          "//buildtools/third_party/libc++:std_inttypes_h",
+          "//buildtools/third_party/libc++:std_math_h",
+          "//buildtools/third_party/libc++:std_private_mbstate_t",
+          "//buildtools/third_party/libc++:std_string_h",
+          "//buildtools/third_party/libc++:std_uchar_h",
+          "//buildtools/third_party/libc++:std_wctype_h",
+        ]
       }
 
       # Consumed by the unsafe-buffers plugin during compile.
       #
       # TODO(crbug.com/326584510): Reclient doesn't respect this variable, see
-      # rbe_bug_326584510_missing_inputs in //build/config/rbe.gni.
+      # rbe_bug_326584510_missing_inputs in //build/config/clang/clang.gni
       _uses_cflags = false
       if (defined(sources)) {
         foreach(f, sources) {
@@ -618,7 +634,7 @@ foreach(_target_type,
       # Consumed by the unsafe-buffers plugin during compile.
       #
       # TODO(crbug.com/326584510): Reclient doesn't respect this variable, see
-      # rbe_bug_326584510_missing_inputs in //build/config/rbe.gni.
+      # rbe_bug_326584510_missing_inputs in //build/config/clang/clang.gni
       _uses_cflags = false
       if (defined(sources)) {
         foreach(f, sources) {
@@ -655,6 +671,18 @@ foreach(_target_type,
           "//buildtools/third_party/libc++:_Builtin_stdarg",
           "//buildtools/third_party/libc++:_Builtin_stddef",
           "//buildtools/third_party/libc++:std",
+          "//buildtools/third_party/libc++:std_config",
+          "//buildtools/third_party/libc++:std_core",
+          "//buildtools/third_party/libc++:std_ctype_h",
+          "//buildtools/third_party/libc++:std_errno_h",
+          "//buildtools/third_party/libc++:std_fenv_h",
+          "//buildtools/third_party/libc++:std_float_h",
+          "//buildtools/third_party/libc++:std_inttypes_h",
+          "//buildtools/third_party/libc++:std_math_h",
+          "//buildtools/third_party/libc++:std_private_mbstate_t",
+          "//buildtools/third_party/libc++:std_string_h",
+          "//buildtools/third_party/libc++:std_uchar_h",
+          "//buildtools/third_party/libc++:std_wctype_h",
         ]
       }
 

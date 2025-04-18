@@ -13,8 +13,15 @@
 #include "components/signin/public/identity_manager/identity_manager.h"
 
 class Profile;
+class ProfileAttributesStorage;
 
 namespace glic {
+namespace mojom {
+// TODO(crbug.com/406500707): This forward declaration is needed because we use
+// allow_circular_includes_from. Our build rules should be refactored to avoid
+// this.
+enum class ProfileReadyState : int32_t;
+}  // namespace mojom
 
 // This class provides a central location for checking if GLIC is enabled. It
 // allows for future expansion to include other ways the feature may be disabled
@@ -50,7 +57,7 @@ class GlicEnabling : public signin::IdentityManager::Observer {
   static bool IsProfileEligible(const Profile* profile);
 
   // This is a convenience method for code outside of //chrome/browser/glic.
-  // Code inside should use instance method IsEnabled() instead.
+  // Code inside should use instance method IsAllowed() instead.
   static bool IsEnabledForProfile(Profile* profile);
 
   // Returns true if the given profile has Glic enabled and has completed the
@@ -63,11 +70,20 @@ class GlicEnabling : public signin::IdentityManager::Observer {
   // additional steps must be taken before opening Glic.
   static bool IsReadyForProfile(Profile* profile);
 
-  explicit GlicEnabling(Profile* profile);
+  // Same as IsReadyForProfile, but returns a more detailed state.
+  static mojom::ProfileReadyState GetProfileReadyState(Profile* profile);
+
+  // The settings page is shown when:
+  // * Flags are enabled
+  // * The profile is eligible (regular, non-incognito, non-guest, etc.)
+  // * The profile has model execution privileges
+  // * The profile has completed the first run experience
+  static bool ShouldShowSettingsPage(Profile* profile);
+
+  explicit GlicEnabling(Profile* profile,
+                        ProfileAttributesStorage* profile_attributes_storage);
   ~GlicEnabling() override;
 
-  // TODO(crbug.com/390487066): This method is misnamed. It would be more
-  // accurate to call it `IsAllowed()`.
   // Returns true if the given profile is allowed to use glic. This means that
   // IsProfileEligible() returns true and:
   //   * the profile is signed in
@@ -83,11 +99,11 @@ class GlicEnabling : public signin::IdentityManager::Observer {
   //   * Entry point specific flags (e.g. kGlicPinnedToTabstrip).
   //   * Profile is not paused.
   // If all entry-points have been disabled, then glic is functionally disabled.
-  bool IsEnabled();
+  bool IsAllowed();
 
-  // This is called anytime IsEnabled() might return a different value.
+  // This is called anytime IsAllowed() might return a different value.
   using EnableChangedCallback = base::RepeatingClosure;
-  base::CallbackListSubscription RegisterEnableChanged(
+  base::CallbackListSubscription RegisterAllowedChanged(
       EnableChangedCallback callback);
 
  private:
@@ -99,8 +115,10 @@ class GlicEnabling : public signin::IdentityManager::Observer {
 
   // Detects changes to capabilities.
   void OnExtendedAccountInfoUpdated(const AccountInfo& info) override;
-
+  void OnExtendedAccountInfoRemoved(const AccountInfo& info) override;
   void OnRefreshTokensLoaded() override;
+  void OnRefreshTokenRemovedForAccount(
+      const CoreAccountId& account_id) override;
 
   // Detects paused state.
   void OnErrorStateOfRefreshTokenUpdatedForAccount(
@@ -109,7 +127,10 @@ class GlicEnabling : public signin::IdentityManager::Observer {
       signin_metrics::SourceForRefreshTokenOperation token_operation_source)
       override;
 
+  void UpdateEnabledStatus();
+
   raw_ptr<Profile> profile_;
+  raw_ptr<ProfileAttributesStorage> profile_attributes_storage_;
   using EnableChangedCallbackList = base::RepeatingCallbackList<void()>;
   EnableChangedCallbackList enable_changed_callback_list_;
   PrefChangeRegistrar pref_registrar_;

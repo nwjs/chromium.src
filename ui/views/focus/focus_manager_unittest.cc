@@ -110,8 +110,8 @@ TEST_F(FocusManagerTest, ViewFocusCallbacks) {
   const int kView2ID = 2;
   SimpleTestView* view1 = new SimpleTestView(event_list, kView1ID);
   SimpleTestView* view2 = new SimpleTestView(event_list, kView2ID);
-  GetContentsView()->AddChildView(view1);
-  GetContentsView()->AddChildView(view2);
+  GetContentsView()->AddChildViewRaw(view1);
+  GetContentsView()->AddChildViewRaw(view2);
 
   view1->RequestFocus();
   ASSERT_EQ(1, static_cast<int>(event_list->vec.size()));
@@ -504,7 +504,7 @@ TEST_F(FocusManagerTest, FocusInAboutToRequestFocusFromTabTraversal) {
       new FocusInAboutToRequestFocusFromTabTraversalView;
   v2->SetFocusBehavior(View::FocusBehavior::ALWAYS);
   v2->set_view_to_focus(v1);
-  GetContentsView()->AddChildView(v2);
+  GetContentsView()->AddChildViewRaw(v2);
 
   views::View* v3 = new View;
   v3->SetFocusBehavior(View::FocusBehavior::ALWAYS);
@@ -521,7 +521,7 @@ TEST_F(FocusManagerTest, FocusInAboutToRequestFocusFromTabTraversal) {
 
 TEST_F(FocusManagerTest, RotateFocus) {
   views::AccessiblePaneView* pane1 = new AccessiblePaneView();
-  GetContentsView()->AddChildView(pane1);
+  GetContentsView()->AddChildViewRaw(pane1);
 
   views::View* v1 = new View;
   v1->SetFocusBehavior(View::FocusBehavior::ALWAYS);
@@ -532,7 +532,7 @@ TEST_F(FocusManagerTest, RotateFocus) {
   pane1->AddChildViewRaw(v2);
 
   views::AccessiblePaneView* pane2 = new AccessiblePaneView();
-  GetContentsView()->AddChildView(pane2);
+  GetContentsView()->AddChildViewRaw(pane2);
 
   views::View* v3 = new View;
   v3->SetFocusBehavior(View::FocusBehavior::ALWAYS);
@@ -736,7 +736,7 @@ TEST_F(FocusManagerTest, StoreFocusedView) {
   SimpleTestView* view = new SimpleTestView(event_list, kView1ID);
 
   // Add view to the view hierarchy and make it focusable.
-  GetWidget()->GetRootView()->AddChildView(view);
+  GetWidget()->GetRootView()->AddChildViewRaw(view);
   view->SetFocusBehavior(View::FocusBehavior::ALWAYS);
 
   GetFocusManager()->SetFocusedView(view);
@@ -793,9 +793,9 @@ TEST_F(FocusManagerTest, StoreFocusedViewFullKeyboardAccess) {
   view3->SetFocusBehavior(View::FocusBehavior::ALWAYS);
 
   // Add views to the view hierarchy
-  GetWidget()->GetRootView()->AddChildView(view1);
-  GetWidget()->GetRootView()->AddChildView(view2);
-  GetWidget()->GetRootView()->AddChildView(view3);
+  GetWidget()->GetRootView()->AddChildViewRaw(view1);
+  GetWidget()->GetRootView()->AddChildViewRaw(view2);
+  GetWidget()->GetRootView()->AddChildViewRaw(view3);
 
   view1->RequestFocus();
   EXPECT_EQ(view1, GetFocusManager()->GetFocusedView());
@@ -828,8 +828,8 @@ TEST_F(FocusManagerTest, RequestFocus) {
   view2->SetFocusBehavior(View::FocusBehavior::ACCESSIBLE_ONLY);
 
   // Adds views to the view hierarchy.
-  GetWidget()->GetRootView()->AddChildView(view1);
-  GetWidget()->GetRootView()->AddChildView(view2);
+  GetWidget()->GetRootView()->AddChildViewRaw(view1);
+  GetWidget()->GetRootView()->AddChildViewRaw(view2);
 
   // Verify view1 can always get focus via View::RequestFocus, while view2 can
   // only get focus in full keyboard accessibility mode.
@@ -872,21 +872,25 @@ class AdvanceFocusWidgetDelegate : public WidgetDelegate {
   raw_ptr<Widget> widget_;
 };
 
-class TestBubbleDialogDelegateView : public BubbleDialogDelegateView {
+}  // namespace
+
+class FocusManagerTestBubbleDialogDelegateView
+    : public BubbleDialogDelegateView {
  public:
-  explicit TestBubbleDialogDelegateView(View* anchor)
+  explicit FocusManagerTestBubbleDialogDelegateView(View* anchor)
       : BubbleDialogDelegateView(anchor, BubbleBorder::NONE) {
     DialogDelegate::SetButtons(
         static_cast<int>(ui::mojom::DialogButton::kNone));
   }
-  TestBubbleDialogDelegateView(const TestBubbleDialogDelegateView&) = delete;
-  TestBubbleDialogDelegateView& operator=(const TestBubbleDialogDelegateView&) =
-      delete;
-  ~TestBubbleDialogDelegateView() override = default;
+  FocusManagerTestBubbleDialogDelegateView(
+      const FocusManagerTestBubbleDialogDelegateView&) = delete;
+  FocusManagerTestBubbleDialogDelegateView& operator=(
+      const FocusManagerTestBubbleDialogDelegateView&) = delete;
+  ~FocusManagerTestBubbleDialogDelegateView() override = default;
 
-  static TestBubbleDialogDelegateView* CreateAndShowBubble(View* anchor) {
-    TestBubbleDialogDelegateView* bubble =
-        new TestBubbleDialogDelegateView(anchor);
+  static FocusManagerTestBubbleDialogDelegateView* CreateAndShowBubble(
+      View* anchor) {
+    auto* bubble = new FocusManagerTestBubbleDialogDelegateView(anchor);
     Widget* bubble_widget = BubbleDialogDelegateView::CreateBubble(bubble);
     bubble_widget->SetFocusTraversableParent(
         bubble->anchor_widget()->GetFocusTraversable());
@@ -915,8 +919,6 @@ class TestBubbleDialogDelegateView : public BubbleDialogDelegateView {
  private:
   bool use_native_widget_aura_ = false;
 };
-
-}  // namespace
 
 // Verifies focus wrapping happens in the same widget.
 TEST_F(FocusManagerTest, AdvanceFocusStaysInWidget) {
@@ -994,7 +996,7 @@ TEST_F(FocusManagerTest, NavigateIntoAnchoredDialog) {
   parent3->AddChildViewRaw(new View());
 
   BubbleDialogDelegateView* bubble_delegate =
-      TestBubbleDialogDelegateView::CreateAndShowBubble(parent3);
+      FocusManagerTestBubbleDialogDelegateView::CreateAndShowBubble(parent3);
   Widget* bubble_widget = bubble_delegate->GetWidget();
 
   View* child1 = new View();
@@ -1052,7 +1054,7 @@ TEST_F(FocusManagerTest, AnchoredDialogOnContainerView) {
   GetWidget()->GetRootView()->AddChildViewRaw(parent4);
 
   BubbleDialogDelegateView* bubble_delegate =
-      TestBubbleDialogDelegateView::CreateAndShowBubble(parent3);
+      FocusManagerTestBubbleDialogDelegateView::CreateAndShowBubble(parent3);
   Widget* bubble_widget = bubble_delegate->GetWidget();
 
   View* child1 = new View();
@@ -1097,7 +1099,7 @@ TEST_F(FocusManagerTest, AnchoredDialogInPane) {
   anchor->SetFocusBehavior(View::FocusBehavior::ALWAYS);
 
   BubbleDialogDelegateView* bubble =
-      TestBubbleDialogDelegateView::CreateAndShowBubble(anchor);
+      FocusManagerTestBubbleDialogDelegateView::CreateAndShowBubble(anchor);
 
   // We need a focusable view inside our bubble to check that focus traverses
   // in.
@@ -1177,8 +1179,8 @@ TEST_F(DesktopWidgetFocusManagerTest, AnchoredDialogInDesktopNativeWidgetAura) {
   widget->GetRootView()->AddChildViewRaw(parent1);
   widget->GetRootView()->AddChildViewRaw(parent2);
 
-  TestBubbleDialogDelegateView* bubble_delegate =
-      TestBubbleDialogDelegateView::CreateAndShowBubble(parent2);
+  FocusManagerTestBubbleDialogDelegateView* bubble_delegate =
+      FocusManagerTestBubbleDialogDelegateView::CreateAndShowBubble(parent2);
   Widget* bubble_widget = bubble_delegate->GetWidget();
   bubble_delegate->UseNativeWidgetAura();
 
@@ -1248,7 +1250,8 @@ class RedirectToParentFocusManagerTest : public FocusManagerTest {
         GetWidget()->GetRootView()->AddChildView(std::make_unique<View>());
     anchor->SetFocusBehavior(View::FocusBehavior::ALWAYS);
 
-    bubble_ = TestBubbleDialogDelegateView::CreateAndShowBubble(anchor);
+    bubble_ =
+        FocusManagerTestBubbleDialogDelegateView::CreateAndShowBubble(anchor);
     Widget* bubble_widget = bubble_->GetWidget();
 
     parent_focus_manager_ = anchor->GetFocusManager();

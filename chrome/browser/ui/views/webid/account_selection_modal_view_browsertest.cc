@@ -115,8 +115,8 @@ class AccountSelectionModalViewTest : public DialogBrowserTest,
 
     CreateAccountSelectionModal();
     dialog_->ShowMultiAccountPicker(account_list_, {idp_data_},
-                                    /*show_back_button=*/false,
-                                    /*is_choose_an_account=*/false);
+                                    /*rp_icon=*/gfx::Image(),
+                                    /*show_back_button=*/false);
     account_selection_view_->UpdateDialogPosition();
   }
 
@@ -595,8 +595,8 @@ class AccountSelectionModalViewTest : public DialogBrowserTest,
     }
     CreateAccountSelectionModal();
     dialog()->ShowMultiAccountPicker(account_list_, {idp_data()},
-                                     /*show_back_button=*/false,
-                                     /*is_choose_an_account=*/false);
+                                     /*rp_icon=*/gfx::Image(),
+                                     /*show_back_button=*/false);
     account_selection_view_->UpdateDialogPosition();
 
     std::vector<raw_ptr<views::View, VectorExperimental>> children =
@@ -632,8 +632,8 @@ class AccountSelectionModalViewTest : public DialogBrowserTest,
     account_list_[1]->is_filtered_out = true;
     CreateAccountSelectionModal();
     dialog()->ShowMultiAccountPicker(account_list_, {idp_data()},
-                                     /*show_back_button=*/false,
-                                     /*is_choose_an_account=*/false);
+                                     /*rp_icon=*/gfx::Image(),
+                                     /*show_back_button=*/false);
     account_selection_view_->UpdateDialogPosition();
 
     std::vector<raw_ptr<views::View, VectorExperimental>> children =

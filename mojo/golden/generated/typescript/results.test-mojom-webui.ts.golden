@@ -30,7 +30,7 @@ export class ResultInterfacePendingReceiver implements
 }
 
 export interface ResultInterfaceInterface {
-  method(a: boolean): void;
+  method(a: boolean): Promise<boolean>;
 }
 
 export class ResultInterfaceRemote implements ResultInterfaceInterface {
@@ -50,14 +50,15 @@ export class ResultInterfaceRemote implements ResultInterfaceInterface {
   }
 
   method(
-      a: boolean): void {
-    this.proxy.sendMessage(
+      a: boolean): Promise<boolean> {
+    return this.proxy.sendMessage(
         0,
         ResultInterface_Method_ParamsSpec.$,
-        null,
+        ResultInterface_Method_ResponseParamsSpec.$,
         [
           a
-        ]);
+        ],
+        true);
   }
 };
 
@@ -85,8 +86,9 @@ export class ResultInterfaceReceiver {
     this.helper_internal_.registerHandler(
         0,
         ResultInterface_Method_ParamsSpec.$,
-        null,
-        impl.method.bind(impl));
+        ResultInterface_Method_ResponseParamsSpec.$,
+        impl.method.bind(impl),
+        true);
     this.onConnectionError = this.helper_internal_.getConnectionErrorEventRouter();
   }
 }
@@ -137,8 +139,9 @@ export class ResultInterfaceCallbackRouter {
     this.helper_internal_.registerHandler(
         0,
         ResultInterface_Method_ParamsSpec.$,
-        null,
-        this.method.createReceiverHandler(false /* expectsResponse */));
+        ResultInterface_Method_ResponseParamsSpec.$,
+        this.method.createReceiverHandler(true /* expectsResponse */),
+        true);
     this.onConnectionError = this.helper_internal_.getConnectionErrorEventRouter();
   }
 
@@ -155,6 +158,12 @@ export const ResultTestErrorSpec: { $: mojo.internal.MojomType } =
     { $: {} as unknown as mojo.internal.MojomType };
 
 export const ResultInterface_Method_ParamsSpec: { $: mojo.internal.MojomType } =
+    { $: {} as unknown as mojo.internal.MojomType };
+
+export const ResultInterface_Method_ResponseParamsSpec: { $: mojo.internal.MojomType } =
+    { $: {} as unknown as mojo.internal.MojomType };
+
+export const ResultInterface_Method_ResponseParam_ResultSpec: { $: mojo.internal.MojomType } =
     { $: {} as unknown as mojo.internal.MojomType };
 
 
@@ -201,3 +210,47 @@ mojo.internal.Struct<ResultInterface_Method_ParamsMojoType>(
 
 
 
+
+
+export interface ResultInterface_Method_ResponseParamsMojoType {
+  result: ResultInterface_Method_ResponseParam_Result;
+}
+
+
+export type ResultInterface_Method_ResponseParams = ResultInterface_Method_ResponseParamsMojoType;
+mojo.internal.Struct<ResultInterface_Method_ResponseParamsMojoType>(
+    ResultInterface_Method_ResponseParamsSpec.$,
+    'ResultInterface_Method_ResponseParams',
+    [
+      mojo.internal.StructField<ResultInterface_Method_ResponseParamsMojoType, ResultInterface_Method_ResponseParam_Result>(
+        'result', 0,
+        0,
+        ResultInterface_Method_ResponseParam_ResultSpec.$,
+        null,
+        false /* nullable */,
+        0,
+        undefined,
+        undefined,
+    ),
+    ],
+    [[0, 24],]);
+
+
+
+mojo.internal.Union(
+    ResultInterface_Method_ResponseParam_ResultSpec.$, 'ResultInterface_Method_ResponseParam_Result',
+    {
+      'success': {
+        'ordinal': 0,
+        'type': mojo.internal.Bool,
+      },
+      'failure': {
+        'ordinal': 1,
+        'type': ResultTestErrorSpec.$,
+      },
+    });
+
+export interface ResultInterface_Method_ResponseParam_Result {
+  success?: boolean,
+  failure?: ResultTestError,
+}

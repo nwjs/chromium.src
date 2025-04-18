@@ -18,6 +18,7 @@
 #include "third_party/blink/renderer/core/css/resolver/style_cascade.h"
 #include "third_party/blink/renderer/core/css_value_keywords.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
+#include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/core/html/parser/html_parser_idioms.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 
@@ -33,6 +34,18 @@ bool CSSVariableParser::IsValidVariableName(const CSSParserToken& token) {
 
 bool CSSVariableParser::IsValidVariableName(StringView string) {
   return string.length() >= 3 && string[0] == '-' && string[1] == '-';
+}
+
+bool CSSVariableParser::StartsCustomPropertyDeclaration(
+    CSSParserTokenStream& stream) {
+  if (!CSSVariableParser::IsValidVariableName(stream.Peek())) {
+    return false;
+  }
+  CSSParserTokenStream::State state = stream.Save();
+  stream.ConsumeIncludingWhitespace();  // <ident>
+  bool result = stream.Peek().GetType() == kColonToken;
+  stream.Restore(state);
+  return result;
 }
 
 const CSSValue* CSSVariableParser::ParseDeclarationIncludingCSSWide(
@@ -235,13 +248,13 @@ static bool ConsumeAttributeReference(CSSParserTokenStream& stream,
 //   media( <media-query> ) |
 //   style( <style-query> )
 // https://www.w3.org/TR/css-values-5/#if-notation
-static bool ConsumeIfReference(CSSParserTokenStream& stream,
-                               bool& has_references,
-                               bool& has_font_units,
-                               bool& has_root_font_units,
-                               bool& has_line_height_units,
-                               bool& has_dashed_functions,
-                               const CSSParserContext& context) {
+static bool ConsumeIf(CSSParserTokenStream& stream,
+                      bool& has_references,
+                      bool& has_font_units,
+                      bool& has_root_font_units,
+                      bool& has_line_height_units,
+                      bool& has_dashed_functions,
+                      const CSSParserContext& context) {
   CSSParserTokenStream::BlockGuard guard(stream);
   CSSIfParser parser(context);
 
@@ -343,6 +356,13 @@ static bool ConsumeCustomFunction(CSSParserTokenStream& stream,
         return false;
       }
     } else {
+      // Arguments that look like custom property declarations are reserved
+      // for named arguments.
+      //
+      // https://github.com/w3c/csswg-drafts/issues/11749
+      if (CSSVariableParser::StartsCustomPropertyDeclaration(stream)) {
+        return false;
+      }
       // Passing restricted_value=true effectively disallows "{}".
       if (!ConsumeUnparsedValue(stream, /*restricted_value=*/true,
                                 /*comma_ends_declaration=*/true, has_references,
@@ -496,10 +516,13 @@ static bool ConsumeUnparsedValue(CSSParserTokenStream& stream,
           if (!RuntimeEnabledFeatures::CSSInlineIfForStyleQueriesEnabled()) {
             break;
           }
-          if (!ConsumeIfReference(stream, has_references, has_font_units,
-                                  has_root_font_units, has_line_height_units,
-                                  has_dashed_functions, context)) {
+          if (!ConsumeIf(stream, has_references, has_font_units,
+                         has_root_font_units, has_line_height_units,
+                         has_dashed_functions, context)) {
             error = true;
+          }
+          if (!error) {
+            context.Count(WebDXFeature::kDRAFT_CssIf);
           }
           has_references = true;
           continue;

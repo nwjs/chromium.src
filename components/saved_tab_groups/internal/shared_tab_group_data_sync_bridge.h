@@ -21,12 +21,18 @@
 #include "components/saved_tab_groups/public/saved_tab_group.h"
 #include "components/saved_tab_groups/public/saved_tab_group_tab.h"
 #include "components/saved_tab_groups/public/types.h"
+#include "components/sync/base/collaboration_id.h"
 #include "components/sync/model/data_type_store.h"
 #include "components/sync/model/data_type_sync_bridge.h"
 #include "components/sync/model/model_error.h"
+#include "components/sync/protocol/collaboration_metadata.h"
 #include "components/sync/protocol/unique_position.pb.h"
 
 class PrefService;
+
+namespace data_sharing {
+class Logger;
+}  // namespace data_sharing
 
 namespace syncer {
 class DataTypeLocalChangeProcessor;
@@ -51,7 +57,8 @@ class SharedTabGroupDataSyncBridge : public syncer::DataTypeSyncBridge {
       SyncBridgeTabGroupModelWrapper* model_wrapper,
       syncer::OnceDataTypeStoreFactory create_store_callback,
       std::unique_ptr<syncer::DataTypeLocalChangeProcessor> change_processor,
-      PrefService* pref_service);
+      PrefService* pref_service,
+      data_sharing::Logger* logger);
 
   SharedTabGroupDataSyncBridge(const SharedTabGroupDataSyncBridge&) = delete;
   SharedTabGroupDataSyncBridge& operator=(const SharedTabGroupDataSyncBridge&) =
@@ -200,6 +207,11 @@ class SharedTabGroupDataSyncBridge : public syncer::DataTypeSyncBridge {
   void FixLocalTabGroupIDsForSharedGroupsDuringFeatureEnabling(
       std::vector<proto::SharedTabGroupData>& stored_entries);
 
+  // Resolves tabs missing groups by adding them to the model if a corresponding
+  // group exists in the model.
+  std::optional<syncer::ModelError> ResolveTabsMissingGroups(
+      syncer::MetadataChangeList& metadata_change_list);
+
   SEQUENCE_CHECKER(sequence_checker_);
 
   // In charge of actually persisting changes to disk, or loading previous data.
@@ -224,8 +236,29 @@ class SharedTabGroupDataSyncBridge : public syncer::DataTypeSyncBridge {
   // Whether shared tab group was enabled in last session. Used for migration.
   const bool did_enable_shared_tab_groups_in_last_session_;
 
+  // Logger for logging to debug UI.
+  raw_ptr<data_sharing::Logger> logger_ = nullptr;
+
   // List of tab groups waiting for being committed to the server.
   std::vector<base::Uuid> tab_groups_waiting_for_commit_;
+
+  // Used to store tabs whose groups were not added locally yet. These tabs will
+  // be removed after the TTL expires.
+  struct TabMissingGroup {
+    TabMissingGroup(sync_pb::SharedTabGroupDataSpecifics specifics,
+                    syncer::CollaborationMetadata collaboration_metadata,
+                    base::Time creation_time);
+    TabMissingGroup(const TabMissingGroup&);
+    TabMissingGroup& operator=(const TabMissingGroup&);
+    TabMissingGroup(TabMissingGroup&&);
+    TabMissingGroup& operator=(TabMissingGroup&&);
+    ~TabMissingGroup();
+
+    sync_pb::SharedTabGroupDataSpecifics specifics;
+    syncer::CollaborationMetadata collaboration_metadata;
+    base::Time creation_time;
+  };
+  std::map<base::Uuid, TabMissingGroup> tabs_missing_groups_;
 
   // Allows safe temporary use of the SharedTabGroupDataSyncBridge object if it
   // exists at the time of use.

@@ -26,8 +26,7 @@ const CGFloat kVoiceOverAnnouncementDelay = 1;
 
 }  // namespace
 
-// Implements BubbleViewDelegate to handle BubbleView's close and snooze buttons
-// tap.
+// Implements BubbleViewDelegate to handle BubbleView's close button tap.
 @interface BubbleViewControllerPresenter () <UIGestureRecognizerDelegate,
                                              BubbleViewDelegate>
 
@@ -238,9 +237,7 @@ const CGFloat kVoiceOverAnnouncementDelay = 1;
   [self.bubbleViewController setArrowHidden:hidden animated:animated];
 }
 
-- (void)dismissAnimated:(BOOL)animated
-                 reason:(IPHDismissalReasonType)reason
-           snoozeAction:(feature_engagement::Tracker::SnoozeAction)action {
+- (void)dismissAnimated:(BOOL)animated reason:(IPHDismissalReasonType)reason {
   // Because this object must stay in memory to handle the `userEngaged`
   // property correctly, it is possible for `dismissAnimated` to be called
   // multiple times. However, only the first call should have any effect.
@@ -259,18 +256,12 @@ const CGFloat kVoiceOverAnnouncementDelay = 1;
   self.presenting = NO;
 
   if (self.dismissalCallback) {
-    self.dismissalCallback(reason, action);
+    self.dismissalCallback(reason);
   }
 }
 
 - (void)dismissAnimated:(BOOL)animated {
   [self dismissAnimated:animated reason:IPHDismissalReasonType::kUnknown];
-}
-
-- (void)dismissAnimated:(BOOL)animated reason:(IPHDismissalReasonType)reason {
-  [self dismissAnimated:animated
-                 reason:reason
-           snoozeAction:feature_engagement::Tracker::SnoozeAction::DISMISSED];
 }
 
 - (void)dealloc {
@@ -350,12 +341,6 @@ const CGFloat kVoiceOverAnnouncementDelay = 1;
   [self dismissAnimated:YES reason:IPHDismissalReasonType::kTappedClose];
 }
 
-- (void)didTapSnoozeButton {
-  [self dismissAnimated:YES
-                 reason:IPHDismissalReasonType::kTappedSnooze
-           snoozeAction:feature_engagement::Tracker::SnoozeAction::SNOOZED];
-}
-
 #pragma mark - Private
 
 - (NSTimeInterval)bubbleVisibilityDuration {
@@ -395,7 +380,10 @@ const CGFloat kVoiceOverAnnouncementDelay = 1;
     [parentView addGestureRecognizer:self.outsideBubbleTapRecognizer];
   }
 
-  if (!IsIPHGestureRecognitionPanAblationEnabled()) {
+  BOOL shouldEnablePanGestureRecognizer =
+      !IsIPHGestureRecognitionPanAblationEnabled() &&
+      !self.forceDisablePanGestureRecognizer;
+  if (shouldEnablePanGestureRecognizer) {
     self.outsideBubblePanRecognizer = [[UIPanGestureRecognizer alloc]
         initWithTarget:self
                 action:@selector(tapOutsideBubbleRecognized:)];

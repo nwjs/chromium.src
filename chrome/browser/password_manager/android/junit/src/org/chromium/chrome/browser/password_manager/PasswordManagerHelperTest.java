@@ -13,6 +13,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
@@ -21,15 +22,18 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.app.Activity;
 import android.app.PendingIntent;
 import android.app.PendingIntent.CanceledException;
 import android.content.Context;
+import android.content.pm.PackageInfo;
 import android.os.Bundle;
-import android.view.ContextThemeWrapper;
 import android.view.View;
 import android.widget.TextView;
 
-import androidx.test.core.app.ApplicationProvider;
+import androidx.fragment.app.FragmentActivity;
+import androidx.test.core.app.ActivityScenario;
+import androidx.test.core.content.pm.PackageInfoBuilder;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.ApiException;
@@ -43,9 +47,12 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.Robolectric;
 import org.robolectric.RuntimeEnvironment;
+import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLooper;
+import org.robolectric.shadows.ShadowPackageManager;
 import org.robolectric.shadows.ShadowSystemClock;
 
 import org.chromium.base.Callback;
@@ -64,19 +71,24 @@ import org.chromium.chrome.browser.password_manager.CredentialManagerLauncher.Cr
 import org.chromium.chrome.browser.password_manager.CredentialManagerLauncher.CredentialManagerError;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.pwm_disabled.PasswordCsvDownloadFlowController;
+import org.chromium.chrome.browser.pwm_disabled.PasswordCsvDownloadFlowControllerFactory;
 import org.chromium.chrome.browser.settings.SettingsNavigationFactory;
 import org.chromium.chrome.browser.sync.SyncServiceFactory;
+import org.chromium.components.browser_ui.settings.SettingsCustomTabLauncher;
 import org.chromium.components.browser_ui.settings.SettingsNavigation;
 import org.chromium.components.browser_ui.settings.SettingsNavigation.SettingsFragment;
+import org.chromium.components.browser_ui.test.BrowserUiDummyFragmentActivity;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.base.GaiaId;
-import org.chromium.components.signin.base.GoogleServiceAuthError;
 import org.chromium.components.sync.DataType;
 import org.chromium.components.sync.SyncService;
 import org.chromium.components.sync.UserSelectableType;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.components.user_prefs.UserPrefsJni;
+import org.chromium.google_apis.gaia.GoogleServiceAuthError;
+import org.chromium.google_apis.gaia.GoogleServiceAuthErrorState;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modaldialog.ModalDialogProperties;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -132,11 +144,9 @@ public class PasswordManagerHelperTest {
 
     @Mock private CustomTabIntentHelper mCustomTabIntentHelper;
 
-    private PasswordManagerHelper mPasswordManagerHelper;
+    private SettingsCustomTabLauncher mSettingsCustomTabLauncher;
 
-    private final Context mContext =
-            new ContextThemeWrapper(
-                    ApplicationProvider.getApplicationContext(), R.style.Theme_BrowserUI_DayNight);
+    private PasswordManagerHelper mPasswordManagerHelper;
 
     @Before
     public void setUp() throws CredentialManagerBackendException {
@@ -149,7 +159,8 @@ public class PasswordManagerHelperTest {
                 .thenReturn(false);
         SyncServiceFactory.setInstanceForTesting(mSyncServiceMock);
         when(mSyncServiceMock.isEngineInitialized()).thenReturn(true);
-        when(mSyncServiceMock.getAuthError()).thenReturn(GoogleServiceAuthError.State.NONE);
+        when(mSyncServiceMock.getAuthError())
+                .thenReturn(new GoogleServiceAuthError(GoogleServiceAuthErrorState.NONE));
         when(mLoadingModalDialogCoordinator.getState())
                 .thenReturn(LoadingModalDialogCoordinator.State.PENDING);
         mModalDialogManager =
@@ -174,6 +185,7 @@ public class PasswordManagerHelperTest {
                 mCredentialManagerLauncherFactoryMock);
 
         SettingsNavigationFactory.setInstanceForTesting(mSettingsNavigationMock);
+        mSettingsCustomTabLauncher = (Context context, String url) -> {};
     }
 
     @Test
@@ -245,7 +257,9 @@ public class PasswordManagerHelperTest {
         when(mSyncServiceMock.isEngineInitialized()).thenReturn(true);
         when(mSyncServiceMock.hasSyncConsent()).thenReturn(true);
         when(mSyncServiceMock.getAuthError())
-                .thenReturn(GoogleServiceAuthError.State.INVALID_GAIA_CREDENTIALS);
+                .thenReturn(
+                        new GoogleServiceAuthError(
+                                GoogleServiceAuthErrorState.INVALID_GAIA_CREDENTIALS));
 
         assertFalse(mPasswordManagerHelper.canUseUpm());
     }
@@ -279,6 +293,7 @@ public class PasswordManagerHelperTest {
     }
 
     @Test
+    @DisableFeatures(ChromeFeatureList.LOGIN_DB_DEPRECATION_ANDROID)
     public void testShowsUpdateDialogOnShowPasswordSettingsWhenBackendUpdateNeeded()
             throws CredentialManagerBackendException {
         chooseToSyncPasswords();
@@ -297,12 +312,13 @@ public class PasswordManagerHelperTest {
                 mModalDialogManagerSupplier,
                 /* managePasskeys= */ false,
                 TEST_EMAIL_ADDRESS,
-                mCustomTabIntentHelper);
+                mSettingsCustomTabLauncher);
 
         assertNotNull(mModalDialogManager.getCurrentDialogForTest());
     }
 
     @Test
+    @DisableFeatures(ChromeFeatureList.LOGIN_DB_DEPRECATION_ANDROID)
     public void testShowsUpdateDialogOnShowPasswordSettingsWhenGmsCoreUpdateIsRequired() {
         when(mBackendSupportHelperMock.isBackendPresent()).thenReturn(true);
         when(mPasswordManagerUtilBridgeJniMock.isGmsCoreUpdateRequired(any(), any()))
@@ -314,7 +330,7 @@ public class PasswordManagerHelperTest {
                 mModalDialogManagerSupplier,
                 /* managePasskeys= */ false,
                 TEST_NO_EMAIL_ADDRESS,
-                mCustomTabIntentHelper);
+                mSettingsCustomTabLauncher);
 
         PropertyModel dialogModel = mModalDialogManager.getCurrentDialogForTest();
         Context context = RuntimeEnvironment.getApplication().getApplicationContext();
@@ -325,6 +341,7 @@ public class PasswordManagerHelperTest {
     }
 
     @Test
+    @DisableFeatures(ChromeFeatureList.LOGIN_DB_DEPRECATION_ANDROID)
     public void testDoesNotShowUpdateDialogOnShowPasswordSettingsWhenNoUpdateNeeded() {
         chooseToSyncPasswords();
 
@@ -336,7 +353,7 @@ public class PasswordManagerHelperTest {
                 mModalDialogManagerSupplier,
                 /* managePasskeys= */ false,
                 TEST_EMAIL_ADDRESS,
-                mCustomTabIntentHelper);
+                mSettingsCustomTabLauncher);
 
         assertNull(mModalDialogManager.getCurrentDialogForTest());
     }
@@ -376,7 +393,9 @@ public class PasswordManagerHelperTest {
     }
 
     @Test
+    @EnableFeatures(ChromeFeatureList.LOGIN_DB_DEPRECATION_ANDROID)
     public void testShowPasswordSettingsSyncingPasswordsLaunchesNewUiForAccount() {
+        setUpPwmAvailableWithoutUnmigratedPasswords();
         chooseToSyncPasswords();
 
         mPasswordManagerHelper.showPasswordSettings(
@@ -385,7 +404,7 @@ public class PasswordManagerHelperTest {
                 mModalDialogManagerSupplier,
                 /* managePasskeys= */ false,
                 TEST_EMAIL_ADDRESS,
-                mCustomTabIntentHelper);
+                mSettingsCustomTabLauncher);
 
         verify(mCredentialManagerLauncherMock)
                 .getAccountCredentialManagerIntent(
@@ -396,6 +415,7 @@ public class PasswordManagerHelperTest {
     }
 
     @Test
+    @DisableFeatures(ChromeFeatureList.LOGIN_DB_DEPRECATION_ANDROID)
     public void testShowPasswordSettingsSyncingUserNotSyncingPasswordsLaunchesOldUi() {
         chooseToSyncButNotSyncPasswords();
         Context mockContext = mock(Context.class);
@@ -410,7 +430,7 @@ public class PasswordManagerHelperTest {
                 mModalDialogManagerSupplier,
                 /* managePasskeys= */ false,
                 TEST_EMAIL_ADDRESS,
-                mCustomTabIntentHelper);
+                mSettingsCustomTabLauncher);
 
         verify(mockContext).startActivity(any());
         verify(mSettingsNavigationMock)
@@ -419,6 +439,7 @@ public class PasswordManagerHelperTest {
     }
 
     @Test
+    @DisableFeatures(ChromeFeatureList.LOGIN_DB_DEPRECATION_ANDROID)
     public void testShowPasswordSettingsNotSyncingPasswordsCanNotUseUPMLaunchesOldUi() {
         when(mSyncServiceMock.isSyncFeatureEnabled()).thenReturn(false);
         Context mockContext = mock(Context.class);
@@ -429,7 +450,7 @@ public class PasswordManagerHelperTest {
                 mModalDialogManagerSupplier,
                 /* managePasskeys= */ false,
                 TEST_NO_EMAIL_ADDRESS,
-                mCustomTabIntentHelper);
+                mSettingsCustomTabLauncher);
 
         verify(mockContext).startActivity(any());
         verify(mSettingsNavigationMock)
@@ -438,6 +459,7 @@ public class PasswordManagerHelperTest {
     }
 
     @Test
+    @DisableFeatures(ChromeFeatureList.LOGIN_DB_DEPRECATION_ANDROID)
     public void testShowPasswordSettingsNotSyncingPasswordsCanUseUPMLaunchesNewUiForLocal() {
         when(mSyncServiceMock.isSyncFeatureEnabled()).thenReturn(false);
         when(mPasswordManagerUtilBridgeJniMock.shouldUseUpmWiring(mSyncServiceMock, mPrefService))
@@ -449,7 +471,7 @@ public class PasswordManagerHelperTest {
                 mModalDialogManagerSupplier,
                 /* managePasskeys= */ false,
                 TEST_NO_EMAIL_ADDRESS,
-                mCustomTabIntentHelper);
+                mSettingsCustomTabLauncher);
 
         verify(mCredentialManagerLauncherMock)
                 .getLocalCredentialManagerIntent(
@@ -459,7 +481,9 @@ public class PasswordManagerHelperTest {
     }
 
     @Test
+    @EnableFeatures(ChromeFeatureList.LOGIN_DB_DEPRECATION_ANDROID)
     public void testRecordsSuccessMetricsForAccountIntent() {
+        setUpPwmAvailableWithoutUnmigratedPasswords();
         HistogramWatcher histogram =
                 HistogramWatcher.newBuilder()
                         .expectIntRecord(
@@ -481,12 +505,16 @@ public class PasswordManagerHelperTest {
                 mModalDialogManagerSupplier,
                 /* managePasskeys= */ false,
                 TEST_EMAIL_ADDRESS,
-                mCustomTabIntentHelper);
+                mSettingsCustomTabLauncher);
 
         histogram.assertExpected();
     }
 
+    // This test is similar to its account counterpart. To ensure even coverage, but avoid
+    // adding even more tests to this suite this will run with LOGIN_DB_DEPRECATION_ANDROID
+    // disabled.
     @Test
+    @DisableFeatures(ChromeFeatureList.LOGIN_DB_DEPRECATION_ANDROID)
     public void testRecordsSuccessMetricsForLocalIntent() {
         HistogramWatcher histogram =
                 HistogramWatcher.newBuilder()
@@ -509,13 +537,15 @@ public class PasswordManagerHelperTest {
                 mModalDialogManagerSupplier,
                 /* managePasskeys= */ false,
                 TEST_NO_EMAIL_ADDRESS,
-                mCustomTabIntentHelper);
+                mSettingsCustomTabLauncher);
 
         histogram.assertExpected();
     }
 
     @Test
+    @EnableFeatures(ChromeFeatureList.LOGIN_DB_DEPRECATION_ANDROID)
     public void testRecordsErrorMetricsForAccountIntent() {
+        setUpPwmAvailableWithoutUnmigratedPasswords();
         HistogramWatcher histogram =
                 HistogramWatcher.newBuilder()
                         .expectIntRecord(
@@ -537,12 +567,16 @@ public class PasswordManagerHelperTest {
                 mModalDialogManagerSupplier,
                 /* managePasskeys= */ false,
                 TEST_EMAIL_ADDRESS,
-                mCustomTabIntentHelper);
+                mSettingsCustomTabLauncher);
 
         histogram.assertExpected();
     }
 
+    // This test is similar to its local counterpart. To ensure even coverage, but avoid
+    // adding even more tests to this suite this will run with LOGIN_DB_DEPRECATION_ANDROID
+    // disabled.
     @Test
+    @DisableFeatures(ChromeFeatureList.LOGIN_DB_DEPRECATION_ANDROID)
     public void testRecordsErrorMetricsForLocalIntent() {
         HistogramWatcher histogram =
                 HistogramWatcher.newBuilder()
@@ -566,13 +600,15 @@ public class PasswordManagerHelperTest {
                 mModalDialogManagerSupplier,
                 /* managePasskeys= */ false,
                 TEST_NO_EMAIL_ADDRESS,
-                mCustomTabIntentHelper);
+                mSettingsCustomTabLauncher);
 
         histogram.assertExpected();
     }
 
     @Test
+    @EnableFeatures(ChromeFeatureList.LOGIN_DB_DEPRECATION_ANDROID)
     public void testRecordsMetricsWhenAccountIntentFails() throws CanceledException {
+        setUpPwmAvailableWithoutUnmigratedPasswords();
         HistogramWatcher histogram =
                 HistogramWatcher.newBuilder()
                         .expectIntRecord(
@@ -595,12 +631,16 @@ public class PasswordManagerHelperTest {
                 mModalDialogManagerSupplier,
                 /* managePasskeys= */ false,
                 TEST_EMAIL_ADDRESS,
-                mCustomTabIntentHelper);
+                mSettingsCustomTabLauncher);
 
         histogram.assertExpected();
     }
 
+    // This test is similar to its local counterpart. To ensure even coverage, but avoid
+    // adding even more tests to this suite this will run with LOGIN_DB_DEPRECATION_ANDROID
+    // disabled.
     @Test
+    @DisableFeatures(ChromeFeatureList.LOGIN_DB_DEPRECATION_ANDROID)
     public void testRecordsMetricsWhenLocalIntentFails() throws CanceledException {
         HistogramWatcher histogram =
                 HistogramWatcher.newBuilder()
@@ -624,7 +664,7 @@ public class PasswordManagerHelperTest {
                 mModalDialogManagerSupplier,
                 /* managePasskeys= */ false,
                 TEST_NO_EMAIL_ADDRESS,
-                mCustomTabIntentHelper);
+                mSettingsCustomTabLauncher);
 
         histogram.assertExpected();
     }
@@ -934,7 +974,10 @@ public class PasswordManagerHelperTest {
     }
 
     @Test
+    @EnableFeatures(ChromeFeatureList.LOGIN_DB_DEPRECATION_ANDROID)
     public void testRecordsApiErrorWhenFetchingAccountCredentialManagerIntent() {
+        setUpPwmAvailableWithoutUnmigratedPasswords();
+
         HistogramWatcher histogram =
                 HistogramWatcher.newBuilder()
                         .expectIntRecord(
@@ -963,13 +1006,15 @@ public class PasswordManagerHelperTest {
                 mModalDialogManagerSupplier,
                 /* managePasskeys= */ false,
                 TEST_EMAIL_ADDRESS,
-                mCustomTabIntentHelper);
+                mSettingsCustomTabLauncher);
 
         histogram.assertExpected();
     }
 
     @Test
+    @EnableFeatures(ChromeFeatureList.LOGIN_DB_DEPRECATION_ANDROID)
     public void testRecordsOtherApiErrorWhenFetchingAccountCredentialManagerIntent() {
+        setUpPwmAvailableWithoutUnmigratedPasswords();
         HistogramWatcher histogram =
                 HistogramWatcher.newBuilder()
                         .expectIntRecord(
@@ -995,12 +1040,16 @@ public class PasswordManagerHelperTest {
                 mModalDialogManagerSupplier,
                 /* managePasskeys= */ false,
                 TEST_EMAIL_ADDRESS,
-                mCustomTabIntentHelper);
+                mSettingsCustomTabLauncher);
 
         histogram.assertExpected();
     }
 
+    // This test is similar to its account counterpart. To ensure even coverage, but avoid
+    // adding even more tests to this suite this will run with LOGIN_DB_DEPRECATION_ANDROID
+    // disabled.
     @Test
+    @DisableFeatures(ChromeFeatureList.LOGIN_DB_DEPRECATION_ANDROID)
     public void testRecordsApiErrorWhenFetchingLocalCredentialManagerIntent() {
         HistogramWatcher histogram =
                 HistogramWatcher.newBuilder()
@@ -1026,13 +1075,18 @@ public class PasswordManagerHelperTest {
                 mModalDialogManagerSupplier,
                 /* managePasskeys= */ false,
                 TEST_NO_EMAIL_ADDRESS,
-                mCustomTabIntentHelper);
+                mSettingsCustomTabLauncher);
 
         histogram.assertExpected();
     }
 
+    // This test is similar to its local counterpart. To ensure even coverage, but avoid
+    // adding even more tests to this suite this will run with LOGIN_DB_DEPRECATION_ANDROID
+    // disabled.
     @Test
+    @DisableFeatures(ChromeFeatureList.LOGIN_DB_DEPRECATION_ANDROID)
     public void testRecordsConnectionResultWhenFetchingAccountCredentialManagerIntent() {
+        setUpPwmAvailableWithoutUnmigratedPasswords();
         HistogramWatcher histogram =
                 HistogramWatcher.newBuilder()
                         .expectIntRecord(
@@ -1064,13 +1118,15 @@ public class PasswordManagerHelperTest {
                 mModalDialogManagerSupplier,
                 /* managePasskeys= */ false,
                 TEST_EMAIL_ADDRESS,
-                mCustomTabIntentHelper);
+                mSettingsCustomTabLauncher);
 
         histogram.assertExpected();
     }
 
     @Test
+    @EnableFeatures(ChromeFeatureList.LOGIN_DB_DEPRECATION_ANDROID)
     public void testRecordsConnectionResultWhenFetchingLocalCredentialManagerIntent() {
+        setUpPwmAvailableWithoutUnmigratedPasswords();
         HistogramWatcher histogram =
                 HistogramWatcher.newBuilder()
                         .expectIntRecord(PasswordMetricsUtil.LOCAL_GET_INTENT_SUCCESS_HISTOGRAM, 0)
@@ -1096,7 +1152,7 @@ public class PasswordManagerHelperTest {
                 mModalDialogManagerSupplier,
                 /* managePasskeys= */ false,
                 TEST_NO_EMAIL_ADDRESS,
-                mCustomTabIntentHelper);
+                mSettingsCustomTabLauncher);
 
         histogram.assertExpected();
     }
@@ -1125,13 +1181,19 @@ public class PasswordManagerHelperTest {
         when(mPasswordManagerUtilBridgeJniMock.getPasswordAccessLossWarningType(mPrefService))
                 .thenReturn(PasswordAccessLossWarningType.NO_UPM);
 
-        mPasswordManagerHelper.showPasswordSettings(
-                mContext,
-                ManagePasswordsReferrer.CHROME_SETTINGS,
-                mModalDialogManagerSupplier,
-                /* managePasskeys= */ false,
-                TEST_NO_EMAIL_ADDRESS,
-                mCustomTabIntentHelper);
+        // PasswordAccessLossDialog requires an Activity Context.
+        try (ActivityScenario<Activity> scenario = ActivityScenario.launch(Activity.class)) {
+            scenario.onActivity(
+                    activity -> {
+                        mPasswordManagerHelper.showPasswordSettings(
+                                activity,
+                                ManagePasswordsReferrer.CHROME_SETTINGS,
+                                mModalDialogManagerSupplier,
+                                /* managePasskeys= */ false,
+                                TEST_NO_EMAIL_ADDRESS,
+                                mSettingsCustomTabLauncher);
+                    });
+        }
 
         PropertyModel dialogModel = mModalDialogManager.getCurrentDialogForTest();
         View customView = dialogModel.get(ModalDialogProperties.CUSTOM_VIEW);
@@ -1151,15 +1213,232 @@ public class PasswordManagerHelperTest {
         chooseToSyncPasswords();
         when(mBackendSupportHelperMock.isBackendPresent()).thenReturn(true);
 
+        // PasswordAccessLossDialog requires an Activity Context.
+        try (ActivityScenario<Activity> scenario = ActivityScenario.launch(Activity.class)) {
+            scenario.onActivity(
+                    activity -> {
+                        mPasswordManagerHelper.showPasswordSettings(
+                                activity,
+                                ManagePasswordsReferrer.CHROME_SETTINGS,
+                                mModalDialogManagerSupplier,
+                                /* managePasskeys= */ false,
+                                TEST_NO_EMAIL_ADDRESS,
+                                mSettingsCustomTabLauncher);
+                    });
+        }
+
+        assertNull(mModalDialogManager.getCurrentDialogForTest());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.LOGIN_DB_DEPRECATION_ANDROID)
+    public void testShowDownloadCsvDialogIfCsvIsPresentAndPwmNotAvailable() {
+        when(mBackendSupportHelperMock.isBackendPresent()).thenReturn(true);
+        when(mPasswordManagerUtilBridgeJniMock.isPasswordManagerAvailable(
+                        eq(mPrefService), eq(true)))
+                .thenReturn(false);
+        when(mPrefService.getBoolean(Pref.UPM_UNMIGRATED_PASSWORDS_EXPORTED)).thenReturn(true);
+        LoginDbDeprecationUtilBridge.setHasCsvFileForTesting(true);
+
+        FragmentActivity testActivity =
+                Robolectric.buildActivity(BrowserUiDummyFragmentActivity.class).setup().get();
+        setUpUpdatableGmsCore(testActivity);
+
+        PasswordCsvDownloadFlowController mockController =
+                mock(PasswordCsvDownloadFlowController.class);
+        PasswordCsvDownloadFlowControllerFactory.setControllerForTesting(mockController);
         mPasswordManagerHelper.showPasswordSettings(
-                mContext,
+                testActivity,
                 ManagePasswordsReferrer.CHROME_SETTINGS,
                 mModalDialogManagerSupplier,
                 /* managePasskeys= */ false,
                 TEST_NO_EMAIL_ADDRESS,
-                mCustomTabIntentHelper);
+                mSettingsCustomTabLauncher);
 
-        assertNull(mModalDialogManager.getCurrentDialogForTest());
+        verify(mockController)
+                .showDialogAndStartFlow(
+                        eq(testActivity),
+                        eq(mProfile),
+                        /* isGooglePlayServicesAvailable= */ eq(true),
+                        /* isPasswordManagerAvailable= */ eq(false),
+                        eq(mSettingsCustomTabLauncher));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.LOGIN_DB_DEPRECATION_ANDROID)
+    public void testShowDownloadCsvDialogIfCsvIsPresentAndPwmAvailable() {
+        when(mBackendSupportHelperMock.isBackendPresent()).thenReturn(true);
+        when(mPasswordManagerUtilBridgeJniMock.isPasswordManagerAvailable(
+                        eq(mPrefService), eq(true)))
+                .thenReturn(true);
+        LoginDbDeprecationUtilBridge.setHasCsvFileForTesting(true);
+
+        FragmentActivity testActivity =
+                Robolectric.buildActivity(BrowserUiDummyFragmentActivity.class).setup().get();
+        setUpUpdatableGmsCore(testActivity);
+
+        PasswordCsvDownloadFlowController mockController =
+                mock(PasswordCsvDownloadFlowController.class);
+        PasswordCsvDownloadFlowControllerFactory.setControllerForTesting(mockController);
+        mPasswordManagerHelper.showPasswordSettings(
+                testActivity,
+                ManagePasswordsReferrer.CHROME_SETTINGS,
+                mModalDialogManagerSupplier,
+                /* managePasskeys= */ false,
+                TEST_NO_EMAIL_ADDRESS,
+                mSettingsCustomTabLauncher);
+
+        verify(mockController)
+                .showDialogAndStartFlow(
+                        eq(testActivity),
+                        eq(mProfile),
+                        /* isGooglePlayServicesAvailable= */ eq(true),
+                        /* isPasswordManagerAvailable= */ eq(true),
+                        eq(mSettingsCustomTabLauncher));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.LOGIN_DB_DEPRECATION_ANDROID)
+    public void testShowDownloadCsvDialogIfCsvIsPresentAndNoGms() {
+        when(mBackendSupportHelperMock.isBackendPresent()).thenReturn(true);
+        when(mPasswordManagerUtilBridgeJniMock.isPasswordManagerAvailable(
+                        eq(mPrefService), eq(true)))
+                .thenReturn(false);
+        when(mPrefService.getBoolean(Pref.UPM_UNMIGRATED_PASSWORDS_EXPORTED)).thenReturn(true);
+        LoginDbDeprecationUtilBridge.setHasCsvFileForTesting(true);
+
+        FragmentActivity testActivity =
+                Robolectric.buildActivity(BrowserUiDummyFragmentActivity.class).setup().get();
+
+        PasswordCsvDownloadFlowController mockController =
+                mock(PasswordCsvDownloadFlowController.class);
+        PasswordCsvDownloadFlowControllerFactory.setControllerForTesting(mockController);
+        mPasswordManagerHelper.showPasswordSettings(
+                testActivity,
+                ManagePasswordsReferrer.CHROME_SETTINGS,
+                mModalDialogManagerSupplier,
+                /* managePasskeys= */ false,
+                TEST_NO_EMAIL_ADDRESS,
+                mSettingsCustomTabLauncher);
+
+        verify(mockController)
+                .showDialogAndStartFlow(
+                        eq(testActivity),
+                        eq(mProfile),
+                        /* isGooglePlayServicesAvailable= */ eq(false),
+                        /* isPasswordManagerAvailable= */ eq(false),
+                        eq(mSettingsCustomTabLauncher));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.LOGIN_DB_DEPRECATION_ANDROID)
+    public void testShowPwmUnavailableDialogNoCsvNoGms() {
+        when(mBackendSupportHelperMock.isBackendPresent()).thenReturn(true);
+        when(mPasswordManagerUtilBridgeJniMock.isPasswordManagerAvailable(
+                        eq(mPrefService), eq(true)))
+                .thenReturn(false);
+        when(mPrefService.getBoolean(Pref.UPM_UNMIGRATED_PASSWORDS_EXPORTED)).thenReturn(true);
+        LoginDbDeprecationUtilBridge.setHasCsvFileForTesting(false);
+
+        FragmentActivity testActivity =
+                Robolectric.buildActivity(BrowserUiDummyFragmentActivity.class).setup().get();
+
+        mPasswordManagerHelper.showPasswordSettings(
+                testActivity,
+                ManagePasswordsReferrer.CHROME_SETTINGS,
+                mModalDialogManagerSupplier,
+                /* managePasskeys= */ false,
+                TEST_NO_EMAIL_ADDRESS,
+                mSettingsCustomTabLauncher);
+        PropertyModel dialogModel = mModalDialogManager.getCurrentDialogForTest();
+        assertNotNull(dialogModel);
+        assertEquals(
+                testActivity.getResources().getString(R.string.pwm_disabled_no_gms_dialog_title),
+                dialogModel.get(ModalDialogProperties.TITLE));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.LOGIN_DB_DEPRECATION_ANDROID)
+    public void testShowPwmUnavailableDialogNoCsvUpdatableGms() {
+        when(mBackendSupportHelperMock.isBackendPresent()).thenReturn(true);
+        when(mPasswordManagerUtilBridgeJniMock.isPasswordManagerAvailable(
+                        eq(mPrefService), eq(true)))
+                .thenReturn(false);
+        when(mPrefService.getBoolean(Pref.UPM_UNMIGRATED_PASSWORDS_EXPORTED)).thenReturn(true);
+        LoginDbDeprecationUtilBridge.setHasCsvFileForTesting(false);
+
+        FragmentActivity testActivity =
+                Robolectric.buildActivity(BrowserUiDummyFragmentActivity.class).setup().get();
+        setUpUpdatableGmsCore(testActivity);
+        mPasswordManagerHelper.showPasswordSettings(
+                testActivity,
+                ManagePasswordsReferrer.CHROME_SETTINGS,
+                mModalDialogManagerSupplier,
+                /* managePasskeys= */ false,
+                TEST_NO_EMAIL_ADDRESS,
+                mSettingsCustomTabLauncher);
+        PropertyModel dialogModel = mModalDialogManager.getCurrentDialogForTest();
+        assertNotNull(dialogModel);
+        assertEquals(
+                testActivity.getResources().getString(R.string.access_loss_update_gms_title),
+                dialogModel.get(ModalDialogProperties.TITLE));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.LOGIN_DB_DEPRECATION_ANDROID)
+    public void testDoesntShowDialogIfExportNotFinished() {
+        when(mBackendSupportHelperMock.isBackendPresent()).thenReturn(true);
+        when(mPasswordManagerUtilBridgeJniMock.isPasswordManagerAvailable(
+                        eq(mPrefService), eq(true)))
+                .thenReturn(false);
+        when(mPrefService.getBoolean(Pref.UPM_UNMIGRATED_PASSWORDS_EXPORTED)).thenReturn(false);
+        LoginDbDeprecationUtilBridge.setHasCsvFileForTesting(false);
+
+        FragmentActivity testActivity =
+                Robolectric.buildActivity(BrowserUiDummyFragmentActivity.class).setup().get();
+        setUpUpdatableGmsCore(testActivity);
+        mPasswordManagerHelper.showPasswordSettings(
+                testActivity,
+                ManagePasswordsReferrer.CHROME_SETTINGS,
+                mModalDialogManagerSupplier,
+                /* managePasskeys= */ false,
+                TEST_NO_EMAIL_ADDRESS,
+                mSettingsCustomTabLauncher);
+
+        // Check that the unavailability dialog is not shown.
+        PropertyModel dialogModel = mModalDialogManager.getCurrentDialogForTest();
+        assertNull(dialogModel);
+
+        // Check that the download CSV dialog is not shown.
+        PasswordCsvDownloadFlowController mockController =
+                mock(PasswordCsvDownloadFlowController.class);
+        PasswordCsvDownloadFlowControllerFactory.setControllerForTesting(mockController);
+        verify(mockController, never())
+                .showDialogAndStartFlow(
+                        any(), any(), anyBoolean(), anyBoolean(), eq(mSettingsCustomTabLauncher));
+
+        // Check that the management UI is not shown (the pwm is unavailable).
+        verify(mCredentialManagerLauncherMock, never())
+                .getLocalCredentialManagerIntent(anyInt(), any(), any());
+    }
+
+    private void setUpPwmAvailableWithoutUnmigratedPasswords() {
+        when(mBackendSupportHelperMock.isBackendPresent()).thenReturn(true);
+        when(mPasswordManagerUtilBridgeJniMock.isPasswordManagerAvailable(
+                        eq(mPrefService), eq(true)))
+                .thenReturn(true);
+        LoginDbDeprecationUtilBridge.setHasCsvFileForTesting(false);
+    }
+
+    private void setUpUpdatableGmsCore(Context context) {
+        ShadowPackageManager shadowPackageManager = Shadows.shadowOf(context.getPackageManager());
+        PackageInfo gmsPackageInfo =
+                PackageInfoBuilder.newBuilder().setPackageName("com.google.android.gms").build();
+        shadowPackageManager.installPackage(gmsPackageInfo);
+
+        PackageInfo playStorePackageInfo =
+                PackageInfoBuilder.newBuilder().setPackageName("com.android.vending").build();
+        shadowPackageManager.installPackage(playStorePackageInfo);
     }
 
     private void chooseToSyncPasswords() {

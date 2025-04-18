@@ -52,18 +52,6 @@
 
 using content::Referrer;
 
-namespace {
-
-bool HasSeenRecurrentErrorInternal(content::WebContents* web_contents,
-                                   int cert_error) {
-  StatefulSSLHostStateDelegate* state =
-      StatefulSSLHostStateDelegateFactory::GetForProfile(
-          Profile::FromBrowserContext(web_contents->GetBrowserContext()));
-  return state->HasSeenRecurrentErrors(cert_error);
-}
-
-}  // namespace
-
 SSLErrorControllerClient::SSLErrorControllerClient(
     content::WebContents* web_contents,
     const net::SSLInfo& ssl_info,
@@ -113,9 +101,8 @@ void SSLErrorControllerClient::Proceed() {
     // Notifies the browser process when a certificate exception is allowed.
     web_contents->SetAlwaysSendSubresourceNotifications();
 
-    state->AllowCert(
-        request_url_.host(), *ssl_info_.cert.get(), cert_error_,
-        web_contents->GetPrimaryMainFrame()->GetStoragePartition());
+    state->AllowCert(request_url_.host(), *ssl_info_.cert.get(), cert_error_,
+                     InterstitialRenderFrameHost()->GetStoragePartition());
     Reload();
   }
 }
@@ -136,8 +123,4 @@ void SSLErrorControllerClient::LaunchDateAndTimeSettings() {
       FROM_HERE, {base::TaskPriority::USER_VISIBLE, base::MayBlock()},
       base::BindOnce(&security_interstitials::LaunchDateAndTimeSettings));
 #endif
-}
-
-bool SSLErrorControllerClient::HasSeenRecurrentError() {
-  return HasSeenRecurrentErrorInternal(web_contents(), cert_error_);
 }

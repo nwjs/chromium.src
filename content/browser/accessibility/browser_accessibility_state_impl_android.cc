@@ -430,42 +430,21 @@ void BrowserAccessibilityStateImplAndroid::OnContrastLevelChanged(
   native_theme->NotifyOnNativeThemeUpdated();
 }
 
-void BrowserAccessibilityStateImplAndroid::UpdateHistogramsOnOtherThread() {
-  BrowserAccessibilityStateImpl::UpdateHistogramsOnOtherThread();
-
-  // NOTE: this method is run from another thread to reduce jank, since
-  // there's no guarantee these system calls will return quickly. Be careful
-  // not to add any code that isn't safe to run from a non-main thread!
-  DCHECK(!BrowserThread::CurrentlyOn(BrowserThread::UI));
-
-  // Screen reader metric.
-  ui::AXMode mode =
-      BrowserAccessibilityStateImpl::GetInstance()->GetAccessibilityMode();
-  UMA_HISTOGRAM_BOOLEAN("Accessibility.Android.ScreenReader",
-                        mode.has_mode(ui::AXMode::kScreenReader));
-}
-
-void BrowserAccessibilityStateImplAndroid::UpdateUniqueUserHistograms() {
-  BrowserAccessibilityStateImpl::UpdateUniqueUserHistograms();
-
-  ui::AXMode mode = GetAccessibilityMode();
-  UMA_HISTOGRAM_BOOLEAN("Accessibility.Android.ScreenReader.EveryReport",
-                        mode.has_mode(ui::AXMode::kScreenReader));
-}
-
-void BrowserAccessibilityStateImplAndroid::SetKnownScreenReaderAppActive(
-    bool is_known_screen_reader_running) {
+void BrowserAccessibilityStateImplAndroid::SetScreenReaderAppActive(
+    bool is_active) {
   static auto* ax_talkback_crash_key = base::debug::AllocateCrashKeyString(
       "ax_talkback", base::debug::CrashKeySize::Size32);
 
-  if (is_known_screen_reader_running) {
+  if (is_active) {
     base::debug::SetCrashKeyString(ax_talkback_crash_key, "true");
   } else {
     base::debug::ClearCrashKeyString(ax_talkback_crash_key);
   }
 
-  UMA_HISTOGRAM_BOOLEAN("Accessibility.Android.Talkback",
-                        is_known_screen_reader_running);
+  UMA_HISTOGRAM_BOOLEAN("Accessibility.Android.Talkback", is_active);
+
+  OnAssistiveTechFound(is_active ? ui::AssistiveTech::kTalkback
+                                 : ui::AssistiveTech::kNone);
 }
 
 // static

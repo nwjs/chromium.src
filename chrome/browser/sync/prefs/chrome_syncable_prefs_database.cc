@@ -8,6 +8,7 @@
 
 #include "base/containers/fixed_flat_map.h"
 #include "build/build_config.h"
+#include "chrome/browser/accessibility/tree_fixing/pref_names.h"
 #include "chrome/browser/promos/promos_pref_names.h"
 #include "chrome/browser/ui/toolbar/toolbar_pref_names.h"
 #include "chrome/browser/ui/webui/side_panel/read_anything/read_anything_prefs.h"
@@ -386,6 +387,9 @@ enum {
   kOfficeMoveConfirmationShownForCloudToDriveSyncable = 100321,
   kOfficeMoveConfirmationShownForCloudToOneDriveSyncable = 100322,
   kPinnedCastMigrationComplete = 100323,
+  kAccessibilityAXTreeFixingEnabled = 100324,
+  kTabSearchMigrationComplete = 100325,
+  kReadAloudPlaybackMode = 100326,
   // See components/sync_preferences/README.md about adding new entries here.
   // vvvvv IMPORTANT! vvvvv
   // Note to the reviewer: IT IS YOUR RESPONSIBILITY to ensure that new syncable
@@ -431,6 +435,10 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
       sync_preferences::MergeBehavior::kMergeableDict}},
     {prefs::kReadAloudSpeed,
      {syncable_prefs_ids::kReadAloudSpeed, syncer::PREFERENCES,
+      sync_preferences::PrefSensitivity::kNone,
+      sync_preferences::MergeBehavior::kNone}},
+    {prefs::kReadAloudPlaybackMode,
+     {syncable_prefs_ids::kReadAloudPlaybackMode, syncer::PREFERENCES,
       sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kNone}},
     {prefs::kReadAloudHighlightingEnabled,
@@ -552,6 +560,10 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
       sync_preferences::MergeBehavior::kNone}},
     {prefs::kPinnedCastMigrationComplete,
      {syncable_prefs_ids::kPinnedCastMigrationComplete, syncer::PREFERENCES,
+      sync_preferences::PrefSensitivity::kNone,
+      sync_preferences::MergeBehavior::kNone}},
+    {prefs::kTabSearchMigrationComplete,
+     {syncable_prefs_ids::kTabSearchMigrationComplete, syncer::PREFERENCES,
       sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kNone}},
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -1298,6 +1310,10 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
       sync_preferences::MergeBehavior::kNone}},
     {prefs::kAccessibilityImageLabelsOptInAccepted,
      {syncable_prefs_ids::kAccessibilityImageLabelsOptInAccepted,
+      syncer::PREFERENCES, sync_preferences::PrefSensitivity::kNone,
+      sync_preferences::MergeBehavior::kNone}},
+    {prefs::kAccessibilityAXTreeFixingEnabled,
+     {syncable_prefs_ids::kAccessibilityAXTreeFixingEnabled,
       syncer::PREFERENCES, sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kNone}},
     {prefs::kAccessibilityMainNodeAnnotationsEnabled,

@@ -27,10 +27,6 @@ TabLifecycleUnitExternal* TestLifecycleUnit::AsTabLifecycleUnitExternal() {
   return nullptr;
 }
 
-std::u16string TestLifecycleUnit::GetTitle() const {
-  return title_;
-}
-
 base::TimeTicks TestLifecycleUnit::GetLastFocusedTimeTicks() const {
   return last_focused_time_ticks_;
 }
@@ -41,10 +37,6 @@ base::Time TestLifecycleUnit::GetLastFocusedTime() const {
 
 LifecycleUnit::SortKey TestLifecycleUnit::GetSortKey() const {
   return sort_key_;
-}
-
-content::Visibility TestLifecycleUnit::GetVisibility() const {
-  return content::Visibility::VISIBLE;
 }
 
 mojom::LifecycleUnitLoadingState TestLifecycleUnit::GetLoadingState() const {
@@ -69,7 +61,7 @@ bool TestLifecycleUnit::Discard(LifecycleUnitDiscardReason discard_reason,
 }
 
 LifecycleUnitDiscardReason TestLifecycleUnit::GetDiscardReason() const {
-  return mojom::LifecycleUnitDiscardReason::EXTERNAL;
+  return discard_reason_;
 }
 
 void ExpectCanDiscardTrue(const LifecycleUnit* lifecycle_unit,

@@ -97,7 +97,7 @@
   self.viewController.TOSHandler = TOSHandler;
   self.viewController.delegate = self;
 
-  ProfileIOS* profile = self.browser->GetProfile()->GetOriginalProfile();
+  ProfileIOS* profile = self.profile->GetOriginalProfile();
 
   self.authenticationService =
       AuthenticationServiceFactory::GetForProfile(profile);
@@ -147,23 +147,8 @@
 
 #pragma mark - InterruptibleChromeCoordinator
 
-- (void)interruptWithAction:(SigninCoordinatorInterrupt)action
-                 completion:(ProceduralBlock)completion {
-  if (self.addAccountSigninCoordinator) {
-    if (IsInterruptibleCoordinatorStoppedSynchronouslyEnabled()) {
-      [self.addAccountSigninCoordinator interruptWithAction:action
-                                                 completion:nil];
-
-      if (completion) {
-        completion();
-      }
-    } else {
-      [self.addAccountSigninCoordinator interruptWithAction:action
-                                                 completion:completion];
-    }
-  } else if (completion) {
-    completion();
-  }
+- (void)interruptAnimated:(BOOL)animated {
+  [self.addAccountSigninCoordinator interruptAnimated:animated];
 }
 
 #pragma mark - Private
@@ -220,11 +205,11 @@
       [[AuthenticationFlow alloc] initWithBrowser:self.browser
                                          identity:self.mediator.selectedIdentity
                                       accessPoint:_accessPoint
+                             precedingHistorySync:YES
                                 postSignInActions:PostSignInActionSet()
                          presentingViewController:self.viewController
                                        anchorView:nil
                                        anchorRect:CGRectNull];
-  authenticationFlow.precedingHistorySync = YES;
   __weak __typeof(self) weakSelf = self;
   ProceduralBlock completion = ^() {
     [weakSelf finishPresentingWithSignIn:YES];

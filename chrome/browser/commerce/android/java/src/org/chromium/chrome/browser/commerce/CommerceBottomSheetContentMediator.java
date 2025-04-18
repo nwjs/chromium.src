@@ -6,9 +6,8 @@ package org.chromium.chrome.browser.commerce;
 
 import android.view.View;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent.HeightMode;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
@@ -17,18 +16,19 @@ import org.chromium.ui.modelutil.PropertyModel;
 
 import java.util.Arrays;
 
+@NullMarked
 public class CommerceBottomSheetContentMediator {
     private final ModelList mModelList;
     private int mContentReadyCount;
     private final int mExpectedContentCount;
-    @NonNull private final BottomSheetController mBottomSheetController;
+    private final BottomSheetController mBottomSheetController;
     private final View mCommerceBottomSheetContentContainer;
-    private CommerceBottomSheetContent mContent;
+    private @Nullable CommerceBottomSheetContent mContent;
 
     public CommerceBottomSheetContentMediator(
             ModelList modelList,
             int expectedContentCount,
-            @NonNull BottomSheetController bottomSheetController,
+            BottomSheetController bottomSheetController,
             View commerceBottomSheetContentContainer) {
         mModelList = modelList;
         mExpectedContentCount = expectedContentCount;
@@ -64,11 +64,14 @@ public class CommerceBottomSheetContentMediator {
     }
 
     void timeOut() {
-        if (mContentReadyCount == 0) return;
+        if (mContentReadyCount == 0 || mContent != null) return;
         showBottomSheet();
     }
 
     void onBottomSheetClosed() {
+        if (mContent != null) {
+            mBottomSheetController.hideContent(mContent, true);
+        }
         mContent = null;
         mModelList.clear();
         mContentReadyCount = 0;
@@ -87,9 +90,7 @@ public class CommerceBottomSheetContentMediator {
     private void showBottomSheet() {
         mContent =
                 new CommerceBottomSheetContent(
-                        mCommerceBottomSheetContentContainer,
-                        mModelList.size(),
-                        mBottomSheetController);
+                        mCommerceBottomSheetContentContainer, mBottomSheetController);
         mBottomSheetController.requestShowContent(mContent, true);
     }
 

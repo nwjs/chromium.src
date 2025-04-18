@@ -26,6 +26,7 @@
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/tabs/tab_menu_model_factory.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/page_action/action_ids.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_registrar.h"
@@ -335,8 +336,13 @@ std::vector<actions::ActionId> AppBrowserController::GetTitleBarPageActions()
   }
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
+  if (!base::FeatureList::IsEnabled(features::kPageActionsMigration)) {
+    return {};
+  }
+
   std::vector<actions::ActionId> types_enabled = {
       kActionShowTranslate,
+      kActionZoomNormal,
   };
 
 #if DCHECK_IS_ON()
@@ -363,7 +369,6 @@ AppBrowserController::GetTitleBarPageActionTypes() const {
   types_enabled.push_back(PageActionIconType::kZoom);
   types_enabled.push_back(PageActionIconType::kFileSystemAccess);
   types_enabled.push_back(PageActionIconType::kCookieControls);
-  types_enabled.push_back(PageActionIconType::kLocalCardMigration);
   types_enabled.push_back(PageActionIconType::kSaveCard);
 
   return types_enabled;

@@ -256,7 +256,8 @@
       </template>
 
       <template is="dom-if" route-path="/content/all" no-search>
-        <settings-subpage page-title="$i18n{siteSettingsAllSites}"
+        <settings-subpage id="allSites"
+            page-title$="[[allSitesPageTitle_]]"
             search-label="$i18n{siteSettingsAllSitesSearch}"
             search-term="{{searchFilter_}}"
             preserve-search-term>
@@ -1507,6 +1508,33 @@
                     "$i18n{siteSettingsWebAppInstallationBlockedExceptions}"
                 allow-header=
                     "$i18n{siteSettingsWebAppInstallationAllowedExceptions}"
+                search-filter="[[searchFilter_]]">
+            </category-setting-exceptions>
+          </settings-subpage>
+        </template>
+      </template>
+      <template is="dom-if" if="[[enableLocalNetworkAccessSetting_]]">
+        <template is="dom-if" route-path="/content/localNetworkAccess"
+            no-search>
+          <settings-subpage page-title="$i18n{siteSettingsLocalNetworkAccess}"
+              search-label="$i18n{siteSettingsAllSitesSearch}"
+              search-term="{{searchFilter_}}">
+            <div class="content-settings-header secondary">
+              $i18n{siteSettingsLocalNetworkAccessDescription}
+            </div>
+            <settings-category-default-radio-group
+                category="[[contentSettingsTypesEnum_.LOCAL_NETWORK_ACCESS]]"
+                allow-option-label="$i18n{siteSettingsLocalNetworkAccessAsk}"
+                allow-option-icon="settings:devices"
+                block-option-label="$i18n{siteSettingsLocalNetworkAccessBlock}"
+                block-option-icon="settings:devices-off">
+            </settings-category-default-radio-group>
+            <category-setting-exceptions
+                category="[[contentSettingsTypesEnum_.LOCAL_NETWORK_ACCESS]]"
+                block-header=
+                    "$i18n{siteSettingsLocalNetworkAccessBlockedExceptions}"
+                allow-header=
+                    "$i18n{siteSettingsLocalNetworkAccessAllowedExceptions}"
                 search-filter="[[searchFilter_]]">
             </category-setting-exceptions>
           </settings-subpage>

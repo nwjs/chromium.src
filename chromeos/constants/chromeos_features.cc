@@ -39,11 +39,6 @@ BASE_FEATURE(kBlinkExtension,
              "BlinkExtension",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enables the ChromeOS Diagnostics API.
-BASE_FEATURE(kBlinkExtensionDiagnostics,
-             "BlinkExtensionDiagnostics",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Enables ChromeOS Kiosk APIs.
 BASE_FEATURE(kBlinkExtensionKiosk,
              "BlinkExtensionKiosk",
@@ -62,7 +57,7 @@ BASE_FEATURE(kCrosComponents,
 
 // Enables an app to discover and install other apps. This flag will be enabled
 // with Finch.
-BASE_FEATURE(kCrosMall, "CrosMall", base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kCrosMall, "CrosMall", base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables the Mall app for managed users. Only has an effect when kCrosMall is
 // also enabled.
@@ -95,13 +90,6 @@ BASE_FEATURE(kDeskProfiles, "DeskProfiles", base::FEATURE_DISABLED_BY_DEFAULT);
 // certificates.
 BASE_FEATURE(kDisableIdleSocketsCloseOnMemoryPressure,
              "disable_idle_sockets_close_on_memory_pressure",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Disables "Office Editing for Docs, Sheets & Slides" component app so handlers
-// won't be registered, making it possible to install another version for
-// testing.
-BASE_FEATURE(kDisableOfficeEditingComponentApp,
-             "DisableOfficeEditingComponentApp",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Disables translation services of the Quick Answers V2.
@@ -172,6 +160,11 @@ BASE_FEATURE(kMahiSummarizeSelected,
              "MahiSummarizeSelected",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Controls whether NotebookLM is preinstalled.
+BASE_FEATURE(kNotebookLmAppPreinstall,
+             "NotebookLmAppPreinstall",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Kill switch to disable the new guest profile implementation on CrOS that is
 // consistent with desktop chrome.
 // TODO(crbug.com/40233408): Remove if the change is fully launched.
@@ -234,7 +227,7 @@ BASE_FEATURE(kFeatureManagementDisableChromeCompose,
 // feature management module.
 BASE_FEATURE(kFeatureManagementRoundedWindows,
              "FeatureManagementRoundedWindows",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables the first wave of new features for the chrome.enterprise.platformKeys
 // API. That includes:
@@ -351,7 +344,7 @@ BASE_FEATURE(kMicrosoftOneDriveIntegrationForEnterprise,
 
 BASE_FEATURE(kRoundedWindows,
              "RoundedWindows",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables CloudFileSystem for FileSystemProvider extensions.
 BASE_FEATURE(kFileSystemProviderCloudFileSystem,
@@ -387,11 +380,6 @@ bool IsAlmanacLauncherPayloadEnabled() {
 
 bool IsBlinkExtensionEnabled() {
   return base::FeatureList::IsEnabled(kBlinkExtension);
-}
-
-bool IsBlinkExtensionDiagnosticsEnabled() {
-  return IsBlinkExtensionEnabled() &&
-         base::FeatureList::IsEnabled(kBlinkExtensionDiagnostics);
 }
 
 bool IsCrosComponentsEnabled() {

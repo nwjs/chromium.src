@@ -10,7 +10,6 @@
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/common/channel_info.h"
 #include "chrome/common/chrome_features.h"
-#include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/accelerators/command.h"
@@ -45,22 +44,6 @@ GlicLauncherConfiguration::GlicLauncherConfiguration(Observer* manager)
 GlicLauncherConfiguration::~GlicLauncherConfiguration() = default;
 
 // static
-void GlicLauncherConfiguration::RegisterLocalStatePrefs(
-    PrefRegistrySimple* registry) {
-  registry->RegisterBooleanPref(prefs::kGlicLauncherEnabled, false);
-
-#if BUILDFLAG(IS_MAC)
-  const ui::EventFlags modifiers = ui::EF_CONTROL_DOWN;
-#else
-  const ui::EventFlags modifiers = ui::EF_ALT_DOWN;
-#endif
-
-  const ui::Accelerator hotkey(ui::KeyboardCode::VKEY_G, modifiers);
-  registry->RegisterStringPref(prefs::kGlicLauncherHotkey,
-                               ui::Command::AcceleratorToString(hotkey));
-}
-
-// static
 bool GlicLauncherConfiguration::IsEnabled(bool* is_default_value) {
   PrefService* const pref_service = g_browser_process->local_state();
   if (is_default_value) {
@@ -84,6 +67,17 @@ ui::Accelerator GlicLauncherConfiguration::GetGlobalHotkey() {
   }
 
   return hotkey;
+}
+
+// static
+ui::Accelerator GlicLauncherConfiguration::GetDefaultHotkey() {
+#if BUILDFLAG(IS_MAC)
+  const ui::EventFlags modifiers = ui::EF_CONTROL_DOWN;
+#else
+  const ui::EventFlags modifiers = ui::EF_ALT_DOWN;
+#endif
+
+  return ui::Accelerator(ui::KeyboardCode::VKEY_G, modifiers);
 }
 
 void GlicLauncherConfiguration::OnEnabledPrefChanged() {

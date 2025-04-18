@@ -16,11 +16,13 @@
 #include "base/strings/stringprintf.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/sequenced_task_runner.h"
+#include "media/base/agtm.h"
 #include "media/base/decoder_buffer.h"
 #include "media/base/limits.h"
 #include "media/base/media_log.h"
 #include "media/base/video_aspect_ratio.h"
 #include "media/base/video_util.h"
+#include "third_party/skia/include/core/SkData.h"
 
 extern "C" {
 #include "third_party/dav1d/libdav1d/include/dav1d/dav1d.h"
@@ -409,12 +411,12 @@ bool Dav1dVideoDecoder::DecodeBuffer(scoped_refptr<DecoderBuffer> buffer) {
 
   using ScopedPtrDav1dData = std::unique_ptr<Dav1dData, ScopedDav1dDataFree>;
   ScopedPtrDav1dData input_buffer;
-
   if (!buffer->end_of_stream()) {
+    auto buffer_span = base::span(*buffer);
     input_buffer.reset(new Dav1dData{});
-    const int res =
-        dav1d_data_wrap(input_buffer.get(), buffer->data(), buffer->size(),
-                        &ReleaseDecoderBuffer, buffer.get());
+    const int res = dav1d_data_wrap(input_buffer.get(), buffer_span.data(),
+                                    buffer_span.size(), &ReleaseDecoderBuffer,
+                                    buffer.get());
     if (res < 0) {
       if (res == DAV1D_ERR(ENOMEM)) {
         error_status_ = DecoderStatus::Codes::kOutOfMemory;
@@ -468,6 +470,22 @@ bool Dav1dVideoDecoder::DecodeBuffer(scoped_refptr<DecoderBuffer> buffer) {
       }
 
       continue;
+    }
+
+    if (p->itut_t35) {
+      // SAFETY: The best we can do is trust the size provided by Dav1d.
+      auto t35_payload_span = UNSAFE_BUFFERS(base::span<const uint8_t>(
+          p->itut_t35->payload, p->itut_t35->payload_size));
+      const std::optional<gfx::HdrMetadataAgtm> agtm =
+          GetHdrMetadataAgtmFromItutT35(p->itut_t35->country_code,
+                                        t35_payload_span);
+      if (agtm.has_value()) {
+        gfx::HDRMetadata hdr_metadata =
+            config_.hdr_metadata().value_or(gfx::HDRMetadata());
+        // Overwrite existing AGTM metadata if any.
+        hdr_metadata.agtm = agtm;
+        config_.set_hdr_metadata(hdr_metadata);
+      }
     }
 
     auto frame = BindImageToVideoFrame(p.get());

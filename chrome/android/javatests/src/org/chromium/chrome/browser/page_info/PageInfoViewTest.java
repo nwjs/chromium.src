@@ -27,7 +27,11 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.refEq;
 
+import static org.chromium.components.browser_ui.site_settings.SingleWebsiteSettings.EXTRA_SITE;
 import static org.chromium.components.content_settings.PrefNames.COOKIE_CONTROLS_MODE;
 import static org.chromium.components.content_settings.PrefNames.IN_CONTEXT_COOKIE_CONTROLS_OPENED;
 import static org.chromium.ui.test.util.ViewUtils.clickOnClickableSpan;
@@ -39,6 +43,7 @@ import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
+import android.os.Bundle;
 import android.text.format.DateUtils;
 import android.view.Gravity;
 import android.view.View;
@@ -56,6 +61,10 @@ import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.supplier.ObservableSupplier;
@@ -71,6 +80,7 @@ import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.Restriction;
+import org.chromium.base.test.util.UserActionTester;
 import org.chromium.chrome.browser.FederatedIdentityTestUtils;
 import org.chromium.chrome.browser.app.ChromeActivity;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider.ControlsPosition;
@@ -87,15 +97,20 @@ import org.chromium.chrome.browser.notifications.channels.SiteChannelsManager;
 import org.chromium.chrome.browser.offlinepages.OfflinePageUtils;
 import org.chromium.chrome.browser.pdf.PdfUtils.PdfPageType;
 import org.chromium.chrome.browser.preferences.Pref;
+import org.chromium.chrome.browser.privacy_sandbox.FakePrivacySandboxBridge;
+import org.chromium.chrome.browser.privacy_sandbox.PrivacySandboxBridgeJni;
 import org.chromium.chrome.browser.profiles.ProfileManager;
+import org.chromium.chrome.browser.settings.SettingsNavigationFactory;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.util.ChromeAccessibilityUtil;
 import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.batch.BlankCTATabInitialStateRule;
+import org.chromium.components.browser_ui.settings.SettingsNavigation;
 import org.chromium.components.browser_ui.site_settings.ContentSettingException;
 import org.chromium.components.browser_ui.site_settings.RwsCookieInfo;
+import org.chromium.components.browser_ui.site_settings.SingleWebsiteSettings;
 import org.chromium.components.browser_ui.site_settings.SiteSettingsDelegate;
 import org.chromium.components.browser_ui.site_settings.Website;
 import org.chromium.components.browser_ui.site_settings.WebsiteAddress;
@@ -111,6 +126,7 @@ import org.chromium.components.content_settings.CookieControlsMode;
 import org.chromium.components.location.LocationUtils;
 import org.chromium.components.page_info.PageInfoAdPersonalizationController;
 import org.chromium.components.page_info.PageInfoController;
+import org.chromium.components.page_info.PageInfoCookiesController;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.content_public.browser.ContentFeatureList;
 import org.chromium.content_public.browser.NavigationHandle;
@@ -215,9 +231,15 @@ public class PageInfoViewTest {
         }
     }
 
+    @Mock private SettingsNavigation mSettingsNavigation;
+
+    private FakePrivacySandboxBridge mFakePrivacySandboxBridge;
+
     @ClassRule
     public static final ChromeTabbedActivityTestRule sActivityTestRule =
             new ChromeTabbedActivityTestRule();
+
+    @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Rule
     public final BlankCTATabInitialStateRule mInitialStateRule =
@@ -295,7 +317,7 @@ public class PageInfoViewTest {
         PageInfoController controller = PageInfoController.getLastPageInfoController();
         assertNotNull(controller);
         if (ChromeFeatureList.isEnabled(ChromeFeatureList.ACT_USER_BYPASS_UX)
-                && (ChromeFeatureList.isEnabled(ChromeFeatureList.IP_PROTECTION_V1)
+                && (ChromeFeatureList.isEnabled(ChromeFeatureList.IP_PROTECTION_UX)
                         || ChromeFeatureList.isEnabled(
                                 ChromeFeatureList.FINGERPRINTING_PROTECTION_UX))) {
             var tpController = controller.getTrackingProtectionLaunchController();
@@ -350,12 +372,21 @@ public class PageInfoViewTest {
         return rwsInfo;
     }
 
-    private void setRwsInfo(String url) {
-        RwsCookieInfo rwsInfo = getRwsCookieInfo(url);
+    private PageInfoCookiesController getCookiesController() {
         PageInfoController controller = PageInfoController.getLastPageInfoController();
         assertNotNull(controller);
-        var cookiesController = controller.getCookiesController();
-        cookiesController.setRwsInfoForTesting(rwsInfo.getMembers());
+        return controller.getCookiesController();
+    }
+
+    private void setRwsInfo(String url) {
+        getCookiesController().setRwsInfoForTesting(getRwsCookieInfo(url).getMembers());
+    }
+
+    private void setRwsInfoWithWebsite(Website site) {
+        RwsCookieInfo rwsInfo =
+                new RwsCookieInfo(site.getAddress().getDomainAndRegistry(), List.of(site));
+        site.setRwsCookieInfo(rwsInfo);
+        getCookiesController().setRwsInfoForTesting(rwsInfo.getMembers());
     }
 
     private void setThirdPartyCookieBlocking(@CookieControlsMode int value) {
@@ -518,6 +549,9 @@ public class PageInfoViewTest {
         // Choose a fixed, "random" port to create stable screenshots.
         mTestServerRule.setServerPort(424242);
         mTestServerRule.setServerUsesHttps(true);
+
+        mFakePrivacySandboxBridge = new FakePrivacySandboxBridge();
+        PrivacySandboxBridgeJni.setInstanceForTesting(mFakePrivacySandboxBridge);
 
         PageInfoAdPersonalizationController.setTopicsForTesting(Arrays.asList("Testing topic"));
     }
@@ -782,7 +816,6 @@ public class PageInfoViewTest {
         onView(withText("Camera")).check(matches(hasSibling(withText("Allowed"))));
     }
 
-    /** Tests the cookies page of the PageInfo UI with RWS enabled. */
     @Test
     @MediumTest
     @Feature({"RenderTest"})
@@ -792,12 +825,72 @@ public class PageInfoViewTest {
         loadUrlAndOpenPageInfo(url);
         setRwsInfo(hostName);
         onView(withId(R.id.page_info_cookies_row)).perform(click());
-        onViewWaiting(allOf(withText(R.string.page_info_rws_enhanced_button_title), isDisplayed()));
+        onViewWaiting(allOf(withText(R.string.page_info_rws_v2_button_title), isDisplayed()));
+        mRenderTestRule.render(getPageInfoView(), "PageInfo_CookiesSubpage_RwsEnabled");
+    }
+
+    @Test
+    @MediumTest
+    public void shouldNavigateToSiteSettingsWhenRwsButtonClicked() throws IOException {
+        SettingsNavigationFactory.setInstanceForTesting(mSettingsNavigation);
+        String hostName = "example.com";
+        String url = mTestServerRule.getServer().getURLWithHostName(hostName, "/");
+        Website currentSite = new Website(WebsiteAddress.create(url), null);
+        loadUrlAndOpenPageInfo(url);
+        setRwsInfoWithWebsite(currentSite);
+        onView(withId(R.id.page_info_cookies_row)).perform(click());
+        onViewWaiting(allOf(withText(R.string.page_info_rws_v2_button_title), isDisplayed()));
         Context context = ApplicationProvider.getApplicationContext();
         String subtitle =
                 context.getString(R.string.page_info_rws_v2_button_subtitle_android, hostName);
         onViewWaiting(allOf(withText(subtitle), isDisplayed()));
-        mRenderTestRule.render(getPageInfoView(), "PageInfo_CookiesSubpage_RwsEnabled");
+        onView(withText(R.string.page_info_rws_v2_button_title)).perform(click());
+        Bundle extras = new Bundle();
+        extras.putSerializable(EXTRA_SITE, currentSite);
+        Mockito.verify(mSettingsNavigation)
+                .startSettings(any(), eq(SingleWebsiteSettings.class), refEq(extras));
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"RenderTest"})
+    public void showRwsButtonWhenRwsEnabledAndCurrentSetManaged() throws IOException {
+        mFakePrivacySandboxBridge.setIsRwsManaged(true);
+        String hostName = "example.com";
+        String url = mTestServerRule.getServer().getURLWithHostName(hostName, "/");
+        loadUrlAndOpenPageInfo(url);
+        setRwsInfo(hostName);
+        onView(withId(R.id.page_info_cookies_row)).perform(click());
+        onViewWaiting(allOf(withText(R.string.page_info_rws_v2_button_title), isDisplayed()));
+        mRenderTestRule.render(getPageInfoView(), "PageInfo_CookiesSubpage_RwsEnabledAndManaged");
+    }
+
+    @Test
+    @MediumTest
+    public void shouldNavigateToSiteSettingsWhenRwsManagedAndButtonClicked() throws IOException {
+        mFakePrivacySandboxBridge.setIsRwsManaged(true);
+        SettingsNavigationFactory.setInstanceForTesting(mSettingsNavigation);
+        UserActionTester userActionTester = new UserActionTester();
+        String hostName = "example.com";
+        String url = mTestServerRule.getServer().getURLWithHostName(hostName, "/");
+        Website currentSite = new Website(WebsiteAddress.create(url), null);
+        loadUrlAndOpenPageInfo(url);
+        setRwsInfoWithWebsite(currentSite);
+        onView(withId(R.id.page_info_cookies_row)).perform(click());
+        onViewWaiting(allOf(withText(R.string.page_info_rws_v2_button_title), isDisplayed()));
+        Context context = ApplicationProvider.getApplicationContext();
+        String subtitle =
+                context.getString(R.string.page_info_rws_v2_button_subtitle_android, hostName);
+        onViewWaiting(allOf(withText(subtitle), isDisplayed()));
+        onView(withText(R.string.page_info_rws_v2_button_title)).perform(click());
+        Bundle extras = new Bundle();
+        extras.putSerializable(EXTRA_SITE, currentSite);
+        Mockito.verify(mSettingsNavigation)
+                .startSettings(any(), eq(SingleWebsiteSettings.class), refEq(extras));
+        assertEquals(
+                1,
+                userActionTester.getActionCount("PageInfo.CookiesSubpage.RwsSiteSettingsOpened"));
+        userActionTester.tearDown();
     }
 
     /** Tests the cookies page of the PageInfo UI with the Cookie Controls UI enabled. */
@@ -1240,7 +1333,7 @@ public class PageInfoViewTest {
     @MediumTest
     @Features.EnableFeatures({
         ChromeFeatureList.ACT_USER_BYPASS_UX,
-        ChromeFeatureList.IP_PROTECTION_V1,
+        ChromeFeatureList.IP_PROTECTION_UX,
         ChromeFeatureList.TRACKING_PROTECTION_CONTENT_SETTING_UB_CONTROL
     })
     @Feature({"RenderTest"})
@@ -1284,7 +1377,7 @@ public class PageInfoViewTest {
         ChromeFeatureList.FINGERPRINTING_PROTECTION_UX,
         ChromeFeatureList.TRACKING_PROTECTION_CONTENT_SETTING_UB_CONTROL
     })
-    @Features.DisableFeatures(ChromeFeatureList.IP_PROTECTION_V1)
+    @Features.DisableFeatures(ChromeFeatureList.IP_PROTECTION_UX)
     @Feature({"RenderTest"})
     public void testShowCookiesSubpageTrackingProtectionLaunchFpp() throws IOException {
         setBlockAll3pc(false);
@@ -1323,7 +1416,7 @@ public class PageInfoViewTest {
     @MediumTest
     @Features.EnableFeatures({
         ChromeFeatureList.ACT_USER_BYPASS_UX,
-        ChromeFeatureList.IP_PROTECTION_V1,
+        ChromeFeatureList.IP_PROTECTION_UX,
         ChromeFeatureList.FINGERPRINTING_PROTECTION_UX,
         ChromeFeatureList.TRACKING_PROTECTION_CONTENT_SETTING_UB_CONTROL
     })
@@ -1505,7 +1598,7 @@ public class PageInfoViewTest {
     @Test
     @Features.EnableFeatures({
         ChromeFeatureList.ACT_USER_BYPASS_UX,
-        ChromeFeatureList.IP_PROTECTION_V1,
+        ChromeFeatureList.IP_PROTECTION_UX,
         ChromeFeatureList.FINGERPRINTING_PROTECTION_UX,
         ChromeFeatureList.TRACKING_PROTECTION_CONTENT_SETTING_UB_CONTROL
     })
@@ -1605,7 +1698,7 @@ public class PageInfoViewTest {
     @MediumTest
     @Features.EnableFeatures({
         ChromeFeatureList.ACT_USER_BYPASS_UX,
-        ChromeFeatureList.IP_PROTECTION_V1,
+        ChromeFeatureList.IP_PROTECTION_UX,
         ChromeFeatureList.TRACKING_PROTECTION_CONTENT_SETTING_UB_CONTROL
     })
     public void a11yLiveRegionInUserBypassLauchUi() throws Exception {

@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 import {ClientDelegateFactory, getNetworkInfoMojomToUI, getSessionConfigMojomToUI, getStudentActivityMojomToUI} from 'chrome-untrusted://boca-app/app/client_delegate.js';
-import type {Assignment, BocaValidPref, CaptionConfig, Config, Course, EndViewScreenSessionError, Identity, OnTaskConfig, Permission, PermissionSetting, RemoveStudentError, SessionResult, SetViewScreenSessionActiveError, UpdateSessionError, ViewStudentScreenError, Window} from 'chrome-untrusted://boca-app/mojom/boca.mojom-webui.js';
+import type {AddStudentsError, Assignment, BocaValidPref, CaptionConfig, Config, Course, EndViewScreenSessionError, Identity, OnTaskConfig, Permission, PermissionSetting, RemoveStudentError, SessionResult, SetViewScreenSessionActiveError, UpdateSessionError, ViewStudentScreenError, Window} from 'chrome-untrusted://boca-app/mojom/boca.mojom-webui.js';
 import {PageHandlerRemote, SubmitAccessCodeError} from 'chrome-untrusted://boca-app/mojom/boca.mojom-webui.js';
 import type {TimeDelta} from 'chrome-untrusted://resources/mojo/mojo/public/mojom/base/time.mojom-webui.js';
 import type {Value} from 'chrome-untrusted://resources/mojo/mojo/public/mojom/base/values.mojom-webui.js';
@@ -113,6 +113,7 @@ class MockRemoteHandler extends PageHandlerRemote {
           sessionStartTime: null,
           onTaskConfig: {
             isLocked: true,
+            isPaused: true,
             tabs: [
               {
                 tab: {
@@ -182,6 +183,7 @@ class MockRemoteHandler extends PageHandlerRemote {
             }],
             onTaskConfig: {
               isLocked: true,
+              isPaused: true,
               tabs: [
                 {
                   tab: {
@@ -220,6 +222,7 @@ class MockRemoteHandler extends PageHandlerRemote {
     assertDeepEquals(
         {
           isLocked: true,
+          isPaused: true,
           tabs: [
             {
               tab: {
@@ -272,6 +275,13 @@ class MockRemoteHandler extends PageHandlerRemote {
     id;
     return Promise.resolve({error: null});
   }
+
+  override addStudents(ids: string[]):
+      Promise<{error: AddStudentsError | null}> {
+    ids;
+    return Promise.resolve({error: null});
+  }
+
   override setFloatMode(isFloatMode: boolean): Promise<{success: boolean}> {
     isFloatMode;
     return Promise.resolve({success: true});
@@ -324,6 +334,10 @@ class MockRemoteHandler extends PageHandlerRemote {
     return Promise.resolve({success: true});
   }
   override openFeedbackDialog() {
+    return Promise.resolve();
+  }
+
+  override refreshWorkbook() {
     return Promise.resolve();
   }
 }
@@ -452,6 +466,7 @@ suite('ClientDelegateTest', function() {
           sessionStartTime: undefined,
           onTaskConfig: {
             isLocked: true,
+            isPaused: true,
             tabs: [
               {
                 tab: {
@@ -508,6 +523,7 @@ suite('ClientDelegateTest', function() {
             accessCode: 'testCode',
             onTaskConfig: {
               isLocked: true,
+              isPaused: true,
               tabs: [
                 {
                   tab: {
@@ -550,7 +566,7 @@ suite('ClientDelegateTest', function() {
           sessionStartTime: new Date(1000000),
           students: [],
           studentsJoinViaCode: [],
-          onTaskConfig: {isLocked: false, tabs: []},
+          onTaskConfig: {isLocked: false, isPaused: false, tabs: []},
           teacher: {
             id: '0',
             name: 'teacher',
@@ -579,6 +595,7 @@ suite('ClientDelegateTest', function() {
               studentsJoinViaCode: [],
               onTaskConfig: {
                 isLocked: false,
+                isPaused: false,
                 tabs: [],
               },
               accessCode: '',
@@ -598,6 +615,7 @@ suite('ClientDelegateTest', function() {
         const result =
             await clientDelegateImpl.getInstance().updateOnTaskConfig({
               isLocked: true,
+              isPaused: true,
               tabs: [
                 {
                   tab: {
@@ -647,12 +665,46 @@ suite('ClientDelegateTest', function() {
     assertTrue(result);
   });
 
-  test(
-      'client delegate should translate data for student activity', () => {
-        const activities = [
+  test('client delegate should translate data for add students', async () => {
+    const result =
+        await clientDelegateImpl.getInstance().addStudents(['1', '2']);
+    assertTrue(result);
+  });
+
+  test('client delegate should translate data for student activity', () => {
+    const activities = [
+      {
+        id: '1',
+        activity: {
+          studentStatusDetail: 3,
+          isActive: true,
+          activeTab: 'google',
+          isCaptionEnabled: false,
+          isHandRaised: false,
+          joinMethod: 0,
+          viewScreenSessionCode: 'abcd',
+        },
+      },
+      {
+        id: '2',
+        activity: {
+          studentStatusDetail: 2,
+          isActive: false,
+          activeTab: 'youtube',
+          isCaptionEnabled: false,
+          isHandRaised: false,
+          joinMethod: 1,
+          viewScreenSessionCode: null,
+        },
+      },
+    ];
+    const result = getStudentActivityMojomToUI(activities);
+    assertDeepEquals(
+        [
           {
             id: '1',
-            activity: {
+            studentActivity: {
+              studentStatusDetail: 3,
               isActive: true,
               activeTab: 'google',
               isCaptionEnabled: false,
@@ -663,44 +715,19 @@ suite('ClientDelegateTest', function() {
           },
           {
             id: '2',
-            activity: {
+            studentActivity: {
+              studentStatusDetail: 2,
               isActive: false,
               activeTab: 'youtube',
               isCaptionEnabled: false,
               isHandRaised: false,
               joinMethod: 1,
-              viewScreenSessionCode: null,
+              viewScreenSessionCode: undefined,
             },
           },
-        ];
-        const result = getStudentActivityMojomToUI(activities);
-        assertDeepEquals(
-            [
-              {
-                id: '1',
-                studentActivity: {
-                  isActive: true,
-                  activeTab: 'google',
-                  isCaptionEnabled: false,
-                  isHandRaised: false,
-                  joinMethod: 0,
-                  viewScreenSessionCode: 'abcd',
-                },
-              },
-              {
-                id: '2',
-                studentActivity: {
-                  isActive: false,
-                  activeTab: 'youtube',
-                  isCaptionEnabled: false,
-                  isHandRaised: false,
-                  joinMethod: 1,
-                  viewScreenSessionCode: undefined,
-                },
-              },
-            ],
-            result);
-      });
+        ],
+        result);
+  });
 
   test('client delegate should translate data for set float', async () => {
     const result = await clientDelegateImpl.getInstance().setFloatMode(true);
@@ -813,5 +840,15 @@ suite('ClientDelegateTest', function() {
           openFeedbackDialogResponded = true;
         });
         assertTrue(openFeedbackDialogResponded);
+      });
+
+  test(
+      'client delegate should respond correctly for refresh workbook',
+      async () => {
+        let refreshWorkbookResponded = false;
+        await clientDelegateImpl.getInstance().refreshWorkbook().then(() => {
+          refreshWorkbookResponded = true;
+        });
+        assertTrue(refreshWorkbookResponded);
       });
 });

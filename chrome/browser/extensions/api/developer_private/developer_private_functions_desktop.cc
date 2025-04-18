@@ -35,6 +35,7 @@
 #include "chrome/browser/extensions/devtools_util.h"
 #include "chrome/browser/extensions/extension_commands_global_registry.h"
 #include "chrome/browser/extensions/extension_management.h"
+#include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_sync_service.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/extensions/extension_util.h"
@@ -111,7 +112,9 @@
 #include "storage/browser/file_system/isolated_context.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
 #include "third_party/re2/src/re2/re2.h"
+#include "ui/base/clipboard/file_info.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/gfx/native_widget_types.h"
 #include "ui/shell_dialogs/selected_file_info.h"
 #include "url/gurl.h"
 #include "url/origin.h"
@@ -122,8 +125,6 @@ namespace developer = api::developer_private;
 
 namespace {
 constexpr char kUnpackedAppsFolder[] = "apps_target";
-
-base::FilePath* g_drop_path_for_testing = nullptr;
 
 ExtensionService* GetExtensionService(content::BrowserContext* context) {
   return ExtensionSystem::Get(context)->extension_service();
@@ -203,9 +204,9 @@ DeveloperPrivateAutoUpdateFunction::~DeveloperPrivateAutoUpdateFunction() =
     default;
 
 ExtensionFunction::ResponseAction DeveloperPrivateAutoUpdateFunction::Run() {
-  ExtensionUpdater* updater =
-      ExtensionSystem::Get(browser_context())->extension_service()->updater();
-  if (updater) {
+  Profile* profile = Profile::FromBrowserContext(browser_context());
+  ExtensionUpdater* updater = ExtensionUpdater::Get(profile);
+  if (updater->enabled()) {
     ExtensionUpdater::CheckParams params;
     params.fetch_priority = DownloadFetchPriority::kForeground;
     params.install_immediately = true;
@@ -410,13 +411,13 @@ ExtensionFunction::ResponseAction DeveloperPrivateLoadUnpackedFunction::Run() {
   if (params->options && params->options->use_dragged_path &&
       *params->options->use_dragged_path) {
     DeveloperPrivateAPI* api = DeveloperPrivateAPI::Get(browser_context());
-    base::FilePath path = api->GetDraggedPath(web_contents);
-    if (path.empty()) {
+    ui::FileInfo file = api->GetDraggedFile(web_contents);
+    if (file.path.empty()) {
       return RespondNow(Error("No dragged path"));
     }
 
     AddRef();  // Balanced in Finish.
-    StartFileLoad(path);
+    StartFileLoad(file.path);
     return RespondLater();
   }
 
@@ -523,98 +524,6 @@ void DeveloperPrivateLoadUnpackedFunction::Finish(
     ResponseValue response_value) {
   Respond(std::move(response_value));
   Release();  // Balanced in Run().
-}
-
-DeveloperPrivateInstallDroppedFileFunction::
-    DeveloperPrivateInstallDroppedFileFunction() = default;
-DeveloperPrivateInstallDroppedFileFunction::
-    ~DeveloperPrivateInstallDroppedFileFunction() = default;
-
-ExtensionFunction::ResponseAction
-DeveloperPrivateInstallDroppedFileFunction::Run() {
-  content::WebContents* web_contents = GetSenderWebContents();
-  if (!web_contents) {
-    return RespondNow(Error(kCouldNotFindWebContentsError));
-  }
-
-  DeveloperPrivateAPI* api = DeveloperPrivateAPI::Get(browser_context());
-  base::FilePath path = api->GetDraggedPath(web_contents);
-  if (path.empty()) {
-    return RespondNow(Error("No dragged path"));
-  }
-
-  ExtensionService* service = GetExtensionService(browser_context());
-  if (path.MatchesExtension(FILE_PATH_LITERAL(".zip"))) {
-    ZipFileInstaller::Create(GetExtensionFileTaskRunner(),
-                             MakeRegisterInExtensionServiceCallback(service))
-        ->InstallZipFileToUnpackedExtensionsDir(
-            path, service->unpacked_install_directory());
-  } else {
-    auto prompt = std::make_unique<ExtensionInstallPrompt>(web_contents);
-    scoped_refptr<CrxInstaller> crx_installer =
-        CrxInstaller::Create(service, std::move(prompt));
-    crx_installer->set_error_on_unsupported_requirements(true);
-    crx_installer->set_off_store_install_allow_reason(
-        CrxInstaller::OffStoreInstallAllowedFromSettingsPage);
-    crx_installer->set_install_immediately(true);
-
-    if (path.MatchesExtension(FILE_PATH_LITERAL(".user.js"))) {
-      crx_installer->InstallUserScript(path, net::FilePathToFileURL(path));
-    } else if (path.MatchesExtension(FILE_PATH_LITERAL(".crx"))) {
-      crx_installer->InstallCrx(path);
-    } else {
-      EXTENSION_FUNCTION_VALIDATE(false);
-    }
-  }
-
-  // TODO(devlin): We could optionally wait to return until we validate whether
-  // the load succeeded or failed. For now, that's unnecessary, and just adds
-  // complexity.
-  return RespondNow(NoArguments());
-}
-
-DeveloperPrivateNotifyDragInstallInProgressFunction::
-    DeveloperPrivateNotifyDragInstallInProgressFunction() = default;
-DeveloperPrivateNotifyDragInstallInProgressFunction::
-    ~DeveloperPrivateNotifyDragInstallInProgressFunction() = default;
-
-ExtensionFunction::ResponseAction
-DeveloperPrivateNotifyDragInstallInProgressFunction::Run() {
-  content::WebContents* web_contents = GetSenderWebContents();
-  if (!web_contents) {
-    return RespondNow(Error(kCouldNotFindWebContentsError));
-  }
-
-  const base::FilePath* file_path = nullptr;
-  if (g_drop_path_for_testing) {
-    file_path = g_drop_path_for_testing;
-  } else {
-    content::DropData* drop_data = web_contents->GetDropData();
-    if (!drop_data) {
-      return RespondNow(Error("No current drop data."));
-    }
-
-    if (drop_data->filenames.empty()) {
-      return RespondNow(Error("No files being dragged."));
-    }
-
-    const ui::FileInfo& file_info = drop_data->filenames.front();
-    file_path = &file_info.path;
-  }
-
-  DCHECK(file_path);
-  // Note(devlin): we don't do further validation that the file is a directory
-  // here. This is validated in the JS, but if that fails, then trying to load
-  // the file as an unpacked extension will also fail (reasonably gracefully).
-  DeveloperPrivateAPI::Get(browser_context())
-      ->SetDraggedPath(web_contents, *file_path);
-  return RespondNow(NoArguments());
-}
-
-// static
-void DeveloperPrivateNotifyDragInstallInProgressFunction::SetDropPathForTesting(
-    base::FilePath* file_path) {
-  g_drop_path_for_testing = file_path;
 }
 
 void DeveloperPrivatePackDirectoryFunction::OnPackSuccess(
@@ -1380,7 +1289,7 @@ DeveloperPrivateRemoveMultipleExtensionsFunction::Run() {
   gfx::NativeWindow parent;
   if (!GetSenderWebContents()) {
     CHECK_IS_TEST();
-    parent = nullptr;
+    parent = gfx::NativeWindow();
   } else {
     parent = chrome::FindBrowserWithTab(GetSenderWebContents())
                  ->window()
@@ -1647,11 +1556,11 @@ void DeveloperPrivateUploadExtensionToAccountFunction::OnDialogAccepted() {
   const Extension* extension = *result;
 
   UploadExtensionToAccount(*extension);
-  Respond(NoArguments());
+  Respond(WithArguments(true));
 }
 
 void DeveloperPrivateUploadExtensionToAccountFunction::OnDialogCancelled() {
-  Respond(NoArguments());
+  Respond(WithArguments(false));
 }
 
 }  // namespace api

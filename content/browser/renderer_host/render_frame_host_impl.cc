@@ -17,6 +17,7 @@
 #include <tuple>
 #include <unordered_map>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "base/check.h"
@@ -158,6 +159,7 @@
 #include "content/browser/site_info.h"
 #include "content/browser/sms/webotp_service.h"
 #include "content/browser/speech/speech_synthesis_impl.h"
+#include "content/browser/storage_access/storage_access_handle.h"
 #include "content/browser/storage_partition_impl.h"
 #include "content/browser/url_loader_factory_params_helper.h"
 #include "content/browser/usb/web_usb_service_impl.h"
@@ -188,6 +190,7 @@
 #include "content/public/browser/clipboard_types.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/context_menu_params.h"
+#include "content/public/browser/cookie_access_details.h"
 #include "content/public/browser/disallow_activation_reason.h"
 #include "content/public/browser/document_ref.h"
 #include "content/public/browser/document_service_internal.h"
@@ -246,6 +249,7 @@
 #include "services/network/public/cpp/permissions_policy/permissions_policy_declaration.h"
 #include "services/network/public/cpp/simple_url_loader.h"
 #include "services/network/public/cpp/web_sandbox_flags.h"
+#include "services/network/public/mojom/cookie_access_observer.mojom.h"
 #include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom-shared.h"
 #include "services/network/public/mojom/url_loader_factory.mojom.h"
 #include "services/network/public/mojom/web_sandbox_flags.mojom-shared.h"
@@ -394,20 +398,20 @@ class RenderFrameHostOrProxy {
 
  private:
   RenderFrameProxyHost* GetProxy() {
-    if (auto** proxy = absl::get_if<RenderFrameProxyHost*>(&frame_or_proxy_)) {
+    if (auto** proxy = std::get_if<RenderFrameProxyHost*>(&frame_or_proxy_)) {
       return *proxy;
     }
     return nullptr;
   }
 
   RenderFrameHostImpl* GetFrame() {
-    if (auto** frame = absl::get_if<RenderFrameHostImpl*>(&frame_or_proxy_)) {
+    if (auto** frame = std::get_if<RenderFrameHostImpl*>(&frame_or_proxy_)) {
       return *frame;
     }
     return nullptr;
   }
 
-  absl::variant<absl::monostate, RenderFrameHostImpl*, RenderFrameProxyHost*>
+  std::variant<std::monostate, RenderFrameHostImpl*, RenderFrameProxyHost*>
       frame_or_proxy_;
 };
 
@@ -2336,6 +2340,9 @@ RenderFrameHostImpl::RenderFrameHostImpl(
       media_device_id_salt_base_(CreateRandomMediaDeviceIDSalt()),
       document_associated_data_(std::in_place, *this, document_token),
       lifecycle_state_(lifecycle_state),
+      cookie_observers_(
+          base::BindRepeating(&RenderFrameHostImpl::NotifyCookiesAccessed,
+                              base::Unretained(this))),
       code_cache_host_receivers_(
           GetProcess()->GetStoragePartition()->GetGeneratedCodeCacheContext()),
       fenced_frame_status_(fenced_frame_status),
@@ -2482,6 +2489,10 @@ RenderFrameHostImpl::RenderFrameHostImpl(
   // IdleManager should be unique per RenderFrame to provide proper isolation
   // of overrides.
   idle_manager_ = std::make_unique<IdleManagerImpl>(this);
+
+  // The renderer process priority has been set in the RenderWidgetHost so
+  // it is safe to remove to spare renderer priority here.
+  site_instance->GetProcess()->SetHasSpareRendererPriority(false);
 
   SiteInstanceGroupId sig_id = site_instance_->group()->GetId();
   bool rfh_in_bfcache =
@@ -3869,10 +3880,9 @@ bool RenderFrameHostImpl::AccessibilityIsWebContentSource() {
 
 ui::AXPlatformNodeId RenderFrameHostImpl::GetOrCreateAXNodeUniqueId(
     ui::AXNodeID ax_node_id) {
-  auto iter = ax_unique_ids_.lower_bound(ax_node_id);
-  if (iter == ax_unique_ids_.end() || iter->first != ax_node_id) {
-    iter =
-        ax_unique_ids_.emplace_hint(iter, ax_node_id, ui::AXUniqueId::Create());
+  auto iter = ax_unique_ids_.find(ax_node_id);
+  if (iter == ax_unique_ids_.end()) {
+    iter = ax_unique_ids_.emplace(ax_node_id, ui::AXUniqueId::Create()).first;
   }
   return iter->second;
 }
@@ -5327,7 +5337,7 @@ blink::StorageKey RenderFrameHostImpl::CalculateStorageKey(
       blink::mojom::AncestorChainBit::kSameSite;
   if (!new_rfh_origin.opaque() && !top_level_site.opaque()) {
     for (auto* ancestor : ancestor_chain) {
-      if (top_level_site != net::SchemefulSite(origin(ancestor))) {
+      if (!top_level_site.IsSameSiteWith(origin(ancestor))) {
         ancestor_chain_bit = blink::mojom::AncestorChainBit::kCrossSite;
         break;
       }
@@ -5424,8 +5434,14 @@ void RenderFrameHostImpl::SetOriginDependentStateOfNewFrame(
       break;
     case ContentBrowserClient::PrivateNetworkRequestPolicyOverride::
         kBlockInsteadOfWarn:
+      // Overrides to block instead of warn depend on PNA policy calculations
+      // without LNA being involved until after M136. Look up what the policy
+      // would have been if LNA was off and use that policy to compute the
+      // override's impact.
       private_network_request_policy_ =
-          OverrideBlockWithWarn(private_network_request_policy_);
+          OverrideBlockWithWarn(DerivePrivateNetworkRequestPolicy(
+              policy_container_host_->policies(),
+              PrivateNetworkRequestContext::kSubresource, false));
       break;
     case ContentBrowserClient::PrivateNetworkRequestPolicyOverride::kDefault:
       break;
@@ -6453,6 +6469,15 @@ void RenderFrameHostImpl::SwapOuterDelegateFrame(
       should_swap_devtools_frame_token
           ? std::make_optional(devtools_frame_token)
           : std::nullopt);
+
+  // Drop all accessibility state for this frame to release resources and ensure
+  // that any in-flight tree updates received before the unload ACK are ignored.
+  last_ax_mode_ = ui::AXMode();
+  render_accessibility_.reset();
+  browser_accessibility_manager_.reset();
+  ax_unique_ids_.clear();
+  accessibility_reset_token_.reset();
+  ax_tree_data_ = ui::AXTreeData();
 }
 
 void RenderFrameHostImpl::DetachFromProxy() {
@@ -7296,6 +7321,7 @@ void RenderFrameHostImpl::ShowCreatedWindow(
     bool user_gesture,
     const std::u16string& in_manifest,
     ShowCreatedWindowCallback callback) {
+  CHECK(!base::FeatureList::IsEnabled(blink::features::kCombineNewWindowIPCs));
   // This needs to be sent to the opener frame's delegate since it stores
   // the handle to this class's associated RenderWidgetHostView.
   std::string manifest = base::UTF16ToUTF8(in_manifest);
@@ -9783,36 +9809,18 @@ void RenderFrameHostImpl::CreateNewWindow(
             isolation_info_.network_anonymization_key()));
   }
 
-  mojo::PendingAssociatedRemote<mojom::Frame> pending_frame_remote;
-  mojo::PendingAssociatedReceiver<mojom::Frame> pending_frame_receiver =
-      pending_frame_remote.InitWithNewEndpointAndPassReceiver();
-  new_main_rfh->SetMojomFrameRemote(std::move(pending_frame_remote));
-
-  mojo::PendingRemote<blink::mojom::BrowserInterfaceBroker>
-      browser_interface_broker;
+  new_main_rfh->SetMojomFrameRemote(std::move(params->frame_remote));
   new_main_rfh->BindBrowserInterfaceBrokerReceiver(
-      browser_interface_broker.InitWithNewPipeAndPassReceiver());
-
-  mojo::PendingAssociatedRemote<blink::mojom::AssociatedInterfaceProvider>
-      pending_associated_interface_provider;
+      std::move(params->main_frame_interface_broker));
   new_main_rfh->BindAssociatedInterfaceProviderReceiver(
-      pending_associated_interface_provider
-          .InitWithNewEndpointAndPassReceiver());
-
-  // With this path, RenderViewHostImpl::CreateRenderView is never called
-  // because `blink::WebView` is already created on the renderer side. Thus we
-  // need to establish the connection here.
-  mojo::PendingAssociatedRemote<blink::mojom::PageBroadcast> page_broadcast;
-  mojo::PendingAssociatedReceiver<blink::mojom::PageBroadcast>
-      page_broadcast_receiver =
-          page_broadcast.InitWithNewEndpointAndPassReceiver();
-
-  auto widget_params =
-      new_main_rfh->GetLocalRenderWidgetHost()
-          ->BindAndGenerateCreateFrameWidgetParamsForNewWindow();
-
+      std::move(params->associated_interface_provider));
   new_main_rfh->render_view_host()->BindPageBroadcast(
-      std::move(page_broadcast));
+      std::move(params->page_broadcast_remote));
+  auto* new_rwh = new_main_rfh->GetLocalRenderWidgetHost();
+  new_rwh->BindWidgetInterfaces(std::move(params->widget_host),
+                                std::move(params->widget));
+  new_rwh->BindFrameWidgetInterfaces(std::move(params->frame_widget_host),
+                                     std::move(params->frame_widget));
 
   bool wait_for_debugger =
       devtools_instrumentation::ShouldWaitForDebuggerInWindowOpen();
@@ -9827,11 +9835,20 @@ void RenderFrameHostImpl::CreateNewWindow(
                                    .AsMojom();
   }
 
+  // NOTE: if the call to ShowCreatedWindow() below returns nullptr, then
+  // new_frame_tree, new_main_rfh, and new_main_rwh will all have been destroyed
+  // and point to freed memory! To preserve legacy behavior, we still need to
+  // send a fully-populated reply along with kSuccess, so we construct the reply
+  // here prior to ShowCreatedWindow().
+
+  blink::VisualProperties visual_properties;
+  // If we can't get an accurate set of VisualProperties after ShowCreatedWindow
+  // below, we at least want to transmit screen info based on the screen of the
+  // initiating frame, which is what new_rwh is constructed with.
+  visual_properties.screen_infos = new_rwh->GetScreenInfos();
   mojom::CreateNewWindowReplyPtr reply = mojom::CreateNewWindowReply::New(
       new_main_rfh->GetFrameToken(), new_main_rfh->GetRoutingID(),
-      std::move(pending_frame_receiver), std::move(widget_params),
-      std::move(page_broadcast_receiver), std::move(browser_interface_broker),
-      std::move(pending_associated_interface_provider), cloned_namespace->id(),
+      new_rwh->GetRoutingID(), visual_properties, cloned_namespace->id(),
       new_main_rfh->GetDevToolsFrameToken(), wait_for_debugger,
       new_main_rfh->GetDocumentToken(),
       new_main_rfh->policy_container_host()->CreatePolicyContainerForBlink(),
@@ -9839,14 +9856,36 @@ void RenderFrameHostImpl::CreateNewWindow(
           new_main_rfh->GetSiteInstance()->browsing_instance_token(),
           new_main_rfh->GetSiteInstance()->coop_related_group_token()),
       delegate_->GetColorProviderColorMaps(),
-      std::move(partitioned_popin_params));
+      std::move(partitioned_popin_params), /*widget_screen_rect=*/std::nullopt,
+      /*window_screen_rect=*/std::nullopt);
+
+  new_main_rfh->render_view_host()->RenderViewCreated(new_main_rfh);
+
+  if (base::FeatureList::IsEnabled(blink::features::kCombineNewWindowIPCs)) {
+    // ShowCreatedWindow will return nullptr if the new WebContents has been
+    // destroyed, as described above (see NOTE).
+    WebContents* shown_contents = delegate()->ShowCreatedWindow(
+        this, new_rwh->GetRoutingID(), params->disposition, *params->features,
+        params->consumes_user_activation, base::UTF16ToUTF8(params->nw_window_manifest));
+
+    if (!shown_contents) {
+      // These point to freed memory, so null them out to prevent inadvertent
+      // UAF in the feature (see NOTE above).
+      new_frame_tree = nullptr;
+      new_main_rfh = nullptr;
+      new_rwh = nullptr;
+    } else if (new_main_rfh->GetView()) {
+      // Cannot populate window geometry until after ShowCreatedWindow().
+      reply->widget_screen_rect.emplace(
+          new_main_rfh->GetView()->GetViewBounds());
+      reply->window_screen_rect.emplace(
+          new_main_rfh->GetView()->GetBoundsInRootWindow());
+      reply->visual_properties = new_rwh->GetInitialVisualProperties();
+    }
+  }
 
   std::move(callback).Run(mojom::CreateNewWindowStatus::kSuccess,
                           std::move(reply));
-
-  // The mojom reply callback with kSuccess causes the renderer to create the
-  // renderer-side objects.
-  new_main_rfh->render_view_host()->RenderViewCreated(new_main_rfh);
 }
 
 void RenderFrameHostImpl::SendLegacyTechEvent(
@@ -10080,10 +10119,13 @@ void RenderFrameHostImpl::ForwardFencedFrameEventAndUserActivationToEmbedder(
   }
 
   if (!IsActive()) {
+    RecordNotifyEventOutcome(blink::NotifyEventOutcome::kNotActive);
     return;
   }
 
   if (!HasTransientUserActivation()) {
+    RecordNotifyEventOutcome(
+        blink::NotifyEventOutcome::kNoTransientUserActivation);
     return;
   }
 
@@ -10114,6 +10156,7 @@ void RenderFrameHostImpl::ForwardFencedFrameEventAndUserActivationToEmbedder(
   GetProxyToOuterDelegate()
       ->GetAssociatedRemoteFrame()
       ->ForwardFencedFrameEventToEmbedder(event_type);
+  RecordNotifyEventOutcome(blink::NotifyEventOutcome::kSuccess);
 }
 
 // TODO(crbug.com/40250533): Move SendFencedFrameReportingBeacon into a separate
@@ -12681,6 +12724,10 @@ void RenderFrameHostImpl::ReportBlockingCrossPartitionBlobURL(
       std::move(details)));
 }
 
+bool RenderFrameHostImpl::DoesDocumentHaveStorageAccess() {
+  return StorageAccessHandle::DoesDocumentHaveStorageAccess(this);
+}
+
 void RenderFrameHostImpl::BindBlobUrlStoreAssociatedReceiver(
     mojo::PendingAssociatedReceiver<blink::mojom::BlobURLStore> receiver) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
@@ -12691,6 +12738,14 @@ void RenderFrameHostImpl::BindBlobUrlStoreAssociatedReceiver(
       GetProcess()->GetDeprecatedID(), std::move(receiver),
       base::BindRepeating(
           &RenderFrameHostImpl::ReportBlockingCrossPartitionBlobURL,
+          weak_ptr_factory_.GetWeakPtr()),
+      base::BindRepeating(
+          [](base::WeakPtr<RenderFrameHostImpl> frame) -> bool {
+            if (!frame) {
+              return false;
+            }
+            return frame->DoesDocumentHaveStorageAccess();
+          },
           weak_ptr_factory_.GetWeakPtr()),
       !(GetContentClient()->browser()->IsBlobUrlPartitioningEnabled(
           GetBrowserContext())));
@@ -14125,7 +14180,7 @@ void RenderFrameHostImpl::BindRestrictedCookieManagerWithOrigin(
       /*is_service_worker=*/false, GetProcess()->GetDeprecatedID(),
       GetRoutingID(), cookie_setting_overrides,
       devtools_cookie_setting_overrides, std::move(receiver),
-      CreateCookieAccessObserver());
+      CreateCookieAccessObserver(CookieAccessDetails::Source::kNonNavigation));
 }
 
 void RenderFrameHostImpl::BindTrustTokenQueryAnswerer(
@@ -15317,7 +15372,8 @@ bool RenderFrameHostImpl::DidCommitNavigationInternal(
     // the network service. When the remote interface in the network service is
     // destructed, `mojo::ReceiverSet` automatically removes the receiver.
     for (auto& receiver : navigation_request->TakeCookieObservers()) {
-      cookie_observers_.Add(this, std::move(receiver));
+      cookie_observers_.Add(std::move(receiver),
+                            CookieAccessDetails::Source::kNavigation);
     }
     for (auto& receiver : navigation_request->TakeTrustTokenObservers()) {
       trust_token_observers_.Add(this, std::move(receiver));
@@ -17442,6 +17498,7 @@ void RenderFrameHostImpl::PerformGetAssertionWebAuthSecurityChecks(
     const std::string& relying_party_id,
     const url::Origin& effective_origin,
     bool is_payment_credential_get_assertion,
+    const std::optional<url::Origin>& remote_desktop_client_override_origin,
     base::OnceCallback<void(blink::mojom::AuthenticatorStatus, bool)>
         callback) {
   bool is_cross_origin = true;  // Will be reset in ValidateAncestorOrigins().
@@ -17471,7 +17528,7 @@ void RenderFrameHostImpl::PerformGetAssertionWebAuthSecurityChecks(
       remote_validation =
           GetWebAuthRequestSecurityChecker()->ValidateDomainAndRelyingPartyID(
               effective_origin, relying_party_id, request_type,
-              /*remote_desktop_client_override=*/nullptr,
+              remote_desktop_client_override_origin,
               base::BindOnce(&RenderFrameHostImpl::
                                  OnGetAssertionWebAuthSecurityChecksCompleted,
                              weak_ptr_factory_.GetWeakPtr(),
@@ -17496,6 +17553,7 @@ void RenderFrameHostImpl::PerformMakeCredentialWebAuthSecurityChecks(
     const std::string& relying_party_id,
     const url::Origin& effective_origin,
     bool is_payment_credential_creation,
+    const std::optional<url::Origin>& remote_desktop_client_override_origin,
     base::OnceCallback<void(blink::mojom::AuthenticatorStatus, bool)>
         callback) {
   bool is_cross_origin = true;  // Will be reset in ValidateAncestorOrigins().
@@ -17523,7 +17581,7 @@ void RenderFrameHostImpl::PerformMakeCredentialWebAuthSecurityChecks(
       remote_validation =
           GetWebAuthRequestSecurityChecker()->ValidateDomainAndRelyingPartyID(
               effective_origin, relying_party_id, request_type,
-              /*remote_desktop_client_override=*/nullptr,
+              remote_desktop_client_override_origin,
               base::BindOnce(&RenderFrameHostImpl::
                                  OnMakeCredentialWebAuthSecurityChecksCompleted,
                              weak_ptr_factory_.GetWeakPtr(),
@@ -17856,8 +17914,8 @@ void RenderFrameHostImpl::RecordDocumentCreatedUkmEvent(
   // site from its parent frame B. This value is only used in manual analysis.
   bool is_cross_site_frame =
       !IsOutermostMainFrame() &&
-      (net::SchemefulSite(origin) !=
-       net::SchemefulSite(GetOutermostMainFrame()->GetLastCommittedOrigin()));
+      !net::SchemefulSite::IsSameSite(
+          origin, GetOutermostMainFrame()->GetLastCommittedOrigin());
 
   bool is_main_frame = IsOutermostMainFrame();
 
@@ -17924,9 +17982,10 @@ RenderFrameHostImpl::FaviconURLs() {
 }
 
 mojo::PendingRemote<network::mojom::CookieAccessObserver>
-RenderFrameHostImpl::CreateCookieAccessObserver() {
+RenderFrameHostImpl::CreateCookieAccessObserver(
+    CookieAccessDetails::Source source) {
   mojo::PendingRemote<network::mojom::CookieAccessObserver> remote;
-  cookie_observers_.Add(this, remote.InitWithNewPipeAndPassReceiver());
+  cookie_observers_.Add(remote.InitWithNewPipeAndPassReceiver(), source);
   return remote;
 }
 
@@ -17970,11 +18029,6 @@ void RenderFrameHostImpl::CreateMdnsResponder(
 #endif  // BUILDFLAG(ENABLE_MDNS)
 
 void RenderFrameHostImpl::Clone(
-    mojo::PendingReceiver<network::mojom::CookieAccessObserver> observer) {
-  cookie_observers_.Add(this, std::move(observer));
-}
-
-void RenderFrameHostImpl::Clone(
     mojo::PendingReceiver<network::mojom::TrustTokenAccessObserver> observer) {
   trust_token_observers_.Add(this, std::move(observer));
 }
@@ -17991,8 +18045,9 @@ void RenderFrameHostImpl::Clone(
   device_bound_session_observers_.Add(this, std::move(observer));
 }
 
-void RenderFrameHostImpl::OnCookiesAccessed(
-    std::vector<network::mojom::CookieAccessDetailsPtr> details_vector) {
+void RenderFrameHostImpl::NotifyCookiesAccessed(
+    std::vector<network::mojom::CookieAccessDetailsPtr> details_vector,
+    CookieAccessDetails::Source source) {
   UMA_HISTOGRAM_COUNTS_1M("Cookie.OnCookiesAccessed.BatchSize",
                           details_vector.size());
   size_t access_sum = 0;
@@ -18002,7 +18057,7 @@ void RenderFrameHostImpl::OnCookiesAccessed(
 
     CookieAccessDetails allowed;
     CookieAccessDetails blocked;
-    SplitCookiesIntoAllowedAndBlocked(details, &allowed, &blocked);
+    SplitCookiesIntoAllowedAndBlocked(details, source, &allowed, &blocked);
     if (!allowed.cookie_access_result_list.empty()) {
       delegate_->OnCookiesAccessed(this, allowed);
     }

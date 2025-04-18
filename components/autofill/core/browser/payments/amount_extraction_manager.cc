@@ -13,6 +13,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
+#include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/foundations/autofill_driver.h"
 #include "components/autofill/core/browser/foundations/browser_autofill_manager.h"
 #include "components/autofill/core/browser/integrators/autofill_optimization_guide.h"
@@ -69,7 +70,8 @@ AmountExtractionManager::MaybeParseAmountToMonetaryMicroUnits(
 bool AmountExtractionManager::ShouldTriggerAmountExtraction(
     const SuggestionsContext& context,
     bool should_suppress_suggestions,
-    bool has_suggestions) const {
+    bool has_suggestions,
+    FieldType field_type) const {
   // If there is an ongoing search, do not trigger the search.
   if (search_request_pending_) {
     return false;
@@ -78,6 +80,12 @@ bool AmountExtractionManager::ShouldTriggerAmountExtraction(
   if (!context.is_autofill_available) {
     return false;
   }
+
+  // If the interacted form field is CVC, do not trigger the search.
+  if (kCvcFieldTypes.find(field_type) != kCvcFieldTypes.end()) {
+    return false;
+  }
+
   // If there are no suggestions, do not show a BNPL chip as suggestions showing
   // is a requirement for BNPL.
   if (!has_suggestions) {
@@ -92,14 +100,20 @@ bool AmountExtractionManager::ShouldTriggerAmountExtraction(
   if (context.filling_product != FillingProduct::kCreditCard) {
     return false;
   }
+  if constexpr (BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
+                BUILDFLAG(IS_CHROMEOS)) {
+    if (base::FeatureList::IsEnabled(
+            ::autofill::features::
+                kAutofillEnableAmountExtractionDesktopLogging)) {
+      return true;
+    }
+  }
   // If the webpage is not in the amount extraction allowlist, do not trigger
   // the search.
   if (!IsUrlEligibleForAmountExtraction()) {
     return false;
   }
 
-  // TODO(crbug.com/378531706) check that there is at least one BNPL issuer
-  // present.
   if constexpr (BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
                 BUILDFLAG(IS_CHROMEOS)) {
     return base::FeatureList::IsEnabled(
@@ -139,12 +153,18 @@ bool AmountExtractionManager::GetSearchRequestPendingForTesting() {
   return search_request_pending_;
 }
 
+bool AmountExtractionManager::IsUrlEligibleForAmountExtractionForTesting()
+    const {
+  return IsUrlEligibleForAmountExtraction();
+}
+
 void AmountExtractionManager::OnCheckoutAmountReceived(
     base::TimeTicks search_request_start_timestamp,
     const std::string& extracted_amount) {
-  autofill_metrics::LogAmountExtractionLatency(
-      base::TimeTicks::Now() - search_request_start_timestamp,
-      !extracted_amount.empty());
+  base::TimeDelta latency =
+      base::TimeTicks::Now() - search_request_start_timestamp;
+  autofill_metrics::LogAmountExtractionLatency(latency,
+                                               !extracted_amount.empty());
   autofill_metrics::LogAmountExtractionResult(
       extracted_amount.empty()
           ? autofill_metrics::AmountExtractionResult::kAmountNotFound
@@ -163,6 +183,18 @@ void AmountExtractionManager::OnCheckoutAmountReceived(
                                       ->GetPaymentsBnplManager()) {
     bnpl_manager->OnAmountExtractionReturned(parsed_extracted_amount);
   }
+  if constexpr (BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
+                BUILDFLAG(IS_CHROMEOS)) {
+    if (base::FeatureList::IsEnabled(
+            ::autofill::features::
+                kAutofillEnableAmountExtractionDesktopLogging)) {
+      VLOG(3) << "The result of amount extraction on domain "
+              << autofill_manager_->client()
+                     .GetLastCommittedPrimaryMainFrameOrigin()
+              << " is " << extracted_amount << " with latency of "
+              << latency.InMilliseconds() << " milliseconds.";
+    }
+  }
 }
 
 void AmountExtractionManager::OnTimeoutReached() {
@@ -175,6 +207,17 @@ void AmountExtractionManager::OnTimeoutReached() {
   autofill_metrics::LogAmountExtractionResult(
       autofill_metrics::AmountExtractionResult::kTimeout);
   // TODO(crbug.com/378517983): Add BNPL flow action logic here.
+  if constexpr (BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
+                BUILDFLAG(IS_CHROMEOS)) {
+    if (base::FeatureList::IsEnabled(
+            ::autofill::features::
+                kAutofillEnableAmountExtractionDesktopLogging)) {
+      VLOG(3) << "The amount extraction on domain "
+              << autofill_manager_->client()
+                     .GetLastCommittedPrimaryMainFrameOrigin()
+              << " reached a timeout.";
+    }
+  }
 }
 
 bool AmountExtractionManager::IsUrlEligibleForAmountExtraction() const {
@@ -182,9 +225,16 @@ bool AmountExtractionManager::IsUrlEligibleForAmountExtraction() const {
           autofill_manager_->client().GetAutofillOptimizationGuide()) {
     const GURL& url =
         autofill_manager_->client().GetLastCommittedPrimaryMainFrameURL();
-    for (std::string_view issuer : BnplManager::GetSupportedBnplIssuerIds()) {
+    payments::PaymentsAutofillClient* payments_autofill_client =
+        autofill_manager_->client().GetPaymentsAutofillClient();
+    if (!payments_autofill_client) {
+      return false;
+    }
+    for (const BnplIssuer& issuer :
+         payments_autofill_client->GetPaymentsDataManager().GetBnplIssuers()) {
       if (autofill_optimization_guide
-              ->IsUrlEligibleForCheckoutAmountSearchForIssuerId(issuer, url)) {
+              ->IsUrlEligibleForCheckoutAmountSearchForIssuerId(
+                  issuer.issuer_id(), url)) {
         return true;
       }
     }

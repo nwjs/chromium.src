@@ -169,9 +169,9 @@ SkColor GetFrameColor(Browser* browser) {
 class WebAppFrameToolbarBrowserTest : public web_app::WebAppBrowserTestBase {
  public:
   WebAppFrameToolbarBrowserTest() {
-    scoped_feature_list_.InitWithFeatures(
-        {features::kPinnableDownloadsButton, features::kPageActionsMigration},
-        {});
+    scoped_feature_list_.InitAndEnableFeatureWithParameters(
+        features::kPageActionsMigration,
+        {{features::kPageActionsMigrationZoom.name, "true"}});
   }
 
   WebAppFrameToolbarTestHelper* helper() {
@@ -187,6 +187,23 @@ class WebAppFrameToolbarBrowserTest : public web_app::WebAppBrowserTestBase {
     return app_menu_model->GetModelAndIndexForCommandId(command_id, &model,
                                                         &index) &&
            model->IsEnabledAt(index);
+  }
+
+ protected:
+  // Previously, the page action icon was added as a direct child of the
+  // toolbar. With the new page action framework, the `PageActionContainer` is
+  // added as the toolbar child. As a result, the positioning should be
+  // offsetted.
+  int GetPageActionViewOffset() {
+    if (base::FeatureList::IsEnabled(features::kPageActionsMigration)) {
+      return helper()
+          ->web_app_frame_toolbar()
+          ->get_right_container_for_testing()
+          ->page_action_container()
+          ->x();
+    }
+
+    return 0;
   }
 
  private:
@@ -286,7 +303,8 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest, SpaceConstrained) {
   const int original_toolbar_width = helper()->web_app_frame_toolbar()->width();
   const int new_toolbar_width =
       toolbar_right_container->width() -
-      GetLastVisible(page_action_views)->bounds().right();
+      (GetPageActionViewOffset() +
+       GetLastVisible(page_action_views)->bounds().right());
   const int new_frame_width = helper()->frame_view()->width() -
                               original_toolbar_width + new_toolbar_width;
 
@@ -533,8 +551,14 @@ class WebAppFrameToolbarBrowserTest_NoElidedExtensionsMenu
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
+// TODO(crbug.com/405233966): Re-enable this test
+#if BUILDFLAG(IS_MAC)
+#define MAYBE_Test DISABLED_Test
+#else
+#define MAYBE_Test Test
+#endif
 IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_NoElidedExtensionsMenu,
-                       Test) {
+                       MAYBE_Test) {
   helper()->InstallAndLaunchWebApp(browser(), GURL("https://test.org"));
 
   WebAppToolbarButtonContainer* toolbar_button_container =
@@ -1298,8 +1322,14 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_WindowControlsOverlay,
 }
 #endif  // !BUILDFLAG(IS_MAC) && !BUILDFLAG(IS_WIN)
 
+// TODO(crbug.com/405233966): Re-enable this test
+#if BUILDFLAG(IS_MAC)
+#define MAYBE_WindowControlsOverlayRTL DISABLED_WindowControlsOverlayRTL
+#else
+#define MAYBE_WindowControlsOverlayRTL WindowControlsOverlayRTL
+#endif
 IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_WindowControlsOverlay,
-                       WindowControlsOverlayRTL) {
+                       MAYBE_WindowControlsOverlayRTL) {
   base::test::ScopedRestoreICUDefaultLocale test_locale("ar");
   ASSERT_TRUE(base::i18n::IsRTL());
 
@@ -1670,8 +1700,14 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_WindowControlsOverlay,
       browser_view->GetWidget()->GetNativeView(), draggable_point));
 }
 
+// TODO(crbug.com/405233966): Re-enable this test
+#if BUILDFLAG(IS_MAC)
+#define MAYBE_FencedFrame DISABLED_FencedFrame
+#else
+#define MAYBE_FencedFrame FencedFrame
+#endif
 IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_WindowControlsOverlay,
-                       FencedFrame) {
+                       MAYBE_FencedFrame) {
   InstallAndLaunchWebApp();
   ToggleWindowControlsOverlayAndWait();
 

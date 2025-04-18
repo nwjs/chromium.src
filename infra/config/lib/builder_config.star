@@ -8,8 +8,10 @@ load("@stdlib//internal/graph.star", "graph")
 load("@stdlib//internal/luci/common.star", "keys", "kinds", "triggerer")
 load("//project.star", "settings")
 load("./args.star", "args")
+load("./branches.star", "branches")
 load(
     "./builder_exemptions.star",
+    "exempted_gardened_mirrors_in_cq_builders",
     "mega_cq_excluded_builders",
     "mega_cq_excluded_gardener_rotations",
     "standalone_trybot_excluded_builder_groups",
@@ -318,19 +320,24 @@ def _builder_spec(
 
 def _ci_settings(
         *,
-        retry_failed_shards = None):
+        retry_failed_shards = None,
+        retry_invalid_shards = None):
     """Settings specific to CI builders.
 
     Args:
         retry_failed_shards: (bool) Whether or not failing shards of a test will
             be retried. If retries for all failed shards of a test succeed, the
             test will be considered to have passed.
+        retry_invalid_shards: (bool) Whether or not infra failed shards of tests
+            should be retried. If retries for all failed shards of a test
+            succeed, the test will be considered to have passed.
 
     Returns:
         A struct that can be passed to the `ci_settings` argument of the builder.
     """
     return struct(
         retry_failed_shards = retry_failed_shards,
+        retry_invalid_shards = retry_invalid_shards,
     )
 
 def _try_settings(
@@ -727,6 +734,7 @@ def _set_builder_config_property(ctx):
 
     bc_state = _bc_state()
     needs_mega_cq_mode = set()
+    trybot_ungardened_mirrors = {}
 
     for bucket in cfg.buckets:
         if not proto.has(bucket, "swarming"):
@@ -864,6 +872,22 @@ def _set_builder_config_property(ctx):
             if rotations and not mirroring_builders and not is_excluded:
                 fail("{} is on a sheriff/gardener rotation, but lacks a matching trybot".format(builder.name))
 
+            # If the builder is part of CQ it must have gardeners for the builders it mirrors
+            if branches.matches(branches.selector.MAIN) and bucket_name == "try":
+                for m in mirrors:
+                    mirror_id = _builder_id(m)
+                    mirror_rotations = get_gardener_rotations(mirror_id["bucket"], mirror_id["builder"])
+                    mirror = "{}/{}".format(mirror_id["bucket"], mirror_id["builder"])
+                    if len(mirror_rotations) == 0 and mirror not in exempted_gardened_mirrors_in_cq_builders:
+                        cq_identifier = "{}/{}/{}".format(
+                            settings.project,
+                            bucket_name,
+                            builder.name,
+                        )
+                        if cq_identifier not in trybot_ungardened_mirrors:
+                            trybot_ungardened_mirrors[cq_identifier] = set()
+                        trybot_ungardened_mirrors[cq_identifier] = trybot_ungardened_mirrors[cq_identifier].union([mirror])
+
             if (bucket_name == "try" and not mirrors and
                 builder_properties.get("builder_group") not in standalone_trybot_excluded_builder_groups and
                 builder.name not in standalone_trybot_excluded_builders):
@@ -917,6 +941,9 @@ def _set_builder_config_property(ctx):
     for cq_group in cq_config_groups:
         if cq_group.name != "cq":
             continue
+        for b in cq_group.verifiers.tryjob.builders:
+            if b.name in trybot_ungardened_mirrors and not b.includable_only and b.experiment_percentage == 0:
+                fail("{} is being added to the CQ but it is mirroring an ungardened and unexempted builder(s): {}".format(b.name, ", ".join(trybot_ungardened_mirrors[b.name])))
         for b in cq_group.verifiers.tryjob.builders:
             if b.name not in needs_mega_cq_mode:
                 continue

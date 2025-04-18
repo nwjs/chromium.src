@@ -40,7 +40,6 @@
 
 #include "base/check.h"
 #include "base/check_op.h"
-#include "base/compiler_specific.h"
 #include "base/feature_list.h"
 #include "base/location.h"
 #include "base/memory/scoped_refptr.h"
@@ -77,7 +76,6 @@
 #include "third_party/blink/renderer/core/html/canvas/canvas_font_cache.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_performance_monitor.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_rendering_context.h"
-#include "third_party/blink/renderer/core/html/canvas/predefined_color_space.h"
 #include "third_party/blink/renderer/core/layout/geometry/physical_offset.h"
 #include "third_party/blink/renderer/core/layout/geometry/physical_rect.h"
 #include "third_party/blink/renderer/core/layout/layout_box.h"
@@ -97,18 +95,18 @@
 #include "third_party/blink/renderer/platform/fonts/font.h"
 #include "third_party/blink/renderer/platform/geometry/layout_unit.h"
 #include "third_party/blink/renderer/platform/geometry/stroke_data.h"
-#include "third_party/blink/renderer/platform/graphics/canvas_2d_layer_bridge.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_deferred_paint_record.h"
+#include "third_party/blink/renderer/platform/graphics/canvas_hibernation_handler.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_resource_provider.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_context_rate_limiter.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
-#include "third_party/blink/renderer/platform/graphics/graphics_types.h"
 #include "third_party/blink/renderer/platform/graphics/image_orientation.h"
 #include "third_party/blink/renderer/platform/graphics/memory_managed_paint_canvas.h"  // IWYU pragma: keep (https://github.com/clangd/clangd/issues/2044)
 #include "third_party/blink/renderer/platform/graphics/memory_managed_paint_recorder.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_filter.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_record_builder.h"
 #include "third_party/blink/renderer/platform/graphics/paint/property_tree_state.h"
+#include "third_party/blink/renderer/platform/graphics/platform_focus_ring.h"
 #include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
 #include "third_party/blink/renderer/platform/graphics/static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/graphics/unaccelerated_static_bitmap_image.h"
@@ -156,10 +154,6 @@ static mojom::blink::ColorScheme GetColorSchemeFromCanvas(
 
 namespace {
 
-BASE_FEATURE(kFixContextLostReset,
-             "FixContextLostReset",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 }  // namespace
 
 CanvasRenderingContext* CanvasRenderingContext2D::Factory::Create(
@@ -176,11 +170,11 @@ CanvasRenderingContext* CanvasRenderingContext2D::Factory::Create(
 CanvasRenderingContext2D::CanvasRenderingContext2D(
     HTMLCanvasElement* canvas,
     const CanvasContextCreationAttributesCore& attrs)
-    : CanvasRenderingContext(canvas, attrs, CanvasRenderingAPI::k2D),
-      BaseRenderingContext2D(
+    : BaseRenderingContext2D(
+          canvas,
+          attrs,
           canvas->GetDocument().GetTaskRunner(TaskType::kInternalDefault)),
-      should_prune_local_font_cache_(false),
-      color_params_(attrs.color_space, attrs.pixel_format, attrs.alpha) {
+      should_prune_local_font_cache_(false) {
   identifiability_study_helper_.SetExecutionContext(
       canvas->GetTopExecutionContext());
   if (canvas->GetDocument().GetSettings() &&
@@ -259,7 +253,7 @@ void CanvasRenderingContext2D::RestoreProviderAndContextIfPossible() {
 
 void CanvasRenderingContext2D::Trace(Visitor* visitor) const {
   visitor->Trace(filter_operations_);
-  CanvasRenderingContext::Trace(visitor);
+  ScriptWrappable::Trace(visitor);
   BaseRenderingContext2D::Trace(visitor);
   SVGResourceClient::Trace(visitor);
 }
@@ -297,9 +291,7 @@ void CanvasRenderingContext2D::TryRestoreContextEvent(TimerBase* timer) {
                          ? canvas() != nullptr
                          : IsPaintable();
   if (context_lost_mode_ == kRealLostContext && can_restore && Restore()) {
-    if (base::FeatureList::IsEnabled(kFixContextLostReset)) {
-      Host()->set_context_lost(false);
-    }
+    Host()->set_context_lost(false);
     try_restore_context_event_timer_.Stop();
     DispatchContextRestoredEvent(nullptr);
     return;
@@ -344,10 +336,6 @@ bool CanvasRenderingContext2D::Restore() {
     if (resource_provider && host->GetRasterMode() == RasterMode::kCPU) {
       host->ReplaceResourceProvider(nullptr);
       // FIXME: draw sad canvas picture into new buffer crbug.com/243842
-    } else {
-      if (!base::FeatureList::IsEnabled(kFixContextLostReset)) {
-        host->set_context_lost(false);
-      }
     }
   }
 
@@ -401,16 +389,6 @@ bool CanvasRenderingContext2D::WritePixels(const SkImageInfo& orig_info,
 
   return host->ResourceProvider()->WritePixels(orig_info, pixels, row_bytes, x,
                                                y);
-}
-
-void CanvasRenderingContext2D::Reset() {
-  // This is a multiple inheritance bootstrap
-  BaseRenderingContext2D::ResetInternal();
-}
-
-void CanvasRenderingContext2D::RestoreCanvasMatrixClipStack(
-    cc::PaintCanvas* c) const {
-  RestoreMatrixClipStack(c);
 }
 
 bool CanvasRenderingContext2D::ShouldAntialias() const {
@@ -484,13 +462,6 @@ void CanvasRenderingContext2D::ScrollPathIntoViewInternal(const Path& path) {
           horizontal_scroll_mode, vertical_scroll_mode,
           mojom::blink::ScrollType::kProgrammatic, false,
           mojom::blink::ScrollBehavior::kAuto));
-}
-
-void CanvasRenderingContext2D::clearRect(double x,
-                                         double y,
-                                         double width,
-                                         double height) {
-  BaseRenderingContext2D::clearRect(x, y, width, height);
 }
 
 sk_sp<PaintFilter> CanvasRenderingContext2D::StateGetFilter() {
@@ -1040,11 +1011,6 @@ cc::Layer* CanvasRenderingContext2D::CcLayer() const {
   return canvas()->GetOrCreateCcLayerIfNeeded();
 }
 
-CanvasRenderingContext2DSettings*
-CanvasRenderingContext2D::getContextAttributes() const {
-  return ToCanvasRenderingContext2DSettings(CreationAttributes());
-}
-
 void CanvasRenderingContext2D::drawFocusIfNeeded(Element* element) {
   DrawFocusIfNeededInternal(GetPath(), element);
 }
@@ -1183,12 +1149,17 @@ HTMLCanvasElement* CanvasRenderingContext2D::HostAsHTMLCanvasElement() const {
   return canvas();
 }
 
-FontSelector* CanvasRenderingContext2D::GetFontSelector() const {
+UniqueFontSelector* CanvasRenderingContext2D::GetFontSelector() const {
   return canvas()->GetFontSelector();
 }
 
-int CanvasRenderingContext2D::LayerCount() const {
-  return BaseRenderingContext2D::LayerCount();
+CanvasResourceProvider*
+CanvasRenderingContext2D::GetOrCreateCanvas2DResourceProvider() {
+  HTMLCanvasElement* const element = canvas();
+  if (!element) [[unlikely]] {
+    return nullptr;
+  }
+  return element->GetOrCreateResourceProviderWithCurrentRasterModeHint();
 }
 
 }  // namespace blink

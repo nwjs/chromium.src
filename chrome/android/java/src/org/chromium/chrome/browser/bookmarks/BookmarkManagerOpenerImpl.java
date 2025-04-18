@@ -14,6 +14,8 @@ import android.text.TextUtils;
 
 import androidx.annotation.Nullable;
 
+import org.chromium.base.ActivityState;
+import org.chromium.base.ApplicationStatus;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.metrics.RecordUserAction;
@@ -21,6 +23,8 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.browser.ActivityUtils;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.app.bookmarks.BookmarkActivity;
+import org.chromium.chrome.browser.app.bookmarks.BookmarkEditActivity;
+import org.chromium.chrome.browser.app.bookmarks.BookmarkFolderPickerActivity;
 import org.chromium.chrome.browser.document.ChromeLauncherActivity;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
@@ -29,6 +33,8 @@ import org.chromium.chrome.browser.profiles.ProfileIntentUtils;
 import org.chromium.components.bookmarks.BookmarkId;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.ui.base.DeviceFormFactor;
+
+import java.util.Objects;
 
 @NullMarked
 public class BookmarkManagerOpenerImpl implements BookmarkManagerOpener {
@@ -48,10 +54,64 @@ public class BookmarkManagerOpenerImpl implements BookmarkManagerOpener {
         }
 
         if (DeviceFormFactor.isNonMultiDisplayContextOnTablet(activity)) {
-            showBookmarkManagerOnTablet(
-                    activity, activity.getComponentName(), url, profile.isOffTheRecord());
+            showBookmarkManagerOnTablet(activity, activity.getComponentName(), url);
         } else {
             showBookmarkManagerOnPhone(activity, url, profile);
+        }
+    }
+
+    @Override
+    public void startEditActivity(Context context, Profile profile, BookmarkId bookmarkId) {
+        RecordUserAction.record("MobileBookmarkManagerEditBookmark");
+        Intent intent = getEditActivityIntent(context, profile, bookmarkId);
+        if (context instanceof BookmarkActivity bookmarkActivity) {
+            bookmarkActivity.startActivityForResult(
+                    intent, BookmarkActivity.EDIT_BOOKMARK_REQUEST_CODE);
+        } else {
+            context.startActivity(intent);
+        }
+    }
+
+    @Override
+    public void startFolderPickerActivity(
+            Context context,
+            Profile profile,
+            Runnable activityFinishedCallback,
+            BookmarkId... bookmarkIds) {
+        Intent intent = new Intent(context, BookmarkFolderPickerActivity.class);
+        intent.putStringArrayListExtra(
+                BookmarkFolderPickerActivity.INTENT_BOOKMARK_IDS,
+                BookmarkUtils.bookmarkIdsToStringList(bookmarkIds));
+        ProfileIntentUtils.addProfileToIntent(profile, intent);
+        ApplicationStatus.registerStateListenerForAllActivities(
+                new ApplicationStatus.ActivityStateListener() {
+                    @Nullable BookmarkFolderPickerActivity mActivityInstance;
+
+                    @Override
+                    public void onActivityStateChange(
+                            Activity activity, @ActivityState int newState) {
+                        if (!(activity instanceof BookmarkFolderPickerActivity)) {
+                            return;
+                        }
+
+                        BookmarkFolderPickerActivity activityInstance =
+                                (BookmarkFolderPickerActivity) activity;
+                        if (newState == ActivityState.CREATED && mActivityInstance == null) {
+                            mActivityInstance = activityInstance;
+                        } else if (newState == ActivityState.DESTROYED
+                                && Objects.equals(mActivityInstance, activityInstance)) {
+                            ApplicationStatus.unregisterActivityStateListener(this);
+                            activityFinishedCallback.run();
+                        }
+                    }
+                });
+        context.startActivity(intent);
+    }
+
+    @Override
+    public void finishActivityOnPhone(Context context) {
+        if (context instanceof BookmarkActivity bookmarkActivity) {
+            bookmarkActivity.finish();
         }
     }
 
@@ -81,12 +141,8 @@ public class BookmarkManagerOpenerImpl implements BookmarkManagerOpener {
     }
 
     private void showBookmarkManagerOnTablet(
-            Context context,
-            @Nullable ComponentName componentName,
-            String url,
-            boolean isIncognito) {
+            Context context, @Nullable ComponentName componentName, String url) {
         Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-        intent.putExtra(IntentHandler.EXTRA_INCOGNITO_MODE, isIncognito);
         intent.putExtra(
                 Browser.EXTRA_APPLICATION_ID, context.getApplicationContext().getPackageName());
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -115,5 +171,12 @@ public class BookmarkManagerOpenerImpl implements BookmarkManagerOpener {
         }
 
         return TextUtils.isEmpty(url) ? UrlConstants.BOOKMARKS_URL : url;
+    }
+
+    private Intent getEditActivityIntent(Context context, Profile profile, BookmarkId bookmarkId) {
+        Intent intent = new Intent(context, BookmarkEditActivity.class);
+        intent.putExtra(BookmarkEditActivity.INTENT_BOOKMARK_ID, bookmarkId.toString());
+        ProfileIntentUtils.addProfileToIntent(profile, intent);
+        return intent;
     }
 }

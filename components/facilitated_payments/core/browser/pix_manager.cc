@@ -16,10 +16,12 @@
 #include "components/autofill/core/browser/payments/payments_util.h"
 #include "components/facilitated_payments/core/browser/facilitated_payments_client.h"
 #include "components/facilitated_payments/core/browser/network_api/facilitated_payments_network_interface.h"
+#include "components/facilitated_payments/core/browser/network_api/multiple_request_facilitated_payments_network_interface.h"
 #include "components/facilitated_payments/core/features/features.h"
 #include "components/facilitated_payments/core/metrics/facilitated_payments_metrics.h"
 #include "components/facilitated_payments/core/utils/facilitated_payments_ui_utils.h"
 #include "components/facilitated_payments/core/utils/facilitated_payments_utils.h"
+#include "components/optimization_guide/core/optimization_guide_decider.h"
 
 namespace payments::facilitated {
 namespace {
@@ -35,13 +37,12 @@ PixManager::PixManager(
     FacilitatedPaymentsApiClientCreator api_client_creator,
     optimization_guide::OptimizationGuideDecider* optimization_guide_decider)
     : client_(CHECK_DEREF(client)),
-      api_client_creator_(std::move(api_client_creator)),
+      api_client_creator_(api_client_creator),
       optimization_guide_decider_(optimization_guide_decider),
       initiate_payment_request_details_(
           std::make_unique<
               FacilitatedPaymentsInitiatePaymentRequestDetails>()) {
   DCHECK(optimization_guide_decider_);
-  RegisterPixAllowlist();
 }
 
 PixManager::~PixManager() {
@@ -81,11 +82,6 @@ void PixManager::OnPixCodeCopiedToClipboard(const GURL& render_frame_host_url,
       pix_code, base::BindOnce(&PixManager::OnPixCodeValidated,
                                weak_ptr_factory_.GetWeakPtr(), pix_code,
                                base::TimeTicks::Now()));
-}
-
-void PixManager::RegisterPixAllowlist() const {
-  optimization_guide_decider_->RegisterOptimizationTypes(
-      {optimization_guide::proto::PIX_MERCHANT_ORIGINS_ALLOWLIST});
 }
 
 bool PixManager::IsMerchantAllowlisted(const GURL& url) const {
@@ -167,7 +163,7 @@ void PixManager::OnPixCodeValidated(
 FacilitatedPaymentsApiClient* PixManager::GetApiClient() {
   if (!api_client_) {
     if (api_client_creator_) {
-      api_client_ = std::move(api_client_creator_).Run();
+      api_client_ = api_client_creator_.Run();
     }
   }
 
@@ -242,14 +238,29 @@ void PixManager::OnGetClientToken(base::TimeTicks start_time,
 }
 
 void PixManager::SendInitiatePaymentRequest() {
-  if (FacilitatedPaymentsNetworkInterface* payments_network_interface =
-          client_->GetFacilitatedPaymentsNetworkInterface()) {
-    LogInitiatePaymentAttempt(kPaymentsType);
-    payments_network_interface->InitiatePayment(
-        std::move(initiate_payment_request_details_),
-        base::BindOnce(&PixManager::OnInitiatePaymentResponseReceived,
-                       weak_ptr_factory_.GetWeakPtr(), base::TimeTicks::Now()),
-        client_->GetPaymentsDataManager()->app_locale());
+  if (base::FeatureList::IsEnabled(
+          kSupportMultipleServerRequestsForPixPayments)) {
+    if (auto* payments_network_interface =
+            client_->GetMultipleRequestFacilitatedPaymentsNetworkInterface()) {
+      LogInitiatePaymentAttempt(kPaymentsType);
+      payments_network_interface->InitiatePayment(
+          std::move(initiate_payment_request_details_),
+          base::BindOnce(&PixManager::OnInitiatePaymentResponseReceived,
+                         weak_ptr_factory_.GetWeakPtr(),
+                         base::TimeTicks::Now()),
+          client_->GetPaymentsDataManager()->app_locale());
+    }
+  } else {
+    if (auto* payments_network_interface =
+            client_->GetFacilitatedPaymentsNetworkInterface()) {
+      LogInitiatePaymentAttempt(kPaymentsType);
+      payments_network_interface->InitiatePayment(
+          std::move(initiate_payment_request_details_),
+          base::BindOnce(&PixManager::OnInitiatePaymentResponseReceived,
+                         weak_ptr_factory_.GetWeakPtr(),
+                         base::TimeTicks::Now()),
+          client_->GetPaymentsDataManager()->app_locale());
+    }
   }
 }
 

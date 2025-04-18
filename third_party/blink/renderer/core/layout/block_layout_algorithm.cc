@@ -446,9 +446,15 @@ MinMaxSizesResult BlockLayoutAlgorithm::ComputeMinMaxSizes(
     MinMaxConstraintSpaceBuilder builder(GetConstraintSpace(), Style(), child,
                                          child_is_new_fc);
     builder.SetAvailableBlockSize(ChildAvailableSize().block_size);
-    builder.SetPercentageResolutionBlockSize(child_percentage_size_.block_size);
-    builder.SetReplacedPercentageResolutionBlockSize(
-        replaced_child_percentage_size_.block_size);
+    builder.SetPercentageResolutionBlockSize(
+        PercentageSizeForChild(child).block_size);
+    // Pass the replaced %-size down to inline layout.
+    if ((child.IsAnonymous() || child.IsInline()) &&
+        replaced_child_percentage_size_.block_size !=
+            child_percentage_size_.block_size) {
+      builder.SetReplacedChildPercentageResolutionBlockSize(
+          replaced_child_percentage_size_.block_size);
+    }
     const auto space = builder.ToConstraintSpace();
 
     MinMaxSizesResult child_result;
@@ -1505,7 +1511,7 @@ void BlockLayoutAlgorithm::HandleOutOfFlowPositioned(
 
   container_builder_.AddOutOfFlowChildCandidate(
       child, static_offset, LogicalStaticPosition::kInlineStart,
-      LogicalStaticPosition::kBlockStart,
+      LogicalStaticPosition::kBlockStart, LogicalStaticPosition::kBlock,
       line_clamp_data_.ShouldHideForPaint());
 }
 
@@ -1549,8 +1555,8 @@ void BlockLayoutAlgorithm::HandleFloat(
   }
 
   UnpositionedFloat unpositioned_float(
-      child, child_break_token, ChildAvailableSize(), child_percentage_size_,
-      replaced_child_percentage_size_, origin_bfc_offset, constraint_space,
+      child, child_break_token, ChildAvailableSize(),
+      PercentageSizeForChild(child), origin_bfc_offset, constraint_space,
       Style(), FragmentainerCapacityForChildren(),
       FragmentainerOffsetForChildren(), line_clamp_data_.ShouldHideForPaint());
 
@@ -2360,6 +2366,16 @@ LayoutResult::EStatus BlockLayoutAlgorithm::FinishInflow(
       layout_result = LayoutInflow(new_child_space, child_break_token,
                                    early_break_, column_spanner_path_, &child,
                                    inline_child_layout_context);
+    }
+
+    // If a kNeedsLineClampRelayout layout result was not handled in
+    // HandleNonSuccessfulLayoutResult, it needs to be propagated upwards until
+    // the BFC root.
+    if (layout_result->Status() == LayoutResult::kNeedsLineClampRelayout) {
+      DCHECK_EQ(line_clamp_data_.data.state,
+                LineClampData::kMeasureLinesUntilBfcOffset);
+      container_builder_.SetLinesUntilClamp(layout_result->LinesUntilClamp());
+      return LayoutResult::kNeedsLineClampRelayout;
     }
 
     DCHECK_EQ(layout_result->Status(), LayoutResult::kSuccess);
@@ -3214,8 +3230,14 @@ ConstraintSpace BlockLayoutAlgorithm::CreateConstraintSpaceForChild(
   }
 
   builder.SetAvailableSize(child_available_size);
-  builder.SetPercentageResolutionSize(child_percentage_size_);
-  builder.SetReplacedPercentageResolutionSize(replaced_child_percentage_size_);
+  builder.SetPercentageResolutionSize(PercentageSizeForChild(child));
+
+  // Pass the replaced %-size down to inline layout.
+  if ((child.IsAnonymous() || child.IsInline()) &&
+      replaced_child_percentage_size_ != child_percentage_size_) {
+    builder.SetReplacedChildPercentageResolutionSize(
+        replaced_child_percentage_size_);
+  }
 
   if (constraint_space.IsTableCell()) {
     builder.SetIsTableCellChild(true);
@@ -3389,6 +3411,24 @@ ConstraintSpace BlockLayoutAlgorithm::CreateConstraintSpaceForChild(
         container_builder_.HasInsertedChildBreak()) {
       builder.SetIsPastBreak();
     }
+  }
+
+  const bool has_stretch =
+      IsHorizontalWritingMode(constraint_space.GetWritingMode())
+          ? child_style.Height().HasStretch() ||
+                child_style.MinHeight().HasStretch() ||
+                child_style.MaxHeight().HasStretch()
+          : child_style.Width().HasStretch() ||
+                child_style.MinWidth().HasStretch() ||
+                child_style.MaxWidth().HasStretch();
+
+  if (has_stretch && !constraint_space.IsNewFormattingContext()) {
+    const LineLogicalBoxSides sides(BorderPadding().block_start == LayoutUnit(),
+                                    /* line_right */ false,
+                                    BorderPadding().block_end == LayoutUnit(),
+                                    /* line_left */ false);
+    builder.SetIgnoreMarginsForStretch(constraint_space.GetWritingMode(),
+                                       sides);
   }
 
   return builder.ToConstraintSpace();

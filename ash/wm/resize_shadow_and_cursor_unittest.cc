@@ -239,12 +239,13 @@ TEST_F(ResizeShadowAndCursorTest, DefaultCursorOnBubbleWidgetCorners) {
   child_view->SetBounds(200, 200, 10, 10);
   views::Widget::GetWidgetForNativeWindow(window())
       ->GetRootView()
-      ->AddChildView(child_view);
+      ->AddChildViewRaw(child_view);
 
   // Create the bubble widget.
   views::Widget* bubble(views::BubbleDialogDelegateView::CreateBubble(
-      new views::BubbleDialogDelegateView(child_view,
-                                          views::BubbleBorder::NONE)));
+      new views::BubbleDialogDelegateView(
+          views::BubbleDialogDelegateView::CreatePassKey(), child_view,
+          views::BubbleBorder::NONE)));
   bubble->Show();
 
   // Get the screen rectangle for the bubble frame

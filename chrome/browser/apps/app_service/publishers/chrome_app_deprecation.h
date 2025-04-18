@@ -7,6 +7,8 @@
 
 #include <string_view>
 
+#include "base/feature_list.h"
+
 class Profile;
 
 // This namespace collects all the methods that control when to enforce the
@@ -20,6 +22,10 @@ enum class DeprecationStatus { kLaunchAllowed, kLaunchBlocked };
 DeprecationStatus HandleDeprecation(std::string_view app_id, Profile* profile);
 
 void AddAppToAllowlistForTesting(std::string_view app_id);
+void ResetAllowlistForTesting();
+
+BASE_DECLARE_FEATURE(kAllowUserInstalledChromeApps);
+BASE_DECLARE_FEATURE(kAllowUserInstalledChromeAppsInKioskSessions);
 
 }  // namespace apps::chrome_app_deprecation
 

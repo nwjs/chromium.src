@@ -39,7 +39,7 @@
 #include "third_party/blink/renderer/platform/graphics/canvas_resource_provider.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_context.h"
-#include "third_party/blink/renderer/platform/graphics/graphics_types.h"
+#include "third_party/blink/renderer/platform/graphics/graphics_context_types.h"
 #include "third_party/blink/renderer/platform/graphics/image.h"
 #include "third_party/blink/renderer/platform/graphics/static_bitmap_image_transform.h"
 #include "third_party/blink/renderer/platform/graphics/unaccelerated_static_bitmap_image.h"
@@ -388,7 +388,7 @@ ImageBitmap::ImageBitmap(HTMLCanvasElement* canvas,
                          const ImageBitmapOptions* options) {
   SourceImageStatus status;
   scoped_refptr<Image> image_input = canvas->GetSourceImageForCanvas(
-      FlushReason::kCreateImageBitmap, &status, gfx::SizeF(), kDontChangeAlpha);
+      FlushReason::kCreateImageBitmap, &status, gfx::SizeF());
   if (status != kNormalSourceImageStatus)
     return;
   DCHECK(IsA<StaticBitmapImage>(image_input.get()));
@@ -413,7 +413,7 @@ ImageBitmap::ImageBitmap(OffscreenCanvas* offscreen_canvas,
   SourceImageStatus status;
   scoped_refptr<Image> raw_input = offscreen_canvas->GetSourceImageForCanvas(
       FlushReason::kCreateImageBitmap, &status,
-      gfx::SizeF(offscreen_canvas->Size()), kDontChangeAlpha);
+      gfx::SizeF(offscreen_canvas->Size()));
   DCHECK(IsA<StaticBitmapImage>(raw_input.get()));
   scoped_refptr<StaticBitmapImage> input =
       static_cast<StaticBitmapImage*>(raw_input.get());
@@ -763,18 +763,9 @@ ScriptPromise<ImageBitmap> ImageBitmap::CreateImageBitmap(
 scoped_refptr<Image> ImageBitmap::GetSourceImageForCanvas(
     FlushReason reason,
     SourceImageStatus* status,
-    const gfx::SizeF&,
-    const AlphaDisposition alpha_disposition) {
+    const gfx::SizeF&) {
   *status = kNormalSourceImageStatus;
-  if (!image_)
-    return nullptr;
-
-  scoped_refptr<StaticBitmapImage> image = image_;
-
-  // If the alpha_disposition is already correct, or the image is opaque, this
-  // is a no-op.
-  return StaticBitmapImageTransform::GetWithAlphaDisposition(
-      reason, std::move(image), alpha_disposition);
+  return image_;
 }
 
 gfx::SizeF ImageBitmap::ElementSize(

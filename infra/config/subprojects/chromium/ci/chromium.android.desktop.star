@@ -22,6 +22,7 @@ ci.defaults.set(
     contact_team_email = "clank-engprod@google.com",
     execution_timeout = ci.DEFAULT_EXECUTION_TIMEOUT,
     health_spec = health_spec.DEFAULT,
+    reclient_enabled = False,
     service_account = ci.DEFAULT_SERVICE_ACCOUNT,
     shadow_service_account = ci.DEFAULT_SHADOW_SERVICE_ACCOUNT,
     siso_enabled = True,
@@ -266,10 +267,10 @@ ci.thin_tester(
             "android_browsertests": targets.mixin(
                 args = [
                     "--test-launcher-filter-file=../../testing/buildbot/filters/android.desktop.emulator_15.android_browsertests.filter",
+                    "--emulator-debug-tags=all",
                 ],
-                ci_only = True,
                 swarming = targets.swarming(
-                    shards = 10,
+                    shards = 20,
                 ),
             ),
             "chrome_public_unit_test_apk": targets.mixin(

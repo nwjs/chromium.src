@@ -16,9 +16,9 @@
 #include "base/strings/strcat.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
-#include "content/browser/private_aggregation/private_aggregation_features.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/common/features_generated.h"
 #include "third_party/blink/public/mojom/aggregation_service/aggregatable_report.mojom.h"
 
 namespace content {
@@ -58,8 +58,8 @@ class PrivateAggregationPendingContributionsTest : public testing::Test {
          i <= static_cast<int>(PAErrorEvent::kMaxValue); i++) {
       auto error_event = static_cast<PAErrorEvent>(i);
 
-      // Skip this non-internal event as it will always be triggered.
-      if (error_event == PAErrorEvent::kAlreadyTriggeredNonInternalError) {
+      // Skip this external event as it will always be triggered.
+      if (error_event == PAErrorEvent::kAlreadyTriggeredExternalError) {
         continue;
       }
       pending_contributions.AddConditionalContributions(
@@ -130,7 +130,7 @@ class PrivateAggregationPendingContributionsTest : public testing::Test {
 
  protected:
   base::test::ScopedFeatureList scoped_feature_list_{
-      kPrivateAggregationApiErrorReporting};
+      blink::features::kPrivateAggregationApiErrorReporting};
 
   base::HistogramTester histogram_tester_;
 };
@@ -804,15 +804,15 @@ TEST_F(PrivateAggregationPendingContributionsTest,
           {/*bucket=*/static_cast<int>(PAErrorEvent::kEmptyReportDropped),
            /*value=*/1, /*filtering_id=*/0},
           {/*bucket=*/static_cast<int>(
-               PAErrorEvent::kAlreadyTriggeredNonInternalError),
+               PAErrorEvent::kAlreadyTriggeredExternalError),
            /*value=*/1, /*filtering_id=*/0}};
 
   MakeConditionalContributionForEachInternalError(pending_contributions);
 
   pending_contributions.AddConditionalContributions(
-      PAErrorEvent::kAlreadyTriggeredNonInternalError,
+      PAErrorEvent::kAlreadyTriggeredExternalError,
       {{/*bucket=*/static_cast<int>(
-            PAErrorEvent::kAlreadyTriggeredNonInternalError),
+            PAErrorEvent::kAlreadyTriggeredExternalError),
         /*value=*/1, /*filtering_id=*/0}});
 
   pending_contributions.MarkContributionsFinalized(

@@ -131,14 +131,15 @@
 #include "third_party/blink/renderer/platform/graphics/gpu/image_extractor.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_context.h"
-#include "third_party/blink/renderer/platform/graphics/graphics_types.h"
 #include "third_party/blink/renderer/platform/graphics/skia/sk_image_info_hash.h"
 #include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
 #include "third_party/blink/renderer/platform/graphics/static_bitmap_image_transform.h"
 #include "third_party/blink/renderer/platform/graphics/unaccelerated_static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/graphics/video_frame_image_util.h"
 #include "third_party/blink/renderer/platform/graphics/web_graphics_context_3d_provider_util.h"
+#include "third_party/blink/renderer/platform/heap/disallow_new_wrapper.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/heap/member.h"
 #include "third_party/blink/renderer/platform/privacy_budget/identifiability_digest_helpers.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
@@ -203,6 +204,7 @@ enum class WebGLANGLEImplementation {
   kWebGL1_SwiftShader = 7,
   kWebGL1_Metal = 8,
   kWebGL1_Default = 9,
+  kWebGL1_D3D11Warp = 10,
 
   // Leave some space between WebGL1 and WebGL2 enums in case ANGLE has
   // new implementations, say ANGLE/Dawn.
@@ -217,8 +219,9 @@ enum class WebGLANGLEImplementation {
   kWebGL2_SwiftShader = 27,
   kWebGL2_Metal = 28,
   kWebGL2_Default = 29,
+  kWebGL2_D3D11Warp = 30,
 
-  kMaxValue = kWebGL2_Default,
+  kMaxValue = kWebGL2_D3D11Warp,
 };
 
 constexpr base::TimeDelta kDurationBetweenRestoreAttempts = base::Seconds(1);
@@ -232,33 +235,36 @@ base::Lock& WebGLContextLimitLock() {
 using WebGLRenderingContextBaseSet =
     HeapHashSet<WeakMember<WebGLRenderingContextBase>>;
 WebGLRenderingContextBaseSet& ActiveContexts() {
+  using WebGLRenderingContextBaseSetHolder =
+      DisallowNewWrapper<WebGLRenderingContextBaseSet>;
   DEFINE_THREAD_SAFE_STATIC_LOCAL(
-      ThreadSpecific<Persistent<WebGLRenderingContextBaseSet>>, active_contexts,
-      ());
-  Persistent<WebGLRenderingContextBaseSet>& active_contexts_persistent =
+      ThreadSpecific<Persistent<WebGLRenderingContextBaseSetHolder>>,
+      active_contexts, ());
+  Persistent<WebGLRenderingContextBaseSetHolder>& active_contexts_persistent =
       *active_contexts;
   if (!active_contexts_persistent) {
     active_contexts_persistent =
-        MakeGarbageCollected<WebGLRenderingContextBaseSet>();
+        MakeGarbageCollected<WebGLRenderingContextBaseSetHolder>();
     LEAK_SANITIZER_IGNORE_OBJECT(&active_contexts_persistent);
   }
-  return *active_contexts_persistent;
+  return active_contexts_persistent->Value();
 }
 
 using WebGLRenderingContextBaseMap =
     HeapHashMap<WeakMember<WebGLRenderingContextBase>, int>;
 WebGLRenderingContextBaseMap& ForciblyEvictedContexts() {
+  using WebGLRenderingContextBaseMapHolder =
+      DisallowNewWrapper<WebGLRenderingContextBaseMap>;
   DEFINE_THREAD_SAFE_STATIC_LOCAL(
-      ThreadSpecific<Persistent<WebGLRenderingContextBaseMap>>,
-      forcibly_evicted_contexts, ());
-  Persistent<WebGLRenderingContextBaseMap>&
-      forcibly_evicted_contexts_persistent = *forcibly_evicted_contexts;
-  if (!forcibly_evicted_contexts_persistent) {
-    forcibly_evicted_contexts_persistent =
-        MakeGarbageCollected<WebGLRenderingContextBaseMap>();
-    LEAK_SANITIZER_IGNORE_OBJECT(&forcibly_evicted_contexts_persistent);
+      ThreadSpecific<Persistent<WebGLRenderingContextBaseMapHolder>>, holder,
+      ());
+  Persistent<WebGLRenderingContextBaseMapHolder>& holder_persistent = *holder;
+  if (!holder_persistent) {
+    holder_persistent =
+        MakeGarbageCollected<WebGLRenderingContextBaseMapHolder>();
+    LEAK_SANITIZER_IGNORE_OBJECT(&holder_persistent);
   }
-  return *forcibly_evicted_contexts_persistent;
+  return holder_persistent->Value();
 }
 
 }  // namespace
@@ -1434,12 +1440,6 @@ void WebGLRenderingContextBase::InitializeNewContext() {
       WTF::BindRepeating(&WebGLRenderingContextBase::OnErrorMessage,
                          WrapWeakPersistent(this)));
 
-  // If WebGL 2, the PRIMITIVE_RESTART_FIXED_INDEX should be always enabled.
-  // See the section <Primitive Restart is Always Enabled> in WebGL 2 spec:
-  // https://www.khronos.org/registry/webgl/specs/latest/2.0/#4.1.4
-  if (IsWebGL2())
-    ContextGL()->Enable(GL_PRIMITIVE_RESTART_FIXED_INDEX);
-
   // This ensures that the context has a valid "lastFlushID" and won't be
   // mistakenly identified as the "least recently used" context.
   ContextGL()->Flush();
@@ -1870,21 +1870,17 @@ bool WebGLRenderingContextBase::PaintRenderingResultsToCanvas(
   if (!resource_provider)
     return false;
 
-  if (Host()->LowLatencyEnabled() &&
-      resource_provider->SupportsSingleBuffering()) {
-    // It's possible single buffering isn't enabled yet because we haven't
-    // finished the first frame e.g. this gets called first due to drawImage.
-    resource_provider->TryEnableSingleBuffering();
-    DCHECK(resource_provider->IsSingleBuffered());
+  if (resource_provider->GetType() ==
+      CanvasResourceProvider::ResourceProviderType::kPassThrough) {
+    // The passthrough provider should be created only in low-latency mode.
+    CHECK(Host()->LowLatencyEnabled());
+
     // Single buffered passthrough resource provider doesn't have backing
     // texture. We need to export the backbuffer mailbox directly without
     // copying.
-    if (!resource_provider->ImportResource(
-            GetDrawingBuffer()->ExportLowLatencyCanvasResource(
-                resource_provider->CreateWeakPtr()))) {
-      // This isn't expected to fail for single buffered resource provider.
-      NOTREACHED();
-    }
+    resource_provider->ImportResource(
+        GetDrawingBuffer()->ExportLowLatencyCanvasResource(
+            resource_provider->CreateWeakPtr()));
     return true;
   }
 
@@ -5811,8 +5807,7 @@ void WebGLRenderingContextBase::TexImageHelperHTMLImageElement(
     if (have_svg_image) {
       SourceImageStatus status;
       image_for_render = image->GetSourceImageForCanvas(
-          FlushReason::kWebGLTexImage, &status, gfx::SizeF(300, 150),
-          kDontChangeAlpha);
+          FlushReason::kWebGLTexImage, &status, gfx::SizeF(300, 150));
     }
     // DrawImageIntoBuffer always respects orientation
     image_for_render = DrawImageIntoBufferForTexImage(
@@ -6090,7 +6085,7 @@ void WebGLRenderingContextBase::TexImageHelperCanvasRenderingContextHost(
   SourceImageStatus source_image_status = kInvalidSourceImageStatus;
   scoped_refptr<Image> image = context_host->GetSourceImageForCanvas(
       FlushReason::kWebGLTexImage, &source_image_status,
-      gfx::SizeF(*params.width, *params.height), kDontChangeAlpha);
+      gfx::SizeF(*params.width, *params.height));
   if (source_image_status != kNormalSourceImageStatus)
     return;
 
@@ -8888,6 +8883,7 @@ void WebGLRenderingContextBase::Trace(Visitor* visitor) const {
   visitor->Trace(make_xr_compatible_resolver_);
   visitor->Trace(program_completion_query_list_);
   visitor->Trace(program_completion_query_map_);
+  ScriptWrappable::Trace(visitor);
   CanvasRenderingContext::Trace(visitor);
 }
 

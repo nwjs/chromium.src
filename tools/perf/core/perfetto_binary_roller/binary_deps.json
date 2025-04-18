@@ -5,8 +5,8 @@
             "full_remote_path": "perfetto-luci-artifacts/v49.0/linux-arm64/trace_processor_shell"
         },
         "win": {
-            "hash": "6f183f42f4a4f61674de3bf659d01ebd79127ba1",
-            "full_remote_path": "chromium-telemetry/perfetto_binaries/trace_processor_shell/win/81f26b6c8adb0f60d0ec76064497768a8021b49f/trace_processor_shell.exe"
+            "hash": "80fbab3d53ebfbe4865f04be3d2672d4a83f1e93",
+            "full_remote_path": "chromium-telemetry/perfetto_binaries/trace_processor_shell/win/054635b91453895720951f7329619d003a98b3e4/trace_processor_shell.exe"
         },
         "linux_arm": {
             "hash": "a15d8362d80cfd7cd8d785cf6afc22586de688cd",
@@ -21,8 +21,8 @@
             "full_remote_path": "perfetto-luci-artifacts/v49.0/mac-arm64/trace_processor_shell"
         },
         "linux": {
-            "hash": "5e601bf6e909ff3ae82d54b4be61bfd1a447cfe3",
-            "full_remote_path": "chromium-telemetry/perfetto_binaries/trace_processor_shell/linux/81f26b6c8adb0f60d0ec76064497768a8021b49f/trace_processor_shell"
+            "hash": "a6efd190d3e67de238a2f118e52829c620e8c540",
+            "full_remote_path": "chromium-telemetry/perfetto_binaries/trace_processor_shell/linux/054635b91453895720951f7329619d003a98b3e4/trace_processor_shell"
         }
     },
     "power_profile.sql": {

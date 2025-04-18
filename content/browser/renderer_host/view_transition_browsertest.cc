@@ -402,12 +402,13 @@ class ViewTransitionCaptureTest
       public ::testing::WithParamInterface<std::string> {
  public:
   ViewTransitionCaptureTest() {
-    EnablePixelOutput();
+    EnablePixelOutput(1.f);
     feature_list_.InitWithFeatures(
         /*enabled_features=*/
         {viz::mojom::EnableVizTestApis,
          features::kViewTransitionCaptureAndDisplay},
-        /*disabled_features=*/{});
+        /*disabled_features=*/
+        {blink::features::kPaintHolding});
   }
 
   void SetUpOnMainThread() override {
@@ -445,11 +446,14 @@ IN_PROC_BROWSER_TEST_P(ViewTransitionCaptureTest,
                        ViewTransitionNoArtifactDuringCapture) {
   GURL test_url(embedded_test_server()->GetURL(GetParam()));
   auto* web_contents = shell()->web_contents();
-  web_contents->Resize({0, 0, 20, 20});
   ASSERT_TRUE(NavigateToURL(web_contents, test_url));
+  shell()->ResizeWebContentForTests(gfx::Size(20, 20));
+
   ASSERT_EQ(EvalJs(web_contents, JsReplace(R"(
             new Promise(resolve => {
-              requestAnimationFrame(() => resolve("ok"));
+              requestAnimationFrame(() => {
+                requestAnimationFrame(() => resolve("ok"));
+              });
             }))")),
             "ok");
   WaitForCopyableViewInWebContents(shell()->web_contents());
@@ -457,14 +461,14 @@ IN_PROC_BROWSER_TEST_P(ViewTransitionCaptureTest,
 
   // Sanity to see that we've captured something.
   ASSERT_NE(before_bitmap.getColor(5, 5), 0u);
-  // This starts a view transition with a "hanging" promise that never resolves.
-  // When the view-transition callback is called, we resolve the external
-  // promise that signals us that it's time to capture.
+  // This starts a view transition with a callback that signals that we're ok
+  // to capture, but otherwise never finishes running the callback.
   ASSERT_EQ(EvalJs(web_contents, JsReplace(R"(
-              new Promise(ready_to_capture => {
-                document.startViewTransition(() => new Promise(() => {
-                    ready_to_capture('ok');
-                }));
+              new Promise(dom_callback_started => {
+                document.startViewTransition(async () => {
+                  dom_callback_started('ok');
+                  await new Promise(() => {});
+                });
               }))")),
             "ok");
   WaitForSurfaceAnimationManager(

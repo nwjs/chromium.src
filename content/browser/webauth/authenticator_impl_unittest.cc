@@ -20,6 +20,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/apple/owned_objc.h"
 #include "base/base64url.h"
 #include "base/check.h"
 #include "base/check_op.h"
@@ -1106,6 +1107,7 @@ TEST_F(AuthenticatorImplTest, GetClientCapabilities) {
       client_capabilities::kPasskeyPlatformAuthenticator,
       client_capabilities::kUserVerifyingPlatformAuthenticator,
       client_capabilities::kRelatedOrigins,
+      client_capabilities::kConditionalCreate,
   };
 
   // Ensure no extra capabilities
@@ -1147,6 +1149,17 @@ TEST_F(AuthenticatorImplTest, GetClientCapabilities_RelatedOrigins) {
   NavigateAndCommit(GURL(kTestOrigin1));
   ClientCapabilitiesList capabilities = AuthenticatorGetClientCapabilities();
   ExpectCapability(capabilities, client_capabilities::kRelatedOrigins, true);
+}
+
+TEST_F(AuthenticatorImplTest, GetClientCapabilities_ConditonalCreate) {
+  for (const bool enabled : {false, true}) {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitWithFeatureState(device::kWebAuthnPasskeyUpgrade, enabled);
+    NavigateAndCommit(GURL(kTestOrigin1));
+    ClientCapabilitiesList capabilities = AuthenticatorGetClientCapabilities();
+    ExpectCapability(capabilities, client_capabilities::kConditionalCreate,
+                     enabled);
+  }
 }
 
 // Parses its arguments as JSON and expects that all the keys in the first are
@@ -9408,10 +9421,7 @@ class ICloudKeychainAuthenticatorImplTest : public AuthenticatorImplTest {
         base::span<const device::CableDiscoveryData> pairings_from_extension,
         bool is_enclave_authenticator_available,
         device::FidoDiscoveryFactory* fido_discovery_factory) override {
-      // nswindow must be set for the iCloud Keychain authenticator to be
-      // discovered.
-      fido_discovery_factory->set_nswindow(
-          device::fido::icloud_keychain::kFakeNSWindowForTesting);
+      fido_discovery_factory->set_allow_no_nswindow_for_testing(true);
     }
 
     void OnTransportAvailabilityEnumerated(
@@ -9527,9 +9537,6 @@ TEST_F(ICloudKeychainAuthenticatorImplTest, Discovery) {
 
 TEST_F(ICloudKeychainAuthenticatorImplTest, PRFOnCreate) {
   if (__builtin_available(macOS 15.0, *)) {
-    base::test::ScopedFeatureList scoped_feature_list_{
-        device::kWebAuthniCloudKeychainPrf};
-
     NavigateAndCommit(GURL(kTestOrigin1));
     device::fido::icloud_keychain::ScopedTestEnvironment test_environment(
         GetCredentials());
@@ -9565,9 +9572,6 @@ TEST_F(ICloudKeychainAuthenticatorImplTest, PRFOnCreate) {
 
 TEST_F(ICloudKeychainAuthenticatorImplTest, PRFOnGet) {
   if (__builtin_available(macOS 15.0, *)) {
-    base::test::ScopedFeatureList scoped_feature_list_{
-        device::kWebAuthniCloudKeychainPrf};
-
     NavigateAndCommit(GURL(kTestOrigin1));
     device::fido::icloud_keychain::ScopedTestEnvironment test_environment(
         GetCredentials());

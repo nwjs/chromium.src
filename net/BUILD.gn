@@ -172,6 +172,8 @@ component("net") {
     "base/data_url.h",
     "base/datagram_buffer.cc",
     "base/datagram_buffer.h",
+    "base/does_url_match_filter.cc",
+    "base/does_url_match_filter.h",
     "base/elements_upload_data_stream.cc",
     "base/elements_upload_data_stream.h",
     "base/expiring_cache.h",
@@ -212,6 +214,8 @@ component("net") {
     "base/load_states_list.h",
     "base/load_timing_info.cc",
     "base/load_timing_info.h",
+    "base/load_timing_internal_info.cc",
+    "base/load_timing_internal_info.h",
     "base/logging_network_change_observer.cc",
     "base/logging_network_change_observer.h",
     "base/lookup_string_in_fixed_set.cc",
@@ -248,6 +252,9 @@ component("net") {
     "base/network_isolation_partition.h",
     "base/parse_number.cc",
     "base/parse_number.h",
+    "base/pickle.h",
+    "base/pickle_base_types.h",
+    "base/pickle_traits.h",
     "base/platform_mime_util.h",
     "base/port_util.cc",
     "base/port_util.h",
@@ -365,6 +372,8 @@ component("net") {
     "cert/multi_log_ct_verifier.h",
     "cert/multi_threaded_cert_verifier.cc",
     "cert/multi_threaded_cert_verifier.h",
+    "cert/qwac.cc",
+    "cert/qwac.h",
     "cert/root_cert_list_generated.h",
     "cert/sct_auditing_delegate.h",
     "cert/sct_status_flags.cc",
@@ -375,8 +384,6 @@ component("net") {
     "cert/signed_certificate_timestamp_and_status.h",
     "cert/signed_tree_head.cc",
     "cert/signed_tree_head.h",
-    "cert/symantec_certs.cc",
-    "cert/symantec_certs.h",
     "cert/test_root_certs.cc",
     "cert/test_root_certs.h",
     "cert/time_conversions.cc",
@@ -1073,6 +1080,7 @@ component("net") {
     "url_request/referrer_policy.h",
     "url_request/static_http_user_agent_settings.cc",
     "url_request/static_http_user_agent_settings.h",
+    "url_request/storage_access_status_cache.h",
     "url_request/url_request.cc",
     "url_request/url_request.h",
     "url_request/url_request_context.cc",
@@ -2609,17 +2617,21 @@ if (is_ios) {
 if (!is_cronet_build) {
   test("net_fuzztests") {
     sources = [
+      "cert/qwac_fuzztest.cc",
       "cert/x509_certificate_fuzztest.cc",
       "http/http_cookie_indices_fuzztest.cc",
     ]
 
     fuzztests = [
       "CookieIndicesFuzzTest.FuzzParseFromHeader",
+      "QwacFuzzTest.FuzzParseQcStatements",
+      "QwacFuzzTest.FuzzParseQcTypeInfo",
       "X509CertificateFuzzTest.FuzzCreateFromDERCertChain",
     ]
 
     deps = [
       ":net",
+      "//testing/gtest",
       "//third_party/fuzztest:fuzztest_gtest_main",
     ]
   }
@@ -2641,6 +2653,7 @@ target(_test_target_type, "net_unittests") {
     "base/chunked_upload_data_stream_unittest.cc",
     "base/data_url_unittest.cc",
     "base/datagram_buffer_unittest.cc",
+    "base/does_url_match_filter_unittest.cc",
     "base/elements_upload_data_stream_unittest.cc",
     "base/expiring_cache_unittest.cc",
     "base/file_stream_unittest.cc",
@@ -2665,6 +2678,8 @@ target(_test_target_type, "net_unittests") {
     "base/network_interfaces_unittest.cc",
     "base/network_isolation_key_unittest.cc",
     "base/parse_number_unittest.cc",
+    "base/pickle_base_types_unittest.cc",
+    "base/pickle_unittest.cc",
     "base/port_util_unittest.cc",
     "base/prioritized_dispatcher_unittest.cc",
     "base/prioritized_task_runner_unittest.cc",
@@ -2704,8 +2719,8 @@ target(_test_target_type, "net_unittests") {
     "cert/merkle_tree_leaf_unittest.cc",
     "cert/multi_log_ct_verifier_unittest.cc",
     "cert/multi_threaded_cert_verifier_unittest.cc",
+    "cert/qwac_unittest.cc",
     "cert/signed_certificate_timestamp_unittest.cc",
-    "cert/symantec_certs_unittest.cc",
     "cert/test_root_certs_unittest.cc",
     "cert/time_conversions_unittest.cc",
     "cert/x509_cert_types_unittest.cc",
@@ -2954,6 +2969,7 @@ target(_test_target_type, "net_unittests") {
     "tools/tld_cleanup/tld_cleanup_util_unittest.cc",
     "url_request/redirect_info_unittest.cc",
     "url_request/redirect_util_unittest.cc",
+    "url_request/storage_access_status_cache_unittest.cc",
     "url_request/url_request_context_builder_unittest.cc",
     "url_request/url_request_filter_unittest.cc",
     "url_request/url_request_http_job_unittest.cc",
@@ -3036,6 +3052,8 @@ target(_test_target_type, "net_unittests") {
   if (disable_zstd_filter) {
     defines += [ "NET_DISABLE_ZSTD" ]
   }
+
+  fuzztests = [ "PickleTest.FuzzRoundTrip" ]
 
   deps = [
     ":cronet_buildflags",
@@ -3594,6 +3612,16 @@ fuzzer_test("net_mime_sniffer_fuzzer") {
     "//net",
   ]
   dict = "data/fuzzer_dictionaries/net_mime_sniffer_fuzzer.dict"
+}
+
+fuzzer_test("net_pickle_fuzzer") {
+  sources = [ "base/pickle_fuzzer.cc" ]
+  deps = [
+    ":net_fuzzer_test_support",
+    "//base",
+    "//net",
+  ]
+  seed_corpus = "//net/data/fuzzer_data/pickle/"
 }
 
 fuzzer_test("net_parse_proxy_list_pac_fuzzer") {

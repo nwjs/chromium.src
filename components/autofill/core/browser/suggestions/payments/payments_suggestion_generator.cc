@@ -5,8 +5,10 @@
 #include "components/autofill/core/browser/suggestions/payments/payments_suggestion_generator.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <functional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "base/check_deref.h"
@@ -56,17 +58,9 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-#include "ui/native_theme/native_theme.h"  // nogncheck
-#endif
-
 namespace autofill {
 
 namespace {
-
-constexpr FieldTypeSet kCvcFieldTypes = {
-    FieldType::CREDIT_CARD_VERIFICATION_CODE,
-    FieldType::CREDIT_CARD_STANDALONE_VERIFICATION_CODE};
 
 constexpr uint64_t kCentsPerDollar = 100;
 
@@ -144,11 +138,7 @@ int GetObfuscationLength() {
 }
 
 bool ShouldSplitCardNameAndLastFourDigits() {
-#if BUILDFLAG(IS_IOS)
-  return false;
-#else
-  return base::FeatureList::IsEnabled(features::kAutofillEnableCardProductName);
-#endif
+  return !BUILDFLAG(IS_IOS);
 }
 
 // Returns whether the `suggestion_canon` is a valid match given
@@ -193,10 +183,7 @@ Suggestion CreateManagePaymentMethodsEntry(SuggestionType suggestion_type,
     suggestion.icon = Suggestion::Icon::kGooglePay;
 #else
     suggestion.icon = Suggestion::Icon::kSettings;
-    suggestion.trailing_icon =
-        ui::NativeTheme::GetInstanceForNativeUi()->ShouldUseDarkColors()
-            ? Suggestion::Icon::kGooglePayDark
-            : Suggestion::Icon::kGooglePay;
+    suggestion.trailing_icon = Suggestion::Icon::kGooglePay;
 #endif
   } else {
     suggestion.icon = Suggestion::Icon::kSettings;
@@ -507,7 +494,8 @@ void AdjustVirtualCardSuggestionContent(Suggestion& suggestion,
   const std::u16string& virtual_card_disabled_label = l10n_util::GetStringUTF16(
       IDS_AUTOFILL_VIRTUAL_CARD_DISABLED_SUGGESTION_OPTION_VALUE);
 #if BUILDFLAG(IS_IOS)
-  suggestion.minor_text.value = suggestion.main_text.value;
+  suggestion.minor_texts = {};
+  suggestion.minor_texts.emplace_back(suggestion.main_text.value);
   if (suggestion.IsAcceptable()) {
     suggestion.main_text.value = virtual_card_label;
   } else {
@@ -535,13 +523,14 @@ void AdjustVirtualCardSuggestionContent(Suggestion& suggestion,
   // Cardholder name field:
   // Before: main_text = cardholder name, minor_text = null, labels = last 4
   // digits.
-  // After: main_text = virtual card label + cardholder name, minor_text =
-  // null, labels = last 4 digits.
+  // After: main_text = virtual card label + cardholder name, minor_text is
+  // empty, labels = last 4 digits.
   if (ShouldSplitCardNameAndLastFourDigits()) {
     suggestion.main_text.value =
         base::StrCat({virtual_card_label, u"  ", suggestion.main_text.value});
   } else {
-    suggestion.minor_text.value = suggestion.main_text.value;
+    suggestion.minor_texts = {};
+    suggestion.minor_texts.emplace_back(suggestion.main_text.value);
     suggestion.main_text.value = virtual_card_label;
   }
   if (trigger_field_type == CREDIT_CARD_NUMBER) {
@@ -599,14 +588,12 @@ void SetCardArtURL(Suggestion& suggestion,
 
 // Returns non credit card suggestions which are displayed below credit card
 // suggestions in the Autofill popup. `should_show_scan_credit_card` is used
-// to conditionally add scan credit card suggestion,
-// `should_show_cards_from_account` - conditionally add suggestions for
-// showing cards from account. `is_autofilled` is used to conditionally add
-// suggestion for clearing all autofilled fields. `with_gpay_logo` is used to
-// conditionally add GPay logo icon to the manage payment methods suggestion.
+// to conditionally add scan credit card suggestion. `is_autofilled` is used to
+// conditionally add suggestion for clearing all autofilled fields.
+// `with_gpay_logo` is used to conditionally add GPay logo icon to the manage
+// payment methods suggestion.
 std::vector<Suggestion> GetCreditCardFooterSuggestions(
     bool should_show_scan_credit_card,
-    bool should_show_cards_from_account,
     bool is_autofilled,
     bool with_gpay_logo) {
   std::vector<Suggestion> footer_suggestions;
@@ -616,13 +603,6 @@ std::vector<Suggestion> GetCreditCardFooterSuggestions(
         SuggestionType::kScanCreditCard);
     scan_credit_card.icon = Suggestion::Icon::kScanCreditCard;
     footer_suggestions.push_back(scan_credit_card);
-  }
-  if (should_show_cards_from_account) {
-    Suggestion show_card_from_account(
-        l10n_util::GetStringUTF16(IDS_AUTOFILL_SHOW_ACCOUNT_CARDS),
-        SuggestionType::kShowAccountCards);
-    show_card_from_account.icon = Suggestion::Icon::kGoogle;
-    footer_suggestions.push_back(show_card_from_account);
   }
   footer_suggestions.push_back(CreateSeparator());
   if (is_autofilled) {
@@ -850,7 +830,9 @@ Suggestion CreateCreditCardSuggestion(
   auto [main_text, minor_text] = GetSuggestionMainTextAndMinorTextForCard(
       credit_card, client, trigger_field_type);
   suggestion.main_text = std::move(main_text);
-  suggestion.minor_text = std::move(minor_text);
+  if (!minor_text.value.empty()) {
+    suggestion.minor_texts = {std::move(minor_text)};
+  }
   SetSuggestionLabelsForCard(credit_card, client, trigger_field_type,
                              metadata_logging_context, suggestion);
   SetCardArtURL(suggestion, credit_card,
@@ -950,7 +932,8 @@ std::u16string GetBnplPriceLowerBound(
 // Creates a suggestion for the BNPL issuer selection.
 // The suggestion text shows the minimum eligible value of all available
 // BNPL issuers.
-Suggestion CreateBnplSuggestion(const std::vector<BnplIssuer>& bnpl_issuers) {
+Suggestion CreateBnplSuggestion(const std::vector<BnplIssuer>& bnpl_issuers,
+                                uint64_t extracted_amount_in_micros) {
   Suggestion bnpl_suggestion;
 
   bnpl_suggestion.icon = Suggestion::Icon::kBnpl;
@@ -963,6 +946,12 @@ Suggestion CreateBnplSuggestion(const std::vector<BnplIssuer>& bnpl_issuers) {
   bnpl_suggestion.labels = {{Suggestion::Text(
       l10n_util::GetStringFUTF16(IDS_AUTOFILL_BNPL_CREDIT_CARD_SUGGESTION_LABEL,
                                  GetBnplPriceLowerBound(bnpl_issuers)))}};
+  bnpl_suggestion.iph_metadata = Suggestion::IPHMetadata(
+      &feature_engagement::kIPHAutofillBnplAffirmOrZipSuggestionFeature);
+
+  Suggestion::PaymentsPayload payments_payload;
+  payments_payload.extracted_amount_in_micros = extracted_amount_in_micros;
+  bnpl_suggestion.payload = std::move(payments_payload);
 
   return bnpl_suggestion;
 }
@@ -1039,7 +1028,6 @@ std::vector<Suggestion> GetSuggestionsForCreditCards(
     CreditCardSuggestionSummary& summary,
     bool is_complete_form,
     bool should_show_scan_credit_card,
-    bool should_show_cards_from_account,
     const std::vector<std::string>& four_digit_combinations_in_dom,
     const std::u16string& autofilled_last_four_digits_in_form_for_filtering) {
   std::vector<Suggestion> suggestions;
@@ -1049,11 +1037,10 @@ std::vector<Suggestion> GetSuggestionsForCreditCards(
     bool display_gpay_logo = false;
     suggestions.push_back(
         CreateSaveAndFillSuggestion(client, display_gpay_logo));
-    std::ranges::move(
-        GetCreditCardFooterSuggestions(
-            should_show_scan_credit_card, should_show_cards_from_account,
-            trigger_field.is_autofilled(), display_gpay_logo),
-        std::back_inserter(suggestions));
+    std::ranges::move(GetCreditCardFooterSuggestions(
+                          should_show_scan_credit_card,
+                          trigger_field.is_autofilled(), display_gpay_logo),
+                      std::back_inserter(suggestions));
     return suggestions;
   }
   // Only trigger GetVirtualCreditCardsForStandaloneCvcField if it's standalone
@@ -1079,7 +1066,7 @@ std::vector<Suggestion> GetSuggestionsForCreditCards(
     suggestions = GetCreditCardOrCvcFieldSuggestions(
         client, trigger_field, four_digit_combinations_in_dom,
         autofilled_last_four_digits_in_form_for_filtering, trigger_field_type,
-        should_show_scan_credit_card, should_show_cards_from_account, summary);
+        should_show_scan_credit_card, summary);
   }
 
   return suggestions;
@@ -1092,7 +1079,6 @@ std::vector<Suggestion> GetCreditCardOrCvcFieldSuggestions(
     const std::u16string& autofilled_last_four_digits_in_form_for_filtering,
     FieldType trigger_field_type,
     bool should_show_scan_credit_card,
-    bool should_show_cards_from_account,
     CreditCardSuggestionSummary& summary) {
   if (trigger_field_type == CREDIT_CARD_STANDALONE_VERIFICATION_CODE &&
       !base::FeatureList::IsEnabled(
@@ -1184,11 +1170,10 @@ std::vector<Suggestion> GetCreditCardOrCvcFieldSuggestions(
   const bool display_gpay_logo = std::ranges::none_of(
       cards_to_suggest,
       [](const CreditCard& card) { return CreditCard::IsLocalCard(&card); });
-  std::ranges::move(
-      GetCreditCardFooterSuggestions(
-          should_show_scan_credit_card, should_show_cards_from_account,
-          trigger_field.is_autofilled(), display_gpay_logo),
-      std::back_inserter(suggestions));
+  std::ranges::move(GetCreditCardFooterSuggestions(
+                        should_show_scan_credit_card,
+                        trigger_field.is_autofilled(), display_gpay_logo),
+                    std::back_inserter(suggestions));
   return suggestions;
 }
 
@@ -1252,7 +1237,6 @@ std::vector<Suggestion> GetVirtualCardStandaloneCvcFieldSuggestions(
 
   std::ranges::move(
       GetCreditCardFooterSuggestions(/*should_show_scan_credit_card=*/false,
-                                     /*should_show_cards_from_account=*/false,
                                      trigger_field.is_autofilled(),
                                      /*with_gpay_logo=*/true),
       std::back_inserter(suggestions));
@@ -1262,7 +1246,8 @@ std::vector<Suggestion> GetVirtualCardStandaloneCvcFieldSuggestions(
 
 BnplSuggestionUpdateResult MaybeUpdateSuggestionsWithBnpl(
     const base::span<const Suggestion>& current_suggestions,
-    const std::vector<BnplIssuer>& bnpl_issuers) {
+    const std::vector<BnplIssuer>& bnpl_issuers,
+    uint64_t extracted_amount_in_micros) {
   // No need to add BNPL suggestion if the current suggestion list is empty.
   if (current_suggestions.empty()) {
     return BnplSuggestionUpdateResult();
@@ -1279,7 +1264,7 @@ BnplSuggestionUpdateResult MaybeUpdateSuggestionsWithBnpl(
 
     if (IsCreditCardFooterSuggestion(current_suggestions, index)) {
       suggestion_update_result.suggestions.push_back(
-          CreateBnplSuggestion(bnpl_issuers));
+          CreateBnplSuggestion(bnpl_issuers, extracted_amount_in_micros));
       suggestion_update_result.suggestions.insert(
           suggestion_update_result.suggestions.end(),
           current_suggestions.begin() + index, current_suggestions.end());
@@ -1339,8 +1324,8 @@ std::vector<Suggestion> GetCreditCardSuggestionsForTouchToFill(
             ? card_name
             : base::StrCat({card_name, u" ", network});
     suggestion.main_text.value = card_name;
-    suggestion.minor_text.value =
-        credit_card.ObfuscatedNumberWithVisibleLastFourDigits();
+    suggestion.minor_texts.emplace_back(
+        credit_card.ObfuscatedNumberWithVisibleLastFourDigits());
     std::optional<Suggestion::Text> benefit_label =
         GetCreditCardBenefitSuggestionLabel(credit_card, client);
     if (benefit_label) {
@@ -1425,7 +1410,10 @@ std::vector<Suggestion> GetSuggestionsForIbans(const std::vector<Iban>& ibans) {
     Suggestion suggestion;
     suggestion.custom_icon =
         ui::ResourceBundle::GetSharedInstance().GetImageNamed(
-            IDR_AUTOFILL_IBAN);
+            base::FeatureList::IsEnabled(
+                features::kAutofillEnableNewFopDisplayDesktop)
+                ? IDR_AUTOFILL_IBAN
+                : IDR_AUTOFILL_IBAN_OLD);
     suggestion.icon = Suggestion::Icon::kIban;
     suggestion.type = SuggestionType::kIbanEntry;
     if (iban.record_type() == Iban::kLocalIban) {
@@ -1443,7 +1431,7 @@ std::vector<Suggestion> GetSuggestionsForIbans(const std::vector<Iban>& ibans) {
       // width limitation, it will be truncated.
       if (!iban.nickname().empty()) {
         suggestion.main_text.value = iban.nickname();
-        suggestion.minor_text.value = std::move(iban_identifier);
+        suggestion.minor_texts.emplace_back(iban_identifier);
       } else {
         suggestion.main_text.value = std::move(iban_identifier);
       }
@@ -1561,13 +1549,13 @@ bool IsCreditCardFooterSuggestion(
       return IsCreditCardFooterSuggestion(suggestions, line_number + 1);
     case SuggestionType::kManageCreditCard:
     case SuggestionType::kScanCreditCard:
-    case SuggestionType::kShowAccountCards:
     case SuggestionType::kUndoOrClear:
       return true;
     case SuggestionType::kAllSavedPasswordsEntry:
     case SuggestionType::kManageAddress:
     case SuggestionType::kManageAutofillAi:
     case SuggestionType::kManageIban:
+    case SuggestionType::kManageLoyaltyCard:
     case SuggestionType::kManagePlusAddress:
     case SuggestionType::kSeePromoCodeDetails:
     case SuggestionType::kViewPasswordDetails:
@@ -1604,8 +1592,11 @@ bool IsCreditCardFooterSuggestion(
     case SuggestionType::kVirtualCreditCardEntry:
     case SuggestionType::kWebauthnCredential:
     case SuggestionType::kWebauthnSignInWithAnotherDevice:
+    case SuggestionType::kIdentityCredential:
     case SuggestionType::kFillAutofillAi:
     case SuggestionType::kBnplEntry:
+    case SuggestionType::kPendingStateSignin:
+    case SuggestionType::kLoyaltyCardEntry:
       return false;
   }
 }
@@ -1643,11 +1634,9 @@ Suggestion CreateCreditCardSuggestionForTest(
 
 std::vector<Suggestion> GetCreditCardFooterSuggestionsForTest(
     bool should_show_scan_credit_card,
-    bool should_show_cards_from_account,
     bool is_autofilled,
     bool with_gpay_logo) {
   return GetCreditCardFooterSuggestions(should_show_scan_credit_card,
-                                        should_show_cards_from_account,
                                         is_autofilled, with_gpay_logo);
 }
 

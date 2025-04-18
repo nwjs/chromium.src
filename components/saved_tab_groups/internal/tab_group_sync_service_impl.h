@@ -23,6 +23,7 @@
 #include "components/saved_tab_groups/delegate/tab_group_sync_delegate.h"
 #include "components/saved_tab_groups/internal/saved_tab_group_model.h"
 #include "components/saved_tab_groups/internal/saved_tab_group_sync_bridge.h"
+#include "components/saved_tab_groups/internal/shared_tab_group_account_data_sync_bridge.h"
 #include "components/saved_tab_groups/internal/shared_tab_group_data_sync_bridge.h"
 #include "components/saved_tab_groups/internal/tab_group_sync_bridge_mediator.h"
 #include "components/saved_tab_groups/internal/tab_group_sync_coordinator.h"
@@ -35,6 +36,10 @@
 #include "components/sync/base/collaboration_id.h"
 
 class PrefService;
+
+namespace data_sharing {
+class Logger;
+}  // namespace data_sharing
 
 namespace tab_groups {
 
@@ -52,11 +57,14 @@ class TabGroupSyncServiceImpl : public TabGroupSyncService,
       std::unique_ptr<SavedTabGroupModel> model,
       std::unique_ptr<SyncDataTypeConfiguration> saved_tab_group_configuration,
       std::unique_ptr<SyncDataTypeConfiguration> shared_tab_group_configuration,
+      std::unique_ptr<SyncDataTypeConfiguration>
+          shared_tab_group_account_configuration,
       PrefService* pref_service,
       std::unique_ptr<TabGroupSyncMetricsLogger> metrics_logger,
       optimization_guide::OptimizationGuideDecider* optimization_guide_decider,
       signin::IdentityManager* identity_manager,
-      std::unique_ptr<CollaborationFinder> collaboration_finder);
+      std::unique_ptr<CollaborationFinder> collaboration_finder,
+      data_sharing::Logger* logger);
   ~TabGroupSyncServiceImpl() override;
 
   // Disallow copy/assign.
@@ -106,7 +114,7 @@ class TabGroupSyncServiceImpl : public TabGroupSyncService,
                           std::string_view collaboration_id,
                           TabGroupSharingCallback callback) override;
   void MakeTabGroupSharedForTesting(const LocalTabGroupID& local_group_id,
-                                    std::string_view collaboration_id);
+                                    std::string_view collaboration_id) override;
 
   void AboutToUnShareTabGroup(const LocalTabGroupID& local_group_id,
                               base::OnceClosure on_complete_callback) override;
@@ -115,6 +123,7 @@ class TabGroupSyncServiceImpl : public TabGroupSyncService,
   void OnCollaborationRemoved(
       const syncer::CollaborationId& collaboration_id) override;
 
+  std::vector<const SavedTabGroup*> ReadAllGroups() const override;
   std::vector<SavedTabGroup> GetAllGroups() const override;
   std::optional<SavedTabGroup> GetGroup(const base::Uuid& guid) const override;
   std::optional<SavedTabGroup> GetGroup(
@@ -125,8 +134,9 @@ class TabGroupSyncServiceImpl : public TabGroupSyncService,
   std::optional<std::u16string> GetTitleForPreviouslyExistingSharedTabGroup(
       const CollaborationId& collaboration_id) const override;
 
-  void OpenTabGroup(const base::Uuid& sync_group_id,
-                    std::unique_ptr<TabGroupActionContext> context) override;
+  std::optional<LocalTabGroupID> OpenTabGroup(
+      const base::Uuid& sync_group_id,
+      std::unique_ptr<TabGroupActionContext> context) override;
   void UpdateLocalTabGroupMapping(const base::Uuid& sync_id,
                                   const LocalTabGroupID& local_id,
                                   OpeningSource opening_source) override;
@@ -155,6 +165,8 @@ class TabGroupSyncServiceImpl : public TabGroupSyncService,
   GetSavedTabGroupControllerDelegate() override;
   base::WeakPtr<syncer::DataTypeControllerDelegate>
   GetSharedTabGroupControllerDelegate() override;
+  base::WeakPtr<syncer::DataTypeControllerDelegate>
+  GetSharedTabGroupAccountControllerDelegate() override;
 
   std::unique_ptr<ScopedLocalObservationPauser>
   CreateScopedLocalObserverPauser() override;
@@ -326,6 +338,9 @@ class TabGroupSyncServiceImpl : public TabGroupSyncService,
   void NotifyTabGroupSharingResult(const base::Uuid& group_guid,
                                    TabGroupSharingResult result);
 
+  // Whether a given group should show up in TabGroups
+  bool ShouldExposeSavedTabGroupInList(const SavedTabGroup& group) const;
+
   // Find tab group by collaboration Id.
   std::optional<SavedTabGroup> FindGroupWithCollaborationId(
       const syncer::CollaborationId& collaboration_id);
@@ -336,6 +351,10 @@ class TabGroupSyncServiceImpl : public TabGroupSyncService,
   // Sync bridges and data storage for both saved and shared tab group data.
   std::unique_ptr<TabGroupSyncBridgeMediator> sync_bridge_mediator_;
 
+  // Sync bridge for shared tab group account data.
+  std::unique_ptr<SharedTabGroupAccountDataSyncBridge>
+      shared_tab_group_account_data_bridge_;
+
   // The UI coordinator to apply changes between local tab groups and the
   // TabGroupSyncService.
   std::unique_ptr<TabGroupSyncCoordinator> coordinator_;
@@ -345,6 +364,9 @@ class TabGroupSyncServiceImpl : public TabGroupSyncService,
 
   // For finding collaboration availability info from DataSharingService.
   std::unique_ptr<CollaborationFinder> collaboration_finder_;
+
+  // Logger for logging to debug UI.
+  raw_ptr<data_sharing::Logger> logger_ = nullptr;
 
   // The pref service for storing migration status.
   raw_ptr<PrefService> pref_service_ = nullptr;
@@ -390,6 +412,14 @@ class TabGroupSyncServiceImpl : public TabGroupSyncService,
   // after this step. Currently used only for UpdateLocalTabGroupMapping()
   // calls.
   base::circular_deque<base::OnceClosure> pending_actions_;
+
+  // Keeps track of API calls received when not signed in. Unlike most other
+  // methods of this class, these API calls cannot proceed without a signed in
+  // account (e.g. they need user attribution). Currently required
+  // for MakeTabGroupShared() only.
+  // Once the sign-in and initial sync is complete for the account, these
+  // callbacks will be run in the order they were received.
+  base::circular_deque<base::OnceClosure> pending_actions_waiting_sign_in_;
 
   // A handle to optimization guide for information about synced URLs.
   raw_ptr<optimization_guide::OptimizationGuideDecider> opt_guide_ = nullptr;

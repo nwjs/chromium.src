@@ -293,7 +293,7 @@ TrayBackgroundView::TrayBackgroundView(
   views::HighlightPathGenerator::Install(
       this, std::make_unique<HighlightPathGenerator>(this));
 
-  AddChildView(tray_container_.get());
+  AddChildViewRaw(tray_container_.get());
 
   // Use layer color to provide background color. Note that children views
   // need to have their own layers to be visible.
@@ -789,11 +789,13 @@ void TrayBackgroundView::SetIsActive(bool is_active) {
   UpdateTrayItemColor(is_active);
 }
 
-void TrayBackgroundView::CloseBubble() {
+void TrayBackgroundView::CloseBubble(CloseReason close_reason) {
   CloseBubbleInternal();
 
-  // If ChromeVox is enabled, focus on the this tray when the bubble is closed.
-  if (Shell::Get()->accessibility_controller() &&
+  // If ChromeVox is enabled and the bubble is not closed via window activation
+  // change, focus on the this tray when the bubble is closed.
+  if (close_reason != CloseReason::kWindowActivation &&
+      Shell::Get()->accessibility_controller() &&
       Shell::Get()->accessibility_controller()->spoken_feedback().enabled()) {
     shelf_->shelf_focus_cycler()->FocusStatusArea(false);
     RequestFocus();

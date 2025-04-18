@@ -132,7 +132,7 @@ SimplifiedLayoutAlgorithm::SimplifiedLayoutAlgorithm(
     if (const auto* table_collapsed_borders_geometry =
             physical_fragment.TableCollapsedBordersGeometry()) {
       container_builder_.SetTableCollapsedBordersGeometry(
-          std::make_unique<TableFragmentData::CollapsedBordersGeometry>(
+          std::make_unique<CollapsedTableBordersGeometry>(
               *table_collapsed_borders_geometry));
     }
   } else if (physical_fragment.IsTableSection()) {
@@ -265,7 +265,7 @@ const LayoutResult* SimplifiedLayoutAlgorithm::Layout() {
     LogicalStaticPosition position = layer->GetStaticPosition();
     container_builder_.AddOutOfFlowChildCandidate(
         To<BlockNode>(child), position.offset, position.inline_edge,
-        position.block_edge);
+        position.block_edge, position.align_self_direction);
   }
 
   if (previous_fragment.Items()) {

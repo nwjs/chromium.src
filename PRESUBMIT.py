@@ -299,6 +299,24 @@ _BANNED_JAVA_FUNCTIONS : Sequence[BanRule] = (
          ' for more details and suggested replacements.', ),
         False,
     ),
+    BanRule(
+        pattern=(r'IS_DESKTOP_ANDROID'),
+        explanation=(
+            'Features which depend on IS_DESKTOP_ANDROID should only exist in '
+            'chrome/ layer and similar layers. Lower layers such as content/ '
+            'should not have features which are only designed for '
+            'desktop-android builds. See https://crbug.com/401628399.', ),
+        treat_as_error=False,
+        excluded_paths=[
+          _THIRD_PARTY_EXCEPT_BLINK, # Don't warn in third_party folders.
+          r'^build/', # This is permitted in build/ folder.
+          r'^chrome/', # This is permitted in chrome/ folder.
+          r'^components/', # This is permitted only for components/ that are not shared by WebView.
+          r'^extensions/', # This is permitted in chrome/ folder.
+          r'^infra/', # This is permitted in infra/ folder.
+          r'^tools/', # This is permitted in tools/ folder.
+        ],
+    ),
 )
 
 _BANNED_JAVASCRIPT_FUNCTIONS : Sequence [BanRule] = (
@@ -617,6 +635,7 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
         (
             r'^base/third_party/symbolize/.*',
             r'^third_party/abseil-cpp/.*',
+            r'^third_party/grpc/source/.*',
         ),
     ),
     BanRule(
@@ -1044,6 +1063,25 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
             # Needed to integrate with //third_party/nearby
             r'components/cross_device/nearby/system_clock.cc',
             _THIRD_PARTY_EXCEPT_BLINK  # Not an error in third_party folders.
+        ],
+    ),
+    BanRule(
+        r'/absl::(bad_variant_access|get|holds_alternative|monostate|variant|'
+        r'visit)',
+        ('Abseil\'s variant library is banned, use std.', ),
+        True,
+        [
+            _THIRD_PARTY_EXCEPT_BLINK
+        ],
+    ),
+    BanRule(
+        r'/absl::(apply|exchange|forward|in_place|index_sequence|'
+        r'integer_sequence|make_from_tuple|make_index_sequence|'
+        r'make_integer_sequence|move)',
+        ('Abseil\'s util library is banned, use std.', ),
+        True,
+        [
+            _THIRD_PARTY_EXCEPT_BLINK
         ],
     ),
     BanRule(
@@ -2066,6 +2104,17 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
         treat_as_error=False,
     ),
     BanRule(
+        pattern='CreateBrowserWithTestWindowForParams',
+        explanation=
+         ('Do not use CreateBrowserWithTestWindowForParams. See '
+          'docs/chrome_browser_design_principles.md for details. If you want '
+          'to write a test that has a Browser, create a browser_test and use '
+          'Browser::Browser. If you want to write a unit_test, your code must '
+          'not reference Browser*.',
+         ),
+        treat_as_error=False,
+    ),
+    BanRule(
         pattern='RunUntilIdle',
         explanation=
         ('Do not RunUntilIdle. If possible, explicitly quit the run loop using '
@@ -2152,6 +2201,32 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
         excluded_paths=[
           _THIRD_PARTY_EXCEPT_BLINK, # Don't warn in third_party folders.
           r'^(?!.*\.h$).*$', # Exclude all files except those that end in .h
+        ],
+    ),
+    BanRule(
+        pattern=('AddChildViewRaw'),
+        explanation=(
+            'Do not use AddChildViewRaw. It is prone to memory leaks and '
+            'use-after-free bugs. Instead, use AddChildView(std::unique_ptr). '
+            'See https://crbug.com/40485510 for more details.', ),
+        treat_as_error=False,
+    ),
+    BanRule(
+        pattern=(r'IS_DESKTOP_ANDROID'),
+        explanation=(
+            'Features which depend on IS_DESKTOP_ANDROID should only exist in '
+            'chrome/ layer and similar layers. Lower layers such as content/ '
+            'should not have features which are only designed for '
+            'desktop-android builds. See https://crbug.com/401628399.', ),
+        treat_as_error=False,
+        excluded_paths=[
+          _THIRD_PARTY_EXCEPT_BLINK, # Don't warn in third_party folders.
+          r'^build/', # This is permitted in build/ folder.
+          r'^chrome/', # This is permitted in chrome/ folder.
+          r'^components/', # This is permitted only for components/ that are not shared by WebView.
+          r'^extensions/', # This is permitted in chrome/ folder.
+          r'^infra/', # This is permitted in infra/ folder.
+          r'^tools/', # This is permitted in tools/ folder.
         ],
     ),
 )
@@ -2337,6 +2412,7 @@ _GENERIC_PYDEPS_FILES = [
     'chrome/android/monochrome/scripts/monochrome_python_tests.pydeps',
     'chrome/test/chromedriver/log_replay/client_replay_unittest.pydeps',
     'chrome/test/chromedriver/test/run_py_tests.pydeps',
+    'chrome/test/media_router/performance/performance_test.pydeps',
     'chromecast/resource_sizes/chromecast_resource_sizes.pydeps',
     'components/cronet/tools/check_combined_proguard_file.pydeps',
     'components/cronet/tools/generate_proguard_file.pydeps',
@@ -2361,6 +2437,7 @@ _GENERIC_PYDEPS_FILES = [
     'third_party/blink/tools/merge_web_test_results.pydeps',
     'tools/binary_size/sizes.pydeps',
     'tools/binary_size/supersize.pydeps',
+    'tools/cygprofile/generate_orderfile.pydeps',
     'tools/perf/process_perf_results.pydeps',
     'tools/pgo/generate_profile.pydeps',
 ]
@@ -5881,6 +5958,7 @@ def ChecksAndroidSpecificOnUpload(input_api, output_api):
     results.extend(_CheckNewImagesWarning(input_api, output_api))
     results.extend(_CheckAndroidNoBannedImports(input_api, output_api))
     results.extend(_CheckAndroidInfoBarDeprecation(input_api, output_api))
+    results.extend(_CheckAndroidNullAwayAnnotatedClasses(input_api, output_api))
     return results
 
 
@@ -6053,6 +6131,9 @@ def ChecksCommon(input_api, output_api):
                 'infra', 'inclusive_language_presubmit_exempt_dirs.txt'
             ],
             non_inclusive_terms=_NON_INCLUSIVE_TERMS))
+    results.extend(
+        input_api.canned_checks.CheckNewDEPSHooksHasRequiredReviewers(
+            input_api, output_api))
 
     presubmit_py_filter = lambda f: input_api.FilterSourceFile(
         f, files_to_check=[r'.*PRESUBMIT\.py$'])
@@ -7441,10 +7522,10 @@ def CheckAndroidTestAnnotations(input_api, output_api):
             if m := robolectric_test.search(line):
                 is_instrumentation_test = False
                 if m.group(1) == '' and not has_base_robolectric_rule:
-                  path = str(f.LocalPath())
-                  # These two spots cannot use it.
-                  if 'webapk' not in path and 'build' not in path:
-                    wrong_robolectric_test_runner_errors.append(path)
+                    path = str(f.LocalPath())
+                    # These two spots cannot use it.
+                    if 'webapk' not in path and 'build' not in path:
+                        wrong_robolectric_test_runner_errors.append(path)
                 break
             if uiautomator_test.search(line):
                 is_instrumentation_test = False
@@ -7495,6 +7576,48 @@ Robolectric tests do not need a @Batch or @DoNotBatch annotations.
 Robolectric tests should use either @RunWith(BaseRobolectricTestRunner.class) (or
 a subclass of it), or use "@Rule BaseRobolectricTestRule".
 """, wrong_robolectric_test_runner_errors))
+
+    return results
+
+
+def _CheckAndroidNullAwayAnnotatedClasses(input_api, output_api):
+    """Checks that Java classes/interfaces/annotations are null-annotated."""
+
+    nullmarked_annotation = input_api.re.compile(r'^\s*@(NullMarked|NullUnmarked)')
+
+    missing_annotation_errors = []
+
+    def _FilterFile(affected_file):
+        return input_api.FilterSourceFile(
+            affected_file,
+        files_to_skip=(_EXCLUDED_PATHS + _TEST_CODE_EXCLUDED_PATHS + input_api.
+                       DEFAULT_FILES_TO_SKIP + (
+                           r'.*Test.*\.java',
+                           r'^android_webview/.*', # Temporary, crbug.com/389129271
+                           r'^build/.*',
+                           r'^chrome/.*', # Temporary, crbug.com/389129271
+                           r'^chromecast/.*',
+                           r'^components/cronet/.*',
+                           r'^tools/.*',
+                       )),
+        files_to_check=[r'.*\.java$'])
+
+    for f in input_api.AffectedSourceFiles(_FilterFile):
+        for line in f.NewContents():
+            if nullmarked_annotation.search(line):
+                break
+        else:
+            missing_annotation_errors.append(str(f.LocalPath()))
+
+    results = []
+
+    if missing_annotation_errors:
+        results.append(
+            output_api.PresubmitPromptWarning(
+                """
+Please add @NullMarked and fix the NullAway warnings in the following files
+(see https://chromium.googlesource.com/chromium/src/+/main/styleguide/java/nullaway.md):
+""", missing_annotation_errors))
 
     return results
 

@@ -11,6 +11,7 @@
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
+#include "chrome/browser/accessibility/tree_fixing/pref_names.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
 #include "chrome/browser/content_settings/generated_cookie_prefs.h"
@@ -104,6 +105,10 @@
 #include "ui/events/ash/pref_names.h"
 #endif
 
+#if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/ui/toasts/toast_features.h"  // nogncheck
+#endif
+
 namespace {
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -192,8 +197,6 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS)
-  (*s_allowlist)[autofill::prefs::kAutofillPredictionImprovementsEnabled] =
-      settings_api::PrefType::kBoolean;
   (*s_allowlist)[autofill::prefs::kAutofillBnplEnabled] =
       settings_api::PrefType::kBoolean;
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
@@ -557,12 +560,19 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[::prefs::kLiveTranslateTargetLanguageCode] =
       settings_api::PrefType::kString;
+  (*s_allowlist)[::prefs::kAccessibilityAXTreeFixingEnabled] =
+      settings_api::PrefType::kBoolean;
   (*s_allowlist)[::prefs::kAccessibilityMainNodeAnnotationsEnabled] =
       settings_api::PrefType::kBoolean;
 #endif
 #if defined(USE_AURA)
   (*s_allowlist)[::prefs::kOverscrollHistoryNavigationEnabled] =
       settings_api::PrefType::kBoolean;
+#endif
+#if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_ANDROID)
+  if (base::FeatureList::IsEnabled(toast_features::kToastRefinements)) {
+    (*s_allowlist)[::prefs::kToastAlertLevel] = settings_api::PrefType::kNumber;
+  }
 #endif
 
   (*s_allowlist)[::prefs::kCaretBrowsingEnabled] =
@@ -941,8 +951,8 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[ash::prefs::kLobsterEnabled] =
       settings_api::PrefType::kBoolean;
-  (*s_allowlist)[ash::prefs::kSunfishEnabled] =
-      settings_api::PrefType::kBoolean;
+  (*s_allowlist)[ash::prefs::kLobsterEnterprisePolicySettings] =
+      settings_api::PrefType::kNumber;
   (*s_allowlist)[ash::prefs::kScannerEnabled] =
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[ash::prefs::kScannerEnterprisePolicyAllowed] =

@@ -101,7 +101,6 @@
 #include "services/network/public/mojom/early_hints.mojom.h"
 #include "services/network/public/mojom/fetch_api.mojom.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
-#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/loader/resource_type_util.h"
 #include "url/origin.h"
 #include "url/url_util.h"
@@ -120,6 +119,10 @@ using extensions::SharedModuleInfo;
 
 namespace extensions {
 namespace {
+
+BASE_FEATURE(kOverrideExtensionFilesMimeTypes,
+             "OverrideExtensionFilesMimeTypes",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 ExtensionProtocolTestHandler* g_test_handler = nullptr;
 
@@ -216,14 +219,13 @@ bool AllowExtensionResourceLoad(const network::ResourceRequest& request,
 
   // Frame navigations to extensions have already been checked in
   // the ExtensionNavigationThrottle.
-  // Dedicated Worker (with PlzDedicatedWorker) and Shared Worker main scripts
-  // can be loaded with extension URLs in browser process.
-  // Service Worker and the imported scripts can be loaded with extension URLs
-  // in browser process when PlzServiceWorker is enabled or during update check.
+  // Dedicated Worker and Shared Worker main scripts can be loaded with
+  // extension URLs in browser process. Service Worker and the imported scripts
+  // can be loaded with extension URLs in browser process when PlzServiceWorker
+  // is enabled or during update check.
   if (child_id == content::ChildProcessHost::kInvalidUniqueID &&
       (blink::IsRequestDestinationFrame(destination) ||
-       (base::FeatureList::IsEnabled(blink::features::kPlzDedicatedWorker) &&
-        destination == network::mojom::RequestDestination::kWorker) ||
+       destination == network::mojom::RequestDestination::kWorker ||
        destination == network::mojom::RequestDestination::kSharedWorker ||
        destination == network::mojom::RequestDestination::kScript ||
        destination == network::mojom::RequestDestination::kServiceWorker)) {
@@ -447,6 +449,17 @@ void AddCacheHeaders(net::HttpResponseHeaders& headers,
   headers.SetHeader("cache-control", "no-cache");
 }
 
+void AddMimeTypeHeaders(net::HttpResponseHeaders& headers,
+                        const base::FilePath& file_path) {
+  std::string mime_type;
+  if (net::GetWellKnownMimeTypeFromFile(file_path, &mime_type)) {
+    headers.SetHeader(net::HttpRequestHeaders::kContentType, mime_type);
+  } else {
+    headers.SetHeader(net::HttpRequestHeaders::kContentType,
+                      "application/octet-stream");
+  }
+}
+
 class FileLoaderObserver : public content::FileURLLoaderObserver {
  public:
   explicit FileLoaderObserver(scoped_refptr<ContentVerifyJob> verify_job)
@@ -641,6 +654,12 @@ class ExtensionURLLoader : public network::mojom::URLLoader {
     request_.url = net::FilePathToFileURL(read_file_path);
 
     AddCacheHeaders(*headers, last_modified_time);
+
+    // TODO(https://crbug.com/400647848): Remove this if-check and always
+    // override mime type headers in M139.
+    if (base::FeatureList::IsEnabled(kOverrideExtensionFilesMimeTypes)) {
+      AddMimeTypeHeaders(*headers, read_file_path);
+    }
 
     scoped_refptr<ContentVerifyJob> verify_job;
     if (content_verifier) {

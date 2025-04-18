@@ -29,11 +29,13 @@ Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna
 <translation id="1342274909142618978">Radera även data från Chromium (<ph name="URL" />)</translation>
 <translation id="1345251407431278948">Fäst! Du kan komma åt Bildsökning igen från den nya knappen i verktygsfältet</translation>
 <translation id="1356661055722410047">Nyhet! Du kan översätta både text och bilder på skärmen</translation>
+<translation id="1383876407941801731">Sök</translation>
 <translation id="1414495520565016063">Du är inloggad i Chromium.</translation>
 <translation id="1465192221147974788">För att dela fönstret tillåter du skärminspelning för Chromium i systeminställningarna.</translation>
 <translation id="1478370723027452770">Få hjälp med Chrome for Testing</translation>
 <translation id="1497802159252041924">Installationsfel: <ph name="INSTALL_ERROR" /></translation>
 <translation id="1524282610922162960">Dela en flik i Chromium</translation>
+<translation id="1547469039832541117">Avslutar den markerade uppgiften.</translation>
 <translation id="1553461853655228091">Du behöver ge Chromium behörighet att använda kameran om du vill skapa en 3D-karta över dina omgivningar</translation>
 <translation id="1555494096857516577">{NUM_EXTENSIONS,plural, =1{Detta tillägg stöds inte längre. Vi rekommenderar att du tar bort det.}other{Dessa tillägg stöds inte längre. Vi rekommenderar att du tar bort dem.}}</translation>
 <translation id="1574377791422810894">Säkerhetsverktyg i Chromium</translation>
@@ -79,6 +81,7 @@ Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna
 <translation id="2049376729098081731">Välj om du vill inkludera Chromium-historiken och få en mer anpassad upplevelse i Googles tjänster</translation>
 <translation id="2086476982681781442">Den här nedladdningen blockerades av Chromium eftersom filen är bedräglig och kan göra oväntade ändringar på enheten</translation>
 <translation id="2088953378266246249">Information om hur Chromium hanterar sina rotcertifikat</translation>
+<translation id="2099452623287920103">Dina lösenord och annan Chromium-data som du har sparat i Google-kontot tas bort från den här enheten. Logga in på nytt om du vill använda dem igen i Chromium.</translation>
 <translation id="2120965832000301375">{COUNT,plural, =1{Organisationen raderar automatiskt webbinformation när Chromium inte har använts på 1 minut. Detta kan innefatta historik, autofyll och nedladdningar. Flikarna förblir öppna.}other{Organisationen raderar automatiskt webbinformation när Chromium inte har använts på # minuter. Detta kan innefatta historik, autofyll och nedladdningar. Flikarna förblir öppna.}}</translation>
 <translation id="2126108037660393668">Den nedladdade filen gick inte att verifiera.</translation>
 <translation id="2137162749895930932">Stäng översättningsskärmen</translation>
@@ -94,6 +97,7 @@ Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna
 <translation id="2238130810669087193">Logga in i Chromium om du vill få tillgång till dina adresser med mera på alla dina enheter. Adressen sparas i ditt Google-konto när du har loggat in.</translation>
 <translation id="2240214816234246077">Du har inte besökt webbplatsen nyligen. Chromium har tagit bort <ph name="PERMISSION_1" /> och <ph name="PERMISSION_2" /></translation>
 <translation id="2241627712206172106">Om du delar en dator med vänner och familj kan de konfigurera Chromium precis som de vill och surfa separat.</translation>
+<translation id="2287771843518581140">{NUM_TABS,plural, =1{Chromium rekommenderar att du pausar fliken som saktar ned webbläsaren}other{Chromium rekommenderar att du pausar flikarna som saktar ned webbläsaren}}</translation>
 <translation id="2313870531055795960">Kontrollera webbadresser mot en lista över osäkra webbplatser i Chromium. Om du utsätts för försök att kapa ditt lösenord på en webbplats eller om du laddar ned en skadlig fil kan webbadresserna skickas från Chromium till Säker webbsökning tillsammans med delar av sidinnehållet.</translation>
 <translation id="2343156876103232566">Logga in på Chromium på båda enheterna om du vill skicka ett nummer från Android-telefonen.</translation>
 <translation id="2359808026110333948">Fortsätt</translation>
@@ -119,6 +123,7 @@ Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna
 <translation id="2583187216237139145">All data i Chromium som uppstår när den här profilen används (t.ex. bokmärken, historik, lösenord och andra inställningar) kan tas bort av jobbprofilens administratör. <ph name="LEARN_MORE" /></translation>
 <translation id="2592940277904433508">Fortsätt att använda Chromium</translation>
 <translation id="259935314519650377">Det gick inte att cachelagra det nedladdade installationsprogrammet. Fel: <ph name="UNPACK_CACHING_ERROR_CODE" />.</translation>
+<translation id="2620436844016719705">System</translation>
 <translation id="2629740064077610681">Organisationen kan se och hantera webbinformation, till exempel bokmärken, historik och lösenord. Den kan inte se webbinformation i andra Chromium-profiler</translation>
 <translation id="2635452620547538388">Verifiera din identitet för att använda och spara Chromium-data i ditt konto, <ph name="ACCOUNT_EMAIL" /></translation>
 <translation id="264613044588233783">Chromium körs snabbare och funktioner som använder JavaScript bör fungera som de ska (rekommenderas)</translation>
@@ -129,12 +134,11 @@ Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna
 <translation id="2721354645805494590">Du kan ta bort Google-kontot från Chromium genom att logga ut</translation>
 <translation id="2738871930057338499">Det går inte att ansluta till internet. HTTP 403 Förbjuden. Kontrollera proxykonfigurationen.</translation>
 <translation id="2753623023919742414">Klicka för att söka</translation>
+<translation id="2768103863314748511">Ställ in Chromium som standard PDF-läsare</translation>
 <translation id="2770231113462710648">Ändra standardwebbläsare till:</translation>
-<translation id="277338894894732084">Senare frågar Chromium om du vill använda sparade uppgifter för att fylla i formulär automatiskt</translation>
 <translation id="2785438272836277133">Tillägget innehåller skadlig kod och är osäkert. Ta bort det från Chromium så att det inte längre kan se och ändra data, inklusive dina personliga uppgifter, på webbplatser du besöker.</translation>
 <translation id="2799223571221894425">Starta om</translation>
 <translation id="2803971713792056305">Ditt Chromium</translation>
-<translation id="2806241689335397269">Chromium frågar om du vill spara formuläruppgifter, till exempel födelsedatum, ålder och passnummer</translation>
 <translation id="2841525013647267359">Översätt från</translation>
 <translation id="2846251086934905009">Installationsfel: Installationsprogrammet slutfördes inte. Installationen har avbrutits.</translation>
 <translation id="2847479871509788944">Ta bort från Chromium …</translation>
@@ -149,6 +153,7 @@ Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna
 <translation id="2977470724722393594">Chromium är uppdaterat</translation>
 <translation id="2977506796191543575">Om du utsätts för försök att kapa ditt lösenord på en webbplats eller om du laddar ned en skadlig fil kan webbadresserna skickas från Chromium till Säker webbsökning tillsammans med delar av sidinnehållet</translation>
 <translation id="2981563588585023386">Du kan skydda dig online med dina föräldrars val genom att logga in i Chromium</translation>
+<translation id="3003694935412297923">Alla uppgifter</translation>
 <translation id="3013473503895162900">Öppna <ph name="URL" /> på en ny flik i Chromium.</translation>
 <translation id="3032706164202344641">Chromium kan inte kontrollera dina lösenord. Försök igen senare.</translation>
 <translation id="3032787606318309379">Lägger till i Chromium ...</translation>
@@ -168,6 +173,7 @@ Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna
 <translation id="3179665906251668410">Öppna länken i ett inko&amp;gnitofönster i Chromium</translation>
 <translation id="3185330573522821672">Anpassa din nya Chromium-profil</translation>
 <translation id="3224847870593914902">Du kan ta bort Google-kontot från Chromium genom att logga ut från Chromium på sidan Inställningar</translation>
+<translation id="3234316605225071811">Senare kan Chromium fråga om du vill använda sparade uppgifter för att fylla i formulär automatiskt</translation>
 <translation id="3258596308407688501">Chromium kan inte läsa och skriva till datakatalogen:
 
 <ph name="USER_DATA_DIRECTORY" /></translation>
@@ -180,7 +186,6 @@ Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna
 <translation id="3387527074123400161">Chromium OS</translation>
 <translation id="3406848076815591792">Vill du byta till befintlig Chromium-profil?</translation>
 <translation id="3412460710772753638">I Lösenordshantering på den här enheten</translation>
-<translation id="3451656833730006755">Logga in i Chromium om du vill ha tilläggen med mera på alla dina datorer</translation>
 <translation id="347328004046849135">Chromium aviserar dig om du loggar in med ett utsatt lösenord</translation>
 <translation id="3474745554856756813"><ph name="ITEMS_COUNT" /> objekt tas bort från enheten. Logga in i Chromium som <ph name="USER_EMAIL" /> om du vill kunna återställa datan senare.</translation>
 <translation id="3497319089134299931">Du kan använda <ph name="SHORTCUT" /> för att byta mellan Chromium-profiler</translation>
@@ -229,6 +234,7 @@ Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna
 <translation id="4148957013307229264">Installerar...</translation>
 <translation id="419998258129752635"><ph name="PAGE_TITLE" /> – nätverksinloggning – Chromium</translation>
 <translation id="421369550622382712">Upptäck fantastiska appar, spel, tillägg och teman för Chromium.</translation>
+<translation id="4217080900579554343">Logga in i Chromium om du vill ha det här tillägget med mera på alla dina datorer</translation>
 <translation id="4217972271355023382">Du kan skydda dig online med dina föräldrars val genom att byta till din Chromium-profil där du redan är inloggad som <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="4222932583846282852">Avbryter …</translation>
 <translation id="4224210481850767180">Installationen har avbrutits.</translation>
@@ -264,6 +270,7 @@ Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna
 <translation id="4570813286784708942">Den här nedladdningen blockerades av Chromium eftersom du har inaktiverat Säker webbsökning och filen inte kan verifieras</translation>
 <translation id="4594305310729380060">I Lösenordshantering på den här enheten</translation>
 <translation id="459535195905078186">Chromium-appar</translation>
+<translation id="4598116752460667024">Sök efter en process i listan.</translation>
 <translation id="4613863813562375431">Chromium OS-version</translation>
 <translation id="4621240073146040695">Nästan klart! Slutför uppdateringen genom att starta om Chromium.</translation>
 <translation id="4665829708273112819">Varning! Chromium kan inte förhindra att tillägg registrerar din webbhistorik. Om du vill inaktivera det här tillägget i inkognitoläge avmarkerar du det här alternativet.</translation>
@@ -310,6 +317,7 @@ Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna
 <translation id="5405650547142096840">Ta bort från Chromium</translation>
 <translation id="5427571867875391349">Använd Chromium som standardwebbläsare</translation>
 <translation id="5438241569118040789"><ph name="PAGE_TITLE" /> – Chromium Beta</translation>
+<translation id="5460618461609401056">{NUM_TABS,plural, =1{Chromium rekommenderar att du pausar fliken som saktar ned webbläsaren}other{Chromium rekommenderar att du pausar flikarna som saktar ned webbläsaren}}</translation>
 <translation id="5473971139929175403">Chromium kanske inte fungerar ordentligt eftersom det inte längre stöds på den här Linux-distributionen</translation>
 <translation id="5475924890392386523">Den här nedladdningen blockerades av Chromium eftersom filen kan skada dina personliga konton och sociala nätverkskonton</translation>
 <translation id="5480860683791598150">Du behöver ge Chromium åtkomst till din plats om den ska kunna delas med webbplatsen</translation>
@@ -341,6 +349,7 @@ Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna
 <translation id="5903106910045431592"><ph name="PAGE_TITLE" /> – nätverksinloggning</translation>
 <translation id="5924017743176219022">Ansluter till internet …</translation>
 <translation id="5941711191222866238">Minimera</translation>
+<translation id="5949225980829865667">Logga in i Chromium för att få tillgång till detta bokmärke med mera på alla dina enheter</translation>
 <translation id="5972142260211327093">Om du slumpmässigt har valts ut för en aktiv provfunktion påverkar webbhistoriken vilka annonser som visas och vilka intressen som du uppskattas ha. Av integritetsskäl raderas dina intressen från Chromium löpande varje månad. Intressen förnyas om du inte tar bort dem.</translation>
 <translation id="5986585015444752010">{COUNT,plural, =1{Organisationen avslutar Chromium automatiskt när det inte har använts på 1 minut.}other{Organisationen avslutar Chromium automatiskt när det inte har använts på # minuter.}}</translation>
 <translation id="5987687638152509985">Du måste uppdatera Chromium innan synkroniseringen kan starta</translation>
@@ -429,6 +438,7 @@ Vissa funktioner är kanske inte tillgängliga. Ange en annan profilkatalog elle
 <translation id="6857782730669500492">Chromium – <ph name="PAGE_TITLE" /></translation>
 <translation id="6873893289264747459">Chromium har upptäckt att <ph name="EXTENSION_NAME" /> innehåller skadlig kod</translation>
 <translation id="6896758677409633944">Kopiera</translation>
+<translation id="6901631050894301805">Ställ in Chromium som standardwebbläsare och fäst den på aktivitetsfältet</translation>
 <translation id="6929417474050522668">Med Annonsmätning, om provfunktioner är aktiverade, kan webbplatser du besöker begära information från Chromium som hjälper dem att mäta annonsernas resultat. Med annonsmätning begränsas spårningen från webbplats till webbplats genom att så lite information som möjligt överförs mellan webbplatserna.</translation>
 <translation id="6940431691900807093">Senare kan en webbplats fråga efter dina intressen i Chromium för att anpassa vilka annonser som visas. Chromium kan dela upp till tre intressen.</translation>
 <translation id="6964305034639999644">Öppna länken i ett inko&amp;gnitofönster i Chromium.</translation>
@@ -453,6 +463,7 @@ Vissa funktioner är kanske inte tillgängliga. Ange en annan profilkatalog elle
 <translation id="7223968959479464213">Aktivitetshanteraren – Chromium</translation>
 <translation id="7246575524853130370">Chromiums uppskattning av dina intressen</translation>
 <translation id="7274695763216404502">Fäst! Använd Bildsökning igen från verktygsfältet</translation>
+<translation id="7288567540154601580">Flikar och tillägg</translation>
 <translation id="7295544978856094497">{NUM_EXTENSIONS,plural, =1{Vi rekommenderar att du tar bort detta}other{Vi rekommenderar att du tar bort dessa}}</translation>
 <translation id="7309928523159922338">Genom annonsmätning kan webbplatser du besöker begära information från Chromium som hjälper dem att mäta annonsernas resultat. Med annonsmätning begränsas spårningen från webbplats till webbplats genom att så lite information som möjligt överförs mellan webbplatserna.</translation>
 <translation id="731795002583552498">Chromium uppdateras</translation>
@@ -462,9 +473,7 @@ Chromium kan inte återställa dina inställningar.</translation>
 <translation id="7339898014177206373">Nytt fönster</translation>
 <translation id="734373864078049451">Här finns webben, bokmärken och allt annat du använder Chromium till.</translation>
 <translation id="7349591376906416160">Systemadministratören har konfigurerat Chromium så att <ph name="TARGET_URL_HOSTNAME" /> öppnas i <ph name="ALTERNATIVE_BROWSER_NAME" />.</translation>
-<translation id="7355355292030546812">Den här nedladdningen blockerades av Chromium eftersom filen kan skada dina personliga konton och sociala nätverkskonton, bland annat <ph name="USER_EMAIL" /></translation>
 <translation id="7384121030444253939">Detta tillägg stöds inte längre. Vi rekommenderar att du tar bort det i stället.</translation>
-<translation id="7389750180956889333">Chromium förstår formulär bättre och kan autofylla dem snabbare. Läs mer om <ph name="BEGIN_LINK" />autofyll i Chromium<ph name="END_LINK" /></translation>
 <translation id="7449453770951226939"><ph name="PAGE_TITLE" /> – Chromium Dev</translation>
 <translation id="7450541714075000668">Texten har kopierats</translation>
 <translation id="7451052299415159299">Du behöver ge Chromium behörighet att använda kameran på webbplatsen</translation>
@@ -501,6 +510,7 @@ Chromium kan inte återställa dina inställningar.</translation>
 <translation id="7937630085815544518">Du var inloggad i Chromium som <ph name="USER_EMAIL_ADDRESS" />. Använd samma konto när du loggar in igen.</translation>
 <translation id="7975919845073681630">Det här är en sekundär installation av Chromium. Det går inte att göra den till standardwebbläsare.</translation>
 <translation id="7997934263947464652">Tillägg, appar och teman från okända källor kan skada enheten. Vi rekommenderar att du bara installerar dem från <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /></translation>
+<translation id="8004582292198964060">Webbläsare</translation>
 <translation id="8010081455002666927">Upptäck automatiskt</translation>
 <translation id="8013436988911883588">När du har gett Chromium åtkomst kan webbplatser begära att få åtkomst.</translation>
 <translation id="80471789339884597">Tack för att du installerat programmet. Du måste starta om alla webbläsare innan du använder <ph name="BUNDLE_NAME" />.</translation>

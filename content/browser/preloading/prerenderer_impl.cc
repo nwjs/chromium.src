@@ -287,9 +287,13 @@ bool PrerendererImpl::MaybePrerender(
             url::Origin::Create(candidate->url).Serialize().c_str()));
   }
 
+  std::optional<SpeculationRulesTags> tags;
+  if (!candidate->tags.empty()) {
+    tags = SpeculationRulesTags(candidate->tags);
+  }
+
   std::optional<net::HttpNoVarySearchData> no_vary_search_hint;
-  if (base::FeatureList::IsEnabled(blink::features::kPrerender2NoVarySearch) &&
-      candidate->no_vary_search_hint) {
+  if (candidate->no_vary_search_hint) {
     no_vary_search_hint = no_vary_search::ParseHttpNoVarySearchDataFromMojom(
         candidate->no_vary_search_hint);
   }
@@ -299,14 +303,15 @@ bool PrerendererImpl::MaybePrerender(
       PreloadingTriggerTypeFromSpeculationInjectionType(
           candidate->injection_type),
       /*embedder_histogram_suffix=*/"",
-      candidate->target_browsing_context_name_hint,
-      Referrer{*candidate->referrer}, candidate->eagerness, no_vary_search_hint,
-      &rfhi, web_contents->GetWeakPtr(), ui::PAGE_TRANSITION_LINK,
+      SpeculationRulesParams(candidate->target_browsing_context_name_hint,
+                             candidate->eagerness, std::move(tags)),
+      Referrer{*candidate->referrer}, no_vary_search_hint, &rfhi,
+      web_contents->GetWeakPtr(), ui::PAGE_TRANSITION_LINK,
       /*should_warm_up_compositor=*/false,
       /*should_prepare_paint_tree=*/false,
       /*url_match_predicate=*/{},
       /*prerender_navigation_handle_callback=*/{},
-      base::MakeRefCounted<PreloadPipelineInfo>(
+      PreloadPipelineInfoImpl::Create(
           /*planned_max_preloading_type=*/PreloadingType::kPrerender));
 
   PreloadingTriggerType trigger_type =

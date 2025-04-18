@@ -146,6 +146,7 @@ public class AccountSelectionJUnitTestBase {
     GURL mTestEmptyErrorUrl;
     Account mAnaAccount;
     Account mAnaAccountWithUseDifferentAccount;
+    Account mAnaAccountWithoutBrandIcons;
     Account mBobAccount;
     Account mCarlAccount;
     Account mNewUserAccount;
@@ -257,8 +258,10 @@ public class AccountSelectionJUnitTestBase {
                         "ana@email.example",
                         "Ana Doe",
                         "Ana",
-                        /* secondaryDescription= */ null,
+                        /* secondaryDescription= */ "email.example",
                         /* pictureBitmap= */ null,
+                        /* circledBadgedPictureBitmap= */ Bitmap.createBitmap(
+                                100, 100, Bitmap.Config.ARGB_4444),
                         /* isSignIn= */ true,
                         /* isBrowserTrustedSignIn= */ true,
                         /* isFilteredOut= */ false,
@@ -271,10 +274,26 @@ public class AccountSelectionJUnitTestBase {
                         "Ana",
                         /* secondaryDescription= */ null,
                         /* pictureBitmap= */ null,
+                        /* circledBadgedPictureBitmap= */ Bitmap.createBitmap(
+                                100, 100, Bitmap.Config.ARGB_4444),
                         /* isSignIn= */ true,
                         /* isBrowserTrustedSignIn= */ true,
                         /* isFilteredOut= */ false,
                         mIdpDataWithUseDifferentAccount);
+        mAnaAccountWithoutBrandIcons =
+                new Account(
+                        "Ana",
+                        "ana@email2.example",
+                        "Ana Doe",
+                        "Ana",
+                        /* secondaryDescription= */ "email2.example",
+                        /* pictureBitmap= */ null,
+                        /* circledBadgedPictureBitmap= */ Bitmap.createBitmap(
+                                100, 100, Bitmap.Config.ARGB_4444),
+                        /* isSignIn= */ true,
+                        /* isBrowserTrustedSignIn= */ true,
+                        /* isFilteredOut= */ false,
+                        mIdpDataWithoutIcons);
         mBobAccount =
                 new Account(
                         "Bob",
@@ -283,6 +302,7 @@ public class AccountSelectionJUnitTestBase {
                         "",
                         /* secondaryDescription= */ null,
                         /* pictureBitmap= */ null,
+                        /* circledBadgedPictureBitmap= */ null,
                         /* isSignIn= */ true,
                         /* isBrowserTrustedSignIn= */ true,
                         /* isFilteredOut= */ false,
@@ -295,6 +315,7 @@ public class AccountSelectionJUnitTestBase {
                         ":)",
                         /* secondaryDescription= */ null,
                         /* pictureBitmap= */ null,
+                        /* circledBadgedPictureBitmap= */ null,
                         /* isSignIn= */ true,
                         /* isBrowserTrustedSignIn= */ true,
                         /* isFilteredOut= */ false,
@@ -305,8 +326,10 @@ public class AccountSelectionJUnitTestBase {
                         "goto@email.example",
                         "Sam E. Goto",
                         "Sam",
-                        /* secondaryDescription= */ null,
+                        /* secondaryDescription= */ "email.example",
                         /* pictureBitmap= */ null,
+                        /* circledBadgedPictureBitmap= */ Bitmap.createBitmap(
+                                100, 100, Bitmap.Config.ARGB_4444),
                         /* isSignIn= */ false,
                         /* isBrowserTrustedSignIn= */ false,
                         /* isFilteredOut= */ false,
@@ -319,6 +342,7 @@ public class AccountSelectionJUnitTestBase {
                         "",
                         /* secondaryDescription= */ null,
                         /* pictureBitmap= */ null,
+                        /* circledBadgedPictureBitmap= */ null,
                         /* isSignIn= */ true,
                         /* isBrowserTrustedSignIn= */ true,
                         /* isFilteredOut= */ false,
@@ -331,6 +355,7 @@ public class AccountSelectionJUnitTestBase {
                         "Nicolas",
                         /* secondaryDescription= */ null,
                         /* pictureBitmap= */ null,
+                        /* circledBadgedPictureBitmap= */ null,
                         /* isSignIn= */ true,
                         /* isBrowserTrustedSignIn= */ true,
                         /* isFilteredOut= */ true,
@@ -343,6 +368,7 @@ public class AccountSelectionJUnitTestBase {
                         "Nicolas",
                         /* secondaryDescription= */ null,
                         /* pictureBitmap= */ null,
+                        /* circledBadgedPictureBitmap= */ null,
                         /* isSignIn= */ true,
                         /* isBrowserTrustedSignIn= */ true,
                         /* isFilteredOut= */ true,
@@ -355,6 +381,7 @@ public class AccountSelectionJUnitTestBase {
                         "Nicolas",
                         "email.com",
                         /* pictureBitmap= */ null,
+                        /* circledBadgedPictureBitmap= */ null,
                         /* isSignIn= */ true,
                         /* isBrowserTrustedSignIn= */ true,
                         /* isFilteredOut= */ false,
@@ -402,12 +429,13 @@ public class AccountSelectionJUnitTestBase {
                         mMockModalDialogManager);
     }
 
-    MVCListAdapter.ListItem buildAccountItem(Account account) {
+    MVCListAdapter.ListItem buildAccountItem(Account account, boolean showIdp) {
         return new MVCListAdapter.ListItem(
                 AccountSelectionProperties.ITEM_TYPE_ACCOUNT,
                 new PropertyModel.Builder(AccountProperties.ALL_KEYS)
                         .with(AccountProperties.ACCOUNT, account)
                         .with(AccountProperties.ON_CLICK_LISTENER, mAccountCallback)
+                        .with(AccountProperties.SHOW_IDP, showIdp)
                         .build());
     }
 
@@ -423,6 +451,9 @@ public class AccountSelectionJUnitTestBase {
 
     static boolean containsItemOfType(PropertyModel model, PropertyKey key) {
         if (key == ItemProperties.SPINNER_ENABLED) {
+            return model.get((WritableBooleanPropertyKey) key);
+        }
+        if (key == ItemProperties.DRAGBAR_HANDLE_VISIBLE) {
             return model.get((WritableBooleanPropertyKey) key);
         }
         return model.get((WritableObjectPropertyKey<PropertyModel>) key) != null;

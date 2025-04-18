@@ -4,36 +4,48 @@
 
 package org.chromium.chrome.browser.suggestions.tile.tile_edit_dialog;
 
+import android.text.TextUtils;
+
+import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.suggestions.tile.Tile;
+import org.chromium.chrome.browser.suggestions.tile.tile_edit_dialog.CustomTileEditDelegates.DialogMode;
 import org.chromium.chrome.browser.suggestions.tile.tile_edit_dialog.CustomTileEditDelegates.MediatorToBrowser;
 import org.chromium.chrome.browser.suggestions.tile.tile_edit_dialog.CustomTileEditDelegates.MediatorToView;
 import org.chromium.chrome.browser.suggestions.tile.tile_edit_dialog.CustomTileEditDelegates.UrlErrorCode;
 import org.chromium.chrome.browser.suggestions.tile.tile_edit_dialog.CustomTileEditDelegates.ViewToMediator;
 import org.chromium.url.GURL;
 
-/** The Mediator of the Most Visited Tile Edit Dialog. */
+/** The Mediator of the Custom Tile Edit Dialog. */
 @NullMarked
 class CustomTileEditMediator implements ViewToMediator {
-    private final MediatorToBrowser mBrowserDelegate;
-    private final MediatorToView mViewDelegate;
     private final @Nullable Tile mOriginalTile;
+
+    private MediatorToView mViewDelegate;
+    private MediatorToBrowser mBrowserDelegate;
 
     /**
      * Constructs a new CustomTileEditMediator.
      *
-     * @param browserDelegate The interface to the Browser.
-     * @param viewDelegate The interface to the View.
      * @param originalTile the tile being edited, or null if adding a new tile.
      */
-    CustomTileEditMediator(
-            MediatorToBrowser browserDelegate,
-            MediatorToView viewDelegate,
-            @Nullable Tile originalTile) {
-        mBrowserDelegate = browserDelegate;
-        mViewDelegate = viewDelegate;
+    CustomTileEditMediator(@Nullable Tile originalTile) {
         mOriginalTile = originalTile;
+    }
+
+    /**
+     * Assigns delegates for interacting with the Browser and the View.
+     *
+     * @param viewDelegate The interface to the View.
+     * @param browserDelegate The interface to the Browser.
+     */
+    @Initializer
+    void setDelegates(MediatorToView viewDelegate, MediatorToBrowser browserDelegate) {
+        assert mViewDelegate == null;
+        mViewDelegate = viewDelegate;
+        assert mBrowserDelegate == null;
+        mBrowserDelegate = browserDelegate;
     }
 
     // ViewToMediator implementation.
@@ -50,14 +62,18 @@ class CustomTileEditMediator implements ViewToMediator {
     }
 
     @Override
-    public void onSave(String title, String urlText) {
+    public void onSave(String name, String urlText) {
         GURL url = new GURL(urlText);
         @UrlErrorCode int urlErrorCode = validateUrl(url);
         boolean success = (urlErrorCode == UrlErrorCode.NONE);
-        if (success && !mBrowserDelegate.submitChange(title, url)) {
-            // validateUrl() should have caught the error scenario, but handle again for robustness.
-            urlErrorCode = UrlErrorCode.DUPLICATE_URL;
-            success = false;
+        if (success) {
+            String nameToUse = TextUtils.isEmpty(name) ? url.getSpec() : name;
+            if (!mBrowserDelegate.submitChange(nameToUse, url)) {
+                // validateUrl() should have caught the error scenario, but handle again for
+                // robustness.
+                urlErrorCode = UrlErrorCode.DUPLICATE_URL;
+                success = false;
+            }
         }
         if (success) {
             mBrowserDelegate.closeEditDialog(true);
@@ -76,10 +92,16 @@ class CustomTileEditMediator implements ViewToMediator {
 
     /** Shows the edit dialog, populating it with the original tile's data if available. */
     void show() {
+        mViewDelegate.setDialogMode(
+                mOriginalTile == null ? DialogMode.ADD_SHORTCUT : DialogMode.EDIT_SHORTCUT);
+        String name = "";
+        String urlText = "";
         if (mOriginalTile != null) {
-            mViewDelegate.setTitle(mOriginalTile.getTitle());
-            mViewDelegate.setUrlText(mOriginalTile.getUrl().getPossiblyInvalidSpec());
+            name = mOriginalTile.getTitle();
+            urlText = mOriginalTile.getUrl().getPossiblyInvalidSpec();
         }
+        mViewDelegate.setName(name);
+        mViewDelegate.setUrlText(urlText);
         mBrowserDelegate.showEditDialog();
     }
 

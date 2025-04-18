@@ -185,6 +185,10 @@
 #include "ui/accessibility/ax_role_properties.h"
 #include "ui/events/keycodes/dom/dom_code.h"
 #include "ui/events/keycodes/dom/keycode_converter.h"
+#include "ui/gfx/geometry/rect.h"
+#include "ui/gfx/geometry/rect_f.h"
+#include "ui/gfx/geometry/size.h"
+#include "ui/gfx/geometry/size_f.h"
 #include "ui/gfx/geometry/transform.h"
 #include "ui/strings/grit/ax_strings.h"
 
@@ -3194,6 +3198,57 @@ AccessibilityExpanded AXNodeObject::IsExpanded() const {
   return kExpandedUndefined;
 }
 
+bool AXNodeObject::ComputeIsOffScreen() const {
+  // TODO(accessibility): Implement IsWithinVerticalSerializationThreshold() to
+  // determine visibility based on a vertical threshold (top beneath viewport
+  // bottom + 2 screenfuls).
+  if (IsRoot()) {
+    return false;
+  }
+  if (RoleValue() == ax::mojom::blink::Role::kMenuListPopup) {
+    return ParentObjectIncludedInTree()->ComputeIsOffScreen();
+  }
+  const LayoutObject* object = GetLayoutObject();
+  if (object) {
+    const LocalFrameView* view = GetLayoutObject()->GetFrame()->View();
+    if (!view) {
+      return false;
+    }
+    const LayoutView* layout_view = view->GetLayoutView();
+    if (!layout_view) {
+      return false;
+    }
+    gfx::PointF offset =
+        object->LocalToAncestorPoint(gfx::PointF(), layout_view);
+    auto compute_size = [object]() -> gfx::SizeF {
+      if (auto* layout_box = DynamicTo<LayoutBox>(object)) {
+        return gfx::SizeF(layout_box->Size());
+      }
+
+      if (auto* layout_inline = DynamicTo<LayoutInline>(object)) {
+        return layout_inline->LocalBoundingBoxRectF().size();
+      }
+      if (object->IsText()) {
+        return object->LocalBoundingBoxRectForAccessibility().size();
+      }
+      return {0, 0};
+    };
+    gfx::SizeF size = compute_size();
+    gfx::RectF content_rect(offset, size);
+    gfx::Size view_size = view->Size();
+    gfx::SizeF view_size_f(view_size.width(), view_size.height());
+    gfx::RectF view_rect(gfx::PointF(), view_size_f);
+    view_rect.Intersect(content_rect);
+    return view_rect.IsEmpty();
+  }
+
+  // Without a layout object, there is no bounding box.
+  // However, we know that if it is display-locked that is an indicator that it
+  // is currently offscreen, and will likely be onscreen once scrolled to.
+  return GetNode() &&
+         DisplayLockUtilities::IsDisplayLockedPreventingPaint(GetNode());
+}
+
 bool AXNodeObject::IsRequired() const {
   auto* form_control = DynamicTo<HTMLFormControlElement>(GetNode());
   if (form_control && form_control->IsRequired())
@@ -3233,22 +3288,22 @@ int AXNodeObject::HeadingLevel() const {
     return 0;
 
   if (element->HasTagName(html_names::kH1Tag))
-    return 1;
+    return 1 + element->GetComputedHeadingOffset(/*max_offset=*/8);
 
   if (element->HasTagName(html_names::kH2Tag))
-    return 2;
+    return 2 + element->GetComputedHeadingOffset(/*max_offset=*/7);
 
   if (element->HasTagName(html_names::kH3Tag))
-    return 3;
+    return 3 + element->GetComputedHeadingOffset(/*max_offset=*/6);
 
   if (element->HasTagName(html_names::kH4Tag))
-    return 4;
+    return 4 + element->GetComputedHeadingOffset(/*max_offset=*/5);
 
   if (element->HasTagName(html_names::kH5Tag))
-    return 5;
+    return 5 + element->GetComputedHeadingOffset(/*max_offset=*/4);
 
   if (element->HasTagName(html_names::kH6Tag))
-    return 6;
+    return 6 + element->GetComputedHeadingOffset(/*max_offset=*/3);
 
   if (RoleValue() == ax::mojom::blink::Role::kHeading)
     return kDefaultHeadingLevel;
@@ -5342,10 +5397,11 @@ void AXNodeObject::GetRelativeBounds(AXObject** out_container,
   // to a canvas path. When explicit coordinates are provided, the ID of the
   // explicit container element that the coordinates are relative to must be
   // provided too.
-  if (!explicit_element_rect_.IsEmpty()) {
-    *out_container = AXObjectCache().ObjectFromAXID(explicit_container_id_);
+  if (auto canvas_bounds =
+          AXObjectCache().GetCanvasElementBounds(this->AXObjectID())) {
+    *out_container = AXObjectCache().ObjectFromAXID(canvas_bounds->second);
     if (*out_container) {
-      out_bounds_in_container = gfx::RectF(explicit_element_rect_);
+      out_bounds_in_container = gfx::RectF(canvas_bounds->first);
       return;
     }
   }
@@ -5635,7 +5691,11 @@ void AXNodeObject::LoadInlineTextBoxesHelper() {
 
   if (AXObjectCache().lifecycle().StateAllowsImmediateTreeUpdates()) {
     // Can only add new objects while processing deferred events.
-    AddInlineTextBoxChildren();
+    if (::features::IsAccessibilityBlockFlowIteratorEnabled()) {
+      AddInlineTextBoxChildrenWithBlockFlowIterator();
+    } else {
+      AddInlineTextBoxChildren();
+    }
     // Avoid adding these children twice.
     SetNeedsToUpdateChildren(false);
     // If inline text box children were added, mark the node dirty so that the
@@ -5651,6 +5711,27 @@ void AXNodeObject::LoadInlineTextBoxesHelper() {
   }
 }
 
+void AXNodeObject::AddInlineTextBoxChildrenWithBlockFlowIterator() {
+  CHECK(GetDocument());
+  CHECK(ShouldLoadInlineTextBoxes());
+  CHECK(GetLayoutObject());
+  GetLayoutObject()->CheckIsNotDestroyed();
+  CHECK(GetLayoutObject()->IsText()) << GetLayoutObject() << " " << this;
+  CHECK(!GetLayoutObject()->NeedsLayout());
+  CHECK(AXObjectCache().lifecycle().StateAllowsImmediateTreeUpdates())
+      << AXObjectCache();
+
+  AXBlockFlowIterator it(this);
+  while (it.Next()) {
+    AXObject* box =
+        AXObjectCache().GetOrCreate(it.CurrentFragmentIndex(), this);
+    if (!box) {
+      return;
+    }
+    children_.push_back(box);
+  }
+}
+
 void AXNodeObject::AddInlineTextBoxChildren() {
   CHECK(GetDocument());
   CHECK(ShouldLoadInlineTextBoxes());
@@ -5659,18 +5740,11 @@ void AXNodeObject::AddInlineTextBoxChildren() {
   CHECK(GetLayoutObject()->IsText()) << GetLayoutObject() << " " << this;
   CHECK(!GetLayoutObject()->NeedsLayout());
   CHECK(AXObjectCache().GetAXMode().has_mode(ui::AXMode::kInlineTextBoxes));
-  CHECK(!AXObjectCache().GetAXMode().HasExperimentalFlags(
-      ui::AXMode::kExperimentalFormControls))
+  CHECK(!AXObjectCache().GetAXMode().HasFilterFlags(
+      ui::AXMode::kFormsAndLabelsOnly))
       << "Form controls mode should not have inline text boxes turned on.";
   CHECK(AXObjectCache().lifecycle().StateAllowsImmediateTreeUpdates())
       << AXObjectCache();
-
-#if EXPENSIVE_DCHECKS_ARE_ON()
-  AXBlockFlowIterator it;
-  if (::features::IsAccessibilityBlockFlowIteratorEnabled()) {
-    it = AXBlockFlowIterator(this);
-  }
-#endif
 
   auto* layout_text = To<LayoutText>(GetLayoutObject());
   for (auto* box = layout_text->FirstAbstractInlineTextBox(); box;
@@ -5681,67 +5755,6 @@ void AXNodeObject::AddInlineTextBoxChildren() {
     }
 
     children_.push_back(ax_box);
-
-#if EXPENSIVE_DCHECKS_ARE_ON()
-    if (::features::IsAccessibilityBlockFlowIteratorEnabled()) {
-      DCHECK(it.Next()) << "Failed to advance the BlockFlow Iterator while "
-                           "processing AxInlineTextBox children of "
-                        << this << " which has layout " << GetLayoutObject()
-                        << "\n and the AITB produced " << box->GetText();
-
-      WTF::String fragment_text = it.GetText();
-      WTF::String abstract_inline_text = box->GetText();
-
-      if (!ShouldSkipAxBlockFlowIteratorComparison()) {
-        DCHECK_EQ(fragment_text, abstract_inline_text)
-            << "Mismatch in extracted text fragment: " << abstract_inline_text
-            << " vs " << fragment_text;
-
-        AbstractInlineTextBox* next_on_line_box = box->NextOnLine();
-        AbstractInlineTextBox* previous_on_line_box = box->PreviousOnLine();
-
-        std::optional<AXBlockFlowIterator::MapKey> next_fragment_key =
-            it.NextOnLine();
-        std::optional<AXBlockFlowIterator::MapKey> previous_fragment_key =
-            it.PreviousOnLine();
-
-        if (next_on_line_box) {
-          DCHECK(next_fragment_key) << "Failed to find next on line fragment";
-          InlineCursor cursor = next_on_line_box->GetCursor();
-          DCHECK_EQ(&cursor.Items(), next_fragment_key->first);
-          wtf_size_t item_index = static_cast<wtf_size_t>(
-              cursor.CurrentItem() - &cursor.Items().front());
-          DCHECK_EQ(item_index, next_fragment_key->second)
-              << "Mismatched fragment indices";
-        } else {
-          // TODO: Update once AXBlockFlowIterator::NextOnLine navigates into
-          // box fragments. Currently, we fall back to the parent when
-          // AbstractInlineTextBox::NextOnLine is null. This fallback should no
-          // longer be necessary.
-          DCHECK(!next_fragment_key)
-              << "Expected not to find a next on line fragment";
-        }
-
-        if (previous_on_line_box) {
-          DCHECK(previous_fragment_key)
-              << "Failed to find previous on line fragment";
-          InlineCursor cursor = previous_on_line_box->GetCursor();
-          DCHECK_EQ(&cursor.Items(), previous_fragment_key->first);
-          wtf_size_t item_index = static_cast<wtf_size_t>(
-              cursor.CurrentItem() - &cursor.Items().front());
-          DCHECK_EQ(item_index, previous_fragment_key->second)
-              << "Mismatched fragment indices";
-        } else {
-          // TODO: Update once AXBlockFlowIterator::NextOnLine navigates into
-          // box fragments. Currently, we fall back to the parent when
-          // AbstractInlineTextBox::NextOnLine is null. This fallback should no
-          // longer be necessary.
-          DCHECK(!previous_fragment_key)
-              << "Expected not to find a previous on line fragment";
-        }
-      }
-    }
-#endif
   }
 }
 
@@ -5839,53 +5852,23 @@ void AXNodeObject::AddNodeChildren() {
   if (IsA<HTMLFrameElementBase>(GetNode()))
     return;
 
-  // If node is a ReadingFlowContainer or if its closest layout parent is
-  // ReadingFlowContainer (i.e. node has display: contents), then we should
-  // follow reading-flow order. The same children will be added as in the simple
-  // case using only LayoutTreeBuilderTraversal children, with no additions or
-  // removals, but in the order defined in CSS.
+  // If node has reading flow children, then we should reading-flow order.
   // Note that this is only used for the case where the element is a
   // reading-flow container, and not for the case where the element is a
   // reading-flow item.
-  Element* element = GetElement();
-  Element* closest_layout_parent =
-      element && element->HasDisplayContentsStyle()
-          ? LayoutTreeBuilderTraversal::LayoutParentElement(*element)
-          : element;
-  if (closest_layout_parent &&
-      closest_layout_parent->IsReadingFlowContainer()) {
+  HeapVector<Member<Node>> reading_flow_children;
+  if (Element* element = GetElement()) {
+    reading_flow_children = element->ReadingFlowChildren();
+  }
+  if (!reading_flow_children.empty()) {
     HeapHashSet<Member<Node>> ax_children_added;
-    // Add all reading flow items first, in the reading flow order.
-    for (Node* reading_flow_item :
-         closest_layout_parent->GetLayoutBox()->ReadingFlowNodes()) {
+    // Add reading flow siblings in order.
+    for (Node* reading_flow_item : reading_flow_children) {
       if (IsAddedOnlyViaSpecialTraversal(reading_flow_item)) {
         continue;
       }
-
-      // reading_flow_item or its parent (for example, display: contents) might
-      // be a child of element. Loop the parents and only add the node if its
-      // LayoutTreeBuilderTraversal::Parent is this element.
-      do {
-        auto* parent = LayoutTreeBuilderTraversal::Parent(*reading_flow_item);
-        if (parent == element) {
-          if (ax_children_added.insert(reading_flow_item).is_new_entry) {
-            AddNodeChild(reading_flow_item);
-          }
-          break;
-        }
-        reading_flow_item = DynamicTo<Element>(parent);
-        // If parent is the reading flow container, then we have traversed all
-        // potential parents and there is no reading flow item to add.
-      } while (reading_flow_item && reading_flow_item != closest_layout_parent);
-    }
-    // Add all non-reading flow items at the end of the reading flow.
-    for (Node* child = LayoutTreeBuilderTraversal::FirstChild(*node_); child;
-         child = LayoutTreeBuilderTraversal::NextSibling(*child)) {
-      if (IsAddedOnlyViaSpecialTraversal(child)) {
-        continue;
-      }
-      if (ax_children_added.insert(child).is_new_entry) {
-        AddNodeChild(child);
+      if (ax_children_added.insert(reading_flow_item).is_new_entry) {
+        AddNodeChild(reading_flow_item);
       }
     }
 #if DCHECK_IS_ON()
@@ -5941,7 +5924,11 @@ void AXNodeObject::AddChildrenImpl() {
   CHECK(CanHaveChildren());
 
   if (ShouldLoadInlineTextBoxes() && HasLayoutText(this)) {
-    AddInlineTextBoxChildren();
+    if (::features::IsAccessibilityBlockFlowIteratorEnabled()) {
+      AddInlineTextBoxChildrenWithBlockFlowIterator();
+    } else {
+      AddInlineTextBoxChildren();
+    }
     CHECK_ATTACHED();
     return;
   }
@@ -6122,46 +6109,6 @@ void AXNodeObject::CheckValidChild(AXObject* child) {
 }
 #endif
 
-#if EXPENSIVE_DCHECKS_ARE_ON()
-bool AXNodeObject::ShouldSkipAxBlockFlowIteratorComparison() const {
-  if (auto* layout_text = To<LayoutText>(GetLayoutObject());
-      layout_text->GetFirstLetterPart()) {
-    // Explicitly skip the check if the layout text has a first letter
-    // pseudo-element part. Currently, this is prefixed to the text, but this is
-    // problematic since:
-    //   * not accounted for in the glyph vector
-    //   * can have a different style including flow direction
-    //   * can be multiple characters due to punctuation
-    return true;
-  }
-
-  // Skips the processing of <ruby> and <tr> tags, including all their children
-  // (text). This is not implemented yet, so the comparison does not make sense.
-  using ax::mojom::blink::Role;  // Using declaration for the scope of the
-                                 // function
-  const Role& role = RoleValue();
-  if (role == Role::kRubyAnnotation || role == Role::kRuby) {
-    return true;
-  }
-
-  if (role == Role::kStaticText) {
-    auto check_ancestor = [this](int ancestor_level) {
-      const AXObject* ancestor = this;
-      for (int i = 0; i < ancestor_level && ancestor; ++i) {
-        ancestor = ancestor->ParentObjectIncludedInTree();
-      }
-      return ancestor && (ancestor->RoleValue() == Role::kRubyAnnotation ||
-                          ancestor->RoleValue() == Role::kRuby);
-    };
-
-    if (check_ancestor(1) || check_ancestor(2)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-#endif
 
 void AXNodeObject::AddChild(AXObject* child, bool is_from_aria_owns) {
   if (!child)
@@ -6243,7 +6190,7 @@ bool AXNodeObject::CanHaveChildren() const {
   DCHECK(!IsDetached());
 
   // A child tree has been stitched onto this node, hiding its usual subtree.
-  if (child_tree_id()) {
+  if (AXObjectCache().GetAXObjectChildAXTreeID(AXObjectID())) {
     return false;
   }
 

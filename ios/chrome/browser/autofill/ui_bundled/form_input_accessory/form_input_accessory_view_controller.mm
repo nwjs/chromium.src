@@ -34,10 +34,17 @@ using manual_fill::ManualFillDataType;
 namespace {
 
 // The form suggestion view's layer mask gradient's start point.
-constexpr CGFloat kFormSuggestionViewLayerMaskGradientStartPoint = 0.94;
+constexpr CGFloat kFormSuggestionViewLayerMaskGradientStartPoint = 0.96;
+
+// The form suggestion view's layer mask gradient's start point.
+constexpr CGFloat kFormSuggestionViewLayerMaskGradientStartPointForTablet =
+    0.98;
 
 // The form suggestion view's layer mask gradient's end point.
 constexpr CGFloat kFormSuggestionViewLayerMaskGradientEndPoint = 1.0;
+
+// Manual fill icon point size (tablets only).
+constexpr CGFloat kManualFillSymbolPointSize = 20;
 
 // Logs the right metrics when the manual fallback menu is opened from the
 // keyboard accessory's expand icon.
@@ -408,6 +415,16 @@ void LogManualFallbackEntryThroughExpandIcon(ManualFillDataType data_type,
       self.formAccessoryVisible;
 }
 
+// Returns the manual fill symbol used for the current device form factor.
+UIImage* GetManualFillSymbol() {
+  if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
+    return DefaultSymbolWithPointSize(kListBulletSymbol,
+                                      kManualFillSymbolPointSize);
+  }
+
+  return DefaultSymbolWithPointSize(kExpandSymbol, kSymbolActionPointSize);
+}
+
 // Creates formInputAccessoryView if not done yet.
 - (void)createFormInputAccessoryViewIfNeeded {
   if (self.formInputAccessoryView) {
@@ -438,10 +455,7 @@ void LogManualFallbackEntryThroughExpandIcon(ManualFillDataType data_type,
     [formInputAccessoryView
               setUpWithLeadingView:self.leadingView
                 navigationDelegate:self.navigationDelegate
-                  manualFillSymbol:DefaultSymbolWithPointSize(
-                                       isTabletFormFactor ? kListBulletSymbol
-                                                          : kExpandSymbol,
-                                       kSymbolActionPointSize)
+                  manualFillSymbol:GetManualFillSymbol()
           passwordManualFillSymbol:CustomSymbolWithPointSize(
                                        kPasswordSymbol, kSymbolActionPointSize)
         creditCardManualFillSymbol:DefaultSymbolWithPointSize(
@@ -453,6 +467,7 @@ void LogManualFallbackEntryThroughExpandIcon(ManualFillDataType data_type,
                                        kKeyboardDownSymbol,
                                        kSymbolActionPointSize)
                 isTabletFormFactor:isTabletFormFactor];
+    [formInputAccessoryView setIsCompact:[self isCompact]];
   } else {
     if (isTabletFormFactor) {
       [formInputAccessoryView
@@ -497,6 +512,7 @@ void LogManualFallbackEntryThroughExpandIcon(ManualFillDataType data_type,
     self.formSuggestionView.formSuggestionViewDelegate = self;
     self.formSuggestionView.layoutGuideCenter = self.layoutGuideCenter;
     self.formSuggestionView.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.formSuggestionView setIsCompact:[self isCompact]];
 
     self.formSuggestionContainerView = [[UIStackView alloc] init];
     self.formSuggestionContainerView.axis = UILayoutConstraintAxisHorizontal;
@@ -504,18 +520,20 @@ void LogManualFallbackEntryThroughExpandIcon(ManualFillDataType data_type,
     // Put a mask on the formSuggestionView's container view so that the mask
     // doesn't move along with the scroll view.
     self.formSuggestionViewMask = [CAGradientLayer layer];
+    CGFloat startPoint =
+        (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET)
+            ? kFormSuggestionViewLayerMaskGradientStartPointForTablet
+            : kFormSuggestionViewLayerMaskGradientStartPoint;
     if (base::i18n::IsRTL()) {
       // Create a gradient in the reverse direction from the non RTL case below.
       self.formSuggestionViewMask.startPoint =
           CGPointMake(1.0 - kFormSuggestionViewLayerMaskGradientEndPoint, 0.0);
-      self.formSuggestionViewMask.endPoint = CGPointMake(
-          1.0 - kFormSuggestionViewLayerMaskGradientStartPoint, 0.0);
+      self.formSuggestionViewMask.endPoint = CGPointMake(1.0 - startPoint, 0.0);
       self.formSuggestionViewMask.colors = @[
         (id)[UIColor clearColor].CGColor, (id)[UIColor whiteColor].CGColor
       ];
     } else {
-      self.formSuggestionViewMask.startPoint =
-          CGPointMake(kFormSuggestionViewLayerMaskGradientStartPoint, 0.0);
+      self.formSuggestionViewMask.startPoint = CGPointMake(startPoint, 0.0);
       self.formSuggestionViewMask.endPoint =
           CGPointMake(kFormSuggestionViewLayerMaskGradientEndPoint, 0.0);
       self.formSuggestionViewMask.colors = @[
@@ -559,6 +577,7 @@ void LogManualFallbackEntryThroughExpandIcon(ManualFillDataType data_type,
       case FillingProduct::kMerchantPromoCode:
       case FillingProduct::kCompose:
       case FillingProduct::kAutofillAi:
+      case FillingProduct::kLoyaltyCard:
       case FillingProduct::kNone:
         // `kMerchantPromoCode` and `kCompose` cases are currently not available
         // on iOS. Also, there shouldn't be suggestions of type `kNone`.
@@ -603,6 +622,13 @@ void LogManualFallbackEntryThroughExpandIcon(ManualFillDataType data_type,
       CGAffineTransformMakeTranslation(0, offset);
 }
 
+- (BOOL)isCompact {
+  return self.traitCollection.horizontalSizeClass ==
+             UIUserInterfaceSizeClassCompact ||
+         self.traitCollection.verticalSizeClass ==
+             UIUserInterfaceSizeClassCompact;
+}
+
 // Updates the UI when any UITrait changes on the device.
 - (void)updateUIOnTraitChange {
   if (IsBottomOmniboxAvailable()) {
@@ -611,11 +637,9 @@ void LogManualFallbackEntryThroughExpandIcon(ManualFillDataType data_type,
 
   if (IsKeyboardAccessoryUpgradeEnabled() &&
       ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
-    [self.formInputAccessoryView
-        setIsCompact:self.traitCollection.horizontalSizeClass ==
-                         UIUserInterfaceSizeClassCompact ||
-                     self.traitCollection.verticalSizeClass ==
-                         UIUserInterfaceSizeClassCompact];
+    BOOL isCompact = [self isCompact];
+    [self.formInputAccessoryView setIsCompact:isCompact];
+    [self.formSuggestionView setIsCompact:isCompact];
   }
 }
 

@@ -45,6 +45,7 @@ import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.Acces
 import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_SHOW_ON_SCREEN;
 import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_LENGTH;
 import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_START_INDEX;
+import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.EXTRA_DATA_TEXT_CHARACTER_LOCATION_IN_WINDOW_KEY;
 import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY;
 import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.MOVEMENT_GRANULARITY_CHARACTER;
 import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.MOVEMENT_GRANULARITY_LINE;
@@ -106,11 +107,11 @@ import org.chromium.content.browser.accessibility.AutoDisableAccessibilityHandle
 import org.chromium.content.browser.accessibility.captioning.CaptioningController;
 import org.chromium.content.browser.input.ImeAdapterImpl;
 import org.chromium.content.browser.webcontents.WebContentsImpl;
-import org.chromium.content.browser.webcontents.WebContentsImpl.UserDataFactory;
 import org.chromium.content_public.browser.ContentFeatureList;
 import org.chromium.content_public.browser.ContentFeatureMap;
 import org.chromium.content_public.browser.Visibility;
 import org.chromium.content_public.browser.WebContents;
+import org.chromium.content_public.browser.WebContents.UserDataFactory;
 import org.chromium.content_public.browser.WebContentsAccessibility;
 import org.chromium.content_public.browser.WebContentsObserver;
 import org.chromium.ui.accessibility.AccessibilityState;
@@ -261,9 +262,8 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
     }
 
     public static @Nullable WebContentsAccessibilityImpl fromWebContents(WebContents webContents) {
-        return ((WebContentsImpl) webContents)
-                .getOrSetUserData(
-                        WebContentsAccessibilityImpl.class, UserDataFactoryLazyHolder.INSTANCE);
+        return webContents.getOrSetUserData(
+                WebContentsAccessibilityImpl.class, UserDataFactoryLazyHolder.INSTANCE);
     }
 
     public static WebContentsAccessibilityImpl fromDelegate(AccessibilityDelegate delegate) {
@@ -783,8 +783,7 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
         } else {
             if (mWebContentsObserver != null) mWebContentsObserver.observe(null);
             WindowEventObserverManager.from(mDelegate.getWebContents()).removeObserver(this);
-            ((WebContentsImpl) mDelegate.getWebContents())
-                    .removeUserData(WebContentsAccessibilityImpl.class);
+            mDelegate.getWebContents().removeUserData(WebContentsAccessibilityImpl.class);
         }
         TraceEvent.end("WebContentsAccessibilityImpl.destroy");
     }
@@ -805,11 +804,10 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
             // Update the browser-level AXMode based on running applications.
             WebContentsAccessibilityImplJni.get()
                     .setBrowserAXMode(
-                            WebContentsAccessibilityImpl.this,
+                            mNativeObj,
                             AccessibilityState.isScreenReaderEnabled(),
                             AccessibilityState.isOnlyPasswordManagersEnabled(),
-                            AccessibilityState.isKnownScreenReaderRunning(),
-                            /* isAccessibilityEnabled= */ true);
+                            AccessibilityState.isScreenReaderRunning());
 
             // Update the state of enabling/disabling the image descriptions feature. To enable the
             // feature, this instance must be a candidate and a screen reader must be enabled.
@@ -1915,11 +1913,48 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
     }
 
     @CalledByNative
+    private void handleDescriptionChangedPaneTitle(int id) {
+        // If the node is dialog, fire CONTENT_CHANGE_TYPE_PANE_TITLE event when receive
+        // DESCRIPTION_CHANGE event from Chrome. e.g. paneTitle is only relevant for dialogs
+        if (isAccessibilityEnabled()) {
+            AccessibilityEvent event =
+                    AccessibilityEvent.obtain(AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED);
+            // Check for null AccessibilityEvent, as it might be null if accessibility services are
+            // disabled.
+            if (event == null) {
+                return;
+            }
+
+            event.setContentChangeTypes(AccessibilityEvent.CONTENT_CHANGE_TYPE_PANE_TITLE);
+            event.setSource(mView, id);
+            requestSendAccessibilityEvent(event);
+        }
+    }
+
+    @CalledByNative
+    private void handleDescriptionChangedSubtree(int id) {
+        if (isAccessibilityEnabled()) {
+            AccessibilityEvent event =
+                    AccessibilityEvent.obtain(AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED);
+            // Accessibility event can be null if accessibility services are disabled or if
+            // the object pool fails to provide an event.
+            if (event == null) {
+                return;
+            }
+
+            event.setSource(mView, id);
+            requestSendAccessibilityEvent(event);
+        }
+    }
+
+    @CalledByNative
     private void handleStateDescriptionChanged(int id) {
         if (isAccessibilityEnabled()) {
             AccessibilityEvent event =
                     AccessibilityEvent.obtain(AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED);
-            if (event == null) return;
+            if (event == null) {
+                return;
+            }
 
             event.setContentChangeTypes(AccessibilityEvent.CONTENT_CHANGE_TYPE_STATE_DESCRIPTION);
             event.setSource(mView, id);
@@ -1970,6 +2005,35 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
     }
 
     @CalledByNative
+    private void handleImageAnnotationChanged(int id) {
+        if (isAccessibilityEnabled()) {
+            AccessibilityEvent event =
+                    AccessibilityEvent.obtain(AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED);
+            if (event == null) {
+                return;
+            }
+
+            event.setContentChangeTypes(AccessibilityEvent.CONTENT_CHANGE_TYPE_TEXT);
+            event.setSource(mView, id);
+            requestSendAccessibilityEvent(event);
+        }
+    }
+
+    @CalledByNative
+    @SuppressLint("WrongConstant")
+    protected void handleMenuOpened(int virtualViewId) {
+        if (isAccessibilityEnabled()) {
+            AccessibilityEvent event =
+                    AccessibilityEvent.obtain(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED);
+            if (event == null) return;
+
+            event.setContentChangeTypes(AccessibilityEvent.CONTENT_CHANGE_TYPE_SUBTREE);
+            event.setSource(mView, virtualViewId);
+            requestSendAccessibilityEvent(event);
+        }
+    }
+
+    @CalledByNative
     private void handleNavigate(int newRootId) {
         mAccessibilityFocusId = View.NO_ID;
         mLastAccessibilityFocusId = View.NO_ID;
@@ -2012,7 +2076,9 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
         if (isAccessibilityEnabled()) {
             AccessibilityEvent event =
                     AccessibilityEvent.obtain(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED);
-            if (event == null) return;
+            if (event == null) {
+                return;
+            }
 
             event.setContentChangeTypes(CONTENT_CHANGE_TYPE_PANE_APPEARED);
             event.setSource(mView, virtualViewId);
@@ -2028,7 +2094,9 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
         if (isAccessibilityEnabled()) {
             AccessibilityEvent event =
                     AccessibilityEvent.obtain(AccessibilityEvent.TYPE_ANNOUNCEMENT);
-            if (event == null) return;
+            if (event == null) {
+                return;
+            }
 
             event.getText().add(text);
             event.setContentDescription(null);
@@ -2140,7 +2208,12 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
             @Nullable Bundle arguments) {
         switch (extraDataKey) {
             case EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY:
-                getExtraDataTextCharacterLocations(virtualViewId, info, arguments);
+                getExtraDataTextCharacterLocations(
+                        virtualViewId, info, arguments, /* isScreenCoordinates= */ true);
+                break;
+            case EXTRA_DATA_TEXT_CHARACTER_LOCATION_IN_WINDOW_KEY:
+                getExtraDataTextCharacterLocations(
+                        virtualViewId, info, arguments, /* isScreenCoordinates= */ false);
                 break;
             case EXTRAS_DATA_REQUEST_IMAGE_DATA_KEY:
                 getImageData(virtualViewId, info);
@@ -2149,7 +2222,10 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
     }
 
     private void getExtraDataTextCharacterLocations(
-            int virtualViewId, AccessibilityNodeInfoCompat info, @Nullable Bundle arguments) {
+            int virtualViewId,
+            AccessibilityNodeInfoCompat info,
+            @Nullable Bundle arguments,
+            boolean isScreenCoordinates) {
         // Arguments must be provided, but some debug tools may not so guard against this.
         if (arguments == null) return;
 
@@ -2181,11 +2257,20 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
                             coords[4 * i + 2],
                             coords[4 * i + 3]);
             AccessibilityNodeInfoBuilder.convertWebRectToAndroidCoordinates(
-                    rect, info.getExtras(), mDelegate.getAccessibilityCoordinates(), mView);
+                    rect,
+                    info.getExtras(),
+                    mDelegate.getAccessibilityCoordinates(),
+                    mView,
+                    isScreenCoordinates);
             boundingRects[i] = new RectF(rect);
         }
 
-        info.getExtras().putParcelableArray(EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY, boundingRects);
+        info.getExtras()
+                .putParcelableArray(
+                        isScreenCoordinates
+                                ? EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY
+                                : EXTRA_DATA_TEXT_CHARACTER_LOCATION_IN_WINDOW_KEY,
+                        boundingRects);
     }
 
     private void getImageData(int virtualViewId, AccessibilityNodeInfoCompat info) {
@@ -2228,11 +2313,10 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
         void connectInstanceToRootManager(long nativeWebContentsAccessibilityAndroid);
 
         void setBrowserAXMode(
-                WebContentsAccessibilityImpl caller,
+                long nativeWebContentsAccessibilityAndroid,
                 boolean screenReaderMode,
                 boolean formControlsMode,
-                boolean isKnownScreenReaderRunning,
-                boolean isAccessibilityEnabled);
+                boolean isScreenReaderRunning);
 
         void disableRendererAccessibility(long nativeWebContentsAccessibilityAndroid);
 

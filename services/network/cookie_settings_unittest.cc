@@ -153,7 +153,7 @@ class CookieSettingsTestBase : public testing::Test {
     return ContentSettingPatternSource(
         ContentSettingsPattern::FromString(primary_pattern),
         ContentSettingsPattern::FromString(secondary_pattern),
-        base::Value(setting), source, off_the_record, metadata);
+        base::Value(setting), source, off_the_record, std::move(metadata));
   }
 
   void FastForwardTime(base::TimeDelta delta) {
@@ -2436,44 +2436,6 @@ TEST_F(CookieSettingsTest, GetStorageAccessStatus) {
                     {net::CookieSettingOverride::
                          kStorageAccessGrantEligibleViaHeader})),
             net::cookie_util::StorageAccessStatus::kActive);
-}
-
-TEST_F(CookieSettingsTest,
-       StorageAccessHeaderOriginTrialSettingAllowedWhenSet) {
-  CookieSettings settings;
-  settings.set_content_settings(
-      ContentSettingsType::STORAGE_ACCESS_HEADER_ORIGIN_TRIAL,
-      {CreateSetting(kURL, kOtherURL, CONTENT_SETTING_ALLOW)});
-
-  EXPECT_TRUE(settings.IsStorageAccessHeadersEnabled(
-      GURL(kURL), url::Origin::Create(GURL(kOtherURL))));
-}
-
-TEST_F(CookieSettingsTest,
-       StorageAccessHeaderOriginTrialSettingUnaffectedByIrrelevantSetting) {
-  base::test::ScopedFeatureList features;
-  features.InitAndDisableFeature(network::features::kStorageAccessHeaders);
-  CookieSettings settings;
-  settings.set_content_settings(
-      ContentSettingsType::STORAGE_ACCESS,
-      {CreateSetting(kURL, kOtherURL, CONTENT_SETTING_ALLOW)});
-
-  EXPECT_FALSE(settings.IsStorageAccessHeadersEnabled(
-      GURL(kURL), url::Origin::Create(GURL(kOtherURL))));
-}
-
-TEST_F(
-    CookieSettingsTest,
-    StorageAccessHeaderOriginTrialSettingUnaffectedBySettingForDifferentPair) {
-  base::test::ScopedFeatureList features;
-  features.InitAndDisableFeature(network::features::kStorageAccessHeaders);
-  CookieSettings settings;
-  settings.set_content_settings(
-      ContentSettingsType::STORAGE_ACCESS_HEADER_ORIGIN_TRIAL,
-      {CreateSetting(kUnrelatedURL, kOtherURL, CONTENT_SETTING_ALLOW)});
-
-  EXPECT_FALSE(settings.IsStorageAccessHeadersEnabled(
-      GURL(kURL), url::Origin::Create(GURL(kOtherURL))));
 }
 
 TEST_F(CookieSettingsTest,

@@ -52,7 +52,8 @@ class SearchEngineChoiceService : public KeyedService {
       regional_capabilities::RegionalCapabilitiesService& regional_capabilities,
       TemplateURLPrepopulateData::Resolver& prepopulate_data_resolver,
       bool is_profile_eligible_for_dse_guest_propagation,
-      int variations_country_id = country_codes::kCountryIDUnknown);
+      country_codes::CountryId variations_country_id =
+          country_codes::CountryId());
   SearchEngineChoiceService(
       PrefService& profile_prefs,
       PrefService* local_state,
@@ -80,12 +81,6 @@ class SearchEngineChoiceService : public KeyedService {
       const policy::PolicyService& policy_service,
       bool is_regular_profile,
       const TemplateURLService& template_url_service);
-
-  // Returns the country ID to use in the context of any search engine choice
-  // logic. Can be overridden using `switches::kSearchEngineChoiceCountry`.
-  // See `//components/country_codes` for the Country ID format.
-  // TODO(crbug.com/328040066): Move to `//components/regional_capabilities`.
-  int GetCountryId();
 
   // Returns key information needed to show a search engine choice screen, like
   // the template URLs for the engines to show. See
@@ -163,7 +158,7 @@ class SearchEngineChoiceService : public KeyedService {
       prepopulate_data_resolver_;
   bool is_profile_eligible_for_dse_guest_propagation_ = false;
   base::ObserverList<Observer> observers_;
-  const int variations_country_id_;
+  const country_codes::CountryId variations_country_id_;
 
   // Used to ensure that the value returned from `GetCountryId` never changes
   // in runtime (different runs can still return different values, though).

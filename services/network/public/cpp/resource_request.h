@@ -25,6 +25,7 @@
 #include "net/storage_access_api/status.h"
 #include "net/url_request/referrer_policy.h"
 #include "services/network/public/cpp/optional_trust_token_params.h"
+#include "services/network/public/cpp/permissions_policy/permissions_policy.h"
 #include "services/network/public/cpp/resource_request_body.h"
 #include "services/network/public/mojom/accept_ch_frame_observer.mojom.h"
 #include "services/network/public/mojom/attribution.mojom.h"
@@ -180,7 +181,7 @@ struct COMPONENT_EXPORT(NETWORK_CPP_BASE) ResourceRequest {
   std::string fetch_integrity;
   // Used to populate `Accept-Signatures`
   // https://www.rfc-editor.org/rfc/rfc9421.html#name-the-accept-signature-field
-  std::vector<std::string> expected_signatures;
+  std::vector<std::string> expected_public_keys;
   mojom::RequestDestination destination = mojom::RequestDestination::kEmpty;
   mojom::RequestDestination original_destination =
       mojom::RequestDestination::kEmpty;
@@ -243,12 +244,16 @@ struct COMPONENT_EXPORT(NETWORK_CPP_BASE) ResourceRequest {
   std::optional<base::UnguessableToken> attribution_reporting_src_token;
   std::optional<base::UnguessableToken> keepalive_token;
   bool is_ad_tagged = false;
+  bool client_side_content_decoding_enabled = false;
   std::optional<base::UnguessableToken> prefetch_token;
   net::SocketTag socket_tag;
+
   // Whether this request is allowed to register device bound sessions
   // or accept challenges for device bound sessions (e.g. due to an
   // origin trial).
   bool allows_device_bound_sessions = false;
+
+  std::optional<network::PermissionsPolicy> permissions_policy;
 };
 // LINT.ThenChange(//services/network/prefetch_matches.cc)
 

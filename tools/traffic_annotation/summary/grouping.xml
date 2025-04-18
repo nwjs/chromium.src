@@ -372,6 +372,11 @@ after discussions on the right group.
       <annotation id="metrics_report_dwa"/>
       <annotation id="version_history"/>
       <annotation id="chromeos_scanner_provider"/>
+      <annotation id="glic_fre_preconnect"/>
+      <annotation id="chromeos_lens_web_image_search"/>
+      <annotation id="chromeos_inline_image_request"/>
+      <annotation id="baguette_image_download"/>
+      <annotation id="chromeos_walrus_provider"/>
     </sender>
   </group>
   <group name="Admin Features" hidden="true">
@@ -398,7 +403,6 @@ after discussions on the right group.
     </sender>
     <sender name="Webstore">
       <annotation id="content_hash_verification_job"/>
-      <annotation id="webstore_data_fetcher"/>
       <annotation id="webstore_install_helper"/>
       <annotation id="webstore_installer"/>
     </sender>
@@ -440,12 +444,6 @@ after discussions on the right group.
     <sender name="Compare">
       <annotation id="chrome_commerce_comparable_products"/>
       <annotation id="product_specifications_fetcher"/>
-    </sender>
-    <sender name="Parcel Tracking">
-      <annotation id="chrome_commerce_parcels_status"/>
-      <annotation id="chrome_commerce_start_tracking_parcel"/>
-      <annotation id="chrome_commerce_stop_tracking_parcel"/>
-      <annotation id="chrome_commerce_stop_tracking_all_parcel"/>
     </sender>
     <sender name="Subscription">
       <annotation id="chrome_commerce_subscriptions_create"/>

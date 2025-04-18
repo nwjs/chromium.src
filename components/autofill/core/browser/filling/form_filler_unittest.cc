@@ -48,7 +48,6 @@
 #include "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/abseil-cpp/absl/types/variant.h"
 
 namespace autofill {
 namespace {
@@ -263,6 +262,7 @@ TEST_F(FormFillerTest, FillTriggeredSection) {
                   {.role = NAME_FULL, .autocomplete_attribute = "name"}}});
   FormsSeen({form});
   FormStructure* form_structure = GetFormStructure(form);
+  ASSERT_TRUE(form_structure);
 
   // Assign different sections to the fields.
   base::flat_map<LocalFrameToken, size_t> frame_token_ids;
@@ -273,6 +273,8 @@ TEST_F(FormFillerTest, FillTriggeredSection) {
   AutofillProfile profile = test::GetFullProfile();
   FillAutofillFormData(form, form.fields()[1], &profile);
 
+  form_structure = GetFormStructure(form);
+  ASSERT_TRUE(form_structure);
   EXPECT_FALSE(form_structure->field(0)->is_autofilled());
   EXPECT_TRUE(form_structure->field(1)->is_autofilled());
 }
@@ -421,7 +423,7 @@ TEST_F(FormFillerTest, UndoSavesFormFillingData) {
 TEST_F(FormFillerTest, UndoSavesFormFillingDataForAutofillAi) {
   FormData form = FormSeen(
       {.fields = {{.role = PASSPORT_NAME_TAG, .heuristic_type = NAME_FULL},
-                  {.role = PASSPORT_ISSUING_COUNTRY_TAG,
+                  {.role = PASSPORT_ISSUING_COUNTRY,
                    .heuristic_type = ADDRESS_HOME_COUNTRY},
                   {.role = PASSPORT_NUMBER},
                   {.role = IBAN_VALUE, .heuristic_type = IBAN_VALUE},
@@ -439,6 +441,33 @@ TEST_F(FormFillerTest, UndoSavesFormFillingDataForAutofillAi) {
       test::GetPassportEntityInstance());
   browser_autofill_manager_->UndoAutofill(mojom::ActionPersistence::kFill, form,
                                           form.fields().front());
+}
+
+TEST_F(FormFillerTest, UndoPreviewDoesNotChangeTheCache) {
+  FormData form = test::CreateTestAddressFormData();
+  FormsSeen({form});
+  AutofillField* autofill_field =
+      GetAutofillField(form.global_id(), form.fields().front().global_id());
+  AutofillProfile profile = test::GetFullProfile();
+
+  EXPECT_CALL(autofill_driver_, ApplyFormAction)
+      .WillRepeatedly(
+          Return(base::flat_set<FieldGlobalId>{autofill_field->global_id()}));
+
+  form_filler().FillOrPreviewForm(
+      mojom::ActionPersistence::kFill, form, &profile, *GetFormStructure(form),
+      *autofill_field, AutofillTriggerSource::kPopup);
+  ASSERT_TRUE(autofill_field->is_autofilled());
+
+  // A preview of the undo operation won't reset the autofill state.
+  browser_autofill_manager_->UndoAutofill(mojom::ActionPersistence::kPreview,
+                                          form, form.fields().front());
+  EXPECT_TRUE(autofill_field->is_autofilled());
+
+  // An actual undo operation will reset the autofill state.
+  browser_autofill_manager_->UndoAutofill(mojom::ActionPersistence::kFill, form,
+                                          form.fields().front());
+  EXPECT_FALSE(autofill_field->is_autofilled());
 }
 
 TEST_F(FormFillerTest, UndoSavesFieldByFieldFillingData) {
@@ -1533,20 +1562,27 @@ TEST_F(FormFillerTest, FillPassportEntity) {
                                          {.role = UNKNOWN_TYPE},
                                      }});
   FormsSeen({form});
-  FormStructure* form_structure = GetFormStructure(form);
 
+  FormStructure* form_structure = GetFormStructure(form);
   ASSERT_TRUE(form_structure);
   auto set_server_type = [&](size_t field_index, auto... types) {
     form_structure->fields()[field_index]->set_server_predictions(
         {test::CreateFieldPrediction(types)...});
   };
+  auto set_format_string = [&](size_t field_index,
+                               std::string_view format_string) {
+    form_structure->fields()[field_index]->set_format_string_unless_overruled(
+        base::UTF8ToUTF16(format_string),
+        AutofillField::FormatStringSource::kServer);
+  };
   set_server_type(0, PASSPORT_NUMBER);
   set_server_type(1, NAME_FIRST, PASSPORT_NAME_TAG);
   set_server_type(2, NAME_LAST, PASSPORT_NAME_TAG);
-  set_server_type(3, ADDRESS_HOME_COUNTRY, PASSPORT_ISSUING_COUNTRY_TAG);
-  set_server_type(4, PASSPORT_ISSUE_DATE_TAG);
-  set_server_type(5, PASSPORT_EXPIRATION_DATE_TAG);
-  form_structure->UpdateAutofillCount();
+  set_server_type(3, ADDRESS_HOME_COUNTRY, PASSPORT_ISSUING_COUNTRY);
+  set_server_type(4, PASSPORT_ISSUE_DATE);
+  set_format_string(4, "M/YY");
+  set_server_type(5, PASSPORT_EXPIRATION_DATE);
+  set_format_string(5, "DD/MM/YYYY");
 
   EntityInstance passport = test::GetPassportEntityInstance();
 
@@ -1556,8 +1592,8 @@ TEST_F(FormFillerTest, FillPassportEntity) {
   EXPECT_EQ(filled_fields[1].value(), u"Pippi");
   EXPECT_EQ(filled_fields[2].value(), u"Långstrump");
   EXPECT_EQ(filled_fields[3].value(), u"Sweden");
-  EXPECT_EQ(filled_fields[4].value(), u"2010-09-01");
-  EXPECT_EQ(filled_fields[5].value(), u"2019-08-30");
+  EXPECT_EQ(filled_fields[4].value(), u"9/10");
+  EXPECT_EQ(filled_fields[5].value(), u"30/08/2019");
 }
 
 // Test that we can still fill a form when a field has been removed from it.
@@ -1665,11 +1701,12 @@ TEST_F(FormFillerTest, TrackFillingOrigin) {
            {.role = NAME_LAST, .autocomplete_attribute = "family-name"},
            {.role = EMAIL_ADDRESS, .autocomplete_attribute = "email"}}});
   FormsSeen({form});
-  FormStructure* form_structure = GetFormStructure(form);
-  ASSERT_TRUE(form_structure);
 
   AutofillProfile profile = test::GetFullProfile();
   FillAutofillFormData(form, form.fields()[0], &profile);
+
+  FormStructure* form_structure = GetFormStructure(form);
+  ASSERT_TRUE(form_structure);
   ASSERT_EQ(form_structure->field_count(), 4u);
   EXPECT_THAT(form_structure->field(0), AutofilledWithProfile(profile));
   EXPECT_THAT(form_structure->field(1), AutofilledWithProfile(profile));
@@ -1685,8 +1722,6 @@ TEST_F(FormFillerTest, TrackFillingOriginWithUsingMultipleProfiles) {
                   {.role = NAME_LAST, .autocomplete_attribute = "family-name"},
                   {.role = EMAIL_ADDRESS, .autocomplete_attribute = "email"}}});
   FormsSeen({form});
-  FormStructure* form_structure = GetFormStructure(form);
-  ASSERT_TRUE(form_structure);
 
   // Fill the form with a profile without email
   AutofillProfile profile1 = test::GetFullProfile();
@@ -1695,6 +1730,8 @@ TEST_F(FormFillerTest, TrackFillingOriginWithUsingMultipleProfiles) {
       FillAutofillFormData(form, form.fields()[0], &profile1);
 
   // Check that the email field has no filling source.
+  FormStructure* form_structure = GetFormStructure(form);
+  ASSERT_TRUE(form_structure);
   ASSERT_EQ(form.fields()[2].label(), u"E-mail address");
   EXPECT_EQ(form_structure->field(2)->autofill_source_profile_guid(),
             std::nullopt);
@@ -1705,6 +1742,8 @@ TEST_F(FormFillerTest, TrackFillingOriginWithUsingMultipleProfiles) {
 
   // Check that the first three fields have the first profile as filling source
   // and the last field has the second profile.
+  form_structure = GetFormStructure(form);
+  ASSERT_TRUE(form_structure);
   ASSERT_EQ(form_structure->field_count(), 3u);
   EXPECT_THAT(form_structure->field(0), AutofilledWithProfile(profile1));
   EXPECT_THAT(form_structure->field(1), AutofilledWithProfile(profile1));
@@ -1719,8 +1758,6 @@ TEST_F(FormFillerTest, TrackFillingOriginOnEditedField) {
            {.role = NAME_FIRST, .autocomplete_attribute = "given-name"},
            {.role = NAME_LAST, .autocomplete_attribute = "family-name"}}});
   FormsSeen({form});
-  FormStructure* form_structure = GetFormStructure(form);
-  ASSERT_TRUE(form_structure);
 
   AutofillProfile profile = test::GetFullProfile();
   FormData filled_form = FillAutofillFormData(form, form.fields()[0], &profile);
@@ -1730,6 +1767,8 @@ TEST_F(FormFillerTest, TrackFillingOriginOnEditedField) {
   browser_autofill_manager_->OnTextFieldValueChanged(
       filled_form, filled_form.fields()[0].global_id(), base::TimeTicks::Now());
 
+  FormStructure* form_structure = GetFormStructure(form);
+  ASSERT_TRUE(form_structure);
   ASSERT_TRUE(form_structure->field(0)->previously_autofilled());
   EXPECT_FALSE(form_structure->field(0)->is_autofilled());
   EXPECT_THAT(form_structure->field(0)->autofill_source_profile_guid(),

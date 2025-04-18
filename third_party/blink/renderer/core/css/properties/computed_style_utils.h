@@ -48,7 +48,8 @@ class CORE_EXPORT ComputedStyleUtils {
     if (length.IsAuto()) {
       return CSSIdentifierValue::Create(CSSValueID::kAuto);
     }
-    return ZoomAdjustedPixelValue(length.Value(), style);
+    DCHECK(length.IsFixed());
+    return ZoomAdjustedPixelValue(length.Pixels(), style);
   }
 
   static const CSSValue* ValueForColor(const StyleColor&,
@@ -149,7 +150,7 @@ class CORE_EXPORT ComputedStyleUtils {
   static CSSIdentifierValue* ValueForFontOpticalSizing(const ComputedStyle&);
   static CSSValue* ValueForFontFeatureSettings(const ComputedStyle&);
   static CSSValue* ValueForFontVariationSettings(const ComputedStyle&);
-  static CSSValue* ValueForFontPalette(const ComputedStyle&);
+  static const CSSValue* ValueForFontPalette(const ComputedStyle&);
   static CSSValue* SpecifiedValueForGridTrackSize(const GridTrackSize&,
                                                   const ComputedStyle&);
   static CSSValue* ValueForGridAutoTrackList(const NGGridTrackList&,

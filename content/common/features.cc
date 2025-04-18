@@ -65,12 +65,11 @@ BASE_FEATURE(kHidePastePopupOnGSB,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
-// If enabled, changes to the zoom level are temporary and are forgotten when
-// the tab is closed. If disabled, changes to the zoom level persist, as though
-// the user affected them through the browser's UX.
-BASE_FEATURE(kCapturedSurfaceControlTemporaryZoom,
-             "CapturedSurfaceControlTemporaryZoom",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+// Holdback the removal of debug reason strings in crrev.com/c/6312375
+// to measure the impact.
+BASE_FEATURE(kHoldbackDebugReasonStringRemoval,
+             "HoldbackDebugReasonStringRemoval",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // If Canvas2D Image Chromium is allowed, this feature controls whether it is
 // enabled.
@@ -138,17 +137,17 @@ BASE_FEATURE(kExperimentalContentSecurityPolicyFeatures,
              "ExperimentalContentSecurityPolicyFeatures",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Support usernames and phone numbers to identify users, instead of
-// (or in addition to) names and emails.
-BASE_FEATURE(kFedCmAlternativeIdentifiers,
-             "FedCmAlternativeIdentifiers",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Allow specifying subsets of "name", "picture", "email" in the fields API.
 // Requires FedCmAuthz to be enabled.
 BASE_FEATURE(kFedCmFlexibleFields,
              "FedCmFlexibleFields",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Whether to support the newer syntax for the "Use Other Account"
+// and account labels features.
+BASE_FEATURE(kFedCmUseOtherAccountAndLabelsNewSyntax,
+             "FedCmUseOtherAccountAndLabelsNewSyntax",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables sending SameSite=Lax cookies in credentialed FedCM requests
 // (accounts endpoint, ID assertion endpoint and disconnect endpoint).
@@ -446,6 +445,13 @@ BASE_FEATURE(kServiceWorkerClientUrlIsCreationUrl,
 BASE_FEATURE(kSkipEarlyCommitPendingForCrashedFrame,
              "SkipEarlyCommitPendingForCrashedFrame",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+#if BUILDFLAG(IS_WIN)
+// Skip granting access to the data path if it has already been set.
+BASE_FEATURE(kSkipGrantAccessToDataPathIfAlreadySet,
+             "SkipGrantAccessToDataPathIfAlreadySet",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
 
 #if BUILDFLAG(IS_MAC)
 BASE_FEATURE(kTextInputClient,

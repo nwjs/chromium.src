@@ -341,18 +341,18 @@ TEST_F(ArcUtilTest, IsArcAllowedForUser) {
       fake_user_manager->AddPublicAccountUser(AccountId::FromUserEmailGaiaId(
           "user3@test.com", GaiaId("1234567890-3")))));
   EXPECT_FALSE(IsArcAllowedForUser(
-      user_manager::TestHelper(*fake_user_manager)
+      user_manager::TestHelper(fake_user_manager.Get())
           .AddKioskAppUser("user4@kiosk-apps.device-local.localhost")));
   EXPECT_TRUE(IsArcAllowedForUser(fake_user_manager->AddGaiaUser(
       AccountId::FromUserEmailGaiaId("user5@test.com", GaiaId("1234567890-5")),
       user_manager::UserType::kChild)));
 
   // Set up public account user.
-  fake_user_manager->AddPublicAccountUser(
-      AccountId::FromUserEmailGaiaId("test@test.com", GaiaId("9876543210")));
+  const AccountId account_id =
+      AccountId::FromUserEmailGaiaId("test@test.com", GaiaId("9876543210"));
+  fake_user_manager->AddPublicAccountUser(account_id);
   fake_user_manager->UserLoggedIn(
-      AccountId::FromUserEmailGaiaId("test@test.com", GaiaId("9876543210")),
-      "test@test.com-hash", false /* browser_restart */, false /* is_child */);
+      account_id, user_manager::TestHelper::GetFakeUsernameHash(account_id));
   const user_manager::User* ephemeral_user = fake_user_manager->GetActiveUser();
   ASSERT_TRUE(ephemeral_user);
   ASSERT_TRUE(fake_user_manager->IsUserCryptohomeDataEphemeral(

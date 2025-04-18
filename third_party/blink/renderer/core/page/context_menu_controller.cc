@@ -501,6 +501,18 @@ bool ContextMenuController::ShowContextMenu(LocalFrame* frame,
     data.title_text = html_element->title().Utf8();
     data.alt_text = html_element->AltText().Utf8();
   }
+
+  if (source_type == kMenuSourceLongPress ||
+      source_type == kMenuSourceLongTap) {
+    for (Node* node = result.InnerNode(); node; node = node->parentNode()) {
+      if (HTMLElement* element = DynamicTo<HTMLElement>(node);
+          element && element->interestTargetElement()) {
+        data.opened_from_interest_target = true;
+        break;
+      }
+    }
+  }
+
   if (!result.AbsoluteMediaURL().IsEmpty() ||
       result.GetMediaStreamDescriptor() || result.GetMediaSourceHandle()) {
     if (!result.AbsoluteMediaURL().IsEmpty())
@@ -629,9 +641,15 @@ bool ContextMenuController::ShowContextMenu(LocalFrame* frame,
     if (potential_image_node != nullptr &&
         IsA<HTMLCanvasElement>(potential_image_node)) {
       data.media_type = mojom::blink::ContextMenuDataMediaType::kCanvas;
-      // TODO(crbug.com/1267243): Support WebGPU canvas.
+#if BUILDFLAG(IS_LINUX)
+      // TODO(crbug.com/40902474): Support reading from the WebGPU front buffer
+      // on Linux and remove the below code, which results in "Copy Image" and
+      // "Save Image To" being grayed out in the context menu.
       data.has_image_contents =
           !To<HTMLCanvasElement>(potential_image_node)->IsWebGPU();
+#else
+      data.has_image_contents = true;
+#endif
     } else if (potential_image_node != nullptr &&
                !HitTestResult::AbsoluteImageURL(potential_image_node)
                     .IsEmpty()) {

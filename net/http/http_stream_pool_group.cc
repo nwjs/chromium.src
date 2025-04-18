@@ -222,7 +222,6 @@ void HttpStreamPool::Group::AddIdleStreamSocket(
   idle_stream_sockets_.emplace_back(std::move(socket), base::TimeTicks::Now());
   pool_->IncrementTotalIdleStreamCount();
   CleanupIdleStreamSockets(CleanupMode::kTimeoutOnly, kIdleTimeLimitExpired);
-  MaybeComplete();
 }
 
 std::unique_ptr<StreamSocket> HttpStreamPool::Group::GetIdleStreamSocket() {
@@ -367,6 +366,10 @@ void HttpStreamPool::Group::OnAttemptManagerComplete() {
 
   attempt_manager_.reset();
 
+  if (on_attempt_manager_complete_callback_for_testing_) {
+    std::move(on_attempt_manager_complete_callback_for_testing_).Run();
+  }
+
   if (should_start_new_attempt_manager) {
     EnsureAttemptManager();
     ResumePausedJob();
@@ -406,6 +409,12 @@ base::Value::Dict HttpStreamPool::Group::GetInfoAsValue() const {
 
 void HttpStreamPool::Group::CleanupTimedoutIdleStreamSocketsForTesting() {
   CleanupIdleStreamSockets(CleanupMode::kTimeoutOnly, "For testing");
+}
+
+void HttpStreamPool::Group::SetOnAttemptManagerCompleteCallbackForTesting(
+    base::OnceClosure callback) {
+  CHECK(on_attempt_manager_complete_callback_for_testing_.is_null());
+  on_attempt_manager_complete_callback_for_testing_ = std::move(callback);
 }
 
 bool HttpStreamPool::Group::IsFailing() const {

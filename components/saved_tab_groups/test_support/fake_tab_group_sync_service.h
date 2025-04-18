@@ -58,12 +58,15 @@ class FakeTabGroupSyncService : public TabGroupSyncService {
   void MakeTabGroupShared(const LocalTabGroupID& local_group_id,
                           std::string_view collaboration_id,
                           TabGroupSharingCallback callback) override;
+  void MakeTabGroupSharedForTesting(const LocalTabGroupID& local_group_id,
+                                    std::string_view collaboration_id) override;
   void AboutToUnShareTabGroup(const LocalTabGroupID& local_group_id,
                               base::OnceClosure on_complete_callback) override;
   void OnTabGroupUnShareComplete(const LocalTabGroupID& local_group_id,
                                  bool success) override;
   void OnCollaborationRemoved(
       const syncer::CollaborationId& collaboration_id) override;
+  std::vector<const SavedTabGroup*> ReadAllGroups() const override;
   std::vector<SavedTabGroup> GetAllGroups() const override;
   std::optional<SavedTabGroup> GetGroup(const base::Uuid& guid) const override;
   std::optional<SavedTabGroup> GetGroup(
@@ -73,8 +76,9 @@ class FakeTabGroupSyncService : public TabGroupSyncService {
   std::vector<LocalTabGroupID> GetDeletedGroupIds() const override;
   std::optional<std::u16string> GetTitleForPreviouslyExistingSharedTabGroup(
       const CollaborationId& collaboration_id) const override;
-  void OpenTabGroup(const base::Uuid& sync_group_id,
-                    std::unique_ptr<TabGroupActionContext> context) override;
+  std::optional<LocalTabGroupID> OpenTabGroup(
+      const base::Uuid& sync_group_id,
+      std::unique_ptr<TabGroupActionContext> context) override;
   void UpdateLocalTabGroupMapping(const base::Uuid& sync_id,
                                   const LocalTabGroupID& local_id,
                                   OpeningSource opening_source) override;
@@ -95,6 +99,8 @@ class FakeTabGroupSyncService : public TabGroupSyncService {
   GetSavedTabGroupControllerDelegate() override;
   base::WeakPtr<syncer::DataTypeControllerDelegate>
   GetSharedTabGroupControllerDelegate() override;
+  base::WeakPtr<syncer::DataTypeControllerDelegate>
+  GetSharedTabGroupAccountControllerDelegate() override;
   std::unique_ptr<ScopedLocalObservationPauser>
   CreateScopedLocalObserverPauser() override;
   void GetURLRestriction(

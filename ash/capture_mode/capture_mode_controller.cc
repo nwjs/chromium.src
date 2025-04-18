@@ -23,6 +23,7 @@
 #include "ash/capture_mode/capture_mode_util.h"
 #include "ash/capture_mode/null_capture_mode_session.h"
 #include "ash/capture_mode/search_results_panel.h"
+#include "ash/capture_mode/sunfish_scanner_feature_watcher.h"
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
 #include "ash/constants/notifier_catalogs.h"
@@ -38,6 +39,7 @@
 #include "ash/root_window_controller.h"
 #include "ash/scanner/scanner_action_view_model.h"
 #include "ash/scanner/scanner_controller.h"
+#include "ash/scanner/scanner_disclaimer.h"
 #include "ash/scanner/scanner_metrics.h"
 #include "ash/scanner/scanner_session.h"
 #include "ash/session/session_controller_impl.h"
@@ -46,6 +48,7 @@
 #include "ash/system/notification_center/message_view_factory.h"
 #include "ash/system/toast/anchored_nudge_manager_impl.h"
 #include "ash/system/video_conference/video_conference_tray_controller.h"
+#include "ash/wm/screen_pinning_controller.h"
 #include "base/auto_reset.h"
 #include "base/check.h"
 #include "base/check_op.h"
@@ -75,6 +78,10 @@
 #include "components/vector_icons/vector_icons.h"
 #include "components/viz/host/host_frame_sink_manager.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
+#include "services/data_decoder/public/cpp/data_decoder.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
+#include "services/network/public/cpp/simple_url_loader.h"
+#include "services/network/public/mojom/url_response_head.mojom.h"
 #include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
 #include "ui/aura/env.h"
 #include "ui/base/clipboard/clipboard_buffer.h"
@@ -562,15 +569,15 @@ bool CaptureTypeRequiresNetworkConnection(PerformCaptureType capture_type) {
 // Returns the target panel bounds in screen coordinates.
 gfx::Rect CalculateSearchResultPanelScreenBounds(
     const gfx::Rect& work_area_in_screen,
-    const gfx::Rect& captured_region_in_screen,
-    const gfx::Rect& feedback_bounds_in_screen) {
+    const gfx::Rect& captured_region_in_screen) {
   // Attempt to place the panel on the left by default.
   gfx::Rect bounds(
       work_area_in_screen.x() + capture_mode::kPanelWorkAreaSpacing,
-      work_area_in_screen.bottom() - capture_mode::kSearchResultsPanelHeight -
+      work_area_in_screen.bottom() -
+          capture_mode::kSearchResultsPanelTotalHeight -
           capture_mode::kPanelWorkAreaSpacing,
       capture_mode::kSearchResultsPanelTotalWidth,
-      capture_mode::kSearchResultsPanelHeight);
+      capture_mode::kSearchResultsPanelTotalHeight);
 
   // If the region would then intersect with the panel, attempt to place the
   // panel on the right.
@@ -594,14 +601,6 @@ gfx::Rect CalculateSearchResultPanelScreenBounds(
                      capture_mode::kPanelWorkAreaSpacing);
       }
     }
-  }
-
-  // If the panel would overlap with the feedback button when it is created,
-  // instead place it just above the button.
-  if (bounds.Intersects(feedback_bounds_in_screen)) {
-    bounds.set_y(feedback_bounds_in_screen.y() -
-                 capture_mode::kSearchResultsPanelHeight -
-                 capture_mode::kPanelButtonSpacing);
   }
 
   return bounds;
@@ -658,6 +657,7 @@ CaptureModeController::CaptureModeController(
 
   Shell::Get()->session_controller()->AddObserver(this);
   chromeos::PowerManagerClient::Get()->AddObserver(this);
+  shell_observation_.Observe(Shell::Get());
 }
 
 CaptureModeController::~CaptureModeController() {
@@ -699,9 +699,7 @@ void CaptureModeController::RegisterProfilePrefs(PrefRegistrySimple* registry) {
   // TODO: crbug.com/388287849 - Clear this pref.
   registry->RegisterBooleanPref(kCanShowDemoToolsNudge,
                                 /*default_value=*/true);
-  registry->RegisterBooleanPref(prefs::kSunfishEnabled,
-                                /*default_value=*/true);
-  registry->RegisterBooleanPref(prefs::kSunfishConsentDisclaimerAccepted,
+  registry->RegisterBooleanPref(prefs::kScannerConsentDisclaimerAccepted,
                                 /*default_value=*/false);
   registry->RegisterBooleanPref(kCanShowSunfishRegionNudge,
                                 /*default_value=*/true);
@@ -800,8 +798,7 @@ void CaptureModeController::MaybeUpdateSearchResultsPanelBounds() {
   wm::ConvertRectToScreen(current_root, &captured_region_in_screen);
 
   gfx::Rect panel_bounds_in_screen = CalculateSearchResultPanelScreenBounds(
-      work_area_in_screen, captured_region_in_screen,
-      capture_mode_session_->GetFeedbackWidgetScreenBounds());
+      work_area_in_screen, captured_region_in_screen);
 
   search_results_panel_widget_->SetBounds(panel_bounds_in_screen);
 }
@@ -1402,6 +1399,10 @@ void CaptureModeController::SendMultimodalSearch(const gfx::ImageSkia& image,
   RecordMultimodalSearchRequest();
 }
 
+bool CaptureModeController::ActiveUserDefaultSearchProviderIsGoogle() const {
+  return delegate_->ActiveUserDefaultSearchProviderIsGoogle();
+}
+
 void CaptureModeController::OnRecordingEnded(
     recording::mojom::RecordingStatus status,
     const gfx::ImageSkia& thumbnail) {
@@ -1515,6 +1516,20 @@ void CaptureModeController::SetSystemMediaDeviceStatus(
 void CaptureModeController::StopAllScreenShare() {
   // Our screen recordings are not considered screen shares, and we already have
   // the stop recording button, so this does nothing.
+}
+
+void CaptureModeController::OnPinnedStateChanged(aura::Window* pinned_window) {
+  // TODO: crbug.com/404941151 - Remove this method and use
+  // `SunfishScannerFeatureWatcher` instead.
+  if (!Shell::Get()->screen_pinning_controller()->IsPinned()) {
+    return;
+  }
+
+  if (IsActive() && capture_mode_session_->active_behavior()->behavior_type() ==
+                        BehaviorType::kSunfish) {
+    Stop();
+  }
+  CloseSearchResultsPanel();
 }
 
 void CaptureModeController::StartVideoRecordingImmediatelyForTesting() {
@@ -2049,19 +2064,38 @@ void CaptureModeController::OnImageCapturedForSearch(
     }
   }
 
-  if (ShouldSendRegionSearch(capture_type)) {
-    const gfx::ImageSkia image = gfx::ImageSkia::CreateFrom1xBitmap(bitmap);
-    // `OnSearchUrlFetched()` will be invoked with `image` when the server
-    // response is fetched.
-    delegate_->SendRegionSearch(
-        bitmap, user_capture_region_,
+  if (!ShouldSendRegionSearch(capture_type)) {
+    return;
+  }
+
+  if (features::IsSunfishLensWebEnabled()) {
+    const gfx::Image image = gfx::Image::CreateFrom1xBitmap(bitmap);
+    const bool is_standalone_session =
+        capture_mode_session_->active_behavior()->behavior_type() ==
+        BehaviorType::kSunfish;
+    delegate_->SendLensWebRegionSearch(
+        image, is_standalone_session,
         base::BindRepeating(&CaptureModeController::OnSearchUrlFetched,
                             weak_ptr_factory_.GetWeakPtr(),
-                            user_capture_region_, image),
+                            user_capture_region_, gfx::ImageSkia()),
         base::BindRepeating(&CaptureModeController::OnLensTextDetectionComplete,
+                            weak_ptr_factory_.GetWeakPtr(), image_search_token),
+        base::BindRepeating(&CaptureModeController::OnLensWebError,
                             weak_ptr_factory_.GetWeakPtr(),
                             image_search_token));
+    return;
   }
+
+  const gfx::ImageSkia image = gfx::ImageSkia::CreateFrom1xBitmap(bitmap);
+  // `OnSearchUrlFetched()` will be invoked with `image` when the server
+  // response is fetched.
+  delegate_->SendRegionSearch(
+      bitmap, user_capture_region_,
+      base::BindRepeating(&CaptureModeController::OnSearchUrlFetched,
+                          weak_ptr_factory_.GetWeakPtr(), user_capture_region_,
+                          image),
+      base::BindRepeating(&CaptureModeController::OnLensTextDetectionComplete,
+                          weak_ptr_factory_.GetWeakPtr(), image_search_token));
 }
 
 void CaptureModeController::OnTextDetectionComplete(
@@ -2150,7 +2184,15 @@ void CaptureModeController::MaybeShowScannerDisclaimerOnSunfishStartup(
                          : base::BindRepeating(&CaptureModeController::Stop,
                                                weak_ptr_factory_.GetWeakPtr());
   capture_mode_session_->MaybeShowScannerDisclaimer(
-      /*accept_callback=*/base::DoNothing(), decline_callback);
+      ScannerEntryPoint::kSunfishSession,
+      /*accept_callback=*/base::BindRepeating([]() {
+        // Start a session after the disclaimer to ensure that it is started
+        // correctly if the user has just consented.
+        if (auto* scanner_controller = Shell::Get()->scanner_controller()) {
+          scanner_controller->StartNewSession();
+        }
+      }),
+      decline_callback);
 }
 
 void CaptureModeController::OnScannerActionsFetched(
@@ -2168,6 +2210,20 @@ void CaptureModeController::OnSearchUrlFetched(const gfx::Rect& captured_region,
   if (captured_region == user_capture_region_) {
     ShowSearchResultsPanel(image, url);
   }
+}
+
+void CaptureModeController::OnLensWebError(
+    base::WeakPtr<BaseCaptureModeSession> image_search_token) {
+  // TODO: crbug.com/406072681 - Show an error message if the session is no
+  // longer active, such as in the case of clicking the Search with Lens button
+  // in a regular session.
+  if (!image_search_token) {
+    return;
+  }
+
+  CHECK(IsActive());
+  capture_mode_session_->ShowActionContainerError(
+      l10n_util::GetStringUTF16(IDS_ASH_SCANNER_ERROR_GENERIC));
 }
 
 void CaptureModeController::OnSearchResultClicked() {

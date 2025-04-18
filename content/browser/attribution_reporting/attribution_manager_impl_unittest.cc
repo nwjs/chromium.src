@@ -1544,11 +1544,41 @@ TEST_F(AttributionManagerImplTest,
 }
 
 TEST_F(AttributionManagerImplTest, HandleSource_RecordsMetric) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(metrics::dwa::kDwaFeature);
+
+  metrics::dwa::DwaRecorder::Get()->EnableRecording();
+  metrics::dwa::DwaRecorder::Get()->Purge();
+  ASSERT_THAT(metrics::dwa::DwaRecorder::Get()->GetEntriesForTesting(),
+              IsEmpty());
+
   base::HistogramTester histograms;
+
   attribution_manager_->HandleSource(SourceBuilder().Build(), kFrameId);
   task_environment_.RunUntilIdle();
   histograms.ExpectUniqueSample("Conversions.SourceStoredStatus8",
                                 StorableSource::Result::kSuccess, 1);
+
+  ASSERT_THAT(metrics::dwa::DwaRecorder::Get()->GetEntriesForTesting().size(),
+              1);
+  EXPECT_THAT(metrics::dwa::DwaRecorder::Get()
+                  ->GetEntriesForTesting()
+                  .at(0)
+                  ->event_hash,
+              base::HashMetricName("AttributionConversionsStoreSource"));
+  // The content is set as the attribution source reporting origin. In unit
+  // tests, this value is set to "https://report.test". DWA content sanitization
+  // extracts the eTLD+1 from this value, yielding "report.test".
+  EXPECT_THAT(metrics::dwa::DwaRecorder::Get()
+                  ->GetEntriesForTesting()
+                  .at(0)
+                  ->content_hash,
+              base::HashMetricName("report.test"));
+  EXPECT_THAT(
+      metrics::dwa::DwaRecorder::Get()->GetEntriesForTesting().at(0)->metrics,
+      UnorderedElementsAre(testing::Pair(
+          base::HashMetricName("Status"),
+          static_cast<int64_t>(StorableSource::Result::kSuccess))));
 }
 
 TEST_F(AttributionManagerImplTest, OnReportSent_NotifiesObservers) {
@@ -2130,6 +2160,56 @@ TEST_F(AttributionManagerImplTest,
 
     histograms.ExpectUniqueSample(
         "Conversions.TimeFromTriggerToReportSentSuccessfullyExceeds30Days",
+        test_case.sample, 1);
+  }
+}
+
+TEST_F(AttributionManagerImplTest,
+       30DaysBetweenInitialReportTimeAndReportSentSuccessfully) {
+  const struct {
+    base::TimeDelta time;
+    bool sample;
+  } kTestCases[] = {
+      // Offset by `kDefaultOfflineReportDelay.max`.
+      {base::Days(30) - kDefaultOfflineReportDelay.max, /*sample=*/false},
+      {base::Days(30) - kDefaultOfflineReportDelay.max + base::Microseconds(1),
+       /*sample=*/true},
+  };
+  for (const auto& test_case : kTestCases) {
+    base::HistogramTester histograms;
+    attribution_manager_->HandleSource(
+        SourceBuilder().SetExpiry(kImpressionExpiry).Build(), kFrameId);
+    attribution_manager_->HandleTrigger(
+        DefaultAggregatableTriggerBuilder().Build(), kFrameId);
+
+    ReportSentCallback report_sent_callback;
+    std::optional<AttributionReport> sent_report;
+
+    EXPECT_CALL(*report_sender_, SendReport(_, /*is_debug_report=*/false, _))
+        .WillOnce([&](AttributionReport report, bool is_debug_report,
+                      ReportSentCallback callback) {
+          report_sent_callback = std::move(callback);
+          sent_report = std::move(report);
+        });
+
+    SetConnectionTypeAndWaitForObserversToBeNotified(
+        network::mojom::ConnectionType::CONNECTION_NONE);
+
+    task_environment_.FastForwardBy(test_case.time + kFirstReportingWindow);
+
+    SetConnectionTypeAndWaitForObserversToBeNotified(
+        network::mojom::ConnectionType::CONNECTION_UNKNOWN);
+
+    task_environment_.FastForwardBy(kDefaultOfflineReportDelay.max);
+
+    ASSERT_TRUE(report_sent_callback);
+    ASSERT_TRUE(sent_report);
+    std::move(report_sent_callback)
+        .Run(*std::move(sent_report), SendResult::Sent(SentResult::kSent,
+                                                       /*status=*/0));
+
+    histograms.ExpectUniqueSample(
+        "Conversions.ExtraReportDelayForSuccessfulSendExceeds30Days",
         test_case.sample, 1);
   }
 }

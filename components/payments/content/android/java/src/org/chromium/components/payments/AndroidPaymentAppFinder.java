@@ -48,18 +48,6 @@ public class AndroidPaymentAppFinder implements ManifestVerifyCallback {
     /** The maximum number of payment method manifests to download. */
     private static final int MAX_NUMBER_OF_MANIFESTS = 10;
 
-    /**
-     * The name of the intent for the service that updates the payment method, the shipping address,
-     * or the shipping option in response to user actions in the payment app.
-     */
-    @VisibleForTesting
-    public static final String ACTION_UPDATE_PAYMENT_DETAILS =
-            "org.chromium.intent.action.UPDATE_PAYMENT_DETAILS";
-
-    /** The name of the intent for the service to check whether an app is ready to pay. */
-    public static final String ACTION_IS_READY_TO_PAY =
-            "org.chromium.intent.action.IS_READY_TO_PAY";
-
     /** Meta data name of an app's supported payment method names. */
     public static final String META_DATA_NAME_OF_PAYMENT_METHOD_NAMES =
             "org.chromium.payment_method_names";
@@ -325,13 +313,15 @@ public class AndroidPaymentAppFinder implements ManifestVerifyCallback {
         }
 
         if (!mIsOffTheRecord) {
-            addIntentServiceToServiceMap(ACTION_IS_READY_TO_PAY, mIsReadyToPayServices);
+            addIntentServiceToServiceMap(
+                    WebPaymentIntentHelper.ACTION_IS_READY_TO_PAY, mIsReadyToPayServices);
         }
 
         if (PaymentFeatureList.isEnabledOrExperimentalFeaturesEnabled(
                 PaymentFeatureList.UPDATE_PAYMENT_DETAILS_INTENT_FILTER_IN_PAYMENT_APP)) {
             addIntentServiceToServiceMap(
-                    ACTION_UPDATE_PAYMENT_DETAILS, mUpdatePaymentDetailsServices);
+                    WebPaymentIntentHelper.ACTION_UPDATE_PAYMENT_DETAILS,
+                    mUpdatePaymentDetailsServices);
         }
 
         if (!PaymentOptionsUtils.requestAnyInformation(
@@ -709,7 +699,7 @@ public class AndroidPaymentAppFinder implements ManifestVerifyCallback {
                 getAppsSupportedDelegations(resolveInfo.activityInfo);
         // Allow-lists the Play Billing method for this feature in order for the Play Billing case
         // to skip the sheet in this case.
-        if (PaymentFeatureList.isEnabled(PaymentFeatureList.ENFORCE_FULL_DELEGATION)
+        if (mFactoryDelegate.isFullDelegationRequired()
                 || methodName.equals(MethodStrings.GOOGLE_PLAY_BILLING)) {
             if (!appSupportedDelegations.providesAll(
                     mFactoryDelegate.getParams().getPaymentOptions())) {

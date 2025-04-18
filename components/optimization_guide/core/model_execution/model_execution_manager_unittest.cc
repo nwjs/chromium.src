@@ -8,6 +8,7 @@
 
 #include "base/files/file_path.h"
 #include "base/functional/callback_helpers.h"
+#include "base/strings/strcat.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
@@ -46,8 +47,8 @@ proto::ExecuteResponse BuildComposeResponse(const std::string& output) {
   compose_response.set_output(output);
   proto::ExecuteResponse execute_response;
   proto::Any* any_metadata = execute_response.mutable_response_metadata();
-  any_metadata->set_type_url("type.googleapis.com/" +
-                             compose_response.GetTypeName());
+  any_metadata->set_type_url(
+      base::StrCat({"type.googleapis.com/", compose_response.GetTypeName()}));
   execute_response.set_server_execution_id("test_id");
   compose_response.SerializeToString(any_metadata->mutable_value());
   return execute_response;
@@ -134,7 +135,7 @@ class ModelExecutionManagerTest : public testing::Test {
 
 TEST_F(ModelExecutionManagerTest, ExecuteModelEmptyAccessToken) {
   base::HistogramTester histogram_tester;
-  ResponseHolder response_holder;
+  RemoteResponseHolder response_holder;
   model_execution_manager()->ExecuteModel(
       ModelBasedCapabilityKey::kCompose, UserInputRequest("a user typed this"),
       /*timeout=*/std::nullopt,
@@ -152,7 +153,7 @@ TEST_F(ModelExecutionManagerTest, ExecuteModelEmptyAccessToken) {
 
 TEST_F(ModelExecutionManagerTest, ExecuteModelWithUserSignIn) {
   base::HistogramTester histogram_tester;
-  ResponseHolder response_holder;
+  RemoteResponseHolder response_holder;
   SetAutomaticIssueOfAccessTokens();
   model_execution_manager()->ExecuteModel(
       ModelBasedCapabilityKey::kCompose, UserInputRequest("a user typed this"),
@@ -160,7 +161,7 @@ TEST_F(ModelExecutionManagerTest, ExecuteModelWithUserSignIn) {
       /*log_ai_data_request=*/nullptr, response_holder.GetCallback());
   EXPECT_TRUE(SimulateSuccessfulResponse());
   EXPECT_TRUE(response_holder.GetFinalStatus());
-  EXPECT_EQ("foo response", response_holder.value());
+  EXPECT_EQ("foo response", response_holder.GetComposeOutput());
   EXPECT_NE(response_holder.log_entry(), nullptr);
   EXPECT_EQ(response_holder.log_entry()
                 ->log_ai_data_request()
@@ -192,7 +193,7 @@ TEST_F(ModelExecutionManagerTest, ExecuteModelWithServerError) {
   EXPECT_EQ(
       OptimizationGuideModelExecutionError::ModelExecutionError::kDisabled,
       response_holder.error());
-  EXPECT_EQ(response_holder.log_entry(), nullptr);
+  EXPECT_EQ(response_holder.model_execution_info(), nullptr);
 
   histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.ModelExecution.ServerError.Compose",
@@ -223,16 +224,14 @@ TEST_F(ModelExecutionManagerTest,
   EXPECT_EQ(OptimizationGuideModelExecutionError::ModelExecutionError::
                 kUnsupportedLanguage,
             response_holder.error());
-  EXPECT_NE(response_holder.log_entry(), nullptr);
+  EXPECT_NE(response_holder.model_execution_info(), nullptr);
   // Check that the correct error state and error enum are
   // recorded:
-  auto model_execution_info = response_holder.log_entry()
-                                  ->log_ai_data_request()
-                                  ->model_execution_info();
+  auto* model_execution_info = response_holder.model_execution_info();
   EXPECT_EQ(proto::ErrorState::ERROR_STATE_UNSUPPORTED_LANGUAGE,
-            model_execution_info.error_response().error_state());
+            model_execution_info->error_response().error_state());
   EXPECT_EQ(7u,  // ModelExecutionError::kUnsupportedLanguage
-            model_execution_info.model_execution_error_enum());
+            model_execution_info->model_execution_error_enum());
 
   histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.ModelExecution.ServerError.Compose",
@@ -276,7 +275,7 @@ TEST_F(ModelExecutionManagerTest, ExecuteModelExecutionModeSetToServerOnly) {
 
   EXPECT_TRUE(response_holder.GetFinalStatus());
   EXPECT_EQ("foo response", response_holder.value());
-  EXPECT_NE(response_holder.log_entry(), nullptr);
+  EXPECT_NE(response_holder.model_execution_info(), nullptr);
 
   histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.ModelExecution.SessionUsedRemoteExecution.Compose",
@@ -308,7 +307,7 @@ TEST_F(ModelExecutionManagerTest,
 
   EXPECT_TRUE(response_holder.GetFinalStatus());
   EXPECT_EQ("foo response", response_holder.value());
-  EXPECT_NE(response_holder.log_entry(), nullptr);
+  EXPECT_NE(response_holder.model_execution_info(), nullptr);
 
   histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.ModelExecution.SessionUsedRemoteExecution.Compose",
@@ -337,7 +336,7 @@ TEST_F(ModelExecutionManagerTest, ExecuteModelWithPassthroughSession) {
 
   EXPECT_TRUE(response_holder.GetFinalStatus());
   EXPECT_EQ("foo response", response_holder.value());
-  EXPECT_NE(response_holder.log_entry(), nullptr);
+  EXPECT_NE(response_holder.model_execution_info(), nullptr);
 
   histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.ModelExecution.SessionUsedRemoteExecution.Compose",
@@ -438,7 +437,7 @@ TEST_F(ModelExecutionManagerTest,
 
 TEST_F(ModelExecutionManagerTest, TestMultipleParallelRequests) {
   base::HistogramTester histogram_tester;
-  ResponseHolder response_holder1, response_holder2;
+  RemoteResponseHolder response_holder1, response_holder2;
 
   SetAutomaticIssueOfAccessTokens();
 
@@ -457,7 +456,7 @@ TEST_F(ModelExecutionManagerTest, TestMultipleParallelRequests) {
   EXPECT_TRUE(SimulateSuccessfulResponse());
 
   EXPECT_TRUE(response_holder2.GetFinalStatus());
-  EXPECT_EQ("foo response", response_holder2.value());
+  EXPECT_EQ("foo response", response_holder2.GetComposeOutput());
   EXPECT_NE(response_holder2.log_entry(), nullptr);
   EXPECT_EQ(response_holder2.log_entry()
                 ->log_ai_data_request()

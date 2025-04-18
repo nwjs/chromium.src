@@ -47,7 +47,7 @@ int ConsumeNumber(std::u16string_view& input,
     ++offset;
   }
   int num = 0;
-  if ((!allow_zero_padding && input.starts_with(u'0')) ||
+  if ((!allow_zero_padding && input.starts_with(u'0') && offset > 1) ||
       offset < min_num_digits ||
       !base::StringToInt(input.substr(0, offset), &num)) {
     return -1;
@@ -56,28 +56,39 @@ int ConsumeNumber(std::u16string_view& input,
   return num;
 }
 
-}  // namespace
-
-bool Date::is_valid() const {
-  static constexpr std::array<int, 13> kDaysOfMonth{31, 31, 28, 31, 30, 31, 30,
-                                                    31, 31, 30, 31, 30, 31};
-  auto is_leap_year = [this]() {
-    return year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
-  };
-  return 0 <= year && year <= 9999 && 0 <= month && month <= 12 && 0 <= day &&
-         day <= kDaysOfMonth[month] + (month == 2 && is_leap_year() ? 1 : 0);
+// If `first_separator` is null, consumes an arbitrary separator and sets
+// `first_separator` to that value.
+// If `first_separator` is non-null, consumes it.
+bool ConsumeSeparator(std::u16string_view& input,
+                      const char16_t*& first_separator) {
+  if (!first_separator) {
+    for (const char16_t* separator :
+         {u" / ", u" . ", u" - ", u"/", u".", u"-", u" ", u""}) {
+      if (Consume(input, separator)) {
+        first_separator = separator;
+        return true;
+      }
+    }
+    NOTREACHED();  // Because `kSeparators` contains u"".
+  } else {
+    return Consume(input, first_separator);
+  }
 }
 
+}  // namespace
+
 bool IsValidDateFormat(std::u16string_view format) {
-  enum Category { kYear, kMonth, kDay, kMaxValue = kDay };
+  int year_width = 0;
+  int month_width = 0;
+  int day_width = 0;
+  const char16_t* first_separator = nullptr;
 
   // Consumes a year, month, or day in the format `subformat`, if no year,
   // month, or day, respectively, has been already in an earlier call.
-  auto consume_part = [&format, found = DenseSet<Category>()](
-                          std::u16string_view subformat,
-                          Category category) mutable {
-    if (!found.contains(category) && Consume(format, subformat)) {
-      found.insert(category);
+  auto consume_part = [&format](std::u16string_view subformat,
+                                int& width) mutable {
+    if (Consume(format, subformat) && width == 0) {
+      width = subformat.size();
       return true;
     }
     return false;
@@ -85,40 +96,42 @@ bool IsValidDateFormat(std::u16string_view format) {
 
   // Consumes a year, month, or day, if no year, month, or day, respectively,
   // has been consumed in an earlier call.
-  auto consume_any_part = [&consume_part]() {
-    return consume_part(u"YYYY", kYear) || consume_part(u"YY", kYear) ||
-           consume_part(u"MM", kMonth) || consume_part(u"M", kMonth) ||
-           consume_part(u"DD", kDay) || consume_part(u"D", kDay);
+  auto consume_any_part = [&]() {
+    return consume_part(u"YYYY", year_width) ||
+           consume_part(u"YY", year_width) ||
+           consume_part(u"MM", month_width) ||
+           consume_part(u"M", month_width) || consume_part(u"DD", day_width) ||
+           consume_part(u"D", day_width);
   };
 
   // Consumes a separator. Subsequent calls only accept the separator that was
   // matched in the first call.
-  auto consume_separator =
-      [&format, separator = static_cast<const char16_t*>(nullptr)]() mutable {
-        if (!separator) {
-          for (const char16_t* token :
-               {u" / ", u" . ", u" - ", u"/", u".", u"-", u" "}) {
-            if (Consume(format, token)) {
-              separator = token;
-              break;
-            }
-          }
-        } else {
-          Consume(format, separator);
-        }
-      };
+  auto consume_separator = [&format, &first_separator]() mutable {
+    return ConsumeSeparator(format, first_separator);
+  };
 
-  // Matches at least one and at most three part, which must be of distinct
-  // categories. The parts may be separated by the same separator.
-  return consume_any_part() &&
-         (format.empty() || (consume_separator(), consume_any_part())) &&
-         (format.empty() || (consume_separator(), consume_any_part())) &&
-         format.empty();
+  return
+      // At least one and at most three parts of distinct categories must be
+      // present (e.g., YYYY-MM-MM are YYYY-MM/DD are not valid).
+      consume_any_part() &&
+      (format.empty() || (consume_separator() && consume_any_part())) &&
+      (format.empty() || (consume_separator() && consume_any_part())) &&
+      format.empty() &&
+      // If both are present, month and day must agree on the width (e.g.,
+      // YYYY-MM-D and YYYY-M-DD are not valid).
+      (month_width == 0 || day_width == 0 || month_width == day_width) &&
+      // If month or day are not alone and they're not long, there must be a
+      // non-empty separator (e.g., DM and YYYYM are not valid).
+      (month_width == 2 || day_width == 2 || !first_separator ||
+       first_separator[0] != '\0');
 }
 
 bool ParseDate(std::u16string_view date,
                std::u16string_view format,
-               Date& result) {
+               Date& result,
+               const char16_t*& first_separator) {
+  first_separator = nullptr;
+
   // Consumes `part` (= YYYY, YY, MM, M, DD, or D) from `format` and the
   // corresponding numeric value from `date`. Returns that numeric value if
   // successful, and -1 otherwise.
@@ -147,6 +160,14 @@ bool ParseDate(std::u16string_view date,
       result.day = num;
     } else if ((num = consume_part(u"D")) >= 0) {
       result.day = num;
+    } else if (Consume(format, u"*")) {
+      if (!ConsumeSeparator(date, first_separator)) {
+        return false;
+      }
+    } else if (Consume(format, u"+")) {
+      if (!ConsumeSeparator(date, first_separator) || !first_separator[0]) {
+        return false;
+      }
     } else if (!date.empty() && !format.empty() && date[0] == format[0]) {
       date = date.substr(1);
       format = format.substr(1);
@@ -155,6 +176,33 @@ bool ParseDate(std::u16string_view date,
     }
   }
   return date.empty() && format.empty();
+}
+
+bool IsValidDateForFormat(const Date& date, std::u16string_view format) {
+  auto max_days = [](int year, int month) {
+    if (month < 1 || month > 12) {
+      return 31;
+    }
+    static constexpr std::array<int, 12> kDaysOfMonth{31, 28, 31, 30, 31, 30,
+                                                      31, 31, 30, 31, 30, 31};
+    bool has_leap_day =
+        month == 2 && year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    return kDaysOfMonth[month - 1] + (has_leap_day ? 1 : 0);
+  };
+
+  bool valid = true;
+  while (!format.empty() && valid) {
+    if (Consume(format, u"YYYY") || Consume(format, u"YY")) {
+      valid = 0 < date.year && date.year <= 9999;
+    } else if (Consume(format, u"MM") || Consume(format, u"M")) {
+      valid = 0 < date.month && date.month <= 12;
+    } else if (Consume(format, u"DD") || Consume(format, u"D")) {
+      valid = 0 < date.day && date.day <= max_days(date.year, date.month);
+    } else {
+      format = format.substr(1);
+    }
+  }
+  return valid;
 }
 
 std::u16string FormatDate(Date date, std::u16string_view format) {

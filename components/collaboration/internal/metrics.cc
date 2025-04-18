@@ -5,9 +5,11 @@
 #include "components/collaboration/internal/metrics.h"
 
 #include "base/metrics/histogram_functions.h"
+#include "base/strings/stringprintf.h"
 #include "components/data_sharing/public/logger.h"
 #include "components/data_sharing/public/logger_common.mojom.h"
 #include "components/data_sharing/public/logger_utils.h"
+#include "ui/base/page_transition_types.h"
 
 namespace collaboration::metrics {
 
@@ -82,6 +84,8 @@ std::string_view CollaborationServiceJoinEventToString(
       return "ManagedAccountSignin";
     case CollaborationServiceJoinEvent::kAccountInfoNotReadyOnSignin:
       return "AccountInfoNotReadyOnSignin";
+    case CollaborationServiceJoinEvent::kReadNewGroupUserIsAlreadyMember:
+      return "ReadNewGroupUserIsAlreadyMember";
   }
 }
 
@@ -145,19 +149,79 @@ std::string_view CollaborationServiceShareOrManageEventToString(
   }
 }
 
+std::string_view CollaborationServiceJoinEntryPointToString(
+    CollaborationServiceJoinEntryPoint entry) {
+  switch (entry) {
+    case CollaborationServiceJoinEntryPoint::kUnknown:
+      return "Unknown";
+    case CollaborationServiceJoinEntryPoint::kLinkClick:
+      return "LinkClick";
+    case CollaborationServiceJoinEntryPoint::kUserTyped:
+      return "UserTyped";
+    case CollaborationServiceJoinEntryPoint::kExternalApp:
+      return "ExternalApp";
+    case CollaborationServiceJoinEntryPoint::kForwardBackButton:
+      return "ForwardBackButton";
+    case CollaborationServiceJoinEntryPoint::kRedirect:
+      return "Redirect";
+  }
+}
+
+std::string_view CollaborationServiceShareOrManageEntryPointToString(
+    CollaborationServiceShareOrManageEntryPoint entry) {
+  switch (entry) {
+    case CollaborationServiceShareOrManageEntryPoint::kUnknown:
+      return "Unknown";
+    case CollaborationServiceShareOrManageEntryPoint::
+        kAndroidTabGridDialogShare:
+      return "AndroidTabGridDialogShare";
+    case CollaborationServiceShareOrManageEntryPoint::
+        kAndroidTabGridDialogManage:
+      return "AndroidTabGridDialogManage";
+    case CollaborationServiceShareOrManageEntryPoint::kRecentActivity:
+      return "RecentActivity";
+    case CollaborationServiceShareOrManageEntryPoint::
+        kAndroidTabGroupContextMenuShare:
+      return "AndroidTabGroupContextMenuShare";
+    case CollaborationServiceShareOrManageEntryPoint::
+        kAndroidTabGroupContextMenuManage:
+      return "AndroidTabGroupContextMenuManage";
+    case CollaborationServiceShareOrManageEntryPoint::kNotification:
+      return "Notification";
+    case CollaborationServiceShareOrManageEntryPoint::kAndroidMessage:
+      return "AndroidMessage";
+    case CollaborationServiceShareOrManageEntryPoint::kTabGroupItemMenuShare:
+      return "TabGroupItemMenuShare";
+    case CollaborationServiceShareOrManageEntryPoint::kAndroidShareSheetExtra:
+      return "AndroidShareSheetExtra";
+    case CollaborationServiceShareOrManageEntryPoint::kDialogToolbarButton:
+      return "DialogToolbarButton";
+  }
+}
+
 std::string CreateJoinEventLogString(CollaborationServiceJoinEvent event) {
-  std::string log = "Join Flow Event [";
-  log += CollaborationServiceJoinEventToString(event);
-  log += "]";
-  return log;
+  return base::StringPrintf("Join Flow Event\n  Event: %s\n",
+                            CollaborationServiceJoinEventToString(event));
 }
 
 std::string CreateShareOrManageEventLogString(
     CollaborationServiceShareOrManageEvent event) {
-  std::string log = "Share or Manage Flow Event [";
-  log += CollaborationServiceShareOrManageEventToString(event);
-  log += "]";
-  return log;
+  return base::StringPrintf(
+      "Share or Manage Flow Event\n  Event: %s\n",
+      CollaborationServiceShareOrManageEventToString(event));
+}
+
+std::string CreateJoinEntryLogToString(
+    CollaborationServiceJoinEntryPoint entry) {
+  return base::StringPrintf("Join Flow Started\n  From: %s\n",
+                            CollaborationServiceJoinEntryPointToString(entry));
+}
+
+std::string CreateShareOrManageEntryLogToString(
+    CollaborationServiceShareOrManageEntryPoint entry) {
+  return base::StringPrintf(
+      "Share or Manage Flow Started\n  From: %s\n",
+      CollaborationServiceShareOrManageEntryPointToString(entry));
 }
 
 }  // namespace
@@ -187,6 +251,57 @@ void RecordJoinOrShareOrManageEvent(
   } else {
     RecordShareOrManageEvent(logger, share_or_manage_event);
   }
+}
+
+void RecordJoinEntryPoint(data_sharing::Logger* logger,
+                          CollaborationServiceJoinEntryPoint entry) {
+  base::UmaHistogramEnumeration("CollaborationService.JoinFlow.EntryPoint",
+                                entry);
+  DATA_SHARING_LOG(logger_common::mojom::LogSource::CollaborationService,
+                   logger, CreateJoinEntryLogToString(entry));
+}
+
+void RecordJoinPageTransitionType(data_sharing::Logger* logger,
+                                  ui::PageTransition transition) {
+  switch (ui::PageTransitionStripQualifier(transition)) {
+    case ui::PageTransition::PAGE_TRANSITION_LINK:
+      RecordJoinEntryPoint(logger,
+                           CollaborationServiceJoinEntryPoint::kLinkClick);
+      break;
+    case ui::PageTransition::PAGE_TRANSITION_TYPED:
+    case ui::PageTransition::PAGE_TRANSITION_FROM_ADDRESS_BAR:
+      RecordJoinEntryPoint(logger,
+                           CollaborationServiceJoinEntryPoint::kUserTyped);
+      break;
+    case ui::PageTransition::PAGE_TRANSITION_FROM_API:
+      RecordJoinEntryPoint(logger,
+                           CollaborationServiceJoinEntryPoint::kExternalApp);
+      break;
+    case ui::PageTransition::PAGE_TRANSITION_FORWARD_BACK:
+      RecordJoinEntryPoint(
+          logger, CollaborationServiceJoinEntryPoint::kForwardBackButton);
+      break;
+    case ui::PageTransition::PAGE_TRANSITION_CHAIN_START:
+    case ui::PageTransition::PAGE_TRANSITION_CHAIN_END:
+    case ui::PageTransition::PAGE_TRANSITION_CLIENT_REDIRECT:
+    case ui::PageTransition::PAGE_TRANSITION_SERVER_REDIRECT:
+    case ui::PageTransition::PAGE_TRANSITION_IS_REDIRECT_MASK:
+      RecordJoinEntryPoint(logger,
+                           CollaborationServiceJoinEntryPoint::kRedirect);
+      break;
+    default:
+      RecordJoinEntryPoint(logger,
+                           CollaborationServiceJoinEntryPoint::kUnknown);
+  }
+}
+
+void RecordShareOrManageEntryPoint(
+    data_sharing::Logger* logger,
+    CollaborationServiceShareOrManageEntryPoint entry) {
+  base::UmaHistogramEnumeration(
+      "CollaborationService.ShareOrManageFlow.EntryPoint", entry);
+  DATA_SHARING_LOG(logger_common::mojom::LogSource::CollaborationService,
+                   logger, CreateShareOrManageEntryLogToString(entry));
 }
 
 }  // namespace collaboration::metrics

@@ -240,6 +240,9 @@ HEADLESS_MODE_PROTOCOL_TEST(DISABLED_FocusBlurNotifications,
 HEADLESS_MODE_PROTOCOL_TEST(MAYBE_InputClipboardOps,
                             "input/input-clipboard-ops.js")
 
+HEADLESS_MODE_PROTOCOL_TEST(DocumentFocusOnLoad,
+                            "input/document-focus-on-load.js")
+
 class HeadlessModeInputSelectFileDialogTest
     : public HeadlessModeProtocolBrowserTest {
  public:
@@ -341,8 +344,8 @@ HEADLESS_MODE_PROTOCOL_TEST_WITH_COMMAND_LINE_EXTRAS(
     "--ozone-override-screen-size=1234,5678")
 #endif
 
-// --screen-info switch is only supported on Linux at this time.
-#if BUILDFLAG(IS_LINUX)
+// --screen-info switch is only supported on Linux and Windows at this time.
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
 // This currently results in an unexpected screen orientation type,
 // see http://crbug.com/398150465.
 HEADLESS_MODE_PROTOCOL_TEST_WITH_COMMAND_LINE_EXTRAS(
@@ -350,19 +353,16 @@ HEADLESS_MODE_PROTOCOL_TEST_WITH_COMMAND_LINE_EXTRAS(
     "sanity/multiple-screen-details.js",
     "--screen-info={label=#1}{600x800 label='#2'}")
 
-// This produces unexpected results, see http://crbug.com/399153009.
 HEADLESS_MODE_PROTOCOL_TEST_WITH_COMMAND_LINE_EXTRAS(
     MoveWindowBetweenScreens,
     "sanity/move-window-between-screens.js",
     "--screen-info={label='#1'}{label='#2'}{0,600 label='#3'}{label='#4'}")
 
-// This produces unexpected results, see http://crbug.com/399153016.
 HEADLESS_MODE_PROTOCOL_TEST_WITH_COMMAND_LINE_EXTRAS(
     WindowOpenOnSecondaryScreen,
     "sanity/window-open-on-secondary-screen.js",
     "--screen-info={label='#1'}{label='#2'} --disable-popup-blocking")
 
-// This produces unexpected results, see http://crbug.com/399132959.
 HEADLESS_MODE_PROTOCOL_TEST_WITH_COMMAND_LINE_EXTRAS(
     CreateTargetSecondaryScreen,
     "sanity/create-target-secondary-screen.js",

@@ -33,6 +33,7 @@
 #include "chrome/browser/ui/views/tabs/tab_style_views.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/collaboration/public/messaging/message.h"
+#include "components/strings/grit/components_strings.h"
 #include "components/url_formatter/url_formatter.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -75,7 +76,7 @@ constexpr int kTitleDomainSpacing = 4;
 constexpr auto kTextMargins = gfx::Insets::VH(12, 12);
 
 // Calculates an appropriate size to display a preview image in the hover card.
-// For the vast majority of images, the |preferred_size| is used, but extremely
+// For the vast majority of images, the `preferred_size` is used, but extremely
 // tall or wide images use the image size instead, centering in the available
 // space.
 gfx::Size GetPreviewImageSize(gfx::Size preview_size,
@@ -223,8 +224,8 @@ class TabHoverCardBubbleView::ThumbnailView
     switch (image_type) {
       case ImageType::kNone:
       case ImageType::kNoneButWaiting:
-        image_view->SetBackground(views::CreateSolidOrThemedBackground(
-            bubble_view_->background_color()));
+        image_view->SetBackground(
+            views::CreateSolidBackground(bubble_view_->background_color()));
         break;
       case ImageType::kPlaceholder:
         image_view->SetVerticalAlignment(views::ImageView::Alignment::kCenter);

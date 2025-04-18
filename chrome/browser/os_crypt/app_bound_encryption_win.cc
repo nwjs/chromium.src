@@ -12,6 +12,7 @@
 #include <wrl/client.h>
 
 #include "base/check_op.h"
+#include "base/compiler_specific.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/logging.h"
@@ -32,8 +33,6 @@
 namespace os_crypt {
 
 namespace {
-
-bool g_non_standard_user_data_dir_supported_for_testing = false;
 
 ProtectionLevel AddFlags(ProtectionLevel protection_level,
                          elevation_service::EncryptFlags flags) {
@@ -58,7 +57,7 @@ ProtectionLevel AddFlags(ProtectionLevel protection_level,
 namespace features {
 BASE_FEATURE(kAppBoundDataReencrypt,
              "AppBoundDataReencrypt",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 }  // namespace features
 
 SupportLevel GetAppBoundEncryptionSupportLevel(PrefService* local_state) {
@@ -67,19 +66,15 @@ SupportLevel GetAppBoundEncryptionSupportLevel(PrefService* local_state) {
     return SupportLevel::kNotSystemLevel;
   }
 
-  base::FilePath user_data_dir;
-  if (!base::PathService::Get(chrome::DIR_USER_DATA, &user_data_dir)) {
-    return SupportLevel::kApiFailed;
-  }
+  const auto maybe_using_default_user_data_dir =
+      chrome::IsUsingDefaultDataDirectory();
 
-  base::FilePath default_user_data_dir;
-  if (!chrome::GetDefaultUserDataDirectory(&default_user_data_dir)) {
+  if (!maybe_using_default_user_data_dir.has_value()) {
     return SupportLevel::kApiFailed;
   }
 
   // User data dir can be overridden by policy or by a command line option.
-  if (user_data_dir != default_user_data_dir &&
-      !g_non_standard_user_data_dir_supported_for_testing) {
+  if (!maybe_using_default_user_data_dir.value()) {
     return SupportLevel::kNotUsingDefaultUserDataDir;
   }
 
@@ -107,6 +102,11 @@ SupportLevel GetAppBoundEncryptionSupportLevel(PrefService* local_state) {
     if (profile_type > 0) {
       return SupportLevel::kDisabledByRoamingWindowsProfile;
     }
+  }
+
+  base::FilePath user_data_dir;
+  if (!base::PathService::Get(chrome::DIR_USER_DATA, &user_data_dir)) {
+    return SupportLevel::kApiFailed;
   }
 
   // If the user data dir is on a network drive, then maybe it is shared between
@@ -167,8 +167,8 @@ HRESULT EncryptAppBoundString(ProtectionLevel protection_level,
     return hr;
 
   base::win::ScopedBstr plaintext_data;
-  ::memcpy(plaintext_data.AllocateBytes(plaintext.length()), plaintext.data(),
-           plaintext.length());
+  UNSAFE_TODO(::memcpy(plaintext_data.AllocateBytes(plaintext.length()),
+                       plaintext.data(), plaintext.length()));
 
   base::win::ScopedBstr encrypted_data;
   if (flags) {
@@ -212,8 +212,8 @@ HRESULT DecryptAppBoundString(const std::string& ciphertext,
     return hr;
 
   base::win::ScopedBstr ciphertext_data;
-  ::memcpy(ciphertext_data.AllocateBytes(ciphertext.length()),
-           ciphertext.data(), ciphertext.length());
+  UNSAFE_TODO(::memcpy(ciphertext_data.AllocateBytes(ciphertext.length()),
+                       ciphertext.data(), ciphertext.length()));
 
   base::win::ScopedBstr plaintext_data;
   hr = elevator->DecryptData(ciphertext_data.Get(), plaintext_data.Receive(),
@@ -254,10 +254,6 @@ HRESULT DecryptAppBoundString(const std::string& ciphertext,
 
   last_error = ERROR_SUCCESS;
   return S_OK;
-}
-
-void SetNonStandardUserDataDirSupportedForTesting(bool supported) {
-  g_non_standard_user_data_dir_supported_for_testing = supported;
 }
 
 }  // namespace os_crypt

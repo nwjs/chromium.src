@@ -398,7 +398,7 @@ int IconLabelBubbleView::GetWidthBetween(int min, int max) const {
                                          : slide_animation_.GetCurrentValue();
   // This tween matches the default for SlideAnimation.
   const gfx::Tween::Type kTween = gfx::Tween::EASE_OUT;
-  if (progress < open_state_fraction_) {
+  if (progress <= open_state_fraction_) {
     double state =
         gfx::Tween::CalculateValue(kTween, progress / open_state_fraction_);
     return gfx::Tween::IntValueBetween(state, min, max);
@@ -502,6 +502,12 @@ void IconLabelBubbleView::AnimationEnded(const gfx::Animation* animation) {
   }
 
   if (!is_animation_paused_) {
+    // The label is shown at the start of animating in.
+    // This ensures the label is hidden at the end of animating out.
+    if (!slide_animation_.IsShowing()) {
+      label()->SetVisible(false);
+    }
+
     // In some cases we want the text to disappear even after animating.
     // Subclasses override `ShouldShowLabelAfterAnimation` for custom behavior.
     // Default behavior is when we do not show separator, the label should
@@ -618,12 +624,12 @@ int IconLabelBubbleView::GetEndPaddingWithSeparator() const {
   return end_padding;
 }
 
-void IconLabelBubbleView::SetUpForAnimation() {
+void IconLabelBubbleView::SetUpForAnimation(base::TimeDelta duration) {
   views::InkDrop::Get(this)->SetMode(views::InkDropHost::InkDropMode::ON);
   SetFocusBehavior(views::PlatformStyle::kDefaultFocusBehavior);
   label()->SetElideBehavior(gfx::NO_ELIDE);
   label()->SetVisible(false);
-  slide_animation_.SetSlideDuration(base::Milliseconds(150));
+  slide_animation_.SetSlideDuration(duration);
   open_state_fraction_ = 1.0;
 }
 
@@ -642,10 +648,10 @@ void IconLabelBubbleView::SetUpForInOutAnimation(base::TimeDelta duration) {
 }
 
 void IconLabelBubbleView::AnimateIn(std::optional<int> string_id) {
-  if (!label()->GetVisible()) {
+  if (!label()->GetVisible() || IsShrinking()) {
     // Start animation from the current width, otherwise the icon will also be
     // included if visible.
-    grow_animation_starting_width_ = GetVisible() ? width() : 0;
+    grow_animation_starting_width_ = GetVisibleBounds().width();
     if (string_id) {
       std::u16string label = l10n_util::GetStringUTF16(string_id.value());
       SetLabel(label);
@@ -671,7 +677,6 @@ void IconLabelBubbleView::AnimateIn(std::optional<int> string_id) {
 
 void IconLabelBubbleView::AnimateOut() {
   if (label()->GetVisible()) {
-    label()->SetVisible(false);
     alert_virtual_view_->SetIsInvisible(true);
     alert_virtual_view_->NotifyEvent(ax::mojom::Event::kHide, true);
     HideAnimation();
@@ -681,10 +686,6 @@ void IconLabelBubbleView::AnimateOut() {
 void IconLabelBubbleView::ResetSlideAnimation(bool show_label) {
   label()->SetVisible(show_label);
   slide_animation_.Reset(show_label);
-}
-
-void IconLabelBubbleView::ReduceAnimationTimeForTesting() {
-  slide_animation_.SetSlideDuration(base::Milliseconds(1));
 }
 
 void IconLabelBubbleView::PauseAnimation() {

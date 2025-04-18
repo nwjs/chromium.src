@@ -18,6 +18,7 @@
 #import "components/sync/service/sync_user_settings.h"
 #import "components/trusted_vault/trusted_vault_server_constants.h"
 #import "ios/chrome/app/application_delegate/app_state.h"
+#import "ios/chrome/browser/authentication/ui_bundled/signin/signin_coordinator.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signout_action_sheet/signout_action_sheet_coordinator.h"
 #import "ios/chrome/browser/regional_capabilities/model/regional_capabilities_service_factory.h"
 #import "ios/chrome/browser/settings/ui_bundled/google_services/bulk_upload/bulk_upload_coordinator.h"
@@ -88,6 +89,8 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
   SyncEncryptionTableViewController* _syncEncryptionTableViewController;
   SyncEncryptionPassphraseTableViewController*
       _syncEncryptionPassphraseTableViewController;
+  // Account menu coordinator.
+  SigninCoordinator* _accountMenuCoordinator;
 }
 
 // View controller.
@@ -120,12 +123,6 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
   SettingsNavigationController* _navigationControllerInModalView;
   // The coordinator for the Personalize Google Services view.
   PersonalizeGoogleServicesCoordinator* _personalizeGoogleServicesCoordinator;
-  // Prevents any data from syncing while the UI is open.
-  // TODO(crbug.com/40066949): This is currently needed for syncing users,
-  // otherwise accidentally touching a toggle immediately uploads existing data.
-  // For non-syncing users that's not true. So remove this after the syncing
-  // state is gone on iOS.
-  std::unique_ptr<syncer::SyncSetupInProgressHandle> _syncSetupInProgressHandle;
 }
 
 @synthesize baseNavigationController = _baseNavigationController;
@@ -141,7 +138,7 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
 }
 
 - (void)start {
-  ProfileIOS* profile = self.browser->GetProfile();
+  ProfileIOS* profile = self.profile;
 
   self.mediator = [[ManageSyncSettingsMediator alloc]
         initWithSyncService:self.syncService
@@ -157,8 +154,7 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
       AuthenticationService::ServiceStatus::SigninForcedByPolicy;
   if (IsLinkedServicesSettingIosEnabled()) {
     self.mediator.isEEAAccount =
-        ios::RegionalCapabilitiesServiceFactory::GetForProfile(
-            self.browser->GetProfile())
+        ios::RegionalCapabilitiesServiceFactory::GetForProfile(self.profile)
             ->IsInEeaCountry();
   }
 
@@ -195,10 +191,9 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
   [self.mediator disconnect];
   [self stopBulkUpload];
   [self stopManageAccountsCoordinator];
+  [self interruptAccountMenuCoordinator];
   self.mediator = nil;
   self.viewController = nil;
-  // Unblock any sync data type changes.
-  _syncSetupInProgressHandle.reset();
   [_syncEncryptionPassphraseTableViewController settingsWillBeDismissed];
   _syncEncryptionPassphraseTableViewController = nil;
   [_syncEncryptionTableViewController settingsWillBeDismissed];
@@ -222,12 +217,11 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
 }
 
 - (syncer::SyncService*)syncService {
-  return SyncServiceFactory::GetForProfile(self.browser->GetProfile());
+  return SyncServiceFactory::GetForProfile(self.profile);
 }
 
 - (AuthenticationService*)authService {
-  return AuthenticationServiceFactory::GetForProfile(
-      self.browser->GetProfile());
+  return AuthenticationServiceFactory::GetForProfile(self.profile);
 }
 
 #pragma mark - Private
@@ -251,6 +245,16 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
 - (void)stopPersonalizedGoogleServicesCoordinator {
   [_personalizeGoogleServicesCoordinator stop];
   _personalizeGoogleServicesCoordinator = nil;
+}
+
+- (void)stopAccountMenuCoordinator {
+  [_accountMenuCoordinator stop];
+  _accountMenuCoordinator = nil;
+}
+
+- (void)interruptAccountMenuCoordinator {
+  [_accountMenuCoordinator interruptAnimated:YES];
+  _accountMenuCoordinator = nil;
 }
 
 // Closes the Manage sync settings view controller.
@@ -402,24 +406,31 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
     // after the settings UI was created.
     return;
   }
+  constexpr signin_metrics::ProfileSignout metricSignOut =
+      signin_metrics::ProfileSignout::kUserClickedSignoutSettings;
+
+  __weak ManageSyncSettingsCoordinator* weakSelf = self;
   self.signoutActionSheetCoordinator = [[SignoutActionSheetCoordinator alloc]
       initWithBaseViewController:self.viewController
                          browser:self.browser
                             rect:targetRect
                             view:self.viewController.view
         forceSnackbarOverToolbar:NO
-                      withSource:signin_metrics::ProfileSignout::
-                                     kUserClickedSignoutSettings];
+                      withSource:metricSignOut
+                      completion:^(BOOL success) {
+                        [weakSelf handleSignOutCompleted:success];
+                      }];
   self.signoutActionSheetCoordinator.delegate = self;
-  __weak ManageSyncSettingsCoordinator* weakSelf = self;
-  self.signoutActionSheetCoordinator.signoutCompletion = ^(BOOL success) {
-    [weakSelf.signoutActionSheetCoordinator stop];
-    weakSelf.signoutActionSheetCoordinator = nil;
-    if (success) {
-      [weakSelf closeManageSyncSettings];
-    }
-  };
   [self.signoutActionSheetCoordinator start];
+}
+
+// Handles signout operation with `success` or failure.
+- (void)handleSignOutCompleted:(BOOL)success {
+  [self.signoutActionSheetCoordinator stop];
+  self.signoutActionSheetCoordinator = nil;
+  if (success) {
+    [self closeManageSyncSettings];
+  }
 }
 
 - (void)showAdressesNotEncryptedDialog {
@@ -476,6 +487,22 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
                     [weakSelf resetDismissAccountDetailsController];
                   },
                   weakself));
+}
+
+- (void)openAccountMenu {
+  // TODO(crbug.com/336719357): Update to use ApplicationCommands.
+  _accountMenuCoordinator = [SigninCoordinator
+      accountMenuCoordinatorWithBaseViewController:self.viewController
+                                           browser:self.browser
+                                        anchorView:_viewController.view];
+
+  __weak __typeof(self) weakself = self;
+  _accountMenuCoordinator.signinCompletion =
+      ^(SigninCoordinatorResult result, id<SystemIdentity> identity) {
+        [weakself stopAccountMenuCoordinator];
+      };
+
+  [_accountMenuCoordinator start];
 }
 
 #pragma mark - SignoutActionSheetCoordinatorDelegate

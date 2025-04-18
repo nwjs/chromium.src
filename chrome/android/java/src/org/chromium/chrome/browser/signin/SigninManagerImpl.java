@@ -23,7 +23,6 @@ import org.chromium.base.ObserverList;
 import org.chromium.base.Promise;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.metrics.RecordHistogram;
-import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
 import org.chromium.chrome.browser.bookmarks.BookmarkModel;
@@ -54,7 +53,6 @@ import org.chromium.components.signin.identitymanager.IdentityMutator;
 import org.chromium.components.signin.identitymanager.PrimaryAccountError;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
 import org.chromium.components.signin.metrics.SignoutReason;
-import org.chromium.components.sync.SyncService;
 import org.chromium.components.user_prefs.UserPrefs;
 
 import java.lang.annotation.Retention;
@@ -89,10 +87,12 @@ class SigninManagerImpl implements IdentityManager.Observer, SigninManager, Acco
     private final AccountManagerFacade mAccountManagerFacade;
     private final IdentityManager mIdentityManager;
     private final IdentityMutator mIdentityMutator;
-    private final SyncService mSyncService;
     private final ObserverList<SignInStateObserver> mSignInStateObservers = new ObserverList<>();
     private final List<Runnable> mCallbacksWaitingForPendingOperation = new ArrayList<>();
-    private boolean mSigninAllowedByPolicy;
+
+    // Is true when the sign-in is not disabled via the toggle in settings and not disabled by
+    // policies. The value should match the one of PrefService.getBoolean(Pref.SIGNIN_ALLOWED).
+    private boolean mSigninAllowedPref;
 
     /**
      * Will be set during the sign in process, and nulled out when there is not a pending sign in.
@@ -121,19 +121,14 @@ class SigninManagerImpl implements IdentityManager.Observer, SigninManager, Acco
             long nativeSigninManagerAndroid,
             @JniType("Profile*") Profile profile,
             @JniType("signin::IdentityManager*") IdentityManager identityManager,
-            IdentityMutator identityMutator,
-            SyncService syncService) {
+            IdentityMutator identityMutator) {
         assert nativeSigninManagerAndroid != 0;
         assert profile != null;
         assert identityManager != null;
         assert identityMutator != null;
         final SigninManagerImpl signinManager =
                 new SigninManagerImpl(
-                        nativeSigninManagerAndroid,
-                        profile,
-                        identityManager,
-                        identityMutator,
-                        syncService);
+                        nativeSigninManagerAndroid, profile, identityManager, identityMutator);
 
         identityManager.addObserver(signinManager);
         AccountInfoServiceProvider.init(identityManager);
@@ -145,17 +140,15 @@ class SigninManagerImpl implements IdentityManager.Observer, SigninManager, Acco
             long nativeSigninManagerAndroid,
             Profile profile,
             IdentityManager identityManager,
-            IdentityMutator identityMutator,
-            SyncService syncService) {
+            IdentityMutator identityMutator) {
         ThreadUtils.assertOnUiThread();
         mNativeSigninManagerAndroid = nativeSigninManagerAndroid;
         mProfile = profile;
         mIdentityManager = identityManager;
         mIdentityMutator = identityMutator;
-        mSyncService = syncService;
 
-        mSigninAllowedByPolicy =
-                SigninManagerImplJni.get().isSigninAllowedByPolicy(mNativeSigninManagerAndroid);
+        mSigninAllowedPref =
+                SigninManagerImplJni.get().isSigninAllowed(mNativeSigninManagerAndroid);
         mAccountManagerFacade = AccountManagerFacadeProvider.getInstance();
         mAccountManagerFacade.addObserver(this);
         Promise<List<CoreAccountInfo>> coreAccountInfosPromise =
@@ -250,17 +243,8 @@ class SigninManagerImpl implements IdentityManager.Observer, SigninManager, Acco
     @Override
     public boolean isSigninAllowed() {
         return mSignInState == null
-                && mSigninAllowedByPolicy
+                && mSigninAllowedPref
                 && mIdentityManager.getPrimaryAccountInfo(ConsentLevel.SIGNIN) == null
-                && isSigninSupported(/* requireUpdatedPlayServices= */ false);
-    }
-
-    /** Returns true if sync opt in can be started now. */
-    @Override
-    public boolean isSyncOptInAllowed() {
-        return mSignInState == null
-                && mSigninAllowedByPolicy
-                && mIdentityManager.getPrimaryAccountInfo(ConsentLevel.SYNC) == null
                 && isSigninSupported(/* requireUpdatedPlayServices= */ false);
     }
 
@@ -273,16 +257,11 @@ class SigninManagerImpl implements IdentityManager.Observer, SigninManager, Acco
                 && mIdentityManager.isClearPrimaryAccountAllowed();
     }
 
-    /** Returns true if signin is disabled by policy. */
-    @Override
-    public boolean isSigninDisabledByPolicy() {
-        return !mSigninAllowedByPolicy;
-    }
-
     /**
      * Returns whether the user can sign-in (maybe after an update to Google Play services).
+     *
      * @param requireUpdatedPlayServices Indicates whether an updated version of play services is
-     *         required or not.
+     *     required or not.
      */
     @Override
     public boolean isSigninSupported(boolean requireUpdatedPlayServices) {
@@ -345,25 +324,33 @@ class SigninManagerImpl implements IdentityManager.Observer, SigninManager, Acco
     }
 
     @Override
-    public void signinAndEnableSync(
-            CoreAccountInfo coreAccountInfo,
-            @SigninAccessPoint int accessPoint,
-            @Nullable SignInCallback callback) {
-        signinInternal(
-                SignInState.createForSigninAndEnableSync(accessPoint, coreAccountInfo, callback));
+    public void turnOnSyncForTesting(
+            CoreAccountInfo coreAccountInfo, @SigninAccessPoint int accessPoint) {
+        assert mIdentityManager.getPrimaryAccountInfo(ConsentLevel.SIGNIN).equals(coreAccountInfo)
+                : "Must be signed-in to turn on sync ";
+        @PrimaryAccountError
+        int primaryAccountError =
+                mIdentityMutator.setPrimaryAccount(
+                        coreAccountInfo.getId(), ConsentLevel.SYNC, accessPoint, () -> {});
+        assert primaryAccountError == PrimaryAccountError.NO_ERROR
+                : "Encountered error: " + primaryAccountError;
     }
 
     private void signinInternal(SignInState signInState) {
-        assert isSyncOptInAllowed()
-                : String.format(
-                        "Sign-in isn't allowed!\n"
-                                + "  mSignInState: %s\n"
-                                + "  mSigninAllowedByPolicy: %s\n"
-                                + "  Primary sync account: %s",
-                        mSignInState,
-                        mSigninAllowedByPolicy,
-                        mIdentityManager.getPrimaryAccountInfo(ConsentLevel.SYNC));
-        assert signInState != null : "SigninState shouldn't be null!";
+        if (signInState == null) {
+            throw new IllegalArgumentException("SigninState shouldn't be null!");
+        }
+        if (!isSigninAllowed()) {
+            throw new IllegalStateException(
+                    String.format(
+                            "Sign-in isn't allowed!\n"
+                                    + "  mSignInState: %s\n"
+                                    + "  mSigninAllowedPref: %s\n"
+                                    + "  Signed-in account: %s",
+                            mSignInState,
+                            mSigninAllowedPref,
+                            mIdentityManager.getPrimaryAccountInfo(ConsentLevel.SIGNIN)));
+        }
 
         // The mSignInState must be updated prior to the async processing below, as this indicates
         // that a signin operation is in progress and prevents other sign in operations from being
@@ -414,10 +401,6 @@ class SigninManagerImpl implements IdentityManager.Observer, SigninManager, Acco
         assert !mIdentityManager.hasPrimaryAccount(ConsentLevel.SYNC)
                 : "The user should not be already signed in";
 
-        @ConsentLevel
-        int consentLevel =
-                mSignInState.shouldTurnSyncOn() ? ConsentLevel.SYNC : ConsentLevel.SIGNIN;
-
         // Retain the sign-in callback since pref commit callback will be called after sign-in is
         // considered completed and sign-in state is reset.
         final SignInCallback signInCallback = mSignInState.mCallback;
@@ -425,7 +408,7 @@ class SigninManagerImpl implements IdentityManager.Observer, SigninManager, Acco
         int primaryAccountError =
                 mIdentityMutator.setPrimaryAccount(
                         mSignInState.mCoreAccountInfo.getId(),
-                        consentLevel,
+                        ConsentLevel.SIGNIN,
                         mSignInState.getAccessPoint(),
                         () -> {
                             Log.d(TAG, "Sign-in native prefs written.");
@@ -445,16 +428,6 @@ class SigninManagerImpl implements IdentityManager.Observer, SigninManager, Acco
 
         // Should be called after setting the primary account.
         maybeUpdateLegacyPrimaryAccountEmail();
-
-        if (mSignInState.shouldTurnSyncOn()) {
-            mSyncService.setSyncRequested();
-
-            RecordUserAction.record("Signin_Signin_Succeed");
-            RecordHistogram.recordEnumeratedHistogram(
-                    "Signin.SigninCompletedAccessPoint",
-                    mSignInState.getAccessPoint(),
-                    SigninAccessPoint.MAX_VALUE );
-        }
 
         if (mSignInState.mCallback != null) {
             mSignInState.mCallback.onSignInComplete();
@@ -643,9 +616,11 @@ class SigninManagerImpl implements IdentityManager.Observer, SigninManager, Acco
         }
     }
 
+    // TODO(crbug.com/404801135): Remove this method and mSigninAllowedPref to rely on
+    // Pref.SIGNIN_ALLOWED instead.
     @CalledByNative
-    private void onSigninAllowedByPolicyChanged(boolean newSigninAllowedByPolicy) {
-        mSigninAllowedByPolicy = newSigninAllowedByPolicy;
+    private void onSigninAllowedChanged(boolean signinAllowed) {
+        mSigninAllowedPref = signinAllowed;
         notifySignInAllowedChanged();
     }
 
@@ -829,12 +804,11 @@ class SigninManagerImpl implements IdentityManager.Observer, SigninManager, Acco
     }
 
     /**
-     * Contains all the state needed for signin. This forces signin flow state to be
-     * cleared atomically, and all final fields to be set upon initialization.
+     * Contains all the state needed for signin. This forces signin flow state to be cleared
+     * atomically, and all final fields to be set upon initialization.
      */
     private static class SignInState {
         private final @SigninAccessPoint Integer mAccessPoint;
-        private final boolean mShouldTurnSyncOn;
         private final CoreAccountInfo mCoreAccountInfo;
         final SignInCallback mCallback;
 
@@ -849,48 +823,24 @@ class SigninManagerImpl implements IdentityManager.Observer, SigninManager, Acco
                 @SigninAccessPoint int accessPoint,
                 CoreAccountInfo coreAccountInfo,
                 @Nullable SignInCallback callback) {
-            return new SignInState(accessPoint, coreAccountInfo, callback, false);
-        }
-
-        /**
-         * State for the sync consent flow.
-         *
-         * @param accessPoint {@link SigninAccessPoint} that has initiated the sign-in.
-         * @param coreAccountInfo The {@link CoreAccountInfo} to sign in with.
-         * @param callback Called when the sign-in process finishes or is cancelled. Can be null.
-         */
-        static SignInState createForSigninAndEnableSync(
-                @SigninAccessPoint int accessPoint,
-                CoreAccountInfo coreAccountInfo,
-                @Nullable SignInCallback callback) {
-            return new SignInState(accessPoint, coreAccountInfo, callback, true);
+            return new SignInState(accessPoint, coreAccountInfo, callback);
         }
 
         private SignInState(
                 @SigninAccessPoint Integer accessPoint,
                 CoreAccountInfo coreAccountInfo,
-                @Nullable SignInCallback callback,
-                boolean shouldTurnSyncOn) {
+                @Nullable SignInCallback callback) {
             assert coreAccountInfo != null : "CoreAccountInfo must be set and valid to progress.";
             mAccessPoint = accessPoint;
             mCoreAccountInfo = coreAccountInfo;
             mCallback = callback;
-            mShouldTurnSyncOn = shouldTurnSyncOn;
         }
 
-        /**
-         * Getter for the access point that initiated sync consent flow. Shouldn't be called if
-         * {@link #shouldTurnSyncOn()} is false.
-         */
+        /** Getter for the access point that initiated sign-in flow. */
         @SigninAccessPoint
         int getAccessPoint() {
             assert mAccessPoint != null : "Not going to enable sync - no access point!";
             return mAccessPoint;
-        }
-
-        /** Whether this sign-in flow should also turn on sync. */
-        boolean shouldTurnSyncOn() {
-            return mShouldTurnSyncOn;
         }
     }
 
@@ -928,7 +878,7 @@ class SigninManagerImpl implements IdentityManager.Observer, SigninManager, Acco
 
     @NativeMethods
     interface Natives {
-        boolean isSigninAllowedByPolicy(long nativeSigninManagerAndroid);
+        boolean isSigninAllowed(long nativeSigninManagerAndroid);
 
         boolean isForceSigninEnabled(long nativeSigninManagerAndroid);
 

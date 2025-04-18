@@ -90,6 +90,8 @@
 #include "net/test/embedded_test_server/http_response.h"
 #include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
 #include "ppapi/buildflags/buildflags.h"
+#include "services/network/public/cpp/content_decoding_interceptor.h"
+#include "services/network/public/cpp/features.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
@@ -4417,6 +4419,72 @@ IN_PROC_BROWSER_TEST_F(DownloadContentTest, DuplicateContentDisposition) {
 
   EXPECT_EQ(FILE_PATH_LITERAL("Jumboshrimp.txt"),
             downloads[0]->GetTargetFilePath().BaseName().value());
+}
+
+IN_PROC_BROWSER_TEST_F(DownloadContentTest,
+                       CompressedResponseWithContentDisposition) {
+  // gzip-content-with-content-disposition.gz is served with Content-Disposition
+  // headers, and `Content-Encoding: gzip`.
+  NavigateToURLAndWaitForDownload(
+      shell(),
+      embedded_test_server()->GetURL(
+          "/download/gzip-content-with-content-disposition.gz"),
+      download::DownloadItem::COMPLETE);
+
+  std::vector<raw_ptr<download::DownloadItem, VectorExperimental>> downloads;
+  DownloadManagerForShell(shell())->GetAllDownloads(&downloads);
+  ASSERT_EQ(1u, downloads.size());
+
+  EXPECT_EQ(FILE_PATH_LITERAL("hello.txt"),
+            downloads[0]->GetTargetFilePath().BaseName().value());
+
+  // Verify the file is downloaded correctly.
+  {
+    base::ScopedAllowBlockingForTesting allow_blocking;
+    std::string downloaded_content;
+    ASSERT_TRUE(base::ReadFileToString(downloads[0]->GetTargetFilePath(),
+                                       &downloaded_content));
+    EXPECT_EQ(downloaded_content, "Hello World!\n");
+  }
+}
+
+// Test fixture for forcing RendererSideContentDecoding feature.
+class DownloadContentRendererSideContentDecodingTest
+    : public DownloadContentTest {
+ public:
+  DownloadContentRendererSideContentDecodingTest() = default;
+  ~DownloadContentRendererSideContentDecodingTest() override = default;
+
+ private:
+  base::test::ScopedFeatureList features_ = base::test::ScopedFeatureList(
+      {network::features::kRendererSideContentDecoding});
+};
+
+IN_PROC_BROWSER_TEST_F(
+    DownloadContentRendererSideContentDecodingTest,
+    CompressedResponseWithContentDispositionInsufficientResources) {
+  // Forces the ContentDecodingInterceptor to simulate a failure when attempting
+  // to create its internal Mojo data pipe.
+  network::ContentDecodingInterceptor::
+      SetForceMojoCreateDataPipeFailureForTesting(true);
+
+  auto observer = std::make_unique<DownloadCreateObserver>(
+      DownloadManagerForShell(shell()));
+  // gzip-content-with-content-disposition.gz is served with Content-Disposition
+  // headers, and `Content-Encoding: gzip`.
+  EXPECT_TRUE(NavigateToURLAndExpectNoCommit(
+      shell(), embedded_test_server()->GetURL(
+                   "/download/gzip-content-with-content-disposition.gz")));
+  download::DownloadItem* download = observer->WaitForFinished();
+  WaitForInterrupt(download);
+
+  // Verify that the download interruption reason is NETWORK_FAILED.
+  EXPECT_EQ(download->GetLastReason(),
+            download::DOWNLOAD_INTERRUPT_REASON_NETWORK_FAILED);
+
+  // Reset the test hook to false to ensure it doesn't affect subsequent tests.
+  network::ContentDecodingInterceptor::
+      SetForceMojoCreateDataPipeFailureForTesting(false);
 }
 
 // Test that the network isolation key is populated for:

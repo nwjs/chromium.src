@@ -43,10 +43,8 @@ using OnProfileSwitchCompletion =
 
 - (instancetype)init NS_UNAVAILABLE;
 
-// Cancels any outstanding work and dismisses an alert view (if shown) using
-// animation if `animated` is true. Calls `completion` synchronously.
-- (void)interruptWithAction:(SigninCoordinatorInterrupt)action
-                 completion:(ProceduralBlock)completion;
+// Cancels any outstanding work and dismisses an alert view (if shown).
+- (void)interrupt;
 
 // Fetches the list of data types with unsync data in the primary account.
 // `-[id<AuthenticationFlowPerformerDelegate>
@@ -88,10 +86,12 @@ using OnProfileSwitchCompletion =
         currentProfile:(ProfileIOS*)currentProfile;
 
 // Switches to the profile that `identity` is assigned, for `sceneIdentifier`.
-// `completion` is called once the switch failed or succeeded.
 - (void)switchToProfileWithIdentity:(id<SystemIdentity>)identity
-                         sceneState:(SceneState*)sceneState
-                         completion:(OnProfileSwitchCompletion)completion;
+                         sceneState:(SceneState*)sceneState;
+
+// Switches to the profile with `profileName`, for `sceneIdentifier`.
+- (void)switchToProfileWithName:(const std::string&)profileName
+                     sceneState:(SceneState*)sceneState;
 
 // Converts the personal profile to a managed one and attaches `identity` to it.
 - (void)makePersonalProfileManagedWithIdentity:(id<SystemIdentity>)identity;
@@ -107,7 +107,7 @@ using OnProfileSwitchCompletion =
 // `hostedDomain`. The confirmation dialog's content will be different depending
 // on the status of User Policy.
 - (void)showManagedConfirmationForHostedDomain:(NSString*)hostedDomain
-                                     userEmail:(NSString*)userEmail
+                                      identity:(id<SystemIdentity>)identity
                                 viewController:(UIViewController*)viewController
                                        browser:(Browser*)browser
                      skipBrowsingDataMigration:(BOOL)skipBrowsingDataMigration

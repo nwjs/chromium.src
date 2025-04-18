@@ -41,6 +41,7 @@
 #include "base/trace_event/memory_dump_manager.h"
 #include "build/build_config.h"
 #include "components/history_embeddings/history_embeddings_features.h"
+#include "components/lens/lens_features.h"
 #include "components/omnibox/browser/actions/omnibox_action_in_suggest.h"
 #include "components/omnibox/browser/actions/omnibox_answer_action.h"
 #include "components/omnibox/browser/actions/omnibox_pedal_provider.h"
@@ -54,6 +55,7 @@
 #include "components/omnibox/browser/builtin_provider.h"
 #include "components/omnibox/browser/calculator_provider.h"
 #include "components/omnibox/browser/clipboard_provider.h"
+#include "components/omnibox/browser/contextual_search_provider.h"
 #include "components/omnibox/browser/document_provider.h"
 #include "components/omnibox/browser/enterprise_search_aggregator_provider.h"
 #include "components/omnibox/browser/featured_search_provider.h"
@@ -69,6 +71,7 @@
 #include "components/omnibox/browser/on_device_head_provider.h"
 #include "components/omnibox/browser/open_tab_provider.h"
 #include "components/omnibox/browser/page_classification_functions.h"
+#include "components/omnibox/browser/recently_closed_tabs_provider.h"
 #include "components/omnibox/browser/search_provider.h"
 #include "components/omnibox/browser/search_scoring_signals_annotator.h"
 #include "components/omnibox/browser/shortcuts_provider.h"
@@ -461,6 +464,10 @@ void AutocompleteController::ExtendMatchSubtypes(
     }
     case AutocompleteMatchType::HISTORY_BODY: {
       subtypes->emplace(omnibox::SUBTYPE_OMNIBOX_HISTORY_BODY);
+      break;
+    }
+    case AutocompleteMatchType::HISTORY_KEYWORD: {
+      subtypes->emplace(omnibox::SUBTYPE_OMNIBOX_HISTORY_KEYWORD);
       break;
     }
     case AutocompleteMatchType::BOOKMARK_TITLE: {
@@ -1044,6 +1051,15 @@ bool AutocompleteController::ShouldRunProvider(
     return false;
   }
 
+  // If zero prefix suggest is disabled for the Lens contextual searchbox, only
+  // run the typed search provider. Else, will use the IsLensSearchbox check
+  // below.
+  if (omnibox::IsLensContextualSearchbox(
+          input_.current_page_classification()) &&
+      !lens::features::ShowContextualSearchboxZeroPrefixSuggest()) {
+    return provider->type() == AutocompleteProvider::TYPE_SEARCH;
+  }
+
   // Only a subset of providers are run for the Lens searchboxes.
   if (omnibox::IsLensSearchbox(input_.current_page_classification())) {
     return provider->type() == AutocompleteProvider::TYPE_SEARCH ||
@@ -1074,6 +1090,10 @@ bool AutocompleteController::ShouldRunProvider(
         (keyword_turl->starter_pack_id() > 0 ||
          keyword_turl->policy_origin() ==
              TemplateURLData::PolicyOrigin::kSearchAggregator)) {
+      if (keyword_turl->starter_pack_id() ==
+          TemplateURLStarterPackData::kPage) {
+        return provider->type() == AutocompleteProvider::TYPE_CONTEXTUAL_SEARCH;
+      }
       switch (provider->type()) {
         // Keyword provider creates the suggestion attached to the keyword chip
         // and search provider creates the SEARCH_OTHER_ENGINE suggestion
@@ -1243,6 +1263,10 @@ void AutocompleteController::InitializeAsyncProviders(int provider_types) {
         new UnscopedExtensionProvider(provider_client_.get(), this);
     providers_.push_back(unscoped_extension_provider_.get());
   }
+  if (provider_types & AutocompleteProvider::TYPE_CONTEXTUAL_SEARCH) {
+    providers_.push_back(
+        new ContextualSearchProvider(provider_client_.get(), this));
+  }
 }
 
 void AutocompleteController::InitializeSyncProviders(int provider_types) {
@@ -1275,9 +1299,8 @@ void AutocompleteController::InitializeSyncProviders(int provider_types) {
   if (provider_types & AutocompleteProvider::TYPE_MOST_VISITED_SITES) {
     providers_.push_back(
         new MostVisitedSitesProvider(provider_client_.get(), this));
-    // Note: the need for the always-present verbatim match originates from the
-    // search-ready omnibox (SRO) in Incognito mode, where the
-    // ZeroSuggestProvider intentionally never gets invoked.
+  }
+  if (provider_types & AutocompleteProvider::TYPE_VERBATIM_MATCH) {
     providers_.push_back(
         new ZeroSuggestVerbatimMatchProvider(provider_client_.get()));
   }
@@ -1318,6 +1341,10 @@ void AutocompleteController::InitializeSyncProviders(int provider_types) {
     featured_search_provider_ =
         new FeaturedSearchProvider(provider_client_.get());
     providers_.push_back(featured_search_provider_.get());
+  }
+  if (provider_types & AutocompleteProvider::TYPE_RECENTLY_CLOSED_TABS) {
+    providers_.push_back(
+        new RecentlyClosedTabsProvider(provider_client_.get(), this));
   }
 }
 
@@ -1518,6 +1545,7 @@ void AutocompleteController::PostProcessMatches() {
   UpdateKeywordDescriptions(&internal_result_);
   UpdateAssociatedKeywords(&internal_result_);
   UpdateSearchboxStats(&internal_result_);
+  UpdateShownInSession(&internal_result_);
   UpdateTailSuggestPrefix(&internal_result_);
   MaybeRemoveCompanyEntityImages(&internal_result_);
   MaybeCleanSuggestionsForKeywordMode(input_, &internal_result_);
@@ -1583,6 +1611,25 @@ void AutocompleteController::AttachActions() {
   if (omnibox::IsLensSearchbox(input_.current_page_classification())) {
     return;
   }
+
+  #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+  // Attach the contextual search fulfillment actions in the @page keyword mode.
+  if (base::FeatureList::IsEnabled(
+          omnibox::kContextualZeroSuggestLensFulfillment) &&
+      input_.IsZeroSuggest()) {
+    internal_result_.AttachContextualSearchFulfillmentActionToMatches();
+  } else if (input_.InKeywordMode()) {
+    AutocompleteInput keyword_input = input_;
+    const TemplateURL* keyword_turl =
+        AutocompleteInput::GetSubstitutingTemplateURLForInput(
+            template_url_service_, &keyword_input);
+    if (keyword_turl->starter_pack_id() == TemplateURLStarterPackData::kPage) {
+      internal_result_.AttachContextualSearchFulfillmentActionToMatches();
+      return;
+    }
+  }
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+
   // TabMatcher should run for ZPS for the Hub since open tab suggestions are
   // shown there.
   if (!input_.IsZeroSuggest() ||
@@ -1908,6 +1955,33 @@ void AutocompleteController::UpdateSearchboxStats(AutocompleteResult* result) {
                 .spec());
       }
     }
+  }
+}
+
+// TODO(crbug.com/402519775): Merge the logic in this function into
+// `UpdateSearchboxStats()` once we've rolled all session-related data into a
+// single `SessionData` property on matches.
+void AutocompleteController::UpdateShownInSession(AutocompleteResult* result) {
+  for (auto& match : *result) {
+    result->set_suggestions_shown_in_session(input_.IsZeroSuggest(), match);
+  }
+
+  for (auto& match : *result) {
+    // TODO(crbug.com/402519775): Compute this based on the other "ZPS shown in
+    // session" data listed below.
+    match.zero_prefix_suggestions_shown_in_session =
+        result->num_zero_prefix_suggestions_shown_in_session() > 0;
+
+    const auto [zero_prefix_search_shown, zero_prefix_url_shown] =
+        result->suggestions_shown_in_session(/*is_zero_suggest=*/true);
+    match.zero_prefix_search_suggestions_shown_in_session =
+        zero_prefix_search_shown;
+    match.zero_prefix_url_suggestions_shown_in_session = zero_prefix_url_shown;
+
+    const auto [typed_search_shown, typed_url_shown] =
+        result->suggestions_shown_in_session(/*is_zero_suggest=*/false);
+    match.typed_search_suggestions_shown_in_session = typed_search_shown;
+    match.typed_url_suggestions_shown_in_session = typed_url_shown;
   }
 }
 

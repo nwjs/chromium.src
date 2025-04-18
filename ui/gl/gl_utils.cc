@@ -126,13 +126,6 @@ void SetGlWorkarounds(const GlWorkarounds& workarounds) {
 }
 
 #if BUILDFLAG(IS_WIN)
-unsigned int FrameRateToPresentDuration(float frame_rate) {
-  if (frame_rate == 0)
-    return 0u;
-  // Present duration unit is 100 ns.
-  return static_cast<unsigned int>(1.0E7 / frame_rate);
-}
-
 unsigned int DirectCompositionRootSurfaceBufferCount() {
   return base::FeatureList::IsEnabled(features::kDCompTripleBufferRootSwapChain)
              ? 3u
@@ -195,6 +188,10 @@ GLDisplay* GetDefaultDisplay() {
 void SetGpuPreferenceEGL(GpuPreference preference, uint64_t system_device_id) {
   GLDisplayManagerEGL::GetInstance()->SetGpuPreference(preference,
                                                        system_device_id);
+}
+
+uint64_t GetSystemDeviceIdEGLForTesting(GpuPreference preference) {
+  return GLDisplayManagerEGL::GetInstance()->GetSystemDeviceId(preference);
 }
 
 void RemoveGpuPreferenceEGL(GpuPreference preference) {

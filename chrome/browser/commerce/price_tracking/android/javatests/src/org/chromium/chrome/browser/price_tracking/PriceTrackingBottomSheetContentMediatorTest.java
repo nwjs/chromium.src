@@ -35,7 +35,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
@@ -46,8 +45,8 @@ import org.robolectric.shadows.ShadowToast;
 import org.chromium.base.Callback;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.chrome.browser.commerce.ShoppingServiceFactory;
 import org.chromium.chrome.browser.price_insights.PriceInsightsBottomSheetCoordinator.PriceInsightsDelegate;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -56,12 +55,20 @@ import org.chromium.components.browser_ui.notifications.NotificationFeatureMap;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.commerce.core.CommerceFeatureUtils;
 import org.chromium.components.commerce.core.CommerceFeatureUtilsJni;
+import org.chromium.components.commerce.core.PriceBucket;
 import org.chromium.components.commerce.core.ShoppingService;
+import org.chromium.components.commerce.core.ShoppingService.PriceInsightsInfo;
+import org.chromium.components.commerce.core.ShoppingService.PriceInsightsInfoCallback;
+import org.chromium.components.commerce.core.ShoppingService.PricePoint;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.widget.ToastManager;
+import org.chromium.url.GURL;
+import org.chromium.url.JUnitTestGURLs;
+
+import java.util.Arrays;
+import java.util.Optional;
 
 /** Tests for {@link PriceTrackingBottomSheetContentMediator}. */
-@Batch(Batch.UNIT_TESTS)
 @RunWith(BaseRobolectricTestRunner.class)
 @EnableFeatures({NotificationFeatureMap.CACHE_NOTIIFICATIONS_ENABLED})
 @Config(
@@ -82,14 +89,27 @@ public class PriceTrackingBottomSheetContentMediatorTest {
     private static final String PRODUCT_TITLE = "Testing Sneaker";
     private static final String PRICE_TRACKING_DISABLED_BUTTON_TEXT = "Track";
     private static final String PRICE_TRACKING_ENABLED_BUTTON_TEXT = "Tracking";
+    private static final GURL TEST_URL = JUnitTestGURLs.EXAMPLE_URL;
+    private static final @PriceBucket int PRICE_BUCKET = 1;
+    private static final PriceInsightsInfo PRICE_INSIGHTS_INFO =
+            new PriceInsightsInfo(
+                    Optional.empty(),
+                    "USD",
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Arrays.asList(new PricePoint("08-08-2024", 65000000L)),
+                    Optional.of(TEST_URL),
+                    PRICE_BUCKET,
+                    false);
 
     private PriceTrackingBottomSheetContentMediator mMediator;
     private PropertyModel mPropertyModel = new PropertyModel(PRICE_TRACKING_KEYS);
     private Activity mActivity;
+    private HistogramWatcher mHistogramWatcher;
 
     @Before
     public void setUp() {
-        MockitoAnnotations.initMocks(this);
         mActivity = Robolectric.buildActivity(Activity.class).setup().get();
         mActivity.setTheme(R.style.Theme_BrowserUI_DayNight);
 
@@ -100,6 +120,7 @@ public class PriceTrackingBottomSheetContentMediatorTest {
         doReturn(PRODUCT_TITLE).when(mMockTab).getTitle();
 
         ShoppingServiceFactory.setShoppingServiceForTesting(mMockShoppingService);
+        setShoppingServiceGetPriceInsightsInfoForUrl(PRICE_INSIGHTS_INFO);
 
         doReturn(false).when(mMockPriceTrackingStateSupplier).get();
         doReturn(mMockPriceTrackingStateSupplier)
@@ -108,7 +129,7 @@ public class PriceTrackingBottomSheetContentMediatorTest {
 
         mMediator =
                 new PriceTrackingBottomSheetContentMediator(
-                        mActivity, mMockTab, mPropertyModel, mMockPriceInsightsDelegate);
+                        mActivity, () -> mMockTab, mPropertyModel, mMockPriceInsightsDelegate);
     }
 
     @After
@@ -143,6 +164,10 @@ public class PriceTrackingBottomSheetContentMediatorTest {
     public void testRequestShowContent_PriceTrackingEligibleAndDisabled() {
         doReturn(false).when(mMockPriceTrackingStateSupplier).get();
         mMediator.requestShowContent(mMockCallback);
+        mHistogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord("Commerce.PriceInsights.PriceTracking.Track", PRICE_BUCKET)
+                        .build();
 
         assertEquals(PRODUCT_TITLE, mPropertyModel.get(PRICE_TRACKING_TITLE));
         assertPriceTrackingButtonHasTrackingState(/* isTracking= */ false);
@@ -155,12 +180,18 @@ public class PriceTrackingBottomSheetContentMediatorTest {
         priceTrackingButtonListener.onClick(null);
         assertPriceTrackingButtonHasTrackingState(/* isTracking= */ true);
         assertNotNull(ShadowToast.getLatestToast());
+        mHistogramWatcher.assertExpected();
     }
 
     @Test
     public void testRequestShowContent_PriceTrackingEligibleAndEnabled() {
         doReturn(true).when(mMockPriceTrackingStateSupplier).get();
         mMediator.requestShowContent(mMockCallback);
+        mHistogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                "Commerce.PriceInsights.PriceTracking.Untrack", PRICE_BUCKET)
+                        .build();
 
         assertEquals(PRODUCT_TITLE, mPropertyModel.get(PRICE_TRACKING_TITLE));
         assertPriceTrackingButtonHasTrackingState(/* isTracking= */ true);
@@ -173,12 +204,17 @@ public class PriceTrackingBottomSheetContentMediatorTest {
         priceTrackingButtonListener.onClick(null);
         assertPriceTrackingButtonHasTrackingState(/* isTracking= */ false);
         assertNotNull(ShadowToast.getLatestToast());
+        mHistogramWatcher.assertExpected();
     }
 
     @Test
     public void testRequestShowContent_PriceTrackingButtonOnClick_Failed() {
         doReturn(false).when(mMockPriceTrackingStateSupplier).get();
         mMediator.requestShowContent(mMockCallback);
+        mHistogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord("Commerce.PriceInsights.PriceTracking.Track", PRICE_BUCKET)
+                        .build();
 
         assertPriceTrackingButtonHasTrackingState(/* isTracking= */ false);
 
@@ -189,6 +225,7 @@ public class PriceTrackingBottomSheetContentMediatorTest {
         priceTrackingButtonListener.onClick(null);
         assertPriceTrackingButtonHasTrackingState(/* isTracking= */ false);
         assertNotNull(ShadowToast.getLatestToast());
+        mHistogramWatcher.assertExpected();
     }
 
     @Test
@@ -212,6 +249,17 @@ public class PriceTrackingBottomSheetContentMediatorTest {
                         })
                 .when(mMockPriceInsightsDelegate)
                 .setPriceTrackingStateForTab(any(Tab.class), anyBoolean(), any());
+    }
+
+    private void setShoppingServiceGetPriceInsightsInfoForUrl(PriceInsightsInfo info) {
+        doAnswer(
+                        (InvocationOnMock invocation) -> {
+                            ((PriceInsightsInfoCallback) invocation.getArgument(1))
+                                    .onResult(TEST_URL, info);
+                            return null;
+                        })
+                .when(mMockShoppingService)
+                .getPriceInsightsInfoForUrl(any(), any());
     }
 
     private void assertPriceTrackingButtonHasTrackingState(boolean isTracking) {

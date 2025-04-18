@@ -41,6 +41,7 @@
 #include "third_party/skia/include/core/SkMatrix.h"
 #include "third_party/skia/include/core/SkShader.h"
 #include "third_party/skia/include/effects/SkGradientShader.h"
+#include "ui/gfx/geometry/clamp_float_geometry.h"
 
 namespace blink {
 
@@ -97,7 +98,7 @@ static SkColor4f ResolveStopColorWithMissingParams(
     const cc::ColorFilter* color_filter) {
   // neighbor should have the same color space
   Color coverted = neighbor;
-  coverted.ConvertToColorSpace(color_space);
+  coverted.ConvertToColorSpaceForInterpolation(color_space);
 
   DCHECK(color.GetColorSpace() == coverted.GetColorSpace())
       << "ResolveStopColorWithMissingParams requires that color and neighbor "
@@ -128,7 +129,7 @@ static SkColor4f ResolveStopColorWithMissingParams(
 void Gradient::FillSkiaStops(ColorBuffer& colors, OffsetBuffer& pos) const {
   if (stops_.empty()) {
     // A gradient with no stops must be transparent black.
-    pos.push_back(WebCoreDoubleToSkScalar(0));
+    pos.push_back(0);
     colors.push_back(SkColors::kTransparent);
   } else if (stops_.front().stop > 0 &&
              // hue-interpolation-method longer hue should not pad the start, as
@@ -139,7 +140,7 @@ void Gradient::FillSkiaStops(ColorBuffer& colors, OffsetBuffer& pos) const {
     // rounding error, but we don't care in this float comparison, since
     // 0.0 comes through cleanly and people aren't likely to want a gradient
     // with a stop at (0 + epsilon).
-    pos.push_back(WebCoreDoubleToSkScalar(0));
+    pos.push_back(0);
     if (color_filter_) {
       colors.push_back(color_filter_->FilterColor(
           stops_.front().color.ToGradientStopSkColor4f(
@@ -153,14 +154,15 @@ void Gradient::FillSkiaStops(ColorBuffer& colors, OffsetBuffer& pos) const {
   // Deal with none parameters.
   for (wtf_size_t i = 0; i < stops_.size(); i++) {
     Color color = stops_[i].color;
-    color.ConvertToColorSpace(color_space_interpolation_space_);
+    color.ConvertToColorSpaceForInterpolation(color_space_interpolation_space_);
+
     if (color.HasNoneParams()) {
       if (stops_.size() == 1) {
         // If there is only one stop and it has none parameters, we don't need
         // to resolve missing components at all, but for logic reuse, we still
         // call `ResolveStopColorWithMissingParams` with a dummy three
         // components all none color.
-        pos.push_back(WebCoreDoubleToSkScalar(stops_[i].stop));
+        pos.push_back(gfx::ClampFloatGeometry(stops_[i].stop));
         colors.push_back(ResolveStopColorWithMissingParams(
             color,
             Color::FromColorSpace(color.GetColorSpace(), std::nullopt,
@@ -171,7 +173,7 @@ void Gradient::FillSkiaStops(ColorBuffer& colors, OffsetBuffer& pos) const {
 
       if (i != 0) {
         // Fill left
-        pos.push_back(WebCoreDoubleToSkScalar(stops_[i].stop));
+        pos.push_back(gfx::ClampFloatGeometry(stops_[i].stop));
         colors.push_back(ResolveStopColorWithMissingParams(
             color, stops_[i - 1].color, color_space_interpolation_space_,
             color_filter_.get()));
@@ -179,20 +181,19 @@ void Gradient::FillSkiaStops(ColorBuffer& colors, OffsetBuffer& pos) const {
 
       if (i != stops_.size() - 1) {
         // Fill right
-        pos.push_back(WebCoreDoubleToSkScalar(stops_[i].stop));
+        pos.push_back(gfx::ClampFloatGeometry(stops_[i].stop));
         colors.push_back(ResolveStopColorWithMissingParams(
             color, stops_[i + 1].color, color_space_interpolation_space_,
             color_filter_.get()));
       }
     } else {
-      pos.push_back(WebCoreDoubleToSkScalar(stops_[i].stop));
+      pos.push_back(gfx::ClampFloatGeometry(stops_[i].stop));
       if (color_filter_) {
-        colors.push_back(
-            color_filter_->FilterColor(stops_[i].color.ToGradientStopSkColor4f(
-                color_space_interpolation_space_)));
+        colors.push_back(color_filter_->FilterColor(
+            color.ToGradientStopSkColor4f(color_space_interpolation_space_)));
       } else {
-        colors.push_back(stops_[i].color.ToGradientStopSkColor4f(
-            color_space_interpolation_space_));
+        colors.push_back(
+            color.ToGradientStopSkColor4f(color_space_interpolation_space_));
       }
     }
   }
@@ -204,17 +205,18 @@ void Gradient::FillSkiaStops(ColorBuffer& colors, OffsetBuffer& pos) const {
       // hue-interpolation-method longer hue should not pad the end, as
       // it would introducing a gradient at position last_stop..end
       hue_interpolation_method_ != Color::HueInterpolationMethod::kLonger) {
-    pos.push_back(WebCoreDoubleToSkScalar(1));
+    pos.push_back(1);
     colors.push_back(colors.back());
   }
 }
 
 SkGradientShader::Interpolation Gradient::ResolveSkInterpolation() const {
+  DCHECK(color_space_interpolation_space_ != Color::ColorSpace::kNone);
+
   using sk_colorspace = SkGradientShader::Interpolation::ColorSpace;
   using sk_hue_method = SkGradientShader::Interpolation::HueMethod;
   SkGradientShader::Interpolation sk_interpolation;
 
-  bool has_non_legacy_color = false;
   switch (color_space_interpolation_space_) {
     case Color::ColorSpace::kXYZD65:
     case Color::ColorSpace::kXYZD50:
@@ -247,23 +249,6 @@ SkGradientShader::Interpolation Gradient::ResolveSkInterpolation() const {
     case Color::ColorSpace::kHWB:
       sk_interpolation.fColorSpace = sk_colorspace::kHWB;
       break;
-    case Color::ColorSpace::kNone:
-      for (const auto& stop : stops_) {
-        if (!Color::IsLegacyColorSpace(stop.color.GetColorSpace())) {
-          has_non_legacy_color = true;
-        }
-      }
-      if (has_non_legacy_color) {
-        // If no colorspace is provided and the gradient is not entirely
-        // composed of legacy colors, Oklab is the default interpolation space.
-        sk_interpolation.fColorSpace = Color::IsBakedGamutMappingEnabled()
-                                           ? sk_colorspace::kOKLabGamutMap
-                                           : sk_colorspace::kOKLab;
-      } else {
-        // TODO(crbug.com/1379462): This should be kSRGB.
-        sk_interpolation.fColorSpace = sk_colorspace::kDestination;
-      }
-      break;
     case Color::ColorSpace::kDisplayP3:
       sk_interpolation.fColorSpace = sk_colorspace::kDisplayP3;
       break;
@@ -276,6 +261,8 @@ SkGradientShader::Interpolation Gradient::ResolveSkInterpolation() const {
     case Color::ColorSpace::kRec2020:
       sk_interpolation.fColorSpace = sk_colorspace::kRec2020;
       break;
+    default:
+      NOTREACHED();
   }
 
   switch (hue_interpolation_method_) {
@@ -309,6 +296,18 @@ sk_sp<PaintShader> Gradient::CreateShaderInternal(
   colors.reserve(stops_.size());
   OffsetBuffer pos;
   pos.reserve(stops_.size());
+
+  if (color_space_interpolation_space_ == Color::ColorSpace::kNone) {
+    Color::ColorSpace color_space = Color::ColorSpace::kSRGB;
+    for (const auto& stop : stops_) {
+      auto stop_color_space = stop.color.GetColorInterpolationSpace();
+      if (stop_color_space != Color::ColorSpace::kSRGBLegacy) {
+        color_space = stop_color_space;
+        break;
+      }
+    }
+    color_space_interpolation_space_ = color_space;
+  }
 
   FillSkiaStops(colors, pos);
   DCHECK_GE(colors.size(), 1ul);
@@ -397,7 +396,8 @@ class LinearGradient final : public Gradient {
       return PaintShader::MakeEmpty();
     }
 
-    SkPoint pts[2] = {FloatPointToSkPoint(p0_), FloatPointToSkPoint(p1_)};
+    SkPoint pts[2] = {gfx::PointFToSkPoint(ClampNonFiniteToSafeFloat(p0_)),
+                      gfx::PointFToSkPoint(ClampNonFiniteToSafeFloat(p1_))};
     return PaintShader::MakeLinearGradient(
         pts, colors.data(), pos.data(), static_cast<int>(colors.size()),
         tile_mode, sk_interpolation, 0 /* flags */, &local_matrix,
@@ -450,8 +450,8 @@ class RadialGradient final : public Gradient {
 
     // The radii we give to Skia must be positive. If we're given a
     // negative radius, ask for zero instead.
-    const SkScalar radius0 = std::max(WebCoreFloatToSkScalar(r0_), 0.0f);
-    const SkScalar radius1 = std::max(WebCoreFloatToSkScalar(r1_), 0.0f);
+    const float radius0 = std::max(gfx::ClampFloatGeometry(r0_), 0.0f);
+    const float radius1 = std::max(gfx::ClampFloatGeometry(r1_), 0.0f);
 
     if (GetDegenerateHandling() == DegenerateHandling::kDisallow &&
         p0_ == p1_ && radius0 == radius1) {
@@ -459,7 +459,8 @@ class RadialGradient final : public Gradient {
     }
 
     return PaintShader::MakeTwoPointConicalGradient(
-        FloatPointToSkPoint(p0_), radius0, FloatPointToSkPoint(p1_), radius1,
+        gfx::PointFToSkPoint(ClampNonFiniteToSafeFloat(p0_)), radius0,
+        gfx::PointFToSkPoint(ClampNonFiniteToSafeFloat(p1_)), radius1,
         colors.data(), pos.data(), static_cast<int>(colors.size()), tile_mode,
         sk_interpolation, 0 /* flags */, matrix, fallback_color);
   }

@@ -74,8 +74,8 @@ class ScrollMarkerChooser {
 
   // Compute a ScrollTargetOffsetData for a given element, |scroll_marker|
   // within |scrollable_area|'s content area along the |axis| specified.
-  ScrollTargetOffsetData GetScrollTargetOffsetData(
-      const Element* scroll_marker);
+  std::optional<ScrollMarkerChooser::ScrollTargetOffsetData>
+  GetScrollTargetOffsetData(Element* scroll_marker);
 
   // Select a scroll marker from the given |candidates| if the
   // |intended_scroll_offset_| is within the region "reserved" so that
@@ -118,6 +118,8 @@ class ScrollMarkerChooser {
   const LayoutBox* scroller_box_;
 };
 
+class PaintLayerScrollableArea;
+
 class ScrollMarkerGroupData : public GarbageCollected<ScrollMarkerGroupData>,
                               public ScrollSnapshotClient,
                               public ElementRareDataField {
@@ -125,7 +127,7 @@ class ScrollMarkerGroupData : public GarbageCollected<ScrollMarkerGroupData>,
   explicit ScrollMarkerGroupData(LocalFrame* frame)
       : ScrollSnapshotClient(frame) {}
   void AddToFocusGroup(Element& scroll_marker);
-  void RemoveFromFocusGroup(const Element& scroll_marker);
+  void RemoveFromFocusGroup(Element& scroll_marker);
   void ClearFocusGroup();
   const HeapVector<Member<Element>>& ScrollMarkers() { return focus_group_; }
 
@@ -133,11 +135,15 @@ class ScrollMarkerGroupData : public GarbageCollected<ScrollMarkerGroupData>,
   CORE_EXPORT bool SetSelected(Element* scroll_marker,
                                bool apply_snap_alignment = true);
   Element* Selected() const;
-  bool UpdateSelectedScrollMarker(const ScrollOffset& offset,
-                                  LayoutBox* scroller);
+  void UpdateSelectedScrollMarker();
 
   Element* FindNextScrollMarker(const Element* current);
   Element* FindPreviousScrollMarker(const Element* current);
+
+  void SetNeedsScrollersMapUpdate() { needs_scrollers_map_update_ = true; }
+  void UpdateScrollableAreaSubscriptions(
+      HeapHashSet<Member<PaintLayerScrollableArea>>& scrollable_areas);
+  bool NeedsScrollersMapUpdate() const { return needs_scrollers_map_update_; }
 
   void Trace(Visitor* v) const final;
 
@@ -158,13 +164,19 @@ class ScrollMarkerGroupData : public GarbageCollected<ScrollMarkerGroupData>,
  private:
   Element* ChooseMarker(const ScrollOffset& scroll_offset,
                         ScrollableArea* scrollable_area,
-                        LayoutBox* scroller_box);
+                        LayoutBox* scroller_box,
+                        const HeapVector<Member<Element>>& candidates);
+  Element* ChooseMarkerRecursively();
 
   bool UpdateSnapshotInternal();
 
   // TODO(332396355): Add spec link, once it's created.
   HeapVector<Member<Element>> focus_group_;
 
+  // True, if some <a> scroll markers have been added or removed. It signals
+  // to Document that ScrollMarkerGroupData -> "scrollers with <a> scroll
+  // marker targets" map should be updated.
+  bool needs_scrollers_map_update_ = false;
   // Whether to resist changing the selected scroll marker. We resist updating
   // the last selected scroll marker if it was selected due to a targeted
   // scroll. It should remain the selected scroll marker until we clear this bit

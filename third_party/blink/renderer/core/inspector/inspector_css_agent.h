@@ -522,6 +522,9 @@ class CORE_EXPORT InspectorCSSAgent final
   void DecrementFocusedCountForAncestors(Element*);
 
   void NotifyComputedStyleUpdatedForNode(int node_id);
+  static String ResolvePercentagesValues(Element*,
+                                         CSSPropertyName,
+                                         const CSSValue*);
 
   Member<InspectorDOMAgent> dom_agent_;
   Member<InspectedFrames> inspected_frames_;
@@ -534,9 +537,9 @@ class CORE_EXPORT InspectorCSSAgent final
       id_to_inspector_style_sheet_for_inline_style_;
   HeapHashMap<Member<CSSStyleSheet>, Member<InspectorStyleSheet>>
       css_style_sheet_to_inspector_style_sheet_;
-  typedef HeapHashMap<Member<Document>,
-                      Member<HeapHashSet<Member<CSSStyleSheet>>>>
-      DocumentStyleSheets;
+  using DocumentStyleSheets =
+      HeapHashMap<Member<Document>,
+                  Member<GCedHeapHashSet<Member<CSSStyleSheet>>>>;
   DocumentStyleSheets document_to_css_style_sheets_;
   HeapHashSet<Member<Document>> invalidated_documents_;
 
@@ -580,6 +583,7 @@ class CORE_EXPORT InspectorCSSAgent final
 
   friend class InspectorResourceContentLoaderCallback;
   friend class StyleSheetBinder;
+  friend class InspectorCSSAgentTest;
 };
 
 }  // namespace blink

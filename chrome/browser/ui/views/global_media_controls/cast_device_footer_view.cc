@@ -33,10 +33,10 @@ CastDeviceFooterView::CastDeviceFooterView(
     base::RepeatingClosure stop_casting_callback,
     media_message_center::MediaColorTheme media_color_theme)
     : stop_casting_callback_(std::move(stop_casting_callback)) {
-  SetBorder(views::CreateThemedRoundedRectBorder(
+  SetBorder(views::CreateRoundedRectBorder(
       kBackgroundBorderThickness, kBackgroundCornerRadius,
       media_color_theme.device_selector_border_color_id));
-  SetBackground(views::CreateThemedRoundedRectBackground(
+  SetBackground(views::CreateRoundedRectBackground(
       media_color_theme.device_selector_background_color_id,
       kBackgroundCornerRadius));
   auto* layout = SetLayoutManager(std::make_unique<views::BoxLayout>(
@@ -81,7 +81,7 @@ CastDeviceFooterView::CastDeviceFooterView(
   stop_casting_button_->SetEnabledTextColors(
       media_color_theme.error_foreground_color_id);
   stop_casting_button_->SetImageLabelSpacing(kStopCastingButtonSeparator);
-  stop_casting_button_->SetBackground(views::CreateThemedRoundedRectBackground(
+  stop_casting_button_->SetBackground(views::CreateRoundedRectBackground(
       media_color_theme.error_container_color_id,
       kStopCastingButtonCornerRadius));
 

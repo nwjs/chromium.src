@@ -4,15 +4,17 @@
 
 #include "base/run_loop.h"
 #include "base/scoped_observation.h"
+#include "base/test/run_until.h"
+#include "base/test/test_future.h"
 #include "chrome/browser/background/glic/glic_background_mode_manager.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/glic/glic.mojom.h"
 #include "chrome/browser/glic/glic_keyed_service.h"
 #include "chrome/browser/glic/glic_keyed_service_factory.h"
 #include "chrome/browser/glic/glic_pref_names.h"
-#include "chrome/browser/glic/glic_test_util.h"
-#include "chrome/browser/glic/glic_window_controller.h"
-#include "chrome/browser/glic/interactive_glic_test.h"
+#include "chrome/browser/glic/host/glic.mojom.h"
+#include "chrome/browser/glic/test_support/glic_test_util.h"
+#include "chrome/browser/glic/test_support/interactive_glic_test.h"
+#include "chrome/browser/glic/widget/glic_window_controller.h"
 #include "chrome/browser/global_features.h"
 #include "chrome/browser/policy/policy_test_utils.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
@@ -21,6 +23,7 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_test_util.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
 #include "chrome/browser/ui/views/tabs/glic_button.h"
@@ -49,6 +52,25 @@ namespace glic {
 class GlicButton;
 
 namespace {
+
+// An observer of the GlicWindowController's panel state. Fires the given
+// callback when the state changes to the given kind.
+class PanelStateObserver : public GlicWindowController::StateObserver {
+ public:
+  PanelStateObserver(mojom::PanelState::Kind kind, base::OnceClosure callback)
+      : kind_(kind), callback_(std::move(callback)) {}
+
+  void PanelStateChanged(const mojom::PanelState& panel_state,
+                         Browser* attached_browser) override {
+    if (panel_state.kind == kind_) {
+      std::move(callback_).Run();
+    }
+  }
+
+ private:
+  mojom::PanelState::Kind kind_;
+  base::OnceClosure callback_;
+};
 
 class GlicAppStateObserver : public GlicWindowController::WebUiStateObserver {
  public:
@@ -95,7 +117,8 @@ class GlicPolicyTest : public PolicyTest {
   GlicPolicyTest() {
     scoped_feature_list_.InitWithFeatures(
         /*enabled_features=*/{features::kGlic, features::kTabstripComboButton},
-        /*disabled_features=*/{features::kGlicWarming});
+        /*disabled_features=*/{features::kGlicWarming,
+                               features::kGlicFreWarming});
   }
   GlicPolicyTest(const GlicPolicyTest&) = delete;
   GlicPolicyTest& operator=(const GlicPolicyTest&) = delete;
@@ -116,7 +139,8 @@ class GlicPolicyTest : public PolicyTest {
         glic::prefs::kGlicLauncherEnabled, true);
 
     profile_1_ = browser()->profile();
-    ForceSigninAndModelExecutionCapability(profile_1_);
+    glic_test_environment_ =
+        std::make_unique<glic::GlicTestEnvironment>(browser()->profile());
 
     // "policy_for_profile_1_" is provider_, setup in PolicyTest.
 
@@ -137,12 +161,15 @@ class GlicPolicyTest : public PolicyTest {
   }
 
   void TearDownOnMainThread() override {
+    PolicyTest::TearDownOnMainThread();
+
     if (GlicBackgroundModeManager* background_mode_manager =
             g_browser_process->GetFeatures()->glic_background_mode_manager()) {
       background_mode_manager->ExitBackgroundMode();
     }
     profile_1_ = nullptr;
     profile_2_ = nullptr;
+    glic_test_environment_.reset();
   }
 
   GlicButton* GetGlicButtonForBrowser(Browser* browser) {
@@ -195,6 +222,8 @@ class GlicPolicyTest : public PolicyTest {
  private:
   testing::NiceMock<policy::MockConfigurationPolicyProvider>
       policy_for_profile_2_;
+
+  std::unique_ptr<glic::GlicTestEnvironment> glic_test_environment_;
 
   base::test::ScopedFeatureList scoped_feature_list_;
 };
@@ -457,8 +486,8 @@ IN_PROC_BROWSER_TEST_F(GlicPolicyDisabledTest, WebUiDisabledAtLoad) {
 }
 
 // Ensure that if the policy changes to disabled at runtime, and the user has an
-// an open Glic window, that window is closed.
-IN_PROC_BROWSER_TEST_F(GlicPolicyTest, CloseOpenGlicWindowWhenDisabled) {
+// an open Glic window, that window should show the unavailable page.
+IN_PROC_BROWSER_TEST_F(GlicPolicyTest, DisableGlicWhenIsOpen) {
   // The pref defaults to enabled.
   ASSERT_EQ(kEnabledValue, profile_1_->GetPrefs()->GetInteger(kGeminiSettings));
 
@@ -466,14 +495,25 @@ IN_PROC_BROWSER_TEST_F(GlicPolicyTest, CloseOpenGlicWindowWhenDisabled) {
       GlicKeyedServiceFactory::GetGlicKeyedService(profile_1_);
   ASSERT_FALSE(service->window_controller().IsShowing());
 
-  BrowserWindowInterface* bwi = browser()
-                                    ->window()
-                                    ->AsBrowserView()
-                                    ->tabstrip()
-                                    ->controller()
-                                    ->GetBrowserWindowInterface();
-  GlicKeyedServiceFactory::GetGlicKeyedService(profile_1_)
-      ->ToggleUI(bwi, /*prevent_close=*/false, InvocationSource::kOsButton);
+  // Show the panel as if the glic button was clicked.
+  {
+    base::test::TestFuture<void> wait_for_panel;
+    PanelStateObserver panel_state_observer(
+        mojom::PanelState::Kind::kDetached,
+        wait_for_panel.GetCallback());
+    service->window_controller().AddStateObserver(&panel_state_observer);
+    BrowserWindowInterface* bwi = browser()
+                                      ->window()
+                                      ->AsBrowserView()
+                                      ->tabstrip()
+                                      ->controller()
+                                      ->GetBrowserWindowInterface();
+    service->ToggleUI(bwi, /*prevent_close=*/false,
+                      mojom::InvocationSource::kOsButton);
+
+    EXPECT_TRUE(wait_for_panel.Wait());
+    service->window_controller().RemoveStateObserver(&panel_state_observer);
+  }
 
   ASSERT_TRUE(service->window_controller().IsShowing());
 
@@ -481,8 +521,37 @@ IN_PROC_BROWSER_TEST_F(GlicPolicyTest, CloseOpenGlicWindowWhenDisabled) {
   SetGlicPolicy(policy_for_profile_1(), SettingsPolicyState::kDisabled);
   ASSERT_EQ(kDisabledValue,
             profile_1_->GetPrefs()->GetInteger(kGeminiSettings));
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return service->window_controller().GetWebUiState() ==
+           mojom::WebUiState::kUnavailable;
+  })) << "Timed out waiting for unavailable state. Current state: "
+      << service->window_controller().GetWebUiState();
+  ASSERT_TRUE(service->window_controller().IsShowing());
+}
 
-  EXPECT_FALSE(service->window_controller().IsShowing());
+// Ensure the chrome://settings page for Glic is available when the feature is
+// disabled by policy (but the profile is otherwise eligible, completed FRE
+// etc).
+IN_PROC_BROWSER_TEST_F(GlicPolicyTest,
+                       SettingsPageAvailableWithPolicyDisabled) {
+  // Disable the policy.
+  SetGlicPolicy(policy_for_profile_1(), SettingsPolicyState::kDisabled);
+  ASSERT_EQ(kDisabledValue,
+            profile_1_->GetPrefs()->GetInteger(kGeminiSettings));
+
+  // Navigate to the Glic settings page URL.
+  const GURL kGlicSettingsUrl =
+      chrome::GetSettingsUrl(chrome::kGlicSettingsSubpage);
+  content::TestNavigationObserver observer(kGlicSettingsUrl);
+  observer.WatchExistingWebContents();
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), kGlicSettingsUrl));
+  observer.WaitForNavigationFinished();
+  ASSERT_TRUE(observer.last_navigation_succeeded());
+
+  // If the settings page wasn't registered, the navigation will redirect to
+  // chrome://settings.
+  EXPECT_EQ(kGlicSettingsUrl,
+            browser()->tab_strip_model()->GetActiveWebContents()->GetURL());
 }
 }  // namespace
 

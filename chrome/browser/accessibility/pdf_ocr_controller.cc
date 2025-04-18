@@ -12,7 +12,6 @@
 #include "base/metrics/metrics_hashes.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
-#include "chrome/browser/accessibility/accessibility_state_utils.h"
 #include "chrome/browser/pdf/pdf_viewer_stream_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/screen_ai/screen_ai_install_state.h"
@@ -31,6 +30,7 @@
 #include "content/public/browser/web_contents.h"
 #include "pdf/pdf_features.h"
 #include "ui/accessibility/accessibility_features.h"
+#include "ui/accessibility/platform/ax_platform.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/ash/accessibility/accessibility_manager.h"
@@ -107,24 +107,25 @@ std::vector<content::WebContents*> GetAllPdfWebContents(Profile* profile) {
 // enabled.
 bool IsAccessibilityEnabled(Profile* profile) {
   // Active if a screen reader is present.
-  if (accessibility_state_utils::IsScreenReaderEnabled()) {
+  if (ui::AXPlatform::GetInstance().IsScreenReaderActive()) {
     return true;
   }
 
 #if BUILDFLAG(IS_CHROMEOS)
   // Conditionally active if select-to-speak is enabled.
   if (features::IsAccessibilityPdfOcrForSelectToSpeakEnabled() &&
-      accessibility_state_utils::IsSelectToSpeakEnabled()) {
+      ash::AccessibilityManager::Get()->IsSelectToSpeakEnabled()) {
     return true;
   }
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
   // Check all web contentses. `ReadAnythingUntrustedPageHandler` sets the
-  // screen reader mode when starting to observe a PDF WebContents via
-  // `SetUpPdfObserver()`. So if any of them have screen reader mode enabled,
+  // extended properties mode when starting to observe a PDF WebContents via
+  // `SetUpPdfObserver()`. So if any of them have that mode enabled,
   // return true.
   for (auto* contents : GetAllPdfWebContents(profile)) {
-    if (contents->GetAccessibilityMode().has_mode(ui::AXMode::kScreenReader)) {
+    if (contents->GetAccessibilityMode().has_mode(
+            ui::AXMode::kExtendedProperties)) {
       return true;
     }
   }
@@ -282,9 +283,12 @@ void PdfOcrController::Activate() {
 
 #if !BUILDFLAG(IS_CHROMEOS)
 void PdfOcrController::OnAXModeAdded(ui::AXMode mode) {
-  if (mode.has_mode(ui::AXMode::kScreenReader)) {
-    OnActivationChanged();
-  }
+  OnActivationChanged();
+}
+
+void PdfOcrController::OnAssistiveTechChanged(
+    ui::AssistiveTech assistive_tech) {
+  OnActivationChanged();
 }
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 

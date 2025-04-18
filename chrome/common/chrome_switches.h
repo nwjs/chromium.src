@@ -54,6 +54,7 @@ extern const char kAutoOpenDevToolsForTabs[];
 extern const char kAutoSelectDesktopCaptureSource[];
 extern const char kAutoSelectTabCaptureSourceByTitle[];
 extern const char kAutoSelectWindowCaptureSourceByTitle[];
+extern const char kBrowserSigninAutoAccept[];
 extern const char kBypassAccountAlreadyUsedByAnotherProfileCheck[];
 extern const char kCheckForUpdateIntervalSec[];
 extern const char kCipherSuiteBlacklist[];
@@ -162,6 +163,7 @@ extern const char kProxyServer[];
 extern const char kRemoteDebuggingTargets[];
 extern const char kRestart[];
 extern const char kRestoreLastSession[];
+extern const char kSameTab[];
 extern const char kScreenCaptureAudioDefaultUnchecked[];
 extern const char kSilentDebuggerExtensionAPI[];
 extern const char kSilentLaunch[];
@@ -283,7 +285,9 @@ extern const char kGlicAlwaysOpenFre[];
 extern const char kGlicFreURL[];
 extern const char kGlicOpenOnStartup[];
 extern const char kGlicAllowedOrigins[];
+extern const char kGlicAutomation[];
 extern const char kGlicDev[];
+extern const char kGlicHostLogging[];
 #endif
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)

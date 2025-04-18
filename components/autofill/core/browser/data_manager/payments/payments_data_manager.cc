@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <variant>
 
 #include "base/containers/contains.h"
 #include "base/containers/span.h"
@@ -26,6 +27,7 @@
 #include "components/autofill/core/browser/geo/autofill_country.h"
 #include "components/autofill/core/browser/integrators/autofill_optimization_guide.h"
 #include "components/autofill/core/browser/metrics/autofill_settings_metrics.h"
+#include "components/autofill/core/browser/metrics/payments/bnpl_metrics.h"
 #include "components/autofill/core/browser/metrics/payments/card_metadata_metrics.h"
 #include "components/autofill/core/browser/metrics/payments/cvc_storage_metrics.h"
 #include "components/autofill/core/browser/metrics/payments/iban_metrics.h"
@@ -56,6 +58,8 @@
 
 namespace autofill {
 
+using autofill_metrics::LogBnplIssuersSyncedCountAtStartup;
+using autofill_metrics::LogBnplPrefToggled;
 using autofill_metrics::LogMandatoryReauthOfferOptInDecision;
 using autofill_metrics::MandatoryReauthOfferOptInDecision;
 
@@ -586,7 +590,7 @@ std::optional<T> PaymentsDataManager::GetCreditCardBenefitByInstrumentId(
   }
   base::Time now = AutofillClock::Now();
   for (const CreditCardBenefit& benefit : credit_card_benefits_) {
-    if (const auto* b = absl::get_if<T>(&benefit);
+    if (const auto* b = std::get_if<T>(&benefit);
         b && b->linked_card_instrument_id() == instrument_id &&
         b->start_time() <= now && now < b->expiry_time() && filter(*b)) {
       return *b;
@@ -627,17 +631,12 @@ PaymentsDataManager::GetApplicableBenefitDescriptionForCardAndOrigin(
     const CreditCard& credit_card,
     const url::Origin& origin,
     const AutofillOptimizationGuide* optimization_guide) const {
-  // Benefits are only supported for app locale set to U.S. English.
-  if (app_locale_ != "en-US") {
+  // Ensures that benefit suggestions can be displayed.
+  if (ShouldBlockCardBenefitSuggestionLabels(credit_card, origin,
+                                             optimization_guide)) {
     return std::u16string();
   }
-  // Ensure that benefit suggestions can be displayed for this card on the
-  // current origin.
-  if (optimization_guide &&
-      optimization_guide->ShouldBlockBenefitSuggestionLabelsForCardAndUrl(
-          credit_card, origin.GetURL())) {
-    return std::u16string();
-  }
+
   CreditCardBenefitBase::LinkedCardInstrumentId benefit_instrument_id(
       credit_card.instrument_id());
 
@@ -950,6 +949,14 @@ void PaymentsDataManager::SetPrefService(PrefService* pref_service) {
       base::BindRepeating(
           &PaymentsDataManager::OnAutofillPaymentsCardBenefitsPrefChange,
           base::Unretained(this)));
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
+  pref_registrar_.Add(
+      prefs::kAutofillBnplEnabled,
+      base::BindRepeating(&PaymentsDataManager::OnBnplEnabledPrefChange,
+                          base::Unretained(this)));
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
+        // BUILDFLAG(IS_CHROMEOS)
 }
 
 void PaymentsDataManager::NotifyObservers() {
@@ -975,6 +982,22 @@ bool PaymentsDataManager::IsCardBenefitsFeatureEnabled() {
              features::kAutofillEnableCardBenefitsForAmericanExpress) ||
          base::FeatureList::IsEnabled(
              features::kAutofillEnableCardBenefitsForBmo);
+}
+
+bool PaymentsDataManager::ShouldBlockCardBenefitSuggestionLabels(
+    const CreditCard& credit_card,
+    const url::Origin& origin,
+    const AutofillOptimizationGuide* optimization_guide) const {
+  // Benefits are only supported for app locale set to U.S. English or Great
+  // Britain English.
+  if (app_locale_ != "en-US" && app_locale_ != "en-GB") {
+    return true;
+  }
+  // Ensure that benefit suggestions can be displayed for this card on the
+  // current origin.
+  return optimization_guide &&
+         optimization_guide->ShouldBlockBenefitSuggestionLabelsForCardAndUrl(
+             credit_card, origin.GetURL());
 }
 
 bool PaymentsDataManager::IsCardBenefitsPrefEnabled() const {
@@ -1167,34 +1190,6 @@ bool PaymentsDataManager::IsServerCard(const CreditCard* credit_card) const {
     }
   }
   return false;
-}
-
-bool PaymentsDataManager::ShouldShowCardsFromAccountOption() const {
-// The feature is only for Linux, Windows, Mac, and Fuchsia.
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || \
-    BUILDFLAG(IS_FUCHSIA)
-  // This option should only be shown for users that have not enabled the Sync
-  // Feature and that have server credit cards available.
-  // TODO(crbug.com/40066949): Simplify once ConsentLevel::kSync and
-  // SyncService::IsSyncFeatureEnabled() are deleted from the codebase.
-  if (!sync_service_ || sync_service_->IsSyncFeatureEnabled() ||
-      GetServerCreditCards().empty()) {
-    return false;
-  }
-
-  return !IsUserOptedInWalletSyncTransport(
-      pref_service_, sync_service_->GetAccountInfo().account_id);
-#else
-  return false;
-#endif  // #if BUILDFLAG(IS_LINUX) ||BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) ||
-        // BUILDFLAG(IS_FUCHSIA)
-}
-
-void PaymentsDataManager::OnUserAcceptedCardsFromAccountOption() {
-  DCHECK(IsPaymentsWalletSyncTransportEnabled());
-  SetUserOptedInWalletSyncTransport(pref_service_,
-                                    sync_service_->GetAccountInfo().account_id,
-                                    /*opted_in=*/true);
 }
 
 void PaymentsDataManager::OnUserAcceptedUpstreamOffer() {
@@ -1922,6 +1917,7 @@ void PaymentsDataManager::LogStoredPaymentsDataMetrics() const {
   autofill_metrics::LogStoredOfferMetrics(autofill_offer_data_);
   autofill_metrics::LogStoredVirtualCardUsageCount(
       autofill_virtual_card_usage_data_.size());
+  LogBnplIssuersSyncedCountAtStartup(GetBnplIssuers().size());
 }
 
 void PaymentsDataManager::LogServerCardLinkClicked() const {
@@ -2027,7 +2023,7 @@ bool PaymentsDataManager::AreEwalletAccountsSupported() const {
 bool PaymentsDataManager::AreBnplIssuersSupported() const {
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS)
-  return app_locale_ == "en-US" &&
+  return app_locale_ == "en-US" && GetCountryCodeForExperimentGroup() == "US" &&
          base::FeatureList::IsEnabled(
              features::kAutofillEnableBuyNowPayLaterSyncing);
 #else
@@ -2057,6 +2053,25 @@ void PaymentsDataManager::OnAutofillPaymentsCardBenefitsPrefChange() {
 void PaymentsDataManager::ClearAllCreditCardBenefits() {
   credit_card_benefits_.clear();
 }
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
+void PaymentsDataManager::OnBnplEnabledPrefChange() {
+  // On pref change to `false`, clearing BNPL issuers is implicitly handled by
+  // `GetBnplIssuers()`, since it returns an empty vector when
+  // `IsAutofillBnplPrefEnabled()` is `false`. We still need to load payment
+  // instruments to notify the settings page to update the payments list.
+  if (ArePaymentInstrumentsSupported()) {
+    LoadPaymentInstruments();
+  }
+  if (ArePaymentInstrumentCreationOptionsSupported()) {
+    LoadPaymentInstrumentCreationOptions();
+  }
+
+  LogBnplPrefToggled(IsAutofillBnplPrefEnabled());
+}
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
+        // BUILDFLAG(IS_CHROMEOS)
 
 void PaymentsDataManager::OnCardArtImagesFetched(
     const std::vector<std::unique_ptr<CreditCardArtImage>>& art_images) {
@@ -2193,8 +2208,9 @@ void PaymentsDataManager::CacheIfLinkedBnplPaymentInstrument(
   }
 
   // A linked BNPL issuer is only valid if there is at least one eligible price
-  // range.
-  if (eligible_price_ranges.empty()) {
+  // range specifies 'USD' as the currency.
+  if (!HasEligibleCurrencyPriceRangeForBnplIssuer(eligible_price_ranges,
+                                                  "USD")) {
     return;
   }
 
@@ -2266,13 +2282,25 @@ void PaymentsDataManager::CacheIfBnplPaymentInstrumentCreationOption(
   }
 
   // An unlinked BNPL issuer is only valid if there is at least one eligible
-  // price range.
-  if (eligible_price_ranges.empty()) {
+  // price range specifies 'USD' as the currency.
+  if (!HasEligibleCurrencyPriceRangeForBnplIssuer(eligible_price_ranges,
+                                                  "USD")) {
     return;
   }
 
   unlinked_bnpl_issuers_.emplace_back(std::nullopt, bnpl_issuer.issuer_id(),
                                       std::move(eligible_price_ranges));
+}
+
+bool PaymentsDataManager::HasEligibleCurrencyPriceRangeForBnplIssuer(
+    const std::vector<BnplIssuer::EligiblePriceRange>& eligible_price_ranges,
+    const std::string& currency_code) const {
+  return std::any_of(
+      eligible_price_ranges.begin(), eligible_price_ranges.end(),
+      [&currency_code](
+          const BnplIssuer::EligiblePriceRange& eligible_price_range) {
+        return eligible_price_range.currency == currency_code;
+      });
 }
 
 }  // namespace autofill

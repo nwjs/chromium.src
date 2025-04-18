@@ -76,11 +76,11 @@
 ../../third_party/catapult/devil/devil/android/device_signal.py
 ../../third_party/catapult/devil/devil/android/device_temp_file.py
 ../../third_party/catapult/devil/devil/android/device_utils.py
+../../third_party/catapult/devil/devil/android/devil_util.py
 ../../third_party/catapult/devil/devil/android/flag_changer.py
 ../../third_party/catapult/devil/devil/android/forwarder.py
 ../../third_party/catapult/devil/devil/android/install_commands.py
 ../../third_party/catapult/devil/devil/android/logcat_monitor.py
-../../third_party/catapult/devil/devil/android/md5sum.py
 ../../third_party/catapult/devil/devil/android/ndk/__init__.py
 ../../third_party/catapult/devil/devil/android/ndk/abis.py
 ../../third_party/catapult/devil/devil/android/perf/__init__.py
@@ -402,6 +402,7 @@
 ../../third_party/catapult/third_party/typ/typ/pool.py
 ../../third_party/catapult/third_party/typ/typ/printer.py
 ../../third_party/catapult/third_party/typ/typ/python_2_3_compat.py
+../../third_party/catapult/third_party/typ/typ/reduced_glob.py
 ../../third_party/catapult/third_party/typ/typ/result_sink.py
 ../../third_party/catapult/third_party/typ/typ/runner.py
 ../../third_party/catapult/third_party/typ/typ/stats.py
@@ -454,6 +455,7 @@
 ../../third_party/logdog/logdog/streamname.py
 ../../third_party/logdog/logdog/varint.py
 ../json_comment_eater/json_comment_eater.py
+../json_to_struct/aggregation.py
 ../json_to_struct/class_generator.py
 ../json_to_struct/element_generator.py
 ../json_to_struct/java_element_generator.py

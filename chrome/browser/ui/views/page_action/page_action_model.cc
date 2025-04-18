@@ -39,6 +39,15 @@ void PageActionModel::SetShowSuggestionChip(base::PassKey<PageActionController>,
   NotifyChange();
 }
 
+void PageActionModel::SetShouldAnimateChip(base::PassKey<PageActionController>,
+                                           bool animate) {
+  if (should_animate_ == animate) {
+    return;
+  }
+  should_animate_ = animate;
+  NotifyChange();
+}
+
 void PageActionModel::SetTabActive(base::PassKey<PageActionController>,
                                    bool is_active) {
   if (is_tab_active_ == is_active) {
@@ -93,12 +102,20 @@ void PageActionModel::SetActionItemProperties(
 }
 
 bool PageActionModel::GetVisible() const {
+  if (should_hide_) {
+    return false;
+  }
+
   return is_tab_active_ && action_item_enabled_ && action_item_visible_ &&
          show_requested_ && !has_pinned_icon_;
 }
 
 bool PageActionModel::GetShowSuggestionChip() const {
   return show_suggestion_chip_;
+}
+
+bool PageActionModel::GetShouldAnimateChip() const {
+  return should_animate_;
 }
 
 const ui::ImageModel& PageActionModel::GetImage() const {
@@ -145,6 +162,17 @@ void PageActionModel::SetOverrideTooltip(
     return;
   }
   override_tooltip_ = override_tooltip;
+  NotifyChange();
+}
+
+void PageActionModel::SetShouldHidePageAction(
+    base::PassKey<PageActionController>,
+    bool should_hide) {
+  if (should_hide_ == should_hide) {
+    return;
+  }
+
+  should_hide_ = should_hide;
   NotifyChange();
 }
 

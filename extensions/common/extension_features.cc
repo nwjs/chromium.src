@@ -44,6 +44,10 @@ BASE_FEATURE(kApiOdfsConfigPrivate,
              "ApiOdfsConfigPrivate",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kApiEnterpriseReportingPrivateOnDataMaskingRulesTriggered,
+             "ApiEnterpriseReportingPrivateOnDataMaskingRulesTriggered",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 ///////////////////////////////////////////////////////////////////////////////
 // Other Features
 ///////////////////////////////////////////////////////////////////////////////
@@ -103,10 +107,6 @@ BASE_FEATURE(kExtensionWARForRedirect,
              "ExtensionWARForRedirect",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kExtensionWebFileHandlers,
-             "ExtensionWebFileHandlers",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kExtensionsManifestV3Only,
              "ExtensionsManifestV3Only",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -152,9 +152,18 @@ BASE_FEATURE(kTelemetryExtensionPendingApprovalApi,
              "TelemetryExtensionPendingApprovalApi",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kNewWebstoreURL,
-             "NewWebstoreURL",
+// TODO(crbug.com/399447642): Clean up this feature after confirming the fix is
+// sufficient.
+BASE_FEATURE(kWebstoreInstallerUserGestureKillSwitch,
+             "WebstoreInstallerUserGestureKillSwitch",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+#if BUILDFLAG(IS_WIN)
+// TODO(https://crbug.com/400119351): Remove this feature flag in M138.
+BASE_FEATURE(kWinRejectDotSpaceSuffixFilePaths,
+             "WinRejectDotSpaceSuffixFilePaths",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
 
 BASE_FEATURE(kDeclarativeNetRequestSafeRuleLimits,
              "DeclarativeNetRequestSafeDynamicRules",
@@ -170,10 +179,6 @@ BASE_FEATURE(kDeclarativeNetRequestResponseHeaderMatching,
 
 BASE_FEATURE(kIncludeJSCallStackInExtensionApiRequest,
              "IncludeJSCallStackInExtensionApiRequest",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kUseItemSnippetsAPI,
-             "UseItemSnippetsAPI",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kUseNewServiceWorkerTaskQueue,
@@ -198,6 +203,10 @@ BASE_FEATURE(kUserScriptUserExtensionToggle,
 
 BASE_FEATURE(kDebuggerAPIRestrictedToDevMode,
              "DebuggerAPIRestrictedToDevMode",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kExtensionBrowserNamespaceAlternative,
+             "ExtensionBrowserNamespaceAlternative",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace extensions_features

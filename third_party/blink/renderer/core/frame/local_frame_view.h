@@ -46,6 +46,7 @@
 #include "third_party/blink/renderer/core/frame/local_frame_ukm_aggregator.h"
 #include "third_party/blink/renderer/core/frame/overlay_interstitial_ad_detector.h"
 #include "third_party/blink/renderer/core/frame/sticky_ad_detector.h"
+#include "third_party/blink/renderer/core/layout/geometry/physical_offset.h"
 #include "third_party/blink/renderer/core/layout/hit_test_request.h"
 #include "third_party/blink/renderer/core/paint/layout_object_counter.h"
 #include "third_party/blink/renderer/core/view_transition/view_transition_request_forward.h"
@@ -116,12 +117,12 @@ class RemoteFrameView;
 class RootFrameViewport;
 class ScrollableArea;
 class Scrollbar;
+class ScrollMarkerGroupPseudoElement;
 class TapFriendlinessChecker;
 class TransformState;
 class WebPluginContainerImpl;
 struct DraggableRegionValue;
 struct NaturalSizingInfo;
-struct PhysicalOffset;
 struct PhysicalRect;
 
 enum class PaintBenchmarkMode;
@@ -519,7 +520,8 @@ class CORE_EXPORT LocalFrameView final
   void ServiceScrollAnimations(base::TimeTicks);
 
   void ScheduleAnimation(base::TimeDelta = base::TimeDelta(),
-                         base::Location location = base::Location::Current());
+                         base::Location location = base::Location::Current(),
+                         bool urgent = false);
 
   void OnCommitRequested();
 
@@ -634,7 +636,6 @@ class CORE_EXPORT LocalFrameView final
   bool ShouldReportMainFrameIntersection() const override { return true; }
 
   void Trace(Visitor*) const override;
-  void NotifyPageThatContentAreaWillPaint() const;
 
   // Returns the scrollable area for the frame. For the root frame, this will
   // be the RootFrameViewport, which adds pinch-zoom semantics to scrolling.
@@ -782,6 +783,7 @@ class CORE_EXPORT LocalFrameView final
   }
 #endif
 
+  bool LifecycleUpdatePending() const;
   void RegisterForLifecycleNotifications(LifecycleNotificationObserver*);
   void UnregisterFromLifecycleNotifications(LifecycleNotificationObserver*);
 
@@ -836,6 +838,13 @@ class CORE_EXPORT LocalFrameView final
   void ForAllChildLocalFrameViews(base::FunctionRef<void(LocalFrameView&)>);
 
   void NotifyElementWithRememberedSizeDisconnected(Element*);
+
+  void AddPendingScrollMarkerSelectionUpdate(
+      ScrollMarkerGroupPseudoElement* scroll_marker_group,
+      bool apply_snap);
+  void RemovePendingScrollMarkerSelectionUpdate(
+      ScrollMarkerGroupPseudoElement* scroll_marker_group);
+  void ExecutePendingScrollMarkerSelectionUpdates();
 
  protected:
   void FrameRectsChanged(const gfx::Rect&) override;
@@ -1259,26 +1268,35 @@ class CORE_EXPORT LocalFrameView final
   // https://chromium.googlesource.com/chromium/src/+/main/third_party/blink/renderer/core/paint/README.md#Transform-update-optimization
   // for more on the fast path
   // TODO(yotha): unify these into one HeapHashMap.
-  Member<HeapHashSet<Member<LayoutObject>>> pending_transform_updates_;
-  Member<HeapHashSet<Member<LayoutObject>>> pending_opacity_updates_;
+  Member<GCedHeapHashSet<Member<LayoutObject>>> pending_transform_updates_;
+  Member<GCedHeapHashSet<Member<LayoutObject>>> pending_opacity_updates_;
 
   // A set of objects needing sticky constraint updates. These updates are
   // registered during layout, and deferred until the end of layout.
-  Member<HeapHashSet<Member<PaintLayerScrollableArea>>> pending_sticky_updates_;
+  Member<GCedHeapHashSet<Member<PaintLayerScrollableArea>>>
+      pending_sticky_updates_;
 
   // A set of objects needing snap-area constraint updates. These updates are
   // registered during style/layout, and deferred until the end of layout.
-  Member<HeapHashSet<Member<PaintLayerScrollableArea>>> pending_snap_updates_;
+  Member<GCedHeapHashSet<Member<PaintLayerScrollableArea>>>
+      pending_snap_updates_;
 
   // These are scrollers that had their SnapContainerData changed but still need
   // to have SnapAfterLayout called. We defer the SnapAfterLayout until the user
   // has stopped scrolling.
-  Member<HeapHashSet<Member<PaintLayerScrollableArea>>> pending_perform_snap_;
+  Member<GCedHeapHashSet<Member<PaintLayerScrollableArea>>>
+      pending_perform_snap_;
 
   // These are elements that were disconnected while having a remembered
   // size. We need to clear the remembered at resize observer timing,
   // assuming they are still disconnected.
   HeapHashSet<WeakMember<Element>> disconnected_elements_with_remembered_size_;
+
+  // These scroll-marker-groups which have a newly selected scroll-marker and
+  // should scroll it into view. The boolean values indicate whether snap
+  // alignment should be used in the scroll.
+  Member<GCedHeapHashMap<Member<ScrollMarkerGroupPseudoElement>, bool>>
+      pending_scroll_marker_selection_updates_;
 
 #if DCHECK_IS_ON()
   bool is_updating_descendant_dependent_flags_;

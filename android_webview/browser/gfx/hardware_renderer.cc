@@ -8,6 +8,7 @@
 #include <iterator>
 #include <memory>
 #include <utility>
+#include <variant>
 
 #include "android_webview/browser/gfx/aw_gl_surface.h"
 #include "android_webview/browser/gfx/display_scheduler_webview.h"
@@ -23,6 +24,7 @@
 #include "android_webview/common/aw_features.h"
 #include "android_webview/common/aw_switches.h"
 #include "base/command_line.h"
+#include "base/compiler_specific.h"
 #include "base/feature_list.h"
 #include "base/functional/callback_helpers.h"
 #include "base/functional/overloaded.h"
@@ -265,16 +267,17 @@ HardwareRenderer::OnViz::OnViz(
         [](HardwareRenderer::OnViz* self,
            viz::FrameIntervalDecider::Result result,
            viz::FrameIntervalMatcherType matcher_type) {
-          self->preferred_frame_interval_ = absl::visit(
-              base::Overloaded(
-                  [](viz::FrameIntervalDecider::FrameIntervalClass
-                         frame_interval_class) {
-                    // Zero currently is interpreted by WebView as no opinion,
-                    // which allows system to use its default heuristics.
-                    return base::Milliseconds(0);
-                  },
-                  [](base::TimeDelta interval) { return interval; }),
-              result);
+          self->preferred_frame_interval_ =
+              std::visit(base::Overloaded(
+                             [](viz::FrameIntervalDecider::FrameIntervalClass
+                                    frame_interval_class) {
+                               // Zero currently is interpreted by WebView as no
+                               // opinion, which allows system to use its
+                               // default heuristics.
+                               return base::Milliseconds(0);
+                             },
+                             [](base::TimeDelta interval) { return interval; }),
+                         result);
         },
         this);
     decider->UpdateSettings(std::move(settings), std::move(matchers));
@@ -601,7 +604,7 @@ bool HardwareRendererDrawParams::operator==(
          clip_right == other.clip_right && clip_bottom == other.clip_bottom &&
          width == other.width && height == other.height &&
          color_space == other.color_space &&
-         !memcmp(transform, other.transform, sizeof(transform));
+         UNSAFE_TODO(!memcmp(transform, other.transform, sizeof(transform)));
 }
 
 bool HardwareRendererDrawParams::operator!=(

@@ -75,6 +75,7 @@ BlobURLStoreImpl::BlobURLStoreImpl(
     base::RepeatingCallback<
         void(const GURL&, std::optional<blink::mojom::PartitioningBlobURLInfo>)>
         partitioning_blob_url_closure,
+    base::RepeatingCallback<bool()> storage_access_check_callback,
     bool partitioning_disabled_by_policy)
     : storage_key_(storage_key),
       renderer_origin_(renderer_origin),
@@ -82,6 +83,7 @@ BlobURLStoreImpl::BlobURLStoreImpl(
       registry_(std::move(registry)),
       validity_check_behavior_(validity_check_behavior),
       partitioning_blob_url_closure_(std::move(partitioning_blob_url_closure)),
+      storage_access_check_callback_(std::move(storage_access_check_callback)),
       partitioning_disabled_by_policy_(partitioning_disabled_by_policy) {}
 
 BlobURLStoreImpl::~BlobURLStoreImpl() {
@@ -131,7 +133,15 @@ void BlobURLStoreImpl::ResolveAsURLLoaderFactory(
     std::move(callback).Run(std::nullopt, std::nullopt);
     return;
   }
+  FinishResolveAsURLLoaderFactory(url, std::move(receiver), std::move(callback),
+                                  storage_access_check_callback_.Run());
+}
 
+void BlobURLStoreImpl::FinishResolveAsURLLoaderFactory(
+    const GURL& url,
+    mojo::PendingReceiver<network::mojom::URLLoaderFactory> receiver,
+    ResolveAsURLLoaderFactoryCallback callback,
+    bool has_storage_access_handle) {
   if (registry_->IsUrlMapped(BlobUrlUtils::ClearUrlFragment(url),
                              storage_key_) ==
       BlobUrlRegistry::MappingStatus::kNotMappedCrossPartitionSameOrigin) {
@@ -139,7 +149,7 @@ void BlobURLStoreImpl::ResolveAsURLLoaderFactory(
         base::FeatureList::IsEnabled(
             features::kBlockCrossPartitionBlobUrlFetching) &&
         !partitioning_disabled_by_policy_;
-    if (feature_and_policy_check) {
+    if (feature_and_policy_check && !has_storage_access_handle) {
       partitioning_blob_url_closure_.Run(url,
                                          blink::mojom::PartitioningBlobURLInfo::
                                              kBlockedCrossPartitionFetching);
@@ -162,16 +172,26 @@ void BlobURLStoreImpl::ResolveAsURLLoaderFactory(
                           registry_->GetUnsafeTopLevelSite(url));
 }
 
-void BlobURLStoreImpl::ResolveForNavigation(
+void BlobURLStoreImpl::ResolveAsBlobURLToken(
     const GURL& url,
     mojo::PendingReceiver<blink::mojom::BlobURLToken> token,
     bool is_top_level_navigation,
-    ResolveForNavigationCallback callback) {
+    ResolveAsBlobURLTokenCallback callback) {
   if (!registry_) {
     std::move(callback).Run(std::nullopt);
     return;
   }
+  FinishResolveAsBlobURLToken(url, std::move(token), is_top_level_navigation,
+                              std::move(callback),
+                              storage_access_check_callback_.Run());
+}
 
+void BlobURLStoreImpl::FinishResolveAsBlobURLToken(
+    const GURL& url,
+    mojo::PendingReceiver<blink::mojom::BlobURLToken> token,
+    bool is_top_level_navigation,
+    ResolveAsBlobURLTokenCallback callback,
+    bool has_storage_access_handle) {
   if (!is_top_level_navigation &&
       (registry_->IsUrlMapped(BlobUrlUtils::ClearUrlFragment(url),
                               storage_key_) ==
@@ -180,7 +200,7 @@ void BlobURLStoreImpl::ResolveForNavigation(
         base::FeatureList::IsEnabled(
             features::kBlockCrossPartitionBlobUrlFetching) &&
         !partitioning_disabled_by_policy_;
-    if (feature_and_policy_check) {
+    if (feature_and_policy_check && !has_storage_access_handle) {
       partitioning_blob_url_closure_.Run(url,
                                          blink::mojom::PartitioningBlobURLInfo::
                                              kBlockedCrossPartitionFetching);
@@ -198,18 +218,6 @@ void BlobURLStoreImpl::ResolveForNavigation(
 
   new BlobURLTokenImpl(registry_, url, std::move(blob), std::move(token));
   std::move(callback).Run(registry_->GetUnsafeAgentClusterID(url));
-}
-
-void BlobURLStoreImpl::ResolveForWorkerScriptFetch(
-    const GURL& url,
-    mojo::PendingReceiver<blink::mojom::BlobURLToken> token,
-    ResolveForNavigationCallback callback) {
-  if (!registry_) {
-    std::move(callback).Run(std::nullopt);
-    return;
-  }
-  ResolveForNavigation(url, std::move(token), /*is_top_level_navigation=*/false,
-                       std::move(callback));
 }
 
 bool BlobURLStoreImpl::BlobUrlIsValid(const GURL& url,

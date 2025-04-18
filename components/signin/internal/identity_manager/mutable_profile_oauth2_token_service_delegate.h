@@ -188,9 +188,8 @@ class MutableProfileOAuth2TokenServiceDelegate
       MutableProfileOAuth2TokenServiceDelegateBoundTokensTest,
       ClearBoundTokenOnStartup);
 #endif  // BUILDFLAG(ENABLE_BOUND_SESSION_CREDENTIALS)
-  FRIEND_TEST_ALL_PREFIXES(
-      MutableProfileOAuth2TokenServiceDelegateWithUnoDesktopTest,
-      KeepPrimaryAccountTokenOnStartupWithClearOnExit);
+  FRIEND_TEST_ALL_PREFIXES(MutableProfileOAuth2TokenServiceDelegateTest,
+                           KeepPrimaryAccountTokenOnStartupWithClearOnExit);
 
   // WebDataServiceConsumer implementation:
   void OnWebDataServiceRequestDone(
@@ -198,8 +197,8 @@ class MutableProfileOAuth2TokenServiceDelegate
       std::unique_ptr<WDTypedResult> result) override;
 
   // ProfileOAuth2TokenServiceDelegate implementation:
-  void LoadCredentialsInternal(const CoreAccountId& primary_account_id,
-                               bool is_syncing) override;
+  void LoadCredentialsInternal(
+      const CoreAccountId& primary_account_id) override;
   void UpdateCredentialsInternal(const CoreAccountId& account_id,
                                  const std::string& refresh_token
 #if BUILDFLAG(ENABLE_BOUND_SESSION_CREDENTIALS)

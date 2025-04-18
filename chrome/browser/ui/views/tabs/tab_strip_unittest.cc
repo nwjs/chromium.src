@@ -634,9 +634,7 @@ TEST_P(TabStripTest, TabNeedsAttentionGeneric) {
 TEST_P(TabStripTest, TabGroupNeedsAttention) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures(
-      {tab_groups::kTabGroupsSaveV2,
-       data_sharing::features::kDataSharingFeature},
-      {});
+      {data_sharing::features::kDataSharingFeature}, {});
   controller_->AddTab(0, TabActive::kInactive);
   controller_->AddTab(1, TabActive::kActive);
 
@@ -672,7 +670,7 @@ TEST_P(TabStripTest, EventsOnClosingTab) {
   tab_strip_->CloseTab(first_tab, CloseTabSource::kFromMouse);
   EXPECT_EQ(first_tab, tab_strip_->GetEventHandlerForPoint(tab_center));
 
-  // Closing |first_tab| again should forward to |second_tab| instead.
+  // Closing `first_tab` again should forward to `second_tab` instead.
   tab_strip_->CloseTab(first_tab, CloseTabSource::kFromMouse);
   EXPECT_TRUE(second_tab->closing());
 }
@@ -722,14 +720,14 @@ TEST_P(TabStripTest, CloseTabInGroupWhilePreviousTabAnimatingClosed) {
 
   // We have the following tabs:
   // 1. An ungrouped tab with model index 0
-  // 2. A tab in |group_id| with model index 1
-  // 3. A tab in |group_id| with model index 2
+  // 2. A tab in `group_id` with model index 1
+  // 3. A tab in `group_id` with model index 2
   controller_->RemoveTab(1);
 
   // After closing the first tab, we now have:
   // 1. An ungrouped tab with model index 0
-  // 2. A closing tab in |group_id| with no model index
-  // 3. A tab in |group_id| with model index 1.
+  // 2. A closing tab in `group_id` with no model index
+  // 3. A tab in `group_id` with model index 1.
   //
   // Closing the tab at model index 1 should result in (3) above being
   // closed.
@@ -737,8 +735,8 @@ TEST_P(TabStripTest, CloseTabInGroupWhilePreviousTabAnimatingClosed) {
 
   // We should now have:
   // 1. An ungrouped tab with model index 0
-  // 2. A closing tab in |group_id| with no model index
-  // 3. A closing tab in |group_id| with no model index.
+  // 2. A closing tab in `group_id` with no model index
+  // 3. A closing tab in `group_id` with no model index.
 
   CompleteAnimationAndLayout();
 
@@ -828,7 +826,7 @@ TEST_P(TabStripTest, RelayoutAfterDraggedTabBoundsUpdate) {
   dragged_tab->set_dragging(true);
 
   constexpr int kXOffset = 20;
-  std::vector<raw_ptr<TabSlotView, VectorExperimental>> tabs{dragged_tab};
+  std::vector<TabSlotView*> tabs{dragged_tab};
   std::vector<gfx::Rect> bounds{gfx::Rect({kXOffset, 0}, dragged_tab->size())};
   SizeChangeObserver view_observer(tab_strip_);
   tab_strip_->GetDragContext()->SetBoundsForDrag(tabs, bounds);

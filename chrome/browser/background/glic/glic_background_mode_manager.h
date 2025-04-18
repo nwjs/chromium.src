@@ -28,6 +28,16 @@ namespace glic {
 class GlicController;
 class GlicStatusIcon;
 
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+// LINT.IfChange(HotkeyUsage)
+enum class HotkeyUsage {
+  kDefault = 0,
+  kCustom = 1,
+  kMaxValue = kCustom,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicHotkeyUsage)
+
 // This is a global feature in the browser process that manages the
 // enabling/disabling of glic background mode. When background mode is enabled,
 // chrome is set to keep alive the browser process, so that this class can
@@ -69,6 +79,8 @@ class GlicBackgroundModeManager
     return keep_alive_ != nullptr;
   }
 
+  GlicStatusIcon* GetStatusIconForTesting() { return status_icon_.get(); }
+
   void EnterBackgroundMode();
   void ExitBackgroundMode();
 
@@ -78,7 +90,7 @@ class GlicBackgroundModeManager
   void UnregisterHotkey();
   void UpdateState();
 
-  void OnProfileEnableChanged();
+  void OnProfileAllowedChanged();
 
   bool IsEnabledInAnyLoadedProfile();
 

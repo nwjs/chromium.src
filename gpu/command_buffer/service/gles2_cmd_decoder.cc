@@ -2991,11 +2991,11 @@ gpu::ContextResult GLES2DecoderImpl::Initialize(
   // If the failIfMajorPerformanceCaveat context creation attribute was true
   // and we are using a software renderer, fail.
   if (attrib_helper.fail_if_major_perf_caveat &&
-      feature_info_->feature_flags().is_swiftshader_for_webgl) {
+      feature_info_->feature_flags().is_software_webgl) {
     // Must not destroy ContextGroup if it is not initialized.
     group_ = nullptr;
     LOG(ERROR) << "ContextResult::kFatalFailure: "
-                  "fail_if_major_perf_caveat + swiftshader";
+                  "fail_if_major_perf_caveat + software gl";
     return gpu::ContextResult::kFatalFailure;
   }
 
@@ -3270,6 +3270,13 @@ gpu::ContextResult GLES2DecoderImpl::Initialize(
                     "glClearWorkaroundInit failed";
       return gpu::ContextResult::kFatalFailure;
     }
+  }
+
+  if (feature_info_->context_type() == CONTEXT_TYPE_WEBGL2) {
+    // If WebGL 2, the PRIMITIVE_RESTART_FIXED_INDEX should be always enabled.
+    // See the section <Primitive Restart is Always Enabled> in WebGL 2 spec:
+    // https://www.khronos.org/registry/webgl/specs/latest/2.0/#4.1.4
+    DoEnable(GL_PRIMITIVE_RESTART_FIXED_INDEX);
   }
 
   if (group_->gpu_preferences().enable_gpu_driver_debug_logging &&

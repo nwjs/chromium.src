@@ -456,22 +456,8 @@ Color Color::InterpolateColors(Color::ColorSpace interpolation_space,
                                Color color1,
                                Color color2,
                                float percentage) {
-  // https://www.w3.org/TR/css-color-4/#missing:
-  // When interpolating colors, missing components do not behave as zero values
-  // for color space conversions.
-  if (color1.GetColorSpace() != interpolation_space) {
-    const std::array<bool, 3> color1_missing =
-        color1.GetAnalogousMissingComponents(interpolation_space);
-    color1.ConvertToColorSpace(interpolation_space);
-    color1.CarryForwardAnalogousMissingComponents(color1_missing);
-  }
-
-  if (color2.GetColorSpace() != interpolation_space) {
-    const std::array<bool, 3> color2_missing =
-        color2.GetAnalogousMissingComponents(interpolation_space);
-    color2.ConvertToColorSpace(interpolation_space);
-    color2.CarryForwardAnalogousMissingComponents(color2_missing);
-  }
+  color1.ConvertToColorSpaceForInterpolation(interpolation_space);
+  color2.ConvertToColorSpaceForInterpolation(interpolation_space);
 
   if (!SubstituteMissingParameters(color1, color2)) {
     NOTREACHED();
@@ -705,8 +691,8 @@ void Color::ConvertToColorSpace(ColorSpace destination_color_space,
       std::tie(param0_, param1_, param2_) = gfx::LabToLch(l, a, b);
       param2_ = AngleToUnitCircleDegrees(param2_);
 
-      // Hue component is powerless for fully transparent or achromatic colors.
-      if (IsFullyTransparent() || param1_ <= kAchromaticChromaThreshold) {
+      // Hue component is powerless for achromatic colors.
+      if (param1_ <= kAchromaticChromaThreshold) {
         param2_is_none_ = true;
       }
 
@@ -733,8 +719,8 @@ void Color::ConvertToColorSpace(ColorSpace destination_color_space,
         param2_ = AngleToUnitCircleDegrees(param2_);
       }
 
-      // Hue component is powerless for fully transparent or archromatic colors.
-      if (IsFullyTransparent() || param1_ <= kAchromaticChromaThreshold) {
+      // Hue component is powerless for archromatic colors.
+      if (param1_ <= kAchromaticChromaThreshold) {
         param2_is_none_ = true;
       }
 
@@ -789,9 +775,8 @@ void Color::ConvertToColorSpace(ColorSpace destination_color_space,
             gfx::SRGBToHSL(param0_, param1_, param2_);
       }
 
-      // Hue component is powerless for fully transparent or achromatic (s==0)
-      // colors.
-      if (IsFullyTransparent() || param1_ == 0) {
+      // Hue component is powerless for achromatic (s==0) colors.
+      if (param1_ == 0) {
         param0_is_none_ = true;
       }
 
@@ -819,8 +804,8 @@ void Color::ConvertToColorSpace(ColorSpace destination_color_space,
             gfx::SRGBToHWB(param0_, param1_, param2_);
       }
 
-      // Hue component is powerless for fully transparent or achromatic colors.
-      if (IsFullyTransparent() || param1_ + param2_ >= 1) {
+      // Hue component is powerless for achromatic colors.
+      if (param1_ + param2_ >= 1) {
         param0_is_none_ = true;
       }
 
@@ -828,6 +813,27 @@ void Color::ConvertToColorSpace(ColorSpace destination_color_space,
       return;
     }
   }
+}
+
+void Color::ConvertToColorSpaceForInterpolation(
+    ColorSpace destination_color_space) {
+  if (color_space_ == destination_color_space) {
+    return;
+  }
+
+  // https://www.w3.org/TR/css-color-4/#missing:
+  // When interpolating colors, missing components do not behave as zero values
+  // for color space conversions.
+  // https://www.w3.org/TR/css-color-4/#interpolation:
+  // 1. Checking the two colors for analogous components which will be
+  // carried forward.
+  auto analogous = GetAnalogousMissingComponents(destination_color_space);
+  // 2. Converting them to a given color space which will be referred to as
+  // the interpolation color space below.
+  ConvertToColorSpace(destination_color_space);
+  // 3. (If required) Re-inserting carried-forward values in the converted
+  // colors.
+  CarryForwardAnalogousMissingComponents(analogous);
 }
 
 SkColor4f Color::toSkColor4f() const {
@@ -1328,7 +1334,10 @@ void Color::GetHWB(double& hue, double& white, double& black) const {
 // formats (hex colors, named colors, rgb(), hsl() or hwb() and the equivalent
 // alpha-including forms) in gamma-encoded sRGB space.
 Color::ColorSpace Color::GetColorInterpolationSpace() const {
-  if (IsLegacyColorSpace(color_space_)) {
+  // If the color space is legacy and does not contain none, it should be
+  // interpolated in srgb-legacy.
+  if (IsLegacyColorSpace(color_space_) && !param0_is_none_ &&
+      !param1_is_none_ && !param2_is_none_ && !alpha_is_none_) {
     return ColorSpace::kSRGBLegacy;
   }
 

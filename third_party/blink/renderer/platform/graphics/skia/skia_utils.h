@@ -37,20 +37,14 @@
 #include <utility>
 
 #include "base/check_op.h"
-#include "base/notreached.h"
-#include "cc/paint/paint_canvas.h"
 #include "components/viz/common/resources/shared_image_format.h"
-#include "third_party/blink/renderer/platform/graphics/graphics_types.h"
-#include "third_party/blink/renderer/platform/graphics/image.h"
+#include "third_party/blink/renderer/platform/graphics/graphics_context_types.h"
 #include "third_party/blink/renderer/platform/platform_export.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_copier.h"
 #include "third_party/blink/renderer/platform/wtf/math_extras.h"
 #include "third_party/skia/include/core/SkBitmap.h"
-#include "third_party/skia/include/core/SkCanvas.h"
-#include "third_party/skia/include/core/SkColor.h"
 #include "third_party/skia/include/core/SkColorType.h"
 #include "third_party/skia/include/core/SkData.h"
-#include "third_party/skia/include/core/SkPoint.h"
 #include "third_party/skia/include/core/SkRefCnt.h"
 #include "third_party/skia/include/core/SkScalar.h"
 
@@ -69,14 +63,6 @@ enum {
 };
 
 bool PLATFORM_EXPORT IsValidImageSize(const gfx::Size&);
-
-SkBlendMode PLATFORM_EXPORT
-    WebCoreCompositeToSkiaComposite(CompositeOperator,
-                                    BlendMode = BlendMode::kNormal);
-SkBlendMode PLATFORM_EXPORT WebCoreBlendModeToSkBlendMode(BlendMode);
-
-std::pair<CompositeOperator, BlendMode> PLATFORM_EXPORT
-CompositeAndBlendOpsFromSkBlendMode(SkBlendMode sk_blend_mode);
 
 // Multiply a color's alpha channel by an additional alpha factor where
 // alpha is in the range [0, 1].
@@ -124,23 +110,6 @@ inline float BlurRadiusToStdDev(float radius) {
   // https://www.w3.org/TR/css-backgrounds-3/#shadow-blur
   // https://html.spec.whatwg.org/C/#when-shadows-are-drawn
   return radius * 0.5f;
-}
-
-void PLATFORM_EXPORT DrawPlatformFocusRing(const SkRRect&,
-                                           cc::PaintCanvas*,
-                                           SkColor4f,
-                                           float width);
-void PLATFORM_EXPORT DrawPlatformFocusRing(const SkPath&,
-                                           cc::PaintCanvas*,
-                                           SkColor4f,
-                                           float width,
-                                           float corner_radius);
-
-inline SkCanvas::SrcRectConstraint WebCoreClampingModeToSkiaRectConstraint(
-    Image::ImageClampingMode clamp_mode) {
-  return clamp_mode == Image::kClampImageToSourceRect
-             ? SkCanvas::kStrict_SrcRectConstraint
-             : SkCanvas::kFast_SrcRectConstraint;
 }
 
 // Attempts to allocate an SkData on the PartitionAlloc buffer partition.

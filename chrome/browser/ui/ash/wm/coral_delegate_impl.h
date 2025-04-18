@@ -20,7 +20,7 @@ class CoralDelegateImpl : public ash::CoralDelegate,
   CoralDelegateImpl& operator=(const CoralDelegateImpl&) = delete;
   ~CoralDelegateImpl() override;
 
-  void OnPostLoginLaunchComplete();
+  void OnPostLoginLaunchComplete(const base::Token& group_id);
 
   // ash::CoralDelegate:
   void LaunchPostLoginGroup(coral::mojom::GroupPtr group) override;
@@ -32,6 +32,7 @@ class CoralDelegateImpl : public ash::CoralDelegate,
                               send_feedback_callback) override;
   void CheckGenAIAgeAvailability(GenAIInquiryCallback callback) override;
   bool GetGenAILocationAvailability() override;
+  std::string GetSystemLanguage() override;
 
   // signin::IdentityManager::Observer:
   void OnIdentityManagerShutdown(
@@ -42,7 +43,8 @@ class CoralDelegateImpl : public ash::CoralDelegate,
   void HandleGenerativeAiInquiryTimeout();
 
   // Handles launching apps and creating browsers for post login groups.
-  std::unique_ptr<DesksTemplatesAppLaunchHandler> app_launch_handler_;
+  std::map<base::Token, std::unique_ptr<DesksTemplatesAppLaunchHandler>>
+      app_launch_handlers_;
 
   GenAIInquiryCallback gen_ai_age_inquiry_callback_;
 

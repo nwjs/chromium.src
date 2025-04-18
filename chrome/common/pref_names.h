@@ -1907,6 +1907,11 @@ inline constexpr char kDataUrlInSvgUseEnabled[] =
 inline constexpr char kPartitionedBlobUrlUsage[] =
     "profile.content_settings.partitioned_blob_url_usage";
 
+// Boolean value indicating if the Reduce Accept-Language feature should be
+// enabled. Defaults to network::features::kReduceAcceptLanguage field trial.
+inline constexpr char kReduceAcceptLanguageEnabled[] =
+    "profile.reduce_accept_language_enabled";
+
 // Boolean indicating if JS dialogs triggered from a different origin iframe
 // should be blocked. Has no effect if
 // "SuppressDifferentOriginSubframeJSDialogs" feature is disabled.
@@ -2102,6 +2107,10 @@ inline constexpr char kTaskManagerWindowPlacement[] =
 // restored on startup.
 inline constexpr char kTaskManagerColumnVisibility[] =
     "task_manager.column_visibility";
+
+// The most recent stored tab in the task manager window to be restored on
+// startup.
+inline constexpr char kTaskManagerCategory[] = "task_manager.category";
 
 // A boolean indicating if ending processes are enabled or disabled by policy.
 inline constexpr char kTaskManagerEndProcessEnabled[] =
@@ -2906,17 +2915,6 @@ inline constexpr char kDeviceSettingsCache[] = "signed_settings_cache";
 // "xkb:us::eng".
 inline constexpr char kHardwareKeyboardLayout[] = "intl.hardware_keyboard";
 
-// A boolean pref of the auto-enrollment decision. Its value is only valid if
-// it's not the default value; otherwise, no auto-enrollment decision has been
-// made yet.
-inline constexpr char kShouldAutoEnroll[] = "ShouldAutoEnroll";
-
-// A boolean pref of the private-set-membership decision. Its value is only
-// valid if it's not the default value; otherwise, no private-set-membership
-// decision has been made yet.
-inline constexpr char kShouldRetrieveDeviceState[] =
-    "ShouldRetrieveDeviceState";
-
 // An integer pref. Its valid values are defined in
 // enterprise_management::DeviceRegisterRequest::PsmExecutionResult enum which
 // indicates all possible PSM execution results in the Chrome OS enrollment
@@ -2927,12 +2925,6 @@ inline constexpr char kEnrollmentPsmResult[] = "EnrollmentPsmResult";
 // determination successfully in the Chrome OS enrollment flow.
 inline constexpr char kEnrollmentPsmDeterminationTime[] =
     "EnrollmentPsmDeterminationTime";
-
-// An integer pref with the maximum number of bits used by the client in a
-// previous auto-enrollment request. If the client goes through an auto update
-// during OOBE and reboots into a version of the OS with a larger maximum
-// modulus, then it will retry auto-enrollment using the updated value.
-inline constexpr char kAutoEnrollmentPowerLimit[] = "AutoEnrollmentPowerLimit";
 
 // The local state pref that stores device activity times before reporting
 // them to the policy server.
@@ -3161,6 +3153,13 @@ inline constexpr char kRelaunchNotificationPeriod[] =
 inline constexpr char kRelaunchWindow[] = "browser.relaunch_window";
 #endif  // !BUILDFLAG(IS_ANDROID)
 
+#if !BUILDFLAG(IS_ANDROID)
+// Pref name for the policy controlling the maximum age of a build before
+// forcing a quick relaunch.
+inline constexpr char kRelaunchSupersededReleaseAge[] =
+    "browser.relaunch_superseded_release_age";
+#endif  // !BUILDFLAG(IS_ANDROID)
+
 #if BUILDFLAG(IS_CHROMEOS)
 // Pref name for the policy controlling the time period between the first user
 // notification about need to relaunch and the end of the
@@ -3233,6 +3232,11 @@ inline constexpr char kDeviceAllowEnterpriseRemoteAccessConnections[] =
 // up the device.
 inline constexpr char kDeviceWeeklyScheduledSuspend[] =
     "device_weekly_scheduled_suspend";
+
+// A boolean pref which determines whether Chrome Apps are allowed in Kiosk
+// sessions.
+inline constexpr char kKioskChromeAppsForceAllowed[] =
+    "kiosk_chrome_apps_force_allowed";
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || \
@@ -3579,11 +3583,6 @@ inline constexpr char kIncompatibleApplications[] = "incompatible_applications";
 // external tampering.
 inline constexpr char kModuleBlocklistCacheMD5Digest[] =
     "module_blocklist_cache_md5_digest";
-
-// A boolean value, controlling whether third party software is allowed to
-// inject into Chrome's processes.
-inline constexpr char kThirdPartyBlockingEnabled[] =
-    "third_party_blocking_enabled";
 #endif  // BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(IS_WIN)
@@ -4095,6 +4094,10 @@ inline constexpr char kCompressionDictionaryTransportEnabled[] =
 inline constexpr char kZstdContentEncodingEnabled[] =
     "net.zstd_content_encoding_enabled";
 
+// Boolean that specifies whether Happy Eyeballs V3 is enabled.
+inline constexpr char kHappyEyeballsV3Enabled[] =
+    "net.happy_eyeballs_v3_enabled";
+
 // Boolean that specifies whether IPv6 reachability check override is enabled.
 inline constexpr char kIPv6ReachabilityOverrideEnabled[] =
     "net.ipv6_reachability_override_enabled";
@@ -4114,6 +4117,9 @@ inline constexpr char kReadAloudVoiceSettings[] = "readaloud.voices";
 // Double indicating Read Aloud playback speed. Default is 1.0, double speed
 // is 2.0, etc.
 inline constexpr char kReadAloudSpeed[] = "readaloud.speed";
+
+// Integer indicating Read Aloud playback mode (enum). Default is 0 (UNSPECIFIED).
+inline constexpr char kReadAloudPlaybackMode[] = "readaloud.playback_mode";
 
 // Boolean that specifies whether Read Aloud highlights words on the page during
 // playback and scrolls the page to match the playback position.

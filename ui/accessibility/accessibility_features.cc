@@ -75,7 +75,7 @@ bool IsAccessibilityTreeForViewsEnabled() {
 
 BASE_FEATURE(kViewsAccessibilitySerializeOnDataChanged,
              "ViewsAccessibilitySerializeOnDataChanged",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 bool IsViewsAccessibilitySerializeOnDataChangeEnabled() {
   return base::FeatureList::IsEnabled(
       ::features::kViewsAccessibilitySerializeOnDataChanged);
@@ -291,6 +291,14 @@ bool IsAccessibilityManifestV3EnabledForBrailleIme() {
       ::features::kAccessibilityManifestV3BrailleIme);
 }
 
+BASE_FEATURE(kAccessibilityManifestV3ChromeVox,
+             "AccessibilityManifestV3ChromeVox",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+bool IsAccessibilityManifestV3EnabledForChromeVox() {
+  return base::FeatureList::IsEnabled(
+      ::features::kAccessibilityManifestV3ChromeVox);
+}
+
 BASE_FEATURE(kAccessibilityManifestV3EnhancedNetworkTts,
              "AccessibilityManifestV3EnhancedNetworkTts",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -299,7 +307,31 @@ bool IsAccessibilityManifestV3EnabledForEnhancedNetworkTts() {
       ::features::kAccessibilityManifestV3EnhancedNetworkTts);
 }
 
+BASE_FEATURE(kAccessibilityManifestV3SelectToSpeak,
+             "AccessibilityManifestV3SelectToSpeak",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+bool IsAccessibilityManifestV3EnabledForSelectToSpeak() {
+  return base::FeatureList::IsEnabled(
+      ::features::kAccessibilityManifestV3SelectToSpeak);
+}
+
+BASE_FEATURE(kAccessibilityManifestV3SwitchAccess,
+             "AccessibilityManifestV3SwitchAccess",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+bool IsAccessibilityManifestV3EnabledForSwitchAccess() {
+  return base::FeatureList::IsEnabled(
+      ::features::kAccessibilityManifestV3SwitchAccess);
+}
+
 #endif  // BUILDFLAG(IS_CHROMEOS)
+
+BASE_FEATURE(kAccessibilityOnScreenMode,
+             "AccessibilityOnScreenAXMode",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsAccessibilityOnScreenAXModeEnabled() {
+  return base::FeatureList::IsEnabled(::features::kAccessibilityOnScreenMode);
+}
 
 #if !BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kAXTreeFixing, "AXTreeFixing", base::FEATURE_DISABLED_BY_DEFAULT);

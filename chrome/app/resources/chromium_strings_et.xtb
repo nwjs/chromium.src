@@ -27,11 +27,13 @@
 <translation id="1342274909142618978">Kustutage ka andmed Chromiumist (<ph name="URL" />)</translation>
 <translation id="1345251407431278948">Kinnitatud! Pääsete pildiotsingule taas juurde tööriistariba uue nupu abil.</translation>
 <translation id="1356661055722410047">Uus! Saate tõlkida nii ekraanil olevat teksti kui ka pilte</translation>
+<translation id="1383876407941801731">Otsi</translation>
 <translation id="1414495520565016063">Olete Chromiumi sisse logitud.</translation>
 <translation id="1465192221147974788">Oma akna jagamiseks lubage menüüs System Settings Chromiumi puhul ekraani salvestamine.</translation>
 <translation id="1478370723027452770">Hankige abi seoses brauseriga Chrome for Testing</translation>
 <translation id="1497802159252041924">Installimisviga: <ph name="INSTALL_ERROR" /></translation>
 <translation id="1524282610922162960">Chromiumi vahekaardi jagamine</translation>
+<translation id="1547469039832541117">Lõpetab esiletõstetud ülesande.</translation>
 <translation id="1553461853655228091">Chromium vajab luba teie kaamerale juurdepääsemiseks, et luua teid ümbritsevast 3D-kaart</translation>
 <translation id="1555494096857516577">{NUM_EXTENSIONS,plural, =1{Seda laiendust enam ei toetata. Chromium soovitab selle eemaldada.}other{Neid laiendusi ei toetata enam. Chromium soovitab need eemaldada.}}</translation>
 <translation id="1574377791422810894">Chromiumi ohutustööriistad</translation>
@@ -77,6 +79,7 @@
 <translation id="2049376729098081731">Valige, kas Google'i teenustes rohkem isikupärastatud kasutuskogemuse saamiseks kaasata Chromiumi ajalugu</translation>
 <translation id="2086476982681781442">Chromium blokeeris selle allalaadimise, kuna fail on petlik ja võib teie seadmes ootamatuid muudatusi teha</translation>
 <translation id="2088953378266246249">Teave selle kohta, kuidas Chromium oma juursertifikaate haldab</translation>
+<translation id="2099452623287920103">Teie paroolid ja muud Chromiumi andmed, mille olete oma Google'i kontole salvestanud, eemaldatakse sellest seadmest. Selleks et neid Chromiumis uuesti kasutada, logige taas sisse.</translation>
 <translation id="2120965832000301375">{COUNT,plural, =1{Teie organisatsioon kustutab sirvimisandmed automaatselt, kui Chromiumi ei kasutata 1 minuti jooksul. Need võivad hõlmata ajalugu, automaattäidet ja allalaadimisi. Teie vahelehed jäävad avatuks.}other{Teie organisatsioon kustutab sirvimisandmed automaatselt, kui Chromiumi ei kasutata # minuti jooksul. Need võivad hõlmata ajalugu, automaattäidet ja allalaadimisi. Teie vahelehed jäävad avatuks.}}</translation>
 <translation id="2126108037660393668">Allalaaditud faili kinnitamine ebaõnnestus.</translation>
 <translation id="2137162749895930932">Sulgege tõlkeekraan</translation>
@@ -92,6 +95,7 @@
 <translation id="2238130810669087193">Kõigis seadmetes aadresside ja muude võimaluste kasutamiseks logige sisse Chromiumi. See aadress salvestatakse pärast sisselogimist teie Google’i kontole.</translation>
 <translation id="2240214816234246077">Te pole hiljuti külastanud. Chromium eemaldas <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /></translation>
 <translation id="2241627712206172106">Kui jagate arvutit, saavad sõbrad ja pereliikmed eraldi sirvida ning seadistada Chromiumi just nii, nagu neile meeldib.</translation>
+<translation id="2287771843518581140">{NUM_TABS,plural, =1{Chromium soovitab teie brauserit aeglustava vahelehe peatada}other{Chromium soovitab teie brauserit aeglustavad vahelehed peatada}}</translation>
 <translation id="2313870531055795960">Kontrollib URL-e Chromiumi talletatud ohtlike saitide loendi alusel. Kui sait üritab teie parooli varastada või laadite alla kahjuliku faili, võib Chromium saata URL-id ja lehe sisu osad teenusesse Google'i ohutu sirvimine.</translation>
 <translation id="2343156876103232566">Numbri saatmiseks siit Android-telefoni logige mõlemas seadmes Chromiumi sisse.</translation>
 <translation id="2359808026110333948">Jätka</translation>
@@ -117,6 +121,7 @@
 <translation id="2583187216237139145">Kõik Chromiumi andmed, mis luuakse selle profiili kasutamise ajal (nt järjehoidjad, ajalugu, paroolid ja muud seaded), saab tööprofiili administraator eemaldada. <ph name="LEARN_MORE" /></translation>
 <translation id="2592940277904433508">Jätkan Chromiumi kasutamist</translation>
 <translation id="259935314519650377">Allalaaditud installiprogrammi vahemällu salvestamine ebaõnnestus. Viga: <ph name="UNPACK_CACHING_ERROR_CODE" />.</translation>
+<translation id="2620436844016719705">Süsteem</translation>
 <translation id="2629740064077610681">Teie organisatsioon saab vaadata ja hallata sirvimisandmeid, nt teie järjehoidjaid, ajalugu ja paroole. Muude Chromiumi profiilide sirvimisandmeid organisatsioon ei näe.</translation>
 <translation id="2635452620547538388">Kinnitage oma isik, et oma kontol <ph name="ACCOUNT_EMAIL" /> Chromiumi andmeid kasutada ja salvestada</translation>
 <translation id="264613044588233783">Chromium töötab kiiremini ja JavaScripti kasutavad funktsioonid peaksid töötama kavandatud viisil (soovitatav)</translation>
@@ -127,12 +132,11 @@
 <translation id="2721354645805494590">Google'i konto Chromiumist eemaldamiseks logige välja</translation>
 <translation id="2738871930057338499">Internetiga ei õnnestu ühendust luua. HTTP 403 on keelatud. Kontrollige puhverserveri seadistust.</translation>
 <translation id="2753623023919742414">Klõpsake otsimiseks</translation>
+<translation id="2768103863314748511">Määrake Chromium oma PDF-vaikevaaturiks</translation>
 <translation id="2770231113462710648">Asenda vaikebrauser:</translation>
-<translation id="277338894894732084">Edaspidi küsib Chromium, kas soovite vormide automaattäitmiseks kasutada salvestatud teavet</translation>
 <translation id="2785438272836277133">Laiendus sisaldab pahavara ja see on ebaturvaline. Eemaldage laiendus Chromiumist, et see ei saaks enam teie külastatavatel saitidel näha ja muuta teie andmeid, sealhulgas teie isiklikku teavet.</translation>
 <translation id="2799223571221894425">Taaskäivita</translation>
 <translation id="2803971713792056305">Teie Chromium</translation>
-<translation id="2806241689335397269">Chromium küsib, kas soovite salvestada vormi teabe, nt sünnipäeva, vanuse ja passi numbri</translation>
 <translation id="2841525013647267359">Tõlke lähtekeel</translation>
 <translation id="2846251086934905009">Installimisviga: installiprogrammi ei viidud lõpule. Installimine katkestati.</translation>
 <translation id="2847479871509788944">Chromiumist eemaldamine ...</translation>
@@ -147,6 +151,7 @@
 <translation id="2977470724722393594">Chromium on ajakohane</translation>
 <translation id="2977506796191543575">Kui sait üritab teie parooli varastada või laadite alla kahjuliku faili, võib Chromium saata URL-id ja lehe sisu osad teenusele Google'i ohutu sirvimine.</translation>
 <translation id="2981563588585023386">Selleks et end veebis vanema valikute abil kaitata, logi Chromiumisse sisse</translation>
+<translation id="3003694935412297923">Kõik ülesanded</translation>
 <translation id="3013473503895162900">Avage <ph name="URL" /> Chromiumis uuel vahelehel.</translation>
 <translation id="3032706164202344641">Chromium ei saa teie paroole kontrollida. Proovige hiljem uuesti.</translation>
 <translation id="3032787606318309379">Chromiumi lisamine ...</translation>
@@ -166,6 +171,7 @@
 <translation id="3179665906251668410">Ava link Chromiumi inko&amp;gnito aknas</translation>
 <translation id="3185330573522821672">Kohandage oma uut Chromiumi profiili</translation>
 <translation id="3224847870593914902">Google'i konto Chromiumist eemaldamiseks logige lehel Seaded Chromiumist välja</translation>
+<translation id="3234316605225071811">Hiljem võib Chromium teilt küsida, kas soovite salvestatud teavet vormide automaattäitmiseks kasutada</translation>
 <translation id="3258596308407688501">Chromium ei saa andmekataloogi lugeda ega sellesse kirjutada:
 
 <ph name="USER_DATA_DIRECTORY" /></translation>
@@ -178,7 +184,6 @@
 <translation id="3387527074123400161">Chromium OS</translation>
 <translation id="3406848076815591792">Kas lülituda olemasolevale Chromiumi profiilile?</translation>
 <translation id="3412460710772753638">Selle seadme paroolihalduris</translation>
-<translation id="3451656833730006755">Oma laiendite ja muu kuvamiseks kõigis oma arvutites logige sisse Chromiumi</translation>
 <translation id="347328004046849135">Chromium teavitab teid, kui logite sisse ohustatud parooliga</translation>
 <translation id="3474745554856756813">See kustutab seadmest <ph name="ITEMS_COUNT" /> üksust. Hiljem oma andmete toomiseks logige Chromiumi sisse kasutajana <ph name="USER_EMAIL" />.</translation>
 <translation id="3497319089134299931">Chromiumi profiilide vahel vahetamiseks vajutage klahve <ph name="SHORTCUT" /></translation>
@@ -227,6 +232,7 @@
 <translation id="4148957013307229264">Installimine ...</translation>
 <translation id="419998258129752635"><ph name="PAGE_TITLE" /> – võrku sisselogimine – Chromium</translation>
 <translation id="421369550622382712">Avastage Chromiumi jaoks suurepäraseid rakendusi, mänge, laiendusi ja teemasid.</translation>
+<translation id="4217080900579554343">Selleks et saada see laiendus ja muu kõikidesse oma arvutisse, logige Chromiumisse sisse</translation>
 <translation id="4217972271355023382">Et kaitsta ennast veebis paremini vanema valikute abil, lülitu Chromiumi profiilile, millele oled kasutajana <ph name="USER_EMAIL_ADDRESS" /> juba sisse logitud</translation>
 <translation id="4222932583846282852">Tühistamine …</translation>
 <translation id="4224210481850767180">Installimine on tühistatud.</translation>
@@ -262,6 +268,7 @@
 <translation id="4570813286784708942">Chromium blokeeris selle allalaadimise, kuna lülitasite Google'i ohutu sirvimise välja ja faili ei saa kinnitada</translation>
 <translation id="4594305310729380060">Selle seadme paroolihaldurisse</translation>
 <translation id="459535195905078186">Chromiumi rakendused</translation>
+<translation id="4598116752460667024">Otsige loendist mis tahes protsessi.</translation>
 <translation id="4613863813562375431">Chromium OS-i versioon</translation>
 <translation id="4621240073146040695">Rakendus on peaaegu ajakohane! Värskenduse lõpuleviimiseks taaskäivitage Chromium.</translation>
 <translation id="4665829708273112819">Hoiatus. Chromium ei saa takistada laiendustel teie sirvimisajalugu salvestada. Kui soovite laienduse inkognito režiimis keelata, siis tühistage see valik.</translation>
@@ -308,6 +315,7 @@
 <translation id="5405650547142096840">Eemalda Chromiumist</translation>
 <translation id="5427571867875391349">Määra Chromium vaikebrauseriks</translation>
 <translation id="5438241569118040789"><ph name="PAGE_TITLE" /> – Chromiumi beetaversioon</translation>
+<translation id="5460618461609401056">{NUM_TABS,plural, =1{Chromium soovitab teie brauserit aeglustava vahelehe peatada}other{Chromium soovitab teie brauserit aeglustavad vahelehed peatada}}</translation>
 <translation id="5473971139929175403">Chromium ei pruugi õigesti töötada, kuna seda ei toetata enam selles Linuxi versioonis</translation>
 <translation id="5475924890392386523">Chromium blokeeris selle allalaadimise, kuna fail võib kahjustada teie isiklikke ja sotsiaalvõrgustiku kontosid</translation>
 <translation id="5480860683791598150">Chromium vajab juurdepääsu teie asukohale, et seda selle saidiga jagada</translation>
@@ -339,6 +347,7 @@
 <translation id="5903106910045431592"><ph name="PAGE_TITLE" /> – võrku sisselogimine</translation>
 <translation id="5924017743176219022">Internetiga ühenduse loomine …</translation>
 <translation id="5941711191222866238">Minimeeri</translation>
+<translation id="5949225980829865667">Selle järjehoidja ja muu saamiseks kõikidesse oma seadmetesse logige Chromiumi sisse</translation>
 <translation id="5972142260211327093">Kui Chromium on teid juhuslikkuse alusel lisanud aktiivsesse katsesse, mõjutab teie sirvimisajalugu teile esitatavaid reklaame ja allolevaid prognoositud huvisid. Teie privaatsuse kaitsmiseks kustutab Chromium teie huvisid jooksvalt iga kuu. Huvisid värskendatakse, kui te neid ei eemalda.</translation>
 <translation id="5986585015444752010">{COUNT,plural, =1{Teie organisatsioon sulgeb Chromiumi automaatselt, kui seda ei kasutata 1 minuti jooksul.}other{Teie organisatsioon sulgeb Chromiumi automaatselt, kui seda ei kasutata # minuti jooksul.}}</translation>
 <translation id="5987687638152509985">Sünkroonimise alustamiseks värskendage Chromiumi</translation>
@@ -427,6 +436,7 @@ On võimalik, et mõni funktsioon ei ole saadaval. Määrake muu profiilikataloo
 <translation id="6857782730669500492">Chromium – <ph name="PAGE_TITLE" /></translation>
 <translation id="6873893289264747459">Chromium leidis, et laiendus „<ph name="EXTENSION_NAME" />“ sisaldab pahavara</translation>
 <translation id="6896758677409633944">Kopeeri</translation>
+<translation id="6901631050894301805">Valige Chromium vaikebrauseriks ja kinnitage see tegumiribale</translation>
 <translation id="6929417474050522668">Kui katsed on sisse lülitatud, võimaldab reklaamide mõõtmine külastatavatel saitidel taotleda Chromiumilt teavet, mis aitab saidil oma reklaamide toimivust mõõta. Reklaamide mõõtmine piirab saitidevahelist jälgimist, edastades saitide vahel võimalikult vähe teavet.</translation>
 <translation id="6940431691900807093">Hiljem saab teie külastatav sait taotleda Chromiumilt teie huvisid, et isikupärastada teile kuvatavaid reklaame. Chromium võib jagada kuni kolme huvi.</translation>
 <translation id="6964305034639999644">Ava link Chromiumi inko&amp;gnito aknas</translation>
@@ -451,6 +461,7 @@ On võimalik, et mõni funktsioon ei ole saadaval. Määrake muu profiilikataloo
 <translation id="7223968959479464213">Tegumihaldur – Chromium</translation>
 <translation id="7246575524853130370">Teie huvid Chromiumi prognooside kohaselt</translation>
 <translation id="7274695763216404502">Kinnitatud! Kasutage pildiotsingut uuesti tööriistariba kaudu.</translation>
+<translation id="7288567540154601580">Vahelehed ja laiendused</translation>
 <translation id="7295544978856094497">{NUM_EXTENSIONS,plural, =1{Chromium soovitab selle eemaldada}other{Chromium soovitab need eemaldada}}</translation>
 <translation id="7309928523159922338">Reklaamide mõõtmine võimaldab külastatavatel saitidel paluda Chromiumilt teavet, mis aitab saidil oma reklaamide toimivust mõõta. Reklaamide mõõtmine piirab saitidevahelist jälgimist, edastades saitide vahel võimalikult vähe teavet.</translation>
 <translation id="731795002583552498">Chromiumi värskendamine</translation>
@@ -460,9 +471,7 @@ Chromium ei saa teie seadeid taastada.</translation>
 <translation id="7339898014177206373">Uus aken</translation>
 <translation id="734373864078049451">Siin asuvad teie veeb, järjehoidjad ja ülejäänud Chromiumi kraam.</translation>
 <translation id="7349591376906416160">Teie süsteemiadministraator on seadistanud Chromiumi avama brauseri <ph name="ALTERNATIVE_BROWSER_NAME" />, et lehele <ph name="TARGET_URL_HOSTNAME" /> juurde pääseda.</translation>
-<translation id="7355355292030546812">Chromium blokeeris selle allalaadimise, kuna fail võib kahjustada teie isiklikke ja sotsiaalvõrgustiku kontosid, sealhulgas kontot <ph name="USER_EMAIL" /></translation>
 <translation id="7384121030444253939">Seda laiendust enam ei toetata. Chromium soovitab selle eemaldada.</translation>
-<translation id="7389750180956889333">Chromium mõistab vorme paremini ja saab need teie eest automaatselt täita. Lisateave <ph name="BEGIN_LINK" />Chrome'i automaattäite kohta<ph name="END_LINK" /></translation>
 <translation id="7449453770951226939"><ph name="PAGE_TITLE" /> – Chromium Dev</translation>
 <translation id="7450541714075000668">Tekst on kopeeritud</translation>
 <translation id="7451052299415159299">Chromium vajab selle saidi puhul luba, et teie kaamerale juurde pääseda</translation>
@@ -499,6 +508,7 @@ Chromium ei saa teie seadeid taastada.</translation>
 <translation id="7937630085815544518">Olite Chromiumisse sisse logitud kasutajana <ph name="USER_EMAIL_ADDRESS" />. Kasutage uuesti sisselogimiseks sama kontot.</translation>
 <translation id="7975919845073681630">See on Chromiumi sekundaarne install ja seda ei saa määrata vaikebrauseriks.</translation>
 <translation id="7997934263947464652">Tundmatutest allikatest pärinevad laiendused, rakendused ja teemad võivad teie seadet kahjustada. Chromium soovitab neid ainult järgmisest poest installida: <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /></translation>
+<translation id="8004582292198964060">Brauser</translation>
 <translation id="8010081455002666927">Automaatne tuvastus</translation>
 <translation id="8013436988911883588">Kui annate Chromiumile juurdepääsu, saavad veebisaidid küsida teilt juurdepääsuluba.</translation>
 <translation id="80471789339884597">Täname teid installimise eest. Enne brauseri <ph name="BUNDLE_NAME" /> kasutamist peate taaskäivitama kõik brauserid.</translation>

@@ -7,10 +7,10 @@
 #import "base/test/ios/wait_util.h"
 #import "base/time/time.h"
 #import "build/branding_buildflags.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/content_suggestions_constants.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/tab_resumption/tab_resumption_constants.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/start_surface/ui_bundled/start_surface_features.h"
-#import "ios/chrome/browser/ui/content_suggestions/content_suggestions_constants.h"
-#import "ios/chrome/browser/ui/content_suggestions/tab_resumption/tab_resumption_constants.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey_ui.h"
@@ -70,8 +70,6 @@ void WaitUntilTabResumptionTileVisibleOrTimeout(bool should_show) {
       ".Test:" + std::string(kReturnToStartSurfaceInactiveDurationInSeconds) +
       "/" + "0");
   config.additional_args.push_back("--test-ios-module-ranker=tab_resumption");
-  // Tests need to be adapted to make sure local server tabs appear with TR2.
-  config.features_disabled.push_back(kTabResumption2);
   return config;
 }
 

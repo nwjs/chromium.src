@@ -14,7 +14,6 @@ import 'chrome://resources/ash/common/cr_elements/cr_link_row/cr_link_row.js';
 import 'chrome://resources/ash/common/cr_elements/icons.html.js';
 import 'chrome://resources/polymer/v3_0/iron-icon/iron-icon.js';
 import 'chrome://resources/polymer/v3_0/iron-media-query/iron-media-query.js';
-import '../icons.html.js';
 import '../os_settings_page/os_settings_animated_pages.js';
 import '../os_settings_page/os_settings_subpage.js';
 import '../os_settings_page/settings_card.js';
@@ -698,17 +697,24 @@ export class OsAboutPageElement extends OsAboutPageBase {
   }
 
   private computeShowCheckUpdates_(): boolean {
-    // Disable update button if the device is end of life or needs to opt-in
+    // Disable update button if the device needs to opt-in
     // to extended updates.
-    if (this.hasEndOfLife_ || this.showExtendedUpdatesOption_) {
+    if (this.showExtendedUpdatesOption_) {
       return false;
     }
+
+    // Show the update button when the device is at EOL and there are no
+    // more updates available for the device.
+    const eolPassedAndNoUpdates =
+        this.hasEndOfLife_ && this.checkStatus_(UpdateStatus.UPDATED);
 
     // Enable the update button if we are in a stale 'updated' status or
     // update has failed. Disable it otherwise.
     const staleUpdatedStatus =
         !this.hasCheckedForUpdates_ && this.checkStatus_(UpdateStatus.UPDATED);
-    return staleUpdatedStatus || this.checkStatus_(UpdateStatus.FAILED) ||
+
+    return eolPassedAndNoUpdates || staleUpdatedStatus ||
+        this.checkStatus_(UpdateStatus.FAILED) ||
         this.checkStatus_(UpdateStatus.FAILED_HTTP) ||
         this.checkStatus_(UpdateStatus.FAILED_DOWNLOAD) ||
         this.checkStatus_(UpdateStatus.DISABLED_BY_ADMIN) ||

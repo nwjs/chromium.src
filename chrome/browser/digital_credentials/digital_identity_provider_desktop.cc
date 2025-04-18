@@ -5,10 +5,10 @@
 #include "chrome/browser/digital_credentials/digital_identity_provider_desktop.h"
 
 #include <memory>
+#include <variant>
 
 #include "base/containers/span.h"
 #include "base/functional/overloaded.h"
-#include "base/json/json_writer.h"
 #include "base/values.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/digital_credentials/digital_identity_low_risk_origins.h"
@@ -168,25 +168,25 @@ void DigitalIdentityProviderDesktop::Transact(
 
 void DigitalIdentityProviderDesktop::OnEvent(const std::string& qr_url,
                                              Event event) {
-  absl::visit(base::Overloaded{
-                  [this, qr_url](SystemEvent event) {
-                    switch (event) {
-                      case SystemEvent::kBluetoothNotPowered:
-                        ShowBluetoothManualTurnOnDialog();
-                        break;
-                      case SystemEvent::kNeedPermission:
-                        // The user is being asked for Bluetooth permission by
-                        // the system. Nothing for Chrome UI to do.
-                        break;
-                      case SystemEvent::kReady:
-                        bluetooth_manual_dialog_controller_.reset();
-                        ShowQrCodeDialog(qr_url);
-                        break;
-                    }
-                  },
-                  [this](device::cablev2::Event event) { OnCableEvent(event); },
-              },
-              event);
+  std::visit(base::Overloaded{
+                 [this, qr_url](SystemEvent event) {
+                   switch (event) {
+                     case SystemEvent::kBluetoothNotPowered:
+                       ShowBluetoothManualTurnOnDialog();
+                       break;
+                     case SystemEvent::kNeedPermission:
+                       // The user is being asked for Bluetooth permission by
+                       // the system. Nothing for Chrome UI to do.
+                       break;
+                     case SystemEvent::kReady:
+                       bluetooth_manual_dialog_controller_.reset();
+                       ShowQrCodeDialog(qr_url);
+                       break;
+                   }
+                 },
+                 [this](device::cablev2::Event event) { OnCableEvent(event); },
+             },
+             event);
 }
 
 void DigitalIdentityProviderDesktop::OnCableEvent(
@@ -220,15 +220,11 @@ void DigitalIdentityProviderDesktop::OnCableEvent(
 void DigitalIdentityProviderDesktop::OnFinished(
     base::expected<Response, Error> result) {
   if (result.has_value()) {
-    std::string encoded_result =
-        base::WriteJsonWithOptions(result.value().value(),
-                                   base::JSONWriter::OPTIONS_PRETTY_PRINT)
-            .value_or("");
-    std::move(callback_).Run(std::move(encoded_result));
+    std::move(callback_).Run(std::move(result.value().value()));
     return;
   }
 
-  absl::visit(
+  std::visit(
       base::Overloaded{
           [this](SystemError error) {
             EndRequestWithError(RequestStatusForMetrics::kErrorOther);

@@ -481,4 +481,9 @@ WebContentsDelegate::GetBackForwardTransitionFallbackUXConfig() {
 }
 #endif  // BUILDFLAG(IS_ANDROID)
 
+std::vector<blink::mojom::RelatedApplicationPtr>
+WebContentsDelegate::GetSavedRelatedApplications(WebContents* web_contents) {
+  return {};
+}
+
 }  // namespace content

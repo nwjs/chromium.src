@@ -163,6 +163,12 @@ class InProcessContextFactory::PerCompositorData
 #if BUILDFLAG(IS_ANDROID)
   void SetVSyncPaused(bool paused) override {}
   void UpdateRefreshRate(float refresh_rate) override {}
+  void SetAdaptiveRefreshRateInfo(
+      bool has_support,
+      float suggested_normal,
+      float suggested_high,
+      const std::vector<float>& supported_refresh_rates,
+      float device_scale_factor) override {}
   void PreserveChildSurfaceControls() override {}
   void SetSwapCompletionCallbackEnabled(bool enabled) override {}
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -393,11 +399,6 @@ void InProcessContextFactory::RemoveCompositor(Compositor* compositor) {
   frame_sink_manager_->UnregisterBeginFrameSource(data->begin_frame_source());
   DCHECK(data);
   per_compositor_data_.erase(it);
-}
-
-gpu::GpuMemoryBufferManager*
-InProcessContextFactory::GetGpuMemoryBufferManager() {
-  return &gpu_memory_buffer_manager_;
 }
 
 cc::TaskGraphRunner* InProcessContextFactory::GetTaskGraphRunner() {

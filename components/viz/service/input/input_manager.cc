@@ -4,6 +4,8 @@
 
 #include "components/viz/service/input/input_manager.h"
 
+#include <variant>
+
 #if BUILDFLAG(IS_ANDROID)
 #include <android/looper.h>
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -82,6 +84,8 @@ constexpr char kParentInputSCName[] = "ChromeParentInputSurfaceControl";
 
 constexpr char kInputReceiverCreationResultHistogram[] =
     "Android.InputOnViz.InputReceiverCreationResult";
+constexpr char kStateProcessingResultHistogram[] =
+    "Android.InputOnViz.Viz.StateProcessingResult";
 
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused.
@@ -95,6 +99,15 @@ enum class CreateAndroidInputReceiverResult {
   kSuccessfulButNullTransferToken = 6,
   kReuseExistingInputReceiver = 7,
   kMaxValue = kReuseExistingInputReceiver,
+};
+
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+enum class InputOnVizStateProcessingResult {
+  kProcessedSuccessfully = 0,
+  kCouldNotFindViewForFrameSinkId = 1,
+  kFrameSinkIdCorrespondsToChildView = 2,
+  kMaxValue = kFrameSinkIdCorrespondsToChildView,
 };
 #endif  // BUILDFLAG(IS_ANDROID)
 
@@ -151,6 +164,9 @@ void InputManager::OnCreateCompositorFrameSink(
   TRACE_EVENT("viz", "InputManager::OnCreateCompositorFrameSink",
               "config_is_null", !render_input_router_config, "frame_sink_id",
               frame_sink_id);
+  if (is_root) {
+    MaybeRecreateRootRenderInputRouterSupports(frame_sink_id);
+  }
 #if BUILDFLAG(IS_ANDROID)
   if (create_input_receiver) {
     CHECK(is_root);
@@ -403,9 +419,19 @@ void InputManager::StateOnTouchTransfer(
   base::WeakPtr<RenderInputRouterSupportAndroidInterface>
       support_android_interface = nullptr;
   if (iter != frame_sink_metadata_map_.end()) {
+    RenderInputRouterSupportBase* support_base = iter->second.rir_support.get();
+    CHECK(support_base &&
+          !support_base->IsRenderInputRouterSupportChildFrame());
     auto* support_android = static_cast<RenderInputRouterSupportAndroid*>(
         iter->second.rir_support.get());
     support_android_interface = support_android->GetWeakPtr();
+    UMA_HISTOGRAM_ENUMERATION(
+        kStateProcessingResultHistogram,
+        InputOnVizStateProcessingResult::kProcessedSuccessfully);
+  } else {
+    UMA_HISTOGRAM_ENUMERATION(
+        kStateProcessingResultHistogram,
+        InputOnVizStateProcessingResult::kCouldNotFindViewForFrameSinkId);
   }
   android_state_transfer_handler_.StateOnTouchTransfer(
       std::move(state), support_android_interface);
@@ -420,6 +446,11 @@ void InputManager::NotifySiteIsMobileOptimized(
     return;
   }
   itr->second->input_router()->NotifySiteIsMobileOptimized(is_mobile_optimized);
+
+  auto metadata_itr = frame_sink_metadata_map_.find(frame_sink_id);
+  CHECK(metadata_itr != frame_sink_metadata_map_.end());
+  metadata_itr->second.rir_support->NotifySiteIsMobileOptimized(
+      is_mobile_optimized);
 }
 
 void InputManager::ForceEnableZoomStateChanged(
@@ -497,6 +528,26 @@ bool InputManager::ReturnInputBackToBrowser() {
   NOTREACHED();
 }
 
+void InputManager::MaybeRecreateRootRenderInputRouterSupports(
+    const FrameSinkId& root_frame_sink_id) {
+  TRACE_EVENT_INSTANT(
+      "input", "InputManager::MaybeRecreateRootRenderInputRouterSupports");
+
+  auto children = frame_sink_manager_->GetChildrenByParent(root_frame_sink_id);
+  for (auto& frame_sink_id : children) {
+    auto iter = frame_sink_metadata_map_.find(frame_sink_id);
+    // Only attempt to recreate RenderInputRouterSupport for `frame_sink_id`
+    // associated with layer tree frame sinks.
+    if (iter != frame_sink_metadata_map_.end() &&
+        iter->second.rir_support->IsRenderInputRouterSupportChildFrame()) {
+      iter->second.rir_support.reset();
+      auto* rir = rir_map_.find(frame_sink_id)->second.get();
+      iter->second.rir_support =
+          MakeRenderInputRouterSupport(rir, frame_sink_id);
+    }
+  }
+}
+
 std::unique_ptr<RenderInputRouterSupportBase>
 InputManager::MakeRenderInputRouterSupport(input::RenderInputRouter* rir,
                                            const FrameSinkId& frame_sink_id) {
@@ -538,10 +589,10 @@ void InputManager::CreateOrReuseAndroidInputReceiver(
   auto surface_record =
       gpu::GpuSurfaceLookup::GetInstance()->AcquireJavaSurface(surface_handle);
 
-  CHECK(absl::holds_alternative<gl::ScopedJavaSurface>(
+  CHECK(std::holds_alternative<gl::ScopedJavaSurface>(
       surface_record.surface_variant));
   gl::ScopedJavaSurface& scoped_java_surface =
-      absl::get<gl::ScopedJavaSurface>(surface_record.surface_variant);
+      std::get<gl::ScopedJavaSurface>(surface_record.surface_variant);
 
   gl::ScopedANativeWindow window(scoped_java_surface);
   scoped_refptr<gfx::SurfaceControl::Surface> parent_input_surface =

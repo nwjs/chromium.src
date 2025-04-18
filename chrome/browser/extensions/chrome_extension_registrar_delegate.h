@@ -26,12 +26,9 @@ class ExtensionSystem;
 // The ExtensionRegistrar::Delegate for the //chrome/browser layer.
 class ChromeExtensionRegistrarDelegate : public ExtensionRegistrar::Delegate {
  public:
-  ChromeExtensionRegistrarDelegate(
-      Profile* profile,
-      ExtensionService* extension_service,
-      ComponentLoader* component_loader,
-      const base::FilePath& install_directory,
-      const base::FilePath& unpacked_install_directory);
+  ChromeExtensionRegistrarDelegate(Profile* profile,
+                                   ExtensionService* extension_service,
+                                   ComponentLoader* component_loader);
   ChromeExtensionRegistrarDelegate(const ChromeExtensionRegistrarDelegate&) =
       delete;
   ChromeExtensionRegistrarDelegate& operator=(
@@ -39,8 +36,7 @@ class ChromeExtensionRegistrarDelegate : public ExtensionRegistrar::Delegate {
   ~ChromeExtensionRegistrarDelegate() override;
 
   // Provides pointers to objects that are constructed after this one.
-  void Init(ExtensionRegistrar* registrar,
-            DelayedInstallManager* delayed_install);
+  void Init(ExtensionRegistrar* registrar);
 
   // Clears member pointers. Call this during KeyedService two-phase shutdown to
   // avoid dangling pointers.
@@ -102,13 +98,6 @@ class ChromeExtensionRegistrarDelegate : public ExtensionRegistrar::Delegate {
   raw_ptr<ExtensionRegistrar> extension_registrar_ = nullptr;
   raw_ptr<DelayedInstallManager> delayed_install_manager_ = nullptr;
   raw_ptr<ComponentLoader> component_loader_ = nullptr;
-
-  // The full path to the directory where extensions are installed.
-  const base::FilePath install_directory_;
-
-  // The full path to the directory where unpacked (e.g. from .zip files)
-  // extensions are installed.
-  const base::FilePath unpacked_install_directory_;
 
   base::WeakPtrFactory<ChromeExtensionRegistrarDelegate> weak_factory_{this};
 };

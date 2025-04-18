@@ -77,6 +77,11 @@ component("gpu") {
     "gpu_video_encode_accelerator_factory.h",
   ]
 
+  configs += [
+    "//build/config/compiler:wexit_time_destructors",
+    "//build/config/compiler:wglobal_constructors",
+  ]
+
   public_deps = [
     ":buildflags",
     ":command_buffer_helper",
@@ -245,6 +250,8 @@ component("gpu") {
       "windows/d3d12_video_decoder_wrapper.h",
       "windows/d3d12_video_encode_accelerator.cc",
       "windows/d3d12_video_encode_accelerator.h",
+      "windows/d3d12_video_encode_av1_delegate.cc",
+      "windows/d3d12_video_encode_av1_delegate.h",
       "windows/d3d12_video_encode_delegate.cc",
       "windows/d3d12_video_encode_delegate.h",
       "windows/d3d12_video_encode_h264_delegate.cc",
@@ -372,6 +379,11 @@ source_set("common") {
     ]
   }
 
+  configs += [
+    "//build/config/compiler:wexit_time_destructors",
+    "//build/config/compiler:wglobal_constructors",
+  ]
+
   visibility = [
     ":gpu",
     "//media/gpu/*",
@@ -428,19 +440,21 @@ source_set("common") {
   }
 }
 
-# The buffer validation functionality is in its own component so that it can be
-# depended on without pulling the entire //media/gpu target.
-component("buffer_validation") {
-  defines = [ "IS_MEDIA_GPU_BUFFER_VALIDATION_IMPL" ]
-  sources = [
-    "buffer_validation.cc",
-    "buffer_validation.h",
-  ]
+if (is_linux || is_chromeos) {
+  # The buffer validation functionality is in its own component so that it can be
+  # depended on without pulling the entire //media/gpu target.
+  component("buffer_validation") {
+    defines = [ "IS_MEDIA_GPU_BUFFER_VALIDATION_IMPL" ]
+    sources = [
+      "buffer_validation.cc",
+      "buffer_validation.h",
+    ]
 
-  public_deps = [
-    "//base",
-    "//media",
-  ]
+    public_deps = [
+      "//base",
+      "//media",
+    ]
+  }
 }
 
 source_set("command_buffer_helper") {
@@ -448,6 +462,11 @@ source_set("command_buffer_helper") {
   sources = [
     "command_buffer_helper.cc",
     "command_buffer_helper.h",
+  ]
+
+  configs += [
+    "//build/config/compiler:wexit_time_destructors",
+    "//build/config/compiler:wglobal_constructors",
   ]
 
   public_deps = [
@@ -489,6 +508,11 @@ if (use_v4l2_codec || use_vaapi) {
       "video_frame_mapper.cc",
       "video_frame_mapper.h",
       "video_frame_mapper_factory.h",
+    ]
+
+    configs += [
+      "//build/config/compiler:wexit_time_destructors",
+      "//build/config/compiler:wglobal_constructors",
     ]
 
     public_deps = [
@@ -659,6 +683,7 @@ source_set("unit_tests") {
       "windows/d3d11_video_processor_proxy_unittest.cc",
       "windows/d3d12_helpers_unittest.cc",
       "windows/d3d12_video_encode_accelerator_unittest.cc",
+      "windows/d3d12_video_encode_av1_delegate_unittest.cc",
       "windows/d3d12_video_encode_delegate_unittest.cc",
       "windows/d3d12_video_encode_delegate_unittest.h",
       "windows/d3d12_video_encode_h264_delegate_unittest.cc",

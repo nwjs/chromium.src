@@ -6,6 +6,7 @@
 
 #include <optional>
 #include <string_view>
+#include <variant>
 
 #include "base/base64.h"
 #include "base/check_deref.h"
@@ -992,8 +993,16 @@ IN_PROC_BROWSER_TEST_F(IsolatedWebAppUpdateManagerBrowserTest,
                                     /*expected_count=*/0);
 }
 
+// TODO(b/402650079) flaky on mac
+#if BUILDFLAG(IS_MAC)
+#define MAYBE_SucceedsWithServiceWorkerWithFetchHandler \
+  DISABLED_SucceedsWithServiceWorkerWithFetchHandler
+#else
+#define MAYBE_SucceedsWithServiceWorkerWithFetchHandler \
+  SucceedsWithServiceWorkerWithFetchHandler
+#endif
 IN_PROC_BROWSER_TEST_F(IsolatedWebAppUpdateManagerBrowserTest,
-                       SucceedsWithServiceWorkerWithFetchHandler) {
+                       MAYBE_SucceedsWithServiceWorkerWithFetchHandler) {
   profile()->GetPrefs()->SetList(
       prefs::kIsolatedWebAppInstallForceList,
       base::Value::List().Append(
@@ -1139,11 +1148,11 @@ IN_PROC_BROWSER_TEST_F(IsolatedWebAppUpdateManagerBrowserTest,
 
   const auto& isolation_data = GetIsolatedWebApp(GetAppId())->isolation_data();
   const auto& app_location =
-      base::FilePath(absl::get_if<IsolatedWebAppStorageLocation::OwnedBundle>(
+      base::FilePath(std::get_if<IsolatedWebAppStorageLocation::OwnedBundle>(
                          &isolation_data->location().variant())
                          ->dir_name_ascii());
   const auto& app_update_location = base::FilePath(
-      absl::get_if<IsolatedWebAppStorageLocation::OwnedBundle>(
+      std::get_if<IsolatedWebAppStorageLocation::OwnedBundle>(
           &isolation_data->pending_update_info()->location.variant())
           ->dir_name_ascii());
 

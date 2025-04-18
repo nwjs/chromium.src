@@ -35,28 +35,6 @@ BASE_FEATURE(kCloseOmniboxPopupOnInactiveAreaClick,
              "CloseOmniboxPopupOnInactiveAreaClick",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables updated copy and modified behavior for the default browser prompt.
-BASE_FEATURE(kDefaultBrowserPromptRefresh,
-             "DefaultBrowserPromptRefresh",
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT
-#endif
-);
-
-const base::FeatureParam<bool> kShowDefaultBrowserInfoBar{
-    &kDefaultBrowserPromptRefresh, "show_info_bar", true};
-
-const base::FeatureParam<bool> kShowDefaultBrowserAppMenuItem{
-    &kDefaultBrowserPromptRefresh, "show_app_menu_item", true};
-
-const base::FeatureParam<base::TimeDelta> kRepromptDuration{
-    &kDefaultBrowserPromptRefresh, "reprompt_duration", base::Days(60)};
-
-const base::FeatureParam<int> kMaxPromptCount{&kDefaultBrowserPromptRefresh,
-                                              "max_prompt_count", -1};
-
 // Create new Extensions app menu option (removing "More Tools -> Extensions")
 // with submenu to manage extensions and visit chrome web store.
 BASE_FEATURE(kExtensionsMenuInAppMenu,
@@ -81,6 +59,18 @@ BASE_FEATURE(kFewerUpdateConfirmations,
 BASE_FEATURE(kLightweightExtensionOverrideConfirmations,
              "LightweightExtensionOverrideConfirmations",
              base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
+
+#if BUILDFLAG(IS_WIN)
+BASE_FEATURE(kOfferPinToTaskbarWhenSettingToDefault,
+             "OfferPinToTaskbarWhenSettingDefault",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+// Shows an infobar on PDFs offering to become the default PDF viewer if Chrome
+// isn't the default already.
+BASE_FEATURE(kPdfInfoBar, "kPdfInfoBar", base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
 // Preloads a WebContents with a Top Chrome WebUI on BrowserView initialization,
@@ -137,7 +127,7 @@ BASE_FEATURE(kScrimForBrowserWindowModal,
 // area. This gives user a visual cue that the content area is not interactable.
 BASE_FEATURE(KScrimForTabModal,
              "ScrimForTabModal",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSideBySide, "SideBySide", base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -258,10 +248,6 @@ BASE_FEATURE(kTearOffWebAppTabOpensWebAppWindow,
 BASE_FEATURE(kPinnedCastButton,
              "PinnedCastButton",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kPinnableDownloadsButton,
-             "PinnableDownloadsButton",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 // Enables enterprise profile badging for managed profiles on the toolbar
@@ -284,6 +270,13 @@ BASE_FEATURE(kEnterpriseProfileBadgingForMenu,
 BASE_FEATURE(kEnterpriseProfileBadgingPolicies,
              "EnterpriseProfileBadgingPolicies",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables enterprise badging for managed bnpwser on the new tab page footer.
+// On managed browsers, a building icon and "Managed by <domain>" string will be
+// shown in the footer, unless the icon and label are customized by the admin.
+BASE_FEATURE(kEnterpriseBadgingForNtpFooter,
+             "EnterpriseProfileBadgingForNtpFooter",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables showing the EnterpriseCustomLabel` instead of the cloud policy
 // manager in the managed disclaimer "Managed by..." in the profile and app
@@ -358,14 +351,24 @@ BASE_FEATURE(kInlineFullscreenPerfExperiment,
 BASE_FEATURE(kPageActionsMigration,
              "PageActionsMigration",
              base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<bool> kPageActionsMigrationEnableAll{
+    &kPageActionsMigration, "enable_all", false};
+const base::FeatureParam<bool> kPageActionsMigrationLensOverlay{
+    &kPageActionsMigration, "lens_overlay", false};
+const base::FeatureParam<bool> kPageActionsMigrationMemorySaver{
+    &kPageActionsMigration, "memory_saver", false};
+const base::FeatureParam<bool> kPageActionsMigrationTranslate{
+    &kPageActionsMigration, "translate", false};
+const base::FeatureParam<bool> kPageActionsMigrationIntentPicker{
+    &kPageActionsMigration, "intent_picker", false};
+const base::FeatureParam<bool> kPageActionsMigrationZoom{&kPageActionsMigration,
+                                                         "zoom", false};
+const base::FeatureParam<bool> kPageActionsMigrationOfferNotification{
+    &kPageActionsMigration, "offer_notification", false};
 
 BASE_FEATURE(kCompositorLoadingAnimations,
              "CompositorLoadingAnimations",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kFedCmContinueWithoutName,
-             "FedCmContinueWithoutName",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kByDateHistoryInSidePanel,
              "ByDateHistoryInSidePanel",

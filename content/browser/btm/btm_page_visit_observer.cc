@@ -4,6 +4,8 @@
 
 #include "content/browser/btm/btm_page_visit_observer.h"
 
+#include "base/check.h"
+#include "base/debug/dump_without_crashing.h"
 #include "content/browser/btm/btm_bounce_detector.h"
 #include "content/browser/btm/btm_utils.h"
 #include "content/browser/btm/cookie_access_filter.h"
@@ -19,9 +21,16 @@ BtmNavigationInfo::BtmNavigationInfo(NavigationHandle& navigation_handle)
     : was_user_initiated(!navigation_handle.IsRendererInitiated() ||
                          navigation_handle.HasUserGesture()),
       was_renderer_initiated(navigation_handle.IsRendererInitiated()),
-      page_transition(navigation_handle.GetPageTransition()) {}
+      page_transition(navigation_handle.GetPageTransition()),
+      destination({navigation_handle.GetURL(),
+                   navigation_handle.GetNextPageUkmSourceId()}) {
+  CHECK(navigation_handle.HasCommitted());
+}
 BtmNavigationInfo::BtmNavigationInfo(const BtmNavigationInfo&) = default;
+BtmNavigationInfo& BtmNavigationInfo::operator=(const BtmNavigationInfo&) =
+    default;
 BtmNavigationInfo::BtmNavigationInfo(BtmNavigationInfo&&) = default;
+BtmNavigationInfo& BtmNavigationInfo::operator=(BtmNavigationInfo&&) = default;
 BtmNavigationInfo::~BtmNavigationInfo() = default;
 
 BtmPageVisitObserver::BtmPageVisitObserver(WebContents* web_contents,
@@ -62,29 +71,58 @@ class NavigationState
     filter_.AddAccess(url, op);
   }
 
+  // Idempotent for multiple calls with the same value of
+  // `redirect_chain_index`.
+  void RecordServerRedirectAtChainIndex(size_t redirect_chain_index) {
+    server_redirect_chain_indices_.insert(redirect_chain_index);
+  }
+
   // Returns the navigation info paired with the cookie access of the final
   // (i.e. committed) URL of the navigation.
+  // Precondition: `navigation_handle.HasCommitted()` must be `true`.
   std::pair<BtmNavigationInfo, BtmDataAccessType> CreateNavigationInfo(
       NavigationHandle& navigation_handle) {
     BtmNavigationInfo navigation(navigation_handle);
 
     // Populate navigation.server_redirects.
     std::vector<BtmDataAccessType> accesses;
-    filter_.Filter(navigation_handle.GetRedirectChain(), &accesses);
-    for (size_t i = 1; i < navigation_handle.GetRedirectChain().size(); ++i) {
+    std::vector<GURL> urls;
+    const std::vector<GURL>& redirect_chain =
+        navigation_handle.GetRedirectChain();
+    for (const size_t index : server_redirect_chain_indices_) {
+      urls.push_back(redirect_chain[index]);
+    }
+    // We need to add the final committed URL to `urls` because
+    // `filter_.Filter()` requires that `urls` contain all URLs that `filter_`
+    // recorded an access type for.
+    urls.push_back(navigation_handle.GetURL());
+
+    // TODO - crbug.com/406841434: `CHECK` the result of `filter_.Filter`.
+    filter_.Filter(urls, accesses);
+
+    int i = 0;
+    for (const size_t redirect_chain_index : server_redirect_chain_indices_) {
       navigation.server_redirects.emplace_back(
-          navigation_handle.GetRedirectChain()[i - 1],
-          btm::GetRedirectSourceId(&navigation_handle, i - 1),
-          IsWrite(accesses[i - 1]));
+          urls[i],
+          btm::GetRedirectSourceId(&navigation_handle, redirect_chain_index),
+          IsWrite(accesses[i]));
+      i += 1;
     }
 
-    return {std::move(navigation), accesses.back()};
+    BtmDataAccessType committed_url_access_type = accesses.back();
+
+    return {std::move(navigation), committed_url_access_type};
   }
 
   NAVIGATION_HANDLE_USER_DATA_KEY_DECL();
 
  private:
   CookieAccessFilter filter_;
+  // This is a set instead of a vector because there can be multiple callers
+  // recording server redirects per instance of `NavigationState`, and we
+  // therefore need repeated recordings of the same server redirect to be
+  // idempotent.
+  std::set<size_t> server_redirect_chain_indices_;
 };
 
 NAVIGATION_HANDLE_USER_DATA_KEY_IMPL(NavigationState);
@@ -94,11 +132,36 @@ NAVIGATION_HANDLE_USER_DATA_KEY_IMPL(NavigationState);
 void BtmPageVisitObserver::DidStartNavigation(
     NavigationHandle* navigation_handle) {
   // Ignore irrelevant navigations.
-  if (!IsInPrimaryPage(navigation_handle)) {
+  if (!IsInPrimaryPage(*navigation_handle) ||
+      navigation_handle->IsSameDocument()) {
     return;
   }
 
   NavigationState::CreateForNavigationHandle(*navigation_handle);
+}
+
+void BtmPageVisitObserver::DidRedirectNavigation(
+    NavigationHandle* navigation_handle) {
+  // Ignore irrelevant navigations.
+  if (navigation_handle->IsSameDocument() ||
+      !navigation_handle->IsInPrimaryMainFrame()) {
+    return;
+  }
+
+  NavigationState* navigation_state =
+      NavigationState::GetForNavigationHandle(*navigation_handle);
+  if (!navigation_state) {
+    // We've started observing this navigation after it started. We have no idea
+    // if we've missed redirects already or not, so we skip recording anything
+    // so as not to give bad info.
+    return;
+  }
+
+  // The last item in the redirect chain is the current navigation target (the
+  // destination of the redirect). The most recent redirector is the one before
+  // that.
+  size_t redirector_index = navigation_handle->GetRedirectChain().size() - 2;
+  navigation_state->RecordServerRedirectAtChainIndex(redirector_index);
 }
 
 void BtmPageVisitObserver::DidFinishNavigation(
@@ -119,15 +182,12 @@ void BtmPageVisitObserver::DidFinishNavigation(
   }
 
   base::Time now = clock_->Now();
-  current_page_.visit_duration = last_page_change_time_.has_value()
-                                     ? (now - last_page_change_time_.value())
-                                     : base::TimeDelta();
+  current_page_.visit_duration = now - last_page_change_time_;
   auto [navigation, final_url_cookie_access] =
       state->CreateNavigationInfo(*navigation_handle);
   // Don't report the visit right away; put it in the pending queue and wait a
   // bit to see if we receive any late cookie notifications.
-  pending_visits_.emplace_back(std::move(current_page_), std::move(navigation),
-                               navigation_handle->GetURL());
+  pending_visits_.emplace_back(std::move(current_page_), std::move(navigation));
   base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
       FROM_HERE,
       base::BindOnce(&BtmPageVisitObserver::ReportVisit,
@@ -144,7 +204,7 @@ void BtmPageVisitObserver::DidFinishNavigation(
 void BtmPageVisitObserver::ReportVisit() {
   CHECK(!pending_visits_.empty());
   VisitTuple& visit = pending_visits_.front();
-  callback_.Run(visit.prev_page, visit.navigation, visit.url);
+  callback_.Run(visit.prev_page, visit.navigation);
   pending_visits_.pop_front();
 }
 
@@ -162,21 +222,35 @@ void BtmPageVisitObserver::OnCookiesAccessed(
     RenderFrameHost* render_frame_host,
     const CookieAccessDetails& details) {
   // Ignore irrelevant cookie accesses.
-  if (details.blocked_by_policy ||
-      details.type != CookieAccessDetails::Type::kChange ||
-      !btm::IsOrWasInPrimaryPage(render_frame_host)) {
+  bool is_passive_access =
+      details.type == CookieAccessDetails::Type::kRead &&
+      details.source == CookieAccessDetails::Source::kNavigation;
+  if (details.blocked_by_policy || is_passive_access ||
+      !btm::IsOrWasInPrimaryPage(*render_frame_host)) {
     return;
   }
 
-  // Check to see if this is a late report for a redirect.
-  //
-  // TODO: crbug.com/394059601 - once we have support for unit-testing cookie
-  // accesses, add a unit test for this case.
-  for (VisitTuple& visit : pending_visits_) {
-    for (BtmServerRedirectInfo& redirect : visit.navigation.server_redirects) {
-      if (details.url == redirect.url) {
-        redirect.did_write_cookies = true;
-        return;
+  // Attribute accesses by iframes and other subresources to the first-party
+  // page they're embedded in.
+  const GURL& first_party_url = GetFirstPartyURL(*render_frame_host);
+
+  // BTM is only turned on when non-CHIPS 3PCs are blocked, so mirror that
+  // behavior by ignoring non-CHIPS 3PC accesses.
+  if (!HasCHIPS(details.cookie_access_result_list) &&
+      !IsSameSiteForBtm(first_party_url, details.url)) {
+    return;
+  }
+
+  // Check to see if this is a late report for a redirect. Only Navigation
+  // cookie accesses should be attributed to redirects.
+  if (details.source == CookieAccessDetails::Source::kNavigation) {
+    for (VisitTuple& visit : pending_visits_) {
+      for (BtmServerRedirectInfo& redirect :
+           visit.navigation.server_redirects) {
+        if (details.url == redirect.url) {
+          redirect.did_write_cookies = true;
+          return;
+        }
       }
     }
   }
@@ -189,10 +263,8 @@ void BtmPageVisitObserver::OnCookiesAccessed(
 
   // If the cookie was accessed by a subresource request in a now-bfcached
   // page, try to find that page's visit.
-  const GURL& page_url =
-      render_frame_host->GetMainFrame()->GetLastCommittedURL();
   for (VisitTuple& visit : pending_visits_) {
-    if (page_url == visit.prev_page.url) {
+    if (first_party_url == visit.prev_page.url) {
       visit.prev_page.had_qualifying_storage_access = true;
       return;
     }
@@ -205,12 +277,21 @@ void BtmPageVisitObserver::OnCookiesAccessed(
   // Ignore irrelevant cookie accesses.
   if (details.blocked_by_policy ||
       details.type != CookieAccessDetails::Type::kChange ||
-      !IsInPrimaryPage(navigation_handle)) {
+      !IsInPrimaryPage(*navigation_handle)) {
     return;
   }
 
-  if (!navigation_handle->IsInMainFrame()) {
-    // Subframe navigation
+  bool is_subframe_navigation = !navigation_handle->IsInMainFrame();
+  if (is_subframe_navigation) {
+    const GURL& first_party_url = GetFirstPartyURL(*navigation_handle);
+    // BTM is only turned on when non-CHIPS 3PCs are blocked, so mirror that
+    // behavior by ignoring non-CHIPS 3PC accesses.
+    if (!HasCHIPS(details.cookie_access_result_list) &&
+        !IsSameSiteForBtm(first_party_url, details.url)) {
+      return;
+    }
+
+    // Attribute subframe storage accesses to the top-level page.
     current_page_.had_qualifying_storage_access = true;
     return;
   }

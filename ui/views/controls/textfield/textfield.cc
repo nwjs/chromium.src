@@ -12,6 +12,7 @@
 
 #include "base/auto_reset.h"
 #include "base/check.h"
+#include "base/check_op.h"
 #include "base/command_line.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
@@ -791,18 +792,18 @@ bool Textfield::OnKeyPressed(const ui::KeyEvent& event) {
   }
 
 #if BUILDFLAG(IS_LINUX)
-  auto* linux_ui = ui::LinuxUi::instance();
-  std::vector<ui::TextEditCommandAuraLinux> commands;
-  if (!handled && linux_ui &&
-      linux_ui->GetTextEditCommandsForEvent(event, ui::TEXT_INPUT_FLAG_NONE,
-                                            &commands)) {
-    for (const auto& command : commands) {
-      if (IsTextEditCommandEnabled(command.command())) {
-        ExecuteTextEditCommand(command.command());
-        handled = true;
+  if (!handled) {
+    if (auto* linux_ui = ui::LinuxUi::instance()) {
+      const auto command =
+          linux_ui->GetTextEditCommandForEvent(event, ui::TEXT_INPUT_FLAG_NONE);
+      if (command != ui::TextEditCommand::INVALID_COMMAND) {
+        if (IsTextEditCommandEnabled(command)) {
+          ExecuteTextEditCommand(command);
+          return true;
+        }
+        return false;
       }
     }
-    return handled;
   }
 #endif
 
@@ -977,14 +978,9 @@ void Textfield::AboutToRequestFocusFromTabTraversal(bool reverse) {
 bool Textfield::SkipDefaultKeyEventProcessing(const ui::KeyEvent& event) {
 #if BUILDFLAG(IS_LINUX)
   // Skip any accelerator handling that conflicts with custom keybindings.
-  auto* linux_ui = ui::LinuxUi::instance();
-  std::vector<ui::TextEditCommandAuraLinux> commands;
-  if (linux_ui && linux_ui->GetTextEditCommandsForEvent(
-                      event, ui::TEXT_INPUT_FLAG_NONE, &commands)) {
-    const auto is_enabled = [this](const auto& command) {
-      return IsTextEditCommandEnabled(command.command());
-    };
-    if (std::ranges::any_of(commands, is_enabled)) {
+  if (auto* linux_ui = ui::LinuxUi::instance()) {
+    if (IsTextEditCommandEnabled(linux_ui->GetTextEditCommandForEvent(
+            event, ui::TEXT_INPUT_FLAG_NONE))) {
       return true;
     }
   }
@@ -1451,8 +1447,8 @@ void Textfield::MoveRangeSelectionExtent(const gfx::Point& extent) {
     // Move the selection end to the nearest word boundary.
     const gfx::Range nearest_word_boundaries =
         render_text->ExpandRangeToWordBoundary(gfx::Range(end));
-    DCHECK(end >= nearest_word_boundaries.start() &&
-           end <= nearest_word_boundaries.end());
+    DCHECK_GE(end, nearest_word_boundaries.start());
+    DCHECK_LE(end, nearest_word_boundaries.end());
     end = end - nearest_word_boundaries.start() <
                   nearest_word_boundaries.end() - end
               ? nearest_word_boundaries.start()
@@ -2729,9 +2725,9 @@ void Textfield::UpdateDefaultBorder() {
   if (!use_default_border_) {
     return;
   }
+
   auto border = std::make_unique<views::FocusableBorder>();
   const LayoutProvider* provider = LayoutProvider::Get();
-  border->SetColorId(ui::kColorTextfieldOutline);
   border->SetInsets(gfx::Insets::TLBR(
       extra_insets_.top() +
           provider->GetDistanceMetric(DISTANCE_CONTROL_VERTICAL_TEXT_PADDING),
@@ -2741,11 +2737,16 @@ void Textfield::UpdateDefaultBorder() {
           provider->GetDistanceMetric(DISTANCE_CONTROL_VERTICAL_TEXT_PADDING),
       extra_insets_.right() + provider->GetDistanceMetric(
                                   DISTANCE_TEXTFIELD_HORIZONTAL_TEXT_PADDING)));
+
+  auto border_color_id = ui::kColorTextfieldOutline;
   if (invalid_) {
-    border->SetColorId(ui::kColorTextfieldOutlineInvalid);
+    border_color_id = ui::kColorTextfieldOutlineInvalid;
   } else if (!GetEnabled() || GetReadOnly()) {
-    border->SetColorId(ui::kColorTextfieldOutlineDisabled);
+    border_color_id = ui::kColorTextfieldOutlineDisabled;
   }
+
+  border->SetColor(border_color_id);
+
   border->SetCornerRadius(GetCornerRadius());
   View::SetBorder(std::move(border));
 }

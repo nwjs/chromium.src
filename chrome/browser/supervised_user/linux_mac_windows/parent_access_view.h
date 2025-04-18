@@ -13,7 +13,11 @@
 #include "base/scoped_multi_source_observation.h"
 #include "base/timer/timer.h"
 #include "components/supervised_user/core/browser/supervised_user_utils.h"
+#include "content/public/browser/web_contents_delegate.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "ui/base/interaction/element_identifier.h"
+#include "ui/views/controls/button/button.h"
+#include "ui/views/controls/webview/unhandled_keyboard_event_handler.h"
 #include "ui/views/view.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_observer.h"
@@ -27,16 +31,15 @@ class WebContents;
 class BrowserContext;
 }  // namespace content
 
-// Helper class that aborts the displaying of the parent approval dialog,
-// if we fail to load the PACP contents that need to be displayed.
-// If the content is loaded successfully, it shows the dialog.
+// Helper class that closes the the parent approval dialog, if we fail
+// to load within a timeout the PACP contents that need to be displayed.
 class DialogContentLoadWithTimeoutObserver
     : public content::WebContentsObserver {
  public:
   DialogContentLoadWithTimeoutObserver(
       content::WebContents* web_contents,
-      const GURL& pacp_url,
-      base::OnceClosure show_dialog_callback,
+      const GURL pacp_url,
+      base::OnceClosure show_view_and_destroy_timer_callback,
       base::OnceClosure cancel_flow_on_timeout_callback);
   DialogContentLoadWithTimeoutObserver() = delete;
   ~DialogContentLoadWithTimeoutObserver() override;
@@ -50,20 +53,24 @@ class DialogContentLoadWithTimeoutObserver
   void DidFinishLoad(content::RenderFrameHost* render_frame_host,
                      const GURL& validated_url) override;
 
-  raw_ref<const GURL> pacp_url_;
+  const GURL pacp_url_;
   base::OneShotTimer initial_load_timer_;
-  base::OnceClosure show_dialog_callback_;
+  base::OnceClosure show_view_and_destroy_timer_callback_;
 };
 
-using WebContentsObserverCreationCallback =
+using WebContentsObservationCallback =
     base::OnceCallback<void(content::WebContents*)>;
 
 // Implements a View to display the Parent Access Widget (PACP).
 // The view contains a WebView which loads the PACP url.
-class ParentAccessView : public views::View, public views::WidgetObserver {
+class ParentAccessView : public views::View,
+                         public views::WidgetObserver,
+                         public content::WebContentsDelegate {
   METADATA_HEADER(ParentAccessView, views::View)
 
  public:
+  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kErrorDialogBackButtonElementId);
+
   ParentAccessView(content::BrowserContext* context,
                    base::OnceClosure dialog_result_reset_callback);
   ~ParentAccessView() override;
@@ -73,7 +80,7 @@ class ParentAccessView : public views::View, public views::WidgetObserver {
       content::WebContents* web_contents,
       const GURL& target_url,
       const supervised_user::FilteringBehaviorReason& filtering_reason,
-      WebContentsObserverCreationCallback web_contents_observer_creation_cb,
+      WebContentsObservationCallback web_contents_observation_cb,
       base::OnceClosure abort_dialog_callback,
       base::OnceClosure dialog_result_reset_callback);
 
@@ -97,6 +104,22 @@ class ParentAccessView : public views::View, public views::WidgetObserver {
   content::WebContents* GetWebViewContents();
   // views::WidgetObserver implementation:
   void OnWidgetClosing(views::Widget* widget) override;
+  void OnWidgetThemeChanged(views::Widget* widget) override;
+
+  // views::View override:
+  void ChildPreferredSizeChanged(View* child) override;
+
+  // content::WebContentsDelegate override:
+  bool HandleKeyboardEvent(content::WebContents* source,
+                           const input::NativeWebKeyboardEvent& event) override;
+  void ResizeDueToAutoResize(content::WebContents* web_contents,
+                             const gfx::Size& new_size) override;
+
+  void ShowWebViewAndDestroyTimeoutObserver();
+
+  void UpdateDialogBorderAndChildrenBackgroundColors();
+
+  views::UnhandledKeyboardEventHandler unhandled_keyboard_event_handler_;
 
   base::OnceClosure dialog_result_reset_callback_;
   base::ScopedMultiSourceObservation<views::Widget, views::WidgetObserver>

@@ -23,6 +23,7 @@
 #include "content/browser/webid/sd_jwt.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/document_service.h"
+#include "content/public/browser/federated_auth_autofill_source.h"
 #include "content/public/browser/federated_identity_api_permission_context_delegate.h"
 #include "content/public/browser/federated_identity_permission_context_delegate.h"
 #include "content/public/browser/identity_request_dialog_controller.h"
@@ -68,7 +69,8 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
     : public DocumentService<blink::mojom::FederatedAuthRequest>,
       public FederatedIdentityPermissionContextDelegate::
           IdpSigninStatusObserver,
-      public IdentityRegistryDelegate {
+      public IdentityRegistryDelegate,
+      public FederatedAuthAutofillSource {
  public:
   static constexpr char kWildcardDomainHint[] = "any";
 
@@ -125,6 +127,15 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
   bool OnResolve(GURL idp_config_url,
                  const std::optional<std::string>& account_id,
                  const std::string& token) override;
+  void OnOriginMismatch(Method method,
+                        const url::Origin& expected,
+                        const url::Origin& actual) override;
+
+  // content::FederatedAuthAutofillSource
+  const std::optional<std::vector<IdentityRequestAccountPtr>>
+  GetAutofillSuggestions() const override;
+  void NotifyAutofillSuggestionAccepted(const GURL& idp,
+                                        const std::string& account_id) override;
 
   // To be called on the FederatedAuthRequest object corresponding to a
   // popup opened by ShowModalDialog, specifically for the case when
@@ -190,6 +201,10 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
 
   const std::vector<IdentityRequestAccountPtr>& GetAccounts() const {
     return accounts_;
+  }
+
+  MediationRequirement GetMediationRequirement() const {
+    return mediation_requirement_;
   }
 
   // These values are persisted to logs. Entries should not be renumbered and
@@ -336,6 +351,10 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
       std::unique_ptr<IdentityProviderInfo> idp_info,
       const std::vector<IdentityRequestAccountPtr>& accounts,
       IdpNetworkRequestManager::ClientMetadata&& client_metadata);
+  // Fetches the given `url` and stores the result in `downloaded_images_`. Runs
+  // the `callback` exactly once regardless of whether the GURL is valid or the
+  // fetch result.
+  void FetchImage(const GURL& url, base::OnceClosure callback);
   void OnImageReceived(base::OnceClosure callback,
                        GURL url,
                        const gfx::Image& image);
@@ -343,10 +362,7 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
       std::unique_ptr<IdentityProviderInfo> idp_info,
       std::vector<IdentityRequestAccountPtr>&& accounts,
       const IdpNetworkRequestManager::ClientMetadata& client_metadata);
-  // Fetches the given `url` and stores the result in `downloaded_images_`. Runs
-  // the `callback` exactly once regardless of whether the GURL is valid or the
-  // fetch result.
-  void FetchImage(const GURL& url, base::OnceClosure callback);
+
   void OnAccountSelected(const GURL& idp_config_url,
                          const std::string& account_id,
                          bool is_sign_in);

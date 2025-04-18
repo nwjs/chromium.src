@@ -10,7 +10,6 @@
 <translation id="102916930470544692">패스키</translation>
 <translation id="1030376737535466765">비밀번호 관리자 열기</translation>
 <translation id="1035980983510608210">모든 탭을 닫으면 고정된 탭도 닫힙니다.</translation>
-<translation id="1036017604683756002">UPS</translation>
 <translation id="1036348656032585052">사용 중지</translation>
 <translation id="1041322626941363065">정보 유출로 인해 비밀번호가 노출된 경우 알림</translation>
 <translation id="1044891598689252897">사이트가 정상적으로 작동합니다.</translation>
@@ -35,13 +34,14 @@
 <translation id="1112015203684611006">인쇄 실패</translation>
 <translation id="1118569444314402022"><ph name="USER_NAME" />님, 다시 방문해 주셔서 감사합니다</translation>
 <translation id="1121850836842642159">사진/이미지</translation>
-<translation id="1125564390852150847">새 탭 만들기</translation>
 <translation id="1126696498560056882">이 기기에서 계정 관리</translation>
 <translation id="1126809382673880764">위험한 웹사이트, 다운로드 항목, 확장 프로그램으로부터 사용자를 보호하지 않습니다. Gmail, Google 검색과 같은 다른 Google 서비스에서는 가능한 경우 세이프 브라우징 보호가 계속 제공됩니다.</translation>
+<translation id="1136104150802877429">제품 리뷰 표시</translation>
 <translation id="1142371195993008685"><ph name="FEATURE_NAME" /> 알림 사용 중지</translation>
 <translation id="1147031633655575115"><ph name="USER" />님의 계정으로 로그인됨</translation>
 <translation id="1149401351239820326">유효기간 월</translation>
 <translation id="1150989369772528668">캘린더</translation>
+<translation id="1161663161838091892">계속하려면 탭과 방문 기록을 동기화하세요</translation>
 <translation id="1164891049599601209">사기성 사이트에서 입력됨</translation>
 <translation id="1165039591588034296">오류</translation>
 <translation id="1172898394251786223">다음 필드</translation>
@@ -49,7 +49,6 @@
 <translation id="1181037720776840403">삭제</translation>
 <translation id="1190609913194133056">알림 센터</translation>
 <translation id="1201402288615127009">다음</translation>
-<translation id="1202892408424955784">추적 중인 제품</translation>
 <translation id="1204075260022434100">{count,plural, =1{{email} 계정의 "{title}"에 북마크가 저장됨}other{{email} 계정의 "{title}"에 북마크 {count}개가 저장됨}}</translation>
 <translation id="120431140543679678">팔로우</translation>
 <translation id="1207493287814084192">오후 5시 30분</translation>
@@ -77,7 +76,6 @@
 <translation id="1312168552565502328">쿠키, 사이트 데이터</translation>
 <translation id="1312721752506309252">향상된 보호 모드를 사용 중입니다.</translation>
 <translation id="1317821187353201763">탭 닫기</translation>
-<translation id="1320164290882380380">{COUNT,plural, =1{이 택배 추적}other{모든 택배 추적}}</translation>
 <translation id="1321993286294231467">이미지를 저장하는 중에 오류가 발생했습니다.</translation>
 <translation id="1322735045095424339">조직에서 시크릿 모드 사용을 요구함</translation>
 <translation id="1323735185997015385">삭제</translation>
@@ -90,7 +88,6 @@
 <translation id="1358106883354237005">관리 계정</translation>
 <translation id="1358214951266274152">복사한 링크 방문</translation>
 <translation id="1360432990279830238">로그아웃하고 동기화를 사용 중지하시겠습니까?</translation>
-<translation id="1362192716574455663">기존 인터넷 사용 기록은 직장 계정으로 이전되지 않습니다. 로그아웃하거나 개인 계정을 추가하면 계속 액세스할 수 있습니다.</translation>
 <translation id="1363028406613469049">추적</translation>
 <translation id="1364367057792633742">새 탭</translation>
 <translation id="1365106417372288489">최근 iPhone이 복원되어 기본 브라우저가 변경되었을 수 있습니다</translation>
@@ -100,6 +97,7 @@
 <translation id="1377508275003315939">비밀번호</translation>
 <translation id="1381022135873211423">{count,plural, =1{주소 {count}개 중 {position}번째}other{주소 {count}개 중 {position}번째}}</translation>
 <translation id="1383876407941801731">검색</translation>
+<translation id="1385168997509105202">“<ph name="GROUP_NAME" />" 탭 그룹에 대한 액세스 권한을 즉시 잃게 되며, <ph name="USER_NAME" />(<ph name="USER_EMAIL" />)님이 Google 서비스 전반에서 나와 더 이상 상호작용할 수 없게 됩니다.</translation>
 <translation id="138618066238211776"><ph name="USER_NAME" />(으)로 계속</translation>
 <translation id="138692594145659985">카드 저장 옵션</translation>
 <translation id="1396260204083880024"><ph name="USER_NAME" /> 계정으로 로그인되었습니다. <ph name="USER_EMAIL" />입니다. 계정 메뉴를 엽니다.</translation>
@@ -109,6 +107,7 @@
 <translation id="1411386976162024013">렌즈 시각적 검색</translation>
 <translation id="1417474386970818917">로그아웃 및 삭제</translation>
 <translation id="1426410128494586442">예</translation>
+<translation id="1429187656584513419">비밀번호 열기</translation>
 <translation id="1430915738399379752">인쇄</translation>
 <translation id="1436671784520050284">설정 계속하기</translation>
 <translation id="143681031165817424">이 기기에만 저장된 주소</translation>
@@ -117,7 +116,6 @@
 <translation id="1455660774629812862">숨기지 않음</translation>
 <translation id="1456545332132818232"><ph name="PRODUCT_NAME" />의 제품 리뷰, 별 <ph name="MAX_STARS" />개 중 <ph name="STARS" />개, <ph name="DOMAIN" /></translation>
 <translation id="1460751212339734034">시간은 아끼고, 입력은 줄이고</translation>
-<translation id="1466035273550360103">열린 탭 없음</translation>
 <translation id="1469381646033328562">부모님이 관리하는 계정입니다.
 <ph name="BEGIN_LINK" />자세히 알아보기<ph name="END_LINK" /></translation>
 <translation id="147982357559798527">변경됨</translation>
@@ -138,6 +136,7 @@
 <translation id="1513858653616922153">비밀번호 삭제</translation>
 <translation id="1517166097004694782">'이 탭으로 계속' 숨기기</translation>
 <translation id="1520027731907768768">추적하는 제품의 가격 인하 알림을 받습니다.</translation>
+<translation id="1521366073263497277">탭 그리드로 이동합니다.</translation>
 <translation id="1521774566618522728">오늘 사용</translation>
 <translation id="1524563461097350801">나중에</translation>
 <translation id="1531038290222364269">탭 표시</translation>
@@ -159,6 +158,7 @@
 <translation id="1605658421715042784">이미지 복사</translation>
 <translation id="1612754831519568745">현재 세이프 브라우징이 사용 중지되어 있습니다. 위험한 사이트, 다운로드 항목, 확장 프로그램으로부터 사용자를 보호하세요.</translation>
 <translation id="1620510694547887537">카메라</translation>
+<translation id="1622195983844804153">기존 인터넷 사용 기록은 직장 계정으로 이전되지 않습니다. 로그아웃하거나 개인 계정을 추가하면 계속 액세스할 수 있습니다.</translation>
 <translation id="1622717322707146952">'Google Calendar에 추가' 또는 'Apple 캘린더에 추가'를 선택합니다.</translation>
 <translation id="1629162218487290695">본인 인증</translation>
 <translation id="1636234353664774105">내비게이션 기능을 사용하여 세부 경로 안내를 통해 목적지로 가는 경로 찾기</translation>
@@ -179,12 +179,13 @@
 <translation id="1700629756560807968"><ph name="NUMBER_OF_SELECTED_BOOKMARKS" />개 항목 선택됨</translation>
 <translation id="1709916727352927457">패스키 삭제</translation>
 <translation id="1712341189152602203">기존 인터넷 사용 기록이 <ph name="USER_EMAIL" />에 연결됩니다. 조직에서 이 데이터를 조회할 수도 있습니다</translation>
-<translation id="1713777106376424209">배송 업체</translation>
 <translation id="1715515772563243997"><ph name="SITE" /> 사이트를 신뢰하는 경우 저장된 비밀번호를 사용하여 로그인할 수 있습니다.</translation>
+<translation id="1718835860248848330">지난 1시간</translation>
 <translation id="1728549374069268714">붙여넣어 바로가기</translation>
 <translation id="1732468323901456775"><ph name="MODULE_NAME" /> 알림 사용</translation>
 <translation id="1740468249224277719">설치하려면 두 번 탭하세요.</translation>
 <translation id="1740650426894359238">다른 프로필로 전환</translation>
+<translation id="1741219894094057085">스마트시계</translation>
 <translation id="1743244221910283364">변경사항 취소</translation>
 <translation id="174998178145075354">{count,plural, =1{키보드 위에 주소 옵션 {count}개가 있습니다.}other{키보드 위에 주소 옵션 {count}개가 있습니다.}}</translation>
 <translation id="1750238553597293878">Google 계정의 비밀번호를 계속 사용하세요.</translation>
@@ -205,7 +206,6 @@
 <translation id="1819374301217551116">가격 추적 및 인사이트</translation>
 <translation id="1820195936249950412">유효한 계정으로 로그인</translation>
 <translation id="1820259098641718022">읽기 목록에 추가됨</translation>
-<translation id="1822994441903263130">FedEx</translation>
 <translation id="1824490729233982311">다른 기기에서 탭을 수신하면 알림을 받습니다.</translation>
 <translation id="1827529786398596735">홈 화면을 길게 터치합니다.</translation>
 <translation id="1832848789136765277">동기화 데이터에 항상 액세스하려면 본인 확인 절차를 거치세요.</translation>
@@ -233,7 +233,6 @@
 <translation id="1902277226107477495">주소 감지가 사용 중지되었습니다. 설정에서 다시 사용 설정하세요.</translation>
 <translation id="1904580727789512086">내가 방문한 URL이 Google 계정에 저장됩니다.</translation>
 <translation id="1911619930368729126">Google Drive로 업로드</translation>
-<translation id="1923342640370224680">지난 1시간</translation>
 <translation id="1941314575388338491">복사하려면 두 번 탭하세요.</translation>
 <translation id="1943478190258551035">메뉴 → 설정</translation>
 <translation id="1952728750904661634">관리 계정으로 로그인</translation>
@@ -262,12 +261,12 @@
 <translation id="2010008505735295285">새로고침</translation>
 <translation id="2015722694326466240">비밀번호를 보려면 먼저 기기에 비밀번호를 설정해야 합니다.</translation>
 <translation id="201759455285471444">탭 그룹을 펼칩니다.</translation>
+<translation id="202070562065520783">설명해 줘</translation>
 <translation id="2021670401941426298">Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진의 검색 기록 삭제 안내를 확인하세요.</translation>
 <translation id="2044394949148788042">탭 그리드 열기</translation>
 <translation id="20485545164632846">새 항목</translation>
 <translation id="2049727122989709386">계정 <ph name="COUNT" />개에서 동일한 비밀번호 사용 중</translation>
 <translation id="2059166748188874810">지방 자치제</translation>
-<translation id="2060114494785549741">1개월 후 삭제</translation>
 <translation id="2060638295449304809">이 주소는 이 기기에만 저장됩니다. 다른 기기에서 사용하려면 Google 계정(<ph name="USER_EMAIL" />)에 저장하세요.</translation>
 <translation id="20638360198452347">단위 유형 선택기</translation>
 <translation id="2067852168641682340">항상 이 계정에 저장</translation>
@@ -286,10 +285,10 @@
 <translation id="2122754583996902531">관리 대상 브라우저입니다 <ph name="BEGIN_LINK" />자세히 알아보기<ph name="END_LINK" /></translation>
 <translation id="2139867232736819575">복사한 텍스트 검색</translation>
 <translation id="2147127444698817042">iPhone에서만 사용 가능</translation>
-<translation id="2148716181193084225">오늘</translation>
 <translation id="2148799636999124959">저장된 비밀번호로 사이트 및 앱에 빠르게 로그인하세요.</translation>
 <translation id="2149968176347646218">연결이 안전하지 않음</translation>
 <translation id="2149973817440762519">북마크 수정</translation>
+<translation id="2155663190508912427">1개월 후 삭제</translation>
 <translation id="2161446265348023004">열려 있는 다른 창으로 전환</translation>
 <translation id="2164946989711475905">로그인…</translation>
 <translation id="2175927920773552910">QR 코드</translation>
@@ -302,8 +301,8 @@
 <translation id="2202084845446535117">이메일 계정이 없음</translation>
 <translation id="2214453882118345682">카메라를 사용해 지금 보고 있는 항목을 쇼핑하고, 번역하고, 식별하세요.</translation>
 <translation id="2215819824168709130">가격 추적 카드 숨기기</translation>
+<translation id="2216366330550244277">제품 페이지로 이동</translation>
 <translation id="2220529011494928058">문제 신고</translation>
-<translation id="2220887224562128152">파일 삭제가 예약되면 복구할 수 없습니다.</translation>
 <translation id="2223461067862937305">QR 코드 만들기</translation>
 <translation id="2229345671837147090">원격 탭 격자</translation>
 <translation id="2230173723195178503">웹페이지 로드됨</translation>
@@ -324,11 +323,9 @@
 <translation id="2268044343513325586">상세검색</translation>
 <translation id="2271452184061378400">탭 그룹이 여기에 저장됩니다.</translation>
 <translation id="2273327106802955778">더보기 메뉴</translation>
-<translation id="2274800392139890332">이 택배 추적 취소</translation>
 <translation id="2287614783861766820">{count,plural, =1{이 주소가 이 기기에서 삭제됩니다.}other{이 주소가 이 기기에서 삭제됩니다.}}</translation>
 <translation id="2297989278479054870">로그아웃하면 Google 계정의 북마크, 비밀번호 등이 이 기기에서 삭제됩니다.</translation>
 <translation id="2299218006564889602">비밀번호를 기기 내에서 암호화한 후 Google 비밀번호 관리자에 저장합니다</translation>
-<translation id="2299515531293777561"><ph name="CARRIER_NAME" /> • #<ph name="PARCEL_IDENTIFIER" /></translation>
 <translation id="2309265394777270359">탭 닫기</translation>
 <translation id="2311077293164383652">탭 고정 닫기</translation>
 <translation id="2316129865977710310">아니요, 괜찮습니다.</translation>
@@ -338,7 +335,6 @@
 <translation id="2326302612031521902">단위 선택기</translation>
 <translation id="2330607597130465898">보호되지 않음</translation>
 <translation id="233375395665273385">삭제 및 로그아웃</translation>
-<translation id="2348630484974447747">택배</translation>
 <translation id="2351097562818989364">번역 설정이 재설정되었습니다.</translation>
 <translation id="2353784052777482798">{COUNT,plural, =1{Google 계정({EMAIL})에 {DOMAIN_ONE}의 비밀번호를 저장할 수 있습니다.}=2{Google 계정({EMAIL})에 {DOMAIN_ONE} 및 {DOMAIN_TWO}의 비밀번호를 저장할 수 있습니다.}=3{Google 계정({EMAIL})에 {DOMAIN_ONE}, {DOMAIN_TWO} 외 {OTHER_DOMAINS_COUNT}개의 비밀번호를 저장할 수 있습니다.}other{Google 계정({EMAIL})에 {DOMAIN_ONE}, {DOMAIN_TWO} 외 {OTHER_DOMAINS_COUNT}개의 비밀번호를 저장할 수 있습니다.}}</translation>
 <translation id="2353953000228441783">사이트 보기 기본 설정</translation>
@@ -449,7 +445,9 @@
 <translation id="2783161812871838616">데스크톱 사이트 요청</translation>
 <translation id="2789552044937754463">{COUNT,plural, =1{비밀번호가 Google 계정({EMAIL})에 저장됨}other{비밀번호가 Google 계정({EMAIL})에 저장됨}}</translation>
 <translation id="2791174088547598693">비밀번호 추가…</translation>
+<translation id="2793703503584038325">비밀번호를 선택하고 '공유' 아이콘을 탭합니다.</translation>
 <translation id="2797302972324086597">국가 코드</translation>
+<translation id="2810376924814601526">{COUNT,plural, =1{파일 {COUNT}개}other{파일 {COUNT}개}}</translation>
 <translation id="2816489851009559785">메뉴 → 설정 → 기본 브라우저</translation>
 <translation id="2818821771744632548">iPhone 재설정 중 <ph name="USER_NAME" /> 계정에서 로그아웃되었습니다. 다시 로그인하려면 아래에서 '계속'을 탭하세요.</translation>
 <translation id="2819667972867209401">사용 설정하면 데이터가 Google 계정에 저장됩니다. 사용 중지하면 데이터가 이 기기에만 저장되며, 로그아웃하는 경우 삭제됩니다.</translation>
@@ -457,6 +455,7 @@
 <translation id="2829172210806130158">화면 검색</translation>
 <translation id="2834399722155632105">3. 비밀번호 옵션 탭하기</translation>
 <translation id="2834956026595107950"><ph name="TITLE" />, <ph name="STATE" />, <ph name="URL" /></translation>
+<translation id="2841013758207633010">시간</translation>
 <translation id="284581348330507117">사용한 적이 없는 비밀번호를 만드세요.</translation>
 <translation id="2856883624744451946">그룹 이름 지정</translation>
 <translation id="2858204748079866344">Chrome에서는 개인 정보 보호를 위해 이 입력란의 비밀번호를 자동 완성하지 않습니다.</translation>
@@ -466,7 +465,6 @@
 <translation id="2883151425485251736">계정에서 숨긴 주제를 보고 수정합니다.</translation>
 <translation id="288655811176831528">탭 닫기</translation>
 <translation id="2888631381369839306">가격 추적 알림이 사용 설정됨</translation>
-<translation id="288902476966286676">발송인에게 반송</translation>
 <translation id="2893168226686371498">기본 브라우저</translation>
 <translation id="2894757982205307093">그룹에 새 탭 추가</translation>
 <translation id="2902312830803030883">추가 작업</translation>
@@ -484,9 +482,7 @@
 <translation id="2969979262385602596">로그인하지 못했습니다. 나중에 다시 시도하세요.</translation>
 <translation id="2989523299700148168">최근 방문</translation>
 <translation id="2989805286512600854">새 탭에서 열기</translation>
-<translation id="2990025507101398383">시크릿 탭 없음</translation>
 <translation id="2996291259634659425">암호 만들기</translation>
-<translation id="3000900718786961632">{COUNT,plural, =1{새로운 택배가 추적됨}other{새로운 택배가 추적됨}}</translation>
 <translation id="3010025794097054078">정보 유출, 안전하지 않은 웹사이트 등으로부터 안전합니다.</translation>
 <translation id="301080557829842765">개인 정보 보호 가이드</translation>
 <translation id="3012310354105716927">일부 데이터가 아직 저장되지 않음</translation>
@@ -500,7 +496,6 @@
 <translation id="3059270601560379555">새로 검색하기</translation>
 <translation id="3064547930554042309">다운로드 관리하기</translation>
 <translation id="3072279342064724558">이미 존재하는 비밀번호입니다</translation>
-<translation id="3074862506644936708">자동 삭제 사용 설정</translation>
 <translation id="3076846064362030967">Google 계정에서 로그아웃되지 않습니다. 로그인할 경우 <ph name="BEGIN_LINK" />다른 활동 형식<ph name="END_LINK" />이 Google 계정에 저장될 수 있습니다. 이러한 데이터는 언제든지 삭제할 수 있습니다.
 
 
@@ -515,8 +510,10 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="310900540163454140"><ph name="WEBSITE" />의 비밀번호를 삭제하시겠습니까?</translation>
 <translation id="3112556859945124369">표시…</translation>
 <translation id="3119874402040566234">로그아웃되고 인터넷 사용 기록이 삭제됩니다</translation>
+<translation id="3124568093781685165">가족과 비밀번호를 공유하세요</translation>
 <translation id="3130863904455712965">방문 기록 및 기타 정보</translation>
 <translation id="313283613037595347">새 시크릿 탭 만들기</translation>
+<translation id="3136739222562075778">이 카드에는 열려 있는 탭의 제품 가격 인하가 표시됩니다</translation>
 <translation id="3138611310073113613">선택사항 삭제</translation>
 <translation id="3140825265190223781">저장된 비밀번호 및 패스키</translation>
 <translation id="3143515551205905069">동기화 취소</translation>
@@ -543,6 +540,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="3245429137663807393">Chrome 사용 보고서를 공유하면, 내가 방문한 URL이 이 보고서에 포함됩니다.</translation>
 <translation id="3245744387817103524">변경사항을 저장할 수 없습니다.</translation>
 <translation id="3254806613790954367">모든 기기에서 마지막으로 열린 탭입니다</translation>
+<translation id="325717987950204592">'개인 정보 보호 및 보안'을 탭합니다.</translation>
 <translation id="3272527697863656322">취소</translation>
 <translation id="3273510436356991673">홈 화면 맞춤설정하기</translation>
 <translation id="3277021493514034324">사이트 주소가 복사되었습니다.</translation>
@@ -565,7 +563,6 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="3380352560400387991">사이트에서 애플리케이션을 열려고 합니다. 이렇게 하면 시크릿 모드가 종료됩니다.</translation>
 <translation id="3392923070107623576">탭 그룹을 만들어 깔끔하게 정리</translation>
 <translation id="3404232721752787413">Google 포토에 저장</translation>
-<translation id="3404744938087714423">로그아웃하면 동기화가 사용 중지됩니다.</translation>
 <translation id="3406506285180498376">페이지 공유…</translation>
 <translation id="340669334496430859">마지막으로 수정한 날짜</translation>
 <translation id="3409785640040772790">지도</translation>
@@ -576,6 +573,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="3445288400492335833"><ph name="MINUTES" />분</translation>
 <translation id="344589138074534176">Google 렌즈 자세히 알아보기</translation>
 <translation id="3447332786336558089">로그아웃하면 탭이 닫히고 저장되지 않은 계정 데이터가 기기에서 삭제됩니다. 여기에는 비밀번호, 방문 기록 등이 포함될 수 있습니다.</translation>
+<translation id="3449029510150690417">이름 및 색상을 지정하여 새로운 탭 그룹을 생성합니다.</translation>
 <translation id="345348365500626747">주소 찾음</translation>
 <translation id="3464194322481586217">가격을 추적할 수 없습니다.</translation>
 <translation id="3469117812148449995">비밀번호 저장 옵션</translation>
@@ -588,7 +586,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="35083190962747987">${url} 열기</translation>
 <translation id="3511519535430890904">브라우징 보호 기능 추가</translation>
 <translation id="3517216995152707259">인터넷 사용 기록을 삭제해도 Google 계정에서는 로그아웃되지 않습니다. Google 계정에서 로그아웃하려면 <ph name="BEGIN_LINK" />Chrome에서 로그아웃<ph name="END_LINK" />하세요.</translation>
-<translation id="3519193562722059437">새 탭을 열어 웹을 탐색하세요.</translation>
+<translation id="3519792890877853853">이 카드에는 열려 있는 탭의 제품 리뷰가 표시됩니다</translation>
 <translation id="3519905498307021260">{count,plural, =1{탭 열기}other{탭 {count}개 열기}}</translation>
 <translation id="3523513363815970085">'자주 방문한 사이트' 숨기기</translation>
 <translation id="3523789730715594198">언제든지 설정에서 동기화를 중지할 수 있습니다. Google에서는 사용자의 방문 기록을 기반으로 Google 검색 및 기타 서비스를 맞춤설정할 수 있습니다.</translation>
@@ -598,8 +596,8 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="3530206579861815432">동기화된 기기에서 열려 있는 탭과 최근에 닫은 탭을 빠르게 찾습니다</translation>
 <translation id="3530767473765895035">이 기기에서 계정 관리…</translation>
 <translation id="3533436815740441613">새 탭</translation>
+<translation id="3533860663366814939">자동 완성 및 비밀번호 설정 열기</translation>
 <translation id="3547356470684043247">결정을 내리는 데 도움이 되도록 리뷰를 통해 제품, 서비스 또는 경험에 대한 고객 평가 읽기</translation>
-<translation id="3549391962818677448">배송 시도됨. 다시 시도 예정</translation>
 <translation id="3557336313807607643">주소록에 추가</translation>
 <translation id="355765753469272474">실행취소</translation>
 <translation id="3562379378751492229">가장 적합한 위치를 선택하세요.</translation>
@@ -652,7 +650,6 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="3812308602011798782">리뷰</translation>
 <translation id="3813175908845379029">탐색을 더 쉽고 편리하게 만드는 유용한 추천입니다</translation>
 <translation id="3815668647912194650">나중에 탭을 추가하려면 이 그룹을 유지하고, 더 이상 액세스할 필요가 없으면 그룹에서 나가세요.</translation>
-<translation id="3818045793209708987">배송 추적이 중지됨</translation>
 <translation id="3819183753496523827">오프라인 상태입니다. 인터넷 연결을 확인한 후 다시 시도해 보세요.</translation>
 <translation id="3828924571679282172">{COUNT,plural, =1{결제 수단 1개}other{결제 수단 #개}}</translation>
 <translation id="3831560640878483188">경고를 닫으시겠습니까?</translation>
@@ -660,11 +657,11 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="3838691874161539578">저장된 비밀번호를 점검하여 보안을 강화하고 온라인에서 더 안전하게 보호하세요.</translation>
 <translation id="3838985624086228724">추적 중인 제품의 가격 인하(이전: <ph name="PREVIOUS_PRICE" /> 현재: <ph name="PRICE" />, <ph name="PRODUCT_NAME" />, <ph name="DOMAIN" />)</translation>
 <translation id="385051799172605136">뒤로</translation>
+<translation id="3850952228519377137">'탭에서 가격 추적' 숨기기</translation>
 <translation id="3851938967634752633"><ph name="WEBSITE" />, <ph name="SECOND_WEBSITE" /> 외 <ph name="NUMBER_OF_ACCOUNTS" />개 계정의 비밀번호가 삭제됩니다. 계정은 삭제되지 않습니다.</translation>
 <translation id="3858860766373142691">이름</translation>
 <translation id="3868495844258915202">전체 URL 표시</translation>
 <translation id="3875783148670536197">방법 보기</translation>
-<translation id="3876833929577368454">항상 확인</translation>
 <translation id="3885587018298784481">가족 그룹 가입</translation>
 <translation id="3888863481921783344">일정에 초대할 수 있는 사람을 표시하는 데 사용됩니다.</translation>
 <translation id="3891414008432200754">가격</translation>
@@ -674,6 +671,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="3909222758573607742">계정에 비밀번호 및 기타 항목 저장</translation>
 <translation id="3913463964270756493">Google 렌즈로 검색 화면 숨기기</translation>
 <translation id="3914640181019354363">주소 감지</translation>
+<translation id="391904960191284041">제품 리뷰</translation>
 <translation id="3921585859122905677">주소 표시줄 위치</translation>
 <translation id="3922185497376658606">웹페이지 미리 로드</translation>
 <translation id="3922395466317605522">메뉴 맞춤설정</translation>
@@ -712,6 +710,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="4038354071007134711">파일을 열 수 있는 애플리케이션이 기기에 없습니다.</translation>
 <translation id="4042870976416480368">페이지에서 찾기</translation>
 <translation id="4045648459118332842">저장된 비밀번호를 어느 앱에서나 탭 한 번으로 사용하세요</translation>
+<translation id="4047337302138771011">비밀번호 공유</translation>
 <translation id="4049419681095579435">이미 배송 추적됨</translation>
 <translation id="4049507953662678203">네트워크에 연결되었는지 확인한 후 다시 시도해 주세요.</translation>
 <translation id="4054572406751135230">뉴스, 스포츠 소식 등을 확인하세요.</translation>
@@ -735,6 +734,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="4152011295694446843">여기에서 북마크를 확인할 수 있습니다</translation>
 <translation id="4154753961803534698">카메라로 검색</translation>
 <translation id="4158491215857439601">비밀번호 관리자</translation>
+<translation id="4159430626587776301">최근에 탐색한 제품의 리뷰 보기</translation>
 <translation id="4161488339191275792">탭 그룹을 만들어 열려 있는 탭을 정리하세요</translation>
 <translation id="4163699139741158298">{count,plural, =1{북마크가 "{title}"에 저장되었습니다. 이 기기에만 저장됩니다.}other{북마크 {count}개가 "{title}"에 저장되었습니다. 이 기기에만 저장됩니다.}}</translation>
 <translation id="4164514562270305824">다운로드 자동 삭제하기</translation>
@@ -786,7 +786,6 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="4334428914252001502">읽지 않은 기사 1개 있음</translation>
 <translation id="4338258232580025606">로그인할 수 없음</translation>
 <translation id="4338650699862464074">방문한 페이지의 URL을 Google에 전송합니다.</translation>
-<translation id="4342054591427973606">{count,plural, =1{이 기기와 다른 로그인된 기기에서 이 주소가 삭제됩니다.}other{이 기기와 다른 로그인된 기기에서 이 주소가 삭제됩니다.}}</translation>
 <translation id="4342946437867096381">이미 Google 계정에 이 사이트의 비밀번호를 저장했습니다. Google에서 최근 비밀번호를 선택할 수 있습니다.</translation>
 <translation id="4365121137632832185">탭 그룹. 펼쳐져 있습니다.</translation>
 <translation id="4367971618859387374">표시 이름</translation>
@@ -795,9 +794,11 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="4389019817280890563">언어를 변경하려면 탭하세요.</translation>
 <translation id="4393294364304621138">{COUNT,plural, =1{1일 후}other{{COUNT}일 후}}</translation>
 <translation id="4402672425188312225">{COUNT,plural, =1{탭 1개}other{탭 #개}}</translation>
+<translation id="4404790787924017676">추적하는 제품의 가격 인하 알림 받기</translation>
 <translation id="4405320213589929829">웹페이지의 주소를 사용하여 지역 정보와 경로를 찾습니다</translation>
 <translation id="441218095371040430">키보드 사용</translation>
 <translation id="4415276339145661267">Google 계정 관리</translation>
+<translation id="4425365312778464779">관리 계정임</translation>
 <translation id="4430277756566635951">현재 <ph name="EMAIL" />님이 선택되었습니다. 계정을 선택하세요.</translation>
 <translation id="4430505936695785931">다른 앱에서 저장된 비밀번호 가져오기</translation>
 <translation id="4431224949908513835">입력할 결제 수단을 선택하세요.</translation>
@@ -807,7 +808,6 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="4460014764210899310">그룹 해제</translation>
 <translation id="446314443268698477">카메라를 사용해 지금 보고 있거나 사진에 있는 항목을 쇼핑하고, 번역하고, 무엇인지 알아보세요.</translation>
 <translation id="4469324811108161144">메모에는 <ph name="CHARACTER_LIMIT" />자(영문 기준)까지만 저장할 수 있습니다.</translation>
-<translation id="4469834037720363704">운송장 번호</translation>
 <translation id="4471472356135655769">비밀번호를 내보낼 수 없음</translation>
 <translation id="4473608001744970767">가격 추적 숨기기</translation>
 <translation id="4474142134969976028">일치하는 결과가 없습니다.</translation>
@@ -831,6 +831,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="4565377596337484307">비밀번호 숨김</translation>
 <translation id="4568230126482344545">최근 탭 숨기기</translation>
 <translation id="4578835633387306383">사용 설정…</translation>
+<translation id="4580716718466706433">'비밀번호 관리자'로 이동합니다.</translation>
 <translation id="4587589328781138893">사이트</translation>
 <translation id="4592672037257622855">{count,plural, =1{페이지가 읽기 목록에 추가됨}other{페이지 {count}장이 읽기 목록에 추가됨}}</translation>
 <translation id="459644946100970322">가격 알림을 사용하시겠습니까?</translation>
@@ -870,6 +871,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="4717844083556844785">현재 시크릿 모드에서 웹페이지 사용 중</translation>
 <translation id="4719927025381752090">번역 옵션 제공</translation>
 <translation id="4720530280568305198">선택한 항목이 새 탭에서 열렸습니다.</translation>
+<translation id="472259426228234149">가격 100~180달러</translation>
 <translation id="473775607612524610">업데이트</translation>
 <translation id="474209246745757965">카메라를 사용해 쇼핑하고 번역해 보세요.</translation>
 <translation id="4742407542027196863">비밀번호 관리...</translation>
@@ -890,7 +892,6 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="4803185665210547709">조직에서 관리합니다.
 <ph name="BEGIN_LINK" />자세히 알아보기<ph name="END_LINK" /></translation>
 <translation id="4807098396393229769">카드에 표기된 이름</translation>
-<translation id="4808646838864186379">배송이 취소됨</translation>
 <translation id="4808744395915275922">업데이트</translation>
 <translation id="4813345808229079766">연결</translation>
 <translation id="4821595350501541683">탭이 닫히고 인터넷 사용 기록이 삭제되었습니다</translation>
@@ -919,9 +920,10 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="4894963374040315706">액세스를 허용하면 음성으로 검색할 수 있습니다.</translation>
 <translation id="4895540042460820904">마지막으로 열어본 날짜</translation>
 <translation id="4896467949657706481">탭이 닫히고 로그아웃되었습니다.</translation>
-<translation id="490709372351071121">배송 상태 확인 중</translation>
 <translation id="4913626501929406101">가족 그룹의 다른 사용자와 비밀번호 사본을 안전하게 공유할 수 있습니다. <ph name="BEGIN_LINK" />자세히 알아보기<ph name="END_LINK" /></translation>
 <translation id="4918086044614829423">수락</translation>
+<translation id="4930714375720679147">사용 설정</translation>
+<translation id="4932733599132424254">날짜</translation>
 <translation id="4936354130727646074">이동 안 함</translation>
 <translation id="4937410517508563815">계정에 비밀번호 저장</translation>
 <translation id="4938338714234463591">이렇게 하면 웹사이트에서 특정 기능을 음성으로 이용할 수 있습니다.</translation>
@@ -935,6 +937,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="496392417432935267">다른 창에서 열림</translation>
 <translation id="4971735654804503942">위험한 웹사이트, 다운로드 항목 및 확장 프로그램에 더 빠르게 대응하여 선제적 보호 조치를 취합니다. 비밀번호 유출에 관해 알립니다. Google에 인터넷 사용 기록을 전송해야 합니다.</translation>
 <translation id="4979397965658815378">Google 계정으로 로그인하면 모든 기기에서 북마크, 비밀번호, 방문 기록 및 기타 설정을 사용할 수 있습니다.</translation>
+<translation id="4985921635659180565">파일 삭제가 예약되면 취소할 수 없습니다.</translation>
 <translation id="498624032394115435">링크가 있는 사용자가 모든 탭을 수정할 수 있습니다.</translation>
 <translation id="4989065233040279145"><ph name="FILENAME" /> 저장 위치 선택</translation>
 <translation id="4992255726304765516">탭 그룹 색상: <ph name="COLOR" /></translation>
@@ -964,6 +967,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="5118462200606189584">계정 추가…</translation>
 <translation id="5118713593561876160">관심분야</translation>
 <translation id="5118764316110575523">사용 안함</translation>
+<translation id="5119329531859909472">제품을 추적하려면 추적을 탭하세요.</translation>
 <translation id="5121618895923301719">이미 추적 중인 제품입니다. 이 페이지는 <ph name="BEGIN_LINK" />모바일 북마크<ph name="END_LINK" />에 저장됩니다.</translation>
 <translation id="512533434554095351">비밀번호 문제가 몇 가지 있습니다.</translation>
 <translation id="5127538504377457572"><ph name="DAYS" />일 전에 사용</translation>
@@ -986,6 +990,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="5197255632782567636">인터넷</translation>
 <translation id="5200894869889836319">권한 설정 옵션</translation>
 <translation id="5203051773066903947">입력</translation>
+<translation id="5205750905107419335"><ph name="USER_NAME" />(<ph name="USER_EMAIL" />)님이 “<ph name="GROUP_NAME" />” 탭 그룹에 대한 액세스 권한을 즉시 잃게 되며, Google 서비스 전반에서 나와 더 이상 상호작용할 수 없게 됩니다.</translation>
 <translation id="5206453674369664567">로그아웃 후 데이터 지우기</translation>
 <translation id="5210365745912300556">탭 닫기</translation>
 <translation id="5211488077761630279">"<ph name="SITE_NAME" />"에서 내 <ph name="PERMISSION" />을(를) 사용하도록 허용하시겠습니까?</translation>
@@ -993,7 +998,6 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="5217329997012062137">Google 렌즈를 사용하면 페이지의 스크린샷이 Google에 전송됩니다.</translation>
 <translation id="5220945116117011963">날짜로 캘린더 일정 만들기</translation>
 <translation id="5222676887888702881">로그아웃</translation>
-<translation id="5228579091201413441">동기화 사용</translation>
 <translation id="5233638681132016545">새 탭</translation>
 <translation id="5234094073825090254">{count,plural, =1{북마크가 Google 계정({email})에 저장되었습니다.}other{북마크가 Google 계정({email})에 저장되었습니다.}}</translation>
 <translation id="5234764350956374838">닫기</translation>
@@ -1021,11 +1025,13 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="5352128922772839949">파일 저장</translation>
 <translation id="5355191726083956201">향상된 보호 모드를 사용 중입니다.</translation>
 <translation id="537853552771686272">관심 있는 주제 및 사이트 관리</translation>
+<translation id="5390458669633674385">{count,plural, =1{닫힌 탭 {count}개}other{닫힌 탭 {count}개}}</translation>
 <translation id="5394975111793637642">추천 제품 리뷰 카드 숨기기</translation>
 <translation id="5395707839134961196">검색엔진 세부정보 숨기기</translation>
 <translation id="5414763847370083940">가격이 인하된 사이트가 있으면 알림이 전송됩니다</translation>
 <translation id="5415289094036440596">패스키를 공유할 수 없음</translation>
 <translation id="5416455648658732408">탭 그룹으로 이동</translation>
+<translation id="5423269318075950257">가격 추적</translation>
 <translation id="542659109038405424">도착어</translation>
 <translation id="5429624150850059322">돌아오면 탭하여 계속할 때까지 탭이 흐리게 표시됩니다.</translation>
 <translation id="5431239785743546285">읽은 페이지</translation>
@@ -1066,6 +1072,7 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="5567439033041178034">자세히 알아보기</translation>
 <translation id="5572648434713976849">주소 표시줄에 더 개선된 추천 항목이 표시됩니다.</translation>
 <translation id="5576885723883013398">새 창</translation>
+<translation id="5578543325423650885"><ph name="USER_NAME" />(<ph name="USER_EMAIL" />)님이 “<ph name="GROUP_NAME" />" 탭 그룹에 대한 액세스 권한을 즉시 잃게 됩니다.</translation>
 <translation id="5578795271662203820"><ph name="SEARCH_ENGINE" />에서 이 이미지 검색</translation>
 <translation id="5579012242779565775">읽기 목록 숨기기</translation>
 <translation id="5585019845078534178">카드</translation>
@@ -1087,7 +1094,6 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="5633237939819267663">{count,plural, =1{"{title}"에 북마크가 저장되었습니다.}other{"{title}"에 북마크 {count}개가 저장되었습니다.}}</translation>
 <translation id="564170563478022912">로그아웃하시겠습니까? 저장되지 않은 계정 데이터가 삭제됩니다</translation>
 <translation id="5642707040609478753">읽지않음으로 표시</translation>
-<translation id="5646284034397250191">라벨 생성됨. 날짜 대기 중</translation>
 <translation id="5647096944343801045">크게 표시된 진입점</translation>
 <translation id="5647193778876139879">주소를 길게 터치합니다.</translation>
 <translation id="5647702255748985085">그룹에서 나가시겠습니까?</translation>
@@ -1117,10 +1123,10 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="5737974891429562743">계정 로그인 세부정보가 오래되었습니다. 업데이트하여 동기화를 시작하세요.</translation>
 <translation id="5738385766833540397">추적 중인 제품의 가격 인하 알림을 받을 방법 관리</translation>
 <translation id="5738887413654608789">이를 통해 사용자의 주변 환경을 토대로 관련 웹 페이지를 발견할 수 있습니다.</translation>
+<translation id="573974402615125334">탭 그룹을 공유하고, 탭 그룹에 참여하고, 탭 그룹에서 공동작업하려면 방문 기록과 탭을 동기화하세요.</translation>
 <translation id="5740123193752401435">탭 검색…</translation>
 <translation id="5744274077973758795"><ph name="FEATURE_NAME" /> 알림 사용 설정됨</translation>
 <translation id="574762237186762643">일정</translation>
-<translation id="5748177854685749242">도착 예정일: <ph name="DATE" /></translation>
 <translation id="5749158352074143502">이 탭으로 계속</translation>
 <translation id="5753021559215751319">비밀번호 저장</translation>
 <translation id="5756525336488841345">북마크 숨기기</translation>
@@ -1145,6 +1151,7 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="5860491529813859533">사용</translation>
 <translation id="5868644772996939262">비밀번호 및 패스키 자동 완성</translation>
 <translation id="5869522115854928033">저장된 비밀번호</translation>
+<translation id="5873179562631407582">열려 있는 탭을 길게 탭합니다.</translation>
 <translation id="5878899964490256268"><ph name="EMAIL" />, 조직에서 관리합니다.</translation>
 <translation id="5888889603768021126">다음을 사용하여 로그인함</translation>
 <translation id="5889333064153755823">인터넷 사용 기록 삭제</translation>
@@ -1152,8 +1159,8 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="5897749768294722429">방문한 사이트로 빠르게 돌아가려면 탭과 방문 기록을 동기화하세요.</translation>
 <translation id="5898848375214731122">질량</translation>
 <translation id="5899314093904173337">근처에 있는 사용자와 공유하려면 상대방에게 카메라나 QR 스캐너 앱으로 QR 코드를 스캔해 달라고 요청하세요.</translation>
+<translation id="5902752768726620872">{count,plural, =1{새 탭 {count}개}other{새 탭 {count}개}}</translation>
 <translation id="5911030830365207728">Google 번역</translation>
-<translation id="5917913282764181683">다운로드 파일 자동 삭제</translation>
 <translation id="5922999516621365983">탭을 고정하려면 여기로 드래그하세요</translation>
 <translation id="5936006948844852401">저장용량 관리</translation>
 <translation id="5936065461722368675">전체 페이지 번역</translation>
@@ -1173,7 +1180,6 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="598634819525651074">면적</translation>
 <translation id="5988097621740394599">탭에서 가격 인하 정보를 확인합니다.</translation>
 <translation id="5988851877894965432">Chrome에서 URL 열기</translation>
-<translation id="5996189683621529225">수령 준비 완료</translation>
 <translation id="6001839398155993679">시작</translation>
 <translation id="6011308810877101166">추천 검색어 개선</translation>
 <translation id="6012140227487808125">암호화하는 중...</translation>
@@ -1209,6 +1215,7 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="6140600850356225166">시크릿 모드에서 다른 앱의 링크를 열도록 요청</translation>
 <translation id="6140948187512243695">세부정보 표시</translation>
 <translation id="6144589619057374135">시크릿 모드에서 ${url} 열기</translation>
+<translation id="6147279996212084542">설명</translation>
 <translation id="6151006591088192882"><ph name="BIOMETRIC_AUTHENITCATION_TYPE" /> 인증으로 시크릿 탭 잠금 해제</translation>
 <translation id="6152340033632117531">비활성</translation>
 <translation id="6152406514676263192">동기화하여 내 관심분야와 가장 관련성이 높은 콘텐츠를 받아보세요.</translation>
@@ -1222,6 +1229,7 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="6187302354554850004">최근 동기화: <ph name="LAST_USED_TIME" /></translation>
 <translation id="6188737759358894319"><ph name="DATE" />에 생성됨</translation>
 <translation id="6189413832092199491">읽지않음</translation>
+<translation id="6192388920090306326">도쿄 여행</translation>
 <translation id="6193448654517602979">탭 선택</translation>
 <translation id="6196207969502475924">음성 검색</translation>
 <translation id="6196640612572343990">서드 파티 쿠키 차단</translation>
@@ -1240,7 +1248,6 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="6247557882553405851">Google 비밀번호 관리자</translation>
 <translation id="6251835855431997163"><ph name="VALUE" /> 자동 완성</translation>
 <translation id="6254066287920239840">브라우저 대신 앱에서 링크 열기</translation>
-<translation id="6266039999629596120">확인 필요</translation>
 <translation id="6268773951964630964">복사한 이미지 검색</translation>
 <translation id="6271462272606946663">모바일 사이트 요청 숨기기</translation>
 <translation id="6271824294945464304">비밀번호 공유</translation>
@@ -1254,6 +1261,7 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="6316141353357700666">표시되는 목록에서 사용할 비밀번호를 선택합니다.</translation>
 <translation id="6321526113093607004">북마크에 추가</translation>
 <translation id="6331836477476466332">더 안전하고 강력한 브라우저</translation>
+<translation id="6335744088476213315">이 카드에는 최근에 본 제품과 가격 인하 알림을 받기 위해 추적할 만한 제품이 표시됩니다</translation>
 <translation id="6337234675334993532">암호화</translation>
 <translation id="633809752005859102">문제가 발생했습니다. 조사해 보겠습니다.</translation>
 <translation id="6339793034470834130">Web Inspector를 사용하려면 케이블을 사용해 컴퓨터에서 Safari에 연결한 다음 Develop(개발자용) 메뉴에서 iPhone에 액세스하세요. 컴퓨터에서 Safari 설정의 Advanced(고급) 섹션에 있는 Develop(개발자용) 메뉴를 사용 설정할 수 있습니다</translation>
@@ -1272,6 +1280,7 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="6368102751067608420">모든 비밀번호 관리자 데이터 삭제하기</translation>
 <translation id="6374469231428023295">다시 시도</translation>
 <translation id="6387994324662817823">비밀번호가 이 기기의 Google 비밀번호 관리자에만 저장됩니다</translation>
+<translation id="6393156038355142111">안전한 비밀번호 추천</translation>
 <translation id="6404422529625928907">Google Drive에서 열기</translation>
 <translation id="6404511346730675251">북마크 수정</translation>
 <translation id="6406506848690869874">동기화</translation>
@@ -1292,7 +1301,6 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="6447842834002726250">쿠키</translation>
 <translation id="6449554712554071184">이렇게 하면 기기에서 그룹이 완전히 삭제됩니다.</translation>
 <translation id="6452534462676960500">새로운 활동</translation>
-<translation id="6459307836338400162">개인 정보 보호, 보안, 데이터 수집에 관한 추가 설정을 보려면 <ph name="BEGIN_LINK" />동기화<ph name="END_LINK" /> 및 <ph name="BEGIN_LINK" />Google 서비스<ph name="END_LINK" />를 참고하세요.</translation>
 <translation id="6459411599807878608">세부정보 숨김</translation>
 <translation id="646394917185284261">파일</translation>
 <translation id="6464397691496239022">사이트에서 사용자의 로그인 상태를 유지하거나 장바구니에 담긴 상품을 기억하는 등 탐색 환경을 개선하는 데 쿠키를 사용할 수 있습니다.
@@ -1304,7 +1312,6 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="647867789226964031">비밀번호 변경</translation>
 <translation id="6494931198667773526">종료</translation>
 <translation id="6495521251906266731">비밀번호, 방문 기록 등 이 기기의 기존 인터넷 사용 기록을 어떻게 처리할지 선택하세요.</translation>
-<translation id="6502142762807385617">{COUNT,plural, =1{이 택배 추적 취소}other{모든 택배 추적 취소}}</translation>
 <translation id="6503077044568424649">자주 방문한 페이지</translation>
 <translation id="6503763061813913607">안전 확인 알림</translation>
 <translation id="6505334220040167806">탭 그룹을 접습니다.</translation>
@@ -1330,6 +1337,7 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="6583087784430677195">사용 중지하려면 <ph name="BEGIN_LINK" />Settings(설정)<ph name="END_LINK" />를 열고 AutoFill Passwords(비밀번호 자동 완성)로 이동합니다.</translation>
 <translation id="6585048665672348661">인터넷 사용 기록 삭제…</translation>
 <translation id="6585618849026997638">중요한 페이지를 북마크에 추가하여 다시 돌아갈 수 있습니다.</translation>
+<translation id="659407965921887085">이 카드에는 현재 추적 중인 제품의 웹 가격 인하가 표시됩니다</translation>
 <translation id="6596481460663245319">Google로 이미지 검색</translation>
 <translation id="6598432073497341323">{COUNT,plural, =1{비밀번호 1개}other{비밀번호 #개}}</translation>
 <translation id="6601302169302852717"><ph name="USER_EMAIL" />의 Google 포토에 저장된 이미지</translation>
@@ -1367,6 +1375,8 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="6680416467695217368">메뉴 맞춤설정</translation>
 <translation id="6681586159478273915">음성 검색</translation>
 <translation id="6681791404926413601">{count,plural, =1{키보드 위에 결제 수단 옵션 {count}개가 있습니다.}other{키보드 위에 결제 수단 옵션 {count}개가 있습니다.}}</translation>
+<translation id="6682680306647339111">리마인더가 삭제되었습니다.</translation>
+<translation id="6684262542644248484">웹사이트에 로그인합니다.</translation>
 <translation id="6685259053455152195">설정을 빠르게 수정하고 주소 표시줄의 기능을 사용하는 바로가기입니다</translation>
 <translation id="6689685206615181381">시크릿 모드만 사용 가능</translation>
 <translation id="6708501134077648845">비밀번호 옵션</translation>
@@ -1382,10 +1392,13 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="6746338529702829275">계정 데이터 검토</translation>
 <translation id="6755200887046212842">계정 관리</translation>
 <translation id="6755733078693946548">모든 앱에서 비밀번호 및 패스키에 액세스</translation>
+<translation id="6759709389246683070">이 탭을 길게 터치하여 다시 방문하도록 리마인더를 설정할 수 있습니다.</translation>
 <translation id="6761393919622941301">오디오</translation>
 <translation id="6779455296366983087">인터넷 사용 기록이 삭제됩니다</translation>
 <translation id="6790502149545262384">곧 새 탭을 열 때 <ph name="CHANNEL_NAME" /> 스토리가 표시됩니다</translation>
+<translation id="6791425686608802741">'새 그룹에 탭 추가'를 탭합니다.</translation>
 <translation id="6794476726485507147">이 페이지를 다시 방문하도록 알림을 받을 날짜와 시간을 선택하세요.</translation>
+<translation id="6807287147325542056">다른 앱의 비밀번호</translation>
 <translation id="681368974849482173">북마크가 생성되었습니다.</translation>
 <translation id="6825078212112407882">{count,plural, =1{북마크가 Google 계정({email})에 저장되었습니다.}other{북마크 {count}개가 Google 계정({email})에 저장되었습니다.}}</translation>
 <translation id="6830728435402077660">안전하지 않음</translation>
@@ -1451,6 +1464,7 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="7080806333218412752">세이프 브라우징 서비스에 URL을 전송하여 확인하도록 합니다. 또한 페이지, 다운로드 항목, 확장 프로그램 활동, 시스템 정보의 표본을 일부 전송하여 새로운 위협을 발견하는 데 도움을 줍니다. 사용자가 로그인하면 이 데이터를 사용자의 Google 계정에 일시적으로 연결하여 Google 앱 전반에서 사용자를 보호합니다.</translation>
 <translation id="7082853213442715471">잠금 모드를 사용 설정하면 특정 웹 기술이 차단되어 일부 웹사이트가 느리게 로드되거나 제대로 작동하지 않을 수 있습니다</translation>
 <translation id="7095110968493193530"><ph name="EMAIL" />의 Google 비밀번호 관리자에 저장</translation>
+<translation id="7097046145876891318">주소 표시줄에서 가격 변동 내역을 탭하여 시간 경과에 따른 가격 변동을 확인하세요.</translation>
 <translation id="7101580180124131336">이제 팔로잉에서 <ph name="CHANNEL_NAME" />와 관련된 콘텐츠를 볼 수 있습니다</translation>
 <translation id="7102005569666697658">다운로드 중… <ph name="FILE_SIZE" /></translation>
 <translation id="7104701424653979232">메뉴 → 설정 → 결제 수단</translation>
@@ -1491,7 +1505,6 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="7336264872878993241"><ph name="PERCENT" />% 다운로드됨</translation>
 <translation id="7346909386216857016">확인</translation>
 <translation id="7352651011704765696">문제가 발생했습니다.</translation>
-<translation id="7359341089141286329">감지된 모든 택배 자동 추적</translation>
 <translation id="7363349185727752629">개인 정보 보호 선택 가이드</translation>
 <translation id="736564850024123010">주소 표시줄 위치를 전환하여 맞춤 환경을 이용하세요.</translation>
 <translation id="7366909168761621528">인터넷 사용정보</translation>
@@ -1510,13 +1523,13 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="741204030948306876">사용</translation>
 <translation id="7417689656810783109">그룹 이름 변경</translation>
 <translation id="7419565702166471774">항상 보안 연결 사용</translation>
-<translation id="742001653298797675">휴대전화의 저장 공간을 절약하고 개인 정보를 보호하려면 모든 다운로드 파일을 1개월 후에 삭제하도록 예약하세요.</translation>
 <translation id="7425053386765766120">결제 수단 추가…</translation>
 <translation id="7425346204213733349">북마크, 방문 기록, 비밀번호, 기타 설정이 더 이상 Google 계정에 동기화되지 않습니다. 하지만 기존 데이터는 Google 계정에 계속 저장됩니다.</translation>
 <translation id="742664698522525515">그룹을 유지하시겠습니까?</translation>
 <translation id="7431851541687113774">주소 감지 사용 중지</translation>
 <translation id="7431991332293347422">검색 등을 맞춤설정하는 데 인터넷 방문 기록이 사용되는 방식 관리</translation>
 <translation id="7435356471928173109">관리자가 사용 중지했습니다.</translation>
+<translation id="7437712592381799950">위로 스와이프하면 나에게 맞춤화된 콘텐츠를 더 많이 볼 수 있습니다.</translation>
 <translation id="7438481509621345350">이제 새 탭을 열 때 <ph name="CHANNEL_NAME" /> 스토리가 표시됩니다</translation>
 <translation id="7451023311965289370">{count,plural, =1{"{title}"에 북마크가 저장되었습니다.}other{"{title}"에 북마크가 저장되었습니다.}}</translation>
 <translation id="7451404862887877229">'개인 정보 보호 및 보안'을 탭한 다음 '세이프 브라우징'을 탭합니다</translation>
@@ -1530,10 +1543,8 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="7471557245617580330">새 탭 만들기</translation>
 <translation id="7473891865547856676">건너뛰기</translation>
 <translation id="7476548258282096076">이 카드에는 가장 많이 방문한 사이트가 표시됩니다.</translation>
-<translation id="747956641630879526">이 카드를 숨기면 배송 추적이 사용 중지되고 모든 데이터가 삭제됩니다</translation>
 <translation id="7484645889979462775">이 사이트 제외</translation>
 <translation id="7486006552035434095">기기 동기화 상태 유지</translation>
-<translation id="7488874549363591659">배송 완료</translation>
 <translation id="7491131399623468277">설정으로 이동…</translation>
 <translation id="7498234416455752244">계속 수정</translation>
 <translation id="7500244509706269886">양식 자동 완성</translation>
@@ -1543,6 +1554,7 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="7512075701202892785">즐겨 사용하는 브라우저를 이제 iPad에서 사용하세요</translation>
 <translation id="7512909159512473473">암호 입력…</translation>
 <translation id="7514365320538308">다운로드</translation>
+<translation id="7522948500476882302">파일을 다운로드할 때 1개월 후에 자동으로 삭제되도록 선택할 수 있습니다.</translation>
 <translation id="7524055474074101597">여러 앱에서 비밀번호 등의 정보에 액세스하세요.</translation>
 <translation id="75362970626182391">새 탭 그룹</translation>
 <translation id="7537586195939242955">현재 패스를 패스북에 설치할 수 없습니다.</translation>
@@ -1574,6 +1586,7 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="7646772052135772216">비밀번호 동기화가 작동하지 않음</translation>
 <translation id="764827086632467055">'기본 브라우저 앱' 탭하기</translation>
 <translation id="7649070708921625228">도움말</translation>
+<translation id="765631330137769217">'저장'을 탭하여 다음에 로그인할 때 이 비밀번호에 쉽게 액세스할 수 있도록 합니다.</translation>
 <translation id="7658239707568436148">취소</translation>
 <translation id="7662316065255305764">사이트 정보</translation>
 <translation id="7665369617277396874">계정 추가</translation>
@@ -1581,7 +1594,6 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="7669493687462784703"><ph name="WEBSITE" />에서 구성 프로필을 계속 다운로드하시겠습니까?</translation>
 <translation id="7673346542062368520">왼쪽으로 스와이프하여 시크릿 모드에서 탐색할 수 있습니다.</translation>
 <translation id="7679915578945954324">사이트 주소 복사됨</translation>
-<translation id="769134787192530091">탭을 동기화하는 중…</translation>
 <translation id="7696316012653762532">페이지 번역 옵션</translation>
 <translation id="7700527812567437847">Google 렌즈로 화면 검색</translation>
 <translation id="7701040980221191251">없음</translation>
@@ -1621,6 +1633,7 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="784934925303690534">기간</translation>
 <translation id="7851858861565204677">다른 기기</translation>
 <translation id="7853202427316060426">활동</translation>
+<translation id="7854006015462979438">일반 열기</translation>
 <translation id="7859988229622350291">번역 안 함</translation>
 <translation id="7863211248337747225">앱 다운로드</translation>
 <translation id="7865127013871431856">번역 옵션</translation>
@@ -1641,7 +1654,6 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="7933880123415105005"><ph name="SEARCH_PROVIDER" /> 검색</translation>
 <translation id="7938254975914653459">FaceTime</translation>
 <translation id="7941578031639087549">{count,plural, =1{페이지가 계정({email})의 읽기 목록에 추가됨}other{페이지 {count}장이 계정({email})의 읽기 목록에 추가됨}}</translation>
-<translation id="7947953824732555851">수락 및 로그인</translation>
 <translation id="7952670906562503188">패스키 {passkey_count}개와 로그인을 저장하지 않도록 선택한 사이트 및 앱 목록을 삭제하려고 합니다. 사이트 및 앱용으로 만든 계정은 삭제되지 않습니다.</translation>
 <translation id="7958575506592576831">페이지 보안 정보</translation>
 <translation id="7961015016161918242">사용하지 않음</translation>
@@ -1689,6 +1701,7 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="8084285576995584326">Google 계정 데이터 관리</translation>
 <translation id="809543534949702122">검색 기록</translation>
 <translation id="8095985449280932182">{COUNT,plural, =1{사용하지 않는 탭은 {COUNT}일 후에 여기로 이동됩니다}other{사용하지 않는 탭은 {COUNT}일 후에 여기로 이동됩니다}}</translation>
+<translation id="8096559642098770318">나중에 이 사이트를 다시 확인하도록 탭 리마인더를 설정할 수 있습니다.</translation>
 <translation id="8101409298456377967">사이트와 앱에 쉽게 로그인할 수 있도록 비밀번호를 생성, 저장, 관리하세요. <ph name="BEGIN_LINK" />자세히 알아보기<ph name="END_LINK" /></translation>
 <translation id="8102130909719902723">N</translation>
 <translation id="8114753159095730575">파일을 다운로드할 수 있습니다. 화면 하단에서 옵션을 선택할 수 있습니다.</translation>
@@ -1698,6 +1711,7 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="8131740175452115882">확인</translation>
 <translation id="8132598642024322408">정가 <ph name="PREVIOUS_PRICE" />인 제품을 <ph name="PRICE" />에 판매 중</translation>
 <translation id="813370552429173916">사이트 또는 앱별로 다른 비밀번호를 사용하세요. 재사용된 비밀번호가 유출되면 다른 계정도 도용당할 수 있습니다. 클릭하여 웹사이트를 열고 지금 변경하세요.</translation>
+<translation id="8135556271852808840">{count,plural, =1{닫힌 탭 {count}개}other{닫힌 탭 {count}개}}</translation>
 <translation id="8135643032449715400">{COUNT,plural, =1{기타 1개}other{기타 #개}}</translation>
 <translation id="8150167929304790980">이름</translation>
 <translation id="8152331954420209374">렌즈로 이동</translation>
@@ -1740,11 +1754,14 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="8289930144142009940"><ph name="FEATURE_NAME" /> 알림 사용 중지됨</translation>
 <translation id="8290077367744012649">탭에서 가격 추적</translation>
 <translation id="8299417921174340354">비밀번호를 사용하려면 기기에 비밀번호를 설정해야 합니다.</translation>
-<translation id="8299613349954694191">시크릿 탭을 열어 웹을 비공개로 탐색하기</translation>
 <translation id="8307481894409578819">이 파일을 업로드할 수 없음</translation>
 <translation id="8319076807703933069">새 검색</translation>
+<translation id="8319282042900445670"><ph name="DATE" /> <ph name="TIME" />(으)로 리마인더 설정됨</translation>
+<translation id="8320212361750431956">최근 활동</translation>
+<translation id="8325455175867928593">'관심분야를 기반으로 한 리뷰' 숨기기</translation>
 <translation id="833647236762414178">사이트와 앱에 쉽게 로그인할 수 있도록 비밀번호와 패스키를 만들고, 저장하고, 관리하세요. <ph name="BEGIN_LINK" />자세히 알아보기<ph name="END_LINK" /></translation>
 <translation id="8343993175958086504">콘텐츠를 백업하고 어느 기기에서나 사용하세요</translation>
+<translation id="8348530355586151720">점 3개 메뉴를 탭합니다.</translation>
 <translation id="8349305172487531364">북마크바</translation>
 <translation id="8364563001733875155">PIN을 변경하려면 먼저 기기에서 비밀번호를 설정하세요.</translation>
 <translation id="8366466717204352506">진단을 실행한 적이 없음</translation>
@@ -1772,15 +1789,14 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="8438566539970814960">검색 및 탐색 기능 개선</translation>
 <translation id="8439758443371991593">읽기 목록에 추가 숨기기</translation>
 <translation id="8449869326050867919">비밀번호 공유됨</translation>
-<translation id="8453847087068411809">택배 자동 감지 사용 안함</translation>
 <translation id="8473863474539038330">주소 및 기타</translation>
 <translation id="8474378002946546633">알림 허용</translation>
 <translation id="8477178913400731244">데이터 삭제</translation>
 <translation id="8481184073299279701">모든 탭에서 앞으로 JavaScript 콘솔 로그 및 오류를 수집하려면 '로깅 시작' 버튼을 탭하세요. 이 페이지가 닫히거나 '로깅 중지'를 탭할 때까지 로그가 수집됩니다(메모리에만 저장됨).</translation>
 <translation id="8487667956631253959">사용</translation>
 <translation id="8487700953926739672">오프라인으로 사용 가능</translation>
-<translation id="8487894141648868716">USPS</translation>
 <translation id="8490629238792920282">링크를 만들 수 없음</translation>
+<translation id="8501469528283376592">다운로드 자동 삭제</translation>
 <translation id="8503813439785031346">사용자 이름</translation>
 <translation id="8505361906966222822">다음 위치에 저장...</translation>
 <translation id="850600235656508448">시크릿 모드에서 열기</translation>
@@ -1848,6 +1864,7 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="8723088494871522141">'추천 제품 리뷰' 숨기기</translation>
 <translation id="872371143724482722">{COUNT,plural, =1{탭 {COUNT}개}other{탭 {COUNT}개}}</translation>
 <translation id="8725066075913043281">다시 시도하기</translation>
+<translation id="8726523474917941818">리마인더</translation>
 <translation id="8728922029615312208">모두 닫기</translation>
 <translation id="8730621377337864115">완료</translation>
 <translation id="87371078663613140">메뉴 바의 옵션 살펴보기</translation>
@@ -1869,6 +1886,7 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <ph name="BEGIN_LINK" />자세히 알아보기<ph name="END_LINK" /></translation>
 <translation id="8813277370772331957">나중에 알림</translation>
 <translation id="8814719628147284151">계속</translation>
+<translation id="8819155700324279105">온라인 위협에 대비한 보호 단계 추가</translation>
 <translation id="8820817407110198400">북마크</translation>
 <translation id="8822421075653507124">기기를 안전하게 사용하기 위해 조직에서 운영체제, 브라우저, 설정, 기기에 설치된 소프트웨어에 관한 정보를 확인해야 할 수 있습니다.</translation>
 <translation id="8825562130641217944">북마크, 비밀번호 등을 가져옵니다.</translation>
@@ -1891,6 +1909,7 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="8879604564928138696">두 번 탭하여 시도하기</translation>
 <translation id="8879952635974818770">맞춤 콘텐츠</translation>
 <translation id="8887595428614802520">모든 탭 및 그룹 닫기</translation>
+<translation id="8888595487174963247">리마인더 삭제</translation>
 <translation id="8891031436559779793">사이트에서 가격이 인하되면 알림을 받게 됩니다</translation>
 <translation id="8893208530912252670">동영상</translation>
 <translation id="8898822736010347272">새로운 위협을 발견하고 모든 웹 사용자를 보호하는데 도움을 주기 위해 방문한 일부 페이지의 URL, 제한된 시스템 정보, 일부 페이지 콘텐츠를 Google로 전송합니다.</translation>
@@ -1901,7 +1920,6 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="891282356902782456">비밀번호는 이 기기에만 저장됩니다. 다른 기기에서 사용하려면 Google 계정(<ph name="EMAIL" />)에 저장하세요.</translation>
 <translation id="8915916167043355778">모두 닫기</translation>
 <translation id="892185197271200809">모든 사용자가 “<ph name="GROUP_NAME" />" 탭 그룹에 대한 액세스 권한을 즉시 잃게 되며, 탭 그룹이 모든 기기에서 삭제됩니다.</translation>
-<translation id="8921902386312975525">배송 추적 옵션</translation>
 <translation id="8923178205567790913">비밀번호</translation>
 <translation id="892776311701544612">자세히 알아보기…</translation>
 <translation id="8928133177108699615">데스크톱</translation>
@@ -1929,7 +1947,6 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="9013605037177245304">알림 사용 설정</translation>
 <translation id="9029650858822697271">로그아웃되었습니다</translation>
 <translation id="9032405509996909363">인터넷 사용 기록 삭제 확인</translation>
-<translation id="9034759925968272072">Google 계정에서 로그아웃되지 않습니다. <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" />에서 내 Google 계정에 있는 다른 형식의 탐색 기록을 확인할 수 있습니다.</translation>
 <translation id="9039373489628511875">대역폭</translation>
 <translation id="9042893549633094279">개인 정보 보호 및 보안</translation>
 <translation id="9055580485132823283">비밀번호 {password_count}개, 패스키 {passkey_count}개, 로그인 정보를 저장하지 않도록 선택한 사이트 및 앱 목록을 삭제하려고 합니다. 사이트 및 앱용으로 만든 계정은 삭제되지 않습니다.</translation>
@@ -1954,9 +1971,11 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="9106655997975673326">출처: '<ph name="SOURCE_DEVICE" />'</translation>
 <translation id="9107664647686727385">유출된 비밀번호를 확인하세요</translation>
 <translation id="9124387962554796433">Google 검색 및 다른 Google 서비스를 맞춤설정하기 위하여 Google에서 사용자의 방문 기록을 이용할 수 있습니다</translation>
+<translation id="9124978074365039456">카메라와 사진 갤러리를 사용하여 지금 보고 있는 항목을 쇼핑하고, 번역하고, 무엇인지 알아보세요</translation>
 <translation id="9130317582644834675">텍스트 확대/축소 숨기기</translation>
 <translation id="913036870884277353">다른 앱에서 링크를 간편하게 여세요.</translation>
 <translation id="9137013805542155359">원본 보기</translation>
+<translation id="9144230693397287797">설정한 리마인더 및 다른 기기의 탭 업데이트를 받습니다.</translation>
 <translation id="914781932147356857">모두 표시…</translation>
 <translation id="9148126808321036104">다시 로그인</translation>
 <translation id="9159628751968616911">웹페이지 보내기</translation>

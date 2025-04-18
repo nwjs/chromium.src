@@ -209,8 +209,11 @@
       default_value: "false",
       custom_compare: true,
     },
+    // Set when some part of a value depends on a Container Query container,
+    // e.g. cq* units, or an invoked custom function with an inner @container
+    // rule.
     {
-      name: "HasContainerRelativeUnits",
+      name: "HasContainerRelativeValue",
       field_template: "monotonic_flag",
       default_value: "false",
       custom_compare: true,
@@ -353,7 +356,7 @@
       default_value: "FillLayer(EFillLayerType::kBackground, true)",
       field_group: "background",
       computed_style_custom_functions: ["initial", "getter", "setter"],
-      invalidate: ["background", "background-current-color"],
+      invalidate: ["background", "currentcolor"],
     },
     {
       name: "HasClipPath",
@@ -391,6 +394,7 @@
     {
       name: "font",
       field_template: "pointer",
+      field_group: "inherited",
       include_paths: ["third_party/blink/renderer/platform/fonts/font.h"],
       type_name: "Font",
       inherited: true,
@@ -477,7 +481,7 @@
       field_template: "primitive",
       include_paths: ["third_party/blink/renderer/platform/graphics/touch_action.h"],
       type_name: "TouchAction",
-      field_size: 9,
+      field_size: 10,
       default_value: "TouchAction::kAuto",
       field_group: "*",
     },
@@ -529,7 +533,7 @@
       type_name: "StyleHighlightData",
       include_paths: ["third_party/blink/renderer/core/style/style_highlight_data.h"],
       default_value: "StyleHighlightData()",
-      field_group: "misc->highlight-data",
+      field_group: "inherited->highlight-data",
       computed_style_custom_functions: [],
     },
     {
@@ -620,7 +624,7 @@
     {
       name: "DocumentRulesSelectors",
       field_template: "external",
-      type_name: "HeapHashSet<WeakMember<StyleRule>>",
+      type_name: "GCedHeapHashSet<WeakMember<StyleRule>>",
       wrapper_pointer_name: "Member",
       field_group: "*",
       default_value: "nullptr",
@@ -906,6 +910,15 @@
       invalidate: ["layout", "paint"],
     },
     {
+      name: "HasAutoColumnHeight",
+      field_template: "primitive",
+      type_name: "bool",
+      field_group: "*",
+      default_value: "true",
+      computed_style_custom_functions: ["setter"],
+      invalidate: ["layout", "paint"],
+    },
+    {
       name: "HasAutoColumnCount",
       field_template: "primitive",
       type_name: "bool",
@@ -944,7 +957,7 @@
       default_value: "false",
       custom_compare: true,
       inherited: true,
-      invalidate: ["accent-color", "background-current-color", "border-visual", "paint"],
+      invalidate: ["accent-color", "border-visual", "currentcolor", "paint"],
     },
     {
       // This flag is set if both the computed value of color-scheme is 'normal'
@@ -1130,7 +1143,7 @@
       // For now ComputedStyle for non-SVG elemnts always have the initial value
       // in order to disable the feature.
       name: "CssDominantBaseline",
-      field_group: "svg",
+      field_group: "svginherited",
       field_template: "primitive",
       field_size: 4,
       type_name: "EDominantBaseline",

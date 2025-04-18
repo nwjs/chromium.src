@@ -75,19 +75,9 @@ ProxyResolutionResult IpProtectionProxyDelegate::ClassifyRequest(
   // - The token cache is not available.
   // - The token cache does not have tokens.
   // - No proxy list is available.
-  // - `kEnableIpProtection` is `false`.
   // - `is_ip_protection_enabled_` is `false` (in other words, the user has
-  //   disabled IP Protection via user settings).
+  //   disabled IP Protection via user settings or enterprise policy).
   // - `kIpPrivacyDirectOnly` is `true`.
-
-  // TODO(https://crbug.com/40947771): Once the WebView traffic experiment is
-  // done and IpProtectionProxyDelegate is only created in cases where IP
-  // Protection should be used, remove this check.
-  if (!base::FeatureList::IsEnabled(net::features::kEnableIpProtectionProxy)) {
-    vlog("ip protection proxy cannot be enabled");
-    return ProxyResolutionResult::kFeatureDisabled;
-  }
-
   if (!ip_protection_core_->IsIpProtectionEnabled()) {
     vlog("ip protection proxy is not currently enabled");
     return ProxyResolutionResult::kSettingDisabled;
@@ -108,6 +98,13 @@ ProxyResolutionResult IpProtectionProxyDelegate::ClassifyRequest(
   } else if (!auth_tokens_are_available) {
     vlog("no auth token available from cache");
     return ProxyResolutionResult::kTokensExhausted;
+  }
+
+  // Check if the protection has been disabled via User Bypass.
+  if (net::features::kIpPrivacyEnableUserBypass.Get() &&
+      ip_protection_core_->HasTrackingProtectionException(
+          network_anonymization_key.GetTopFrameSite()->GetURL())) {
+    return ProxyResolutionResult::kHasSiteException;
   }
 
   return ProxyResolutionResult::kAttemptProxy;
@@ -238,6 +235,15 @@ net::Error IpProtectionProxyDelegate::OnTunnelHeadersReceived(
 
 void IpProtectionProxyDelegate::SetProxyResolutionService(
     net::ProxyResolutionService* proxy_resolution_service) {}
+
+bool IpProtectionProxyDelegate::AliasRequiresProxyOverride(
+    const std::string scheme,
+    const std::vector<std::string>& dns_aliases,
+    const net::NetworkAnonymizationKey& network_anonymization_key) {
+  // TODO(crbug.com/383134117): Iterate through aliases and invoke mdl manager
+  // to check if any match a 3p resource.
+  return false;
+}
 
 // static
 net::ProxyList IpProtectionProxyDelegate::MergeProxyRules(

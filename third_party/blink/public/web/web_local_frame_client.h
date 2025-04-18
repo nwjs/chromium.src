@@ -881,6 +881,7 @@ class BLINK_EXPORT WebLocalFrameClient {
       const WebURLRequest& request,
       const WebWindowFeatures& features,
       const WebString& name,
+      const gfx::Rect& requested_screen_rect,
       WebNavigationPolicy policy,
       network::mojom::WebSandboxFlags,
       const SessionStorageNamespaceId& session_storage_namespace_id,

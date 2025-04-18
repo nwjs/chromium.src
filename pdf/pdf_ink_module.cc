@@ -14,6 +14,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "base/check.h"
@@ -1072,6 +1073,7 @@ PdfInkModule::CreateInProgressStrokeSegmentsFromInputs() const {
 
   const DrawingStrokeState& state = drawing_stroke_state();
   const ink::Brush& brush = GetDrawingBrush().ink_brush();
+  CHECK(PdfInkBrush::IsToolSizeInRange(brush.GetSize()));
   std::vector<ink::InProgressStroke> stroke_segments;
   stroke_segments.reserve(state.inputs.size());
   for (size_t segment_number = 0; const auto& segment : state.inputs) {
@@ -1152,11 +1154,11 @@ void PdfInkModule::ApplyUndoRedoCommandsHelper(
   std::set<InkModeledShapeId> shape_ids;
   for (PdfInkUndoRedoModel::IdType id : ids) {
     bool inserted;
-    if (absl::holds_alternative<InkStrokeId>(id)) {
-      inserted = stroke_ids.insert(absl::get<InkStrokeId>(id)).second;
+    if (std::holds_alternative<InkStrokeId>(id)) {
+      inserted = stroke_ids.insert(std::get<InkStrokeId>(id)).second;
     } else {
-      CHECK(absl::holds_alternative<InkModeledShapeId>(id));
-      inserted = shape_ids.insert(absl::get<InkModeledShapeId>(id)).second;
+      CHECK(std::holds_alternative<InkModeledShapeId>(id));
+      inserted = shape_ids.insert(std::get<InkModeledShapeId>(id)).second;
     }
     CHECK(inserted);
   }

@@ -5,8 +5,6 @@
 #include "third_party/blink/renderer/core/view_transition/view_transition_style_builder.h"
 
 #include "third_party/blink/renderer/core/css/properties/computed_style_utils.h"
-#include "third_party/blink/renderer/platform/graphics/graphics_types.h"
-#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/text/writing_mode.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
@@ -20,6 +18,35 @@ const char* kImagePairTagName = "html::view-transition-image-pair";
 const char* kNewImageTagName = "html::view-transition-new";
 const char* kOldImageTagName = "html::view-transition-old";
 const char* kKeyframeNamePrefix = "-ua-view-transition-group-anim-";
+
+const char* kGroupTagNameScoped = "::view-transition-group";
+const char* kImagePairTagNameScoped = "::view-transition-image-pair";
+const char* kNewImageTagNameScoped = "::view-transition-new";
+const char* kOldImageTagNameScoped = "::view-transition-old";
+
+const char* GroupTagName() {
+  return RuntimeEnabledFeatures::ScopedViewTransitionsEnabled()
+             ? kGroupTagNameScoped
+             : kGroupTagName;
+}
+
+const char* ImagePairTagName() {
+  return RuntimeEnabledFeatures::ScopedViewTransitionsEnabled()
+             ? kImagePairTagNameScoped
+             : kImagePairTagName;
+}
+
+const char* NewImageTagName() {
+  return RuntimeEnabledFeatures::ScopedViewTransitionsEnabled()
+             ? kNewImageTagNameScoped
+             : kNewImageTagName;
+}
+
+const char* OldImageTagName() {
+  return RuntimeEnabledFeatures::ScopedViewTransitionsEnabled()
+             ? kOldImageTagNameScoped
+             : kOldImageTagName;
+}
 
 }  // namespace
 
@@ -56,25 +83,25 @@ void ViewTransitionStyleBuilder::AddAnimations(
     const gfx::Transform& parent_inverse_transform) {
   switch (type) {
     case AnimationType::kOldOnly:
-      AddRules(kOldImageTagName, tag,
+      AddRules(OldImageTagName(), tag,
                "animation-name: -ua-view-transition-fade-out");
       break;
 
     case AnimationType::kNewOnly:
-      AddRules(kNewImageTagName, tag,
+      AddRules(NewImageTagName(), tag,
                "animation-name: -ua-view-transition-fade-in");
       break;
 
     case AnimationType::kBoth:
-      AddRules(kOldImageTagName, tag,
+      AddRules(OldImageTagName(), tag,
                "animation-name: -ua-view-transition-fade-out, "
                "-ua-mix-blend-mode-plus-lighter");
 
-      AddRules(kNewImageTagName, tag,
+      AddRules(NewImageTagName(), tag,
                "animation-name: -ua-view-transition-fade-in, "
                "-ua-mix-blend-mode-plus-lighter");
 
-      AddRules(kImagePairTagName, tag, "isolation: isolate;\n");
+      AddRules(ImagePairTagName(), tag, "isolation: isolate;\n");
 
       const String& animation_name =
           AddKeyframes(tag, source_properties, animated_css_properties,
@@ -87,7 +114,7 @@ void ViewTransitionStyleBuilder::AddAnimations(
       rule_builder.Append("animation-delay: 0s;\n");
       rule_builder.Append("animation-iteration-count: 1;\n");
       rule_builder.Append("animation-direction: normal;\n");
-      AddRules(kGroupTagName, tag, rule_builder.ReleaseString());
+      AddRules(GroupTagName(), tag, rule_builder.ReleaseString());
       break;
   }
 }
@@ -161,7 +188,7 @@ void ViewTransitionStyleBuilder::AddContainerStyles(
         value.Utf8().c_str());
   }
 
-  AddRules(kGroupTagName, tag, group_rule_builder.ReleaseString());
+  AddRules(GroupTagName(), tag, group_rule_builder.ReleaseString());
 }
 
 }  // namespace blink

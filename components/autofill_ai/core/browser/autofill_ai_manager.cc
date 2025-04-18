@@ -4,6 +4,7 @@
 
 #include "components/autofill_ai/core/browser/autofill_ai_manager.h"
 
+#include <algorithm>
 #include <memory>
 #include <optional>
 #include <ranges>
@@ -26,7 +27,10 @@
 #include "base/types/expected.h"
 #include "base/uuid.h"
 #include "components/autofill/core/browser/autofill_field.h"
+#include "components/autofill/core/browser/data_manager/addresses/address_data_manager.h"
 #include "components/autofill/core/browser/data_manager/autofill_ai/entity_data_manager.h"
+#include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
+#include "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_component.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_utils.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
@@ -38,6 +42,8 @@
 #include "components/autofill/core/browser/form_structure.h"
 #include "components/autofill/core/browser/foundations/autofill_client.h"
 #include "components/autofill/core/browser/logging/log_manager.h"
+#include "components/autofill/core/browser/ml_model/autofill_ai/autofill_ai_model_executor.h"
+#include "components/autofill/core/browser/permissions/autofill_ai/autofill_ai_permission_utils.h"
 #include "components/autofill/core/browser/strike_databases/autofill_ai/autofill_ai_save_strike_database_by_attribute.h"
 #include "components/autofill/core/browser/strike_databases/autofill_ai/autofill_ai_save_strike_database_by_host.h"
 #include "components/autofill/core/browser/strike_databases/autofill_ai/autofill_ai_update_strike_database.h"
@@ -51,15 +57,13 @@
 #include "components/autofill/core/common/form_data.h"
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/autofill/core/common/logging/log_macros.h"
+#include "components/autofill/core/common/signatures.h"
 #include "components/autofill/core/common/unique_ids.h"
 #include "components/autofill_ai/core/browser/autofill_ai_client.h"
-#include "components/autofill_ai/core/browser/autofill_ai_features.h"
-#include "components/autofill_ai/core/browser/autofill_ai_logger.h"
+#include "components/autofill_ai/core/browser/autofill_ai_import_utils.h"
 #include "components/autofill_ai/core/browser/autofill_ai_utils.h"
-#include "components/autofill_ai/core/browser/suggestion/autofill_ai_model_executor.h"
+#include "components/autofill_ai/core/browser/metrics/autofill_ai_logger.h"
 #include "components/autofill_ai/core/browser/suggestion/autofill_ai_suggestions.h"
-#include "components/optimization_guide/proto/features/common_quality_data.pb.h"
-#include "components/optimization_guide/proto/hints.pb.h"
 #include "components/strings/grit/components_strings.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -70,90 +74,17 @@ namespace {
 using autofill::AttributeInstance;
 using autofill::AttributeType;
 using autofill::AutofillAiSaveStrikeDatabaseByHost;
+using autofill::AutofillClient;
+using autofill::AutofillField;
 using autofill::DenseSet;
 using autofill::EntityInstance;
 using autofill::EntityType;
+using autofill::FieldType;
+using autofill::FormStructure;
 using autofill::LogBuffer;
 using autofill::LoggingScope;
 using autofill::LogMessage;
 using autofill::SuggestionType;
-
-bool CheckIfEntitySatisfiesConstraints(const EntityInstance& entity) {
-  DenseSet<AttributeType> attribute_types;
-  for (const autofill::AttributeInstance& attribute_instance :
-       entity.attributes()) {
-    attribute_types.insert(attribute_instance.type());
-  }
-
-  return std::ranges::any_of(entity.type().import_constraints(),
-                             [&](const DenseSet<AttributeType>& constraint) {
-                               return attribute_types.contains_all(constraint);
-                             });
-}
-
-std::vector<EntityInstance> GetPossibleEntitiesFromSubmittedForm(
-    const autofill::FormStructure& submitted_form,
-    const std::string& app_locale) {
-  std::map<autofill::Section,
-           std::map<EntityType, std::map<AttributeType, AttributeInstance>>>
-      section_to_entity_types_attributes;
-  for (const std::unique_ptr<autofill::AutofillField>& field :
-       submitted_form.fields()) {
-    std::optional<autofill::FieldType> autofill_ai_server_prediction =
-        field->GetAutofillAiServerTypePredictions();
-    if (!autofill_ai_server_prediction) {
-      continue;
-    }
-    std::optional<AttributeType> field_attribute_type =
-        AttributeType::FromFieldType(*autofill_ai_server_prediction);
-    CHECK(field_attribute_type);
-    // TODO(crbug.com/389629676): Save data format.
-    std::u16string value = field->value(autofill::ValueSemantics::kCurrent);
-    base::TrimWhitespace(value, base::TRIM_ALL, &value);
-    if (value.empty()) {
-      continue;
-    }
-
-    std::map<AttributeType, AttributeInstance>& entity_attributes =
-        section_to_entity_types_attributes[field->section()]
-                                          [field_attribute_type->entity_type()];
-    auto attribute_it =
-        entity_attributes
-            .try_emplace(*field_attribute_type, *field_attribute_type)
-            .first;
-    attribute_it->second.SetInfoWithVerificationStatus(
-        field->Type().GetStorableType(), value, app_locale,
-        autofill::VerificationStatus::kObserved);
-  }
-
-  for (auto& [section, entities] : section_to_entity_types_attributes) {
-    for (auto& [entity_type, attributes] : entities) {
-      for (auto& [attribute_type, attribute] : attributes) {
-        attribute.FinalizeInfo();
-      }
-    }
-  }
-
-  std::vector<EntityInstance> entities_found_in_form;
-  for (auto& [section, entity_to_attributes] :
-       section_to_entity_types_attributes) {
-    for (auto& [entity_name, attributes] : entity_to_attributes) {
-      EntityInstance entity = EntityInstance(
-          EntityType(entity_name),
-          base::ToVector(
-              attributes,
-              &std::pair<const AttributeType, AttributeInstance>::second),
-          base::Uuid::GenerateRandomV4(),
-          /*nickname=*/std::string(""), base::Time::Now());
-      if (!CheckIfEntitySatisfiesConstraints(entity)) {
-        continue;
-      }
-      entities_found_in_form.push_back(std::move(entity));
-    }
-  }
-
-  return entities_found_in_form;
-}
 
 // Returns true if `entity` cannot be merged in any of the `current_entities`
 // nor is a subset of any of them. This means that a save prompt should be
@@ -227,11 +158,11 @@ std::vector<std::string> GetAttributeStrikeKeys(const EntityInstance& entity,
         base::ToVector(types, [&](AttributeType attribute_type) {
           base::optional_ref<const AttributeInstance> attribute =
               entity.attribute(attribute_type);
-          return std::pair(std::string(attribute_type.name_as_string()),
-                           attribute
-                               ? base::UTF16ToUTF8(attribute->GetInfo(
-                                     attribute->GetTopLevelType(), app_locale))
-                               : std::string());
+          return std::pair(
+              std::string(attribute_type.name_as_string()),
+              attribute
+                  ? base::UTF16ToUTF8(attribute->GetCompleteInfo(app_locale))
+                  : std::string());
         });
 
     // We sort the keys to ensure they remain stable even if the ordering in
@@ -246,7 +177,10 @@ std::vector<std::string> GetAttributeStrikeKeys(const EntityInstance& entity,
       string_pieces.emplace_back(std::move(key));
       string_pieces.emplace_back(std::move(value));
     }
-    return base::JoinString(string_pieces, ";");
+    // Hash the result to avoid storing potentially sensitive data unencrypted
+    // on the disk.
+    return base::NumberToString(
+        autofill::StrToHash64Bit(base::JoinString(string_pieces, ";")));
   };
 
   return base::ToVector(entity.type().strike_keys(), value_for_strike_key);
@@ -271,43 +205,13 @@ AutofillAiManager::AutofillAiManager(AutofillAiClient* client,
 
 AutofillAiManager::~AutofillAiManager() = default;
 
-bool AutofillAiManager::IsFormAndFieldEligibleForAutofillAi(
-    const autofill::FormStructure& form,
-    const autofill::AutofillField& field) const {
-  if (base::FeatureList::IsEnabled(
-          autofill::features::kAutofillAiWithDataSchema)) {
-    // TODO(crbug.com/389629573): If triggering via manual fallback, the check
-    // `field.GetAutofillAiServerTypePredictions()` does not apply.
-    return field.GetAutofillAiServerTypePredictions() &&
-           IsUserEligibleForFillingAndImporting();
-  }
-  return false;
+void AutofillAiManager::OnSuggestionsShown(const autofill::FormStructure& form,
+                                           const autofill::AutofillField& field,
+                                           ukm::SourceId ukm_source_id) {
+  logger_.OnSuggestionsShown(form, field, ukm_source_id);
 }
 
-bool AutofillAiManager::IsUserEligible() const {
-  return client_->IsUserEligible();
-}
-
-bool AutofillAiManager::IsUserEligibleForFillingAndImporting() const {
-  return client_->IsAutofillAiEnabledPref() && IsUserEligible();
-}
-
-void AutofillAiManager::OnReceivedAXTree(
-    const autofill::FormData& form,
-    optimization_guide::proto::AXTreeUpdate ax_tree_update) {
-  client_->GetModelExecutor()->GetPredictions(form, std::move(ax_tree_update),
-                                              base::DoNothing());
-}
-
-void AutofillAiManager::OnSuggestionsShown(
-    const DenseSet<SuggestionType>& shown_suggestion_types,
-    const autofill::FormGlobalId& form_id) {
-  if (shown_suggestion_types.contains(SuggestionType::kFillAutofillAi)) {
-    logger_.OnFillingSuggestionsShown(form_id);
-  }
-}
-
-void AutofillAiManager::OnFormSeen(const autofill::FormStructure& form) {
+void AutofillAiManager::OnFormSeen(const FormStructure& form) {
   bool is_eligible = IsFormEligibleForFilling(form);
   logger_.OnFormEligibilityAvailable(form.global_id(), is_eligible);
   if (!is_eligible) {
@@ -327,36 +231,51 @@ void AutofillAiManager::OnFormSeen(const autofill::FormStructure& form) {
   logger_.OnFormHasDataToFill(form.global_id());
 }
 
-void AutofillAiManager::OnDidFillSuggestion(autofill::FormGlobalId form_id) {
-  logger_.OnDidFillSuggestion(form_id);
+void AutofillAiManager::OnDidFillSuggestion(
+    const autofill::FormStructure& form,
+    const autofill::AutofillField& field,
+    ukm::SourceId ukm_source_id) {
+  logger_.OnDidFillSuggestion(form, field, ukm_source_id);
 }
 
 void AutofillAiManager::OnEditedAutofilledField(
-    autofill::FormGlobalId form_id) {
-  logger_.OnDidCorrectFillingSuggestion(form_id);
+    const autofill::FormStructure& form,
+    const autofill::AutofillField& field,
+    ukm::SourceId ukm_source_id) {
+  logger_.OnEditedAutofilledField(form, field, ukm_source_id);
 }
 
-void AutofillAiManager::MaybeImportForm(
-    std::unique_ptr<autofill::FormStructure> form,
-    base::OnceCallback<void(std::unique_ptr<autofill::FormStructure> form,
-                            bool autofill_ai_shows_bubble)> autofill_callback) {
+bool AutofillAiManager::OnFormSubmitted(const FormStructure& form,
+                                        ukm::SourceId ukm_source_id) {
+  if (std::ranges::any_of(
+          form.fields(), [](const std::unique_ptr<AutofillField>& field) {
+            return field->GetAutofillAiServerTypePredictions() != std::nullopt;
+          })) {
+    logger_.RecordFormMetrics(
+        form, ukm_source_id, /*submission_state=*/true,
+        autofill::GetAutofillAiOptInStatus(client_->GetAutofillClient()));
+  }
+  return MaybeImportForm(form);
+}
+
+bool AutofillAiManager::MaybeImportForm(const FormStructure& form) {
+  if (!autofill::MayPerformAutofillAiAction(
+          client_->GetAutofillClient(), autofill::AutofillAiAction::kImport)) {
+    return false;
+  }
+
   autofill::EntityDataManager* entity_manager = client_->GetEntityDataManager();
   if (!entity_manager) {
-    // The import is skipped because the entity data manager service is not
-    // available.
     LOG_AF(GetCurrentLogManager())
         << LoggingScope::kAutofillAi << LogMessage::kAutofillAi
         << "Entity data manager is not available";
-
-    std::move(autofill_callback).Run(std::move(form), false);
-    return;
+    return false;
   }
   std::vector<EntityInstance> entity_instances_from_form =
       GetPossibleEntitiesFromSubmittedForm(
-          *form, client_->GetAutofillClient().GetAppLocale());
+          form.fields(), client_->GetAutofillClient().GetAppLocale());
   if (entity_instances_from_form.empty()) {
-    std::move(autofill_callback).Run(std::move(form), false);
-    return;
+    return false;
   }
 
   base::span<const EntityInstance> current_entities =
@@ -365,17 +284,16 @@ void AutofillAiManager::MaybeImportForm(
 
   for (EntityInstance& entity : entity_instances_from_form) {
     if (ShouldShowNewEntitySavePrompt(entity, current_entities)) {
-      if (IsSaveBlockedByStrikeDatabase(form->source_url(), entity)) {
+      if (IsSaveBlockedByStrikeDatabase(form.source_url(), entity)) {
         continue;
       }
       auto prompt_result_callback =
           BindOnce(&AutofillAiManager::HandleSavePromptResult, GetWeakPtr(),
-                   form->source_url(), entity);
+                   form.source_url(), entity);
       client_->ShowSaveOrUpdateBubble(std::move(entity),
                                       /*old_entity=*/std::nullopt,
                                       std::move(prompt_result_callback));
-      std::move(autofill_callback).Run(std::move(form), true);
-      return;
+      return true;
     }
     if (std::optional<std::pair<EntityInstance, EntityInstance>>
             entity_to_update = MaybeUpdateEntity(entity, current_entities)) {
@@ -389,11 +307,10 @@ void AutofillAiManager::MaybeImportForm(
       client_->ShowSaveOrUpdateBubble(std::move(new_entity),
                                       std::move(old_entity),
                                       std::move(prompt_result_callback));
-      std::move(autofill_callback).Run(std::move(form), true);
-      return;
+      return true;
     }
   }
-  std::move(autofill_callback).Run(std::move(form), false);
+  return false;
 }
 
 void AutofillAiManager::HandleSavePromptResult(
@@ -401,7 +318,9 @@ void AutofillAiManager::HandleSavePromptResult(
     const autofill::EntityInstance& entity,
     AutofillAiClient::SaveOrUpdatePromptResult result) {
   if (!result.entity) {
-    AddStrikeForSaveAttempt(form_url, entity);
+    if (result.did_user_decline) {
+      AddStrikeForSaveAttempt(form_url, entity);
+    }
     return;
   }
 
@@ -418,7 +337,9 @@ void AutofillAiManager::HandleUpdatePromptResult(
     const base::Uuid& entity_uuid,
     AutofillAiClient::SaveOrUpdatePromptResult result) {
   if (!result.entity) {
-    AddStrikeForUpdateAttempt(entity_uuid);
+    if (result.did_user_decline) {
+      AddStrikeForUpdateAttempt(entity_uuid);
+    }
     return;
   }
 
@@ -434,6 +355,12 @@ void AutofillAiManager::HandleUpdatePromptResult(
 std::vector<autofill::Suggestion> AutofillAiManager::GetSuggestions(
     autofill::FormGlobalId form_global_id,
     autofill::FieldGlobalId field_global_id) {
+  const AutofillClient& autofill_client = client_->GetAutofillClient();
+  if (!autofill::MayPerformAutofillAiAction(
+          autofill_client, autofill::AutofillAiAction::kFilling)) {
+    return {};
+  }
+
   autofill::EntityDataManager* entity_manager = client_->GetEntityDataManager();
   if (!entity_manager) {
     return {};
@@ -445,31 +372,89 @@ std::vector<autofill::Suggestion> AutofillAiManager::GetSuggestions(
     return {};
   }
 
-  autofill::FormStructure* form_structure =
+  FormStructure* form_structure =
       client_->GetCachedFormStructure(form_global_id);
   if (!form_structure) {
     return {};
   }
 
-  const autofill::AutofillField* autofill_field =
+  const AutofillField* autofill_field =
       form_structure->GetFieldById(field_global_id);
-  if (!autofill_field) {
+  if (!autofill_field ||
+      !autofill_field->GetAutofillAiServerTypePredictions()) {
     return {};
   }
 
-  CHECK(autofill_field->GetAutofillAiServerTypePredictions());
   return CreateFillingSuggestions(*form_structure, field_global_id, entities,
-                                  client_->GetAutofillClient().GetAppLocale());
+                                  autofill_client.GetAppLocale());
 }
 
-bool AutofillAiManager::ShouldDisplayIph(
-    const autofill::AutofillField& field) const {
-  // Iph can be shown if:
-  // 1. The pref is off.
-  // 2. The user can access the feature (for example the experiment flag is on).
-  // 3. The focused form can trigger the feature.
-  return !client_->IsAutofillAiEnabledPref() && IsUserEligible() &&
-         field.GetAutofillAiServerTypePredictions();
+bool AutofillAiManager::ShouldDisplayIph(autofill::FormGlobalId form,
+                                         autofill::FieldGlobalId field) const {
+  const autofill::AutofillClient& autofill_client =
+      client_->GetAutofillClient();
+  if (!autofill::MayPerformAutofillAiAction(
+          autofill_client, autofill::AutofillAiAction::kIphForOptIn)) {
+    return false;
+  }
+
+  // The user must have at least one address or payments instrument to indicate
+  // that they are an active Autofill user.
+  const autofill::AddressDataManager& adm =
+      autofill_client.GetPersonalDataManager().address_data_manager();
+  const autofill::PaymentsDataManager& paydm =
+      autofill_client.GetPersonalDataManager().payments_data_manager();
+  if (adm.GetProfiles().empty() && paydm.GetCreditCards().empty() &&
+      paydm.GetIbans().empty() && !paydm.HasEwalletAccounts() &&
+      !paydm.HasMaskedBankAccounts()) {
+    return false;
+  }
+
+  const FormStructure* const form_structure =
+      client_->GetCachedFormStructure(form);
+  if (!form_structure) {
+    return false;
+  }
+  const AutofillField* const focused_field =
+      form_structure->GetFieldById(field);
+  if (!focused_field) {
+    return false;
+  }
+
+  // The focused field needs to be AutofillAI-related.
+  if (!focused_field->GetAutofillAiServerTypePredictions()) {
+    return false;
+  }
+
+  // Submitting the form should lead to an import if the user fills all of the
+  // currently focused section's fields that are related to AutofillAI
+  std::map<EntityType, DenseSet<AttributeType>> attributes_in_form;
+  for (const std::unique_ptr<AutofillField>& current_field :
+       form_structure->fields()) {
+    if (current_field->section() != focused_field->section()) {
+      continue;
+    }
+    const std::optional<FieldType> autofill_ai_type =
+        current_field->GetAutofillAiServerTypePredictions();
+    if (!autofill_ai_type) {
+      continue;
+    }
+    const std::optional<AttributeType> attribute_type =
+        AttributeType::FromFieldType(*autofill_ai_type);
+    if (!attribute_type) {
+      continue;
+    }
+
+    const EntityType entity_type = attribute_type->entity_type();
+    DenseSet<AttributeType>& attributes_found_so_far =
+        attributes_in_form[entity_type];
+    attributes_found_so_far.insert(*attribute_type);
+    if (AttributesMeetImportConstraints(entity_type, attributes_found_so_far)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 autofill::LogManager* AutofillAiManager::GetCurrentLogManager() {

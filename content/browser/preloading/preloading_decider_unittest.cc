@@ -7,10 +7,11 @@
 #include <vector>
 
 #include "base/strings/strcat.h"
+#include "base/strings/to_string.h"
 #include "base/test/scoped_feature_list.h"
 #include "content/browser/preloading/prefetch/prefetch_document_manager.h"
 #include "content/browser/preloading/prefetch/prefetch_features.h"
-#include "content/browser/preloading/prefetch/prefetch_service.h"
+#include "content/browser/preloading/prefetch/prefetch_test_util_internal.h"
 #include "content/browser/preloading/prefetcher.h"
 #include "content/browser/preloading/preloading.h"
 #include "content/browser/preloading/preloading_confidence.h"
@@ -45,27 +46,6 @@ class MockAnchorElementPreconnector : public AnchorElementPreconnectDelegate {
 
  private:
   std::optional<GURL> target_;
-};
-
-class TestPrefetchService : public PrefetchService {
- public:
-  explicit TestPrefetchService(BrowserContext* browser_context)
-      : PrefetchService(browser_context) {}
-
-  void PrefetchUrl(
-      base::WeakPtr<PrefetchContainer> prefetch_container) override {
-    prefetches_.push_back(prefetch_container);
-  }
-
-  void EvictPrefetch(size_t index) {
-    ASSERT_LT(index, prefetches_.size());
-    ASSERT_TRUE(prefetches_[index]);
-    base::WeakPtr<PrefetchContainer> prefetch_container = prefetches_[index];
-    prefetches_.erase(prefetches_.begin() + index);
-    MayReleasePrefetch(prefetch_container);
-  }
-
-  std::vector<base::WeakPtr<PrefetchContainer>> prefetches_;
 };
 
 class MockPrerenderer : public Prerenderer {
@@ -602,6 +582,112 @@ TEST_F(PreloadingDeciderTest, UmaRecallStats) {
       kUmaName, PredictorConfusionMatrix::kFalseNegative, 1);
 }
 
+// Test that speculation rules tags merging works as expected if multiple
+// matched rules applies.
+TEST_F(PreloadingDeciderTest, SpeculationRulesTagsMergingForNonEagerPrefetch) {
+  const GURL url = GetSameOriginUrl("/candidate1.html");
+  auto* preloading_decider =
+      PreloadingDecider::GetOrCreateForCurrentDocument(&GetPrimaryMainFrame());
+  ASSERT_TRUE(preloading_decider);
+
+  auto candidate_1 =
+      MakeCandidate(url, blink::mojom::SpeculationAction::kPrefetch,
+                    blink::mojom::SpeculationEagerness::kConservative);
+
+  auto candidate_2 = candidate_1.Clone();
+  candidate_2->eagerness = blink::mojom::SpeculationEagerness::kModerate;
+
+  candidate_1->tags = {"tag1"};
+  candidate_2->tags = {"tag2"};
+
+  std::vector<blink::mojom::SpeculationCandidatePtr> candidates;
+  candidates.push_back(candidate_1.Clone());
+  candidates.push_back(candidate_2.Clone());
+
+  // Add conservative and moderate preload candidate and preload on
+  // pointer-down.
+  preloading_decider->UpdateSpeculationCandidates(candidates);
+  const auto& prefetches = GetPrefetchService()->prefetches_;
+  preloading_decider->OnPointerDown(url);
+
+  EXPECT_TRUE(prefetches[0]->HasSpeculationRulesTags());
+  EXPECT_EQ(prefetches[0]->GetSpeculationRulesTagsHeaderString().value(),
+            "\"tag1\", \"tag2\"");
+  EXPECT_FALSE(preloading_decider->IsOnStandByForTesting(
+      url, blink::mojom::SpeculationAction::kPrefetch));
+}
+
+// Test that no speculation rules tags merging happens if multiple candidates
+// are in the queue but only one is enacted.
+TEST_F(PreloadingDeciderTest,
+       SpeculationRulesTagsNoMergingForNonEagerPrefetch) {
+  const GURL url = GetSameOriginUrl("/candidate1.html");
+  auto* preloading_decider =
+      PreloadingDecider::GetOrCreateForCurrentDocument(&GetPrimaryMainFrame());
+  ASSERT_TRUE(preloading_decider);
+
+  auto candidate_1 =
+      MakeCandidate(url, blink::mojom::SpeculationAction::kPrefetch,
+                    blink::mojom::SpeculationEagerness::kConservative);
+
+  auto candidate_2 = candidate_1.Clone();
+  candidate_2->eagerness = blink::mojom::SpeculationEagerness::kModerate;
+
+  candidate_1->tags = {"tag1"};
+  candidate_2->tags = {"tag2"};
+
+  std::vector<blink::mojom::SpeculationCandidatePtr> candidates;
+  candidates.push_back(candidate_1.Clone());
+  candidates.push_back(candidate_2.Clone());
+
+  // Add conservative and moderate  preload candidate and preload on
+  // pointer-hover.
+  preloading_decider->UpdateSpeculationCandidates(candidates);
+  const auto& prefetches = GetPrefetchService()->prefetches_;
+  preloading_decider->OnPointerHover(
+      url, blink::mojom::AnchorElementPointerData::New(
+               /*is_mouse_pointer=*/true,
+               /*mouse_velocity=*/75.0,
+               /*mouse_acceleration=*/0.0));
+
+  EXPECT_TRUE(prefetches[0]->HasSpeculationRulesTags());
+  EXPECT_EQ(prefetches[0]->GetSpeculationRulesTagsHeaderString().value(),
+            "\"tag2\"");
+  EXPECT_FALSE(preloading_decider->IsOnStandByForTesting(
+      url, blink::mojom::SpeculationAction::kPrefetch));
+}
+
+// Test that speculation rules tags merging works as expected if multiple
+// eager rules added.
+TEST_F(PreloadingDeciderTest, SpeculationRulesTagsMergingForEagerPrefetch) {
+  const GURL url = GetSameOriginUrl("/candidate1.html");
+  auto* preloading_decider =
+      PreloadingDecider::GetOrCreateForCurrentDocument(&GetPrimaryMainFrame());
+  ASSERT_TRUE(preloading_decider);
+
+  auto candidate_1 =
+      MakeCandidate(url, blink::mojom::SpeculationAction::kPrefetch,
+                    blink::mojom::SpeculationEagerness::kEager);
+
+  auto candidate_2 = candidate_1.Clone();
+
+  candidate_1->tags = {"tag1"};
+  candidate_2->tags = {"tag2"};
+
+  std::vector<blink::mojom::SpeculationCandidatePtr> candidates;
+  candidates.push_back(candidate_1.Clone());
+  candidates.push_back(candidate_2.Clone());
+
+  preloading_decider->UpdateSpeculationCandidates(candidates);
+  const auto& prefetches = GetPrefetchService()->prefetches_;
+
+  EXPECT_TRUE(prefetches[0]->HasSpeculationRulesTags());
+  EXPECT_EQ(prefetches[0]->GetSpeculationRulesTagsHeaderString().value(),
+            "\"tag1\", \"tag2\"");
+  EXPECT_FALSE(preloading_decider->IsOnStandByForTesting(
+      url, blink::mojom::SpeculationAction::kPrefetch));
+}
+
 class PreloadingDeciderWithParameterizedSpeculationActionTest
     : public PreloadingDeciderTest,
       public ::testing::WithParamInterface<blink::mojom::SpeculationAction> {
@@ -1064,7 +1150,7 @@ class PreloadingDeciderMLModelTest
   PreloadingDeciderMLModelTest() {
     feature_list_.InitWithFeaturesAndParameters(
         {{blink::features::kPreloadingHeuristicsMLModel,
-          {{"enact_candidates", GetParam() ? "true" : "false"}}}},
+          {{"enact_candidates", base::ToString(GetParam())}}}},
         {});
   }
 

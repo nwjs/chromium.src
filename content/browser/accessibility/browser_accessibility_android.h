@@ -146,6 +146,7 @@ class CONTENT_EXPORT BrowserAccessibilityAndroid
   std::u16string GetContentInvalidErrorMessage() const;
 
   std::u16string GetStateDescription() const;
+  std::u16string GetContainerTitle() const;
   std::u16string GetMultiselectableStateDescription() const;
   std::u16string GetToggleStateDescription() const;
   std::u16string GetCheckboxStateDescription() const;
@@ -171,6 +172,7 @@ class CONTENT_EXPORT BrowserAccessibilityAndroid
   int GetItemIndex() const;
   int GetItemCount() const;
   int GetSelectedItemCount() const;
+  int GetSelectionMode() const;
 
   bool CanScrollForward() const;
   bool CanScrollBackward() const;
@@ -268,6 +270,10 @@ class CONTENT_EXPORT BrowserAccessibilityAndroid
   bool HasOnlyTextAndImageChildren() const;
   bool HasListMarkerChild() const;
 
+  // Returns true if the accessible name source (kNameFrom) comes from
+  // kAttribute.
+  bool IsAccessibleNameFromAttribute() const;
+
   // This method determines if a node should expose its value as a name, which
   // is placed in the Android API's "text" attribute. For controls that can take
   // on a value (e.g. a date time, or combobox), we wish to expose the value
@@ -279,6 +285,13 @@ class CONTENT_EXPORT BrowserAccessibilityAndroid
 
   void AppendTextToString(std::u16string extra_text,
                           std::u16string* string) const;
+
+  // Returns true if the node has int attribute of kDefaultActionVerb and the
+  // default action verb is kSelect.
+  bool HasSelectActionVerb() const;
+
+  // Returns tree if any child has kSelect action verb.
+  bool HasSelectActionVerbChildren() const;
 
   std::u16string cached_text_;
   std::u16string old_value_;

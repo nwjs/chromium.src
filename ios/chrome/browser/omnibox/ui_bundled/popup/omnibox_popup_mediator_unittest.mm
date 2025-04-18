@@ -14,6 +14,7 @@
 #import "components/feature_engagement/test/mock_tracker.h"
 #import "components/image_fetcher/core/image_data_fetcher.h"
 #import "components/omnibox/browser/actions/omnibox_action_in_suggest.h"
+#import "components/omnibox/browser/actions/omnibox_pedal_concepts.h"
 #import "components/omnibox/browser/autocomplete_controller.h"
 #import "components/omnibox/browser/autocomplete_match.h"
 #import "components/omnibox/browser/autocomplete_match_test_util.h"
@@ -25,14 +26,18 @@
 #import "components/search_engines/search_engines_test_environment.h"
 #import "components/search_engines/template_url_service.h"
 #import "components/search_engines/template_url_service_client.h"
-#import "ios/chrome/browser/omnibox/model/omnibox_popup_controller.h"
+#import "ios/chrome/browser/omnibox/model/autocomplete_result_wrapper.h"
+#import "ios/chrome/browser/omnibox/model/omnibox_image_fetcher.h"
+#import "ios/chrome/browser/omnibox/ui_bundled/popup/autocomplete_match_formatter.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/popup/autocomplete_result_consumer.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/popup/autocomplete_suggestion.h"
+#import "ios/chrome/browser/omnibox/ui_bundled/popup/autocomplete_suggestion_group_impl.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/popup/favicon_retriever.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/popup/image_retriever.h"
+#import "ios/chrome/browser/omnibox/ui_bundled/popup/omnibox_pedal.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/popup/omnibox_popup_mediator+Testing.h"
-#import "ios/chrome/browser/omnibox/ui_bundled/popup/pedal_suggestion_wrapper.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/popup/popup_swift.h"
+#import "ios/chrome/browser/omnibox/ui_bundled/popup/row/actions/suggest_action.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_manager_ios.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
@@ -46,6 +51,40 @@
 #import "url/gurl.h"
 
 namespace {
+
+// Returns an autocomplete suggestion with a reviews action attached to it.
+id<AutocompleteSuggestion> SuggestionWithReviewsAction() {
+  AutocompleteMatch actionMatch = CreateActionInSuggestMatch(
+      u"Action", {omnibox::ActionInfo_ActionType_REVIEWS});
+
+  AutocompleteMatchFormatter* suggestion =
+      [[AutocompleteMatchFormatter alloc] initWithMatch:actionMatch];
+
+  NSMutableArray* actions = [[NSMutableArray alloc] init];
+
+  for (auto& action : actionMatch.actions) {
+    SuggestAction* suggestAction =
+        [SuggestAction actionWithOmniboxAction:action.get()];
+    [actions addObject:suggestAction];
+  }
+
+  suggestion.actionsInSuggest = actions;
+
+  return suggestion;
+}
+
+id<OmniboxPedal> OmniboxPedal(OmniboxPedalId pedalId) {
+  return [[OmniboxPedalData alloc] initWithTitle:@""
+                                        subtitle:@""
+                               accessibilityHint:@""
+                                           image:[[UIImage alloc] init]
+                                  imageTintColor:nil
+                                 backgroundColor:nil
+                                imageBorderColor:nil
+                                            type:static_cast<int>(pedalId)
+                                          action:^{
+                                          }];
+}
 
 // Mock of ImageDataFetcher class.
 class MockImageDataFetcher : public image_fetcher::ImageDataFetcher {
@@ -61,10 +100,6 @@ class OmniboxPopupMediatorTest : public PlatformTest {
   void SetUp() override {
     PlatformTest::SetUp();
 
-    // Setup for AutocompleteController.
-    autocomplete_controller_ = std::make_unique<AutocompleteController>(
-        std::make_unique<FakeAutocompleteProviderClient>(), 0);
-
     std::unique_ptr<image_fetcher::ImageDataFetcher> mock_image_data_fetcher =
         std::make_unique<MockImageDataFetcher>();
 
@@ -73,24 +108,22 @@ class OmniboxPopupMediatorTest : public PlatformTest {
     mockResultConsumer_ =
         OCMProtocolMock(@protocol(AutocompleteResultConsumer));
 
-    mediator_ = [[OmniboxPopupMediator alloc]
-                 initWithFetcher:std::move(mock_image_data_fetcher)
-                   faviconLoader:nil
-          autocompleteController:autocomplete_controller_.get()
-        remoteSuggestionsService:nil
-                         tracker:&tracker];
+    omnibox_image_fetcher_ = [[OmniboxImageFetcher alloc]
+        initWithFaviconLoader:nil
+                 imageFetcher:std::move(mock_image_data_fetcher)];
+
+    mediator_ =
+        [[OmniboxPopupMediator alloc] initWithTracker:&tracker
+                                  omniboxImageFetcher:omnibox_image_fetcher_];
     mediator_.consumer = mockResultConsumer_;
   }
-
-  void TearDown() override { [mediator_ disconnect]; }
-
 
   // Message loop for the main test thread.
   base::test::TaskEnvironment environment_;
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
   search_engines::SearchEnginesTestEnvironment search_engines_test_environment_;
   OmniboxPopupMediator* mediator_;
-  std::unique_ptr<AutocompleteController> autocomplete_controller_;
+  OmniboxImageFetcher* omnibox_image_fetcher_;
   id mockResultConsumer_;
 };
 
@@ -102,20 +135,12 @@ TEST_F(OmniboxPopupMediatorTest, Init) {
 // Tests that the right "PasswordManager.ManagePasswordsReferrer" metric is
 // recorded when tapping the Manage Passwords suggestion.
 TEST_F(OmniboxPopupMediatorTest, SelectManagePasswordSuggestionMetricLogged) {
-  PedalSuggestionWrapper* pedal_suggestion_wrapper = [[PedalSuggestionWrapper
-      alloc]
-      initWithPedal:[[OmniboxPedalData alloc]
-                            initWithTitle:@""
-                                 subtitle:@""
-                        accessibilityHint:@""
-                                    image:[[UIImage alloc] init]
-                           imageTintColor:nil
-                          backgroundColor:nil
-                         imageBorderColor:nil
-                                     type:static_cast<int>(
-                                              OmniboxPedalId::MANAGE_PASSWORDS)
-                                   action:^{
-                                   }]];
+  id<OmniboxPedal> pedal = OmniboxPedal(OmniboxPedalId::MANAGE_PASSWORDS);
+  id mockSuggestionWithPedal =
+      [OCMockObject mockForProtocol:@protocol(AutocompleteSuggestion)];
+  [[[mockSuggestionWithPedal stub] andReturn:pedal] pedal];
+  [[[mockSuggestionWithPedal stub] andReturn:nil] actionsInSuggest];
+
   base::HistogramTester histogram_tester;
 
   // Verify that bucker count is zero.
@@ -124,7 +149,7 @@ TEST_F(OmniboxPopupMediatorTest, SelectManagePasswordSuggestionMetricLogged) {
       password_manager::ManagePasswordsReferrer::kOmniboxPedalSuggestion, 0);
 
   [mediator_ autocompleteResultConsumer:mockResultConsumer_
-                    didSelectSuggestion:pedal_suggestion_wrapper
+                    didSelectSuggestion:mockSuggestionWithPedal
                                   inRow:0];
 
   // Bucket count should now be one.
@@ -136,21 +161,30 @@ TEST_F(OmniboxPopupMediatorTest, SelectManagePasswordSuggestionMetricLogged) {
 // Tests action in suggestion shown logged when selecting a non-action
 // suggestion.
 TEST_F(OmniboxPopupMediatorTest, ActionInSuggestMetricLogged) {
-  ACMatches matches = {CreateActionInSuggestMatch(
-                           u"Action", {omnibox::ActionInfo_ActionType_REVIEWS}),
-                       CreateSearchMatch(u"Clear History"),
-                       CreateSearchMatch(u"search 1"),
-                       CreateSearchMatch(u"search 2")};
-  AutocompleteResult result = AutocompleteResult();
-  result.AppendMatches(matches);
-  [mediator_ popupController:nil didSortResults:result];
+  id<AutocompleteSuggestion> match1 = SuggestionWithReviewsAction();
+  id<AutocompleteSuggestion> match2 = [[AutocompleteMatchFormatter alloc]
+      initWithMatch:CreateSearchMatch(u"search 1")];
+
+  NSArray<id<AutocompleteSuggestion>>* mockedSuggestions =
+      [[NSArray alloc] initWithObjects:match1, match2, nil];
+
+  id<AutocompleteSuggestionGroup> group = [AutocompleteSuggestionGroupImpl
+      groupWithTitle:@""
+         suggestions:mockedSuggestions
+                type:SuggestionGroupType::kUnspecifiedSuggestionGroup];
+
+  NSArray<id<AutocompleteSuggestionGroup>>* groups =
+      [[NSArray alloc] initWithObjects:group, nil];
+
+  [mediator_ omniboxAutocompleteController:nil
+                didUpdateSuggestionsGroups:groups];
 
   id<AutocompleteSuggestion> actionSuggestion =
-      mediator_.nonPedalSuggestions[0].suggestions[0];
+      mediator_.suggestionGroups[0].suggestions[0];
   EXPECT_EQ(actionSuggestion.actionsInSuggest.count, 1u);
 
   id<AutocompleteSuggestion> nonActionSuggestion =
-      mediator_.nonPedalSuggestions[0].suggestions[1];
+      mediator_.suggestionGroups[0].suggestions[1];
   EXPECT_EQ(nonActionSuggestion.actionsInSuggest.count, 0u);
 
   // Review type from ActionInSuggestType enum.
@@ -178,6 +212,41 @@ TEST_F(OmniboxPopupMediatorTest, ActionInSuggestMetricLogged) {
   // Expect Shown logged.
   histogram_tester.ExpectBucketCount("Omnibox.ActionInSuggest.Shown",
                                      kActionTypeReview, 1);
+}
+
+// Tests pedals shown logged.
+TEST_F(OmniboxPopupMediatorTest, PedalMetricLogged) {
+  id<OmniboxPedal> pedal = OmniboxPedal(OmniboxPedalId::CLEAR_BROWSING_DATA);
+  id match1 = [OCMockObject mockForProtocol:@protocol(AutocompleteSuggestion)];
+  [[[match1 stub] andReturn:pedal] pedal];
+  [[[match1 stub] andReturn:nil] actionsInSuggest];
+
+  id<AutocompleteSuggestion> match2 = [[AutocompleteMatchFormatter alloc]
+      initWithMatch:CreateSearchMatch(u"search 1")];
+
+  id<AutocompleteSuggestionGroup> pedalgroup = [AutocompleteSuggestionGroupImpl
+      groupWithTitle:@""
+         suggestions:[[NSArray alloc] initWithObjects:match1, nil]
+                type:SuggestionGroupType::kPedalSuggestionGroup];
+
+  id<AutocompleteSuggestionGroup> nonPedalgroup =
+      [AutocompleteSuggestionGroupImpl
+          groupWithTitle:@""
+             suggestions:[[NSArray alloc] initWithObjects:match2, nil]
+                    type:SuggestionGroupType::kUnspecifiedSuggestionGroup];
+
+  NSArray<id<AutocompleteSuggestionGroup>>* groups =
+      [[NSArray alloc] initWithObjects:pedalgroup, nonPedalgroup, nil];
+
+  [mediator_ omniboxAutocompleteController:nil
+                didUpdateSuggestionsGroups:groups];
+
+  base::HistogramTester histogram_tester;
+
+  // Select a suggestion.
+  [mediator_ autocompleteResultConsumer:nil didSelectSuggestion:match2 inRow:1];
+
+  histogram_tester.ExpectUniqueSample("Omnibox.PedalShown", 1, 1);
 }
 
 }  // namespace

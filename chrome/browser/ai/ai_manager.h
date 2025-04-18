@@ -50,11 +50,14 @@ class AIManager : public base::SupportsUserData::Data,
   void CreateLanguageModelForCloning(
       base::PassKey<AILanguageModel> pass_key,
       blink::mojom::AILanguageModelSamplingParamsPtr sampling_params,
+      on_device_model::Capabilities capabilities,
       AIContextBoundObjectSet& context_bound_object_set,
-      AIUtils::LanguageCodes expected_input_languages,
       const AILanguageModel::Context& context,
       mojo::Remote<blink::mojom::AIManagerCreateLanguageModelClient>
-          client_remote);
+          client_remote,
+      std::unique_ptr<
+          optimization_guide::OptimizationGuideModelExecutor::Session>
+          override_session);
 
   size_t GetContextBoundObjectSetSizeForTesting() {
     return context_bound_object_set_.GetSizeForTesting();
@@ -77,14 +80,10 @@ class AIManager : public base::SupportsUserData::Data,
   // Return the max temperature for the LanguageModel API.
   float GetLanguageModelMaxTemperature();
 
-  // Return the default and max sampling params for the LanguageModel API.
-  blink::mojom::AILanguageModelParamsPtr GetLanguageModelParams();
-
  private:
   FRIEND_TEST_ALL_PREFIXES(AIManagerTest, CanCreate);
   FRIEND_TEST_ALL_PREFIXES(AIManagerTest, NoUAFWithInvalidOnDeviceModelPath);
-  FRIEND_TEST_ALL_PREFIXES(AISummarizerUnitTest,
-                           CreateSummarizerWithoutService);
+  FRIEND_TEST_ALL_PREFIXES(AISummarizerTest, CreateSummarizerWithoutService);
   FRIEND_TEST_ALL_PREFIXES(AIManagerIsLanguagesSupportedTest, OneVector);
   FRIEND_TEST_ALL_PREFIXES(AIManagerIsLanguagesSupportedTest,
                            TwoVectorsAndOneCode);
@@ -100,10 +99,12 @@ class AIManager : public base::SupportsUserData::Data,
       const std::vector<AILanguageCodePtr>& context,
       const AILanguageCodePtr& output);
 
+  // Return the default and max sampling params for the LanguageModel API.
+  blink::mojom::AILanguageModelParamsPtr GetLanguageModelParams();
+
   // `blink::mojom::AIManager` implementation.
   void CanCreateLanguageModel(
-      std::optional<std::vector<blink::mojom::AILanguageCodePtr>>
-          expected_input_languages,
+      blink::mojom::AILanguageModelCreateOptionsPtr options,
       CanCreateLanguageModelCallback callback) override;
   void CreateLanguageModel(
       mojo::PendingRemote<blink::mojom::AIManagerCreateLanguageModelClient>
@@ -144,12 +145,15 @@ class AIManager : public base::SupportsUserData::Data,
   // model to be available.
   std::unique_ptr<CreateLanguageModelOnDeviceSessionTask>
   CreateLanguageModelInternal(
-      const blink::mojom::AILanguageModelSamplingParamsPtr& sampling_params,
+      blink::mojom::AILanguageModelSamplingParamsPtr sampling_params,
+      on_device_model::Capabilities capabilities,
       AIContextBoundObjectSet& context_bound_object_set,
-      AIUtils::LanguageCodes expected_input_languages,
       base::OnceCallback<void(AILanguageModelOrCreationError)> callback,
       const std::optional<const AILanguageModel::Context>& context =
-          std::nullopt);
+          std::nullopt,
+      std::unique_ptr<
+          optimization_guide::OptimizationGuideModelExecutor::Session>
+          override_session = nullptr);
 
   void SendDownloadProgressUpdate(uint64_t downloaded_bytes,
                                   uint64_t total_bytes);

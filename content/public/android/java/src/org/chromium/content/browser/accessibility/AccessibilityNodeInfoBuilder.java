@@ -35,6 +35,7 @@ import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.Acces
 import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_SET_SELECTION;
 import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_SET_TEXT;
 import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_SHOW_ON_SCREEN;
+import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.EXTRA_DATA_TEXT_CHARACTER_LOCATION_IN_WINDOW_KEY;
 import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY;
 import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.MOVEMENT_GRANULARITY_CHARACTER;
 import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.MOVEMENT_GRANULARITY_LINE;
@@ -138,11 +139,15 @@ public class AccessibilityNodeInfoBuilder {
     public static final String EXTRAS_KEY_IMAGE_DATA = "AccessibilityNodeInfo.imageData";
 
     public static final String ACCESSIBILITY_SPANNABLE_CREATION_TIME =
-            "Accessibility.Android.Performance.SpannableCreationTime";
+            "Accessibility.Android.Performance.SpannableCreationTime2";
+    private static final int MAX_TIME_BUCKET = 5 * 1000; // 5,000 microseconds = 5ms.
 
-    // Static instances of the two types of extra data keys that can be added to nodes.
+    // Static instances of the three types of extra data keys that can be added to nodes.
     private static final List<String> sTextCharacterLocation =
             Collections.singletonList(EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY);
+
+    private static final List<String> sTextCharacterLocationInWindow =
+            Collections.singletonList(EXTRA_DATA_TEXT_CHARACTER_LOCATION_IN_WINDOW_KEY);
 
     private static final List<String> sRequestImageData =
             Collections.singletonList(EXTRAS_DATA_REQUEST_IMAGE_DATA_KEY);
@@ -258,6 +263,7 @@ public class AccessibilityNodeInfoBuilder {
 
         if (hasCharacterLocations) {
             node.setAvailableExtraData(sTextCharacterLocation);
+            node.setAvailableExtraData(sTextCharacterLocationInWindow);
         }
 
         node.setMovementGranularities(
@@ -400,6 +406,7 @@ public class AccessibilityNodeInfoBuilder {
             String display,
             String brailleLabel,
             String brailleRoleDescription) {
+        node.setUniqueId(String.valueOf(virtualViewId));
         node.setClassName(className);
 
         Bundle bundle = node.getExtras();
@@ -465,8 +472,9 @@ public class AccessibilityNodeInfoBuilder {
             int[] suggestionStarts,
             int[] suggestionEnds,
             String[] suggestions,
-            String stateDescription) {
-        long now = SystemClock.elapsedRealtime();
+            String stateDescription,
+            String containerTitle) {
+        long now = SystemClock.elapsedRealtimeNanos() / 1000;
 
         CharSequence computedText =
                 computeText(
@@ -481,6 +489,11 @@ public class AccessibilityNodeInfoBuilder {
         // We add the stateDescription attribute when it is non-null and not empty.
         if (stateDescription != null && !stateDescription.isEmpty()) {
             node.setStateDescription(stateDescription);
+        }
+
+        // We add the containerTitle attribute when it is non-null and not empty.
+        if (containerTitle != null && !containerTitle.isEmpty()) {
+            node.setContainerTitle(containerTitle);
         }
 
         // We expose the nested structure of links, which results in the roles of all nested nodes
@@ -506,6 +519,7 @@ public class AccessibilityNodeInfoBuilder {
             int[] suggestionEnds,
             String[] suggestions,
             String stateDescription,
+            String containerTitle,
             float textSize,
             int textStyle,
             int textColor,
@@ -518,7 +532,7 @@ public class AccessibilityNodeInfoBuilder {
                 : "setAccessibilityNodeInfoText with text styling information was called when"
                         + " feature was not enabled.";
 
-        long now = SystemClock.elapsedRealtime();
+        long now = SystemClock.elapsedRealtimeNanos() / 1000;
 
         CharSequence computedText =
                 computeText(
@@ -542,6 +556,11 @@ public class AccessibilityNodeInfoBuilder {
             node.setStateDescription(stateDescription);
         }
 
+        // We add the containerTitle attribute when it is non-null and not empty.
+        if (containerTitle != null && !containerTitle.isEmpty()) {
+            node.setContainerTitle(containerTitle);
+        }
+
         // We expose the nested structure of links, which results in the roles of all nested nodes
         // being read. Use content description in the case of links to prevent verbose TalkBack
         if (annotateAsLink) {
@@ -554,9 +573,12 @@ public class AccessibilityNodeInfoBuilder {
     }
 
     private void recordTimeToCreateSpannables(long startTime) {
-        // TODO(mschillaci): Check initial data and change time range/buckets if needed.
-        RecordHistogram.recordTimesHistogram(
-                ACCESSIBILITY_SPANNABLE_CREATION_TIME, SystemClock.elapsedRealtime() - startTime);
+        RecordHistogram.recordCustomTimesHistogram(
+                ACCESSIBILITY_SPANNABLE_CREATION_TIME,
+                (SystemClock.elapsedRealtimeNanos() / 1000) - startTime,
+                1,
+                MAX_TIME_BUCKET,
+                100);
     }
 
     @CalledByNative
@@ -590,7 +612,8 @@ public class AccessibilityNodeInfoBuilder {
                 rect,
                 node.getExtras(),
                 mDelegate.getAccessibilityCoordinates(),
-                mDelegate.getView());
+                mDelegate.getView(),
+                /* isScreenCoordinates= */ true);
 
         node.setBoundsInScreen(rect);
 
@@ -609,10 +632,14 @@ public class AccessibilityNodeInfoBuilder {
 
     @CalledByNative
     protected void setAccessibilityNodeInfoCollectionInfo(
-            AccessibilityNodeInfoCompat node, int rowCount, int columnCount, boolean hierarchical) {
+            AccessibilityNodeInfoCompat node,
+            int rowCount,
+            int columnCount,
+            boolean hierarchical,
+            int selectionMode) {
         node.setCollectionInfo(
                 AccessibilityNodeInfoCompat.CollectionInfoCompat.obtain(
-                        rowCount, columnCount, hierarchical));
+                        rowCount, columnCount, hierarchical, selectionMode));
     }
 
     @CalledByNative
@@ -826,7 +853,8 @@ public class AccessibilityNodeInfoBuilder {
             Rect rect,
             Bundle extras,
             AccessibilityDelegate.AccessibilityCoordinates accessibilityCoordinates,
-            View view) {
+            View view,
+            boolean isScreenCoordinates) {
         // Offset by the scroll position.
         AccessibilityDelegate.AccessibilityCoordinates ac = accessibilityCoordinates;
         rect.offset(-(int) ac.getScrollX(), -(int) ac.getScrollY());
@@ -843,7 +871,11 @@ public class AccessibilityNodeInfoBuilder {
         // Finally offset by the location of the view within the screen.
         final int[] viewLocation = new int[2];
         view.getLocationOnScreen(viewLocation);
-        rect.offset(viewLocation[0], viewLocation[1]);
+        // Only offset the view location when the screen coordinates are requested.
+        // For window coordinates, no need to offset the view location.
+        if (isScreenCoordinates) {
+            rect.offset(viewLocation[0], viewLocation[1]);
+        }
 
         // TODO(mschillaci): This block is the same per-node and is purely viewport dependent,
         //                   pull this out into a reusable object for simplicity/performance.

@@ -91,8 +91,8 @@ wgpu::VertexBufferLayout AsDawnType(const GPUVertexBufferLayout* webgpu_desc) {
   DCHECK(webgpu_desc);
 
   wgpu::VertexBufferLayout dawn_desc = {
-      .arrayStride = webgpu_desc->arrayStride(),
       .stepMode = AsDawnEnum(webgpu_desc->stepMode()),
+      .arrayStride = webgpu_desc->arrayStride(),
       .attributeCount = webgpu_desc->attributes().size(),
       // .attributes is handled outside separately
   };

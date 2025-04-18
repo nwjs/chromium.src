@@ -13,15 +13,18 @@
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/background/glic/glic_controller.h"
+#include "chrome/browser/glic/browser_ui/glic_vector_icon_manager.h"
+#include "chrome/browser/glic/glic_keyed_service_factory.h"
 #include "chrome/browser/glic/glic_profile_manager.h"
 #include "chrome/browser/glic/glic_settings_util.h"
-#include "chrome/browser/glic/glic_vector_icon_manager.h"
+#include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/glic/resources/grit/glic_browser_resources.h"
 #include "chrome/browser/lifetime/application_lifetime_desktop.h"
 #include "chrome/browser/status_icons/status_icon.h"
 #include "chrome/browser/status_icons/status_icon_menu_model.h"
 #include "chrome/browser/status_icons/status_tray.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
+#include "chrome/browser/ui/browser_list.h"
 #include "chrome/common/channel_info.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/webui_url_constants.h"
@@ -45,7 +48,7 @@ gfx::ImageSkia GetIconForTheme(const ui::NativeTheme* native_theme) {
   // On Mac and Linux, theming is handled by the system and does not require
   // different images for light/dark mode.
   const auto& icon =
-      glic::GlicVectorIconManager::GetVectorIcon(IDR_GLIC_BUTTON_VECTOR_ICON);
+      glic::GlicVectorIconManager::GetVectorIcon(IDR_GLIC_STATUS_ICON);
   return gfx::CreateVectorIcon(icon, SK_ColorWHITE);
 #endif
 }
@@ -108,9 +111,21 @@ GlicStatusIcon::GlicStatusIcon(GlicController* controller,
   std::unique_ptr<StatusIconMenuModel> menu = CreateStatusIconMenu();
   context_menu_ = menu.get();
   status_icon_->SetContextMenu(std::move(menu));
+
+  BrowserList::AddObserver(this);
+  UpdateVisibilityOfExitInContextMenu();
+  UpdateVisibilityOfShowAndCloseInContextMenu();
+
+  GlicProfileManager* manager = GlicProfileManager::GetInstance();
+  profile_observer_.Observe(manager);
+  if (GlicKeyedService* service = manager->GetLastActiveGlic()) {
+    panel_state_observer_.Observe(&service->window_controller());
+  }
 }
 
 GlicStatusIcon::~GlicStatusIcon() {
+  BrowserList::RemoveObserver(this);
+
   context_menu_ = nullptr;
   if (status_icon_) {
 #if !BUILDFLAG(IS_LINUX)
@@ -125,14 +140,14 @@ GlicStatusIcon::~GlicStatusIcon() {
 }
 
 void GlicStatusIcon::OnStatusIconClicked() {
-  controller_->Toggle(InvocationSource::kOsButton);
+  controller_->Toggle(mojom::InvocationSource::kOsButton);
 }
 
 void GlicStatusIcon::ExecuteCommand(int command_id, int event_flags) {
   auto* profile = GlicProfileManager::GetInstance()->GetProfileForLaunch();
   switch (command_id) {
     case IDC_GLIC_STATUS_ICON_MENU_SHOW: {
-      controller_->Show(InvocationSource::kOsButtonMenu);
+      controller_->Show(mojom::InvocationSource::kOsButtonMenu);
       base::RecordAction(base::UserMetricsAction(
           "GlicOsEntrypoint.ContextMenuSelection.OpenGlic"));
       break;
@@ -162,6 +177,12 @@ void GlicStatusIcon::ExecuteCommand(int command_id, int event_flags) {
           "GlicOsEntrypoint.ContextMenuSelection.Exit"));
       break;
     }
+    case IDC_GLIC_STATUS_ICON_MENU_CLOSE: {
+      controller_->Close();
+      base::RecordAction(base::UserMetricsAction(
+          "GlicOsEntrypoint.ContextMenuSelection.CloseGlic"));
+      break;
+    }
     default: {
       NOTREACHED();
     }
@@ -170,6 +191,28 @@ void GlicStatusIcon::ExecuteCommand(int command_id, int event_flags) {
 
 void GlicStatusIcon::OnNativeThemeUpdated(ui::NativeTheme* observed_theme) {
   status_icon_->SetImage(GetIconForTheme(observed_theme));
+}
+
+void GlicStatusIcon::OnBrowserAdded(Browser* browser) {
+  UpdateVisibilityOfExitInContextMenu();
+}
+
+void GlicStatusIcon::OnBrowserRemoved(Browser* browser) {
+  UpdateVisibilityOfExitInContextMenu();
+}
+
+void GlicStatusIcon::OnLastActiveGlicProfileChanged(Profile* profile) {
+  panel_state_observer_.Reset();
+  if (profile && !profile->ShutdownStarted()) {
+    auto* service = GlicKeyedServiceFactory::GetGlicKeyedService(profile);
+    panel_state_observer_.Observe(&service->window_controller());
+  }
+  UpdateVisibilityOfShowAndCloseInContextMenu();
+}
+
+void GlicStatusIcon::PanelStateChanged(const mojom::PanelState& panel_state,
+                                       Browser* attached_browser) {
+  UpdateVisibilityOfShowAndCloseInContextMenu();
 }
 
 void GlicStatusIcon::UpdateHotkey(const ui::Accelerator& hotkey) {
@@ -181,10 +224,38 @@ void GlicStatusIcon::UpdateHotkey(const ui::Accelerator& hotkey) {
   CHECK(show_menu_item_index);
   context_menu_->SetForceShowAcceleratorForItemAt(show_menu_item_index.value(),
                                                   !hotkey.IsEmpty());
+  context_menu_->SetAcceleratorForCommandId(IDC_GLIC_STATUS_ICON_MENU_CLOSE,
+                                            &hotkey);
+  std::optional<size_t> close_menu_item_index =
+      context_menu_->GetIndexOfCommandId(IDC_GLIC_STATUS_ICON_MENU_CLOSE);
+  CHECK(close_menu_item_index);
+  context_menu_->SetForceShowAcceleratorForItemAt(close_menu_item_index.value(),
+                                                  !hotkey.IsEmpty());
+}
+
+void GlicStatusIcon::UpdateVisibilityOfExitInContextMenu() {
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
+  if (context_menu_) {
+    context_menu_->SetCommandIdVisible(IDC_GLIC_STATUS_ICON_MENU_EXIT,
+                                       BrowserList::GetInstance()->empty());
+  }
+#endif
+}
+
+void GlicStatusIcon::UpdateVisibilityOfShowAndCloseInContextMenu() {
+  if (context_menu_) {
+    const bool showing = controller_->IsShowing();
+    context_menu_->SetCommandIdVisible(IDC_GLIC_STATUS_ICON_MENU_CLOSE,
+                                       showing);
+    context_menu_->SetCommandIdVisible(IDC_GLIC_STATUS_ICON_MENU_SHOW,
+                                       !showing);
+  }
 }
 
 std::unique_ptr<StatusIconMenuModel> GlicStatusIcon::CreateStatusIconMenu() {
   std::unique_ptr<StatusIconMenuModel> menu(new StatusIconMenuModel(this));
+  menu->AddItem(IDC_GLIC_STATUS_ICON_MENU_CLOSE,
+                l10n_util::GetStringUTF16(IDS_GLIC_STATUS_ICON_MENU_CLOSE));
   menu->AddItem(IDC_GLIC_STATUS_ICON_MENU_SHOW,
                 l10n_util::GetStringUTF16(IDS_GLIC_STATUS_ICON_MENU_SHOW));
 

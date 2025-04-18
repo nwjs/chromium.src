@@ -236,28 +236,27 @@ bool ReadStoredResponse(const AutocompleteProviderClient* client,
 // are done in GetResultTypeAndEligibility().
 ResultType ResultTypeForInput(const AutocompleteInput& input) {
   const auto page_class = input.current_page_classification();
-  const auto focus_type_input_type =
-      std::make_pair(input.focus_type(), input.type());
+
+  // Disallow non-zero-prefix inputs.
+  if (!input.IsZeroSuggest()) {
+    return ResultType::kNone;
+  }
 
   // Android Search Widget.
   if (page_class == OEP::ANDROID_SHORTCUTS_WIDGET) {
-    if (focus_type_input_type.first != OFT::INTERACTION_DEFAULT) {
-      return ResultType::kRemoteNoURL;
-    }
+    return ResultType::kRemoteNoURL;
   }
 
   // New Tab Page.
   if (omnibox::IsNTPPage(page_class)) {
-    if (focus_type_input_type ==
-        std::make_pair(OFT::INTERACTION_FOCUS, OIT::EMPTY)) {
+    if (input.type() == OIT::EMPTY) {
       return ResultType::kRemoteNoURL;
     }
   }
 
   // Lens unimodal, multimodal, and contextual searchboxes.
   if (omnibox::IsLensSearchbox(page_class)) {
-    if (focus_type_input_type ==
-        std::make_pair(OFT::INTERACTION_FOCUS, OIT::EMPTY)) {
+    if (input.type() == OIT::EMPTY) {
       return ResultType::kRemoteNoURL;
     }
   }
@@ -272,12 +271,12 @@ ResultType ResultTypeForInput(const AutocompleteInput& input) {
   // Open Web and Search Results Page.
   if (omnibox::IsOtherWebPage(page_class) ||
       omnibox::IsSearchResultsPage(page_class)) {
-    if (focus_type_input_type.second == OIT::URL &&
+    if (input.type() == OIT::URL &&
         (is_ios || base::FeatureList::IsEnabled(
                        omnibox::kFocusTriggersWebAndSRPZeroSuggest))) {
       return ResultType::kRemoteSendURL;
     }
-    if (focus_type_input_type.second == OIT::EMPTY && !is_ios) {
+    if (input.type() == OIT::EMPTY && !is_ios) {
       return ResultType::kRemoteSendURL;
     }
   }
@@ -292,6 +291,39 @@ ZeroSuggestProvider* ZeroSuggestProvider::Create(
     AutocompleteProviderClient* client,
     AutocompleteProviderListener* listener) {
   return new ZeroSuggestProvider(client, listener);
+}
+
+// static
+AutocompleteMatch ZeroSuggestProvider::NavigationToMatch(
+    AutocompleteProvider* provider,
+    AutocompleteProviderClient* client,
+    const SearchSuggestionParser::NavigationResult& navigation) {
+  AutocompleteMatch match(provider, navigation.relevance(), false,
+                          navigation.type());
+  match.destination_url = navigation.url();
+
+  match.fill_into_edit +=
+      AutocompleteInput::FormattedStringWithEquivalentMeaning(
+          navigation.url(), url_formatter::FormatUrl(navigation.url()),
+          client->GetSchemeClassifier(), nullptr);
+
+  // Zero suggest results should always omit protocols and never appear bold.
+  auto format_types = AutocompleteMatch::GetFormatTypes(false, false);
+  match.contents = url_formatter::FormatUrl(navigation.url(), format_types,
+                                            base::UnescapeRule::SPACES, nullptr,
+                                            nullptr, nullptr);
+  match.contents_class = ClassifyTermMatches({}, match.contents.length(), 0,
+                                             ACMatchClassification::URL);
+
+  match.description =
+      AutocompleteMatch::SanitizeString(navigation.description());
+  match.description_class = ClassifyTermMatches({}, match.description.length(),
+                                                0, ACMatchClassification::NONE);
+  match.suggest_type = navigation.suggest_type();
+  for (const int subtype : navigation.subtypes()) {
+    match.subtypes.insert(SuggestSubtypeForNumber(subtype));
+  }
+  return match;
 }
 
 // static
@@ -345,6 +377,11 @@ void ZeroSuggestProvider::StartPrefetch(const AutocompleteInput& input) {
   AutocompleteProvider::StartPrefetch(input);
 
   TRACE_EVENT0("omnibox", "ZeroSuggestProvider::StartPrefetch");
+
+  if (!OmniboxFieldTrial::IsZeroSuggestPrefetchingEnabledInContext(
+          input.current_page_classification())) {
+    return;
+  }
 
   auto [result_type, eligible] = GetResultTypeAndEligibility(client(), input);
   LogOmniboxZeroSuggestEligibility(result_type, eligible);
@@ -644,36 +681,6 @@ void ZeroSuggestProvider::OnPrefetchURLLoadComplete(
   prefetch_loader->reset();
 }
 
-AutocompleteMatch ZeroSuggestProvider::NavigationToMatch(
-    const SearchSuggestionParser::NavigationResult& navigation) {
-  AutocompleteMatch match(this, navigation.relevance(), false,
-                          navigation.type());
-  match.destination_url = navigation.url();
-
-  match.fill_into_edit +=
-      AutocompleteInput::FormattedStringWithEquivalentMeaning(
-          navigation.url(), url_formatter::FormatUrl(navigation.url()),
-          client()->GetSchemeClassifier(), nullptr);
-
-  // Zero suggest results should always omit protocols and never appear bold.
-  auto format_types = AutocompleteMatch::GetFormatTypes(false, false);
-  match.contents = url_formatter::FormatUrl(navigation.url(), format_types,
-                                            base::UnescapeRule::SPACES, nullptr,
-                                            nullptr, nullptr);
-  match.contents_class = ClassifyTermMatches({}, match.contents.length(), 0,
-                                             ACMatchClassification::URL);
-
-  match.description =
-      AutocompleteMatch::SanitizeString(navigation.description());
-  match.description_class = ClassifyTermMatches({}, match.description.length(),
-                                                0, ACMatchClassification::NONE);
-  match.suggest_type = navigation.suggest_type();
-  for (const int subtype : navigation.subtypes()) {
-    match.subtypes.insert(SuggestSubtypeForNumber(subtype));
-  }
-  return match;
-}
-
 void ZeroSuggestProvider::ConvertSuggestResultsToAutocompleteMatches(
     const SearchSuggestionParser::Results& results,
     const AutocompleteInput& input) {
@@ -716,7 +723,7 @@ void ZeroSuggestProvider::ConvertSuggestResultsToAutocompleteMatches(
   const SearchSuggestionParser::NavigationResults& nav_results(
       results.navigation_results);
   for (const auto& nav_result : nav_results) {
-    matches_.push_back(NavigationToMatch(nav_result));
+    matches_.push_back(NavigationToMatch(this, client(), nav_result));
   }
 
   // Update the suggestion groups information from the server response.

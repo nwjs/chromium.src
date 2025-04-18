@@ -45,6 +45,7 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
 #include "base/unguessable_token.h"
+#include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/request_mode.h"
 #include "services/network/public/mojom/url_loader_factory.mojom-blink.h"
 #include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
@@ -1406,8 +1407,8 @@ Resource* ResourceFetcher::RequestResource(FetchParameters& params,
     if (!is_stale_revalidation && !archive_) {
       preloads_list_iterator =
           preloads_.find(PreloadKey(params.Url(), resource_type));
-      params.SetHasPreloadedResponseCandidate(preloads_list_iterator !=
-                                              preloads_.end());
+      params.SetIsPreloadedResponseCandidatePresent(preloads_list_iterator !=
+                                                    preloads_.end());
     }
   }
 
@@ -1441,7 +1442,7 @@ Resource* ResourceFetcher::RequestResource(FetchParameters& params,
 
   if (!is_stale_revalidation &&
       (archive_ || (is_data_url && defer_policy != DeferPolicy::kDefer))) {
-    if (!(is_data_url && params.HasPreloadedResponseCandidate())) {
+    if (!(is_data_url && params.IsPreloadedResponseCandidatePresent())) {
       prepare_helper.UpgradeForLoaderIfNecessary(pauser);
       resource = CreateResourceForStaticData(params, factory);
       if (resource) {
@@ -1464,7 +1465,7 @@ Resource* ResourceFetcher::RequestResource(FetchParameters& params,
 
   if (!is_stale_revalidation && !resource) {
     if (!prepare_helper.WasUpgradeForLoaderCalled() &&
-        (params.HasPreloadedResponseCandidate() ||
+        (params.IsPreloadedResponseCandidatePresent() ||
          (!RuntimeEnabledFeatures::PreloadLinkRelDataUrlsEnabled() &&
           preloads_.find(PreloadKey(params.Url(), resource_type)) !=
               preloads_.end()))) {
@@ -2281,6 +2282,16 @@ void ResourceFetcher::ReloadImagesIfNotDeferred() {
   }
 }
 
+void ResourceFetcher::PopulateResourceRequestPermissionsPolicy(
+    network::ResourceRequest* request) {
+  // TODO(crbug.com/382291442): Remove feature guarding once launched.
+  if (base::FeatureList::IsEnabled(
+          network::features::kPopulatePermissionsPolicyOnRequest) &&
+      Context().GetPermissionsPolicy()) {
+    request->permissions_policy = *Context().GetPermissionsPolicy();
+  }
+}
+
 FetchContext& ResourceFetcher::Context() const {
   return *context_;
 }
@@ -3017,7 +3028,8 @@ void ResourceFetcher::EmulateLoadStartedForInspector(
   Context().CanRequest(resource->GetType(), last_resource_request,
                        last_resource_request.Url(), params.Options(),
                        ReportingDisposition::kReport,
-                       last_resource_request.GetRedirectInfo());
+                       last_resource_request.GetRedirectInfo(),
+                       params.IsPreloadedResponseCandidatePresent());
   if (resource->GetStatus() == ResourceStatus::kNotStarted ||
       resource->GetStatus() == ResourceStatus::kPending) {
     // If the loading has not started, then we return here because loading
@@ -3582,7 +3594,7 @@ ResourceFetcher::ResourcePrepareHelper::PrepareRequestForCacheAccess(
   }
   ResourceRequest& resource_request = params_.MutableResourceRequest();
   if (!RuntimeEnabledFeatures::PreloadLinkRelDataUrlsEnabled() &&
-      !params_.HasPreloadedResponseCandidate()) {
+      !params_.IsPreloadedResponseCandidatePresent()) {
     bundle_url_for_uuid_resources_ =
         fetcher_.PrepareRequestForWebBundle(resource_request);
   }

@@ -31,6 +31,7 @@
 
 #include "base/memory/values_equivalent.h"
 #include "base/notreached.h"
+#include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom-shared.h"
 #include "third_party/blink/renderer/core/css/css_color.h"
 #include "third_party/blink/renderer/core/css/css_identifier_value.h"
 #include "third_party/blink/renderer/core/css/css_math_expression_node.h"
@@ -49,6 +50,7 @@
 #include "third_party/blink/renderer/platform/graphics/gradient_generated_image.h"
 #include "third_party/blink/renderer/platform/graphics/image.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/wtf/math_extras.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "ui/gfx/geometry/size.h"
@@ -399,7 +401,7 @@ void CSSGradientValue::AddDeprecatedStops(
   for (const auto& stop : stops_sorted) {
     float offset;
     if (stop.offset_->IsPercentage()) {
-      offset = stop.offset_->ComputePercentage(conversion_data) / 100;
+      offset = stop.offset_->ComputePercentage<float>(conversion_data) / 100;
     } else {
       // Deprecated gradients are only parsed with either percentage or number.
       DCHECK(stop.offset_->IsNumber());
@@ -572,6 +574,21 @@ std::tuple<T, T> AdjustedGradientDomainForOffsetRange(const T& v0,
   return std::make_tuple(v0 + d * first_offset, v0 + d * last_offset);
 }
 
+template <>
+std::tuple<float, float> AdjustedGradientDomainForOffsetRange(
+    const float& v0,
+    const float& v1,
+    float first_offset,
+    float last_offset) {
+  DCHECK_LE(first_offset, last_offset);
+
+  const auto d = v1 - v0;
+
+  // The offsets are relative to the [v0 , v1] segment.
+  return std::make_tuple(ClampTo<float>(v0 + d * first_offset),
+                         ClampTo<float>(v0 + d * last_offset));
+}
+
 // Update the radial gradient radii to align with the given offset range.
 void AdjustGradientRadiiForOffsetRange(CSSGradientValue::GradientDesc& desc,
                                        float first_offset,
@@ -653,7 +670,7 @@ void CSSGradientValue::AddStops(
     if (stop.offset_) {
       if (stop.offset_->IsPercentage()) {
         stops[i].offset =
-            stop.offset_->ComputePercentage(conversion_data) / 100;
+            stop.offset_->ComputePercentage<float>(conversion_data) / 100;
       } else if (stop.offset_->IsLength() ||
                  !stop.offset_->IsResolvableBeforeLayout()) {
         float length;
@@ -842,8 +859,9 @@ static float PositionFromValue(const CSSValue* value,
   }
 
   if (primitive_value->IsPercentage()) {
-    return origin + sign * primitive_value->ComputePercentage(conversion_data) /
-                        100.f * edge_distance;
+    return origin +
+           sign * primitive_value->ComputePercentage<float>(conversion_data) /
+               100.f * edge_distance;
   }
 
   if (!primitive_value->IsResolvableBeforeLayout()) {
@@ -1124,6 +1142,21 @@ static void EndPointsFromAngle(float angle_deg,
   first_point.SetPoint(half_width - end_x, half_height + end_y);
 }
 
+template <typename CSSGradientType>
+static void CountUseOfRainbowGradientPattern(
+    const Document& document,
+    const CSSGradientType& desc,
+    const Color::HueInterpolationMethod hue_interpolation_method) {
+  if (hue_interpolation_method == Color::HueInterpolationMethod::kLonger &&
+      desc.stops.size() == 2 && desc.stops[0].stop == 0 &&
+      desc.stops[1].stop == 0 && desc.stops[0].color == desc.stops[1].color) {
+    // Tracking usage of rainbow gradients pattern.
+    // See
+    // https://github.com/w3c/csswg-drafts/issues/11381#issuecomment-2659500463
+    document.CountUse(WebFeature::kCSSRainbowGradientPattern);
+  }
+}
+
 scoped_refptr<Gradient> CSSLinearGradientValue::CreateGradient(
     const CSSToLengthConversionData& conversion_data,
     const gfx::SizeF& size,
@@ -1214,6 +1247,8 @@ scoped_refptr<Gradient> CSSLinearGradientValue::CreateGradient(
   gradient->SetColorInterpolationSpace(color_interpolation_space_,
                                        hue_interpolation_method_);
   gradient->AddColorStops(desc.stops);
+
+  CountUseOfRainbowGradientPattern(document, desc, hue_interpolation_method_);
 
   return gradient;
 }
@@ -1503,8 +1538,8 @@ float ResolveRadius(const CSSPrimitiveValue* radius,
   if (radius->IsNumber()) {
     result = radius->ComputeNumber(conversion_data) * conversion_data.Zoom();
   } else if (width_or_height && radius->IsPercentage()) {
-    result =
-        *width_or_height * radius->ComputePercentage(conversion_data) / 100;
+    result = *width_or_height *
+             radius->ComputePercentage<float>(conversion_data) / 100;
   } else {
     result = radius->ComputeLength<float>(conversion_data);
   }
@@ -1688,6 +1723,8 @@ scoped_refptr<Gradient> CSSRadialGradientValue::CreateGradient(
                                        hue_interpolation_method_);
   gradient->AddColorStops(desc.stops);
 
+  CountUseOfRainbowGradientPattern(document, desc, hue_interpolation_method_);
+
   return gradient;
 }
 
@@ -1771,7 +1808,11 @@ bool CSSRadialGradientValue::IsUsingCurrentColor() const {
 }
 
 bool CSSRadialGradientValue::IsUsingContainerRelativeUnits() const {
-  return blink::cssvalue::IsUsingContainerRelativeUnits(stops_);
+  return blink::cssvalue::IsUsingContainerRelativeUnits(stops_) ||
+         blink::cssvalue::IsUsingContainerRelativeUnits(first_x_) ||
+         blink::cssvalue::IsUsingContainerRelativeUnits(first_y_) ||
+         blink::cssvalue::IsUsingContainerRelativeUnits(end_horizontal_size_) ||
+         blink::cssvalue::IsUsingContainerRelativeUnits(end_vertical_size_);
 }
 
 void CSSRadialGradientValue::TraceAfterDispatch(blink::Visitor* visitor) const {
@@ -1850,6 +1891,8 @@ scoped_refptr<Gradient> CSSConicGradientValue::CreateGradient(
   gradient->SetColorInterpolationSpace(color_interpolation_space_,
                                        hue_interpolation_method_);
   gradient->AddColorStops(desc.stops);
+
+  CountUseOfRainbowGradientPattern(document, desc, hue_interpolation_method_);
 
   return gradient;
 }

@@ -196,24 +196,6 @@ class AutofillPrivateGetCreditCardListFunction
   ResponseAction Run() override;
 };
 
-class AutofillPrivateMigrateCreditCardsFunction
-    : public AutofillPrivateExtensionFunction {
- public:
-  AutofillPrivateMigrateCreditCardsFunction() = default;
-  AutofillPrivateMigrateCreditCardsFunction(
-      const AutofillPrivateMigrateCreditCardsFunction&) = delete;
-  AutofillPrivateMigrateCreditCardsFunction& operator=(
-      const AutofillPrivateMigrateCreditCardsFunction&) = delete;
-  DECLARE_EXTENSION_FUNCTION("autofillPrivate.migrateCreditCards",
-                             AUTOFILLPRIVATE_MIGRATECREDITCARDS)
-
- protected:
-  ~AutofillPrivateMigrateCreditCardsFunction() override = default;
-
-  // ExtensionFunction overrides.
-  ResponseAction Run() override;
-};
-
 class AutofillPrivateLogServerCardLinkClickedFunction
     : public AutofillPrivateExtensionFunction {
  public:
@@ -460,50 +442,6 @@ class AutofillPrivateSetAutofillSyncToggleEnabledFunction
   ResponseAction Run() override;
 };
 
-class AutofillPrivateIsUserEligibleForAutofillImprovementsFunction
-    : public AutofillPrivateExtensionFunction {
- public:
-  AutofillPrivateIsUserEligibleForAutofillImprovementsFunction() = default;
-  AutofillPrivateIsUserEligibleForAutofillImprovementsFunction(
-      const AutofillPrivateIsUserEligibleForAutofillImprovementsFunction&) =
-      delete;
-  AutofillPrivateIsUserEligibleForAutofillImprovementsFunction& operator=(
-      const AutofillPrivateIsUserEligibleForAutofillImprovementsFunction&) =
-      delete;
-  DECLARE_EXTENSION_FUNCTION(
-      "autofillPrivate.isUserEligibleForAutofillImprovements",
-      AUTOFILLPRIVATE_ISUSERELIGIBLEFORAUTOFILLIMPROVEMENTS)
-
- protected:
-  ~AutofillPrivateIsUserEligibleForAutofillImprovementsFunction() override =
-      default;
-
-  // ExtensionFunction overrides.
-  ResponseAction Run() override;
-};
-
-class AutofillPrivatePredictionImprovementsIphFeatureUsedFunction
-    : public AutofillPrivateExtensionFunction {
- public:
-  AutofillPrivatePredictionImprovementsIphFeatureUsedFunction() = default;
-  AutofillPrivatePredictionImprovementsIphFeatureUsedFunction(
-      const AutofillPrivatePredictionImprovementsIphFeatureUsedFunction&) =
-      delete;
-  AutofillPrivatePredictionImprovementsIphFeatureUsedFunction& operator=(
-      const AutofillPrivatePredictionImprovementsIphFeatureUsedFunction&) =
-      delete;
-  DECLARE_EXTENSION_FUNCTION(
-      "autofillPrivate.predictionImprovementsIphFeatureUsed",
-      AUTOFILLPRIVATE_PREDICTIONIMPROVEMENTSIPHFFEATUREUSED)
-
- protected:
-  ~AutofillPrivatePredictionImprovementsIphFeatureUsedFunction() override =
-      default;
-
-  // ExtensionFunction overrides.
-  ResponseAction Run() override;
-};
-
 class AutofillPrivateAddOrUpdateEntityInstanceFunction
     : public AutofillPrivateExtensionFunction {
  public:
@@ -594,19 +532,59 @@ class AutofillPrivateGetAllEntityTypesFunction
   ResponseAction Run() override;
 };
 
-class AutofillPrivateGetAllAttributeTypesForEntityFunction
+class AutofillPrivateGetAllAttributeTypesForEntityTypeNameFunction
     : public AutofillPrivateExtensionFunction {
  public:
-  AutofillPrivateGetAllAttributeTypesForEntityFunction() = default;
-  AutofillPrivateGetAllAttributeTypesForEntityFunction(
-      const AutofillPrivateGetAllAttributeTypesForEntityFunction&) = delete;
-  AutofillPrivateGetAllAttributeTypesForEntityFunction& operator=(
-      const AutofillPrivateGetAllAttributeTypesForEntityFunction&) = delete;
-  DECLARE_EXTENSION_FUNCTION("autofillPrivate.getAllAttributeTypesForEntity",
-                             AUTOFILLPRIVATE_GETALLATTRIBUTETYPESFORENTITY)
+  AutofillPrivateGetAllAttributeTypesForEntityTypeNameFunction() = default;
+  AutofillPrivateGetAllAttributeTypesForEntityTypeNameFunction(
+      const AutofillPrivateGetAllAttributeTypesForEntityTypeNameFunction&) =
+      delete;
+  AutofillPrivateGetAllAttributeTypesForEntityTypeNameFunction& operator=(
+      const AutofillPrivateGetAllAttributeTypesForEntityTypeNameFunction&) =
+      delete;
+  DECLARE_EXTENSION_FUNCTION(
+      "autofillPrivate.getAllAttributeTypesForEntityTypeName",
+      AUTOFILLPRIVATE_GETALLATTRIBUTETYPESFORENTITYTYPENAME)
 
  protected:
-  ~AutofillPrivateGetAllAttributeTypesForEntityFunction() override = default;
+  ~AutofillPrivateGetAllAttributeTypesForEntityTypeNameFunction() override =
+      default;
+
+  // ExtensionFunction overrides.
+  ResponseAction Run() override;
+};
+
+class AutofillPrivateGetAutofillAiOptInStatusFunction
+    : public AutofillPrivateExtensionFunction {
+ public:
+  AutofillPrivateGetAutofillAiOptInStatusFunction() = default;
+  AutofillPrivateGetAutofillAiOptInStatusFunction(
+      const AutofillPrivateGetAutofillAiOptInStatusFunction&) = delete;
+  AutofillPrivateGetAutofillAiOptInStatusFunction& operator=(
+      const AutofillPrivateGetAutofillAiOptInStatusFunction&) = delete;
+  DECLARE_EXTENSION_FUNCTION("autofillPrivate.getAutofillAiOptInStatus",
+                             AUTOFILLPRIVATE_GETAUTOFILLAIOPTINSTATUS)
+
+ protected:
+  ~AutofillPrivateGetAutofillAiOptInStatusFunction() override = default;
+
+  // ExtensionFunction overrides.
+  ResponseAction Run() override;
+};
+
+class AutofillPrivateSetAutofillAiOptInStatusFunction
+    : public AutofillPrivateExtensionFunction {
+ public:
+  AutofillPrivateSetAutofillAiOptInStatusFunction() = default;
+  AutofillPrivateSetAutofillAiOptInStatusFunction(
+      const AutofillPrivateSetAutofillAiOptInStatusFunction&) = delete;
+  AutofillPrivateSetAutofillAiOptInStatusFunction& operator=(
+      const AutofillPrivateSetAutofillAiOptInStatusFunction&) = delete;
+  DECLARE_EXTENSION_FUNCTION("autofillPrivate.setAutofillAiOptInStatus",
+                             AUTOFILLPRIVATE_SETAUTOFILLAIOPTINSTATUS)
+
+ protected:
+  ~AutofillPrivateSetAutofillAiOptInStatusFunction() override = default;
 
   // ExtensionFunction overrides.
   ResponseAction Run() override;

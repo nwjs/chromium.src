@@ -39,6 +39,7 @@
 #include "chrome/browser/devtools/url_constants.h"
 #include "chrome/browser/extensions/error_console/error_console.h"
 #include "chrome/browser/extensions/error_console/error_console_test_observer.h"
+#include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/extensions/extension_browser_test_util.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/extensions/extension_with_management_policy_apitest.h"
@@ -132,7 +133,6 @@
 
 #if BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/android/tab_android.h"
-#include "chrome/browser/extensions/extension_platform_apitest.h"
 #include "chrome/browser/ui/android/tab_model/tab_model.h"
 #include "chrome/browser/ui/android/tab_model/tab_model_list.h"
 #include "chrome/test/base/android/android_ui_test_utils.h"
@@ -140,7 +140,6 @@
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/extensions/extension_action_runner.h"
-#include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/extensions/permissions/active_tab_permission_granter.h"
@@ -382,17 +381,11 @@ void WaitForExtraHeadersListener(base::WaitableEvent* event,
 
 }  // namespace
 
-#if BUILDFLAG(IS_ANDROID)
-using ExtensionApiTestBase = ExtensionPlatformApiTest;
-#else
-using ExtensionApiTestBase = ExtensionApiTest;
-#endif
-
-class ExtensionWebRequestApiTest : public ExtensionApiTestBase {
+class ExtensionWebRequestApiTest : public ExtensionApiTest {
  public:
   explicit ExtensionWebRequestApiTest(
       ContextType context_type = ContextType::kFromManifest)
-      : ExtensionApiTestBase(context_type) {
+      : ExtensionApiTest(context_type) {
     feature_list_.InitWithFeatures(
         /*enabled_features=*/{},
         // TODO(crbug.com/40248833): Use HTTPS URLs in tests to avoid having to
@@ -406,14 +399,14 @@ class ExtensionWebRequestApiTest : public ExtensionApiTestBase {
   ~ExtensionWebRequestApiTest() override = default;
 
   void SetUpOnMainThread() override {
-    ExtensionApiTestBase::SetUpOnMainThread();
+    ExtensionApiTest::SetUpOnMainThread();
     host_resolver()->AddRule("*", "127.0.0.1");
     navigation_handler_ =
         std::make_unique<NavigateTabMessageHandler>(profile());
   }
 
   void SetUpCommandLine(base::CommandLine* command_line) override {
-    ExtensionApiTestBase::SetUpCommandLine(command_line);
+    ExtensionApiTest::SetUpCommandLine(command_line);
     command_line->AppendSwitchASCII(switches::kGaiaUrl, "http://gaia.com");
     command_line->AppendSwitchASCII(embedder_support::kOriginTrialPublicKey,
                                     kOriginTrialPublicKeyForTesting);
@@ -2232,6 +2225,7 @@ IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiTestWithContextTypeMV3,
   auto make_browser_request = [this](const GURL& url) {
     auto request = std::make_unique<network::ResourceRequest>();
     request->url = url;
+    request->credentials_mode = network::mojom::CredentialsMode::kOmit;
     request->destination = network::mojom::RequestDestination::kEmpty;
     request->resource_type =
         static_cast<int>(blink::mojom::ResourceType::kSubResource);
@@ -2623,6 +2617,7 @@ IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiTestWithContextType,
          int expected_net_code) {
         auto request = std::make_unique<network::ResourceRequest>();
         request->url = url;
+        request->credentials_mode = network::mojom::CredentialsMode::kOmit;
 
         content::SimpleURLLoaderTestHelper simple_loader_helper;
         auto simple_loader = network::SimpleURLLoader::Create(
@@ -3195,8 +3190,10 @@ INSTANTIATE_TEST_SUITE_P(ServiceWorker,
                          WebUiNtpInterceptionWebRequestAPITest,
                          ::testing::Values(ContextType::kServiceWorker));
 
+// TODO(https://crbug.com/407399340): Failing on various bots;
+// msan, asan, dbg, code coverage, chromeos-rel.
 IN_PROC_BROWSER_TEST_P(WebUiNtpInterceptionWebRequestAPITest,
-                       OneGoogleBarRequestsHidden) {
+                       DISABLED_OneGoogleBarRequestsHidden) {
   // Loads an extension which tries to intercept requests to the OneGoogleBar.
   ExtensionTestMessageListener listener("ready", ReplyBehavior::kWillReply);
   const Extension* extension =

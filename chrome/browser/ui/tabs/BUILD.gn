@@ -11,19 +11,25 @@ import("//chrome/common/features.gni")
 # dependencies this interface should not depend on anything else in //chrome.
 source_set("tabs_public") {
   public = [
-    "public/supports_handles.h",
     "public/tab_dialog_manager.h",
     "public/tab_features.h",
-    "public/tab_interface.h",
     "tab_network_state.h",
   ]
   sources = [ "tab_network_state.cc" ]
   public_deps = [
+    ":split_tabs",
     "//base",
     "//chrome/common:buildflags",
+    "//components/tab_collections:public",
     "//components/tab_groups:tab_groups",
   ]
   deps = [ "//content/public/browser" ]
+}
+
+source_set("split_tabs") {
+  sources = [ "split_tab_id.h" ]
+
+  deps = [ "//components/tab_groups" ]
 }
 
 # These enums should not need to depend on chrome/browser/ui. They have been
@@ -132,6 +138,7 @@ if (!is_android) {
     ]
 
     public_deps = [
+      ":split_tabs",
       ":tab_strip_model_observer",
       ":tabs",
       ":tabs_public",
@@ -258,6 +265,8 @@ if (!is_android) {
       "pinned_tab_collection.h",
       "pinned_tab_service.h",
       "pinned_tab_service_factory.h",
+      "split_tab_collection.h",
+      "split_tab_data.h",
       "tab_collection.cc",
       "tab_collection.h",
       "tab_collection_storage.h",
@@ -269,6 +278,7 @@ if (!is_android) {
     ]
 
     public_deps = [
+      ":split_tabs",
       ":tab_enums",
       ":tab_group",
       ":tab_strip_model_observer",
@@ -304,6 +314,8 @@ if (!is_android) {
       "pinned_tab_service.cc",
       "pinned_tab_service_factory.cc",
       "recent_tabs_sub_menu_model.cc",
+      "split_tab_collection.cc",
+      "split_tab_data.cc",
       "tab_collection_storage.cc",
       "tab_dialog_manager.cc",
       "tab_features.cc",
@@ -339,6 +351,7 @@ if (!is_android) {
       "//chrome/browser/ui/browser_window:browser_window",
       "//chrome/browser/ui/commerce",
       "//chrome/browser/ui/lens",
+      "//chrome/browser/ui/views/intent_picker:intent_picker_page_action",
       "//chrome/browser/ui/views/page_action",
       "//chrome/browser/ui/views/side_panel",
       "//chrome/browser/ui/webui:webui_util",
@@ -348,9 +361,12 @@ if (!is_android) {
       "//components/favicon/content",
       "//components/favicon/core",
       "//components/fingerprinting_protection_filter/common:features",
+      "//components/fingerprinting_protection_filter/interventions/browser",
+      "//components/fingerprinting_protection_filter/interventions/common:features",
       "//components/image_fetcher/core",
       "//components/ip_protection/common:ip_protection_status",
       "//components/metrics:content",
+      "//components/passage_embeddings",
       "//components/performance_manager",
       "//components/permissions",
       "//components/pref_registry",
@@ -498,8 +514,6 @@ if (!is_android) {
       "existing_comparison_table_sub_menu_model_unittest.cc",
       "existing_tab_group_sub_menu_model_unittest.cc",
       "existing_window_sub_menu_model_unittest.cc",
-      "pinned_tab_service_unittest.cc",
-      "supports_handles_unittest.cc",
       "tab_collection_storage_unittest.cc",
       "tab_collection_unittest.cc",
       "tab_group_deletion_dialog_controller_unittest.cc",

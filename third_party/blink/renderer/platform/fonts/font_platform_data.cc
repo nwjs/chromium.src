@@ -178,11 +178,6 @@ String FontPlatformData::FontFamilyName() const {
   return String::FromUTF8(base::as_byte_span(localized_string.fString));
 }
 
-bool FontPlatformData::IsAhem() const {
-  return EqualIgnoringASCIICase(FontFamilyName(), "ahem") ||
-         EqualIgnoringASCIICase(FontFamilyName(), "ahem (fontations)");
-}
-
 SkTypeface* FontPlatformData::Typeface() const {
   return typeface_.get();
 }
@@ -215,7 +210,7 @@ unsigned FontPlatformData::GetHash() const {
   // rules. Memcpy is generally optimized enough so that performance doesn't
   // matter here.
   uint32_t text_size_bytes;
-  memcpy(&text_size_bytes, &text_size_, sizeof(uint32_t));
+  UNSAFE_TODO(memcpy(&text_size_bytes, &text_size_, sizeof(uint32_t)));
   h ^= text_size_bytes;
 
   return h;
@@ -279,7 +274,8 @@ SkFont FontPlatformData::CreateSkFont(const FontDescription*) const {
 
   font.setEmbeddedBitmaps(!avoid_embedded_bitmaps_);
 
-  if (RuntimeEnabledFeatures::DisableAhemAntialiasEnabled() && IsAhem()) {
+  if (RuntimeEnabledFeatures::NoFontAntialiasingEnabled() &&
+      !WebTestSupport::IsFontAntialiasingEnabledForTest()) {
     font.setEdging(SkFont::Edging::kAlias);
   }
 

@@ -4,6 +4,7 @@
 <translation id="1000436330784933699">Voit avata Lensin täältä.</translation>
 <translation id="1042296835509784301">Avaa Salasanat Chromiumissa.</translation>
 <translation id="1047130070405668746">Valitse Chromium</translation>
+<translation id="1086486568852410168">Hae Google Lensilla</translation>
 <translation id="1091252999271033193">Tämä tarkoittaa, että Chromium pyytää aina mobiilisivustoa.</translation>
 <translation id="1115463765356382667">Näillä ehdotuksilla saat Chromiumista parhaan hyödyn.</translation>
 <translation id="1140315115515116765">Käytä Chromiumia oletuksena, niin näet hintatiedot helposti</translation>
@@ -90,14 +91,15 @@ Siirry <ph name="BEGIN_LINK" />Googlen palveluihin<ph name="END_LINK" />, niin n
 <translation id="3054480780637153380">Avaa Chromiumin asetukset iOS:lla, napauta sitten Oletusselainsovellus ja valitse Chromium.</translation>
 <translation id="3102849287235003384">Jos haluat kirjautua ulos Google-tililtäsi kaikilla sivustoilla, <ph name="BEGIN_LINK" />kirjaudu ulos Chromiumista<ph name="END_LINK" />.</translation>
 <translation id="3115956258722352278">Tehdäänkö Chromiumista oletusselain?</translation>
+<translation id="3180939591219927904">Laita "Lukitse incognito-välilehdet, kun suljet Chromiumin" päälle</translation>
 <translation id="3242612358525156339">Avaa laitteen asetuksista <ph name="TEXT_OF_THE_SETTINGS_MENU_ITEM" /> ja valitse Chromium.</translation>
 <translation id="328933489847748230">{count,plural, =1{Nyt näkyvissä 1 Chromium-ikkuna}other{Nyt näkyvissä {count} Chromium-ikkunaa}}</translation>
 <translation id="3344973607274501920">Chromium ei voinut tarkistaa salasanojasi. Tarkista internetyhteytesi.</translation>
 <translation id="3366305173356742781">Tilisi Chromium-data</translation>
-<translation id="33788334537425157">Laita "Lukitse incognito-välilehdet, kun suljet Chromiumin" päälle</translation>
 <translation id="3387107508582892610">{THRESHOLD,plural, =1{Näin käy, kun Chromiumia ei ole käytetty {THRESHOLD} minuuttiin. Tämä koskee esimerkiksi historiaa ja automaattista täyttöä.}other{Näin käy, kun Chromiumia ei ole käytetty {THRESHOLD} minuuttiin. Tämä koskee esimerkiksi historiaa ja automaattista täyttöä.}}</translation>
 <translation id="3410395242749598859">Osaa Chromium-datastasi ei ole vielä tallennettu tälle tilille: <ph name="EMAIL" />.
 Odota muutama minuutti ennen tilin vaihtamista. Jos vaihdat tiliä nyt, tämä data poistetaan.</translation>
+<translation id="3440830787838130530">Jaa kopio salasanasta perheryhmällesi helposti ja turvallisesti Google Salasanoissa</translation>
 <translation id="3472200483164753384">Ei tueta Chromium Canaryssa</translation>
 <translation id="347967311580159871">Siirry <ph name="BEGIN_LINK" />Googlen palveluihin<ph name="END_LINK" />, niin näet lisää asetuksia, jotka käyttävät dataa Chromiumin käyttökokemuksen parantamiseen.</translation>
 <translation id="3512168799938877162">Salasanaasi ei jaettu. Tarkista internetyhteytesi ja varmista, että olet kirjautunut Chromiumiin. Yritä sitten uudelleen.</translation>
@@ -185,6 +187,7 @@ Jos haluat muuttaa tätä asetusta, <ph name="BEGIN_LINK" />poista tilin Chromiu
 1. Avaa asetukset
 2. Valitse Oletusselain
 3. Valitse Chromium</translation>
+<translation id="5482686278086727777">Jos haluat saada Chromiumin välilehtimuistutuksia, laita ilmoitukset päälle iOS-asetuksista.</translation>
 <translation id="5521125884468363740">Kirjaudu sisään ja laita synkronointi päälle, jotta voit nähdä Chromium-välilehtesi missä tahansa</translation>
 <translation id="5534584691915394889">Käytetään Apple-kalenterin tapahtumien luomiseen Chromiumista ja Google Lensistä.</translation>
 <translation id="5571094606370987472">Avaa Chromiumin viimeaikaiset välilehdet.</translation>
@@ -206,7 +209,6 @@ Huomioitavaa:
 • Jos laitat historian synkronoinnin Google-tilille päälle, tiedot voivat koskea myös avaamiasi URL-osoitteita.<ph name="END_INDENT" /></translation>
 <translation id="5932787118589620366">Poista selausdata Chromiumissa.</translation>
 <translation id="593808800391107017">Saat ilmoituksia kaikista yksityisyys- tai tietoturvaongelmista, jotka Chromium havaitsee automaattisesti puolestasi.</translation>
-<translation id="5945387852661427312">Olet kirjautumassa sisään verkkotunnuksen <ph name="DOMAIN" /> hallitsemalla tilillä ja antamassa sen järjestelmänvalvojalle oikeuden hallita Chromium-tietojasi. Tietosi liitetään pysyvästi tähän tiliin. Chromiumista uloskirjautuminen poistaa tietosi tältä laitteelta, mutta ne säilyvät Google-tililläsi.</translation>
 <translation id="5951593919357934226">Paras hyöty Chromiumista.</translation>
 <translation id="5985254578475526217">Jos haluat saada ilmoituksia Chromiumista, laita ilmoitukset päälle iOS-asetuksista.</translation>
 <translation id="6104024151682120539">Avaa Chromiumissa</translation>
@@ -216,7 +218,6 @@ Huomioitavaa:
 <translation id="6154098560469640583">Käytä Chromiumia aina, kun napautat linkkejä viesteissä, dokumenteissa ja muissa sovelluksissa.</translation>
 <translation id="6157162508956739031">Kirjaudu sovelluksiin ja sivustoille nopeasti täyttämällä salasanat ja avainkoodit automaattisesti Chromiumista</translation>
 <translation id="6170619162539716595">Salli Chromiumin käyttää Google Mapsia reittiohjeiden ja paikallisten tietojen tarjoamiseen havaituissa osoitteissa.</translation>
-<translation id="6197255575340902638">Jos "<ph name="MODULE_NAME" />" piilotetaan, Chromium ei enää seuraa tulevia pakettejasi automaattisesti ja poistaa kaikki aiempien pakettien seurantatiedot.</translation>
 <translation id="6247557882553405851">Googlen Salasanojen ylläpito</translation>
 <translation id="6268381023930128611">Kirjaudutaanko ulos?</translation>
 <translation id="6301717043141881464">Löydät muiden sovellusten tallennetut salasanat helposti käyttämällä Chromiumia automaattiseen täyttöön</translation>
@@ -261,6 +262,7 @@ Salattua dataa voi lukea vain tunnuslauseen avulla. Tunnuslausetta ei lähetetä
 <translation id="7337881442233988129">Chromium</translation>
 <translation id="7357211569052832586">Valitut tiedot on poistettu Chromiumista ja synkronoiduilta laitteilta. Google-tililläsi voi olla muita selaushistoriatietoja, kuten hakuja ja toimintaa muista Google-palveluista. Voit katsella tietoja osoitteessa history.google.com.</translation>
 <translation id="7395825497086981028">Salasana tallennetaan Salasanojen ylläpitoon sähköpostiosoitteella <ph name="EMAIL" />.</translation>
+<translation id="7504829997542308412">Avaa Chromium</translation>
 <translation id="7531461704633548377">Chromiumista</translation>
 <translation id="7554983317097061001">Chromium-vinkki: Siirrä Chromium alapalkkiin</translation>
 <translation id="7576863740961052505">Muuta Chromiumin asetuksia</translation>
@@ -273,11 +275,11 @@ Salattua dataa voi lukea vain tunnuslauseen avulla. Tunnuslausetta ei lähetetä
 <translation id="7784950022329154821">Lukitse incognito-välilehdet, kun suljet Chromiumin</translation>
 <translation id="78025249032851484">Chromium on vanhentunut.</translation>
 <translation id="7859018312476869945">Kun kirjoitat osoitepalkkiin tai hakukenttään, Chromium lähettää kirjoittamasi tekstin oletushakukoneellesi, niin saat parempia ehdotuksia. Tämä on poissa päältä incognito-tilassa.</translation>
-<translation id="7859432380288435856">Chromium tunnistaa pakettien seurantanumerot avaamillasi sivustoilla ja näyttää pakettien päivitykset Uusi välilehti ‐sivulla. Datasi jaetaan Googlelle tämän ominaisuuden tarjoamiseen ja Shoppingin parantamiseen kaikille käyttäjille.</translation>
 <translation id="7890287942691234100">Aloita Chromium-lukijan käyttö</translation>
 <translation id="7905064834449738336">Kun käytät salasanaa, Chromium varoittaa, jos se on julkaistu verkossa. Tätä varten salasanat ja käyttäjänimet salataan, joten kukaan (myöskään Google) ei voi lukea niitä.</translation>
 <translation id="7928628054454574139">Avaa Chromium, kun napautat linkkejä muissa sovelluksissa</translation>
 <translation id="7934404985878918282">Näytä Chromiumin lukulista</translation>
+<translation id="7935734571048689933">Chromium on hallinnoitu</translation>
 <translation id="7951793218148208717">Avaa uuden välilehden Chromiumissa.</translation>
 <translation id="7980860476903281594">Chromium jakaa sijaintisi sallimillesi sivustoille.</translation>
 <translation id="7994322153108931467">Jos haluat hyödyllisiä Chromium-vinkkejä, laita ilmoitukset päälle iOS-asetuksista.</translation>
@@ -308,6 +310,7 @@ Salattua dataa voi lukea vain tunnuslauseen avulla. Tunnuslausetta ei lähetetä
 <translation id="8754966941001340678">Chromium suosittelee parannettua suojausta</translation>
 <translation id="8759037115129007407">Perheenjäsen ei voi juuri nyt vastaanottaa salasanoja. Pyydä häntä päivittämään Chromium ja synkronoimaan salasanat. <ph name="BEGIN_LINK" />Lue lisää<ph name="END_LINK" /></translation>
 <translation id="8776843108004031667">Tämä tili ja kaikki tallentamaton data poistetaan Chromiumista.</translation>
+<translation id="8793333988063379360">Löydät täältä Chromiumin asetukset ja muuta</translation>
 <translation id="8805148242934787134">Valitse Chromium oletusselaimeksi</translation>
 <translation id="8826789549860004832">Saat parhaan hyödyn Chromiumista jatkamalla selaimen käyttöönottoa.</translation>
 <translation id="88376265765385899">Avaa Chromium-kirjanmerkit.</translation>

@@ -2,6 +2,16 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// <if expr="enable_pdf_ink2 or enable_ink">
+export enum AnnotationMode {
+  NONE = 'none',
+  DRAW = 'draw',
+  // <if expr="enable_pdf_ink2">
+  TEXT = 'text',
+  // </if>
+}
+// </if>
+
 // <if expr="enable_pdf_ink2">
 // The different types of annotation brushes.
 export enum AnnotationBrushType {
@@ -22,6 +32,32 @@ export interface AnnotationBrush {
   type: AnnotationBrushType;
   color?: Color;
   size?: number;
+}
+
+export enum TextAlignment {
+  LEFT = 'LEFT',
+  CENTER = 'CENTER',
+  RIGHT = 'RIGHT',
+  JUSTIFY = 'JUSTIFY',
+}
+
+export enum TextStyle {
+  BOLD = 'bold',
+  ITALIC = 'italic',
+  UNDERLINE = 'underline',
+  STRIKETHROUGH = 'strikethrough',
+}
+
+export type TextStyles = {
+  [key in TextStyle]: boolean
+};
+
+export interface AnnotationText {
+  font: string;
+  size: number;
+  color: Color;
+  alignment: TextAlignment;
+  styles: TextStyles;
 }
 // </if>
 

@@ -7,6 +7,7 @@
 #include <memory>
 #include <tuple>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "base/debug/alias.h"
@@ -164,7 +165,24 @@ SkiaOutputDeviceDComp::SkiaOutputDeviceDComp(
 }
 
 SkiaOutputDeviceDComp::~SkiaOutputDeviceDComp() {
-  DCHECK(presenter_->HasOneRef());
+  // `SkiaOutputDeviceDComp` is non-copyable and non-movable, so dtor will only
+  // happen once.
+  CHECK(presenter_);
+
+  // We expect `SkiaOutputDeviceDComp::presenter_` to act like a unique pointer,
+  // only owned by `SkiaOutputDeviceDComp`.
+  CHECK(presenter_->HasOneRef());
+
+  if (!presenter_->DestroyDCLayerTree()) {
+    // If the `Commit` call in `~DCompPresenter` failed with device lost, exit
+    // the process via context loss, since it would not be valid to clean up
+    // `overlays_` if it contains DComp textures since they would still be
+    // attached to the visual tree.
+    context_state_->MarkContextLost();
+
+    // We expect `MarkContextLost` to exit the GPU process synchronously.
+    NOTREACHED();
+  }
 }
 
 void SkiaOutputDeviceDComp::Present(const std::optional<gfx::Rect>& update_rect,
@@ -187,11 +205,19 @@ void SkiaOutputDeviceDComp::OnPresentFinished(
   // Remove entries from |overlays_| for textures that weren't scheduled as an
   // overlay this frame.
   if (!overlays_.empty()) {
-    base::EraseIf(overlays_, [this](auto& entry) {
-      const gpu::Mailbox& mailbox = entry.first;
-      return !scheduled_overlay_mailboxes_.contains(mailbox);
-    });
+    if (result.swap_result == gfx::SwapResult::SWAP_ACK) {
+      // If swap did not succeed, then the overlay images could still be in the
+      // visual tree. It's not safe for us to end overlay access on DComp
+      // textures since DWM could potentially still read from them. The images
+      // held back in the swap failure case will either be cleaned up on next
+      // successful swap or after GPU process restart.
+      base::EraseIf(overlays_, [this](auto& entry) {
+        const gpu::Mailbox& mailbox = entry.first;
+        return !scheduled_overlay_mailboxes_.contains(mailbox);
+      });
+    }
     scheduled_overlay_mailboxes_.clear();
+
     for (auto& [mailbox, overlay_data] : overlays_) {
       if (auto overlay_image = overlay_data.GetOverlayAccess()) {
         if (overlay_image->type() ==
@@ -263,8 +289,8 @@ void SkiaOutputDeviceDComp::ScheduleOverlays(
         dc_layer.resource_size_in_pixels.height());
 
     params.quad_rect = gfx::ToRoundedRect(dc_layer.display_rect);
-    CHECK(absl::holds_alternative<gfx::Transform>(dc_layer.transform));
-    params.transform = absl::get<gfx::Transform>(dc_layer.transform);
+    CHECK(std::holds_alternative<gfx::Transform>(dc_layer.transform));
+    params.transform = std::get<gfx::Transform>(dc_layer.transform);
     params.clip_rect = dc_layer.clip_rect;
     params.opacity = dc_layer.opacity;
     params.rounded_corner_bounds = dc_layer.rounded_corners;

@@ -164,10 +164,6 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
   void RegisterScrollCompleteCallback(ScrollCallback callback);
   void RunScrollCompleteCallbacks(ScrollCompletionMode);
 
-  void ContentAreaWillPaint() const;
-  void MouseEnteredContentArea() const;
-  void MouseExitedContentArea() const;
-  void MouseMovedInContentArea() const;
   void MouseEnteredScrollbar(Scrollbar&);
   void MouseExitedScrollbar(Scrollbar&);
   void MouseCapturedScrollbar();
@@ -237,7 +233,7 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
   // scroller.
   virtual void DidChangeGlobalRootScroller() {}
 
-  virtual void ContentsResized();
+  virtual void ContentsResized() {}
 
   // This is for platform overlay scrollbars only, doesn't include
   // overflow:overlay scrollbars. Probably this should be renamed to
@@ -373,6 +369,7 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
   // Returns a floored version of the scroll offset as the web-exposed scroll
   // offset to ensure web compatibility in DOM APIs.
   virtual ScrollOffset GetWebExposedScrollOffset() const;
+  ScrollOffset GetScrollOffsetForScrollMarkerUpdate();
   virtual gfx::Vector2d MinimumScrollOffsetInt() const = 0;
   virtual ScrollOffset MinimumScrollOffset() const {
     return ScrollOffset(MinimumScrollOffsetInt());
@@ -612,6 +609,7 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
 
   virtual void SetSnappedQueryTargetIds(
       std::optional<cc::TargetSnapAreaElementIds>) {}
+  virtual bool IsGlobalRootNonOverlayScroller() const { return false; }
 
   virtual ScrollMarkerGroupPseudoElement* GetScrollMarkerGroup() const {
     return nullptr;

@@ -1086,6 +1086,12 @@ NavigationEntryImpl* NavigationControllerImpl::GetLastCommittedEntry() {
   return entries_[last_committed_entry_index_].get();
 }
 
+const NavigationEntryImpl* NavigationControllerImpl::GetLastCommittedEntry()
+    const {
+  CHECK_NE(last_committed_entry_index_, -1);
+  return entries_[last_committed_entry_index_].get();
+}
+
 bool NavigationControllerImpl::CanViewSource() {
   const std::string& mime_type = frame_tree_->root()
                                      ->current_frame_host()
@@ -4951,8 +4957,9 @@ void NavigationControllerImpl::NavigateToNavigationApiKey(
   FrameTreeNode* node = initiator_rfh->frame_tree_node();
   FrameNavigationEntry* current_entry =
       GetLastCommittedEntry()->GetFrameEntry(node);
-  if (!current_entry)
+  if (!current_entry || !current_entry->committed_origin()) {
     return;
+  }
 
   // TODO(crbug.com/40878000): Make sure that the right task ID is passed
   // when `navigation.traverseTo()` is called.

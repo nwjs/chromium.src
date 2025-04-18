@@ -24,6 +24,7 @@ import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.Restriction;
+import org.chromium.build.BuildConfig;
 import org.chromium.chrome.browser.app.ChromeActivity;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.permissions.PermissionTestRule.PermissionUpdateWaiter;
@@ -519,6 +520,10 @@ public class EmbeddedPermissionPromptTest {
     @MediumTest
     @Features.EnableFeatures({PermissionsAndroidFeatureList.PERMISSION_ELEMENT})
     public void testDisableLocationSettingsPromptText() throws Exception {
+        String productName = "Chromium";
+        if (BuildConfig.IS_CHROME_BRANDED) {
+            productName = "Chrome";
+        }
         RuntimePermissionTestUtils.setupGeolocationSystemMock(false);
         String[] requestablePermission =
                 new String[] {
@@ -534,7 +539,7 @@ public class EmbeddedPermissionPromptTest {
                 "geolocation",
                 stringToContentSettingsType("geolocation"),
                 ContentSettingValues.BLOCK,
-                "To use your location on this site, give Chrome access",
+                "To use your location on this site, give " + productName + " access",
                 "Android settings",
                 /* expectedPositiveEphemeralButtonText */ "",
                 "Cancel");
@@ -544,6 +549,10 @@ public class EmbeddedPermissionPromptTest {
     @MediumTest
     @Features.EnableFeatures({PermissionsAndroidFeatureList.PERMISSION_ELEMENT})
     public void testOsSettingsPromptText() throws Exception {
+        String productName = "Chromium";
+        if (BuildConfig.IS_CHROME_BRANDED) {
+            productName = "Chrome";
+        }
         mTestAndroidPermissionDelegate =
                 new TestAndroidPermissionDelegate(new String[] {}, RuntimePromptResponse.DENY);
         runTest(
@@ -552,7 +561,7 @@ public class EmbeddedPermissionPromptTest {
                 "geolocation",
                 stringToContentSettingsType("geolocation"),
                 ContentSettingValues.ALLOW,
-                "To use your location on this site, give Chrome access",
+                "To use your location on this site, give " + productName + " access",
                 "Android settings",
                 /* expectedPositiveEphemeralButtonText */ "",
                 "Cancel");

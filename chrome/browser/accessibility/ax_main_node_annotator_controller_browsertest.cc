@@ -7,7 +7,6 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "build/build_config.h"
-#include "chrome/browser/accessibility/accessibility_state_utils.h"
 #include "chrome/browser/accessibility/ax_main_node_annotator_controller_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/screen_ai/screen_ai_install_state.h"
@@ -28,6 +27,7 @@
 #include "services/screen_ai/public/cpp/utilities.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/accessibility/ax_features.mojom-features.h"
+#include "ui/accessibility/platform/ax_platform.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/ash/accessibility/accessibility_manager.h"
@@ -101,12 +101,14 @@ class AXMainNodeAnnotatorControllerBrowserTest : public InProcessBrowserTest {
       speech_monitor_.Replay();
     }
 #else
+    content::BrowserAccessibilityState::GetInstance()->SetScreenReaderAppActive(
+        enabled);
     // Spoof a screen reader.
     if (!enabled) {
-      screen_reader_override_.reset();
-    } else if (!screen_reader_override_) {
-      screen_reader_override_.emplace(ui::AXMode::kWebContents |
-                                      ui::AXMode::kScreenReader);
+      ax_mode_override_.reset();
+    } else if (!ax_mode_override_) {
+      ax_mode_override_.emplace(ui::AXMode::kWebContents |
+                                ui::AXMode::kExtendedProperties);
     }
 #endif  // BUILDFLAG(IS_CHROMEOS)
   }
@@ -125,8 +127,7 @@ class AXMainNodeAnnotatorControllerBrowserTest : public InProcessBrowserTest {
 
   ash::test::SpeechMonitor speech_monitor_;
 #else
-  std::optional<content::ScopedAccessibilityModeOverride>
-      screen_reader_override_;
+  std::optional<content::ScopedAccessibilityModeOverride> ax_mode_override_;
 #endif
 
   base::test::ScopedFeatureList scoped_feature_list_;
@@ -155,7 +156,7 @@ IN_PROC_BROWSER_TEST_F(AXMainNodeAnnotatorControllerBrowserTest,
   web_contents = browser()->tab_strip_model()->GetActiveWebContents();
   // Wait for ChromeVox to attach to the new tab if needed.
   if (!web_contents->GetAccessibilityMode().has_mode(
-          ui::AXMode::kScreenReader)) {
+          ui::AXMode::kExtendedProperties)) {
     content::AccessibilityNotificationWaiter waiter(web_contents);
     ASSERT_TRUE(waiter.WaitForNotification());
   }
@@ -242,7 +243,8 @@ IN_PROC_BROWSER_TEST_F(AXMainNodeAnnotatorControllerBrowserTest,
                        EnabledByPreference) {
   // If the test is run with --force-renderer-accessibility, then initializing
   // the class causes the service to kick off. We need to force it to complete.
-  if (accessibility_state_utils::IsScreenReaderEnabled()) {
+  bool screen_reader = ui::AXPlatform::GetInstance().IsScreenReaderActive();
+  if (screen_reader) {
     CompleteServiceInitialization();
   } else {
     Connect();
@@ -257,7 +259,7 @@ IN_PROC_BROWSER_TEST_F(AXMainNodeAnnotatorControllerBrowserTest,
 
   // If the test is run without --force-renderer-accessibility, then no screen
   // reader should have been detected yet, and the feature should be off.
-  if (!accessibility_state_utils::IsScreenReaderEnabled()) {
+  if (!screen_reader) {
     EXPECT_FALSE(web_contents->GetAccessibilityMode().has_mode(
         ui::AXMode::kAnnotateMainNode));
     EnableScreenReader(true);

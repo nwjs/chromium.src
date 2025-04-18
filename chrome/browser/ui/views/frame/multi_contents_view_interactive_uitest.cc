@@ -66,26 +66,6 @@ class MultiContentsViewUiTest : public InteractiveBrowserTest {
     return result;
   }
 
-  auto FocusResizeHandle() {
-    using FocusObserver =
-        views::test::PollingViewObserver<bool, MultiContentsResizeHandle>;
-    DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(FocusObserver, kFocusObserver);
-
-    auto result = Steps(
-        WithView(MultiContentsResizeHandle::kMultiContentsResizeHandleElementId,
-                 [](MultiContentsResizeHandle* resize_handle) {
-                   resize_handle->RequestFocus();
-                 }),
-        PollView(kFocusObserver,
-                 MultiContentsResizeHandle::kMultiContentsResizeHandleElementId,
-                 [](const MultiContentsResizeHandle* resize_handle) -> bool {
-                   return resize_handle->HasFocus();
-                 }),
-        WaitForState(kFocusObserver, true));
-    AddDescriptionPrefix(result, "FocusResizeHandle()");
-    return result;
-  }
-
   auto CheckResizeKey(ui::KeyboardCode key_code,
                       base::RepeatingCallback<bool(double, double)> check) {
     // MultiContentsView overrides Layout, causing an edge case where resizes
@@ -97,10 +77,11 @@ class MultiContentsViewUiTest : public InteractiveBrowserTest {
                                         kMultiContentsViewLayoutObserver);
 
     auto result = Steps(
-        FocusResizeHandle(), Do([this, key_code]() {
-          ASSERT_TRUE(ui_test_utils::SendKeyPressSync(
-              browser(), key_code, false, false, false, false));
-        }),
+        FocusElement(
+            MultiContentsResizeHandle::kMultiContentsResizeHandleElementId),
+        SendKeyPress(
+            MultiContentsResizeHandle::kMultiContentsResizeHandleElementId,
+            key_code),
         PollView(kMultiContentsViewLayoutObserver,
                  MultiContentsView::kMultiContentsViewElementId,
                  [check](const MultiContentsView* multi_contents_view) -> bool {
@@ -144,8 +125,10 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, ActivatesInactiveView) {
       Check([&]() { return tab_strip_model()->active_index() == 1; }));
 }
 
-// TODO(crbug.com/399212996): Flaky on linux_chromium_asan_rel_ng.
-#if BUILDFLAG(IS_LINUX)
+// TODO(crbug.com/399212996): Flaky on linux_chromium_asan_rel_ng and
+// chromium/ci/Linux Chromium OS ASan LSan Tests (1).
+#if (defined(ADDRESS_SANITIZER) || defined(LEAK_SANITIZER)) && \
+    (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS))
 #define MAYBE_ResizesViaKeyboard DISABLED_ResizesViaKeyboard
 #else
 #define MAYBE_ResizesViaKeyboard ResizesViaKeyboard
@@ -177,4 +160,28 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, MAYBE_ResizesViaKeyboard) {
                                                            double end_width) {
                        return start_width > end_width;
                      })));
+}
+
+// Check that MultiContentsView only has insets on the contents views when in a
+// split, verify this by checking that the sum of the contents views and resize
+// area is less than the total width.
+// TODO(crbug.com/397777917): Once this bug is resolved, if MultiContentsView is
+// update to use interior margins then we should check whether those are set
+// here instead of checking widths.
+IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, InsetsOnlyInSplit) {
+  RunTestSequence(
+      Check([&]() {
+        return multi_contents_view()
+                   ->GetActiveContentsView()
+                   ->bounds()
+                   .width() == multi_contents_view()->bounds().width();
+      }),
+      EnterSplitView(), Check([&]() {
+        int contents_and_resize_width =
+            multi_contents_view()->GetActiveContentsView()->bounds().width() +
+            multi_contents_view()->GetInactiveContentsView()->bounds().width() +
+            multi_contents_view()->resize_area_for_testing()->bounds().width();
+        return contents_and_resize_width <
+               multi_contents_view()->bounds().width();
+      }));
 }

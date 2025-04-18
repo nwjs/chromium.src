@@ -859,6 +859,7 @@ ci.thin_tester(
         category = "mac",
         short_name = "13",
     ),
+    contact_team_email = "bling-engprod@google.com",
 )
 
 ci.thin_tester(
@@ -981,6 +982,7 @@ ci.thin_tester(
         targets = [
             "chromium_mac_gtests_no_nacl",
             "chromium_mac_rel_isolated_scripts",
+            "gtests_once",
         ],
         mixins = [
             "mac_14_x64",
@@ -1126,13 +1128,12 @@ ios_builder(
     ),
     gn_args = gn_args.config(
         configs = [
-            "compile_only",
+            "minimal_symbols",
             "ios_device",
             "arm64",
-            "ios_google_cert",
-            "ios_disable_code_signing",
             "release_builder",
             "remoteexec",
+            "xctest",
         ],
     ),
     targets = targets.bundle(
@@ -1141,6 +1142,17 @@ ios_builder(
         ],
         additional_compile_targets = [
             "all",
+        ],
+        mixins = [
+            "ci_only",
+            "expand-as-isolated-script",
+            "has_native_resultdb_integration",
+            "ios_restart_device",
+            "limited_capacity_bot",
+            "mac_toolchain",
+            "out_dir_arg",
+            "xcode_16_main",
+            "xctest",
         ],
     ),
     cpu = cpu.ARM64,

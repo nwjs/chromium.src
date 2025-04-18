@@ -7,10 +7,10 @@
 #import "components/password_manager/core/common/password_manager_pref_names.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
 #import "components/sync_preferences/testing_pref_service_syncable.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/safety_check/safety_check_prefs.h"
 #import "ios/chrome/browser/ntp_tiles/model/tab_resumption/tab_resumption_prefs.h"
 #import "ios/chrome/browser/safety_check/model/ios_chrome_safety_check_manager_constants.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
-#import "ios/chrome/browser/ui/content_suggestions/safety_check/safety_check_prefs.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
 #import "ios/chrome/test/testing_application_context.h"
 #import "testing/gtest/include/gtest/gtest.h"
@@ -176,6 +176,8 @@ TEST_F(BrowserPrefsTest, VerifyLocalStatePrefsMigration) {
   local_state()->SetInteger(
       prefs::kIosMagicStackSegmentationParcelTrackingImpressionsSinceFreshness,
       4);
+  local_state()->SetInteger(
+      prefs::kHomeCustomizationMagicStackSafetyCheckIssuesCount, 6);
 
   // Verify initial state before migration
 
@@ -229,6 +231,9 @@ TEST_F(BrowserPrefsTest, VerifyLocalStatePrefsMigration) {
           prefs::
               kIosMagicStackSegmentationTabResumptionImpressionsSinceFreshness),
       -1);
+  EXPECT_EQ(pref_service_.GetInteger(
+                prefs::kHomeCustomizationMagicStackSafetyCheckIssuesCount),
+            0);
 
   // Check Magic Stack Segmentation Impressions in local_state
   EXPECT_EQ(local_state()->GetInteger(
@@ -253,6 +258,9 @@ TEST_F(BrowserPrefsTest, VerifyLocalStatePrefsMigration) {
           prefs::
               kIosMagicStackSegmentationParcelTrackingImpressionsSinceFreshness),
       4);
+  EXPECT_EQ(local_state()->GetInteger(
+                prefs::kHomeCustomizationMagicStackSafetyCheckIssuesCount),
+            6);
 
   // Perform migration
   MigrateObsoleteLocalStatePrefs(local_state());
@@ -310,6 +318,9 @@ TEST_F(BrowserPrefsTest, VerifyLocalStatePrefsMigration) {
           prefs::
               kIosMagicStackSegmentationTabResumptionImpressionsSinceFreshness),
       2);
+  EXPECT_EQ(pref_service_.GetInteger(
+                prefs::kHomeCustomizationMagicStackSafetyCheckIssuesCount),
+            6);
 
   // Check Magic Stack Segmentation Impressions in local_state (should be -1)
   EXPECT_EQ(local_state()->GetInteger(
@@ -334,4 +345,7 @@ TEST_F(BrowserPrefsTest, VerifyLocalStatePrefsMigration) {
           prefs::
               kIosMagicStackSegmentationParcelTrackingImpressionsSinceFreshness),
       -1);
+  EXPECT_EQ(local_state()->GetInteger(
+                prefs::kHomeCustomizationMagicStackSafetyCheckIssuesCount),
+            0);
 }

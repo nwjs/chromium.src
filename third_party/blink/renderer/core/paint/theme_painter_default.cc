@@ -24,7 +24,8 @@
 
 #include "third_party/blink/renderer/core/paint/theme_painter_default.h"
 
-#include "third_party/abseil-cpp/absl/types/variant.h"
+#include <variant>
+
 #include "third_party/blink/public/platform/web_theme_engine.h"
 #include "third_party/blink/public/resources/grit/blink_image_resources.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
@@ -478,8 +479,7 @@ void ThemePainterDefault::SetupMenuListArrow(
     const ComputedStyle& style,
     const gfx::Rect& rect,
     WebThemeEngine::ExtraParams& extra_params) {
-  auto& menu_list =
-      absl::get<WebThemeEngine::MenuListExtraParams>(extra_params);
+  auto& menu_list = std::get<WebThemeEngine::MenuListExtraParams>(extra_params);
   WritingDirectionMode writing_direction = style.GetWritingDirection();
   PhysicalDirection block_end = writing_direction.BlockEnd();
   if (block_end == PhysicalDirection::kDown) {
@@ -559,11 +559,9 @@ bool ThemePainterDefault::PaintSliderTrack(const Element& element,
   // slider is vertical by computed appearance slider-vertical, then it should
   // behave like it has direction rtl and its value should be rendered
   // bottom-to-top.
-  slider.right_to_left =
-      (IsHorizontalWritingMode(writing_mode) && !is_slider_vertical) ||
-              is_writing_mode_vertical
-          ? !style.IsLeftToRightDirection()
-          : true;
+  slider.right_to_left = !style.IsLeftToRightDirection() ||
+                         (!is_writing_mode_vertical && is_slider_vertical);
+
   if (writing_mode == WritingMode::kSidewaysLr) {
     slider.right_to_left = !slider.right_to_left;
   }

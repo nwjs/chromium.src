@@ -29,11 +29,13 @@ Bəzi funksiyalar əlçatmaz ola bilər ki, nəticədə tərcihlərə edilən d�
 <translation id="1342274909142618978">Datanı Chromium-dan da silin (<ph name="URL" />)</translation>
 <translation id="1345251407431278948">Bərkidildi! Alətlər panelindəki yeni düymə ilə Şəkil Axtarışına yenidən daxil ola bilərsiniz</translation>
 <translation id="1356661055722410047">Yenilik! Həm ekrandakı mətni, həm də təsvirləri tərcümə edə bilərsiniz</translation>
+<translation id="1383876407941801731">Axtar</translation>
 <translation id="1414495520565016063">Chromium'a daxil oldunuz!</translation>
 <translation id="1465192221147974788">Pəncərəni paylaşmaq üçün Sistem Ayarlarında Chromium üzrə ekranın qeydə alınmasına icazə verin.</translation>
 <translation id="1478370723027452770">Sınaq üçün Chrome ilə bağlı kömək alın</translation>
 <translation id="1497802159252041924">Quraşdırma xətası: <ph name="INSTALL_ERROR" /></translation>
 <translation id="1524282610922162960">Chromium tabı paylaşın</translation>
+<translation id="1547469039832541117">Vurğulanan tapşırığı sonlandırır.</translation>
 <translation id="1553461853655228091">Chromium ətrafınızın 3D xəritəsini yaratmaq üçün kameranıza giriş icazəsi tələb edir</translation>
 <translation id="1555494096857516577">{NUM_EXTENSIONS,plural, =1{Bu artırma artıq dəstəklənmir. Chromium onu silməyinizi tövsiyə edir.}other{Bu artırmalar artıq dəstəklənmir. Chromium onları silməyinizi tövsiyə edir.}}</translation>
 <translation id="1574377791422810894">Chromium-un güvənlik alətləri</translation>
@@ -79,6 +81,7 @@ Bəzi funksiyalar əlçatmaz ola bilər ki, nəticədə tərcihlərə edilən d�
 <translation id="2049376729098081731">Google xidmətlərində daha çox fərdiləşdirilmiş təcrübə üçün Chromium tarixçəsinin daxil edilib-edilməməsini seçin</translation>
 <translation id="2086476982681781442">Bu fayl aldadıcı olduğu və cihaza gözlənilməz dəyişikliklər edə biləcəyi üçün Chromium endirməni blokladı</translation>
 <translation id="2088953378266246249">Chromium'un kök sertifikatlarını necə idarə etməsi haqqında məlumat</translation>
+<translation id="2099452623287920103">Google hesabınızda yadda saxladığınız parollar və digər Chromium datası bu cihazdan silinəcək. Onları Chromium-da yenidən istifadə etmək üçün təkrar daxil olun.</translation>
 <translation id="2120965832000301375">{COUNT,plural, =1{Chromium 1 dəqiqə istifadə edilmədikdə təşkilat baxış datasını avtomatik silir. Bura tarixçə, avtodoldurma və endirmələr daxil ola bilər. Tablar açıq qalacaq.}other{Chromium # dəqiqə istifadə edilmədikdə təşkilat baxış datasını avtomatik silir. Bura tarixçə, avtodoldurma və endirmələr daxil ola bilər. Tablar açıq qalacaq.}}</translation>
 <translation id="2126108037660393668">Endirilmiş fayl doğrulanmadı.</translation>
 <translation id="2137162749895930932">Tərcümə ekranını bağlayın</translation>
@@ -94,6 +97,7 @@ Bəzi funksiyalar əlçatmaz ola bilər ki, nəticədə tərcihlərə edilən d�
 <translation id="2238130810669087193">Ünvanları və s. datanı bütün cihazlarınızda əldə etmək üçün Chromium-a daxil olun. Daxil olduqdan sonra bu ünvan Google Hesabında yadda saxlanılacaq.</translation>
 <translation id="2240214816234246077">Bu yaxınlarda daxil olmamısınız. Chromium sildi: <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /></translation>
 <translation id="2241627712206172106">Paylaşılan kompüteriniz varsa, kompüterin paylaşıldığı şəxslər ayrı-ayrılıqda istifadə edə və Chromium'u istədikləri kimi quraşdıra bilər.</translation>
+<translation id="2287771843518581140">{NUM_TABS,plural, =1{Chromium brauzeri yavaşladan tabı durdurmağı tövsiyə edir}other{Chromium brauzeri yavaşladan tabları durdurmağı tövsiyə edir}}</translation>
 <translation id="2313870531055795960">URL'ləri Chromium'da saxlanılan təhlükəli saytların siyahısı ilə yoxlayır Sayt parolunuzu oğurlamağa çalışdıqda və ya zərərli fayl endirdiyinizdə Chromium səhifə məzmunundan kiçik nümunələr də daxil olmaqla, URL'ləri Təhlükəsiz Baxışa göndərə bilər.</translation>
 <translation id="2343156876103232566">Buradan Android telefonunuza nömrə göndərmək üçün hər iki cihazda Chromium'a daxil olun.</translation>
 <translation id="2359808026110333948">Davam edin</translation>
@@ -119,6 +123,7 @@ Bəzi funksiyalar əlçatmaz ola bilər ki, nəticədə tərcihlərə edilən d�
 <translation id="2583187216237139145">Bu profilin istifadəsi zamanı yaranan hər hansı bir Chromium datası (əlfəcinlər, tarixçələr, parolların yaradılması və digər ayarlar kimi) iş profili administratoru tərəfindən silinə bilər. <ph name="LEARN_MORE" /></translation>
 <translation id="2592940277904433508">Chromium istifadəsinə davam edin</translation>
 <translation id="259935314519650377">Endirilmiş quraşdırıcı keşlənmədi. Xəta: <ph name="UNPACK_CACHING_ERROR_CODE" />.</translation>
+<translation id="2620436844016719705">Sistem</translation>
 <translation id="2629740064077610681">Təşkilat əlfəcin, tarixçə və parollar kimi axtarış datasını görə və idarə edə bilər. Digər Chromium profillərindəki axtarış datasını görə bilməz</translation>
 <translation id="2635452620547538388">Chromium datasını hesabınızda (<ph name="ACCOUNT_EMAIL" />) istifadə etmək və yadda saxlamaq üçün kimliyinizi doğrulayın</translation>
 <translation id="264613044588233783">Chromium sürətli işləyir və JavaScript istifadə edən funksiyalar nəzərdə tutulan kimi işləməlidir (tövsiyə olunur)</translation>
@@ -129,12 +134,11 @@ Bəzi funksiyalar əlçatmaz ola bilər ki, nəticədə tərcihlərə edilən d�
 <translation id="2721354645805494590">Google Hesabını Chromium-dan silmək üçün çıxın</translation>
 <translation id="2738871930057338499">İnternetə qoşulmaq olmur. HTTP 403 qadağan edilib. Proksi konfiqurasiyasını yoxlayın.</translation>
 <translation id="2753623023919742414">Klikləyərək axtarın</translation>
+<translation id="2768103863314748511">Chromium-u defolt PDF görüntüləyicisi kimi təyin edin</translation>
 <translation id="2770231113462710648">Defolt brauzeri dəyişin:</translation>
-<translation id="277338894894732084">Sonra Chromium formaları avtomatik doldurmaq üçün yadda saxlanmış məlumatdan istifadə etmək istəyib-istəmədiyinizi soruşacaq</translation>
 <translation id="2785438272836277133">Bu artırmada zərərli proqram var və təhlükəlidir. Onu Chromium-dan silin ki, daxil olduğunuz saytlardakı dataya, o cümlədən şəxsi məlumatlara baxa və onları dəyişə bilməsin.</translation>
 <translation id="2799223571221894425">Yenidən başladın</translation>
 <translation id="2803971713792056305">Sizin Chromium</translation>
-<translation id="2806241689335397269">Chromium ad günü, yaş və pasport nömrəsi kimi forma məlumatlarını yadda saxlamaq istəyib-istəmədiyinizi soruşacaq</translation>
 <translation id="2841525013647267359">Mənbə dil:</translation>
 <translation id="2846251086934905009">Quraşdırma xətası: Quraşdırıcı prosesi tamamlanmadı. Quraşdırma dayandırıldı.</translation>
 <translation id="2847479871509788944">Chromium'dan silin...</translation>
@@ -149,6 +153,7 @@ Bəzi funksiyalar əlçatmaz ola bilər ki, nəticədə tərcihlərə edilən d�
 <translation id="2977470724722393594">Chromium güncəldir</translation>
 <translation id="2977506796191543575">Sayt parolunuzu oğurlamağa çalışdıqda və ya zərərli fayl endirdiyinizdə Chromium səhifə məzmunundan kiçik nümunələr də daxil olmaqla, URL'ləri Təhlükəsiz Baxışa göndərə bilər</translation>
 <translation id="2981563588585023386">Onlayn təhlükəsizliyinizi valideyninizin seçimləri ilə qorumaq üçün Chromium-a daxil olun</translation>
+<translation id="3003694935412297923">Bütün tapşırıqlar</translation>
 <translation id="3013473503895162900">Chromium-da yeni tabda <ph name="URL" /> açın.</translation>
 <translation id="3032706164202344641">Chromium parollarınızı yoxlaya bilmir. Sonra yenidən cəhd edin.</translation>
 <translation id="3032787606318309379">Xrom durub ...</translation>
@@ -168,6 +173,7 @@ Bəzi funksiyalar əlçatmaz ola bilər ki, nəticədə tərcihlərə edilən d�
 <translation id="3179665906251668410">Linki Gizli Chromium Pəncərəsində açın</translation>
 <translation id="3185330573522821672">Yeni Chromium profilinizi fərdiləşdirin</translation>
 <translation id="3224847870593914902">Google Hesabını Chromium-dan silmək üçün Ayarlar səhifəsində Chromium-dan çıxın</translation>
+<translation id="3234316605225071811">Sonra Chromium formaları avtomatik doldurmaq üçün yadda saxlanmış məlumatdan istifadə etmək istəyib-istəmədiyinizi soruşa bilər</translation>
 <translation id="3258596308407688501">Chromium öz data direktivini oxuya və yaza bilməz:  <ph name="USER_DATA_DIRECTORY" /></translation>
 <translation id="3268051428841342958">V8 Chromium-un sayt performansını yaxşılaşdırmaq üçün istifadə edilən JavaScript və WebAssembly mexanizmidir</translation>
 <translation id="3286538390144397061">İndi yenidən başladın</translation>
@@ -178,7 +184,6 @@ Bəzi funksiyalar əlçatmaz ola bilər ki, nəticədə tərcihlərə edilən d�
 <translation id="3387527074123400161">ChromiumOS</translation>
 <translation id="3406848076815591792">Mövcud Chromium profilinə keçirilsin?</translation>
 <translation id="3412460710772753638">Bu cihazda Parol Menecerində</translation>
-<translation id="3451656833730006755">Artırma və digərlərini bütün kompüterlərinizdə əldə etmək üçün Chromium-a daxil olun</translation>
 <translation id="347328004046849135">Oğurlanmış parol ilə daxil olduqda Chromium sizə bildiriş göndərəcək</translation>
 <translation id="3474745554856756813"><ph name="ITEMS_COUNT" /> element bu cihazdan silinəcək. Sonradan datanızı bərpa etmək üçün Chromiuma <ph name="USER_EMAIL" /> kimi daxil olun.</translation>
 <translation id="3497319089134299931"><ph name="SHORTCUT" /> Chromium profilləri arasında keçid edə bilər</translation>
@@ -227,6 +232,7 @@ Bəzi funksiyalar əlçatmaz ola bilər ki, nəticədə tərcihlərə edilən d�
 <translation id="4148957013307229264">Quraşdırılır...</translation>
 <translation id="419998258129752635"><ph name="PAGE_TITLE" /> - Şəbəkəyə Giriş - Chromium</translation>
 <translation id="421369550622382712">Chromium üçün möhtəşəm tətbiqlər, oyunlar, artırmalar və temalar kəşf edin.</translation>
+<translation id="4217080900579554343">Bu artırmanı və digərlərini bütün kompüterlərinizdə əldə etmək üçün Chromium-a daxil olun</translation>
 <translation id="4217972271355023382">Onlayn təhlükəsizliyinizi valideyninizin seçimləri ilə qorumaq üçün artıq <ph name="USER_EMAIL_ADDRESS" /> kimi daxil olduğunuz Chromium profilinə keçin</translation>
 <translation id="4222932583846282852">Ləğv edilir...</translation>
 <translation id="4224210481850767180">Quraşdırma ləğv edildi.</translation>
@@ -262,6 +268,7 @@ Bəzi funksiyalar əlçatmaz ola bilər ki, nəticədə tərcihlərə edilən d�
 <translation id="4570813286784708942">Güvənli Baxış deaktiv olduğu və bu fayl doğrulanmadığı üçün Chromium endirməni blokladı</translation>
 <translation id="4594305310729380060">Bu cihazda Parol Menecerinə</translation>
 <translation id="459535195905078186">Chromium Tətbiqləri</translation>
+<translation id="4598116752460667024">Siyahıdan istənilən prosesi axtarın.</translation>
 <translation id="4613863813562375431">ChromiumOS versiyası</translation>
 <translation id="4621240073146040695">Güncəllənmək üzrədir. Güncəlləşməni tamamlamaq üçün Chromium'u yenidən işə salın.</translation>
 <translation id="4665829708273112819">Xəbərdarlıq: Chromium artırmaların brauzer tarixçənizi yazmasının qarşısını ala bilməz. Bu artırmanı Anonim rejimdə deaktiv etmək üçün bu seçimi ləğv edin.</translation>
@@ -308,6 +315,7 @@ Bəzi funksiyalar əlçatmaz ola bilər ki, nəticədə tərcihlərə edilən d�
 <translation id="5405650547142096840">Chromium'dan silin</translation>
 <translation id="5427571867875391349">Chromium'u defolt brauzer təyin edin</translation>
 <translation id="5438241569118040789"><ph name="PAGE_TITLE" /> - Chromium Beta</translation>
+<translation id="5460618461609401056">{NUM_TABS,plural, =1{Chromium brauzeri yavaşladan tabı durdurmağı tövsiyə edir}other{Chromium brauzeri yavaşladan tabları durdurmağı tövsiyə edir}}</translation>
 <translation id="5473971139929175403">Chromium düzgün işləməyə bilər, çünki daha Linux sistemi üzərində dəstəklənmir</translation>
 <translation id="5475924890392386523">Chromium bu endirməni blokladı. Çünki fayl şəxsi və sosial şəbəkə hesablarını zədələyə bilər</translation>
 <translation id="5480860683791598150">Chromium məkanı bu saytla paylaşmaq üçün ona giriş tələb edir</translation>
@@ -339,6 +347,7 @@ Bəzi funksiyalar əlçatmaz ola bilər ki, nəticədə tərcihlərə edilən d�
 <translation id="5903106910045431592"><ph name="PAGE_TITLE" /> - Şəbəkəyə Giriş</translation>
 <translation id="5924017743176219022">İnternetə qoşulur...</translation>
 <translation id="5941711191222866238">Minimallaşdırın</translation>
+<translation id="5949225980829865667">Bu əlfəcini və digərlərini bütün cihazlarınızda əldə etmək üçün Chromium-a daxil olun</translation>
 <translation id="5972142260211327093">Chromium təsadüfi olaraq sizi aktiv sınağa təyin edibsə, baxış tarixçəniz gördüyünüz reklamlara və aşağıda təxmin edilən maraqlara təsir edir. Məxfiliyinizi qorumaq üçün Chromium hər ay maraqlarınızı növbəlilik əsasında silir. Silmədiyiniz təqdirdə maraqlar yenilənir.</translation>
 <translation id="5986585015444752010">{COUNT,plural, =1{Chromium 1 dəqiqə istifadə edilmədikdə təşkilat onu avtomatik bağlayır.}other{Chromium # dəqiqə istifadə edilmədikdə təşkilat onu avtomatik bağlayır.}}</translation>
 <translation id="5987687638152509985">Sinxronizasiyanı başlatmaq üçün Chromium'u güncəlləyin</translation>
@@ -427,6 +436,7 @@ Bəzi funksiyalar əlçatmaz ola bilər. Xüsusi profil direktoriyası göstəri
 <translation id="6857782730669500492">Chromium - <ph name="PAGE_TITLE" /></translation>
 <translation id="6873893289264747459">Chromium "<ph name="EXTENSION_NAME" />" artırmasında zərərli proqram olduğunu aşkar edib</translation>
 <translation id="6896758677409633944">Kopyalayın</translation>
+<translation id="6901631050894301805">Chromium-u defolt brauzer kimi ayarlayın və tapşırıqlar panelinə bərkidin</translation>
 <translation id="6929417474050522668">Sınaqlar aktiv olduqda, reklamın ölçülməsi ziyarət etdiyiniz saytlara Chromium'dan sayta reklamlarının performansını ölçməyə kömək edən məlumat tələb etməyə imkan verir. Reklamın ölçülməsi saytlar arasında mümkün qədər az məlumat ötürməklə saytlararası izləməni məhdudlaşdırır.</translation>
 <translation id="6940431691900807093">Daha sonra ziyarət etdiyiniz sayt gördüyünüz reklamları fərdiləşdirmək üçün Chromium'dan maraqlarınızı görməyi tələb edə bilər. Chromium 3-ə qədər marağı paylaşa bilər.</translation>
 <translation id="6964305034639999644">Linki gizli Chromium pəncərəsində açın</translation>
@@ -451,6 +461,7 @@ Bəzi funksiyalar əlçatmaz ola bilər. Xüsusi profil direktoriyası göstəri
 <translation id="7223968959479464213">Tapşırıq Meneceri - Chromium</translation>
 <translation id="7246575524853130370">Chromium tərəfindən təxmin edilən maraqlarınız</translation>
 <translation id="7274695763216404502">Bərkidildi! Alətlər panelində yenidən Şəkil Axtarışından istifadə edin</translation>
+<translation id="7288567540154601580">Tab və artırmalar</translation>
 <translation id="7295544978856094497">{NUM_EXTENSIONS,plural, =1{Chromium onu silməyinizi tövsiyə edir}other{Chromium onları silməyinizi tövsiyə edir}}</translation>
 <translation id="7309928523159922338">Reklamın ölçülməsi ziyarət etdiyiniz saytlara Chromium'dan sayta reklamlarının performansını ölçməyə kömək edən məlumat tələb etməyə imkan verir. Reklamın ölçülməsi saytlar arasında mümkün qədər az məlumat ötürməklə saytlararası izləməni məhdudlaşdırır.</translation>
 <translation id="731795002583552498">Chromium güncəlləşir</translation>
@@ -458,9 +469,7 @@ Bəzi funksiyalar əlçatmaz ola bilər. Xüsusi profil direktoriyası göstəri
 <translation id="7339898014177206373">Yeni pəncərə</translation>
 <translation id="734373864078049451">Veb, əlfəcinlər və Chromium'a aid hər şeyiniz buradadır.</translation>
 <translation id="7349591376906416160">Sistem administratorunun konfiqurasiyasına əsasən Chromium <ph name="TARGET_URL_HOSTNAME" /> ünvanına daxil olmaq üçün <ph name="ALTERNATIVE_BROWSER_NAME" /> tətbiqini aça bilər.</translation>
-<translation id="7355355292030546812">Chromium bu endirməni blokladı. Çünki fayl <ph name="USER_EMAIL" /> daxil olmaqla şəxsi və sosial şəbəkə hesablarını zədələyə bilər</translation>
 <translation id="7384121030444253939">Bu artırma artıq dəstəklənmir. Chromium onu silməyinizi tövsiyə edir.</translation>
-<translation id="7389750180956889333">Chromium formaları daha yaxşı başa düşür və onları sizin üçün daha tez avtomatik doldura bilər. <ph name="BEGIN_LINK" />Chrome avtodoldurma<ph name="END_LINK" /> haqqında ətraflı məlumat əldə edin</translation>
 <translation id="7449453770951226939"><ph name="PAGE_TITLE" /> - Chromium Dev</translation>
 <translation id="7450541714075000668">Mətn kopyalandı</translation>
 <translation id="7451052299415159299">Chromium bu sayt üçün kameraya giriş tələb edir</translation>
@@ -497,6 +506,7 @@ Bəzi funksiyalar əlçatmaz ola bilər. Xüsusi profil direktoriyası göstəri
 <translation id="7937630085815544518">Chromium'a <ph name="USER_EMAIL_ADDRESS" /> kimi daxil olmuşdunuz. Lütfən, yenidən daxil olmaq üçün eyni hesabdan istifadə edin.</translation>
 <translation id="7975919845073681630">Bu Chromium'un ikinci quraşdırmasıdır və defolt brauzer kimi ayarlana bilmir.</translation>
 <translation id="7997934263947464652">Naməlum mənbələrdən olan artırmalar, tətbiqlər və temalar cihazınıza zərər verə bilər. Chromium onları yalnız buradan quraşdırmağı tövsiyə edir: <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /></translation>
+<translation id="8004582292198964060">Brauzer</translation>
 <translation id="8010081455002666927">Avto-aşkarlama</translation>
 <translation id="8013436988911883588">Chromium'un giriş imkanı olduqda veb saytlar giriş üçün Sizdən icazə istəyəcək.</translation>
 <translation id="80471789339884597">Quraşdırdığınız üçün təşəkkür edirik. <ph name="BUNDLE_NAME" /> istifadə etməzdən əvvəl bütün brauzerlərinizi yenidən başlatmalısınız.</translation>

@@ -26,6 +26,7 @@ import org.chromium.base.ResettersForTesting;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.Supplier;
+import org.chromium.build.BuildConfig;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.app.tab_activity_glue.ReparentingTask;
 import org.chromium.chrome.browser.app.tabmodel.TabModelOrchestrator;
@@ -517,11 +518,25 @@ public class MultiInstanceManager
     }
 
     public void moveTabGroupToWindow(
-            Activity activity, TabGroupMetadata tabGroupMetadata, int atIndex) {
+            Activity activity,
+            TabGroupMetadata tabGroupMetadata,
+            int atIndex,
+            @Nullable Runnable onFinishedRunnable) {
         // Not implemented
     }
 
-    protected void moveTabToOtherWindow(Tab tab) {
+    /**
+     * If there's only one window currently, moves {@param tab} to a new window. Otherwise, opens a
+     * dialog to select which window to move {@param tab} to.
+     *
+     * @param tab The tab to move.
+     */
+    public void moveTabToOtherWindow(Tab tab) {
+        if (MultiWindowUtils.getInstanceCount() == 1) {
+            moveTabToNewWindow(tab);
+            return;
+        }
+
         Intent intent = mMultiWindowModeStateDispatcher.getOpenInOtherWindowIntent();
         if (intent == null) return;
 
@@ -638,7 +653,9 @@ public class MultiInstanceManager
      */
     public void cleanupSyncedTabGroupsIfOnlyInstance(TabModelSelector selector) {
         // Should only happen in tests.
-        if (selector == null) return;
+        if (BuildConfig.IS_FOR_TEST && selector == null) return;
+
+        assert selector != null;
 
         TabModelUtils.runOnTabStateInitialized(
                 selector,

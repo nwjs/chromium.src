@@ -2659,6 +2659,13 @@ TEST_P(PartitionAllocDeathTest, ImmediateDoubleFree) {
   EXPECT_TRUE(ptr);
   allocator.root()->Free(ptr);
   EXPECT_DEATH(allocator.root()->Free(ptr), "");
+  if (
+#if PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
+      allocator.root()->brp_enabled() ||
+#endif  // PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
+      allocator.root()->settings.use_cookie) {
+    EXPECT_DEATH(allocator.root()->CheckMetadataIntegrity(ptr), "");
+  }
 }
 
 // As above, but when this isn't the only slot in the span.
@@ -2669,6 +2676,13 @@ TEST_P(PartitionAllocDeathTest, ImmediateDoubleFree2ndSlot) {
   EXPECT_TRUE(ptr);
   allocator.root()->Free(ptr);
   EXPECT_DEATH(allocator.root()->Free(ptr), "");
+  if (
+#if PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
+      allocator.root()->brp_enabled() ||
+#endif  // PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
+      allocator.root()->settings.use_cookie) {
+    EXPECT_DEATH(allocator.root()->CheckMetadataIntegrity(ptr), "");
+  }
   allocator.root()->Free(ptr0);
 }
 
@@ -2828,6 +2842,8 @@ TEST_P(PartitionAllocDeathTest, OffByOneDetectionByCookie) {
   // Crash at `free()`, either by cookie check failure or InSlotMetadata
   // corruption.
   EXPECT_DEATH(allocator.root()->Free(array), "");
+  // It should also crash with `CheckMetadataIntegrity()`.
+  EXPECT_DEATH(allocator.root()->CheckMetadataIntegrity(array), "");
   // Restore integrity, otherwise the process will crash in TearDown().
   array[usable_size] = previous_value;
   allocator.root()->Free(array);
@@ -2852,6 +2868,8 @@ TEST_P(PartitionAllocDeathTest, OffByOneDetectionByCookieWithRealisticData) {
   // Crash at `free()`, either by cookie check failure or InSlotMetadata
   // corruption.
   EXPECT_DEATH(allocator.root()->Free(array), "");
+  // It should also crash with `CheckMetadataIntegrity()`.
+  EXPECT_DEATH(allocator.root()->CheckMetadataIntegrity(array), "");
   // Restore integrity, otherwise the process will crash in TearDown().
   array[usable_size] = previous_value;
   allocator.root()->Free(array);
@@ -4531,7 +4549,9 @@ TEST_P(PartitionAllocTest, RefCountBasic) {
   }
 
   constexpr uint64_t kCookie = 0x1234567890ABCDEF;
+#if !PA_BUILDFLAG(IS_IOS)
   constexpr uint64_t kQuarantined = 0xEFEFEFEFEFEFEFEF;
+#endif  // !PA_BUILDFLAG(IS_IOS)
 
   size_t alloc_size = 64 - ExtraAllocSize(allocator);
   uint64_t* ptr1 =
@@ -4556,8 +4576,10 @@ TEST_P(PartitionAllocTest, RefCountBasic) {
   // The allocation shouldn't be reclaimed, and its contents should be zapped.
   // Retag ptr1 to get its correct MTE tag.
   ptr1 = TagPtr(ptr1);
+#if !PA_BUILDFLAG(IS_IOS)
   EXPECT_NE(*ptr1, kCookie);
   EXPECT_EQ(*ptr1, kQuarantined);
+#endif  // !PA_BUILDFLAG(IS_IOS)
 
   // The allocator should not reuse the original slot since its reference count
   // doesn't equal zero.

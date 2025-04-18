@@ -185,9 +185,10 @@ bool IsAlwaysAllowedSignoutSources(
     case signin_metrics::ProfileSignout::kDeviceLockRemovedOnAutomotive:
     case signin_metrics::ProfileSignout::kRevokeSyncFromSettings:
     case signin_metrics::ProfileSignout::kIdleTimeoutPolicyTriggeredSignOut:
-    case signin_metrics::ProfileSignout::kChangeAccountInAccountMenu:
+    case signin_metrics::ProfileSignout::kSignoutForAccountSwitching:
     case signin_metrics::ProfileSignout::kUserClickedSignoutInAccountMenu:
     case signin_metrics::ProfileSignout::kUserDisabledAllowChromeSignIn:
+    case signin_metrics::ProfileSignout::kSignoutBeforeSupervisedSignin:
       return false;
 
     case signin_metrics::ProfileSignout::kAccountRemovedFromDevice:
@@ -317,9 +318,10 @@ const signin_metrics::ProfileSignout kSignoutSources[] = {
     signin_metrics::ProfileSignout::kCancelSyncConfirmationRemoveAccount,
     signin_metrics::ProfileSignout::kMovePrimaryAccount,
     signin_metrics::ProfileSignout::kSignoutDuringProfileDeletion,
-    signin_metrics::ProfileSignout::kChangeAccountInAccountMenu,
+    signin_metrics::ProfileSignout::kSignoutForAccountSwitching,
     signin_metrics::ProfileSignout::kUserClickedSignoutInAccountMenu,
     signin_metrics::ProfileSignout::kUserDisabledAllowChromeSignIn,
+    signin_metrics::ProfileSignout::kSignoutBeforeSupervisedSignin,
 };
 
 // kNumberOfObsoleteSignoutSources should be updated when a ProfileSignout

@@ -161,8 +161,11 @@ void GPUDevice::Initialize(wgpu::Device handle,
                            const GPUDeviceDescriptor* descriptor,
                            GPUDeviceLostInfo* lost_info) {
   SetHandle(std::move(handle));
-  features_ = MakeGarbageCollected<GPUSupportedFeatures>(
-      descriptor->requiredFeatures());
+
+  wgpu::SupportedFeatures features;
+  GetHandle().GetFeatures(&features);
+  features_ = MakeGarbageCollected<GPUSupportedFeatures>(features);
+
   queue_ = MakeGarbageCollected<GPUQueue>(this, GetHandle().GetQueue(),
                                           descriptor->defaultQueue()->label());
 
@@ -442,7 +445,7 @@ void GPUDevice::OnCreateRenderPipelineAsyncCallback(
     }
 
     case wgpu::CreatePipelineAsyncStatus::InternalError:
-    case wgpu::CreatePipelineAsyncStatus::InstanceDropped: {
+    case wgpu::CreatePipelineAsyncStatus::CallbackCancelled: {
       resolver->Reject(GPUPipelineError::Create(
           script_state->GetIsolate(), StringFromASCIIAndUTF8(message),
           V8GPUPipelineErrorReason::Enum::kInternal));
@@ -474,7 +477,7 @@ void GPUDevice::OnCreateComputePipelineAsyncCallback(
     }
 
     case wgpu::CreatePipelineAsyncStatus::InternalError:
-    case wgpu::CreatePipelineAsyncStatus::InstanceDropped: {
+    case wgpu::CreatePipelineAsyncStatus::CallbackCancelled: {
       resolver->Reject(GPUPipelineError::Create(
           script_state->GetIsolate(), StringFromASCIIAndUTF8(message),
           V8GPUPipelineErrorReason::Enum::kInternal));
@@ -689,15 +692,15 @@ void GPUDevice::OnPopErrorScopeCallback(
     wgpu::ErrorType type,
     wgpu::StringView message) {
   switch (status) {
-    case wgpu::PopErrorScopeStatus::InstanceDropped:
+    case wgpu::PopErrorScopeStatus::CallbackCancelled:
       resolver->RejectWithDOMException(DOMExceptionCode::kOperationError,
                                        "Instance dropped in popErrorScope");
       return;
     case wgpu::PopErrorScopeStatus::Success:
       break;
-    case wgpu::PopErrorScopeStatus::EmptyStack:
+    case wgpu::PopErrorScopeStatus::Error:
       resolver->RejectWithDOMException(DOMExceptionCode::kOperationError,
-                                       "No error scopes to pop");
+                                       StringFromASCIIAndUTF8(message));
       return;
   }
   switch (type) {

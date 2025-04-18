@@ -29,6 +29,7 @@ ci.defaults.set(
     main_console_view = "main",
     execution_timeout = ci.DEFAULT_EXECUTION_TIMEOUT,
     health_spec = health_spec.DEFAULT,
+    reclient_enabled = False,
     service_account = ci.DEFAULT_SERVICE_ACCOUNT,
     shadow_service_account = ci.DEFAULT_SHADOW_SERVICE_ACCOUNT,
     siso_enabled = True,
@@ -138,6 +139,7 @@ ci.builder(
     gn_args = gn_args.config(
         configs = [
             "android_builder_without_codecs",
+            "enable_android_secondary_abi",
             "release_builder",
             "remoteexec",
             "minimal_symbols",
@@ -196,6 +198,7 @@ ci.builder(
         configs = [
             "android_builder_without_codecs",
             "android_desktop",
+            "enable_android_secondary_abi",
             "release_builder",
             "remoteexec",
             "minimal_symbols",
@@ -258,6 +261,7 @@ ci.builder(
         configs = [
             "android_builder_without_codecs",
             "android_desktop",
+            "enable_android_secondary_abi",
             "release_builder",
             "remoteexec",
             "minimal_symbols",

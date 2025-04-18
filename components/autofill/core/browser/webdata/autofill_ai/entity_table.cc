@@ -39,16 +39,8 @@ void* GetKey() {
   return reinterpret_cast<void*>(&key);
 }
 
-// TODO(crbug.com/394292801): Remove when we migrate to WebDatabase's
-// versioning.
-namespace version {
-constexpr char kTableName[] = "entities_version";
-constexpr char kVersion[] = "version";
-constexpr int kCurrentVersion = 7;
-}  // namespace version
-
 namespace attributes {
-constexpr char kTableName[] = "attributes";
+constexpr char kTableName[] = "autofill_ai_attributes";
 constexpr char kEntityGuid[] = "entity_guid";
 constexpr char kAttributeType[] = "attribute_type";
 constexpr char kFieldType[] = "field_type";
@@ -57,7 +49,7 @@ constexpr char kVerificationStatus[] = "verification_status";
 }  // namespace attributes
 
 namespace entities {
-constexpr char kTableName[] = "entities";
+constexpr char kTableName[] = "autofill_ai_entities";
 constexpr char kGuid[] = "guid";
 constexpr char kEntityType[] = "entity_type";
 constexpr char kNickname[] = "nickname";
@@ -93,27 +85,50 @@ void HandleTestSwitchesIfNeeded(sql::Database* db, EntityTable& table) {
   }
 
   if (add) {
+    auto create_attribute = [](AttributeTypeName type_name,
+                               std::u16string value) -> AttributeInstance {
+      auto type = AttributeType(type_name);
+      auto instance = AttributeInstance(AttributeType(type));
+      instance.SetInfo(instance.type().field_type(), value, /*app_locale=*/"",
+                       /*format_string=*/
+                       IsDateFieldType(type.field_type()) ? u"YYYY-MM-DD" : u"",
+                       VerificationStatus::kNoStatus);
+      return instance;
+    };
+
     using enum AttributeTypeName;
-    {
-      // Add a passport instance.
-      AttributeInstance number((AttributeType(kPassportNumber)));
-      AttributeInstance name((AttributeType(kPassportName)));
-      AttributeInstance country((AttributeType(kPassportCountry)));
-      AttributeInstance expiry_date((AttributeType(kPassportExpiryDate)));
-      AttributeInstance issue_date((AttributeType(kPassportIssueDate)));
-      number.SetInfo(PASSPORT_NUMBER, u"123", /*app_locale=*/"");
-      name.SetInfo(NAME_FULL, u"Pippi Långstrump", /*app_locale=*/"");
-      country.SetInfo(ADDRESS_HOME_COUNTRY, u"Sweden", /*app_locale=*/"");
-      expiry_date.SetInfo(PASSPORT_EXPIRATION_DATE_TAG, u"2098-09-01",
-                          /*app_locale=*/"");
-      issue_date.SetInfo(PASSPORT_ISSUE_DATE_TAG, u"1998-10-11",
-                         /*app_locale=*/"");
-      table.AddOrUpdateEntityInstance(EntityInstance(
-          EntityType(EntityTypeName::kPassport),
-          {number, name, country, expiry_date, issue_date},
-          base::Uuid::ParseLowercase("00000000-0000-4000-8000-000000000000"),
-          "Passie", base::Time::Now()));
-    }
+
+    table.AddOrUpdateEntityInstance(EntityInstance(
+        EntityType(EntityTypeName::kPassport),
+        {create_attribute(kPassportNumber, u"123"),
+         create_attribute(kPassportName, u"Pippi Långstrump"),
+         create_attribute(kPassportCountry, u"Sweden"),
+         create_attribute(kPassportExpirationDate, u"2035-03-31"),
+         create_attribute(kPassportIssueDate, u"1998-10-11")},
+        base::Uuid::ParseLowercase("00000000-0000-4000-8000-123000000000"),
+        "My passport", base::Time::Now()));
+
+    table.AddOrUpdateEntityInstance(EntityInstance(
+        EntityType(EntityTypeName::kDriversLicense),
+        {create_attribute(kDriversLicenseNumber, u"456"),
+         create_attribute(kDriversLicenseName, u"Jim Hacker"),
+         create_attribute(kDriversLicenseState, u"California"),
+         create_attribute(kDriversLicenseExpirationDate, u"2069-12-31"),
+         create_attribute(kDriversLicenseIssueDate, u"1969-12-24")},
+        base::Uuid::ParseLowercase("00000000-0000-4000-8000-456000000000"),
+        "My license", base::Time::Now()));
+
+    table.AddOrUpdateEntityInstance(EntityInstance(
+        EntityType(EntityTypeName::kVehicle),
+        {create_attribute(kVehicleMake, u"BMW"),
+         create_attribute(kVehicleModel, u"3 series"),
+         create_attribute(kVehicleYear, u"2024"),
+         create_attribute(kVehicleOwner, u"Humphrey Appleby"),
+         create_attribute(kVehiclePlateNumber, u"SUNNY1133"),
+         create_attribute(kVehiclePlateState, u"California"),
+         create_attribute(kVehicleVin, u"3D73Y4CL2AG194665")},
+        base::Uuid::ParseLowercase("00000000-0000-4000-8000-789000000000"),
+        "My wroom wroom car", base::Time::Now()));
   }
 }
 
@@ -132,35 +147,6 @@ WebDatabaseTable::TypeKey EntityTable::GetTypeKey() const {
 }
 
 bool EntityTable::CreateTablesIfNecessary() {
-  // TODO(crbug.com/394292801): Remove when we migrate to WebDatabase's
-  // versioning.
-  {
-    CreateTableIfNotExists(db(), /*table_name=*/version::kTableName,
-                           /*column_names_and_types=*/
-                           {{version::kVersion, "INTEGER"}});
-    auto get_table_version = [&] {
-      sql::Statement s;
-      SelectBuilder(db(), s, version::kTableName, {version::kVersion});
-      if (s.Step()) {
-        return s.ColumnInt(0);
-      }
-      constexpr int kDefaultVersion = 0;
-      InsertBuilder(db(), s, version::kTableName, {version::kVersion});
-      s.BindInt(0, kDefaultVersion);
-      s.Run();
-      return kDefaultVersion;
-    };
-    if (get_table_version() != version::kCurrentVersion) {
-      sql::Statement s;
-      UpdateBuilder(db(), s, version::kTableName, {version::kVersion},
-                    /*where_clause=*/"");
-      s.BindInt(0, version::kCurrentVersion);
-      s.Run();
-      DropTableIfExists(db(), attributes::kTableName);
-      DropTableIfExists(db(), entities::kTableName);
-    }
-  }
-
   auto create_attributes_table = [&] {
     return CreateTableIfNotExists(
         db(), /*table_name=*/attributes::kTableName,
@@ -205,7 +191,30 @@ bool EntityTable::CreateTablesIfNecessary() {
 bool EntityTable::MigrateToVersion(int version,
                                    bool* update_compatible_version) {
   switch (version) {
-    // No migrations exist at this point.
+    case 138: {
+      // Up to version 138, AutofillAi was purely experimental. To upgrade from
+      // earlier versions, we can simply drop all previous data.
+      DropTableIfExists(db(), "attributes");
+      DropTableIfExists(db(), "entities");
+      DropTableIfExists(db(), "entities_version");
+      CreateTableIfNotExists(db(), /*table_name=*/"autofill_ai_attributes",
+                             /*column_names_and_types=*/
+                             {{"entity_guid", "TEXT NOT NULL"},
+                              {"attribute_type", "TEXT NOT NULL"},
+                              {"field_type", "INTEGER NOT NULL"},
+                              {"value_encrypted", "BLOB NOT NULL"},
+                              {"verification_status", "INTEGER NOT NULL"}},
+                             /*composite_primary_key=*/
+                             {"entity_guid", "attribute_type", "field_type"});
+      CreateTableIfNotExists(db(), /*table_name=*/"autofill_ai_entities",
+                             /*column_names_and_types=*/
+                             {{"guid", "TEXT NOT NULL PRIMARY KEY"},
+                              {"entity_type", "TEXT NOT NULL"},
+                              {"nickname", "TEXT NOT NULL"},
+                              {"date_modified", "INTEGER NOT NULL"}});
+      *update_compatible_version = true;
+      break;
+    }
   }
   return true;
 }
@@ -305,7 +314,7 @@ bool EntityTable::RemoveEntityInstancesModifiedBetween(base::Time delete_begin,
   s.BindInt64(1, delete_end.ToTimeT());
   std::vector<base::Uuid> guids;
   while (s.Step()) {
-    base::Uuid guid = base::Uuid::ParseLowercase(s.ColumnString(0));
+    base::Uuid guid = base::Uuid::ParseLowercase(s.ColumnStringView(0));
     if (!guid.is_valid()) {
       continue;
     }
@@ -335,7 +344,7 @@ EntityTable::LoadAttributes() const {
                  attributes::kFieldType, attributes::kValueEncrypted,
                  attributes::kVerificationStatus});
   while (s.Step()) {
-    base::Uuid entity_guid = base::Uuid::ParseLowercase(s.ColumnString(0));
+    base::Uuid entity_guid = base::Uuid::ParseLowercase(s.ColumnStringView(0));
     std::string attribute_type_name = s.ColumnString(1);
     std::underlying_type_t<FieldType> underlying_field_type = s.ColumnInt(2);
     std::u16string decrypted_value;
@@ -372,7 +381,7 @@ std::vector<EntityInstance> EntityTable::GetEntityInstances() const {
                 {entities::kGuid, entities::kEntityType, entities::kNickname,
                  entities::kDateModified});
   while (s.Step()) {
-    base::Uuid guid = base::Uuid::ParseLowercase(s.ColumnString(0));
+    base::Uuid guid = base::Uuid::ParseLowercase(s.ColumnStringView(0));
     std::string type_name = s.ColumnString(1);
     std::string nickname = s.ColumnString(2);
     base::Time date_modified = base::Time::FromTimeT(s.ColumnInt64(3));
@@ -417,8 +426,7 @@ std::optional<EntityInstance> EntityTable::ValidateInstance(
         std::optional<VerificationStatus> verification_status =
             ToSafeVerificationStatus(underlying_verification_status);
         if (field_type != UNKNOWN_TYPE && verification_status) {
-          attribute.SetRawInfoWithVerificationStatus(field_type, value,
-                                                     *verification_status);
+          attribute.SetRawInfo(field_type, value, *verification_status);
         }
       }
     }

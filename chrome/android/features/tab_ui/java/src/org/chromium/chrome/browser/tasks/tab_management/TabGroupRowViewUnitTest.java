@@ -35,7 +35,6 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
 
-import androidx.core.util.Pair;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 
 import org.junit.Before;
@@ -50,6 +49,7 @@ import org.chromium.base.Callback;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.data_sharing.ui.shared_image_tiles.SharedImageTilesView;
 import org.chromium.chrome.browser.tasks.tab_management.TabGroupFaviconCluster.ClusterData;
+import org.chromium.chrome.browser.tasks.tab_management.TabGroupRowView.TabGroupRowViewTitleData;
 import org.chromium.chrome.browser.tasks.tab_management.TabGroupTimeAgo.TimestampEvent;
 import org.chromium.ui.base.TestActivity;
 import org.chromium.ui.listmenu.ListMenuButton;
@@ -87,7 +87,6 @@ public class TabGroupRowViewUnitTest {
     private TextView mSubtitleTextView;
     private FrameLayout mImageTilesContainer;
     private ListMenuButton mListMenuButton;
-    private View mMenuLayout;
     private PropertyModel mPropertyModel;
 
     @Before
@@ -111,8 +110,7 @@ public class TabGroupRowViewUnitTest {
         mTitleTextView = mTabGroupRowView.findViewById(R.id.tab_group_title);
         mSubtitleTextView = mTabGroupRowView.findViewById(R.id.tab_group_subtitle);
         mImageTilesContainer = mTabGroupRowView.findViewById(R.id.image_tiles_container);
-        mListMenuButton = mTabGroupRowView.findViewById(R.id.more);
-        mMenuLayout = mTabGroupRowView.findViewById(R.id.tab_group_menu);
+        mListMenuButton = mTabGroupRowView.findViewById(R.id.tab_group_menu);
 
         PropertyModelChangeProcessor.create(
                 mPropertyModel, mTabGroupRowView, TabGroupRowViewBinder::bind);
@@ -146,19 +144,34 @@ public class TabGroupRowViewUnitTest {
 
     @Test
     public void testSetTitleData() {
-        remakeWithProperty(TITLE_DATA, new Pair<>("Title", 3));
+        remakeWithProperty(
+                TITLE_DATA,
+                new TabGroupRowViewTitleData(
+                        "Title", 3, R.string.tab_group_bottom_sheet_row_accessibility_text));
         assertEquals("Title", mTitleTextView.getText());
 
-        remakeWithProperty(TITLE_DATA, new Pair<>(" ", 3));
+        remakeWithProperty(
+                TITLE_DATA,
+                new TabGroupRowViewTitleData(
+                        " ", 3, R.string.tab_group_bottom_sheet_row_accessibility_text));
         assertEquals(" ", mTitleTextView.getText());
 
-        remakeWithProperty(TITLE_DATA, new Pair<>("", 3));
+        remakeWithProperty(
+                TITLE_DATA,
+                new TabGroupRowViewTitleData(
+                        "", 3, R.string.tab_group_bottom_sheet_row_accessibility_text));
         assertEquals("3 tabs", mTitleTextView.getText());
 
-        remakeWithProperty(TITLE_DATA, new Pair<>(null, 3));
+        remakeWithProperty(
+                TITLE_DATA,
+                new TabGroupRowViewTitleData(
+                        null, 3, R.string.tab_group_bottom_sheet_row_accessibility_text));
         assertEquals("3 tabs", mTitleTextView.getText());
 
-        remakeWithProperty(TITLE_DATA, new Pair<>("", 1));
+        remakeWithProperty(
+                TITLE_DATA,
+                new TabGroupRowViewTitleData(
+                        "", 1, R.string.tab_group_bottom_sheet_row_accessibility_text));
         assertEquals("1 tab", mTitleTextView.getText());
     }
 
@@ -276,7 +289,10 @@ public class TabGroupRowViewUnitTest {
 
     @Test
     public void testContentDescriptions() {
-        remakeWithProperty(TITLE_DATA, new Pair<>("Title", 3));
+        remakeWithProperty(
+                TITLE_DATA,
+                new TabGroupRowViewTitleData(
+                        "Title", 3, R.string.tab_group_row_accessibility_text));
         assertEquals("Open Title", mTitleTextView.getContentDescription());
         assertEquals("Title tab group options", mListMenuButton.getContentDescription());
     }
@@ -300,12 +316,12 @@ public class TabGroupRowViewUnitTest {
     @Test
     public void testDisableMenu() {
         remakeWithModel(new PropertyModel.Builder(ALL_KEYS).with(OPEN_RUNNABLE, null).build());
-        assertEquals(View.GONE, mMenuLayout.getVisibility());
+        assertEquals(View.GONE, mListMenuButton.getVisibility());
     }
 
     @Test
     public void testEnableMenu() {
         remakeWithModel(new PropertyModel.Builder(ALL_KEYS).with(OPEN_RUNNABLE, () -> {}).build());
-        assertEquals(View.VISIBLE, mMenuLayout.getVisibility());
+        assertEquals(View.VISIBLE, mListMenuButton.getVisibility());
     }
 }

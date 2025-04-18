@@ -2972,6 +2972,10 @@ class BannedTypeCheckTest(unittest.TestCase):
                 'some/java/problematic/accessibilityTypeAnnouncement.java', [
                     'accessibilityEvent.setEventType(AccessibilityEvent.TYPE_ANNOUNCEMENT);'
                 ]),
+            MockFile(
+                'content/java/problematic/desktopandroid.java', [
+                    'if (BuildConfig.IS_DESKTOP_ANDROID) {}'
+                ]),
         ]
 
         errors = PRESUBMIT.CheckNoBannedFunctions(input_api, MockOutputApi())
@@ -3001,6 +3005,9 @@ class BannedTypeCheckTest(unittest.TestCase):
         self.assertTrue(
             'some/java/problematic/accessibilityTypeAnnouncement.java' in
             errors[0].message)
+        self.assertTrue(
+            'content/java/problematic/desktopandroid.java' in
+            errors[0].message)
 
 
     def testBannedCppFunctions(self):
@@ -3029,6 +3036,8 @@ class BannedTypeCheckTest(unittest.TestCase):
             MockFile('banned_ranges_usage.cc',
                      ['std::ranges::subrange(first, last)']),
             MockFile('views_usage.cc', ['std::views::all(vec)']),
+            MockFile('content/desktop_android.cc',
+                     ['#if BUILDFLAG(IS_DESKTOP_ANDROID)']),
         ]
 
         results = PRESUBMIT.CheckNoBannedFunctions(input_api, MockOutputApi())
@@ -3051,6 +3060,7 @@ class BannedTypeCheckTest(unittest.TestCase):
         self.assertFalse('allowed_ranges_usage.cc' in results[1].message)
         self.assertTrue('banned_ranges_usage.cc' in results[1].message)
         self.assertTrue('views_usage.cc' in results[1].message)
+        self.assertTrue('content/desktop_android.cc' in results[0].message)
 
     def testBannedCppRandomFunctions(self):
         banned_rngs = [
@@ -5126,6 +5136,84 @@ class CheckAndroidTestAnnotations(unittest.TestCase):
         self.assertEqual(1, len(errors))
         self.assertEqual(1, len(errors[0].items))
         self.assertIn('OneTest.java', errors[0].items[0])
+
+
+class CheckAndroidNullAwayAnnotatedClasses(unittest.TestCase):
+    """Test the _CheckAndroidNullAwayAnnotatedClasses presubmit check."""
+
+    def testDetectsInClasses(self):
+        """Tests that missing @NullMarked or @NullUnmarked are correctly flagged in classes."""
+        mock_input = MockInputApi()
+        mock_input.files = [
+            MockFile('path/OneMissing.java', ['public class OneMissing']),
+            MockFile('path/TwoMarked.java', [
+                '@NullMarked',
+                'public class TwoMarked {',
+            ]),
+            MockFile('path/ThreeMarked.java', [
+                '@NullUnmarked',
+                'public class ThreeMarked {',
+            ]),
+            MockFile('path/FourMissing.java', ['class FourMissing']),
+        ]
+        results = PRESUBMIT._CheckAndroidNullAwayAnnotatedClasses(mock_input, MockOutputApi())
+        self.assertEqual(1, len(results))
+        self.assertEqual('warning', results[0].type)
+        self.assertEqual(2, len(results[0].items))
+        self.assertIn('OneMissing.java', results[0].items[0])
+        self.assertIn('FourMissing.java', results[0].items[1])
+
+    def testDetectsInAnnotations(self):
+        """Tests that missing @NullMarked or @NullUnmarked are correctly flagged in annotations."""
+        mock_input = MockInputApi()
+        mock_input.files = [
+            MockFile('path/OneMissing.java', ['@interface OneMissing']),
+            MockFile('path/TwoMarked.java', [
+                '@NullMarked',
+                '@interface TwoMarked {',
+            ]),
+        ]
+        results = PRESUBMIT._CheckAndroidNullAwayAnnotatedClasses(mock_input, MockOutputApi())
+        self.assertEqual(1, len(results))
+        self.assertEqual('warning', results[0].type)
+        self.assertEqual(1, len(results[0].items))
+        self.assertIn('OneMissing.java', results[0].items[0])
+
+    def testDetectsInInterfaces(self):
+        """Tests that missing @NullMarked or @NullUnmarked are correctly flagged in interfaces."""
+        mock_input = MockInputApi()
+        mock_input.files = [
+            MockFile('path/OneMissing.java', ['interface OneMissing']),
+            MockFile('path/TwoMarked.java', [
+                '@NullMarked',
+                'interface TwoMarked {',
+            ]),
+        ]
+        results = PRESUBMIT._CheckAndroidNullAwayAnnotatedClasses(mock_input, MockOutputApi())
+        self.assertEqual(1, len(results))
+        self.assertEqual('warning', results[0].type)
+        self.assertEqual(1, len(results[0].items))
+        self.assertIn('OneMissing.java', results[0].items[0])
+
+    def testExcludesTests(self):
+        """Tests that missing @NullMarked or @NullUnmarked are not flagged in tests."""
+        mock_input = MockInputApi()
+        mock_input.files = [
+            MockFile('path/OneTest.java', ['public class OneTest']),
+        ]
+        results = PRESUBMIT._CheckAndroidNullAwayAnnotatedClasses(mock_input, MockOutputApi())
+        self.assertEqual(0, len(results))
+
+    def testExcludesTestSupport(self):
+        """Tests that missing @NullMarked or @NullUnmarked are not flagged in test support classes."""
+        mock_input = MockInputApi()
+        mock_input.files = [
+            MockFile('path/test/Two.java', [
+                'public class Two'
+            ]),
+        ]
+        results = PRESUBMIT._CheckAndroidNullAwayAnnotatedClasses(mock_input, MockOutputApi())
+        self.assertEqual(0, len(results))
 
 
 class AssertNoJsInIosTest(unittest.TestCase):

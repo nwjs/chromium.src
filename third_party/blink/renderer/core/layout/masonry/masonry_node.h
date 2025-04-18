@@ -27,13 +27,14 @@ class CORE_EXPORT MasonryNode final : public BlockNode {
   // `start_offset` calculates the offset of the first grid line in the implicit
   // grid, which is used to translate definite grid spans to a 0-indexed format.
   MasonryItemGroups CollectItemGroups(const GridLineResolver& line_resolver,
-                                      wtf_size_t* start_offset) const;
+                                      wtf_size_t& max_end_line,
+                                      wtf_size_t& start_offset) const;
 
   // Collects the children of this node, sorts by order property if needed, and
   // resolves the grid line positions of the items based on style. Translates
   // each item's resolved position based on `start_offset`.
-  GridItems* ConstructMasonryItems(const GridLineResolver& line_resolver,
-                                   wtf_size_t start_offset) const;
+  GridItems ConstructMasonryItems(const GridLineResolver& line_resolver,
+                                  wtf_size_t start_offset) const;
 };
 
 template <>

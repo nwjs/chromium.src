@@ -181,7 +181,7 @@ bool XRWebGLDrawingBuffer::Initialize(const gfx::Size& size,
       Extensions3DUtil::Create(gl);
 
   gl->GetIntegerv(GL_MAX_TEXTURE_SIZE, &max_texture_size_);
-  DVLOG(2) << __FUNCTION__ << ": max_texture_size_=" << max_texture_size_;
+  DVLOG(2) << __func__ << ": max_texture_size_=" << max_texture_size_;
 
   // Check context capabilities
   int max_sample_count = 0;
@@ -201,7 +201,7 @@ bool XRWebGLDrawingBuffer::Initialize(const gfx::Size& size,
       anti_aliasing_mode_ = kMSAAImplicitResolve;
     }
   }
-  DVLOG(2) << __FUNCTION__
+  DVLOG(2) << __func__
            << ": anti_aliasing_mode_=" << static_cast<int>(anti_aliasing_mode_);
 
 #if BUILDFLAG(IS_ANDROID)
@@ -319,7 +319,7 @@ void XRWebGLDrawingBuffer::UseSharedBuffer(
 }
 
 void XRWebGLDrawingBuffer::DoneWithSharedBuffer() {
-  DVLOG(3) << __FUNCTION__;
+  DVLOG(3) << __func__;
 
   ScopedPixelLocalStorageInterrupt scoped_pls_interrupt(
       drawing_buffer_->client());
@@ -552,7 +552,7 @@ void XRWebGLDrawingBuffer::BindAndResolveDestinationFramebuffer() {
 
   // Resolve multisample buffers if needed
   if (WantExplicitResolve()) {
-    DVLOG(3) << __FUNCTION__ << ": explicit resolve";
+    DVLOG(3) << __func__ << ": explicit resolve";
     gl->BindFramebuffer(GL_READ_FRAMEBUFFER_ANGLE, framebuffer_);
     gl->BindFramebuffer(GL_DRAW_FRAMEBUFFER_ANGLE, resolved_framebuffer_);
     gl->Disable(GL_SCISSOR_TEST);
@@ -568,7 +568,7 @@ void XRWebGLDrawingBuffer::BindAndResolveDestinationFramebuffer() {
     client->DrawingBufferClientRestoreScissorTest();
   } else {
     gl->BindFramebuffer(GL_FRAMEBUFFER, framebuffer_);
-    DVLOG(3) << __FUNCTION__ << ": nothing to do";
+    DVLOG(3) << __func__ << ": nothing to do";
   }
 
   // On exit, leaves the destination framebuffer active. Caller is responsible
@@ -660,7 +660,8 @@ XRWebGLDrawingBuffer::TransferToStaticBitmapImage() {
   return AcceleratedStaticBitmapImage::CreateFromCanvasSharedImage(
       buffer->shared_image, buffer->produce_sync_token,
       /* shared_image_texture_id = */ 0, size_, GetN32FormatForCanvas(),
-      kPremul_SkAlphaType, nullptr, drawing_buffer_->ContextProviderWeakPtr(),
+      kPremul_SkAlphaType, gfx::ColorSpace::CreateSRGB(),
+      drawing_buffer_->ContextProviderWeakPtr(),
       base::PlatformThread::CurrentRef(),
       ThreadScheduler::Current()->CleanupTaskRunner(),
       std::move(release_callback));

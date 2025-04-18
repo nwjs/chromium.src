@@ -8,6 +8,7 @@
 #include <list>
 #include <map>
 
+#include "base/callback_list.h"
 #include "chrome/browser/ui/views/location_bar/icon_label_bubble_view.h"
 #include "ui/actions/action_id.h"
 #include "ui/views/layout/box_layout_view.h"
@@ -22,6 +23,8 @@ struct PageActionViewParams;
 class PageActionContainerView : public views::View {
   METADATA_HEADER(PageActionContainerView, views::View)
  public:
+  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kPageActionContainerViewElementId);
+
   PageActionContainerView(const std::vector<actions::ActionItem*>& action_items,
                           const PageActionViewParams& params);
   PageActionContainerView(const PageActionContainerView&) = delete;
@@ -36,15 +39,17 @@ class PageActionContainerView : public views::View {
   PageActionView* GetPageActionView(actions::ActionId page_action_id);
 
  private:
-  // Invoked when the chip state changes. When `suggestion_chip_visible` is
-  // true, the page action associated with `action_id` is placed in the front
-  // before all other page actions. Otherwise, the page action is placed in it's
-  // initial insertion position.
-  void OnPageActionSuggestionChipStateChanged(actions::ActionId action_id,
-                                              bool suggestion_chip_visible);
+  // Invoked when the chip state changes. When the view's suggestion chip is
+  // shown, it is placed in the front before all other page action view.
+  // Otherwise, the page action is placed in its initial insertion position.
+  void OnPageActionSuggestionChipStateChanged(PageActionView* view);
 
   std::map<actions::ActionId, raw_ptr<PageActionView>> page_action_views_;
   std::map<actions::ActionId, int> page_action_view_initial_indices_;
+
+  // Callbacks used to handle page action view chip state changes. Used to
+  // ensure that the container reorders the page actions accordingly.
+  std::vector<base::CallbackListSubscription> chip_state_changed_callbacks_;
 };
 
 }  // namespace page_actions

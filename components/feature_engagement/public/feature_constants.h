@@ -61,6 +61,12 @@ extern const base::FeatureParam<std::string> kIPHLensOverlayUrlAllowFilters;
 COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
 extern const base::FeatureParam<std::string> kIPHLensOverlayUrlBlockFilters;
 COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
+extern const base::FeatureParam<std::string>
+    kIPHLensOverlayUrlPathMatchAllowPatterns;
+COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
+extern const base::FeatureParam<std::string>
+    kIPHLensOverlayUrlPathMatchBlockPatterns;
+COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
 extern const base::FeatureParam<base::TimeDelta> kIPHLensOverlayDelayTime;
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHLensOverlayTranslateButtonFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHLiveCaptionFeature);
@@ -99,6 +105,7 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabGroupsSharedTabChangedFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabGroupsSharedTabFeedbackFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabOrganizationSuccessFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabSearchFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabSearchToolbarButtonFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHWebUITabStripFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDesktopSnoozeFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDesktopPwaInstallFeature);
@@ -117,6 +124,8 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAccountSettingsHistorySync);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAndroidTabDeclutter);
 FEATURE_CONSTANTS_DECLARE_FEATURE(
     kIPHAdaptiveButtonInTopToolbarCustomizationNewTabFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(
+    kIPHAdaptiveButtonInTopToolbarCustomizationOpenInBrowserFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(
     kIPHAdaptiveButtonInTopToolbarCustomizationShareFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(
@@ -167,6 +176,7 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHMicToolbarFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHPageInfoFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHPageInfoStoreInfoFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHPageZoomFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHPdfPageDownloadFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHPreviewsOmniboxUIFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHQuietNotificationPromptsFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadAloudAppMenuFeature);
@@ -283,6 +293,9 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(
     kIPHiOSReminderNotificationsOverflowMenuBubbleFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(
     kIPHiOSReminderNotificationsOverflowMenuNewBadgeFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSSettingsInOverflowMenuBubbleFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSFeedSwipeStaticFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSFeedSwipeAnimatedFeature);
 
 // A feature flag to enable and parametrize the sliding window of time for a
 // user's eligibility to be shown a default browser promo. This is not an FET
@@ -305,6 +318,7 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kDefaultBrowserTriggerCriteriaExperiment);
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_FUCHSIA)
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAutofillBnplAffirmOrZipSuggestionFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(
     kIPHAutofillCardInfoRetrievalSuggestionFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAutofillCreditCardBenefitFeature);
@@ -312,7 +326,8 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(
     kIPHAutofillDisabledVirtualCardSuggestionFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(
     kIPHAutofillExternalAccountProfileSuggestionFeature);
-FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAutofillPredictionImprovementsFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAutofillHomeWorkProfileSuggestionFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAutofillAiOptInFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAutofillVirtualCardCVCSuggestionFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAutofillVirtualCardSuggestionFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHCookieControlsFeature);

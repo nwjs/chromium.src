@@ -134,6 +134,16 @@ chromium-metrics-reviews@google.com.
   </int>
 </enum>
 
+<!-- LINT.IfChange(AccountExtensionsSignoutChoice) -->
+
+<enum name="AccountExtensionsSignoutChoice">
+  <int value="0" label="Signout Cancelled"/>
+  <int value="1" label="Signout - Account Extensions Kept"/>
+  <int value="2" label="Signout - Account Extensions Uninstalled"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/signin/chrome_signout_confirmation_prompt.h:AccountExtensionsSignoutChoice) -->
+
 <enum name="AccountInPrefState">
   <int value="0" label="Account is fully known"/>
   <int value="1" label="Account is unkown"/>
@@ -199,11 +209,6 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="Account is uknown with an invalid token"/>
 </enum>
 
-<enum name="BatchUploadTypes">
-  <int value="0" label="Passwords"/>
-  <int value="1" label="Addresses"/>
-</enum>
-
 <enum name="BooleanBoundToTheSameKey">
   <int value="0" label="Bound to different keys"/>
   <int value="1" label="Bound to the same key"/>
@@ -214,9 +219,9 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Account fetching succeeded"/>
 </enum>
 
-<enum name="BooleanHadSyncAccount">
-  <int value="0" label="Did not have a sync-enabled account before"/>
-  <int value="1" label="Had at least one sync-enabled account before"/>
+<enum name="BooleanIsNewOptIn">
+  <int value="0" label="Existing opt-in"/>
+  <int value="1" label="New opt-in"/>
 </enum>
 
 <enum name="BooleanIsShared">
@@ -451,6 +456,17 @@ chromium-metrics-reviews@google.com.
   <int value="6" label="Don't show, feature flag is disabled"/>
 </enum>
 
+<!-- LINT.IfChange(IOSAccountSwitchType) -->
+
+<enum name="IOSAccountSwitchType">
+  <int value="0" label="Personal -&gt; Personal"/>
+  <int value="1" label="Personal -&gt; Managed"/>
+  <int value="2" label="Managed -&gt; Personal"/>
+  <int value="3" label="Managed -&gt; Managed"/>
+</enum>
+
+<!-- LINT.ThenChange(//ios/chrome/browser/authentication/ui_bundled/authentication_flow/authentication_flow.mm:IOSAccountSwitchType) -->
+
 <enum name="IOSDeviceRestoreSignedinState">
   <int value="0" label="User not signed in before iOS device restore"/>
   <int value="1"
@@ -659,9 +675,10 @@ chromium-metrics-reviews@google.com.
   <int value="70" label="Address bubble"/>
   <int value="71" label="CCT account mismatch notification"/>
   <int value="72" label="Drive file picker (iOS only)"/>
-  <int value="73" label="Share group collaboration authentication"/>
+  <int value="73" label="Share collaboration tab group authentication"/>
   <int value="74" label="Glic launch button"/>
   <int value="75" label="History page (Android only)"/>
+  <int value="76" label="Join collaboration tab group authentication"/>
 </enum>
 
 <enum name="SigninAccountReconcilorState">
@@ -804,15 +821,6 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Revoked by Dice migration"/>
   <int value="2" label="Revoked as secondary account"/>
   <int value="3" label="Revoked on load due to cookie settings"/>
-</enum>
-
-<enum name="SigninReauthResult">
-  <int value="0" label="Success"/>
-  <int value="1" label="Account not signed in"/>
-  <int value="2" label="User dismissed Reauth"/>
-  <int value="3" label="Reauth page failed to load"/>
-  <int value="4" label="Reauth was cancelled"/>
-  <int value="5" label="Unexpected server response"/>
 </enum>
 
 <enum name="SigninReconcilerOperation">
@@ -989,14 +997,22 @@ chromium-metrics-reviews@google.com.
     avoid that deletion of data propagates via sync to other devices.
   </int>
   <int value="35" label="Signed out while switching to another primary account">
-    In the account menu, the user switched their primary account. As a first
-    step, they get signed-out of their previous primary account.
+    The user switched their primary account. As a first step, they get
+    signed-out of their previous primary account, for an account switching. For
+    a profile switching, this metric can be recorded when switching to the
+    personal profile, if the personal profile doesn't have the right primary
+    account.
   </int>
   <int value="36" label="Signed out from the account menu">
     In the account menu, the user selected the sign-out button.
   </int>
   <int value="37" label="User disabled allow chrome sign-in toggle">
     User disabled &quot;Allow Chrome sign-in&quot; toggle.
+  </int>
+  <int value="38"
+      label="Signed out before a forced sign-in with a supervised account">
+    A sign-out was triggered to allow a switch to a supervised account that was
+    added to the device. Android only.
   </int>
 </enum>
 

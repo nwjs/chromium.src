@@ -137,7 +137,7 @@ TEST_F(DefaultSearchManagerTest, ReadAndWritePref) {
   data.date_created = base::Time();
   data.last_modified = base::Time();
   data.last_modified = base::Time();
-  data.created_from_play_api = true;
+  data.regulatory_origin = RegulatoryExtensionType::kAndroidEEA;
 
   manager->SetUserSelectedDefaultSearchEngine(data);
   const TemplateURLData* read_data = manager->GetDefaultSearchEngine(nullptr);
@@ -388,36 +388,13 @@ TEST_F(DefaultSearchManagerTest,
 }
 
 TEST_F(DefaultSearchManagerTest,
-       DefaultSearchSetByPlayAPI_MergeByKeyword_FeatureDisabled) {
-  base::test::ScopedFeatureList features;
-  features.InitAndDisableFeature(switches::kTemplateUrlReconciliation);
-
-  auto manager = create_manager();
-  auto* builtin_engine = manager->GetDefaultSearchEngine(nullptr);
-
-  auto supplied_engine = GenerateDummyTemplateURLData(
-      base::UTF16ToUTF8(builtin_engine->keyword()));
-  supplied_engine->created_from_play_api = true;
-  // Needed by ExpectSimilar.
-  supplied_engine->favicon_url = builtin_engine->favicon_url;
-
-  // Verify no merge done.
-  manager->SetUserSelectedDefaultSearchEngine(*supplied_engine);
-  auto* result = manager->GetDefaultSearchEngine(nullptr);
-  ExpectSimilar(supplied_engine.get(), result);
-}
-
-TEST_F(DefaultSearchManagerTest,
        DefaultSearchSetByPlayAPI_MergeByKeyword_FeatureEnabled) {
-  base::test::ScopedFeatureList features;
-  features.InitAndEnableFeature(switches::kTemplateUrlReconciliation);
-
   auto manager = create_manager();
   auto* builtin_engine = manager->GetDefaultSearchEngine(nullptr);
 
   auto supplied_engine = GenerateDummyTemplateURLData(
       base::UTF16ToUTF8(builtin_engine->keyword()));
-  supplied_engine->created_from_play_api = true;
+  supplied_engine->regulatory_origin = RegulatoryExtensionType::kAndroidEEA;
   // Needed by ExpectSimilar.
   supplied_engine->favicon_url = builtin_engine->favicon_url;
 
@@ -426,35 +403,12 @@ TEST_F(DefaultSearchManagerTest,
   auto* result = manager->GetDefaultSearchEngine(nullptr);
 
   TemplateURLData expected_engine = *builtin_engine;
-  expected_engine.created_from_play_api = true;
+  expected_engine.regulatory_origin = RegulatoryExtensionType::kAndroidEEA;
   ExpectSimilar(&expected_engine, result);
 }
 
 TEST_F(DefaultSearchManagerTest,
-       DefaultSearchSetByPlayAPI_MergeByDomainName_FeatureDisabled) {
-  base::test::ScopedFeatureList features;
-  features.InitAndDisableFeature(switches::kTemplateUrlReconciliation);
-
-  auto manager = create_manager();
-  auto* builtin_engine = manager->GetDefaultSearchEngine(nullptr);
-
-  auto supplied_engine = GenerateDummyTemplateURLData("yahoo.com");
-  supplied_engine->SetURL("https://emea.yahoo.com/search");
-  supplied_engine->created_from_play_api = true;
-  // Needed by ExpectSimilar.
-  supplied_engine->favicon_url = builtin_engine->favicon_url;
-
-  // Verify no merge done.
-  manager->SetUserSelectedDefaultSearchEngine(*supplied_engine);
-  auto* result = manager->GetDefaultSearchEngine(nullptr);
-  ExpectSimilar(supplied_engine.get(), result);
-}
-
-TEST_F(DefaultSearchManagerTest,
        DefaultSearchSetByPlayAPI_MergeByDomainName_FeatureEnabled) {
-  base::test::ScopedFeatureList features;
-  features.InitAndEnableFeature(switches::kTemplateUrlReconciliation);
-
   SetOverrides(pref_service(), false);
   auto manager = create_manager();
 
@@ -468,7 +422,7 @@ TEST_F(DefaultSearchManagerTest,
 
   auto supplied_engine = GenerateDummyTemplateURLData("yahoo.com");
   supplied_engine->SetURL("https://emea.search.yahoo.com/any_path");
-  supplied_engine->created_from_play_api = true;
+  supplied_engine->regulatory_origin = RegulatoryExtensionType::kAndroidEEA;
   // Needed by ExpectSimilar.
   supplied_engine->favicon_url = builtin_engine->favicon_url;
 
@@ -477,6 +431,6 @@ TEST_F(DefaultSearchManagerTest,
   auto* result = manager->GetDefaultSearchEngine(nullptr);
 
   TemplateURLData expected_engine = *builtin_engine;
-  expected_engine.created_from_play_api = true;
+  expected_engine.regulatory_origin = RegulatoryExtensionType::kAndroidEEA;
   ExpectSimilar(&expected_engine, result);
 }

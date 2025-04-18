@@ -15,11 +15,6 @@ BASE_FEATURE(kWebApkInstallFailureNotification,
              "WebApkInstallFailureNotification",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enables installable message throttle.
-BASE_FEATURE(kInstallMessageThrottle,
-             "InstallMessageThrottle",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kAndroidMinimalUiLargeScreen,
              "AndroidMinimalUiLargeScreen",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -52,6 +47,6 @@ extern const base::FeatureParam<int> kMaxDaysForMLPromotionGuardrailStorage(
 // installation check on Clank async.
 BASE_FEATURE(kCheckWebAppExistenceAsync,
              "CheckWebAppExistenceAsync",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 }  // namespace features
 }  // namespace webapps

@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <optional>
+#include <utility>
 
 #include "ash/constants/ash_pref_names.h"
 #include "ash/screen_util.h"
@@ -21,15 +22,18 @@
 #include "ash/wm/wm_event.h"
 #include "base/check_is_test.h"
 #include "base/functional/bind.h"
+#include "base/logging.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "chromeos/ash/components/boca/boca_app_client.h"
 #include "chromeos/ash/components/boca/boca_role_util.h"
+#include "chromeos/ash/components/boca/boca_session_manager.h"
 #include "chromeos/ash/components/boca/boca_session_util.h"
 #include "chromeos/ash/components/boca/on_task/on_task_system_web_app_manager.h"
 #include "chromeos/ash/components/boca/proto/bundle.pb.h"
 #include "chromeos/ash/components/boca/proto/roster.pb.h"
 #include "chromeos/ash/components/boca/proto/session.pb.h"
+#include "chromeos/ash/components/boca/session_api/add_students_request.h"
 #include "chromeos/ash/components/boca/session_api/constants.h"
 #include "chromeos/ash/components/boca/session_api/create_session_request.h"
 #include "chromeos/ash/components/boca/session_api/get_session_request.h"
@@ -40,6 +44,7 @@
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ui/frame/multitask_menu/float_controller_base.h"
 #include "chromeos/ui/wm/constants.h"
+#include "components/content_settings/core/common/pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/sessions/core/session_id.h"
 #include "content/public/browser/web_contents.h"
@@ -58,6 +63,7 @@ std::unique_ptr<::boca::OnTaskConfig> OnTaskConfigMojomToProto(
   auto on_task_config = std::make_unique<::boca::OnTaskConfig>();
   auto* active_bundle = on_task_config->mutable_active_bundle();
   active_bundle->set_locked(config->is_locked);
+  active_bundle->set_lock_to_app_home(config->is_paused);
 
   for (auto& item : config->tabs) {
     auto* content_config = active_bundle->mutable_content_configs()->Add();
@@ -123,7 +129,9 @@ mojom::ConfigPtr SessionConfigProtoToMojom(::boca::Session* session) {
               tab.locked_navigation_options().navigation_type())));
     }
     on_task_config = mojom::OnTaskConfig::New(
-        session_on_task_config.active_bundle().locked(), std::move(tabs));
+        session_on_task_config.active_bundle().locked(),
+        session_on_task_config.active_bundle().lock_to_app_home(),
+        std::move(tabs));
   }
   mojom::IdentityPtr teacher;
   if (session->has_teacher()) {
@@ -159,17 +167,23 @@ std::vector<mojom::IdentifiedActivityPtr> SessionActivityProtoToMojom(
     const std::map<std::string, ::boca::StudentStatus>& activities) {
   std::vector<mojom::IdentifiedActivityPtr> result;
   for (auto item : activities) {
-    for (auto device : item.second.devices()) {
-      // Only update state and active tab now.
+    if (auto const device = item.second.devices().begin();
+        device != item.second.devices().end()) {
+      // Only update state and active tab for the first device now.
+      // TODO - crbug.com/403655119: Ideally we should support multi-device. But
+      // since now UI only supports single device, always parse the first one to
+      // make the behavior deterministic.
       auto identity_ptr = mojom::IdentifiedActivity::New(
-          item.first, mojom::StudentActivity::New(
-                          item.second.state() == ::boca::StudentStatus::ACTIVE,
-                          device.second.activity().active_tab().title(),
-                          /*is_caption_enabled=*/false,
-                          /*is_hand_raised=*/false, mojom::JoinMethod::kRoster,
-                          device.second.view_screen_config()
-                              .connection_param()
-                              .connection_code()));
+          item.first,
+          mojom::StudentActivity::New(
+              mojom::StudentStatusDetail(item.second.state()),
+              device->second.state() == ::boca::StudentDevice::ACTIVE,
+              device->second.activity().active_tab().title(),
+              /*is_caption_enabled=*/false,
+              /*is_hand_raised=*/false, mojom::JoinMethod::kRoster,
+              device->second.view_screen_config()
+                  .connection_param()
+                  .connection_code()));
       result.push_back(std::move(identity_ptr));
     }
   }
@@ -182,6 +196,10 @@ std::string GetPrefName(mojom::BocaValidPref pref) {
       return ash::prefs::kClassManagementToolsNavRuleSetting;
     case mojom::BocaValidPref::kCaptionEnablementSetting:
       return ash::prefs::kClassManagementToolsCaptionEnablementSetting;
+    case mojom::BocaValidPref::kDefaultMediaStreamSetting:
+      return ::prefs::kManagedDefaultMediaStreamSetting;
+    case mojom::BocaValidPref::kOOBEAccessCount:
+      return ash::prefs::kClassManagementToolsOOBEAccessCountSetting;
   }
   NOTREACHED();
 }
@@ -220,15 +238,11 @@ BocaAppHandler::BocaAppHandler(
   network_info_provider_ = std::make_unique<NetworkInfoProvider>(
       base::BindRepeating(&BocaAppHandler::OnActiveNetworkStateChanged,
                           weak_ptr_factory_.GetWeakPtr()));
-  BocaAppClient::Get()->GetSessionManager()->ToggleAppStatus(
-      /*is_app_opened=*/true);
   base_url_ = BocaAppClient::Get()->GetSchoolToolsServerBaseUrl();
 }
 
 BocaAppHandler::~BocaAppHandler() {
   BocaAppClient::Get()->GetSessionManager()->RemoveObserver(this);
-  BocaAppClient::Get()->GetSessionManager()->ToggleAppStatus(
-      /*is_app_opened=*/false);
 }
 
 void BocaAppHandler::AuthenticateWebview(AuthenticateWebviewCallback callback) {
@@ -266,7 +280,8 @@ void BocaAppHandler::CreateSession(mojom::ConfigPtr config,
               [](CreateSessionCallback callback,
                  base::expected<std::unique_ptr<::boca::Session>,
                                 google_apis::ApiErrorCode> result) {
-                // TODO(b/358476060): Potentially parse error code to UI;
+                // TODO(crbug.com/358476060): Potentially parse error code to
+                // UI;
                 if (!result.has_value()) {
                   std::move(callback).Run(false);
                 } else {
@@ -279,10 +294,9 @@ void BocaAppHandler::CreateSession(mojom::ConfigPtr config,
                 }
               },
               std::move(callback)));
-  if (!config->students.empty()) {
     auto roster = std::make_unique<::boca::Roster>();
+    // Always create student group even if start session with no students.
     auto* student_groups = roster->mutable_student_groups()->Add();
-    std::vector<::boca::UserIdentity> identities;
     for (auto& item : config->students) {
       auto* student = student_groups->mutable_students()->Add();
       student->set_gaia_id(item->id);
@@ -291,7 +305,6 @@ void BocaAppHandler::CreateSession(mojom::ConfigPtr config,
       student->set_photo_url(item->photo_url.value_or(GURL()).spec());
     }
     request->set_roster(std::move(roster));
-  }
   if (config->caption_config) {
     request->set_captions_config(
         CaptionConfigMojomToProto(config->caption_config->Clone()));
@@ -435,6 +448,28 @@ void BocaAppHandler::RemoveStudent(const std::string& id,
   session_client_impl_->RemoveStudent(std::move(request));
 }
 
+void BocaAppHandler::AddStudents(const std::vector<std::string>& ids,
+                                 AddStudentsCallback callback) {
+  auto* session =
+      BocaAppClient::Get()->GetSessionManager()->GetCurrentSession();
+  if (!session || session->session_state() != ::boca::Session::ACTIVE) {
+    receiver_.ReportBadMessage("Extend session with invalid input.");
+    return;
+  }
+
+  std::unique_ptr<AddStudentsRequest> request =
+      std::make_unique<AddStudentsRequest>(
+          session_client_impl_->sender(), base_url_,
+          GaiaId(user_identity_.gaia_id()), session->session_id(),
+          base::BindOnce(&BocaAppHandler::OnStudentsAdded,
+                         weak_ptr_factory_.GetWeakPtr(), std::move(callback),
+                         session));
+
+  request->set_student_ids(std::move(ids));
+  request->set_student_group_id(GetStudentGroupIdSafe(session));
+  session_client_impl_->AddStudents(std::move(request));
+}
+
 void BocaAppHandler::UpdateOnTaskConfig(mojom::OnTaskConfigPtr config,
                                         UpdateOnTaskConfigCallback callback) {
   auto* session =
@@ -488,25 +523,15 @@ void BocaAppHandler::UpdateCaptionConfig(mojom::CaptionConfigPtr config,
     return;
   }
 
-  std::unique_ptr<UpdateSessionRequest> request =
-      std::make_unique<UpdateSessionRequest>(
-          session_client_impl_->sender(), base_url_, user_identity_,
-          session->session_id(),
-          base::BindOnce(&BocaAppHandler::OnUpdatedCaptionConfig,
-                         weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
-  auto captions_config = CaptionConfigMojomToProto(config->Clone());
-  // Record the current caption update so that on task change won't override it.
-  // Will be reset on callback run.
-  latest_caption_config_ =
-      std::make_unique<::boca::CaptionsConfig>(*captions_config);
-  request->set_captions_config(std::move(captions_config));
-
-  if (!latest_ontask_config_) {
-    latest_ontask_config_ = std::make_unique<::boca::OnTaskConfig>(
-        GetSessionConfigSafe(session).on_task_config());
+  // Skip caption initialization when disabling captions.
+  if (!config->session_caption_enabled) {
+    UpdateCaptionConfigInternal(std::move(config), std::move(callback),
+                                /*can_proceed=*/true);
+    return;
   }
-  request->set_on_task_config(std::move(latest_ontask_config_));
-  session_client_impl_->UpdateSession(std::move(request));
+  BocaAppClient::Get()->GetSessionManager()->InitSessionCaption(base::BindOnce(
+      &BocaAppHandler::UpdateCaptionConfigInternal,
+      weak_ptr_factory_.GetWeakPtr(), std::move(config), std::move(callback)));
 }
 
 void BocaAppHandler::SetFloatMode(bool is_float_mode,
@@ -602,6 +627,13 @@ void BocaAppHandler::GetUserPref(mojom::BocaValidPref pref,
 void BocaAppHandler::SetUserPref(mojom::BocaValidPref pref,
                                  base::Value value,
                                  SetUserPrefCallback callback) {
+  // Boca should only get but not set kDefaultMediaStreamSetting.
+  if (pref == mojom::BocaValidPref::kDefaultMediaStreamSetting) {
+    mojo::ReportBadMessage(
+        "Attempted to set kDefaultMediaStreamSetting user pref.");
+    return;
+  }
+
   pref_service_->Set(GetPrefName(pref), std::move(value));
   std::move(callback).Run();
 }
@@ -636,6 +668,11 @@ void BocaAppHandler::CloseTab(const SessionID::id_type tab_id,
 
 void BocaAppHandler::OpenFeedbackDialog(OpenFeedbackDialogCallback callback) {
   BocaAppClient::Get()->OpenFeedbackDialog();
+  std::move(callback).Run();
+}
+
+void BocaAppHandler::RefreshWorkbook(RefreshWorkbookCallback callback) {
+  BocaAppClient::Get()->GetSessionManager()->NotifyAppReload();
   std::move(callback).Run();
 }
 
@@ -689,6 +726,10 @@ void BocaAppHandler::OnSessionRosterUpdated(const ::boca::Roster& roster) {
   UpdateSessionConfig();
 }
 
+void BocaAppHandler::OnLocalCaptionClosed() {
+  remote_->OnLocalCaptionDisabled();
+}
+
 void BocaAppHandler::NotifyLocalCaptionConfigUpdate(
     mojom::CaptionConfigPtr config) {
   ::boca::CaptionsConfig local_caption_config;
@@ -703,10 +744,10 @@ void BocaAppHandler::SetSpotlightService(SpotlightService* spotlight_service) {
 }
 
 void BocaAppHandler::SetFloatModeAndBoundsForWindow(
-    bool isFloatMode,
+    bool is_float_mode,
     aura::Window* window,
     SetFloatModeCallback callback) {
-  if (!isFloatMode) {
+  if (!is_float_mode) {
     // We don't unset float mode, do nothing here.
     std::move(callback).Run(false);
     return;
@@ -806,6 +847,20 @@ void BocaAppHandler::OnStudentRemoved(
   }
 }
 
+void BocaAppHandler::OnStudentsAdded(
+    AddStudentsCallback callback,
+    ::boca::Session* current_session,
+    base::expected<bool, google_apis::ApiErrorCode> result) {
+  if (!result.has_value()) {
+    std::move(callback).Run(mojom::AddStudentsError::kHTTPError);
+    return;
+  }
+
+  std::move(callback).Run(std::nullopt);
+  BocaAppClient::Get()->GetSessionManager()->LoadCurrentSession(
+      /*from_polling=*/false);
+}
+
 void BocaAppHandler::OnAccessCodeSubmitted(
     SubmitAccessCodeCallback callback,
     base::expected<std::unique_ptr<::boca::Session>, google_apis::ApiErrorCode>
@@ -819,5 +874,37 @@ void BocaAppHandler::OnAccessCodeSubmitted(
         std::move(result.value()), /*dispatch_event=*/true);
     std::move(callback).Run(std::nullopt);
   }
+}
+
+void BocaAppHandler::UpdateCaptionConfigInternal(
+    mojom::CaptionConfigPtr config,
+    UpdateCaptionConfigCallback callback,
+    bool can_proceed) {
+  if (!can_proceed) {
+    LOG(ERROR) << "[Boca] Caption initialization failed.";
+    std::move(callback).Run(mojom::UpdateSessionError::kPreconditionFailed);
+    return;
+  }
+  auto* session =
+      BocaAppClient::Get()->GetSessionManager()->GetCurrentSession();
+  std::unique_ptr<UpdateSessionRequest> request =
+      std::make_unique<UpdateSessionRequest>(
+          session_client_impl_->sender(), base_url_, user_identity_,
+          session->session_id(),
+          base::BindOnce(&BocaAppHandler::OnUpdatedCaptionConfig,
+                         weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+  auto captions_config = CaptionConfigMojomToProto(config->Clone());
+  // Record the current caption update so that on task change won't override it.
+  // Will be reset on callback run.
+  latest_caption_config_ =
+      std::make_unique<::boca::CaptionsConfig>(*captions_config);
+  request->set_captions_config(std::move(captions_config));
+
+  if (!latest_ontask_config_) {
+    latest_ontask_config_ = std::make_unique<::boca::OnTaskConfig>(
+        GetSessionConfigSafe(session).on_task_config());
+  }
+  request->set_on_task_config(std::move(latest_ontask_config_));
+  session_client_impl_->UpdateSession(std::move(request));
 }
 }  // namespace ash::boca

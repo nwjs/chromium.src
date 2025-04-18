@@ -74,6 +74,8 @@ class ChromeOmniboxClient final : public OmniboxClient {
   void OnInputStateChanged() override;
   void OnFocusChanged(OmniboxFocusState state,
                       OmniboxFocusChangeReason reason) override;
+  void MaybeShowOnFocusHatsSurvey(AutocompleteProviderClient* client,
+                                  std::u16string text) override;
   void OnResultChanged(const AutocompleteResult& result,
                        bool default_match_changed,
                        bool should_prerender,
@@ -118,6 +120,8 @@ class ChromeOmniboxClient final : public OmniboxClient {
   void OnPopupVisibilityChanged(bool popup_is_open) override;
   void OpenIphLink(GURL gurl) override;
   bool IsHistoryEmbeddingsEnabled() const override;
+  std::optional<lens::proto::LensOverlaySuggestInputs>
+  GetLensOverlaySuggestInputs() const override;
   base::WeakPtr<OmniboxClient> AsWeakPtr() override;
 
   // Update shortcuts when a navigation succeeds.

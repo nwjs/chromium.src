@@ -20,7 +20,7 @@
 #include "third_party/blink/renderer/core/dom/element_traversal.h"
 #include "third_party/blink/renderer/core/dom/events/scoped_event_queue.h"
 #include "third_party/blink/renderer/core/exported/web_view_impl.h"
-#include "third_party/blink/renderer/core/frame/local_frame.h"
+#include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/frame/web_frame_widget_impl.h"
 #include "third_party/blink/renderer/core/geometry/dom_rect.h"
@@ -372,6 +372,25 @@ void InternalPopupMenu::WriteDocument(SegmentedBuffer& data) {
                          min_height, std::max(24, min_height)),
           data);
     }
+  }
+
+  if (RuntimeEnabledFeatures::SelectColorsRemoveImportantEnabled()) {
+    // We want to use -internal-inactive-list-box-selection here to match
+    // html.css, but we can't because this isn't a UA stylesheet. This code
+    // figures out what that color would resolve to and uses it.
+    Color disabled_bg_color_light =
+        LayoutTheme::GetTheme().InactiveListBoxSelectionBackgroundColor(
+            mojom::blink::ColorScheme::kLight);
+    Color disabled_bg_color_dark =
+        LayoutTheme::GetTheme().InactiveListBoxSelectionBackgroundColor(
+            mojom::blink::ColorScheme::kDark);
+    String listbox_bg_color = String::Format(
+        "option:checked:disabled {"
+        "background-color: light-dark(%s, %s) !important;"
+        "}",
+        disabled_bg_color_light.SerializeAsCSSColor().Ascii().c_str(),
+        disabled_bg_color_dark.SerializeAsCSSColor().Ascii().c_str());
+    PagePopupClient::AddString(listbox_bg_color, data);
   }
 
   PagePopupClient::AddString(

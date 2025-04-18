@@ -14,6 +14,7 @@
   <structure type="chrome_scaled_image" name="IDR_AUTOFILL_CC_VISA" file="autofill/visa.png" />
   <structure type="chrome_scaled_image" name="IDR_AUTOFILL_CC_TROY" file="autofill/troy.png" />
   <structure type="chrome_scaled_image" name="IDR_AUTOFILL_IBAN" file="autofill/iban.png" />
+  <structure type="chrome_scaled_image" name="IDR_AUTOFILL_IBAN_OLD" file="autofill/iban_old.png" />
   <structure type="chrome_scaled_image" name="IDR_AUTOFILL_BNPL_GENERIC" file="autofill/pay_over_time.png" />
   <structure type="chrome_scaled_image" name="IDR_AUTOFILL_VIRTUAL_CARD_ENROLL_DIALOG" file="autofill/virtual_card_enroll.png" />
   <structure type="chrome_scaled_image" name="IDR_AUTOFILL_VIRTUAL_CARD_ENROLL_DIALOG_DARK" file="autofill/virtual_card_enroll_dark.png" />
@@ -61,12 +62,12 @@
       <structure type="chrome_scaled_image" name="IDR_AUTOFILL_GOOGLE_PAY_AFTERPAY_DARK" file="autofill/pay_over_time.png" />
       <structure type="chrome_scaled_image" name="IDR_AUTOFILL_GOOGLE_PAY_ZIP" file="autofill/pay_over_time.png" />
       <structure type="chrome_scaled_image" name="IDR_AUTOFILL_GOOGLE_PAY_ZIP_DARK" file="autofill/pay_over_time.png" />
-      <structure type="chrome_scaled_image" name="IDR_AUTOFILL_AFFIRM_LINKED" file="autofill/pay_over_time.png" />
-      <structure type="chrome_scaled_image" name="IDR_AUTOFILL_AFFIRM_UNLINKED" file="autofill/pay_over_time.png" />
-      <structure type="chrome_scaled_image" name="IDR_AUTOFILL_AFTERPAY_LINKED" file="autofill/pay_over_time.png" />
-      <structure type="chrome_scaled_image" name="IDR_AUTOFILL_AFTERPAY_UNLINKED" file="autofill/pay_over_time.png" />
-      <structure type="chrome_scaled_image" name="IDR_AUTOFILL_ZIP_LINKED" file="autofill/pay_over_time.png" />
-      <structure type="chrome_scaled_image" name="IDR_AUTOFILL_ZIP_UNLINKED" file="autofill/pay_over_time.png" />
+      <structure type="chrome_scaled_image" name="IDR_AUTOFILL_AFFIRM_LINKED" file="autofill/metadata/pay_over_time.png" />
+      <structure type="chrome_scaled_image" name="IDR_AUTOFILL_AFFIRM_UNLINKED" file="autofill/metadata/pay_over_time.png" />
+      <structure type="chrome_scaled_image" name="IDR_AUTOFILL_AFTERPAY_LINKED" file="autofill/metadata/pay_over_time.png" />
+      <structure type="chrome_scaled_image" name="IDR_AUTOFILL_AFTERPAY_UNLINKED" file="autofill/metadata/pay_over_time.png" />
+      <structure type="chrome_scaled_image" name="IDR_AUTOFILL_ZIP_LINKED" file="autofill/metadata/pay_over_time.png" />
+      <structure type="chrome_scaled_image" name="IDR_AUTOFILL_ZIP_UNLINKED" file="autofill/metadata/pay_over_time.png" />
     </else>
   </if>
   <if expr="is_android">

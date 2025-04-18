@@ -252,13 +252,14 @@ void LayerTreeImpl::DidUpdateScrollOffset(
     CHECK_NE(scroll_node->transform_id, kInvalidPropertyNodeId);
     TransformTree& transform_tree = property_trees()->transform_tree_mutable();
     auto* transform_node = transform_tree.Node(scroll_node->transform_id);
-    if (transform_node->scroll_offset !=
+    if (transform_node->scroll_offset() !=
         scroll_tree.current_scroll_offset(id)) {
-      transform_node->scroll_offset = scroll_tree.current_scroll_offset(id);
+      transform_node->SetScrollOffset(scroll_tree.current_scroll_offset(id),
+                                      DamageReason::kCompositorScroll);
       transform_node->needs_local_transform_update = true;
       transform_tree.set_needs_update(true);
     }
-    transform_node->transform_changed = true;
+    transform_node->SetTransformChanged(DamageReason::kCompositorScroll);
     property_trees()->set_changed(true);
     set_needs_update_draw_properties();
   } else if (can_realize_on_pending_tree) {
@@ -1292,6 +1293,20 @@ void LayerTreeImpl::PushPageScaleFromMainThread(float page_scale_factor,
                                                 float max_page_scale_factor) {
   PushPageScaleFactorAndLimits(&page_scale_factor, min_page_scale_factor,
                                max_page_scale_factor);
+}
+
+void LayerTreeImpl::SetPageScaleFactorAndLimitsForDisplayTree(
+    float page_scale_factor,
+    float min_page_scale_factor,
+    float max_page_scale_factor) {
+  DCHECK(settings().is_display_tree);
+  bool changed_page_scale = page_scale_factor_->SetCurrent(page_scale_factor);
+  changed_page_scale |=
+      SetPageScaleFactorLimits(min_page_scale_factor, max_page_scale_factor);
+
+  if (changed_page_scale) {
+    DidUpdatePageScale();
+  }
 }
 
 void LayerTreeImpl::PushPageScaleFactorAndLimits(const float* page_scale_factor,
@@ -3022,6 +3037,9 @@ void LayerTreeImpl::AddViewTransitionRequest(
 
 std::vector<std::unique_ptr<ViewTransitionRequest>>
 LayerTreeImpl::TakeViewTransitionRequests() {
+  if (HasViewTransitionRequests()) {
+    set_needs_update_draw_properties();
+  }
   return std::move(view_transition_requests_);
 }
 

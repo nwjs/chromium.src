@@ -116,6 +116,17 @@ def generate_cpp_functions(schema):
   yield '  return AttributeTypeNameToString(name_);'
   yield '}'
   yield ''
+  yield 'bool AttributeType::is_disambiguation_type() const {'
+  yield '  switch (name_) {'
+  for entity in schema:
+    for attribute in entity["disambiguation order"]:
+      yield f'    case {attribute_name(entity["name"], attribute)}:'
+      yield f'      return true;'
+  yield f'    default:'
+  yield f'      return false;'
+  yield '  }'
+  yield '}'
+  yield ''
   yield 'EntityType AttributeType::entity_type() const {'
   yield '  switch (name_) {'
   for entity, attribute in ((entity['name'], attribute) for entity in schema for attribute in entity['attributes']):
@@ -186,7 +197,7 @@ def generate_cpp_functions(schema):
   yield 'bool AttributeType::DisambiguationOrder(const AttributeType& lhs, const AttributeType& rhs) {'
   yield '  constexpr auto rank = [](const AttributeType& a) {'
   yield '    static constexpr auto ranks = [] {'
-  yield '      std::array<int, base::to_underlying(AttributeTypeName::kMaxValue)> ranks{};'
+  yield '      std::array<int, base::to_underlying(AttributeTypeName::kMaxValue) + 1> ranks{};'
   yield '      for (int& rank : ranks) {'
   yield '        rank = std::numeric_limits<int>::max();'
   yield '      }'

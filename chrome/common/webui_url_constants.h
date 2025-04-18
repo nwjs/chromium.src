@@ -322,6 +322,10 @@ inline constexpr char kChromeUICustomizeChromeSidePanelHost[] =
     "customize-chrome-side-panel.top-chrome";
 inline constexpr char kChromeUICustomizeChromeSidePanelURL[] =
     "chrome://customize-chrome-side-panel.top-chrome";
+inline constexpr char kChromeUIHistorySidePanelHost[] =
+    "history-side-panel.top-chrome";
+inline constexpr char kChromeUIHistorySidePanelURL[] =
+    "chrome://history-side-panel.top-chrome/";
 inline constexpr char kChromeUIHistoryClustersSidePanelHost[] =
     "history-clusters-side-panel.top-chrome";
 inline constexpr char kChromeUIHistoryClustersSidePanelURL[] =
@@ -556,6 +560,9 @@ inline constexpr char kChromeUIProfilePickerHost[] = "profile-picker";
 inline constexpr char kChromeUIProfilePickerStartupQuery[] = "startup";
 inline constexpr char kChromeUIProfilePickerGlicQuery[] = "glic";
 inline constexpr char kChromeUIProfilePickerUrl[] = "chrome://profile-picker/";
+inline constexpr char kChromeUIHistorySyncOptinHost[] = "history-sync-optin";
+inline constexpr char kChromeUIHistorySyncOptinURL[] =
+    "chrome://history-sync-optin/";
 #endif
 
 #if ((BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)) && \
@@ -643,6 +650,7 @@ inline constexpr char kCleanupSubPage[] = "cleanup";
 
 #if !BUILDFLAG(IS_ANDROID) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
 inline constexpr char kChromeUICastFeedbackHost[] = "cast-feedback";
+inline constexpr char kChromeUICastFeedbackURL[] = "chrome://cast-feedback";
 #endif
 
 #if BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)

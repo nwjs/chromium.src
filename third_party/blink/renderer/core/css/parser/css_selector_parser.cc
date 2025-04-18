@@ -2,17 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "third_party/blink/renderer/core/css/parser/css_selector_parser.h"
 
 #include <algorithm>
 #include <memory>
 
 #include "base/auto_reset.h"
+#include "base/compiler_specific.h"
 #include "base/containers/span.h"
 #include "base/numerics/safe_conversions.h"
 #include "third_party/blink/renderer/core/css/css_selector.h"
@@ -680,16 +676,52 @@ static CSSNestingType GetNestingTypeForSelectorList(
   CSSNestingType nesting_type = CSSNestingType::kNone;
   for (;;) {  // Termination condition within loop.
     nesting_type = std::max(nesting_type, selector->GetNestingType());
-    if (selector->SelectorList() != nullptr) {
-      nesting_type = std::max(
-          nesting_type,
-          GetNestingTypeForSelectorList(selector->SelectorList()->First()));
+
+    auto* list = selector->SelectorList();
+    if (list != nullptr) {
+      nesting_type =
+          std::max(nesting_type, GetNestingTypeForSelectorList(list->First()));
     }
     if (selector->IsLastInSelectorList() ||
         nesting_type == CSSNestingType::kNesting) {
       break;
     }
-    ++selector;
+
+    // SAFETY: SelectorList uses iterator pattern,
+    // so it is safe to increment the pointer as long
+    // as we check the item is not nullptr before dereferencing.
+    UNSAFE_BUFFERS(++selector);
+  }
+  return nesting_type;
+}
+
+// This acts like CSSSelector::GetNestingType, except across a whole
+// selector list.
+//
+// A return value of CSSNestingType::kNesting means that the list
+// "contains the nesting selector".
+// https://drafts.csswg.org/css-nesting-1/#contain-the-nesting-selector
+//
+// A return value of CSSNestingType::kScope means that the list
+// contains the :scope selector.
+static CSSNestingType GetNestingTypeForSelectorList(
+    base::span<const CSSSelector> selector) {
+  if (selector.empty()) {
+    return CSSNestingType::kNone;
+  }
+  CSSNestingType nesting_type = CSSNestingType::kNone;
+  for (const CSSSelector& curr : selector) {
+    nesting_type = std::max(nesting_type, curr.GetNestingType());
+
+    auto* list = curr.SelectorList();
+    if (list != nullptr) {
+      nesting_type =
+          std::max(nesting_type, GetNestingTypeForSelectorList(list->First()));
+    }
+    if (curr.IsLastInSelectorList() ||
+        nesting_type == CSSNestingType::kNesting) {
+      break;
+    }
   }
   return nesting_type;
 }
@@ -711,7 +743,7 @@ static CSSSelector CreateImplicitAnchor(
 static std::optional<CSSSelector> MaybeCreateImplicitDescendantAnchor(
     CSSNestingType nesting_type,
     const StyleRule* parent_rule_for_nesting,
-    const CSSSelector* selector) {
+    base::span<const CSSSelector> selector) {
   switch (nesting_type) {
     case CSSNestingType::kNone:
       break;
@@ -836,7 +868,7 @@ base::span<CSSSelector> CSSSelectorParser::ConsumeComplexSelector(
     output_[last_index].SetLastInSelectorList(true);
     if (std::optional<CSSSelector> anchor = MaybeCreateImplicitDescendantAnchor(
             nesting_type, parent_rule_for_nesting_,
-            reset_vector.AddedElements().data())) {
+            reset_vector.AddedElements())) {
       output_.back().SetRelation(CSSSelector::kDescendant);
       output_.push_back(anchor.value());
       result_flags |= kContainsScopeOrParent;
@@ -1314,13 +1346,25 @@ base::span<CSSSelector> CSSSelectorParser::ConsumeCompoundSelector(
     return {};  // Failure.
   }
 
+  std::vector<size_t> has_pseudo_index_in_compound;
   // Consume all the simple selectors that are not tag names.
   while (ConsumeSimpleSelector(stream, result_flags)) {
     const CSSSelector& simple_selector = output_.back();
     if (simple_selector.Match() == CSSSelector::kPseudoElement) {
       restricting_pseudo_element_ = simple_selector.GetPseudoType();
     }
+    if (simple_selector.GetPseudoType() == CSSSelector::kPseudoHas) {
+      has_pseudo_index_in_compound.push_back(output_.size() - 1);
+    }
     output_.back().SetRelation(CSSSelector::kSubSelector);
+  }
+  if (found_host_in_compound_) {
+    for (size_t has_pseudo_index : has_pseudo_index_in_compound) {
+      DCHECK_LT(has_pseudo_index, output_.size());
+      CSSSelector* has_pseudo = &output_[has_pseudo_index];
+      DCHECK_EQ(has_pseudo->GetPseudoType(), CSSSelector::kPseudoHas);
+      has_pseudo->SetHasArgumentMatchInShadowTree();
+    }
   }
 
   // While inside a nested selector like :is(), the default namespace shall
@@ -1713,9 +1757,6 @@ bool CSSSelectorParser::ConsumePseudo(CSSParserTokenStream& stream,
       }
       if (local_result_flags & kContainsComplexSelector) {
         selector.SetContainsComplexLogicalCombinationsInsideHasPseudoClass();
-      }
-      if (found_host_in_compound_) {
-        selector.SetHasArgumentMatchInShadowTree();
       }
       output_.push_back(std::move(selector));
       result_flags |= local_result_flags;

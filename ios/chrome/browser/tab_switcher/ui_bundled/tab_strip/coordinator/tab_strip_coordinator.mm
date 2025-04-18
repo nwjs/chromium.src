@@ -94,7 +94,7 @@
       startDispatchingToTarget:self
                    forProtocol:@protocol(TabStripCommands)];
 
-  ProfileIOS* profile = self.browser->GetProfile();
+  ProfileIOS* profile = self.profile;
   CHECK(profile);
   self.tabStripViewController = [[TabStripViewController alloc] init];
   self.tabStripViewController.layoutGuideCenter =
@@ -112,13 +112,16 @@
           profile);
   collaboration::CollaborationService* collaborationService =
       collaboration::CollaborationServiceFactory::GetForProfile(profile);
+  ShareKitService* shareKitService =
+      ShareKitServiceFactory::GetForProfile(profile);
 
   self.mediator =
       [[TabStripMediator alloc] initWithConsumer:self.tabStripViewController
                              tabGroupSyncService:tabGroupSyncService
                                      browserList:browserList
                                 messagingService:messagingService
-                            collaborationService:collaborationService];
+                            collaborationService:collaborationService
+                                 shareKitService:shareKitService];
   self.mediator.webStateList = self.browser->GetWebStateList();
   self.mediator.profile = profile;
   self.mediator.browser = self.browser;
@@ -204,13 +207,12 @@
 
 - (void)showAlertForLastTabDragged:
     (TabStripLastTabDraggedAlertCommand*)command {
-  ProfileIOS* profile = self.browser->GetProfile();
-  if (profile->IsOffTheRecord()) {
+  if (self.profile->IsOffTheRecord()) {
     return;
   }
 
   AuthenticationService* authenticationService =
-      AuthenticationServiceFactory::GetForProfile(profile);
+      AuthenticationServiceFactory::GetForProfile(self.profile);
   id<SystemIdentity> identity =
       authenticationService->GetPrimaryIdentity(signin::ConsentLevel::kSignin);
 
@@ -302,8 +304,7 @@
 
 - (void)showTabStripTabGroupSnackbarAfterClosingGroups:
     (int)numberOfClosedGroups {
-  if (!IsTabGroupSyncEnabled() ||
-      self.browser->GetProfile()->IsOffTheRecord()) {
+  if (!IsTabGroupSyncEnabled() || self.profile->IsOffTheRecord()) {
     return;
   }
 
@@ -457,8 +458,9 @@
   std::unique_ptr<collaboration::CollaborationControllerDelegate> delegate =
       std::make_unique<collaboration::IOSCollaborationControllerDelegate>(
           browser, self.baseViewController);
-  collaborationService->StartShareOrManageFlow(std::move(delegate),
-                                               tabGroup->tab_group_id());
+  collaborationService->StartShareOrManageFlow(
+      std::move(delegate), tabGroup->tab_group_id(),
+      collaboration::CollaborationServiceShareOrManageEntryPoint::kUnknown);
 }
 
 @end

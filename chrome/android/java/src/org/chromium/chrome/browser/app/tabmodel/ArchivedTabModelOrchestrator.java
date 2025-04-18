@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.app.tabmodel;
 
 import android.content.Context;
 
+import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ApplicationState;
@@ -107,6 +108,14 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator implement
                 public void onDeclutterPassCompleted() {
                     saveState();
                 }
+
+                @Override
+                public void onArchivePersistedTabDataCreated() {
+                    if (mTriggerAutodeleteAfterDataCreated) {
+                        mTabArchiver.doAutodeletePass();
+                        mTriggerAutodeleteAfterDataCreated = false;
+                    }
+                }
             };
 
     private final Profile mProfile;
@@ -136,7 +145,8 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator implement
     private boolean mRescueTabsCalled;
     private CallbackController mCallbackController = new CallbackController();
     private ObservableSupplier<Integer> mUnderlyingTabCountSupplier;
-    private HistoricalTabModelObserver mHistoricalTabModelObserver;
+    private @Nullable HistoricalTabModelObserver mHistoricalTabModelObserver;
+    private boolean mTriggerAutodeleteAfterDataCreated;
 
     /**
      * Returns the ArchivedTabModelOrchestrator that corresponds to the given profile. Must be
@@ -404,7 +414,7 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator implement
     private void doDeclutterPassImpl(TabbedModeTabModelOrchestrator orchestrator) {
         if (!mTabArchiveSettings.getArchiveEnabled()) return;
         assert ChromeFeatureList.sAndroidTabDeclutter.isEnabled();
-        disableSaveTabList(orchestrator);
+        pauseSaveTabList(orchestrator);
 
         int archiveTimeHours = mTabArchiveSettings.getArchiveTimeDeltaHours();
         if (ChromeFeatureList.sAndroidTabDeclutterArchiveAllButActiveTab.isEnabled()) {
@@ -419,16 +429,12 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator implement
                                 .isEnabled()) {
                             mTabArchiveSettings.setArchiveTimeDeltaHours(archiveTimeHours);
                         }
-                        enableSaveTabListAndSave(orchestrator);
-                    }
-
-                    @Override
-                    public void onArchivePersistedTabDataCreated() {
-                        mTabArchiver.doAutodeletePass();
+                        resumeSaveTabList(orchestrator);
                         mTabArchiver.removeObserver(this);
                     }
                 });
 
+        mTriggerAutodeleteAfterDataCreated = true;
         mTabArchiver.doArchivePass(orchestrator.getTabModelSelector());
     }
 
@@ -451,17 +457,25 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator implement
 
     private void rescueArchivedTabsImpl(TabbedModeTabModelOrchestrator orchestrator) {
         assert ChromeFeatureList.sAndroidTabDeclutterRescueKillSwitch.isEnabled();
-        disableSaveTabList(orchestrator);
+        pauseSaveTabList(orchestrator);
         mTabArchiver.rescueArchivedTabs(
                 orchestrator
                         .getTabModelSelector()
                         .getTabCreatorManager()
                         .getTabCreator(/* incognito= */ false));
-        enableSaveTabListAndSave(orchestrator);
+        resumeSaveTabList(orchestrator);
     }
 
     public void initializeHistoricalTabModelObserver(Supplier<TabModel> regularTabModelSupplier) {
-        mHistoricalTabModelObserver.addSecodaryTabModelSupplier(regularTabModelSupplier);
+        if (mHistoricalTabModelObserver != null) {
+            mHistoricalTabModelObserver.addSecondaryTabModelSupplier(regularTabModelSupplier);
+        }
+    }
+
+    public void removeHistoricalTabModelObserver(Supplier<TabModel> regularTabModelSupplier) {
+        if (mHistoricalTabModelObserver != null) {
+            mHistoricalTabModelObserver.removeSecondaryTabModelSupplier(regularTabModelSupplier);
+        }
     }
 
     // TabModelOrchestrator lifecycle methods.
@@ -520,18 +534,16 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator implement
 
     // Private methods
 
-    private void disableSaveTabList(TabbedModeTabModelOrchestrator orchestrator) {
+    private void pauseSaveTabList(TabbedModeTabModelOrchestrator orchestrator) {
         // Temporarily disable #saveTabListAsynchronously while running a bulk operation.
-        orchestrator.getTabPersistentStore().setSkipSaveTabList(true);
-        mTabPersistentStore.setSkipSaveTabList(true);
+        orchestrator.getTabPersistentStore().pauseSaveTabList();
+        mTabPersistentStore.pauseSaveTabList();
     }
 
-    private void enableSaveTabListAndSave(TabbedModeTabModelOrchestrator orchestrator) {
-        // Temporarily disable #saveTabListAsynchronously while running a bulk operation.
-        orchestrator.getTabPersistentStore().setSkipSaveTabList(false);
-        orchestrator.getTabPersistentStore().saveTabListAsynchronously();
-        mTabPersistentStore.setSkipSaveTabList(false);
-        mTabPersistentStore.saveTabListAsynchronously();
+    private void resumeSaveTabList(TabbedModeTabModelOrchestrator orchestrator) {
+        // Re-enable #saveTabListAsynchronously after running a bulk operation.
+        orchestrator.getTabPersistentStore().resumeSaveTabList();
+        mTabPersistentStore.resumeSaveTabList();
     }
 
     // Testing-specific methods

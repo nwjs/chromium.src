@@ -105,7 +105,7 @@ public final class TabGroupSyncUtils {
      */
     public static void unmapLocalIdsNotInTabGroupModelFilter(
             TabGroupSyncService tabGroupSyncService, TabGroupModelFilter filter) {
-        assert !filter.isIncognito();
+        assert !filter.getTabModel().isOffTheRecord();
 
         for (String syncGroupId : tabGroupSyncService.getAllGroupIds()) {
             SavedTabGroup savedTabGroup = tabGroupSyncService.getGroup(syncGroupId);
@@ -165,8 +165,7 @@ public final class TabGroupSyncUtils {
      */
     public static long getTabGroupLastAccessTime(
             Token tabGroupId, TabGroupModelFilter tabGroupModelFilter) {
-        int rootId = tabGroupModelFilter.getRootIdFromTabGroupId(tabGroupId);
-        List<Tab> tabs = tabGroupModelFilter.getRelatedTabListForRootId(rootId);
+        List<Tab> tabs = tabGroupModelFilter.getTabsInGroup(tabGroupId);
         long mostRecentAccessTime = 0;
         for (Tab tab : tabs) {
             mostRecentAccessTime = Math.max(mostRecentAccessTime, tab.getTimestampMillis());

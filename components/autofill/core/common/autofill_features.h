@@ -24,11 +24,30 @@ BASE_DECLARE_FEATURE(kAutofillAddressSuggestionsOnTyping);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillAddressUserPerceptionSurvey);
 COMPONENT_EXPORT(AUTOFILL)
+BASE_DECLARE_FEATURE(kAutofillAiAlwaysTriggerServerModel);
+COMPONENT_EXPORT(AUTOFILL)
+BASE_DECLARE_FEATURE(kAutofillAiCreateEntityDataManager);
+COMPONENT_EXPORT(AUTOFILL)
+BASE_DECLARE_FEATURE(kAutofillAiIgnoreGeoIp);
+COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillAiServerModel);
 COMPONENT_EXPORT(AUTOFILL)
 extern const base::FeatureParam<base::TimeDelta> kAutofillAiServerModelCacheAge;
 COMPONENT_EXPORT(AUTOFILL)
 extern const base::FeatureParam<int> kAutofillAiServerModelCacheSize;
+COMPONENT_EXPORT(AUTOFILL)
+extern const base::FeatureParam<base::TimeDelta>
+    kAutofillAiServerModelExecutionTimeout;
+COMPONENT_EXPORT(AUTOFILL)
+extern const base::FeatureParam<bool> kAutofillAiServerModelSendPageContent;
+COMPONENT_EXPORT(AUTOFILL)
+extern const base::FeatureParam<bool> kAutofillAiServerModelSendPageUrl;
+COMPONENT_EXPORT(AUTOFILL)
+extern const base::FeatureParam<bool> kAutofillAiServerModelUseCacheResults;
+COMPONENT_EXPORT(AUTOFILL)
+BASE_DECLARE_FEATURE(kAutofillAiVoteForFormatStringsFromSingleFields);
+COMPONENT_EXPORT(AUTOFILL)
+BASE_DECLARE_FEATURE(kAutofillAiVoteForFormatStringsFromMultipleFields);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillAiWithDataSchema);
 COMPONENT_EXPORT(AUTOFILL)
@@ -43,8 +62,6 @@ COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillDeduplicateAccountAddresses);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillDisambiguateContradictingFieldTypes);
-COMPONENT_EXPORT(AUTOFILL)
-BASE_DECLARE_FEATURE(kAutofillDoNotHideKeyboardAccessoryOnMainFrameResized);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnableAccountStorageForIneligibleCountries);
 COMPONENT_EXPORT(AUTOFILL)
@@ -79,7 +96,11 @@ BASE_DECLARE_FEATURE(kAutofillEnableLabelPrecedenceForTurkishAddresses);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnableLoyaltyCardsFilling);
 COMPONENT_EXPORT(AUTOFILL)
+BASE_DECLARE_FEATURE(kAutofillEnableSupportForHomeAndWork);
+COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnableSupportForParsingWithSharedLabels);
+COMPONENT_EXPORT(AUTOFILL)
+BASE_DECLARE_FEATURE(kAutofillExtractInputDate);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillExtractOnlyNonAdFrames);
 COMPONENT_EXPORT(AUTOFILL)
@@ -101,8 +122,6 @@ BASE_DECLARE_FEATURE(kAutofillPaymentsFieldSwapping);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillRecordCorrectionOfSelectElements);
 COMPONENT_EXPORT(AUTOFILL)
-BASE_DECLARE_FEATURE(kAutofillGivePrecedenceToEmailOverUsername);
-COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillImprovedLabels);
 COMPONENT_EXPORT(AUTOFILL)
 extern const base::FeatureParam<bool>
@@ -121,7 +140,7 @@ BASE_DECLARE_FEATURE(kAutofillSupportPhoneticNameForJP);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillSupportLastNamePrefix);
 COMPONENT_EXPORT(AUTOFILL)
-extern const base::FeatureParam<int> kNumberOfIgnoredSuggestions;
+BASE_DECLARE_FEATURE(kAutofillThrottleAskForValuesToFill);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillAcceptDomMutationAfterAutofillSubmission);
 COMPONENT_EXPORT(AUTOFILL)
@@ -169,8 +188,6 @@ COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillStructuredFieldsDisableAddressLines);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillSilentProfileUpdateForInsufficientImport);
-COMPONENT_EXPORT(AUTOFILL)
-BASE_DECLARE_FEATURE(kComposePopupAnnouncePolitely);
 COMPONENT_EXPORT(AUTOFILL) BASE_DECLARE_FEATURE(kAutofillEnableAblationStudy);
 COMPONENT_EXPORT(AUTOFILL)
 extern const base::FeatureParam<bool>

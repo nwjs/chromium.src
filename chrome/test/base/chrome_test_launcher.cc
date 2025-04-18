@@ -7,6 +7,7 @@
 #include <memory>
 #include <string_view>
 #include <utility>
+#include <variant>
 
 #include "base/base_paths.h"
 #include "base/command_line.h"
@@ -21,6 +22,7 @@
 #include "base/run_loop.h"
 #include "base/sampling_heap_profiler/poisson_allocation_sampler.h"
 #include "base/strings/string_util.h"
+#include "base/test/allow_check_is_test_for_testing.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_file_util.h"
 #include "base/test/test_switches.h"
@@ -176,7 +178,7 @@ ChromeTestChromeMainDelegate::CreateContentUtilityClient() {
 std::optional<int> ChromeTestChromeMainDelegate::PostEarlyInitialization(
     InvokedIn invoked_in) {
   auto result = ChromeMainDelegate::PostEarlyInitialization(invoked_in);
-  if (absl::get_if<InvokedInBrowserProcess>(&invoked_in)) {
+  if (std::get_if<InvokedInBrowserProcess>(&invoked_in)) {
     // If servicing an `InProcessBrowserTest`, give the test an opportunity to
     // prepopulate Local State with preferences.
     ChromeFeatureListCreator* chrome_feature_list_creator =
@@ -266,6 +268,8 @@ int LaunchChromeTests(size_t parallel_jobs,
                       content::TestLauncherDelegate* delegate,
                       int argc,
                       char** argv) {
+  base::test::AllowCheckIsTestForTesting();
+
 #if BUILDFLAG(IS_MAC)
   // Set up the path to the framework so resources can be loaded. This is also
   // performed in ChromeTestSuite, but in browser tests that only affects the

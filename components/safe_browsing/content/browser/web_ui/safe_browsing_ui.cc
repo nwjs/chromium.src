@@ -999,6 +999,27 @@ base::Value::Dict SerializeReferrer(const ReferrerChainEntry& referrer) {
   return referrer_dict;
 }
 
+base::Value::Dict SerializeSafeBrowsingWebAppKey(
+    const SafeBrowsingWebAppKey& key) {
+  base::Value::Dict dict;
+  dict.Set("start_url_origin", key.start_url_origin());
+  dict.Set("id_or_start_path", key.id_or_start_path());
+  return dict;
+}
+
+// This serializes the protobuf message ReferringAppInfo.
+base::Value::Dict SerializeReferringAppInfo(const ReferringAppInfo& info) {
+  base::Value::Dict dict;
+  dict.Set("referring_app_source", ReferringAppInfo_ReferringAppSource_Name(
+                                       info.referring_app_source()));
+  dict.Set("referring_app_name", info.referring_app_name());
+  if (info.has_referring_webapk()) {
+    dict.Set("referring_webapk",
+             SerializeSafeBrowsingWebAppKey(info.referring_webapk()));
+  }
+  return dict;
+}
+
 std::string SerializeClientDownloadRequest(const ClientDownloadRequest& cdr) {
   base::Value::Dict dict;
   if (cdr.has_url()) {
@@ -1083,6 +1104,11 @@ std::string SerializeClientDownloadRequest(const ClientDownloadRequest& cdr) {
     dict.Set("previous_token", cdr.previous_token());
   }
 
+  if (cdr.has_referring_app_info()) {
+    dict.Set("referring_app_info",
+             SerializeReferringAppInfo(cdr.referring_app_info()));
+  }
+
   std::string request_serialized;
   JSONStringValueSerializer serializer(&request_serialized);
   serializer.set_pretty_print(true);
@@ -1097,13 +1123,6 @@ base::Value::Dict SerializeTailoredVerdict(
       "tailored_verdict_type",
       ClientDownloadResponse_TailoredVerdict_TailoredVerdictType_Name(
           tv.tailored_verdict_type()));
-  base::Value::List adjustments;
-  for (const auto& adjustment : tv.adjustments()) {
-    adjustments.Append(
-        ClientDownloadResponse_TailoredVerdict_ExperimentalWarningAdjustment_Name(
-            adjustment));
-  }
-  dict_tailored_verdict.Set("adjustments", std::move(adjustments));
   return dict_tailored_verdict;
 }
 
@@ -1790,6 +1809,9 @@ base::Value::Dict SerializeUrlDisplayExperiment(
 }
 
 #if BUILDFLAG(IS_ANDROID)
+// This serializes the internal::ReferringAppInfo struct (not to be confused
+// with the protobuf message ReferringAppInfo), which contains intermediate
+// information obtained from Java.
 base::Value::Dict SerializeReferringAppInfo(
     const internal::ReferringAppInfo& info) {
   base::Value::Dict dict;
@@ -1803,26 +1825,6 @@ base::Value::Dict SerializeReferringAppInfo(
   return dict;
 }
 #endif
-
-base::Value::Dict SerializeSafeBrowsingWebAppKey(
-    const SafeBrowsingWebAppKey& key) {
-  base::Value::Dict dict;
-  dict.Set("start_url_origin", key.start_url_origin());
-  dict.Set("id_or_start_path", key.id_or_start_path());
-  return dict;
-}
-
-base::Value::Dict SerializeReferringAppInfo(const ReferringAppInfo& info) {
-  base::Value::Dict dict;
-  dict.Set("referring_app_source", ReferringAppInfo_ReferringAppSource_Name(
-                                       info.referring_app_source()));
-  dict.Set("referring_app_info", info.referring_app_name());
-  if (info.has_referring_webapk()) {
-    dict.Set("referring_webapk",
-             SerializeSafeBrowsingWebAppKey(info.referring_webapk()));
-  }
-  return dict;
-}
 
 base::Value::Dict SerializeCsdDebuggingMetadata(
     const LoginReputationClientRequest::DebuggingMetadata& debugging_metadata) {
@@ -2941,18 +2943,6 @@ void SafeBrowsingUIHandler::SetTailoredVerdictOverride(
   } else if (*tailored_verdict_type == "SUSPICIOUS_ARCHIVE") {
     tv.set_tailored_verdict_type(
         ClientDownloadResponse::TailoredVerdict::SUSPICIOUS_ARCHIVE);
-  }
-
-  const base::Value::List* adjustments = input.FindList("adjustments");
-  CHECK(adjustments);
-  for (const base::Value& adjustment : *adjustments) {
-    if (adjustment.GetString() == "ADJUSTMENT_UNSPECIFIED") {
-      tv.add_adjustments(
-          ClientDownloadResponse::TailoredVerdict::ADJUSTMENT_UNSPECIFIED);
-    } else if (adjustment.GetString() == "ACCOUNT_INFO_STRING") {
-      tv.add_adjustments(
-          ClientDownloadResponse::TailoredVerdict::ACCOUNT_INFO_STRING);
-    }
   }
 
   WebUIInfoSingleton::GetInstance()->SetTailoredVerdictOverride(std::move(tv),

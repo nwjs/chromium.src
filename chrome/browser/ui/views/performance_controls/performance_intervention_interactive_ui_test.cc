@@ -9,14 +9,18 @@
 #include "base/run_loop.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/values.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/feature_engagement/tracker_factory.h"
 #include "chrome/browser/performance_manager/public/user_tuning/performance_detection_manager.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_test_util.h"
-#include "chrome/browser/resource_coordinator/tab_lifecycle_observer.h"
-#include "chrome/browser/resource_coordinator/tab_lifecycle_unit_external.h"
+#include "chrome/browser/resource_coordinator/lifecycle_unit.h"
+#include "chrome/browser/resource_coordinator/lifecycle_unit_observer.h"
+#include "chrome/browser/resource_coordinator/lifecycle_unit_state.mojom.h"
+#include "chrome/browser/resource_coordinator/tab_lifecycle_unit_source.h"
+#include "chrome/browser/resource_coordinator/utils.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/performance_controls/performance_controls_metrics.h"
 #include "chrome/browser/ui/performance_controls/performance_intervention_button_controller.h"
@@ -55,26 +59,25 @@
 
 namespace {
 
-class DiscardObserver : public resource_coordinator::TabLifecycleObserver,
+class DiscardObserver : public resource_coordinator::LifecycleUnitObserver,
                         public ui::test::StateObserver<bool> {
  public:
   explicit DiscardObserver(int expected_tab_discarded_count)
       : expected_tab_discarded_count_(expected_tab_discarded_count) {
-    resource_coordinator::TabLifecycleUnitExternal::AddTabLifecycleObserver(
+    resource_coordinator::GetTabLifecycleUnitSource()->AddLifecycleObserver(
         this);
   }
 
   ~DiscardObserver() override {
-    resource_coordinator::TabLifecycleUnitExternal::RemoveTabLifecycleObserver(
+    resource_coordinator::GetTabLifecycleUnitSource()->RemoveLifecycleObserver(
         this);
   }
 
-  void OnTabLifecycleStateChange(
-      content::WebContents* contents,
-      mojom::LifecycleUnitState previous_state,
-      mojom::LifecycleUnitState new_state,
-      std::optional<LifecycleUnitDiscardReason> discard_reason) override {
-    if (new_state == mojom::LifecycleUnitState::DISCARDED) {
+  void OnLifecycleUnitStateChanged(
+      resource_coordinator::LifecycleUnit* lifecycle_unit,
+      ::mojom::LifecycleUnitState last_state,
+      ::mojom::LifecycleUnitStateChangeReason reason) override {
+    if (lifecycle_unit->GetState() == ::mojom::LifecycleUnitState::DISCARDED) {
       expected_tab_discarded_count_--;
     }
 
@@ -108,8 +111,6 @@ class PerformanceInterventionInteractiveTest
 
   void SetUp() override {
     set_open_about_blank_on_browser_launch(true);
-    feature_list_.InitAndEnableFeature(
-        performance_manager::features::kPerformanceInterventionUI);
     InteractiveFeaturePromoTest::SetUp();
   }
 
@@ -203,9 +204,6 @@ class PerformanceInterventionInteractiveTest
                                enabled);
     });
   }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_F(PerformanceInterventionInteractiveTest,
@@ -717,4 +715,94 @@ IN_PROC_BROWSER_TEST_F(PerformanceInterventionInteractiveTest,
             kMessageTriggerResultHistogram,
             InterventionMessageTriggerResult::kRateLimited, 1);
       }));
+}
+
+class PerformanceInterventionNotificationImprovementTest
+    : public PerformanceInterventionInteractiveTest {
+ public:
+  void SetUp() override {
+    scoped_feature_list_.InitAndEnableFeature(
+        performance_manager::features::
+            kPerformanceInterventionNotificationImprovements);
+    PerformanceInterventionInteractiveTest::SetUp();
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(PerformanceInterventionNotificationImprovementTest,
+                       UpdateLastShownTime) {
+  PrefService* const pref_service = g_browser_process->local_state();
+  base::Time last_shown = base::Time();
+  RunTestSequence(
+      AddInstrumentedTab(kSecondTab, GetURL()),
+      AddInstrumentedTab(kThirdTab, GetURL()), SelectTab(kTabStripElementId, 0),
+      Check([&]() {
+        return pref_service->GetTime(
+                   performance_manager::user_tuning::prefs::
+                       kPerformanceInterventionNotificationLastShown) ==
+               base::Time();
+      }),
+      TriggerOnActionableTabListChange({1, 2}),
+      WaitForShow(kToolbarPerformanceInterventionButtonElementId),
+      WaitForShow(PerformanceInterventionBubble::
+                      kPerformanceInterventionDialogDeactivateButton),
+      Do([&] {
+        last_shown = pref_service->GetTime(
+            performance_manager::user_tuning::prefs::
+                kPerformanceInterventionNotificationLastShown);
+      }),
+      Check([=]() {
+        return pref_service->GetTime(
+                   performance_manager::user_tuning::prefs::
+                       kPerformanceInterventionNotificationLastShown) !=
+               base::Time();
+      }),
+      PressButton(kToolbarPerformanceInterventionButtonElementId),
+      WaitForHide(
+          PerformanceInterventionBubble::kPerformanceInterventionDialogBody),
+      PressButton(kToolbarPerformanceInterventionButtonElementId),
+      WaitForShow(
+          PerformanceInterventionBubble::kPerformanceInterventionDialogBody),
+      Check([&]() {
+        return pref_service->GetTime(
+                   performance_manager::user_tuning::prefs::
+                       kPerformanceInterventionNotificationLastShown) ==
+               last_shown;
+      }));
+}
+
+IN_PROC_BROWSER_TEST_F(PerformanceInterventionNotificationImprovementTest,
+                       UpdateAcceptRate) {
+  PrefService* const pref_service = g_browser_process->local_state();
+
+  // Pre-populate the acceptance history with fake data.
+  base::Value::List previous_acceptance = base::Value::List();
+  for (int i = 0; i < 9; i++) {
+    previous_acceptance.Append(false);
+  }
+  previous_acceptance.Append(true);
+  pref_service->SetList(performance_manager::user_tuning::prefs::
+                            kPerformanceInterventionNotificationAcceptHistory,
+                        std::move(previous_acceptance));
+
+  PerformanceInterventionButtonController* const controller =
+      BrowserView::GetBrowserViewForBrowser(browser())
+          ->toolbar()
+          ->performance_intervention_button()
+          ->controller();
+  ASSERT_EQ(10, controller->GetAcceptancePercentage());
+
+  RunTestSequence(
+      AddInstrumentedTab(kSecondTab, GetURL()),
+      AddInstrumentedTab(kThirdTab, GetURL()), SelectTab(kTabStripElementId, 0),
+      TriggerOnActionableTabListChange({1, 2}),
+      WaitForShow(kToolbarPerformanceInterventionButtonElementId),
+      WaitForShow(PerformanceInterventionBubble::
+                      kPerformanceInterventionDialogDeactivateButton),
+      PressButton(PerformanceInterventionBubble::
+                      kPerformanceInterventionDialogDeactivateButton),
+      WaitForHide(kToolbarPerformanceInterventionButtonElementId),
+      CheckResult([=] { return controller->GetAcceptancePercentage(); }, 20));
 }

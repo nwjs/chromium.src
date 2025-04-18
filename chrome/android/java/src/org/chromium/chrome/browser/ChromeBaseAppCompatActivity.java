@@ -58,6 +58,7 @@ import org.chromium.chrome.browser.metrics.UmaSessionStats;
 import org.chromium.chrome.browser.night_mode.GlobalNightModeStateProviderHolder;
 import org.chromium.chrome.browser.night_mode.NightModeStateProvider;
 import org.chromium.chrome.browser.night_mode.NightModeUtils;
+import org.chromium.chrome.browser.theme.ThemeModuleUtils;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeUtils;
 import org.chromium.components.browser_ui.edge_to_edge.EdgeToEdgeManager;
 import org.chromium.components.browser_ui.edge_to_edge.EdgeToEdgeStateProvider;
@@ -123,8 +124,10 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
     private LinkedHashSet<Integer> mThemeResIds = new LinkedHashSet<>();
     private ServiceTracingProxyProvider mServiceTracingProxyProvider;
     private InsetObserver mInsetObserver;
-    private EdgeToEdgeStateProvider mEdgeToEdgeStateProvider;
-    private EdgeToEdgeManager mEdgeToEdgeManager;
+    // Created in #onCreate
+    private @Nullable EdgeToEdgeStateProvider mEdgeToEdgeStateProvider;
+    // Created in #onCreate
+    private @Nullable EdgeToEdgeManager mEdgeToEdgeManager;
     private EdgeToEdgeLayoutCoordinator mEdgeToEdgeLayoutCoordinator;
 
     @Override
@@ -204,7 +207,7 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
                         EdgeToEdgeUtils.isEdgeToEdgeEverywhereEnabled());
 
         if (EdgeToEdgeUtils.isEdgeToEdgeEverywhereEnabled()) {
-            initializeSystemBarColors();
+            initializeSystemBarColors(mEdgeToEdgeManager.getEdgeToEdgeSystemBarColorHelper());
         }
 
         if (VERSION.SDK_INT >= VERSION_CODES.UPSIDE_DOWN_CAKE
@@ -235,7 +238,8 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
     }
 
     /** Set the default colors of the system bars for this activity. */
-    protected void initializeSystemBarColors() {
+    protected void initializeSystemBarColors(
+            EdgeToEdgeSystemBarColorHelper edgeToEdgeSystemBarColorHelper) {
         // TODO(crbug.com/379174458): Set color from Theme.
         final @ColorInt int defaultBgColor = SemanticColorUtils.getDefaultBgColor(this);
         @ColorInt
@@ -250,8 +254,6 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
         defaultNavigationBarColor =
                 (defaultNavigationBarColor != 0) ? defaultNavigationBarColor : defaultBgColor;
 
-        EdgeToEdgeSystemBarColorHelper edgeToEdgeSystemBarColorHelper =
-                mEdgeToEdgeManager.getEdgeToEdgeSystemBarColorHelper();
         edgeToEdgeSystemBarColorHelper.setStatusBarColor(defaultStatusBarColor);
         edgeToEdgeSystemBarColorHelper.setNavigationBarColor(defaultNavigationBarColor);
     }
@@ -452,6 +454,16 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
     /** Apply theme overlay to this activity class. */
     @CallSuper
     protected void applyThemeOverlays() {
+        // Apply the theme overlay before applying dynamic colors. The order ensures the color
+        // attributes for dynamic colors are not overridden by the overlay.
+        if (ThemeModuleUtils.isEnabled()) {
+            int themeModuleOverlay = ThemeModuleUtils.getProviderInstance().getThemeOverlay();
+            if (themeModuleOverlay != 0) {
+                getTheme().applyStyle(themeModuleOverlay, /* force= */ true);
+                mThemeResIds.add(themeModuleOverlay);
+            }
+        }
+
         // Note that if you're adding new overlays here, it's quite likely they're needed
         // in org.chromium.chrome.browser.WarmupManager#applyContextOverrides for Custom Tabs
         // UI that's pre-inflated using a themed application context as part of CCT warmup.
@@ -636,13 +648,13 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
      * Returns the {@link EdgeToEdgeStateProvider} for checking and requesting changes to the
      * edge-to-edge state.
      */
-    protected EdgeToEdgeStateProvider getEdgeToEdgeStateProvider() {
+    protected @Nullable EdgeToEdgeStateProvider getEdgeToEdgeStateProvider() {
         return mEdgeToEdgeStateProvider;
     }
 
     /** Returns the {@link EdgeToEdgeManager} for access to core edge-to-edge logic. */
     @VisibleForTesting
-    public EdgeToEdgeManager getEdgeToEdgeManager() {
+    public @Nullable EdgeToEdgeManager getEdgeToEdgeManager() {
         return mEdgeToEdgeManager;
     }
 

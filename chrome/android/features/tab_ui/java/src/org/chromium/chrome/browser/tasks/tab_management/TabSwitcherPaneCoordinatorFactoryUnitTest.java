@@ -18,7 +18,6 @@ import android.app.Activity;
 import android.widget.FrameLayout;
 
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
-import androidx.test.filters.SmallTest;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -39,6 +38,7 @@ import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.back_press.BackPressManager;
+import org.chromium.chrome.browser.bookmarks.TabBookmarker;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.collaboration.CollaborationServiceFactory;
 import org.chromium.chrome.browser.data_sharing.DataSharingServiceFactory;
@@ -52,7 +52,9 @@ import org.chromium.chrome.browser.multiwindow.MultiWindowModeStateDispatcher;
 import org.chromium.chrome.browser.price_tracking.PriceTrackingFeatures;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileProvider;
+import org.chromium.chrome.browser.share.ShareDelegateSupplier;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
@@ -73,6 +75,7 @@ import org.chromium.components.collaboration.SigninStatus;
 import org.chromium.components.collaboration.SyncStatus;
 import org.chromium.components.data_sharing.TestDataSharingService;
 import org.chromium.components.feature_engagement.Tracker;
+import org.chromium.components.tab_group_sync.TabGroupSyncService;
 import org.chromium.ui.base.TestActivity;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 
@@ -119,15 +122,20 @@ public class TabSwitcherPaneCoordinatorFactoryUnitTest {
     @Mock private Callback<Boolean> mHairlineVisibilityCallback;
     @Mock private BottomSheetController mBottomSheetController;
     @Mock private DataSharingTabManager mDataSharingTabManager;
+    @Mock private TabGroupSyncService mTabGroupSyncService;
     @Mock private ProfileProvider mProfileProvider;
     @Mock private Profile mProfile;
     @Mock private Tracker mTracker;
     @Mock private BackPressManager mBackpressManager;
     @Mock private CollaborationService mCollaborationService;
+    @Mock private ShareDelegateSupplier mShareDelegateSupplier;
+    @Mock private TabBookmarker mTabBookmarker;
 
     @Captor private ArgumentCaptor<TabModelSelectorObserver> mTabModelSelectorObserverCaptor;
     @Captor private ArgumentCaptor<LifecycleObserver> mLifecycleObserverCaptor;
 
+    private final ObservableSupplierImpl<TabBookmarker> mTabBookmarkerSupplier =
+            new ObservableSupplierImpl<>(mTabBookmarker);
     private FrameLayout mParentView;
     private TabSwitcherPaneCoordinatorFactory mFactory;
 
@@ -139,6 +147,7 @@ public class TabSwitcherPaneCoordinatorFactoryUnitTest {
         TrackerFactory.setTrackerForTests(mTracker);
         DataSharingServiceFactory.setForTesting(new TestDataSharingService());
         CollaborationServiceFactory.setForTesting(mCollaborationService);
+        TabGroupSyncServiceFactory.setForTesting(mTabGroupSyncService);
         when(mCollaborationService.getServiceStatus())
                 .thenReturn(
                         new ServiceStatus(
@@ -189,11 +198,12 @@ public class TabSwitcherPaneCoordinatorFactoryUnitTest {
                         mDataSharingTabManager,
                         mBackpressManager,
                         /* desktopWindowStateManager= */ null,
-                        mEdgeToEdgeSupplier);
+                        mEdgeToEdgeSupplier,
+                        mShareDelegateSupplier,
+                        mTabBookmarkerSupplier);
     }
 
     @Test
-    @SmallTest
     public void testCreate_NativeAlreadyInitialized() {
         when(mLifecycleDispatcher.isNativeInitializationFinished()).thenReturn(true);
         TabSwitcherPaneCoordinator coordinator =
@@ -219,7 +229,6 @@ public class TabSwitcherPaneCoordinatorFactoryUnitTest {
     }
 
     @Test
-    @SmallTest
     public void testCreateTwoCoordinators_NativeAlreadyInitialized() {
         when(mLifecycleDispatcher.isNativeInitializationFinished()).thenReturn(true);
         TabSwitcherPaneCoordinator coordinator1 =
@@ -261,7 +270,6 @@ public class TabSwitcherPaneCoordinatorFactoryUnitTest {
     }
 
     @Test
-    @SmallTest
     public void testCreate_NativeNotInitialized() {
         when(mLifecycleDispatcher.isNativeInitializationFinished()).thenReturn(false);
         TabSwitcherPaneCoordinator coordinator =
@@ -293,14 +301,12 @@ public class TabSwitcherPaneCoordinatorFactoryUnitTest {
     }
 
     @Test
-    @SmallTest
     @CommandLineFlags.Add({BaseSwitches.DISABLE_LOW_END_DEVICE_MODE})
     public void testTabListMode_HighEnd() {
         assertEquals(TabListMode.GRID, mFactory.getTabListMode());
     }
 
     @Test
-    @SmallTest
     @CommandLineFlags.Add({BaseSwitches.ENABLE_LOW_END_DEVICE_MODE})
     @DisableFeatures(ChromeFeatureList.DISABLE_LIST_TAB_SWITCHER)
     public void testTabListMode_LowEnd() {
@@ -308,7 +314,6 @@ public class TabSwitcherPaneCoordinatorFactoryUnitTest {
     }
 
     @Test
-    @SmallTest
     @CommandLineFlags.Add({BaseSwitches.ENABLE_LOW_END_DEVICE_MODE})
     @EnableFeatures(ChromeFeatureList.DISABLE_LIST_TAB_SWITCHER)
     public void testTabListMode_LowEnd_ListDisabled() {
@@ -316,7 +321,6 @@ public class TabSwitcherPaneCoordinatorFactoryUnitTest {
     }
 
     @Test
-    @SmallTest
     public void testCreateTabGroupModelFilterSupplier_AlreadyCreated() {
         when(mTabModelSelector.getModels()).thenReturn(List.of(mTabModel));
 
@@ -326,7 +330,6 @@ public class TabSwitcherPaneCoordinatorFactoryUnitTest {
     }
 
     @Test
-    @SmallTest
     public void testCreateTabGroupModelFilterSupplier_WaitForChange() {
         when(mTabModelSelector.getModels()).thenReturn(Collections.emptyList());
 

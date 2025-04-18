@@ -20,60 +20,39 @@
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/public/cpp/simple_url_loader.h"
-#include "url/gurl.h"
+
+#if BUILDFLAG(IS_CHROMEOS) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
+#include "base/system/sys_info.h"
+#include "chromeos/crosapi/cpp/crosapi_constants.h"
+#endif  // BUILDFLAG(IS_CHROMEOS) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
 namespace {
 
 // Returns the name of the current channel, as ingested by the VersionHistory
 // API.
 std::string GetChannelString() {
-  if (auto name = chrome::GetChannelName(chrome::WithExtendedStable(true));
-      !name.empty() && name != "unknown") {
-    return name;
+  std::string channel =
+      chrome::GetChannelName(chrome::WithExtendedStable(true));
+  if (channel == "unknown") {
+    return "stable";
   }
+  if (!channel.empty()) {
+    return channel;
+  }
+#if BUILDFLAG(IS_CHROMEOS) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  // "" could mean Stable, LTC, or LTS. Find out which.
+  std::string crosapi_channel_name;
+  if (base::SysInfo::GetLsbReleaseValue(crosapi::kChromeOSReleaseTrack,
+                                        &crosapi_channel_name)) {
+    if (crosapi_channel_name == crosapi::kReleaseChannelLtc) {
+      return "ltc";
+    }
+    if (crosapi_channel_name == crosapi::kReleaseChannelLts) {
+      return "lts";
+    }
+  }
+#endif  // BUILDFLAG(IS_CHROMEOS) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
   return "stable";
-}
-
-// Returns the URL to get version info of `version` on the current platform
-// and channel. The response contains the single release with the most recent
-// `serving.endTime`.
-GURL GetVersionReleasesUrl(base::Version version) {
-// CURRENT_PLATFORM is the platform name, as ingested by the VersionHistory API.
-// Use #define instead of a constant, so it concatenates at compile-time.
-#if BUILDFLAG(IS_WIN)
-
-#if defined(ARCH_CPU_ARM64)
-#define CURRENT_PLATFORM "win_arm64"
-#elif defined(ARCH_CPU_X86_64)
-#define CURRENT_PLATFORM "win64"
-#else
-#define CURRENT_PLATFORM "win"
-#endif
-
-#elif BUILDFLAG(IS_LINUX)
-
-#define CURRENT_PLATFORM "linux"
-
-#elif BUILDFLAG(IS_MAC)
-
-#if defined(ARCH_CPU_ARM64)
-#define CURRENT_PLATFORM "mac_arm64"
-#else
-#define CURRENT_PLATFORM "mac"
-#endif
-
-#else
-
-#error Unsupported platform
-
-#endif  // BUILDFLAG(IS_WIN)
-
-  return GURL(base::StringPrintf(
-      "https://versionhistory.googleapis.com/v1/chrome/"
-      "platforms/" CURRENT_PLATFORM
-      "/channels/%s/versions/%s/releases/?order_by=endtime%%20desc&page_size=1",
-      GetChannelString(), version.GetString()));
-#undef CURRENT_PLATFORM
 }
 
 constexpr net::NetworkTrafficAnnotationTag kTrafficAnnotation =
@@ -83,13 +62,13 @@ constexpr net::NetworkTrafficAnnotationTag kTrafficAnnotation =
           description:
             "Queries the VersionHistory API to know how old the "
             "currently-running version of Chrome is. If it's older than a "
-            "threshold configured by the admin, Chrome forces a relaunch to "
-            "apply the update. Desktop Chrome only."
+            "threshold configured by the admin, Chrome forces a relaunch (or "
+            "ChromeOS forces a restart) to apply the update."
           trigger:
             "When Chrome detects that an update is available, if the "
-            "OutdatedBuildThreshold policy is set."
-          data: "The version number of the currently-running Chrome, the "
-            "update channel name, and an identifier of the platform."
+            "RelaunchSupersededReleaseAge policy is set."
+          data: "The version number of the currently-running Chrome/ChromeOS, "
+            "the update channel name, and an identifier of the platform."
           destination: GOOGLE_OWNED_SERVICE
           user_data {
             type: NONE
@@ -99,13 +78,16 @@ constexpr net::NetworkTrafficAnnotationTag kTrafficAnnotation =
                email: "cec-growth-eng@google.com"
              }
           }
-          last_reviewed: "2025-01-29"
+          last_reviewed: "2025-03-06"
         }
         policy {
           cookies_allowed: NO
           setting: "This feature cannot be disabled by settings."
-          policy_exception_justification:
-            "Feature not fully implemented yet."
+          chrome_policy {
+            RelaunchSupersededReleaseAge {
+              RelaunchSupersededReleaseAge: 0
+            }
+          }
         })");
 
 // Sends a GET to `url`, and calls `callback` with the response.
@@ -176,6 +158,52 @@ std::optional<base::Time> OnVersionReleasesFetched(
 }
 
 }  // namespace
+
+// Returns the URL to get version info of `version` on the current platform
+// and channel. The response contains the single release with the most recent
+// `serving.endTime`.
+GURL GetVersionReleasesUrl(base::Version version) {
+// CURRENT_PLATFORM is the platform name, as ingested by the VersionHistory API.
+// Use #define instead of a constant, so it concatenates at compile-time.
+#if BUILDFLAG(IS_WIN)
+
+#if defined(ARCH_CPU_ARM64)
+#define CURRENT_PLATFORM "win_arm64"
+#elif defined(ARCH_CPU_X86_64)
+#define CURRENT_PLATFORM "win64"
+#else
+#define CURRENT_PLATFORM "win"
+#endif
+
+#elif BUILDFLAG(IS_LINUX)
+
+#define CURRENT_PLATFORM "linux"
+
+#elif BUILDFLAG(IS_MAC)
+
+#if defined(ARCH_CPU_ARM64)
+#define CURRENT_PLATFORM "mac_arm64"
+#else
+#define CURRENT_PLATFORM "mac"
+#endif
+
+#elif BUILDFLAG(IS_CHROMEOS)
+
+#define CURRENT_PLATFORM "chromeos"
+
+#else
+
+#error Unsupported platform
+
+#endif  // BUILDFLAG(IS_WIN)
+
+  return GURL(base::StringPrintf(
+      "https://versionhistory.googleapis.com/v1/chrome/"
+      "platforms/" CURRENT_PLATFORM
+      "/channels/%s/versions/%s/releases/?order_by=endtime%%20desc&page_size=1",
+      GetChannelString(), version.GetString()));
+#undef CURRENT_PLATFORM
+}
 
 void GetLastServedDate(base::Version version, LastServedDateCallback callback) {
   FetchUrl(GetVersionReleasesUrl(std::move(version)),

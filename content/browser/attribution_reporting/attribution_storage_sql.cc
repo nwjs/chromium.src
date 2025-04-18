@@ -18,6 +18,7 @@
 #include <string_view>
 #include <tuple>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "base/check.h"
@@ -94,7 +95,6 @@
 #include "sql/statement_id.h"
 #include "sql/transaction.h"
 #include "third_party/abseil-cpp/absl/numeric/int128.h"
-#include "third_party/abseil-cpp/absl/types/variant.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
 #include "third_party/blink/public/mojom/aggregation_service/aggregatable_report.mojom.h"
 #include "url/origin.h"
@@ -260,13 +260,12 @@ base::optional_ref<const std::string> FindMatchingAggregatableNamedBudget(
 
 struct AttributionStorageSql::ReportCorruptionStatusSetAndIds {
   ReportCorruptionStatusSet status_set;
-  absl::variant<absl::monostate, StoredSource::Id, AttributionReport::Id>
+  std::variant<std::monostate, StoredSource::Id, AttributionReport::Id>
       source_or_report_id;
 
   ReportCorruptionStatusSetAndIds(
       ReportCorruptionStatusSet set,
-      absl::variant<absl::monostate, StoredSource::Id, AttributionReport::Id>
-          id)
+      std::variant<std::monostate, StoredSource::Id, AttributionReport::Id> id)
       : status_set(set), source_or_report_id(id) {}
 };
 
@@ -282,7 +281,7 @@ AttributionStorageSql::ReadSourceFromStatement(sql::Statement& statement) {
   if (statement.GetColumnType(col) == sql::ColumnType::kNull) {
     return base::unexpected(ReportCorruptionStatusSetAndIds(
         ReportCorruptionStatusSet{ReportCorruptionStatus::kSourceNotFound},
-        absl::monostate()));
+        std::monostate()));
   }
 
   StoredSource::Id source_id(statement.ColumnInt64(col++));
@@ -347,7 +346,7 @@ AttributionStorageSql::ReadSourceFromStatement(sql::Statement& statement) {
     corruption_causes.Put(ReportCorruptionStatus::kSourceInvalidFilterData);
   }
 
-  base::expected<std::optional<AttributionScopesData>, absl::monostate>
+  base::expected<std::optional<AttributionScopesData>, std::monostate>
       attribution_scopes_data =
           DeserializeAttributionScopesData(statement, col++);
   if (!attribution_scopes_data.has_value()) {
@@ -915,7 +914,7 @@ bool AttributionStorageSql::UpdateOrRemoveSourcesWithIncompatibleScopeFields(
     // handling.
     ASSIGN_OR_RETURN(std::optional<AttributionScopesData> existing_scopes,
                      DeserializeAttributionScopesData(statement, 3),
-                     [](absl::monostate) { return false; });
+                     [](std::monostate) { return false; });
 
     StoredSource::Id source_id(statement.ColumnInt64(1));
 
@@ -1094,7 +1093,7 @@ bool AttributionStorageSql::RemoveSourcesWithOutdatedScopes(
       // handling.
       ASSIGN_OR_RETURN(std::optional<AttributionScopesData> scopes_data,
                        DeserializeAttributionScopesData(statement, 3),
-                       [](absl::monostate) { return false; });
+                       [](std::monostate) { return false; });
       if (!scopes_data.has_value()) {
         continue;
       }
@@ -1216,7 +1215,7 @@ bool AttributionStorageSql::FindMatchingSourceForTrigger(
     } else {
       ASSIGN_OR_RETURN(std::optional<AttributionScopesData> scopes_data,
                        DeserializeAttributionScopesData(statement, 3),
-                       [](absl::monostate) { return false; });
+                       [](std::monostate) { return false; });
 
       matching_scopes =
           scopes_data.has_value() &&
@@ -1609,7 +1608,8 @@ bool AttributionStorageSql::AdjustOfflineReportTimes(
 void AttributionStorageSql::ClearDataWithFilter(
     base::Time delete_begin,
     base::Time delete_end,
-    StoragePartition::StorageKeyMatcherFunction filter,
+    std::variant<StoragePartition::StorageKeyMatcherFunction, url::Origin>
+        filter_or_origin,
     bool delete_rate_limit_data) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (!LazyInit(DbCreationPolicy::kIgnoreIfAbsent)) {
@@ -1618,8 +1618,23 @@ void AttributionStorageSql::ClearDataWithFilter(
 
   // The deletion of OS-registration data doesn't need to be atomic with respect
   // to deletion of web-registration data as they're completely independent.
-  os_registrations_table_.ClearDataForOriginsInRange(&db_, delete_begin,
-                                                     delete_end, filter);
+  StoragePartition::StorageKeyMatcherFunction filter = std::visit(
+      base::Overloaded{
+          [&](StoragePartition::StorageKeyMatcherFunction filter_cb) {
+            DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+            os_registrations_table_.ClearDataForOriginsInRange(
+                &db_, delete_begin, delete_end, filter_cb);
+            return filter_cb;
+          },
+          [&](const url::Origin& origin) {
+            DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+            os_registrations_table_.ClearDataForRegistrationOrigin(
+                &db_, delete_begin, delete_end, origin);
+            return base::BindRepeating(
+                std::equal_to<blink::StorageKey>(),
+                blink::StorageKey::CreateFirstParty(origin));
+          }},
+      std::move(filter_or_origin));
 
   // Delete the data in a transaction to avoid cases where the source part
   // of a report is deleted without deleting the associated report, or
@@ -1819,6 +1834,29 @@ int64_t AttributionStorageSql::CountAggregatableReportsWithDestinationSite(
     return -1;
   }
   return statement.ColumnInt64(0);
+}
+
+int64_t AttributionStorageSql::
+    CountUniqueDailyReportingOriginsPerReportingSiteForSource(
+        const net::SchemefulSite& reporting_site,
+        base::Time source_time) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  return rate_limit_table_
+      .CountUniqueDailyReportingOriginsPerReportingSiteForSource(
+          &db_, reporting_site, source_time);
+}
+
+int64_t AttributionStorageSql::
+    CountUniqueDailyReportingOriginsPerDestinationAndReportingSiteForSource(
+        const net::SchemefulSite& destination_site,
+        const net::SchemefulSite& reporting_site,
+        base::Time source_time) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  return rate_limit_table_
+      .CountUniqueDailyReportingOriginsPerDestinationAndReportingSiteForSource(
+          &db_, destination_site, reporting_site, source_time);
 }
 
 std::vector<StoredSource> AttributionStorageSql::GetActiveSources(int limit) {
@@ -2038,8 +2076,8 @@ void AttributionStorageSql::VerifyReports(DeletionCounts* deletion_counts) {
         int num_sources_deleted = 0;
         int num_event_reports_deleted = 0;
         int num_aggregatable_reports_deleted = 0;
-        bool ok = absl::visit(
-            base::Overloaded{[](absl::monostate) { return true; },
+        bool ok = std::visit(
+            base::Overloaded{[](std::monostate) { return true; },
                              [&](const StoredSource::Id id)
                                  VALID_CONTEXT_REQUIRED(sequence_checker_) {
                                    auto ids = base::span_from_ref(id);
@@ -2801,7 +2839,7 @@ AttributionStorageSql::MaybeStoreAggregatableAttributionReportData(
   AttributionReport& report = success.new_report;
 
   const auto* aggregatable_attribution =
-      absl::get_if<AttributionReport::AggregatableData>(&report.data());
+      std::get_if<AttributionReport::AggregatableData>(&report.data());
   DCHECK(aggregatable_attribution);
 
   if (int max = delegate_->GetMaxAggregatableReportsPerSource();

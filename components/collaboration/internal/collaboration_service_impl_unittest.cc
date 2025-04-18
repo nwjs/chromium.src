@@ -24,6 +24,10 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
+#if BUILDFLAG(IS_ANDROID)
+#include "base/android/build_info.h"
+#endif  // BUILDFLAG(IS_ANDROID)
+
 using data_sharing::GroupData;
 using data_sharing::GroupId;
 using data_sharing::GroupMember;
@@ -51,6 +55,12 @@ class CollaborationServiceImplTest : public testing::Test {
   ~CollaborationServiceImplTest() override = default;
 
   void SetUp() override {
+#if BUILDFLAG(IS_ANDROID)
+    if (base::android::BuildInfo::GetInstance()->is_automotive()) {
+      // TODO(crbug.com/399444939): Re-enable once automotive is supported.
+      GTEST_SKIP() << "Test shouldn't run on automotive builders.";
+    }
+#endif
     test_sync_service_ = std::make_unique<syncer::TestSyncService>();
     pref_service_.registry()->RegisterBooleanPref(prefs::kSigninAllowed, true);
     InitService();
@@ -203,8 +213,11 @@ TEST_F(CollaborationServiceImplTest, StartJoinFlow) {
   // Invalid url parsing starts a join flow with empty GroupToken.
   std::unique_ptr<MockCollaborationControllerDelegate> mock_delegate_invalid =
       std::make_unique<MockCollaborationControllerDelegate>();
+  MockCollaborationControllerDelegate* delegate_invalid_ptr =
+      mock_delegate_invalid.get();
   EXPECT_CALL(*mock_delegate_invalid, OnFlowFinished());
-  service_->StartJoinFlow(std::move(mock_delegate_invalid), url);
+  service_->StartJoinFlow(std::move(mock_delegate_invalid), url,
+                          CollaborationServiceJoinEntryPoint::kUnknown);
   // Wait for post tasks.
   EXPECT_TRUE(base::test::RunUntil(
       [&]() { return service_->GetJoinControllersForTesting().size() == 1; }));
@@ -219,18 +232,43 @@ TEST_F(CollaborationServiceImplTest, StartJoinFlow) {
       .WillRepeatedly(Return(base::ok(token)));
   std::unique_ptr<MockCollaborationControllerDelegate> mock_delegate =
       std::make_unique<MockCollaborationControllerDelegate>();
+  MockCollaborationControllerDelegate* delegate_ptr = mock_delegate.get();
   EXPECT_CALL(*mock_delegate, OnFlowFinished());
-  service_->StartJoinFlow(std::move(mock_delegate), url);
+
+  bool invalid_cancel_called = false;
+  EXPECT_CALL(*delegate_invalid_ptr, Cancel(_))
+      .WillOnce([&](CollaborationControllerDelegate::ResultCallback result) {
+        invalid_cancel_called = true;
+        std::move(result).Run(
+            CollaborationControllerDelegate::Outcome::kSuccess);
+        return true;
+      });
+
+  service_->StartJoinFlow(std::move(mock_delegate), url,
+                          CollaborationServiceJoinEntryPoint::kUnknown);
 
   // Wait for post tasks.
   EXPECT_TRUE(base::test::RunUntil(
       [&]() { return service_->GetJoinControllersForTesting().size() == 1; }));
 
+  EXPECT_TRUE(invalid_cancel_called);
+
+  bool cancel_called = false;
+  EXPECT_CALL(*delegate_ptr, Cancel(_))
+      .WillOnce([&](CollaborationControllerDelegate::ResultCallback result) {
+        cancel_called = true;
+        std::move(result).Run(
+            CollaborationControllerDelegate::Outcome::kSuccess);
+        return true;
+      });
+
   // Existing join flow will stop all conflicting flows and will be appended
   // similar to a new join flow.
   service_->StartJoinFlow(
-      std::make_unique<MockCollaborationControllerDelegate>(), url);
+      std::make_unique<MockCollaborationControllerDelegate>(), url,
+      CollaborationServiceJoinEntryPoint::kUnknown);
   EXPECT_EQ(service_->GetJoinControllersForTesting().size(), 1u);
+  EXPECT_TRUE(cancel_called);
 }
 
 TEST_F(CollaborationServiceImplTest, SyncStatusChanges) {
@@ -323,6 +361,45 @@ TEST_F(CollaborationServiceImplTest, LeaveGroup) {
                                      },
                                      &run_loop));
   run_loop.Run();
+}
+
+TEST_F(CollaborationServiceImplTest, CancelAllFlows) {
+  GURL url("http://www.example.com/");
+  data_sharing::GroupToken token(data_sharing::GroupId(kGroupId), kAccessToken);
+
+  // New join flow will be appended with a valid url parsing and will stop all
+  // conflicting flows.
+  EXPECT_CALL(mock_data_sharing_service_, ParseDataSharingUrl(url))
+      .WillRepeatedly(Return(base::ok(token)));
+  std::unique_ptr<MockCollaborationControllerDelegate> mock_delegate =
+      std::make_unique<MockCollaborationControllerDelegate>();
+  MockCollaborationControllerDelegate* delegate_ptr = mock_delegate.get();
+  EXPECT_CALL(*mock_delegate, OnFlowFinished());
+  service_->StartJoinFlow(std::move(mock_delegate), url,
+                          CollaborationServiceJoinEntryPoint::kUnknown);
+
+  // Wait for post tasks.
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() { return service_->GetJoinControllersForTesting().size() == 1; }));
+
+  bool cancel_called = false;
+  EXPECT_CALL(*delegate_ptr, Cancel(_))
+      .WillOnce([&](CollaborationControllerDelegate::ResultCallback result) {
+        cancel_called = true;
+        std::move(result).Run(
+            CollaborationControllerDelegate::Outcome::kSuccess);
+        return true;
+      });
+
+  base::RunLoop run_loop;
+  service_->CancelAllFlows(base::BindOnce(
+      [](base::RunLoop* run_loop) { run_loop->Quit(); }, &run_loop));
+
+  EXPECT_TRUE(cancel_called);
+
+  // Wait for post tasks.
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() { return service_->GetJoinControllersForTesting().size() == 0; }));
 }
 
 }  // namespace collaboration

@@ -11,6 +11,7 @@
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
+#include "chrome/browser/autofill/autofill_entity_data_manager_factory.h"
 #include "chrome/browser/autofill/autofill_uitest_util.h"
 #include "chrome/browser/extensions/api/autofill_private/autofill_private_event_router.h"
 #include "chrome/browser/extensions/api/autofill_private/autofill_private_event_router_factory.h"
@@ -27,6 +28,7 @@
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
 #include "components/autofill/core/browser/payments/payments_request_details.h"
 #include "components/autofill/core/browser/payments/test_payments_network_interface.h"
+#include "components/autofill/core/browser/permissions/autofill_ai/autofill_ai_permission_utils.h"
 #include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_prefs.h"
@@ -273,21 +275,6 @@ IN_PROC_BROWSER_TEST_F(AutofillPrivateApiUnitTest, BulkDeleteAllCvcs) {
   }
 }
 
-IN_PROC_BROWSER_TEST_F(AutofillPrivateApiUnitTest,
-                       PredictionImprovementsIphFeatureUsed) {
-  using NotifyIphMockCallback =
-      testing::MockFunction<void(autofill::AutofillClient::IphFeature)>;
-  NotifyIphMockCallback mock_callback;
-  autofill_client()->set_notify_iph_feature_used_mock_callback(
-      base::BindRepeating(&NotifyIphMockCallback::Call,
-                          base::Unretained(&mock_callback)));
-
-  EXPECT_CALL(mock_callback,
-              Call(autofill::AutofillClient::IphFeature::kAutofillAi));
-
-  RunAutofillSubtest("predictionImprovementsIphFeatureUsed");
-}
-
 IN_PROC_BROWSER_TEST_F(AutofillPrivateApiUnitTest, LogServerCardLinkClicked) {
   base::HistogramTester histogram_tester;
   ASSERT_TRUE(RunAutofillSubtest("logServerCardLinkClicked"));
@@ -343,24 +330,91 @@ IN_PROC_BROWSER_TEST_F(AutofillPrivateApiUnitTest,
       syncer::UserSelectableType::kAutofill));
 }
 
-IN_PROC_BROWSER_TEST_F(AutofillPrivateApiUnitTest, EntityInstances) {
-  // Test that loading, adding, editing and deleting entities works.
+// TODO(crbug.com/40759629): Fix and re-enable this test.
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#define MAYBE_EntityInstances DISABLED_EntityInstances
+#else
+#define MAYBE_EntityInstances EntityInstances
+#endif
+IN_PROC_BROWSER_TEST_F(AutofillPrivateApiUnitTest, MAYBE_EntityInstances) {
+  // Test that loading, adding, editing and deleting entity instances works.
   ASSERT_TRUE(RunAutofillSubtest("loadEmptyEntityInstancesList"));
   ASSERT_TRUE(RunAutofillSubtest("addEntityInstance"));
+  ASSERT_TRUE(RunAutofillSubtest("addEntityInstanceWithIncompleteDate"));
   ASSERT_TRUE(RunAutofillSubtest("getEntityInstanceByGuid"));
   ASSERT_TRUE(RunAutofillSubtest("loadFirstEntityInstance"));
   ASSERT_TRUE(RunAutofillSubtest("updateEntityInstance"));
   ASSERT_TRUE(RunAutofillSubtest("loadUpdatedEntityInstance"));
   ASSERT_TRUE(RunAutofillSubtest("removeEntityInstance"));
   ASSERT_TRUE(RunAutofillSubtest("loadEmptyEntityInstancesList"));
-  //  Test that retrieving general entity information works.
+  ASSERT_TRUE(RunAutofillSubtest("testExpectedLabelsAreGenerated"));
+  //  Test that retrieving general entity type information works.
   ASSERT_TRUE(RunAutofillSubtest("getAllEntityTypes"));
-  ASSERT_TRUE(RunAutofillSubtest("getAllAttributeTypesForEntity"));
+  ASSERT_TRUE(RunAutofillSubtest("getAllAttributeTypesForEntityTypeName"));
 }
 
 IN_PROC_BROWSER_TEST_F(AutofillPrivateApiUnitTest,
                        GetEmptyPayOverTimeIssuerList) {
   ASSERT_TRUE(RunAutofillSubtest("getEmptyPayOverTimeIssuerList"));
+}
+
+IN_PROC_BROWSER_TEST_F(AutofillPrivateApiUnitTest, SetAutofillAiOptIn) {
+  autofill_client()->set_entity_data_manager(
+      autofill::AutofillEntityDataManagerFactory::GetForProfile(profile()));
+  autofill_client()->SetUpPrefsAndIdentityForAutofillAi();
+  EXPECT_TRUE(autofill::SetAutofillAiOptInStatus(*autofill_client(), false));
+  EXPECT_FALSE(autofill::GetAutofillAiOptInStatus(*autofill_client()));
+  EXPECT_TRUE(RunAutofillSubtest("verifyUserOptedOutOfAutofillAi"));
+
+  base::test::TestFuture<autofill::AutofillClient::IphFeature>
+      feature_used_future;
+  autofill_client()->set_notify_iph_feature_used_mock_callback(
+      feature_used_future.GetRepeatingCallback());
+
+  EXPECT_TRUE(RunAutofillSubtest("optIntoAutofillAi"));
+  EXPECT_EQ(feature_used_future.Get(),
+            autofill::AutofillClient::IphFeature::kAutofillAi);
+  EXPECT_TRUE(autofill::GetAutofillAiOptInStatus(*autofill_client()));
+  EXPECT_TRUE(RunAutofillSubtest("verifyUserOptedIntoAutofillAi"));
+
+  EXPECT_TRUE(RunAutofillSubtest("optOutOfAutofillAi"));
+  EXPECT_FALSE(autofill::GetAutofillAiOptInStatus(*autofill_client()));
+  EXPECT_TRUE(RunAutofillSubtest("verifyUserOptedOutOfAutofillAi"));
+}
+
+// Tests that the scenario where the user becomes ineligible and then tries
+// opting into Autofill AI behaves as expected.
+IN_PROC_BROWSER_TEST_F(AutofillPrivateApiUnitTest,
+                       SetAutofillAiOptIn_SwitchEligibility) {
+  autofill_client()->set_entity_data_manager(
+      autofill::AutofillEntityDataManagerFactory::GetForProfile(profile()));
+  autofill_client()->SetUpPrefsAndIdentityForAutofillAi();
+  EXPECT_TRUE(autofill::SetAutofillAiOptInStatus(*autofill_client(), false));
+  EXPECT_FALSE(autofill::GetAutofillAiOptInStatus(*autofill_client()));
+  EXPECT_TRUE(RunAutofillSubtest("verifyUserOptedOutOfAutofillAi"));
+
+  ASSERT_TRUE(autofill::MayPerformAutofillAiAction(
+      *autofill_client(), autofill::AutofillAiAction::kOptIn));
+
+  // Verify that we can opt into Autofill AI while eligible.
+  ASSERT_TRUE(RunAutofillSubtest("optIntoAutofillAi"));
+  EXPECT_TRUE(autofill::GetAutofillAiOptInStatus(*autofill_client()));
+  EXPECT_TRUE(RunAutofillSubtest("verifyUserOptedIntoAutofillAi"));
+
+  // Verify that we can opt out of Autofill AI while eligible.
+  ASSERT_TRUE(RunAutofillSubtest("optOutOfAutofillAi"));
+  EXPECT_FALSE(autofill::GetAutofillAiOptInStatus(*autofill_client()));
+  EXPECT_TRUE(RunAutofillSubtest("verifyUserOptedOutOfAutofillAi"));
+
+  // Become ineligible.
+  autofill_client()->set_app_locale("de-DE");
+  ASSERT_FALSE(autofill::MayPerformAutofillAiAction(
+      *autofill_client(), autofill::AutofillAiAction::kOptIn));
+
+  // Verify that we cannot opt into Autofill AI anymore.
+  ASSERT_TRUE(RunAutofillSubtest("optIntoAutofillAi"));
+  EXPECT_FALSE(autofill::GetAutofillAiOptInStatus(*autofill_client()));
+  EXPECT_TRUE(RunAutofillSubtest("verifyUserOptedOutOfAutofillAi"));
 }
 
 }  // namespace

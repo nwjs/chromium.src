@@ -5,6 +5,8 @@
 #ifndef COMPONENTS_PAGE_LOAD_METRICS_BROWSER_OBSERVERS_ABANDONED_PAGE_LOAD_METRICS_OBSERVER_H_
 #define COMPONENTS_PAGE_LOAD_METRICS_BROWSER_OBSERVERS_ABANDONED_PAGE_LOAD_METRICS_OBSERVER_H_
 
+#include <set>
+
 #include "components/page_load_metrics/browser/page_load_metrics_observer.h"
 #include "content/public/browser/navigation_handle_timing.h"
 #include "net/base/net_errors.h"
@@ -75,13 +77,23 @@ class AbandonedPageLoadMetricsObserver
     kSecondRedirectedRequestStart = 22,
     kSecondRedirectResponseStart = 23,
 
-    kMaxValue = kSecondRedirectResponseStart,
+    // `kCommitReplySent` is the milestone placed between `kCommitReceived` and
+    // `kDidCommit`.
+    kCommitReplySent = 24,
+
+    kMaxValue = kCommitReplySent,
     // `kFirstEssentialLoadingEvent` and `kLastEssentialLoadingEvent` aliases to
     // the first / last loading milestones which always exists unless abandoned.
     // Note that events such as `kAFT*`, `kHeaderChunk*` and `kBodyChunk*` only
     // appears in certain navigations, hence these events may not be mandatory.
     kFirstEssentialLoadingEvent = kParseStart,
-    kLastEssentialLoadingEvent = kBodyChunkEnd,
+    kLastEssentialLoadingEvent = kLargestContentfulPaint,
+
+    // `kFirstGwsEssentialLoadingEvent` and `kLastGwsEssentialLoadingEvent`
+    // aliases to the first / last loading milestones which always exists
+    // unless abandoned for navigations to Gws.
+    kFirstGwsEssentialLoadingEvent = kFirstEssentialLoadingEvent,
+    kLastGwsEssentialLoadingEvent = kBodyChunkEnd,
   };
   // LINT.ThenChange(//tools/metrics/histograms/metadata/page/enums.xml:NavigationMilestoneEnum2)
 
@@ -108,6 +120,11 @@ class AbandonedPageLoadMetricsObserver
     kNewDuplicateNavigation = 14,
     kMaxValue = kNewDuplicateNavigation,
   };
+  // When updating milestones, the corresponding milestones list in test
+  // `GWSAbandonedPageLoadMetricsObserverBrowserTest::all_milestones()` should
+  // be updated as well. As LINT can't annotate multiple targets, we need to
+  // take care of it manually.
+  //
   // LINT.ThenChange(//tools/metrics/histograms/metadata/page/enums.xml:NavigationAbandonReasonEnum)
 
   static std::string AbandonReasonToString(AbandonReason abandon_reason);
@@ -198,6 +215,13 @@ class AbandonedPageLoadMetricsObserver
       content::NavigationHandle* navigation_handle);
   bool IsResponseFromCache() const { return was_cached_; }
   int64_t navigation_id() const { return navigation_id_; }
+  const base::TimeTicks navigation_start_time() const {
+    return navigation_start_time_;
+  }
+  const std::map<NavigationMilestone, base::TimeDelta>& loading_milestones()
+      const {
+    return loading_milestones_;
+  }
 
   // Adds the abandonment related metrics to UKM Builder `T`.
   template <typename T>
@@ -210,8 +234,12 @@ class AbandonedPageLoadMetricsObserver
 
   // Adds the milestone related metrics to UKM Builder `T`.
   template <typename T>
-  void LogUKMHistogramsForMilestoneMetrics(T& builder,
-                                           base::TimeTicks event_time);
+  std::set<AbandonedPageLoadMetricsObserver::NavigationMilestone>
+  LogUKMHistogramsForMilestoneMetrics(T& builder, base::TimeTicks event_time);
+
+  // Whether we've reached and logged all loading milestones, from
+  // `kFirstEssentialLoadingEvent` to `kLastEssentialLoadingEvent`.
+  virtual bool DidLogAllLoadingMilestones() const;
 
  private:
   using LoadingMilestone = std::pair<NavigationMilestone, base::TimeDelta>;
@@ -275,10 +303,6 @@ class AbandonedPageLoadMetricsObserver
   // and `FlushMetricsOnAppEnterBackground()` because LCP is finalized when the
   // page load is complete (or navigate away from the page).
   void FinalizeLCP();
-
-  // Whether we've reached and logged all loading milestones, from kParseStart
-  // to kBodyChunkEnd.
-  bool DidLogAllLoadingMilestones() const;
 
   // The ID, start time, and type of the navigation being tracked.
   int64_t navigation_id_ = 0;
@@ -375,15 +399,18 @@ void AbandonedPageLoadMetricsObserver::LogUKMHistogramsForAbandonMetrics(
 }
 
 template <typename T>
-void AbandonedPageLoadMetricsObserver::LogUKMHistogramsForMilestoneMetrics(
+std::set<AbandonedPageLoadMetricsObserver::NavigationMilestone>
+AbandonedPageLoadMetricsObserver::LogUKMHistogramsForMilestoneMetrics(
     T& builder,
     base::TimeTicks event_time) {
+  std::set<NavigationMilestone> milestones;
   if (IsEventAfter(event_time,
                    latest_navigation_handle_timing_.loader_start_time)) {
     builder.SetLoaderStartTime(
         (latest_navigation_handle_timing_.loader_start_time -
          navigation_start_time_)
             .InMilliseconds());
+    milestones.insert(NavigationMilestone::kLoaderStart);
   }
 
   if (latest_navigation_handle_timing_.first_loader_callback_time !=
@@ -401,13 +428,18 @@ void AbandonedPageLoadMetricsObserver::LogUKMHistogramsForMilestoneMetrics(
            navigation_start_time_)
               .InMilliseconds());
     }
+    milestones.insert(NavigationMilestone::kFirstRedirectResponseStart);
   } else {
     builder.SetFirstRedirectResponseReceived(false);
   }
 
-  builder.SetNonRedirectResponseReceived(
+  bool non_redirect_response_recieved =
       !latest_navigation_handle_timing_
-           .non_redirect_response_loader_callback_time.is_null());
+           .non_redirect_response_loader_callback_time.is_null();
+  builder.SetNonRedirectResponseReceived(non_redirect_response_recieved);
+  if (non_redirect_response_recieved) {
+    milestones.insert(NavigationMilestone::kNonRedirectResponseStart);
+  }
   if (IsEventAfter(
           event_time,
           latest_navigation_handle_timing_.non_redirected_request_start_time)) {
@@ -424,6 +456,7 @@ void AbandonedPageLoadMetricsObserver::LogUKMHistogramsForMilestoneMetrics(
         (latest_navigation_handle_timing_.navigation_commit_sent_time -
          navigation_start_time_)
             .InMilliseconds());
+    milestones.insert(NavigationMilestone::kCommitSent);
   }
 
   if (IsEventAfter(
@@ -433,6 +466,7 @@ void AbandonedPageLoadMetricsObserver::LogUKMHistogramsForMilestoneMetrics(
         (latest_navigation_handle_timing_.navigation_commit_received_time -
          navigation_start_time_)
             .InMilliseconds());
+    milestones.insert(NavigationMilestone::kCommitReceived);
   }
 
   if (IsEventAfter(
@@ -442,6 +476,7 @@ void AbandonedPageLoadMetricsObserver::LogUKMHistogramsForMilestoneMetrics(
         (latest_navigation_handle_timing_.navigation_did_commit_time -
          navigation_start_time_)
             .InMilliseconds());
+    milestones.insert(NavigationMilestone::kDidCommit);
   }
 
   for (const auto& loading_milestone : loading_milestones_) {
@@ -449,6 +484,7 @@ void AbandonedPageLoadMetricsObserver::LogUKMHistogramsForMilestoneMetrics(
                       loading_milestone.second + navigation_start_time_)) {
       continue;
     }
+    milestones.insert(loading_milestone.first);
     auto time = loading_milestone.second.InMilliseconds();
     switch (loading_milestone.first) {
       case NavigationMilestone::kParseStart:
@@ -482,12 +518,14 @@ void AbandonedPageLoadMetricsObserver::LogUKMHistogramsForMilestoneMetrics(
       case NavigationMilestone::kNonRedirectResponseLoaderCallback:
       case NavigationMilestone::kCommitSent:
       case NavigationMilestone::kCommitReceived:
+      case NavigationMilestone::kCommitReplySent:
       case NavigationMilestone::kDidCommit:
       case NavigationMilestone::kSecondRedirectResponseStart:
       case NavigationMilestone::kSecondRedirectedRequestStart:
         break;
     }
   }
+  return milestones;
 }
 
 #endif  // COMPONENTS_PAGE_LOAD_METRICS_BROWSER_OBSERVERS_ABANDONED_PAGE_LOAD_METRICS_OBSERVER_H_

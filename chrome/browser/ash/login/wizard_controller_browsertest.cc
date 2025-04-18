@@ -654,17 +654,6 @@ class WizardControllerFlowTest : public WizardControllerTest {
     command_line->AppendSwitchASCII(
         switches::kEnterpriseEnableUnifiedStateDetermination,
         policy::AutoEnrollmentTypeChecker::kUnifiedStateDeterminationNever);
-
-    // TODO(crbug.com/383047722) Remove once
-    // `AutoEnrollmentTypeChecker::IsEnabled` stops checking for FRE and
-    // initial enrollment.
-    // This affects `AutoEnrollmentCheckScreen::MaybeSkip`.
-    command_line->AppendSwitchASCII(
-        switches::kEnterpriseEnableForcedReEnrollment,
-        policy::AutoEnrollmentTypeChecker::kForcedReEnrollmentNever);
-    command_line->AppendSwitchASCII(
-        switches::kEnterpriseEnableInitialEnrollment,
-        policy::AutoEnrollmentTypeChecker::kInitialEnrollmentNever);
   }
 
   void InitNetworkPortalDetector() {
@@ -1155,8 +1144,8 @@ IN_PROC_BROWSER_TEST_F(WizardControllerDeviceStateTest,
   EXPECT_EQ(1,
             FakeInstallAttributesClient::Get()
                 ->remove_firmware_management_parameters_from_tpm_call_count());
-  EXPECT_EQ(1, FakeSessionManagerClient::Get()
-                   ->clear_forced_re_enrollment_vpd_call_count());
+  EXPECT_EQ(
+      1, FakeSessionManagerClient::Get()->clear_block_devmode_vpd_call_count());
 }
 
 class WizardControllerUnifiedEnrollmentTest
@@ -1207,9 +1196,6 @@ IN_PROC_BROWSER_TEST_F(WizardControllerUnifiedEnrollmentTest, NoEnrollment) {
   EXPECT_CALL(*mock_enrollment_screen_, HideImpl()).Times(0);
   EXPECT_EQ(policy::AutoEnrollmentResult::kNoEnrollment,
             auto_enrollment_controller()->state());
-  EXPECT_EQ(policy::AutoEnrollmentTypeChecker::CheckType::
-                kForcedReEnrollmentExplicitlyRequired,
-            auto_enrollment_controller()->auto_enrollment_check_type());
 }
 
 // Tests that when EnrollmentStateFetcher reports state keys retrieval error, we
@@ -1429,7 +1415,7 @@ IN_PROC_BROWSER_TEST_F(WizardControllerUnifiedEnrollmentTest, OneFetchAtATime) {
   // Simulate connection error, reset factory and attempt a retry.
   fetcher_factory.ReportEnrollmentState(kAutoEnrollmentConnectionError);
   fetcher_factory.Reset();
-  auto_enrollment_controller()->Retry();
+  auto_enrollment_controller()->Start();
 
   fetcher_factory.WaitUntilEnrollmentStateFetcherCreated();
 }

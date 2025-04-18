@@ -20,6 +20,7 @@
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/app_mode/app_mode_utils.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/download/download_prefs.h"
 #include "chrome/browser/extensions/activity_log/activity_action_constants.h"
 #include "chrome/browser/extensions/activity_log/activity_actions.h"
@@ -55,13 +56,11 @@
 #include "chrome/browser/media/webrtc/media_device_salt_service_factory.h"
 #include "chrome/browser/net/system_network_context_manager.h"
 #include "chrome/browser/prefetch/pref_names.h"
-#include "chrome/browser/preloading/preloading_prefs.h"
 #include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_selections.h"
-#include "chrome/browser/renderer_host/chrome_navigation_ui_data.h"
 #include "chrome/browser/safe_browsing/extension_telemetry/declarative_net_request_action_signal.h"
 #include "chrome/browser/safe_browsing/extension_telemetry/declarative_net_request_signal.h"
 #include "chrome/browser/safe_browsing/extension_telemetry/remote_host_contacted_signal.h"
@@ -79,6 +78,7 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
+#include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/content_settings/core/common/pref_names.h"
 #include "components/embedder_support/user_agent_utils.h"
 #include "components/privacy_sandbox/privacy_sandbox_prefs.h"
@@ -1041,6 +1041,18 @@ ChromeExtensionsBrowserClient::GetMediaDeviceSaltService(
     content::BrowserContext* context) {
   return MediaDeviceSaltServiceFactory::GetInstance()->GetForBrowserContext(
       context);
+}
+
+bool ChromeExtensionsBrowserClient::HasControlledFrameCapability(
+    content::BrowserContext* context,
+    const GURL& url) {
+  // This checks for the controlled frame content setting that is generated from
+  // controlled frame admin policies (check
+  // components/policy/resources/templates/policy_definitions/ContentSettings).
+  return HostContentSettingsMapFactory::GetForProfile(context)
+             ->GetContentSetting(url, url,
+                                 content_settings::mojom::ContentSettingsType::
+                                     CONTROLLED_FRAME) == CONTENT_SETTING_ALLOW;
 }
 
 }  // namespace extensions

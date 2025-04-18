@@ -30,7 +30,6 @@ import org.chromium.chrome.browser.SwipeRefreshHandler;
 import org.chromium.chrome.browser.app.tabmodel.TabWindowManagerSingleton;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
-import org.chromium.chrome.browser.contextmenu.ContextMenuUtils;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
 import org.chromium.chrome.browser.fullscreen.FullscreenOptions;
@@ -43,6 +42,7 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabLaunchType;
+import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.tab.TabUtils;
 import org.chromium.chrome.browser.tab.TabWebContentsDelegateAndroid;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
@@ -52,6 +52,7 @@ import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeControllerFactory;
+import org.chromium.components.embedder_support.contextmenu.ContextMenuUtils;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.common.ResourceRequestBody;
 import org.chromium.ui.base.WindowAndroid;
@@ -87,6 +88,7 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
     private final Supplier<TabModelSelector> mTabModelSelectorSupplier;
     private final Supplier<CompositorViewHolder> mCompositorViewHolderSupplier;
     private final Supplier<ModalDialogManager> mModalDialogManagerSupplier;
+    private final TabObserver mTabObserver;
 
     public ActivityTabWebContentsDelegateAndroid(
             Tab tab,
@@ -109,8 +111,7 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
         mTabModelSelectorSupplier = tabModelSelectorSupplier;
         mCompositorViewHolderSupplier = compositorViewHolderSupplier;
         mModalDialogManagerSupplier = modalDialogManagerSupplier;
-
-        tab.addObserver(
+        mTabObserver =
                 new EmptyTabObserver() {
                     @Override
                     public void onActivityAttachmentChanged(
@@ -122,7 +123,8 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
                     public void onDestroyed(Tab tab) {
                         tab.removeObserver(this);
                     }
-                });
+                };
+        tab.addObserver(mTabObserver);
     }
 
     @Override
@@ -247,10 +249,10 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
                     assert newTab.getRootId() == sourceTab.getRootId();
                     assert Objects.equals(newTab.getTabGroupId(), sourceTab.getTabGroupId());
                     assert tabGroupModelFilter
-                            .getRelatedTabListForRootId(newTab.getRootId())
+                            .getTabsInGroup(newTab.getTabGroupId())
                             .contains(sourceTab);
                     assert tabGroupModelFilter
-                            .getRelatedTabListForRootId(sourceTab.getRootId())
+                            .getTabsInGroup(sourceTab.getTabGroupId())
                             .contains(newTab);
                 }
             }
@@ -557,7 +559,7 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
 
     @Override
     protected boolean isModalContextMenu() {
-        return !ContextMenuUtils.usePopupContextMenuForContext(mActivity);
+        return !ContextMenuUtils.isPopupSupported(mActivity);
     }
 
     @Override
@@ -571,5 +573,10 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
 
     protected Tab fromWebContents(WebContents webContents) {
         return TabUtils.fromWebContents(webContents);
+    }
+
+    @Override
+    public void destroy() {
+        mTab.removeObserver(mTabObserver);
     }
 }

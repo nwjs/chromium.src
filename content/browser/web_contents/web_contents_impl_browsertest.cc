@@ -36,6 +36,7 @@
 #include "base/time/time.h"
 #include "base/values.h"
 #include "build/build_config.h"
+#include "components/fingerprinting_protection_filter/interventions/common/interventions_features.h"
 #include "components/input/render_widget_host_input_event_router.h"
 #include "components/ukm/test_ukm_recorder.h"
 #include "components/url_formatter/url_formatter.h"
@@ -143,7 +144,11 @@ void ResizeWebContentsView(Shell* shell,
 
 class WebContentsImplBrowserTest : public ContentBrowserTest {
  public:
-  WebContentsImplBrowserTest() = default;
+  WebContentsImplBrowserTest() {
+    scoped_feature_list_.InitAndEnableFeature(
+        fingerprinting_protection_interventions::features::kCanvasNoise);
+  }
+
   void SetUp() override {
     RenderWidgetHostImpl::DisableResizeAckCheckForTesting();
     ContentBrowserTest::SetUp();
@@ -5218,7 +5223,8 @@ class DidChangeVerticalScrollDirectionObserver : public WebContentsObserver {
 // Tests that DidChangeVerticalScrollDirection is called only when the vertical
 // scroll direction has changed and that it includes the correct details.
 // TODO(crbug.com/40862270): This is flaky on the Mac10.14 bot.
-#if BUILDFLAG(IS_MAC)
+// TODO(crbug.com/401544068): This is failing on Android bots.
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_ANDROID)
 #define MAYBE_DidChangeVerticalScrollDirection \
   DISABLED_DidChangeVerticalScrollDirection
 #else
@@ -5258,8 +5264,8 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
   const double device_pixel_ratio =
       EvalJs(web_contents, "window.devicePixelRatio").ExtractDouble();
   auto ScaledPointF = [device_pixel_ratio](float x, float y) {
-    return gfx::PointF(std::floor(x * device_pixel_ratio),
-                       std::floor(y * device_pixel_ratio));
+    return gfx::PointF(std::round(x * device_pixel_ratio),
+                       std::round(y * device_pixel_ratio));
   };
 
   // Scroll down.

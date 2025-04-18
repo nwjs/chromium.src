@@ -46,7 +46,7 @@ void TestBooleanCustomPropertySetting(ui_devtools::ViewElement* element,
   EXPECT_EQ(ui_props[indices.second].value_, old_value);
 
   // Check the property can be set accordingly.
-  std::string new_value(init_value ? "false" : "true");
+  std::string new_value(base::ToString(!init_value));
   std::string separator(":");
   element->SetPropertiesFromString(property_name + separator + new_value);
   props = element->GetCustomPropertiesForMatchedStyle();
@@ -281,7 +281,7 @@ TEST_F(ViewElementTest, GetNodeWindowAndScreenBounds) {
   widget->Init(std::move(params));
   widget->Show();
 
-  widget->GetContentsView()->AddChildView(view());
+  widget->GetContentsView()->AddChildViewRaw(view());
   gfx::Rect bounds(50, 60, 70, 80);
   view()->SetBoundsRect(bounds);
 
@@ -349,7 +349,7 @@ TEST_F(ViewElementTest, DispatchMouseEvent) {
       CreateParams(views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET,
                    views::Widget::InitParams::TYPE_WINDOW);
   widget->Init(std::move(params));
-  widget->GetContentsView()->AddChildView(view());
+  widget->GetContentsView()->AddChildViewRaw(view());
   widget->Show();
   gfx::Rect bounds(50, 60, 70, 80);
   view()->SetBoundsRect(bounds);

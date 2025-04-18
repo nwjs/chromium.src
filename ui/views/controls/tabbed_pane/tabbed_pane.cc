@@ -459,10 +459,6 @@ TabbedPaneTabStrip::TabbedPaneTabStrip(TabbedPane::Orientation orientation,
   // See |selectionBar.expand| and |selectionBar.contract|.
   expand_animation_->SetDuration(base::Milliseconds(150));
   contract_animation_->SetDuration(base::Milliseconds(180));
-
-  // Callback when the enabled state changes.
-  enabled_changed_subscription_ = AddEnabledChangedCallback(base::BindRepeating(
-      &TabbedPaneTabStrip::OnEnableChanged, base::Unretained(this)));
 }
 
 TabbedPaneTabStrip::~TabbedPaneTabStrip() = default;
@@ -498,16 +494,6 @@ void TabbedPaneTabStrip::AnimationEnded(const gfx::Animation* animation) {
   }
 }
 
-void TabbedPaneTabStrip::OnEnableChanged() {
-  const bool enabled = GetEnabled();
-
-  for (size_t i = 0; i < GetTabCount(); ++i) {
-    auto* tab = GetTabAtIndex(i);
-    tab->SetEnabled(enabled);
-    tab->UpdateEnabledColor(enabled);
-  }
-}
-
 // Computes the starting and ending points of the selection slider for a given
 // tab from the origin.
 //
@@ -533,7 +519,8 @@ TabbedPaneTabStrip::Coordinates TabbedPaneTabStrip::GetIconLabelStartEndingX(
 bool TabbedPaneTabStrip::AcceleratorPressed(
     const ui::Accelerator& accelerator) {
   // Handle Ctrl+Tab and Ctrl+Shift+Tab navigation of pages.
-  DCHECK(accelerator.key_code() == ui::VKEY_TAB && accelerator.IsCtrlDown());
+  DCHECK_EQ(accelerator.key_code(), ui::VKEY_TAB);
+  DCHECK(accelerator.IsCtrlDown());
   return MoveSelectionBy(accelerator.IsShiftDown() ? -1 : 1);
 }
 

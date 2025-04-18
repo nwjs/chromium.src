@@ -33,9 +33,11 @@
 #include <utility>
 
 #include "base/gtest_prod_util.h"
+#include "base/memory/scoped_refptr.h"
 #include "third_party/blink/public/mojom/render_accessibility.mojom-blink.h"
 #include "third_party/blink/public/web/web_ax_enums.h"
 #include "third_party/blink/renderer/core/accessibility/ax_object_cache_base.h"
+#include "third_party/blink/renderer/core/accessibility/axid.h"
 #include "third_party/blink/renderer/core/accessibility/blink_ax_event_intent.h"
 #include "third_party/blink/renderer/core/editing/commands/selection_for_undo_step.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context_lifecycle_observer.h"
@@ -43,6 +45,7 @@
 #include "third_party/blink/renderer/core/html/forms/html_select_element.h"
 #include "third_party/blink/renderer/core/layout/layout_block_flow.h"
 #include "third_party/blink/renderer/modules/accessibility/aria_notification.h"
+#include "third_party/blink/renderer/modules/accessibility/ax_block_flow_iterator.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_object.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_object_cache_lifecycle.h"
 #include "third_party/blink/renderer/modules/accessibility/blink_ax_tree_source.h"
@@ -63,6 +66,7 @@
 #include "ui/accessibility/ax_error_types.h"
 #include "ui/accessibility/ax_location_and_scroll_updates.h"
 #include "ui/accessibility/ax_mode.h"
+#include "ui/accessibility/ax_tree_id.h"
 #include "ui/accessibility/ax_tree_serializer.h"
 
 namespace blink {
@@ -149,6 +153,9 @@ class MODULES_EXPORT AXObjectCacheImpl : public AXObjectCacheBase {
   // Ensure that a full document lifecycle will occur, which in turn ensures
   // that a call to CommitAXUpdates() will occur soon.
   void ScheduleAXUpdate() const override;
+  // Same as `ScheduleAXUpdate()` but will call `callback` once
+  // `CompleteAXUpdate` is done.
+  void ScheduleAXUpdateWithCallback(base::OnceClosure callback);
 
   void Dispose() override;
 
@@ -274,8 +281,9 @@ class MODULES_EXPORT AXObjectCacheImpl : public AXObjectCacheBase {
   void TextChanged(const LayoutObject*) override;
   void TextChangedWithCleanLayout(Node* optional_node, AXObject*);
 
-  // Called when fragments in the LayoutBlockFlow changed.
-  void ClearBlockFlowCachedData(const LayoutBlockFlow* block_flow) override;
+  // Called when fragments in the LayoutBlockFlow associated with
+  // `object`changed.
+  void ClearBlockFlowCachedData(const LayoutObject* object) override;
 
   void DocumentTitleChanged() override;
 
@@ -328,6 +336,17 @@ class MODULES_EXPORT AXObjectCacheImpl : public AXObjectCacheBase {
   void SetCanvasObjectBounds(HTMLCanvasElement*,
                              Element*,
                              const PhysicalRect&) override;
+
+  // If the object referenced by `ax_id` is part of a canvas and had explicit
+  // bounds set, this returns the bounds for the object as well as the id of the
+  // canvas owner of this object.
+  std::optional<std::pair<PhysicalRect, AXID>> GetCanvasElementBounds(
+      AXID ax_id);
+
+  std::optional<ui::AXTreeID> GetAXObjectChildAXTreeID(AXID ax_id);
+  void SetAXObjectChildTreeID(AXID ax_id, const ui::AXTreeID& tree_id) {
+    ax_id_to_child_tree_id_.Set(ax_id, tree_id);
+  }
 
   void InlineTextBoxesUpdated(LayoutObject*) override;
 
@@ -382,8 +401,12 @@ class MODULES_EXPORT AXObjectCacheImpl : public AXObjectCacheBase {
   AXObject* GetOrCreate(const Node*, AXObject* parent) override;
   AXObject* GetOrCreate(Node*, AXObject* parent);
   AXObject* GetOrCreate(AbstractInlineTextBox*, AXObject* parent);
+  AXObject* GetOrCreate(AXBlockFlowIterator::FragmentIndex index,
+                        AXObject* parent);
 
   AXObject* Get(AbstractInlineTextBox*) const;
+  AXObject* Get(const LayoutObject* object,
+                AXBlockFlowIterator::FragmentIndex index) const;
 
   // Get an AXObject* backed by the passed-in DOM node.
   AXObject* Get(const Node*) const override;
@@ -725,7 +748,7 @@ class MODULES_EXPORT AXObjectCacheImpl : public AXObjectCacheBase {
     ax::mojom::blink::Action event_from_action;
     BlinkAXEventIntentsSet event_intents;
 
-    virtual ~TreeUpdateParams() = default;
+    ~TreeUpdateParams() = default;
     void Trace(Visitor* visitor) const { visitor->Trace(node); }
     std::string ToString();
   };
@@ -771,7 +794,6 @@ class MODULES_EXPORT AXObjectCacheImpl : public AXObjectCacheBase {
       ax::mojom::blink::Action event_from_action =
           ax::mojom::blink::Action::kNone,
       const BlinkAXEventIntentsSet& event_intents = BlinkAXEventIntentsSet());
-  void AriaOwnsChangedWithCleanLayout(Node*);
 
   // Returns a reference to the set of currently active event intents.
   BlinkAXEventIntentsSet& ActiveEventIntents() override {
@@ -832,6 +854,8 @@ class MODULES_EXPORT AXObjectCacheImpl : public AXObjectCacheBase {
   AXObject* CreateFromRenderer(LayoutObject*);
   AXObject* CreateFromNode(Node*);
   AXObject* CreateFromInlineTextBox(AbstractInlineTextBox*);
+  AXObject* CreateFromBlockFlowIterator(
+      AXBlockFlowIterator::FragmentIndex index);
 
   // Removes AXObject backed by passed-in object, if there is one.
   // It will also notify the parent that its children have changed, so that the
@@ -839,6 +863,9 @@ class MODULES_EXPORT AXObjectCacheImpl : public AXObjectCacheBase {
   // |notify_parent| is passed in as false.
   void Remove(LayoutObject*, bool notify_parent);
   void Remove(AbstractInlineTextBox*, bool notify_parent);
+  void Remove(const LayoutObject* object,
+              AXBlockFlowIterator::FragmentIndex index,
+              bool notify_parent);
 
   // Helper to remove the object from the cache.
   // Most callers should be using Remove(AXObject) instead.
@@ -861,6 +888,12 @@ class MODULES_EXPORT AXObjectCacheImpl : public AXObjectCacheBase {
   // Returns true if the AXID is for a DOM node.
   // All other AXIDs are generated.
   bool IsDOMNodeID(AXID axid) { return axid > 0; }
+
+  // When the AXMode kOnScreenOnly is on, this is the last step performed before
+  // FinalizeTree() is called. It will recursively traversse the tree and mark
+  // nodes as on-screen or off-screen. This information is later used to
+  // determine which nodes will be serialized.
+  bool MarkOnScreenNodes(AXObject* obj);
 
   HeapHashSet<WeakMember<InspectorAccessibilityAgent>> agents_;
 
@@ -945,6 +978,40 @@ class MODULES_EXPORT AXObjectCacheImpl : public AXObjectCacheBase {
   HeapHashMap<Member<const LayoutObject>, AXID> layout_object_mapping_;
   HeapHashMap<Member<AbstractInlineTextBox>, AXID>
       inline_text_box_object_mapping_;
+
+  // A LayoutObject may be connected to one or more AXInlineTextBoxes.
+  struct AXInlineTextBoxFragmentMapping {
+    // The index of the first AXInlineTextBox associated with a LayoutObject.
+    AXBlockFlowIterator::FragmentIndex starting_index;
+    // A compact representation of the AXIds of the AXInlineTextBoxes of a
+    // LayoutObject. Because fragment indexes are sequential,
+    // normally one per object, this Vector stores them as follows:
+    // ids[fragment_index - starting_index] = <the AXId>.
+    //
+    // Example: If starting_index is 10, and fragment indexes 10, 11, and 12
+    // have AXIds -100, -101 and -102 respectively, then:
+    //   ids[0] (10 - 10) = -100
+    //   ids[1] (11 - 10) = -101
+    //   ids[2] (12 - 10) = -102
+    //
+    // Significant gaps in fragment indexes would reduce the efficiency of this
+    // approach, however gaps are expected to be rare since the fragments are
+    // associated with the same text layout object.
+    Vector<AXID> ids;
+    // Number of AXInlineTextBoxes that have AXIds set. Note that this can be
+    // different from `ids.size()` as the vector may contain gaps if the
+    // fragment indices are not consecutive.  Gaps may be introduced during
+    // the course of layout updates, particularly as AXInlineTextBoxes are
+    // removed. When size is reduced to zero, the entry can be removed from the
+    // map for inline text boxes.
+    wtf_size_t size;
+  };
+  HeapHashMap<Member<const LayoutObject>, AXInlineTextBoxFragmentMapping>
+      layout_object_to_inline_text_boxes_;
+
+  // When the AXMode filter flag kOnScreenOnly is set, this set holds the IDs of
+  // nodes that are not on-screen, but are still serialized.
+  WTF::HashSet<AXID> extra_off_screen_nodes_to_serialize_;
 #if AX_FAIL_FAST_BUILD()
   size_t included_node_count_ = 0;
   size_t plugin_included_node_count_ = 0;
@@ -1286,6 +1353,24 @@ class MODULES_EXPORT AXObjectCacheImpl : public AXObjectCacheBase {
   // Used to determine if a previously computed attribute is from the same
   // serialization update.
   uint64_t generational_cache_id_ = 0;
+
+  // All the callbacks passed to `ScheduleAXUpdate` that `CompleteAXUpdate` has
+  // to call once it's done.
+  Vector<base::OnceClosure> ready_callbacks_;
+
+  // Holds the bounds as well as the canvas owner id of objects which had values
+  // explicitly set.
+  HashMap<AXID, std::pair<PhysicalRect, AXID>> ax_id_to_explicit_bounds_;
+
+  // Map that holds per AXID the ID of another tree that should be attached to
+  // the object as a child tree. This should not be used for iframes since the
+  // child tree for an iframe can be retrieved from the child frame's embedding
+  // token. It should only be used whenever the
+  // `ax::mojom::Action::kStitchChildTree` is sent to the renderer requesting
+  // that another tree is joined with the existing tree. This might be needed
+  // when another tree with some generated content should be stitched into the
+  // current tree.
+  HashMap<AXID, ui::AXTreeID> ax_id_to_child_tree_id_;
 };
 
 // This is the only subclass of AXObjectCache.

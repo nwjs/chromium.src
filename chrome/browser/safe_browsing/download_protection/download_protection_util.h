@@ -22,6 +22,8 @@
 
 namespace safe_browsing {
 
+class DeepScanningMetadata;
+
 // Enum to keep track why a particular download verdict was chosen.
 // Used for UMA metrics. Do not reorder.
 //
@@ -67,6 +69,7 @@ enum DownloadCheckResultReason {
   REASON_LOCAL_DECRYPTION_PROMPT = 37,
   REASON_LOCAL_DECRYPTION_FAILED = 38,
   REASON_IMMEDIATE_DEEP_SCAN = 39,
+  REASON_IGNORED_VERDICT = 40,
   REASON_MAX  // Always add new values before this one.
 };
 
@@ -109,6 +112,8 @@ enum class DeepScanEvent {
   kMaxValue = kIncorrectPassword,
 };
 void LogDeepScanEvent(download::DownloadItem* item, DeepScanEvent event);
+void LogDeepScanEvent(const DeepScanningMetadata& metadata,
+                      DeepScanEvent event);
 void LogLocalDecryptionEvent(DeepScanEvent event);
 
 // Callback type which is invoked once the download request is done.

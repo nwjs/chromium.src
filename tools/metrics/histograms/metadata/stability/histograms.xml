@@ -169,7 +169,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Stability.Android.ProcessedRealMinidumps"
-    enum="AndroidProcessedMinidumps" expires_after="2025-07-13">
+    enum="AndroidProcessedMinidumps" expires_after="2025-09-14">
   <owner>wnwen@chromium.org</owner>
   <owner>src/components/minidump_uploader/OWNERS</owner>
   <summary>
@@ -189,8 +189,8 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram base="true" name="Stability.Android.SystemExitReason"
-    enum="AndroidProcessExitReason" expires_after="2025-07-13">
+<histogram name="Stability.Android.SystemExitReason{AndroidProcessExitReasons}"
+    enum="AndroidProcessExitReason" expires_after="2025-09-14">
   <owner>boliu@chromium.org</owner>
   <owner>ssid@chromium.org</owner>
   <owner>wnwen@chromium.org</owner>
@@ -200,7 +200,25 @@ chromium-metrics-reviews@google.com.
     exits, or right after the process died for child processes.
 
     Records API failed when the ActivityManager does not return a reason.
+    {AndroidProcessExitReasons}
   </summary>
+  <token key="AndroidProcessExitReasons">
+    <variant name=".Browser" summary="Recorded for Browser crashes."/>
+    <variant name=".Browser.Background2"
+        summary="Recorded for background (application is not in running
+                 state) Browser crashes."/>
+    <variant name=".Browser.Foreground2"
+        summary="Recorded for foregound (application is in running state)
+                 Browser crashes."/>
+    <variant name=".GpuForegroundOom"
+        summary="Recorded for foreground GPU process OOM crashes."/>
+    <variant name=".UtilityForegroundOom"
+        summary="Recorded for foreground utility process OOM crashes."/>
+    <variant name=".VisibleMainFrameOom"
+        summary="Recorded for visible main frame renderer OOM crashes."/>
+    <variant name=".VisibleSubframeOom"
+        summary="Recorded for visible subframe renderer OOM crashes."/>
+  </token>
 </histogram>
 
 <histogram name="Stability.BadMessageTerminated.Chrome"
@@ -365,7 +383,6 @@ chromium-metrics-reviews@google.com.
 <histogram name="Stability.DebugScenario.Navigation" enum="DebugScenario"
     expires_after="2023-08-08">
   <owner>nasko@chromium.org</owner>
-  <owner>altimin@chromium.org</owner>
   <summary>
     Logged at the time when a complex debugging scenario is encountered. The
     enum value is the type of scenario encountered. This metric will give us two
@@ -391,7 +408,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Stability.Experimental.PageLoads" enum="StabilityPageLoadType"
-    expires_after="2025-06-29">
+    expires_after="2025-08-31">
   <owner>fdoray@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -439,7 +456,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Stability.IOS.Crashpad.Initialized" enum="BooleanSuccess"
-    expires_after="2025-05-01">
+    expires_after="2026-05-01">
   <owner>justincohen@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
   <summary>
@@ -679,7 +696,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Stability.RendererAbnormalTermination2.HostedContentType"
-    enum="RendererHostedContentType" expires_after="2025-07-13">
+    enum="RendererHostedContentType" expires_after="2025-09-14">
   <owner>fdoray@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -689,7 +706,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Stability.RendererAbnormalTermination2.{HostedContentType}"
-    enum="TerminationStatus" expires_after="2025-07-13">
+    enum="TerminationStatus" expires_after="2025-09-14">
   <owner>fdoray@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>

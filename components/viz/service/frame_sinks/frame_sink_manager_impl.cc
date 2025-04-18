@@ -11,6 +11,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 
 #include "base/check.h"
 #include "base/check_op.h"
@@ -426,19 +427,22 @@ void FrameSinkManagerImpl::EvictSurfaces(
     const std::vector<SurfaceId>& surface_ids) {
   for (const SurfaceId& surface_id : surface_ids) {
     auto it = support_map_.find(surface_id.frame_sink_id());
-    if (it == support_map_.end())
+    if (it == support_map_.end()) {
       continue;
-
-    bool should_evict = true;
-    if (it->second->is_root()) {
-      auto root_it = root_sink_map_.find(surface_id.frame_sink_id());
-      if (root_it != root_sink_map_.end()) {
-        should_evict = root_it->second->WillEvictSurface(surface_id);
-      }
     }
 
-    if (should_evict) {
-      it->second->EvictSurface(surface_id.local_surface_id());
+    // Even if we try to evict the root surface, it won't actually be freed up
+    // since various parts of the graphics stack will keep references to its
+    // resources. If we need to support evicting the root surface, we can revert
+    // crrev.com/c/6312283.
+    it->second->EvictSurface(surface_id.local_surface_id());
+
+    if (!it->second->is_root()) {
+      continue;
+    }
+    auto root_it = root_sink_map_.find(surface_id.frame_sink_id());
+    if (root_it != root_sink_map_.end()) {
+      root_it->second->DidEvictSurface(surface_id);
     }
   }
 
@@ -709,7 +713,7 @@ CapturableFrameSink* FrameSinkManagerImpl::FindCapturableFrameSink(
   // bounds matching the crop ID specified by |target| (if one was set), and
   // return the corresponding frame sink.
   if (IsRegionCapture(target.sub_target)) {
-    const auto crop_id = absl::get<RegionCaptureCropId>(target.sub_target);
+    const auto crop_id = std::get<RegionCaptureCropId>(target.sub_target);
     for (const auto& id_and_sink : support_map_) {
       const RegionCaptureBounds& bounds =
           id_and_sink.second->current_capture_bounds();

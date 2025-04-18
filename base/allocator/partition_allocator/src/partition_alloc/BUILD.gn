@@ -176,6 +176,7 @@ pa_buildflag_header("buildflags") {
     "IS_CAST_ANDROID=$is_cast_android",
     "IS_CHROMEOS=$is_chromeos",
     "IS_DEBUG=$partition_alloc_is_debug",
+    "IS_HWASAN=$is_hwasan",
     "RAW_PTR_ZERO_ON_CONSTRUCT=$raw_ptr_zero_on_construct",
     "RAW_PTR_ZERO_ON_DESTRUCT=$raw_ptr_zero_on_destruct",
     "RAW_PTR_ZERO_ON_MOVE=$raw_ptr_zero_on_move",
@@ -416,6 +417,7 @@ if (is_clang_or_gcc) {
       "freeslot_bitmap_constants.h",
       "gwp_asan_support.cc",
       "gwp_asan_support.h",
+      "in_slot_metadata.cc",
       "in_slot_metadata.h",
       "internal_allocator.cc",
       "internal_allocator.h",
@@ -1077,6 +1079,7 @@ source_set("test_support") {
     "extended_api.h",
     "partition_alloc_base/threading/platform_thread_for_testing.h",
     "partition_alloc_for_testing.h",
+    "pointers/raw_ptr_counting_impl_for_test.cc",
     "pointers/raw_ptr_counting_impl_for_test.h",
   ]
   if (is_posix) {

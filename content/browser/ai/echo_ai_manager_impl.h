@@ -43,8 +43,7 @@ class EchoAIManagerImpl : public blink::mojom::AIManager {
 
   // `blink::mojom::AIManager` implementation.
   void CanCreateLanguageModel(
-      std::optional<std::vector<blink::mojom::AILanguageCodePtr>>
-          expected_input_languages,
+      blink::mojom::AILanguageModelCreateOptionsPtr options,
       CanCreateLanguageModelCallback callback) override;
   void CreateLanguageModel(
       mojo::PendingRemote<blink::mojom::AIManagerCreateLanguageModelClient>
@@ -80,7 +79,8 @@ class EchoAIManagerImpl : public blink::mojom::AIManager {
 
   void DoMockDownloadingAndReturn(base::OnceClosure callback);
 
-  bool summarizer_downloaded_ = false;
+  // The mocked download status of an imagined foundational model.
+  bool model_downloaded_ = false;
 
   mojo::RemoteSet<blink::mojom::ModelDownloadProgressObserver>
       download_progress_observers_;

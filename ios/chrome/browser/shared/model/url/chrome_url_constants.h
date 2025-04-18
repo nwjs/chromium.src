@@ -37,6 +37,7 @@ extern const char kChromeUIChromeURLsHost[];
 extern const char kChromeUICrashesHost[];
 extern const char kChromeUICrashHost[];
 extern const char kChromeUICreditsHost[];
+extern const char kChromeUIDataSharingInternalsHost[];
 extern const char kChromeUIDinoHost[];
 extern const char kChromeUIDownloadInternalsHost[];
 extern const char kChromeUIExternalFileHost[];
@@ -98,10 +99,6 @@ extern const char kEmbeddedTermsOfServiceURL[];
 
 // The URL for the "Learn more" page on sync encryption.
 extern const char kSyncEncryptionHelpURL[];
-
-// Google history URL for the footer in the Clear Browsing Data under Privacy
-// Options.
-extern const char kClearBrowsingDataMyActivityUrlInFooterURL[];
 
 // Google MyActivity URL for the footer in Clear Browsing Data in the
 // Privacy section post link update.

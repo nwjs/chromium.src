@@ -73,7 +73,12 @@ declare_args() {
   # Set to true to enable mutex priority inheritance. See the comments in
   # LockImpl::PriorityInheritanceAvailable() in lock_impl_posix.cc for the
   # platform requirements to safely enable priority inheritance.
-  enable_mutex_priority_inheritance = false
+  #
+  # Enabled only on 64-bit Android. On 32 bit Android, PI mutexes have an extra
+  # level of indirection, so we don't bother enabling it. See:
+  # https://cs.android.com/android/platform/superproject/+/android14-qpr3-release:bionic/libc/bionic/pthread_mutex.cpp;drc=9108f258adad329a537e10461fbd526d5b9ad8bf;l=242
+  enable_mutex_priority_inheritance =
+      is_android && (current_cpu == "x64" || current_cpu == "arm64")
 
   # Control whether the ios stack sampling profiler is enabled. This flag is
   # only supported on iOS 64-bit architecture, but some project build //base
@@ -86,11 +91,16 @@ declare_args() {
 # Chromecast builds have full control over the platform and ensure that
 # the kernel and glibc versions used have patched the vulnerabilities,
 # so it is safe to use mutex priority inheritance on Chromecast platform.
-assert(!enable_mutex_priority_inheritance || is_castos || is_cast_android,
+assert(!enable_mutex_priority_inheritance ||
+           (is_castos || is_cast_android || is_android),
        "Do not enable PI mutexes without consulting the security team")
 
 assert(!is_nacl || is_nacl_saigo,
        "base must not be built in most nacl toolchains")
+
+# Prevent //base having to support a toolchain that uses a different
+# llvm/libc++ version.
+assert(!is_wasm, "base must not be built in most wasm toolchains")
 
 # This is here instead of in //build because //build is DEPS'd in by a few
 # subprojects that still support MSVC.
@@ -247,7 +257,6 @@ component("base") {
     "containers/to_value_list.h",
     "containers/to_vector.h",
     "containers/unique_ptr_adapters.h",
-    "containers/util.h",
     "containers/vector_buffer.h",
     "critical_closure.h",
     "dcheck_is_on.h",
@@ -382,6 +391,7 @@ component("base") {
     "memory/ref_counted_memory.h",
     "memory/safe_ref.h",
     "memory/safe_ref_traits.h",
+    "memory/safety_checks.cc",
     "memory/safety_checks.h",
     "memory/scoped_policy.h",
     "memory/scoped_refptr.h",
@@ -2210,8 +2220,10 @@ component("base") {
         sources += [ "process/process_mac.cc" ]
       }
 
-      # We include launch_mac on simulator builds so unittests can fork.
-      if (target_environment == "simulator") {
+      # We include launch_mac on simulator builds so unittests can fork. But,
+      # platforms like tvOS continue to use launch_ios since they do not support
+      # multi-processes.
+      if (target_environment == "simulator" && target_platform == "iphoneos") {
         sources += [
           "process/kill_mac.cc",
           "process/launch_mac.cc",
@@ -2522,21 +2534,26 @@ rust_bindgen("logging_log_severity_bindgen") {
   deps = [ ":debugging_buildflags" ]
 }
 
-rust_bindgen("logging_rust_log_integration_bindgen") {
-  header = "logging/rust_log_integration.h"
-  cpp = true
-  visibility = [ ":*" ]
-
-  # Transitive generated header dependency.
-  deps = [ ":debugging_buildflags" ]
-}
-
 rust_static_library("rust_logger") {
   allow_unsafe = true  # Unsafe needed for FFI.
   deps = [
+    ":debugging_buildflags",
     ":logging_log_severity_bindgen",
-    ":logging_rust_log_integration_bindgen",
+    ":tracing_buildflags",
+    "//build:chromeos_buildflags",
     "//third_party/rust/log/v0_4:lib",
+
+    # Needed because of circular dependency: base depends on this target and by
+    # extension the cxx-generated C++ code, but the cxx-generated code includes
+    # base headers and calls base code. This seems to generally not cause
+    # issues, except for partition_alloc which applies configs when depended on.
+    #
+    # This allows the generated C++ code to transitively include partition alloc
+    # headers without issue.
+    #
+    # TODO(collinbaker): determine how to handle these cxx bindings-induced
+    # circular dependencies more robustly.
+    "//base/allocator/partition_allocator:raw_ptr",
   ]
   visibility = [ ":base" ]
   sources = [ "logging/rust_logger.rs" ]
@@ -2578,14 +2595,38 @@ if (is_linux || is_chromeos) {
 buildflag_header("cfi_buildflags") {
   header = "cfi_buildflags.h"
 
-  flags = [
-    # TODO(pcc): remove CFI_CAST_CHECK, see https://crbug.com/626794.
-    "CFI_CAST_CHECK=$is_cfi && $use_cfi_cast",
-    "CFI_DIAG=$is_cfi && $use_cfi_diag",
-    "CFI_ICALL_CHECK=$is_cfi && $use_cfi_icall",
-    "CFI_ENFORCEMENT_TRAP=$is_cfi && !$use_cfi_diag",
-    "CFI_ENFORCEMENT_DIAGNOSTIC=$is_cfi && $use_cfi_diag && !$use_cfi_recover",
-  ]
+  flags = []
+
+  # TODO(pcc): remove CFI_CAST_CHECK, see https://crbug.com/626794.
+  if (is_cfi && use_cfi_cast) {
+    flags += [ "CFI_CAST_CHECK=true" ]
+  } else {
+    flags += [ "CFI_CAST_CHECK=false" ]
+  }
+
+  if (is_cfi && use_cfi_diag) {
+    flags += [ "CFI_DIAG=true" ]
+  } else {
+    flags += [ "CFI_DIAG=false" ]
+  }
+
+  if (is_cfi && use_cfi_icall) {
+    flags += [ "CFI_ICALL_CHECK=true" ]
+  } else {
+    flags += [ "CFI_ICALL_CHECK=false" ]
+  }
+
+  if (is_cfi && !use_cfi_diag) {
+    flags += [ "CFI_ENFORCEMENT_TRAP=true" ]
+  } else {
+    flags += [ "CFI_ENFORCEMENT_TRAP=false" ]
+  }
+
+  if (is_cfi && use_cfi_diag && !use_cfi_recover) {
+    flags += [ "CFI_ENFORCEMENT_DIAGNOSTIC=true" ]
+  } else {
+    flags += [ "CFI_ENFORCEMENT_DIAGNOSTIC=false" ]
+  }
 }
 
 buildflag_header("debugging_buildflags") {
@@ -3523,6 +3564,7 @@ test("base_unittests") {
     "test/gmock_expected_support_unittest.cc",
     "test/gmock_move_support_unittest.cc",
     "test/gtest_links_unittest.cc",
+    "test/gtest_sub_test_results_unittest.cc",
     "test/gtest_tags_unittest.cc",
     "test/gtest_xml_unittest_result_printer_unittest.cc",
     "test/launcher/test_launcher_unittest.cc",
@@ -3549,6 +3591,7 @@ test("base_unittests") {
     "test/test_pending_task_unittest.cc",
     "test/test_proto_loader_unittest.cc",
     "test/test_waitable_event_unittest.cc",
+    "test/values_test_util_unittest.cc",
     "thread_annotations_unittest.cc",
     "threading/hang_watcher_unittest.cc",
     "threading/platform_thread_unittest.cc",
@@ -4141,7 +4184,7 @@ test("base_unittests") {
   }
 
   if (is_win) {
-    deps += [ "//base:scoped_handle_test_dll" ]
+    deps += [ ":scoped_handle_test_dll" ]
     if (current_cpu == "x64" || current_cpu == "arm64") {
       sources += [ "profiler/win32_stack_frame_unwinder_unittest.cc" ]
       deps += [ ":base_profiler_test_support_library" ]
@@ -4681,7 +4724,7 @@ if (is_android) {
       "android/java/src/org/chromium/base/lifetime/Destroyable.java",
     ]
     deps = [
-      "//base:tasks_java",
+      ":tasks_java",
       "//third_party/androidx:androidx_annotation_annotation_java",
     ]
   }
@@ -4921,7 +4964,10 @@ if (is_android) {
     srcjar_deps = [ ":build_info_jni" ]
     deps = [
       ":android_info_java",
+      ":base_switches_java",
+      ":command_line_java",
       ":log_java",
+      ":resetters_java",
       ":tasks_java",
       "//base/version_info/android:version_constants_java",
       "//third_party/android_deps:com_google_code_findbugs_jsr305_java",
@@ -4972,6 +5018,9 @@ if (is_android) {
     ]
     sources = [ "android/java/src/org/chromium/base/SysUtils.java" ]
     deps = [
+      ":base_switches_java",
+      ":command_line_java",
+      ":log_java",
       ":tasks_java",
       "//third_party/androidx:androidx_annotation_annotation_java",
       "//third_party/jni_zero:jni_zero_java",
@@ -5262,7 +5311,7 @@ if (is_android) {
     testonly = true
 
     deps = [
-      "//base:base_java",
+      ":base_java",
       "//third_party/androidx:androidx_annotation_annotation_java",
       "//third_party/androidx:androidx_test_monitor_java",
       "//third_party/hamcrest:hamcrest_java",

@@ -866,12 +866,12 @@ LockDebugView::LockDebugView(LockScreen::ScreenType screen_type)
   lock_ = new LockContentsView(screen_type,
                                debug_data_dispatcher_->debug_dispatcher(),
                                std::move(debug_detachable_base_model));
-  AddChildView(lock_.get());
+  AddChildViewRaw(lock_.get());
 
   container_ = new NonAccessibleView();
   container_->SetLayoutManager(std::make_unique<views::BoxLayout>(
       views::BoxLayout::Orientation::kVertical));
-  AddChildView(container_.get());
+  AddChildViewRaw(container_.get());
 
   auto* margin = new NonAccessibleView();
   margin->SetPreferredSize(gfx::Size(10, 10));
@@ -1108,7 +1108,7 @@ void LockDebugView::AuthInputRowView() {
 
   container_view->SetPreferredSize(gfx::Size({500, 400}));
 
-  container_view->SetBackground(views::CreateThemedRoundedRectBackground(
+  container_view->SetBackground(views::CreateRoundedRectBackground(
       cros_tokens::kCrosSysSystemBaseElevated, 0));
 
   container_view->AddChildView(std::make_unique<ash::AuthInputRowView>(
@@ -1262,7 +1262,7 @@ void LockDebugView::UpdatePerUserActionContainer() {
     name->SetSubpixelRenderingEnabled(false);
     name->SetEnabledColor(kColorAshTextColorPrimary);
     name->SetAutoColorReadabilityEnabled(false);
-    row->AddChildView(name);
+    row->AddChildViewRaw(name);
 
     AddButton("Toggle PIN",
               base::BindRepeating(

@@ -22,19 +22,23 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kEnableBandATriggeredUpdates);
 
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFledgeBiddingAndAuctionNonceSupport);
 
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kFledgeCacheKAnonHashedKeys);
+CONTENT_EXPORT BASE_DECLARE_FEATURE_PARAM(base::TimeDelta,
+                                          kFledgeCacheKAnonHashedKeysTtl);
+
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kFledgeDoSampleDebugReportForTesting);
+
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFledgeEnableUnNoisedRealTimeReport);
 
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFledgeEnableUserAgentOverrides);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFledgeEnableWALForInterestGroupStorage);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFledgeFacilitatedTestingSignalsHeaders);
-
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
-    kFledgeLimitSelectableBuyerAndSellerReportingIdsFetchedFromKAnon);
-CONTENT_EXPORT BASE_DECLARE_FEATURE_PARAM(
-    int,
-    kFledgeSelectableBuyerAndSellerReportingIdsFetchedFromKAnonLimit);
+    kFledgeModifyInterestGroupPolicyCheckOnOwner);
 
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFledgeQueryKAnonymity);
+
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kFledgeSendDebugReportCooldownsToBandA);
 
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFledgeStartAnticipatoryProcesses);
 CONTENT_EXPORT BASE_DECLARE_FEATURE_PARAM(

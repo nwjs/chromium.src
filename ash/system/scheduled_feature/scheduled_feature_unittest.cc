@@ -297,12 +297,12 @@ class ScheduledFeatureTest : public NoSessionAshTestBase,
   base::TimeTicks NowTicks() const override { return task_runner_->NowTicks(); }
 
   void CreateTestUserSessions() {
-    GetSessionControllerClient()->Reset();
-    AddUserSession(kUser1Email);
-    AddUserSession(kUser2Email);
+    ClearLogin();
+    SimulateUserLoginWithCustomPrefs(kUser1Email);
+    SimulateUserLoginWithCustomPrefs(kUser2Email);
   }
 
-  void AddUserSession(const std::string& user_email) {
+  void SimulateUserLoginWithCustomPrefs(std::string_view user_email) {
     auto prefs = std::make_unique<TestingPrefServiceSimple>();
     prefs->registry()->RegisterBooleanPref(kTestEnabledPref, false);
     prefs->registry()->RegisterIntegerPref(
@@ -313,9 +313,7 @@ class ScheduledFeatureTest : public NoSessionAshTestBase,
                                            kTestCustomEndTimeOffsetMinutes);
     RegisterUserProfilePrefs(prefs->registry(), /*country=*/"",
                              /*for_test=*/true);
-    auto* const session_controller_client = GetSessionControllerClient();
-    session_controller_client->AddUserSession(
-        user_email, user_manager::UserType::kRegular, std::move(prefs));
+    SimulateUserLogin({user_email}, std::nullopt, std::move(prefs));
   }
 
   void SwitchActiveUser(const std::string& email) {

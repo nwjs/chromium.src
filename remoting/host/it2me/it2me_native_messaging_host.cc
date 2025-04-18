@@ -208,7 +208,7 @@ void It2MeNativeMessagingHost::OnMessage(const std::string& message) {
   std::optional<base::Value::Dict> response =
       CreateNativeMessageResponse(request);
   if (!response.has_value()) {
-    SendErrorAndExit(base::Value::Dict(), ErrorCode::INCOMPATIBLE_PROTOCOL);
+    SendErrorAndExit(base::Value::Dict(), ErrorCode::INVALID_ARGUMENT);
     return;
   }
 
@@ -325,7 +325,7 @@ void It2MeNativeMessagingHost::ProcessConnect(base::Value::Dict message,
     authorized_helper = *authorized_helper_value;
     if (!IsValidEmailAddress(authorized_helper)) {
       LOG(ERROR) << "Invalid authorized_helper value: " << authorized_helper;
-      SendErrorAndExit(std::move(response), ErrorCode::INCOMPATIBLE_PROTOCOL);
+      SendErrorAndExit(std::move(response), ErrorCode::INVALID_ARGUMENT);
       return;
     }
   }
@@ -370,7 +370,7 @@ void It2MeNativeMessagingHost::ProcessConnect(base::Value::Dict message,
       } else if (signaling_access_token || api_access_token) {
         LOG(ERROR) << "The website did not provide both the signaling access "
                    << "token and the API access token.";
-        SendErrorAndExit(std::move(response), ErrorCode::INCOMPATIBLE_PROTOCOL);
+        SendErrorAndExit(std::move(response), ErrorCode::INVALID_ARGUMENT);
         return;
       } else {
         HOST_LOG << "The website did not provide signaling and API access "
@@ -395,7 +395,7 @@ void It2MeNativeMessagingHost::ProcessConnect(base::Value::Dict message,
     }
   }
   if (!create_connection_context) {
-    SendErrorAndExit(std::move(response), ErrorCode::INCOMPATIBLE_PROTOCOL);
+    SendErrorAndExit(std::move(response), ErrorCode::INVALID_STATE);
     return;
   }
 
@@ -420,11 +420,17 @@ void It2MeNativeMessagingHost::ProcessConnect(base::Value::Dict message,
   it2me_host_->set_authorized_helper(authorized_helper);
 
   auto dialog_style = It2MeConfirmationDialog::DialogStyle::kConsumer;
+  base::TimeDelta connection_auto_accept_timeout;
 #if BUILDFLAG(IS_CHROMEOS) || !defined(NDEBUG)
   if (is_enterprise_admin_user) {
-    dialog_style = It2MeConfirmationDialog::DialogStyle::kEnterprise;
+    auto chromeos_enterprise_params =
+        ChromeOsEnterpriseParams::FromDict(message);
+    connection_auto_accept_timeout =
+        chromeos_enterprise_params.connection_auto_accept_timeout;
     it2me_host_->set_chrome_os_enterprise_params(
-        ChromeOsEnterpriseParams::FromDict(message));
+        std::move(chromeos_enterprise_params));
+
+    dialog_style = It2MeConfirmationDialog::DialogStyle::kEnterprise;
 
     if (reconnect_params.has_value()) {
       it2me_host_->set_reconnect_params(std::move(*reconnect_params));
@@ -432,10 +438,11 @@ void It2MeNativeMessagingHost::ProcessConnect(base::Value::Dict message,
   }
 #endif
 
-  it2me_host_->Connect(
-      host_context_->Copy(), std::move(policies),
-      std::make_unique<It2MeConfirmationDialogFactory>(dialog_style), weak_ptr_,
-      std::move(create_connection_context), username, ice_config);
+  it2me_host_->Connect(host_context_->Copy(), std::move(policies),
+                       std::make_unique<It2MeConfirmationDialogFactory>(
+                           dialog_style, connection_auto_accept_timeout),
+                       weak_ptr_, std::move(create_connection_context),
+                       username, ice_config);
 
   SendMessageToClient(std::move(response));
 }
@@ -506,7 +513,7 @@ void It2MeNativeMessagingHost::ProcessUpdateAccessTokens(
   if (!signaling_access_token) {
     LOG(ERROR) << "Cannot find " << kSignalingAccessToken << " in the "
                << kUpdateAccessTokensMessage << " message.";
-    SendErrorAndExit(std::move(response), ErrorCode::INCOMPATIBLE_PROTOCOL);
+    SendErrorAndExit(std::move(response), ErrorCode::INVALID_ARGUMENT);
     return;
   }
 
@@ -514,7 +521,7 @@ void It2MeNativeMessagingHost::ProcessUpdateAccessTokens(
   if (!api_access_token) {
     LOG(ERROR) << "Cannot find " << kApiAccessToken << " in the "
                << kUpdateAccessTokensMessage << " message.";
-    SendErrorAndExit(std::move(response), ErrorCode::INCOMPATIBLE_PROTOCOL);
+    SendErrorAndExit(std::move(response), ErrorCode::INVALID_ARGUMENT);
     return;
   }
 

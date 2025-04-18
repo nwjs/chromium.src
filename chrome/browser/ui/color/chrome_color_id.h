@@ -77,6 +77,10 @@
   E_CPONLY(kColorBatchUploadBackground) \
   E_CPONLY(kColorBatchUploadDataBackground) \
   E_CPONLY(kColorBatchUploadDataSeparator) \
+  /* BNPL Issuer GPay colors */ \
+  E_CPONLY(kColorBnplIssuerLabelForeground) \
+  E_CPONLY(kColorBnplIssuerLabelForegroundDisabled) \
+  E_CPONLY(kColorBnplIssuerLinkedIneligibleBackground) \
   /* Compose colors */ \
   E_CPONLY(kColorComposeDialogBackground) \
   E_CPONLY(kColorComposeDialogDivider) \
@@ -190,6 +194,8 @@
   /* Intent Picker colors. */ \
   E_CPONLY(kColorIntentPickerItemBackgroundHovered) \
   E_CPONLY(kColorIntentPickerItemBackgroundSelected) \
+  /* Glic colors */ \
+  E_CPONLY(kColorGlicBackground) \
   /* Hover Button colors */ \
   E_CPONLY(kColorHoverButtonBackgroundHovered) \
   /* Lens overlay colors. */ \
@@ -207,6 +213,9 @@
   /* Media router colors. */ \
   E_CPONLY(kColorMediaRouterIconActive) \
   E_CPONLY(kColorMediaRouterIconWarning) \
+  /* Multi contents view colors. */ \
+  E_CPONLY(kColorMulitContentsViewActiveContentOutline) \
+  E_CPONLY(kColorMulitContentsViewInactiveContentOutline) \
   /* New tab button colors. */ \
   E_CPONLY(kColorNewTabButtonForegroundFrameActive) \
   E_CPONLY(kColorNewTabButtonForegroundFrameInactive) \
@@ -384,6 +393,8 @@
   E_CPONLY(kColorPageInfoSubtitleForeground) \
   E_CPONLY(kColorPageInfoPermissionBlockedOnSystemLevelDisabled) \
   E_CPONLY(kColorPageInfoPermissionUsedIcon) \
+  /* Parent access local web approval dialog colors */ \
+  E_CPONLY(kColorParentAccessViewLocalWebApprovalBackground) \
   /* Payments colors. */ \
   E_CPONLY(kColorPaymentsFeedbackTipBackground) \
   E_CPONLY(kColorPaymentsFeedbackTipBorder) \

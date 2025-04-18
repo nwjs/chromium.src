@@ -169,11 +169,9 @@ class CORE_EXPORT OffscreenCanvas final
                                                ExceptionState&) final;
 
   // CanvasImageSource implementation
-  scoped_refptr<Image> GetSourceImageForCanvas(
-      FlushReason,
-      SourceImageStatus*,
-      const gfx::SizeF&,
-      const AlphaDisposition alpha_disposition) final;
+  scoped_refptr<Image> GetSourceImageForCanvas(FlushReason,
+                                               SourceImageStatus*,
+                                               const gfx::SizeF&) final;
   bool WouldTaintOrigin() const final { return !origin_clean_; }
   gfx::SizeF ElementSize(const gfx::SizeF& default_object_size,
                          const RespectImageOrientationEnum) const final {
@@ -208,7 +206,7 @@ class CORE_EXPORT OffscreenCanvas final
   const LayoutLocale* GetLocale() const override;
   void SetLocale(scoped_refptr<const LayoutLocale> locale);
 
-  FontSelector* GetFontSelector() override;
+  UniqueFontSelector* GetFontSelector() override;
 
   void Trace(Visitor*) const override;
 

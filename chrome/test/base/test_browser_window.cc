@@ -133,8 +133,8 @@ int TestBrowserWindow::GetTopControlsHeight() const {
 void TestBrowserWindow::SetTopControlsGestureScrollInProgress(
     bool in_progress) {}
 
-StatusBubble* TestBrowserWindow::GetStatusBubble() {
-  return nullptr;
+std::vector<StatusBubble*> TestBrowserWindow::GetStatusBubbles() {
+  return {};
 }
 
 gfx::Rect TestBrowserWindow::GetRestoredBounds() const {
@@ -332,6 +332,10 @@ DownloadShelf* TestBrowserWindow::GetDownloadShelf() {
   return &download_shelf_;
 }
 views::View* TestBrowserWindow::GetTopContainer() {
+  return nullptr;
+}
+
+views::View* TestBrowserWindow::GetLensOverlayView() {
   return nullptr;
 }
 

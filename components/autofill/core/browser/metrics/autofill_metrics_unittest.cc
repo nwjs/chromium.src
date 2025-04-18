@@ -1459,6 +1459,21 @@ TEST_P(AutofillMetricsTestWithParsedFormLogging, CreditCardSelectedFormEvents) {
   autofill_manager().AddSeenForm(form, field_types);
 
   {
+    // Previewing suggestions should not record selected-form-events metrics.
+    base::HistogramTester histogram_tester;
+    autofill_manager().FillOrPreviewCreditCardForm(
+        mojom::ActionPersistence::kPreview, form, form.fields()[2].global_id(),
+        *personal_data().payments_data_manager().GetCreditCardByGUID(
+            kTestLocalCardId),
+        AutofillTriggerSource::kPopup);
+    EXPECT_THAT(
+        histogram_tester.GetAllSamples("Autofill.FormEvents.CreditCard"),
+        BucketsInclude(
+            Bucket(FORM_EVENT_LOCAL_CARD_SUGGESTION_SELECTED, 0),
+            Bucket(FORM_EVENT_LOCAL_CARD_SUGGESTION_SELECTED_ONCE, 0)));
+  }
+
+  {
     // Simulating selecting a local card suggestion multiple times.
     base::HistogramTester histogram_tester;
     autofill_manager().FillOrPreviewCreditCardForm(
@@ -1606,6 +1621,26 @@ TEST_P(AutofillMetricsTestWithParsedFormLogging, CreditCardFilledFormEvents) {
   std::vector<FieldType> field_types = {
       CREDIT_CARD_EXP_MONTH, CREDIT_CARD_EXP_2_DIGIT_YEAR, CREDIT_CARD_NUMBER};
 
+  autofill_manager().AddSeenForm(form, field_types);
+
+  {
+    // Previewing suggestions should not record filling-form-events metrics.
+    base::HistogramTester histogram_tester;
+    autofill_manager().FillOrPreviewCreditCardForm(
+        mojom::ActionPersistence::kPreview, form,
+        form.fields().front().global_id(),
+        *personal_data().payments_data_manager().GetCreditCardByGUID(
+            kTestLocalCardId),
+        AutofillTriggerSource::kPopup);
+    EXPECT_THAT(
+        histogram_tester.GetAllSamples("Autofill.FormEvents.CreditCard"),
+        BucketsInclude(Bucket(FORM_EVENT_LOCAL_SUGGESTION_FILLED, 0),
+                       Bucket(FORM_EVENT_LOCAL_SUGGESTION_FILLED_ONCE, 0)));
+  }
+
+  // Reset the autofill manager state.
+  test_api(autofill_client().GetAutofillDriverFactory())
+      .Reset(autofill_driver());
   autofill_manager().AddSeenForm(form, field_types);
 
   {
@@ -5612,10 +5647,9 @@ TEST_F(AutofillMetricsSeamlessnessTest, CreditCardFormRecordOnIFrames) {
     }
     std::map<std::string, int64_t> expected = {
         {UFIT::kFormSessionIdentifierName,
-         AutofillMetrics::FormGlobalIdToHash64Bit(form_.global_id())},
+         FormGlobalIdToHash64Bit(form_.global_id())},
         {UFIT::kFieldSessionIdentifierName,
-         AutofillMetrics::FieldGlobalIdToHash64Bit(
-             form_.fields()[i].global_id())},
+         FieldGlobalIdToHash64Bit(form_.fields()[i].global_id())},
         {UFIT::kFieldSignatureName,
          Collapse(CalculateFieldSignatureForField(form_.fields()[i])).value()},
         {UFIT::kAutofillSkippedStatusName, skipped_status_vector.data()[0]},
@@ -5629,26 +5663,7 @@ TEST_F(AutofillMetricsSeamlessnessTest, CreditCardFormRecordOnIFrames) {
         {UFIT::kTypeChangedByRationalizationName, false},
         {UFIT::kRankInFieldSignatureGroupName, 1},
         {UFIT::kHeuristicTypeName, field_types[i]},
-#if BUILDFLAG(USE_INTERNAL_AUTOFILL_PATTERNS)
-        {UFIT::kHeuristicTypeLegacyName, UNKNOWN_TYPE},
-        // When kExperimentalRegexes is active, kDefault predictions are
-        // computed for shadow predictions. Otherwise, kDefault is active and
-        // experimental predictions are not populated.
-        {UFIT::kHeuristicTypeDefaultName, field_types[i]},
-        {UFIT::kHeuristicTypeExperimentalName,
-         GetActiveHeuristicSource() == HeuristicSource::kExperimentalRegexes
-             ? field_types[i]
-             : UNKNOWN_TYPE},
-        {UFIT::kFieldLogEventCountName,
-         field_log_events_count + 2 +
-             (GetActiveHeuristicSource() ==
-              HeuristicSource::kExperimentalRegexes)},
-#else
-        {UFIT::kHeuristicTypeLegacyName, field_types[i]},
-        {UFIT::kHeuristicTypeDefaultName, UNKNOWN_TYPE},
-        {UFIT::kHeuristicTypeExperimentalName, UNKNOWN_TYPE},
         {UFIT::kFieldLogEventCountName, field_log_events_count + 2},
-#endif
     };
     EXPECT_EQ(expected.size(), entry->metrics.size());
     for (const auto& [metric, value] : expected) {

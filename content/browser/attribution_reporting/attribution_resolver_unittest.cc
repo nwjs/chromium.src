@@ -15,6 +15,7 @@
 #include <string_view>
 #include <tuple>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "base/containers/enum_set.h"
@@ -73,7 +74,6 @@
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/abseil-cpp/absl/numeric/int128.h"
-#include "third_party/abseil-cpp/absl/types/variant.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
 #include "third_party/blink/public/mojom/aggregation_service/aggregatable_report.mojom.h"
 #include "url/gurl.h"
@@ -151,7 +151,7 @@ MATCHER_P(CreateReportSourceIs, matcher, "") {
 MATCHER_P(CreateReportMaxEventLevelReportsLimitIs, matcher, "") {
   std::optional<int> value;
   if (const auto* v =
-          absl::get_if<CreateReportResult::NoCapacityForConversionDestination>(
+          std::get_if<CreateReportResult::NoCapacityForConversionDestination>(
               &arg.event_level_result())) {
     value = v->max;
   }
@@ -161,7 +161,7 @@ MATCHER_P(CreateReportMaxEventLevelReportsLimitIs, matcher, "") {
 MATCHER_P(CreateReportMaxAggregatableReportsLimitIs, matcher, "") {
   std::optional<int> value;
   if (const auto* v =
-          absl::get_if<CreateReportResult::NoCapacityForConversionDestination>(
+          std::get_if<CreateReportResult::NoCapacityForConversionDestination>(
               &arg.aggregatable_result())) {
     value = v->max;
   }
@@ -3836,6 +3836,15 @@ TEST_F(AttributionResolverTest, MaxAttributions_BoundedBySourceTimeWindow) {
             MaybeCreateAndStoreEventLevelReport(trigger));
 
   task_environment_.FastForwardBy(kTimeWindow - kTriggerDelay);
+  // The attribution rate-limit is based on attributed source time, therefore
+  // the attribution rate-limit record is not out of time window yet.
+  EXPECT_EQ(AttributionTrigger::EventLevelResult::kExcessiveAttributions,
+            MaybeCreateAndStoreEventLevelReport(trigger));
+
+  // This source will be preferred as it's more recent.
+  storage()->StoreSource(SourceBuilder().Build());
+  // The attribution rate-limit is based on attributed source time, therefore
+  // the attribution rate-limit record is now out of time window.
   EXPECT_EQ(AttributionTrigger::EventLevelResult::kSuccess,
             MaybeCreateAndStoreEventLevelReport(trigger));
 }
@@ -5565,6 +5574,110 @@ TEST_F(AttributionResolverTest,
               .Build()),
       CreateReportAggregatableStatusIs(
           AttributionTrigger::AggregatableResult::kInsufficientNamedBudget));
+}
+
+TEST_F(AttributionResolverTest,
+       UniqueDailyReportingOriginsPerReportingSiteForSource) {
+  base::HistogramTester histogram_tester;
+
+  // Count is 1 (origin "a")
+  storage()->StoreSource(
+      SourceBuilder()
+          .SetReportingOrigin(*SuitableOrigin::Deserialize("https://a.r1.test"))
+          .Build());
+
+  // Count is 1 (origin "a" for previous and current sources)
+  storage()->StoreSource(
+      SourceBuilder()
+          .SetReportingOrigin(*SuitableOrigin::Deserialize("https://a.r1.test"))
+          .Build());
+
+  // Count is 2 (origins "a", "b")
+  storage()->StoreSource(
+      SourceBuilder()
+          .SetReportingOrigin(*SuitableOrigin::Deserialize("https://b.r1.test"))
+          .Build());
+
+  // Count is 3 (origins are "a", "b", "c")
+  storage()->StoreSource(
+      SourceBuilder()
+          .SetReportingOrigin(*SuitableOrigin::Deserialize("https://c.r1.test"))
+          .Build());
+
+  // Count is 1 (different reporting site than the previous sources)
+  storage()->StoreSource(
+      SourceBuilder()
+          .SetReportingOrigin(*SuitableOrigin::Deserialize("https://a.r2.test"))
+          .Build());
+
+  EXPECT_THAT(
+      histogram_tester.GetAllSamples(
+          "Conversions.UniqueReportingOriginsPerReportingSiteForSource"),
+      base::BucketsAre(base::Bucket(1, 3), base::Bucket(2, 1),
+                       base::Bucket(3, 1)));
+}
+
+TEST_F(AttributionResolverTest,
+       UniqueDailyReportingOriginsPerDestinationAndReportingSiteForSource) {
+  base::HistogramTester histogram_tester;
+
+  // Count is 1 (origin "a" for "d1" and "r1")
+  // and 1 (origin "a" for "d2" and "r1")
+  storage()->StoreSource(
+      SourceBuilder()
+          .SetDestinationSites(
+              {net::SchemefulSite::Deserialize("https://d1.test"),
+               net::SchemefulSite::Deserialize("https://d2.test")})
+          .SetReportingOrigin(*SuitableOrigin::Deserialize("https://a.r1.test"))
+          .Build());
+
+  // Count is 1 (origin "a" for "d1" and "r1")
+  storage()->StoreSource(
+      SourceBuilder()
+          .SetDestinationSites(
+              {net::SchemefulSite::Deserialize("https://d1.test")})
+          .SetReportingOrigin(*SuitableOrigin::Deserialize("https://a.r1.test"))
+          .Build());
+
+  // Count is 2 (origins "a", "b" for "d1" and "r1")
+  storage()->StoreSource(
+      SourceBuilder()
+          .SetDestinationSites(
+              {net::SchemefulSite::Deserialize("https://d1.test")})
+          .SetReportingOrigin(*SuitableOrigin::Deserialize("https://b.r1.test"))
+          .Build());
+
+  // Count is 2 (origins "a", "c" for "d2" and "r1")
+  // and 3 (origins "a", "b", "c" for "d1" and "r1")
+  storage()->StoreSource(
+      SourceBuilder()
+          .SetDestinationSites(
+              {net::SchemefulSite::Deserialize("https://d2.test"),
+               net::SchemefulSite::Deserialize("https://d1.test")})
+          .SetReportingOrigin(*SuitableOrigin::Deserialize("https://c.r1.test"))
+          .Build());
+
+  // Count is 1 (origin "a" for "d1" and "r2")
+  storage()->StoreSource(
+      SourceBuilder()
+          .SetDestinationSites(
+              {net::SchemefulSite::Deserialize("https://d1.test")})
+          .SetReportingOrigin(*SuitableOrigin::Deserialize("https://a.r2.test"))
+          .Build());
+
+  // Count is 1 (origin "a" for "d2" and "r2")
+  storage()->StoreSource(
+      SourceBuilder()
+          .SetDestinationSites(
+              {net::SchemefulSite::Deserialize("https://d2.test")})
+          .SetReportingOrigin(*SuitableOrigin::Deserialize("https://a.r2.test"))
+          .Build());
+
+  EXPECT_THAT(
+      histogram_tester.GetAllSamples(
+          "Conversions.UniqueReportingOriginsPerDestAndReportingSiteForSource"),
+      base::BucketsAre(base::Bucket(1, 5), base::Bucket(2, 2),
+                       base::Bucket(3, 1)));
 }
 
 }  // namespace content

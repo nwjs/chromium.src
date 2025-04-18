@@ -28,6 +28,19 @@ public class AuxiliarySearchDataEntry {
     // use tabId instead.
     public final int visitId;
 
+    // {@link score} is used for most visited sites.
+    public final int score;
+
+    /**
+     * @param type The type of the data source.
+     * @param url The {@link GURL} of the entry.
+     * @param title The page title.
+     * @param lastActiveTime The last visited timestamp.
+     * @param tabId The Tad ID of the entry if it is a local Tab, -1 otherwise.
+     * @param appId The ID of the app which opens the URL if the entry is a CCT, null otherwise.
+     * @param visitId A unique ID of the entry if it isn't a local Tab, -1 otherwise.
+     * @param score The score used to rank most visited sites, 0 as default.
+     */
     AuxiliarySearchDataEntry(
             @AuxiliarySearchEntryType int type,
             GURL url,
@@ -35,7 +48,8 @@ public class AuxiliarySearchDataEntry {
             long lastActiveTime,
             int tabId,
             @Nullable String appId,
-            int visitId) {
+            int visitId,
+            int score) {
         this.type = type;
         this.url = url;
         this.title = title;
@@ -43,6 +57,7 @@ public class AuxiliarySearchDataEntry {
         this.tabId = tabId;
         this.appId = appId;
         this.visitId = visitId;
+        this.score = score;
     }
 
     @Override

@@ -14,6 +14,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import org.chromium.base.Callback;
+import org.chromium.base.Token;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.collaboration.CollaborationServiceFactory;
 import org.chromium.chrome.browser.data_sharing.DataSharingTabGroupUtils;
@@ -63,7 +64,8 @@ class TabModelRemover {
          * @param onResult A callback invoked with the {@link ActionConfirmationResult} of showing
          *     the dialog. May be invoked synchronously in some cases.
          */
-        void showTabGroupDeletionConfirmationDialog(@NonNull Callback<Integer> onResult);
+        void showTabGroupDeletionConfirmationDialog(
+                @NonNull Callback<@ActionConfirmationResult Integer> onResult);
 
         /**
          * Requests to show a dialog asking the user whether to keep the collaboration.
@@ -122,7 +124,7 @@ class TabModelRemover {
     TabGroupModelFilterInternal getTabGroupModelFilter() {
         TabGroupModelFilterInternal filter =
                 (TabGroupModelFilterInternal) mTabGroupModelFilterSupplier.get();
-        assert filter != null && !filter.isIncognitoBranded();
+        assert filter != null && !filter.getTabModel().isIncognitoBranded();
         return filter;
     }
 
@@ -277,11 +279,11 @@ class TabModelRemover {
         }
 
         TabGroupModelFilter filter = getTabGroupModelFilter();
-        int rootId = filter.getRootIdFromTabGroupId(savedTabGroup.localId.tabGroupId);
-        if (rootId == Tab.INVALID_TAB_ID) {
+        Token tabGroupId = savedTabGroup.localId.tabGroupId;
+        if (!filter.tabGroupExists(tabGroupId)) {
             return new CollaborationInfo();
         }
-        String title = TabGroupTitleUtils.getDisplayableTitle(mContext, filter, rootId);
+        String title = TabGroupTitleUtils.getDisplayableTitle(mContext, filter, tabGroupId);
 
         CollaborationService collaborationService = getCollaborationService();
         @MemberRole

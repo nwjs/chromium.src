@@ -5,16 +5,21 @@
 #include "components/content_settings/browser/page_specific_content_settings.h"
 
 #include <list>
+#include <variant>
 #include <vector>
 
 #include "base/auto_reset.h"
 #include "base/command_line.h"
+#include "base/functional/bind.h"
 #include "base/functional/overloaded.h"
 #include "base/lazy_instance.h"
+#include "base/location.h"
 #include "base/memory/ptr_util.h"
 #include "base/observer_list.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/task/sequenced_task_runner.h"
+#include "base/time/time.h"
 #include "build/build_config.h"
 #include "components/browsing_data/content/cookie_helper.h"
 #include "components/content_settings/common/content_settings_agent.mojom.h"
@@ -69,6 +74,11 @@ constexpr auto kMediaIndicatorMinimumHoldDurationPhase2 = base::Seconds(4);
 // A delay before blocked media indicator disappears.
 constexpr auto kBlockedMediaIndicatorDismissDelay = base::Minutes(1);
 constexpr auto kBlockedMediaIndicatorDismissDelayPhase2 = base::Seconds(4);
+#if BUILDFLAG(IS_CHROMEOS)
+// A delay before in-use indicator for device (currently only smart cards)
+// disappears.
+constexpr auto kDeviceInUseIndicatorHideDelay = base::Seconds(15);
+#endif
 
 // Determines which taxonomy is used to generate sample topics for the Topics
 // API.
@@ -233,8 +243,8 @@ bool DelayUntilCommitIfNecessary(content::RenderFrameHost* rfh,
 }
 
 bool IsThirdPartyCookieDetails(const content::CookieAccessDetails& details) {
-  return net::SchemefulSite(details.url) !=
-             net::SchemefulSite(details.first_party_url) ||
+  return !net::SchemefulSite::IsSameSite(details.url,
+                                         details.first_party_url) ||
          !details.site_for_cookies.IsFirstParty(details.url);
 }
 
@@ -474,6 +484,12 @@ void WebContentsHandler::ReadyToCommitNavigation(
                               ContentSettingsType::MIXEDSCRIPT) ==
       CONTENT_SETTING_ALLOW;
 #endif
+#if !BUILDFLAG(IS_IOS)
+  content_settings->allow_controlled_frame =
+      map_->GetContentSetting(primary_url, secondary_url,
+                              ContentSettingsType::CONTROLLED_FRAME) ==
+      CONTENT_SETTING_ALLOW;
+#endif
 
   navigation_handle->SetContentSettings(std::move(content_settings));
 }
@@ -688,12 +704,12 @@ PageSpecificContentSettings::GetDelegateForWebContents(
 // static
 void PageSpecificContentSettings::StorageAccessed(
     StorageType storage_type,
-    absl::variant<content::GlobalRenderFrameHostToken,
-                  content::GlobalRenderFrameHostId> frame_id,
+    std::variant<content::GlobalRenderFrameHostToken,
+                 content::GlobalRenderFrameHostId> frame_id,
     const blink::StorageKey& storage_key,
     bool blocked_by_policy) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  content::RenderFrameHost* rfh = absl::visit(
+  content::RenderFrameHost* rfh = std::visit(
       base::Overloaded{
           [](const content::GlobalRenderFrameHostToken& frame_token) {
             return content::RenderFrameHost::FromFrameToken(frame_token);
@@ -1173,13 +1189,13 @@ void PageSpecificContentSettings::OnBrowsingDataAccessed(
   // TODO(njeunje): Look into populating an actual url for this access details.
   // Could be obtained from the `data_key`.
   GURL accessing_url =
-      absl::holds_alternative<blink::StorageKey>(data_key)
-          ? absl::get<blink::StorageKey>(data_key).origin().GetURL()
+      std::holds_alternative<blink::StorageKey>(data_key)
+          ? std::get<blink::StorageKey>(data_key).origin().GetURL()
           : GURL();
 
   // Session storage uses a different DataKey than other storage types.
   if (storage_type == BrowsingDataModel::StorageType::kSessionStorage) {
-    accessing_url = absl::get<content::SessionStorageUsageInfo>(data_key)
+    accessing_url = std::get<content::SessionStorageUsageInfo>(data_key)
                         .storage_key.origin()
                         .GetURL();
   }
@@ -1587,6 +1603,7 @@ void PageSpecificContentSettings::OnCapturingStateChanged(
   }
 }
 
+#if BUILDFLAG(IS_CHROMEOS)
 void PageSpecificContentSettings::OnDeviceUsed(ContentSettingsType type) {
   // For now, only smart card permissions are supported.
   CHECK_EQ(ContentSettingsType::SMART_CARD_GUARD, type);
@@ -1601,8 +1618,31 @@ void PageSpecificContentSettings::OnLastDeviceConnectionLost(
   // For now, only smart card permissions are supported.
   CHECK_EQ(mojom::ContentSettingsType::SMART_CARD_GUARD, type);
   in_use_.erase(type);
-  MaybeUpdateLocationBar();
+
+  // The indicator should remain for `kDeviceInUseIndicatorHideDelay` seconds
+  // after the connection has died in order to also make user aware of very
+  // rapid connections.
+  base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
+      FROM_HERE,
+      base::BindOnce(&PageSpecificContentSettings::MaybeUpdateLocationBar,
+                     weak_factory_.GetWeakPtr()),
+      kDeviceInUseIndicatorHideDelay);
 }
+#endif  // BUILDFLAG(IS_CHROMEOS)
+
+bool PageSpecificContentSettings::IsInUse(ContentSettingsType type) const {
+  return in_use_.contains(type);
+}
+
+#if BUILDFLAG(IS_CHROMEOS)
+bool PageSpecificContentSettings::ShouldShowDeviceInUseIndicator(
+    ContentSettingsType type) const {
+  return IsInUse(type) ||
+         GetLastUsedTime(type) >
+             base::Time::Now() - kDeviceInUseIndicatorHideDelay;
+  ;
+}
+#endif
 
 void PageSpecificContentSettings::OnCapturingStateChangedInternal(
     ContentSettingsType type,
@@ -1644,7 +1684,7 @@ void PageSpecificContentSettings::OnCapturingStateChangedInternal(
 }
 
 const base::Time PageSpecificContentSettings::GetLastUsedTime(
-    ContentSettingsType type) {
+    ContentSettingsType type) const {
   auto it = last_used_time_.find(type);
   if (it != last_used_time_.end()) {
     // After a recent usage HCSM will not have an updated last used time. HCSM

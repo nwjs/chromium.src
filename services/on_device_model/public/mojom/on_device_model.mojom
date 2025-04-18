@@ -94,19 +94,48 @@ struct LoadAdaptationParams {
   // Assets for an adaptation.
   AdaptationAssets assets;
 
-  // The maximum number of input+output tokens the adaptation model can handle.
-  // This is needed when initializing the model. Currently this is only
-  // supported by the APU backend.
-  // When set to 0, the original `max_tokens` set by the base model will be
-  // used.
+  // Deprecated: use SessionParams.max_tokens instead.
   uint32 max_tokens = 0;
 
-  // Whether this model will handle InputPieces containing images.
+  // Deprecated: use SessionParams.capabilities.image_input instead.
   [MinVersion=1]
   bool enable_image_input = false;
-  // Whether this model will handle InputPieces containing audio.
+  // Deprecated: use SessionParams.capabilities.audio_input instead.
   [MinVersion=2]
   bool enable_audio_input = false;
+};
+
+// A set of capabilities that a model can have.
+[Stable]
+struct Capabilities {
+  // Whether this model will handle InputPieces containing images.
+  bool image_input = false;
+
+  // Whether this model will handle InputPieces containing audio.
+  bool audio_input = false;
+};
+
+// Params to describe a new session.
+[Stable]
+struct SessionParams {
+  // The maximum number of input+output tokens the session can handle. This is
+  // needed when initializing the session. Currently this is only supported by
+  // the APU backend. When set to 0, the original `max_tokens` set by the base
+  // model will be used.
+  uint32 max_tokens = 0;
+
+  // The capabilities to enable for this session.
+  Capabilities capabilities;
+
+  // These params control the output sampling. Higher `top_k` means more tokens
+  // are considered, higher `temperature` means less likely tokens are more
+  // probable.
+  // `top_k` should be a value from 1 to the max top K value the model was
+  // initialized with.
+  [MinVersion=1] uint32 top_k;
+  // `temperature` should be a value greater than 0.0. Values above 1.0 may give
+  // poor results.
+  [MinVersion=1] float temperature;
 };
 
 // The set of tokens that can be added as part of an input.
@@ -174,14 +203,9 @@ struct GenerateOptions {
   // sequence length.
   uint32 max_output_tokens = 0;
 
-  // These params control the output sampling. Higher `top_k` means more tokens
-  // are considered, higher `temperature` means less likely tokens are more
-  // probable.
-  // `top_k` should be a value from 1 to the max top K value the model was
-  // initialized with.
+  // Deprecated: use SessionParams.top_k instead.
   uint32? top_k;
-  // `temperature` should be a value greater than 0.0. Values above 1.0 may give
-  // poor results.
+  // Deprecated: use SessionParams.temperature instead.
   float? temperature;
 };
 
@@ -218,22 +242,15 @@ interface Session {
 // browser and consumers must take care to sanitize inputs.
 [Stable]
 interface OnDeviceModel {
-  // Starts a session with this model. If a session starts before the previous
-  // one has completed and the multiple sessions support is not enabled for
-  // this model, the previous session will be canceled, the mojo connection
-  // for the previous session will also be closed, and the ongoing connections
-  // of StreamingResponder & ContextClient will also be closed.
-  // When the multiple sessions support is enabled, nothing will be
-  // disconnected, and the further requests will be queued.
-  StartSession@0(pending_receiver<Session> session);
+  // Starts a session with this model. Sessions are logically independent,
+  // but requests may block progress of other sessions.
+  StartSession@0(pending_receiver<Session> session,
+      [MinVersion=1] SessionParams? params);
 
-  // Infers multiclass safety scores for the given `text` using this model's
-  // underlying safety classifier, if any. Returns null if classification fails
-  // or there is no classifier available.
+  // DEPRECATED: Does nothing
   ClassifyTextSafety@1(string text) => (SafetyInfo? safety_info);
 
-  // Detects the language of the text using the language classifier. Returns
-  // null if there is no classifier available.
+  // DEPRECATED: Does nothing
   DetectLanguage@2(string text) => (LanguageDetectionResult? result);
 
   // Loads an adaptation with the specified params. This will always load the
@@ -243,7 +260,9 @@ interface OnDeviceModel {
       => (LoadModelResult result);
 };
 
-interface TextSafetyModel {
+// A connection to a text safety model, that can be used to score arbitrary
+// text in a set of safety categories.
+interface TextSafetySession {
   // Infers multiclass safety scores for the given `text` using this model's
   // underlying safety classifier, if any. Returns null if classification fails
   // or there is no classifier available.
@@ -252,6 +271,14 @@ interface TextSafetyModel {
   // Detects the language of the text using the language classifier. Returns
   // null if there is no classifier available.
   DetectLanguage@2(string text) => (LanguageDetectionResult? result);
+};
+
+// A loaded text safety model, that can be shared by multiple features.
+// This remote of this interface is held by the browser, and manages the
+// resource.
+interface TextSafetyModel {
+  // Starts a session with this model.
+  StartSession@0(pending_receiver<TextSafetySession> session);
 };
 
 // Classifies the device based on how fast it is estimated to be able to run a

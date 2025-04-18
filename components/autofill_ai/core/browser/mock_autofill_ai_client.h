@@ -19,21 +19,18 @@ class MockAutofillAiClient : public AutofillAiClient {
   ~MockAutofillAiClient() override;
 
   MOCK_METHOD(autofill::AutofillClient&, GetAutofillClient, (), (override));
-  MOCK_METHOD(void,
-              GetAXTree,
-              (AutofillAiClient::AXTreeCallback callback),
-              (override));
   MOCK_METHOD(AutofillAiManager&, GetManager, (), (override));
-  MOCK_METHOD(AutofillAiModelExecutor*, GetModelExecutor, (), (override));
   MOCK_METHOD(autofill::EntityDataManager*,
               GetEntityDataManager,
               (),
               (override));
-  MOCK_METHOD(bool, IsAutofillAiEnabledPref, (), (const override));
-  MOCK_METHOD(bool, IsUserEligible, (), (override));
   MOCK_METHOD(autofill::FormStructure*,
               GetCachedFormStructure,
               (const autofill::FormGlobalId& form_id),
+              (override));
+  MOCK_METHOD(optimization_guide::ModelQualityLogsUploaderService*,
+              GetMqlsUploadService,
+              (),
               (override));
   MOCK_METHOD(void,
               ShowSaveOrUpdateBubble,

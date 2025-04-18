@@ -1458,6 +1458,7 @@ TEST_P(OverviewSessionTest, HideBubbleTransient) {
 
   // Create a bubble widget that's anchored to frame.
   auto bubble_delegate = std::make_unique<views::BubbleDialogDelegateView>(
+      views::BubbleDialogDelegateView::CreatePassKey(),
       NonClientFrameViewAsh::Get(window.get()), views::BubbleBorder::TOP_RIGHT);
 
   // The line below is essential to make sure that the bubble doesn't get closed
@@ -3359,7 +3360,7 @@ TEST_P(OverviewSessionTest, AccessibilityFocusAnnotator) {
   auto* item_widget3 = GetOverviewItemForWindow(window3.get())->item_widget();
 
   // With this flag enabled, there are is no saved desk save desk container.
-  if (features::IsSavedDeskUiRevampEnabled()) {
+  if (features::IsForestFeatureEnabled()) {
     // Order should be [focus_widget, item_widget1, item_widget2, item_widget3,
     // desk_widget, save_widget].
     CheckA11yOverrides("focus", focus_widget, desk_widget, item_widget1);
@@ -4614,8 +4615,7 @@ class ContinuousOverviewAnimationTest
   // OverviewTestBase:
   void SetUp() override {
     scoped_feature_list_.InitWithFeatures(
-        /*enabled_features=*/{features::kContinuousOverviewScrollAnimation,
-                              features::kDeskButton},
+        /*enabled_features=*/{features::kContinuousOverviewScrollAnimation},
         /*disabled_features=*/{});
     OverviewTestBase::SetUp();
 

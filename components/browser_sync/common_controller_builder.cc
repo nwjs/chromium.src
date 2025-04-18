@@ -29,10 +29,13 @@
 #include "components/autofill/core/browser/webdata/payments/autofill_wallet_offer_sync_bridge.h"
 #include "components/autofill/core/browser/webdata/payments/autofill_wallet_sync_bridge.h"
 #include "components/autofill/core/browser/webdata/payments/autofill_wallet_usage_data_sync_bridge.h"
+#include "components/autofill/core/browser/webdata/valuables/valuable_data_type_controller.h"
+#include "components/autofill/core/browser/webdata/valuables/valuable_sync_bridge.h"
 #include "components/commerce/core/commerce_feature_list.h"
 #include "components/commerce/core/product_specifications/product_specifications_service.h"
 #include "components/consent_auditor/consent_auditor.h"
 #include "components/data_sharing/public/data_sharing_service.h"
+#include "components/data_sharing/public/data_type_controller/collaboration_group_data_type_controller.h"
 #include "components/data_sharing/public/features.h"
 #include "components/history/core/browser/sync/history_data_type_controller.h"
 #include "components/history/core/browser/sync/history_delete_directives_data_type_controller.h"
@@ -51,7 +54,8 @@
 #include "components/prefs/pref_service.h"
 #include "components/reading_list/core/dual_reading_list_model.h"
 #include "components/reading_list/core/reading_list_local_data_batch_uploader.h"
-#include "components/saved_tab_groups/internal/shared_tab_group_data_type_controller.h"
+#include "components/saved_tab_groups/public/shared_tab_group_account_data_type_controller.h"
+#include "components/saved_tab_groups/public/shared_tab_group_data_type_controller.h"
 #include "components/saved_tab_groups/public/tab_group_sync_service.h"
 #include "components/search_engines/template_url_service.h"
 #include "components/send_tab_to_self/send_tab_to_self_data_type_controller.h"
@@ -59,6 +63,7 @@
 #include "components/sharing_message/sharing_message_bridge.h"
 #include "components/sharing_message/sharing_message_data_type_controller.h"
 #include "components/signin/public/base/signin_switches.h"
+#include "components/sync/base/data_type.h"
 #include "components/sync/base/features.h"
 #include "components/sync/base/report_unrecoverable_error.h"
 #include "components/sync/model/forwarding_data_type_controller_delegate.h"
@@ -105,6 +110,16 @@ AutocompleteDelegateFromDataService(autofill::AutofillWebDataService* service) {
       ->GetControllerDelegate();
 #endif
 }
+
+#if !BUILDFLAG(IS_IOS)
+base::WeakPtr<syncer::DataTypeControllerDelegate>
+AutofillLoyaltyCardDelegateFromDataService(
+    autofill::AutofillWebDataService* service) {
+  return autofill::ValuableSyncBridge::FromWebDataService(service)
+      ->change_processor()
+      ->GetControllerDelegate();
+}
+#endif
 
 base::WeakPtr<syncer::DataTypeControllerDelegate>
 AutofillProfileDelegateFromDataService(
@@ -776,13 +791,8 @@ CommonControllerBuilder::Build(syncer::DataTypeSet disabled_types,
             delegate)));
   }
 
-  // TODO(crbug.com/381505059): Check if the collab service status should be
-  // used.
   bool data_sharing_enabled =
-      base::FeatureList::IsEnabled(
-          data_sharing::features::kDataSharingFeature) ||
-      base::FeatureList::IsEnabled(
-          data_sharing::features::kDataSharingJoinOnly);
+      data_sharing::features::IsDataSharingFunctionalityEnabled();
   if (!disabled_types.Has(syncer::SHARED_TAB_GROUP_DATA) &&
       tab_group_sync_service_.value() && data_sharing_enabled) {
     syncer::DataTypeControllerDelegate* delegate =
@@ -900,29 +910,47 @@ CommonControllerBuilder::Build(syncer::DataTypeSet disabled_types,
   }
 
 #if !BUILDFLAG(IS_IOS)
-  if (!disabled_types.Has(syncer::AUTOFILL_LOYALTY_CARD) &&
+  if (!disabled_types.Has(syncer::AUTOFILL_VALUABLE) &&
       base::FeatureList::IsEnabled(syncer::kSyncAutofillLoyaltyCard)) {
-    // TODO(crbug.com/393119606): In CL #4, register the type, i.e. instantiate
-    // the DataTypeController. There is more than one way to go about it,
-    // but one option is:
-    // - Create a trivial implementation of DataTypeSyncBridge which lives in
-    //   your feature's directory. It should have synchronous access to your
-    //   data model (e.g. DualReadingListModel) and be (indirectly) owned by a
-    //   CoolKeyedService (often the model itself).
-    // - Expose CoolKeyedService::GetControllerDelegate() which calls
-    //   bridge->change_processor()->GetControllerDelegate().
-    // - Inject CoolKeyedService in this class and call GetControllerDelegate()
-    //   on it to create the DataTypeController.
-    // In CLs #5, #6, ..., implement the bridge and keep adding unit tests.
+    controllers.push_back(
+        std::make_unique<autofill::AutofillValuableDataTypeController>(
+            syncer::AUTOFILL_VALUABLE,
+            std::make_unique<syncer::ProxyDataTypeControllerDelegate>(
+                account_autofill_web_data_service_.value()->GetDBTaskRunner(),
+                base::BindRepeating(
+                    &AutofillLoyaltyCardDelegateFromDataService,
+                    base::RetainedRef(
+                        account_autofill_web_data_service_.value()))),
+            std::make_unique<syncer::ProxyDataTypeControllerDelegate>(
+                account_autofill_web_data_service_.value()->GetDBTaskRunner(),
+                base::BindRepeating(
+                    &AutofillLoyaltyCardDelegateFromDataService,
+                    base::RetainedRef(
+                        account_autofill_web_data_service_.value())))));
   }
 #endif
 
+  if (!disabled_types.Has(syncer::SHARED_TAB_GROUP_ACCOUNT_DATA) &&
+      base::FeatureList::IsEnabled(syncer::kSyncSharedTabGroupAccountData) &&
+      tab_group_sync_service_.value() && data_sharing_enabled) {
+    syncer::DataTypeControllerDelegate* delegate =
+        tab_group_sync_service_.value()
+            ->GetSharedTabGroupAccountControllerDelegate()
+            .get();
+
+    controllers.push_back(
+        std::make_unique<tab_groups::SharedTabGroupAccountDataTypeController>(
+            /*delegate_for_full_sync_mode=*/
+            std::make_unique<syncer::ForwardingDataTypeControllerDelegate>(
+                delegate),
+            /*delegate_for_transport_mode=*/
+            std::make_unique<syncer::ForwardingDataTypeControllerDelegate>(
+                delegate),
+            sync_service, identity_manager_.value()));
+  }
+
 #if !BUILDFLAG(IS_ANDROID)
-  if (!disabled_types.Has(syncer::WEBAUTHN_CREDENTIAL)
-#if BUILDFLAG(IS_IOS)
-      && syncer::IsWebauthnCredentialSyncEnabled()
-#endif  // BUILDFLAG(IS_IOS)
-  ) {
+  if (!disabled_types.Has(syncer::WEBAUTHN_CREDENTIAL)) {
     syncer::DataTypeControllerDelegate* delegate =
         passkey_model_.value()->GetDataTypeControllerDelegate().get();
 
@@ -955,14 +983,15 @@ CommonControllerBuilder::Build(syncer::DataTypeSet disabled_types,
             ->GetCollaborationGroupControllerDelegate()
             .get();
 
-    controllers.push_back(std::make_unique<DataTypeController>(
-        syncer::COLLABORATION_GROUP,
-        /*delegate_for_full_sync_mode=*/
-        std::make_unique<syncer::ForwardingDataTypeControllerDelegate>(
-            delegate),
-        /*delegate_for_transport_mode=*/
-        std::make_unique<syncer::ForwardingDataTypeControllerDelegate>(
-            delegate)));
+    controllers.push_back(
+        std::make_unique<data_sharing::CollaborationGroupDataTypeController>(
+            /*delegate_for_full_sync_mode=*/
+            std::make_unique<syncer::ForwardingDataTypeControllerDelegate>(
+                delegate),
+            /*delegate_for_transport_mode=*/
+            std::make_unique<syncer::ForwardingDataTypeControllerDelegate>(
+                delegate),
+            sync_service, identity_manager_.value()));
   }
 
   return controllers;

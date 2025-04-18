@@ -342,8 +342,11 @@ EncoderStatus D3D12VideoEncodeH265Delegate::InitializeVideoEncoder(
   h265_level_ = suggested_level;
 
   dpb_.emplace(max_num_ref_frames_);
-  dpb_->InitializeTextureArray(device_.Get(), config.input_visible_size,
-                               input_format_);
+  if (!dpb_->InitializeTextureArray(device_.Get(), config.input_visible_size,
+                                    input_format_)) {
+    return {EncoderStatus::Codes::kEncoderInitializationError,
+            "Failed to initialize DPB"};
+  }
   reference_frame_manager_.emplace(max_num_ref_frames_);
 
   video_encoder_wrapper_ = video_encoder_wrapper_factory_.Run(
@@ -399,6 +402,11 @@ H265VPS D3D12VideoEncodeH265Delegate::ToVPS() const {
   // https://github.com/microsoft/DirectX-Specs/blob/master/d3d/D3D12VideoEncoding.md#hevc-video-parameter-set-expected-values
   H265VPS vps;
   vps.vps_video_parameter_set_id = 0;
+  // Despite the Microsoft document says |vps_base_layer_internal_flag| and
+  // |vps_base_layer_available_flag| should be zeros, only by setting them to 1
+  // can the stream be decoded.
+  vps.vps_base_layer_internal_flag = true;
+  vps.vps_base_layer_available_flag = true;
   vps.vps_temporal_id_nesting_flag = true;
   vps.profile_tier_level.general_profile_idc = h265_profile_ + 1;
   vps.profile_tier_level.general_profile_compatibility_flags =

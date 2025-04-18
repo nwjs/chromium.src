@@ -22,6 +22,8 @@ class DataSharingSDKDelegateDesktop : public DataSharingSDKDelegate,
   using LoadFinishedCallback = base::OnceCallback<void(content::WebContents*)>;
   using ReadGroupsCallback = base::OnceCallback<void(
       const base::expected<data_sharing_pb::ReadGroupsResult, absl::Status>&)>;
+  using ReadGroupWithTokenCallback = base::OnceCallback<void(
+      const base::expected<data_sharing_pb::ReadGroupsResult, absl::Status>&)>;
 
   explicit DataSharingSDKDelegateDesktop(content::BrowserContext* context);
 
@@ -45,6 +47,10 @@ class DataSharingSDKDelegateDesktop : public DataSharingSDKDelegate,
 
   void ReadGroups(const data_sharing_pb::ReadGroupsParams& params,
                   ReadGroupsCallback callback) override;
+
+  void ReadGroupWithToken(
+      const data_sharing_pb::ReadGroupWithTokenParams& params,
+      ReadGroupWithTokenCallback callback) override;
 
   void AddMember(
       const data_sharing_pb::AddMemberParams& params,
@@ -73,6 +79,13 @@ class DataSharingSDKDelegateDesktop : public DataSharingSDKDelegate,
   // DataSharingUI::Delegate:
   void ApiInitComplete() override;
   void ShowErrorDialog(int status_code) override;
+  void OnShareLinkRequested(
+      const std::string& group_id,
+      const std::string& access_token,
+      base::OnceCallback<void(const std::optional<GURL>&)> callback) override;
+  void OnGroupAction(
+      data_sharing::mojom::GroupAction action,
+      data_sharing::mojom::GroupActionProgress progress) override;
 
   void AddAccessToken(
       const data_sharing_pb::AddAccessTokenParams& params,
@@ -87,6 +100,10 @@ class DataSharingSDKDelegateDesktop : public DataSharingSDKDelegate,
 
   void OnReadGroups(ReadGroupsCallback callback,
                     data_sharing::mojom::ReadGroupsResultPtr mojom_result);
+
+  void OnReadGroupWithToken(
+      ReadGroupWithTokenCallback callback,
+      data_sharing::mojom::ReadGroupWithTokenResultPtr mojom_result);
 
   void OnLeaveGroup(base::OnceCallback<void(const absl::Status&)> callback,
                     int status_code);

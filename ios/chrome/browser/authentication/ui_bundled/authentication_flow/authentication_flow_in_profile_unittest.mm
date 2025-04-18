@@ -12,6 +12,7 @@
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
+#import "ios/chrome/browser/shared/model/profile/test/test_profile_manager_ios.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/fake_authentication_service_delegate.h"
@@ -38,7 +39,7 @@ class AuthenticationFlowInProfileTest : public PlatformTest {
         AuthenticationServiceFactory::GetInstance(),
         AuthenticationServiceFactory::GetFactoryWithDelegate(
             std::make_unique<FakeAuthenticationServiceDelegate>()));
-    profile_ = std::move(builder).Build();
+    profile_ = profile_manager_.AddProfileWithBuilder(std::move(builder));
     browser_ = std::make_unique<TestBrowser>(profile_.get());
 
     FakeSystemIdentityManager* fake_system_identity_manager =
@@ -66,15 +67,16 @@ class AuthenticationFlowInProfileTest : public PlatformTest {
       signin_metrics::AccessPoint access_point) {
     BOOL is_managed_identity = identity == managed_identity_;
     authentication_flow_in_profile_ = [[AuthenticationFlowInProfile alloc]
-          initWithBrowser:browser_.get()
-                 identity:identity
-        isManagedIdentity:is_managed_identity
-              accessPoint:access_point
-        postSignInActions:post_sign_in_actions];
+             initWithBrowser:browser_.get()
+                    identity:identity
+           isManagedIdentity:is_managed_identity
+                 accessPoint:access_point
+        precedingHistorySync:NO
+           postSignInActions:post_sign_in_actions];
     id<AuthenticationFlowPerformerDelegate> performer_delegate =
         GetAuthenticationFlowPerformerDelegate();
     OCMExpect([performer_mock_ initWithDelegate:performer_delegate
-                           changeProfileHandler:nil])
+                           changeProfileHandler:[OCMArg any]])
         .andReturn(performer_mock_);
   }
 
@@ -86,9 +88,10 @@ class AuthenticationFlowInProfileTest : public PlatformTest {
 
   web::WebTaskEnvironment task_environment_;
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
-  AuthenticationFlowInProfile* authentication_flow_in_profile_ = nil;
-  std::unique_ptr<TestProfileIOS> profile_;
+  TestProfileManagerIOS profile_manager_;
+  raw_ptr<TestProfileIOS> profile_;
   std::unique_ptr<Browser> browser_;
+  AuthenticationFlowInProfile* authentication_flow_in_profile_ = nil;
   id<SystemIdentity> identity1_ = nil;
   id<SystemIdentity> identity2_ = nil;
   id<SystemIdentity> managed_identity_ = nil;
@@ -171,7 +174,7 @@ TEST_F(AuthenticationFlowInProfileTest, TestSignOutAndSignIn) {
   run_loop = std::make_unique<base::RunLoop>();
   // Perform sign-out request, simulating what the real performer would do..
   authentication_service->SignOut(
-      signin_metrics::ProfileSignout::kChangeAccountInAccountMenu,
+      signin_metrics::ProfileSignout::kSignoutForAccountSwitching,
       base::CallbackToBlock(run_loop->QuitClosure()));
   run_loop->Run();
   // Continue AuthenticationFlowInProfile flow.
@@ -195,6 +198,10 @@ TEST_F(AuthenticationFlowInProfileTest, TestSignInWithUnknownIdentity) {
   FakeSystemIdentity* unknown_identity = [FakeSystemIdentity fakeIdentity3];
   CreateAuthenticationFlowInProfile(PostSignInActionSet(), unknown_identity,
                                     access_point);
+  OCMExpect([performer_mock_ showAuthenticationError:[OCMArg any]
+                                      withCompletion:[OCMArg invokeBlock]
+                                      viewController:[OCMArg any]
+                                             browser:browser_.get()]);
   // Start `authentication_flow_in_profile_` for `unknown_identity`.
   base::test::TestFuture<SigninCoordinatorResult> future;
   [authentication_flow_in_profile_

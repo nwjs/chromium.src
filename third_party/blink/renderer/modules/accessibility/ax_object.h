@@ -45,6 +45,7 @@
 #include "third_party/blink/renderer/core/inspector/protocol/accessibility.h"
 #include "third_party/blink/renderer/core/layout/geometry/physical_rect.h"
 #include "third_party/blink/renderer/core/scroll/scroll_alignment.h"
+#include "third_party/blink/renderer/modules/accessibility/ax_block_flow_iterator.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_enums.h"
 #include "third_party/blink/renderer/modules/modules_export.h"
 #include "third_party/blink/renderer/platform/graphics/color.h"
@@ -335,6 +336,10 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   // Wrappers that retrieve either an Accessibility Object Model property,
   // or the equivalent ARIA attribute, in that order.
   virtual AbstractInlineTextBox* GetInlineTextBox() const { return nullptr; }
+  virtual std::optional<AXBlockFlowIterator::FragmentIndex> GetFragmentIndex()
+      const {
+    return std::nullopt;
+  }
 
   static const HeapVector<Member<Element>>* ElementsFromAttributeOrInternals(
       const Element* from,
@@ -447,6 +452,7 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   virtual bool IsLoaded() const;
   virtual bool IsModal() const;
   virtual bool IsMultiSelectable() const;
+  virtual bool ComputeIsOffScreen() const;
   virtual bool IsRequired() const;
   virtual AccessibilitySelectedState IsSelected() const;
   virtual bool IsSelectedFromFocusSupported() const;
@@ -535,6 +541,19 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   // more than one object but have only one primary parent.
   bool HasIndirectChildren() const;
   bool IsExcludedByFormControlsFilter() const;
+
+  void SetIsOnScreen(bool visibility) { cached_is_on_screen_ = visibility; }
+  bool WasEverOnScreen() const {
+    return cached_is_on_screen_ ? cached_is_on_screen_.value() : false;
+  }
+
+  // A node can oly flip from off-screen to on-screen if it was explicitly
+  // marked as off-screen at some point. Since we keep track if a node was ever
+  // on-screen, it can't also flip from on-screen to off-screen because of this
+  // reason.
+  bool CanFlipFromOffScreenToOnScreen() const {
+    return cached_is_on_screen_ && !cached_is_on_screen_.value();
+  }
 
   //
   // Accessible name calculation
@@ -1007,12 +1026,6 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
 
   // Get the bounds in frame-relative coordinates as a PhysicalRect.
   PhysicalRect GetBoundsInFrameCoordinates() const;
-
-  // Explicitly set an object's bounding rect and offset container.
-  void SetElementRect(const PhysicalRect& r, AXObject* container) {
-    explicit_element_rect_ = r;
-    explicit_container_id_ = container->AXObjectID();
-  }
 
   // Hit testing.
   // Called on the root AX object to return the deepest available element.
@@ -1494,9 +1507,6 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   // The final role, taking into account the ARIA role and native role.
   ax::mojom::blink::Role role_;
 
-  PhysicalRect explicit_element_rect_;
-  AXID explicit_container_id_;
-
   virtual void AddChildren() = 0;
 
   // Collapses multiple whitespace characters into one. Used by GetName().
@@ -1589,10 +1599,6 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   void SerializeTextInsertionDeletionOffsetAttributes(
       ui::AXNodeData* node_data) const;
 
-  const std::optional<ui::AXTreeID>& child_tree_id() const {
-    return child_tree_id_;
-  }
-
   void SetCachedValuesNeedUpdate(
       bool cached_values_need_update,
       std::optional<TreeUpdateReason> reason = std::nullopt);
@@ -1633,6 +1639,7 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   bool cached_is_descendant_of_disabled_node_ : 1 = false;
   bool cached_can_set_focus_attribute_ : 1 = false;
   bool cached_is_in_menu_list_subtree_ : 1 = false;
+  std::optional<bool> cached_is_on_screen_;
 
   Member<AXObject> cached_live_region_root_;
   gfx::RectF cached_local_bounding_box_;
@@ -1685,18 +1692,6 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   void SetChildTree(const ui::AXTreeID& child_tree_id);
 
   static unsigned number_of_live_ax_objects_;
-
-  // The ID of another tree that should be attached to this object as a child
-  // tree. This should not be used for iframes since the child tree for an
-  // iframe can be retrieved from the child frame's embedding token. It should
-  // only be used whenever the `ax::mojom::Action::kStitchChildTree` is sent to
-  // the renderer requesting that another tree is joined with the existing tree.
-  // This might be needed when another tree with some generated content should
-  // be stitched into the current tree.
-  //
-  // TODO(accessibility): Store in AXObjectCacheImpl since it is not needed by
-  // most objects taking up valuable space.
-  std::optional<ui::AXTreeID> child_tree_id_;
 
   FRIEND_TEST_ALL_PREFIXES(AccessibilityTest, GetParentNodeForComputeParent);
   FRIEND_TEST_ALL_PREFIXES(AccessibilityTest, NodesRequiringCacheUpdate);

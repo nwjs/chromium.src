@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.auxiliary_search;
 
+import static org.chromium.chrome.browser.flags.ChromeFeatureList.sAndroidAppIntegrationMultiDataSourceHistoryContentTtlHours;
 import static org.chromium.chrome.browser.flags.ChromeFeatureList.sAndroidAppIntegrationV2ContentTtlHours;
 
 import android.annotation.SuppressLint;
@@ -39,15 +40,14 @@ import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.Log;
 import org.chromium.base.ResettersForTesting;
+import org.chromium.base.TimeUtils;
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
 import org.chromium.base.task.AsyncTask;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
 import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchGroupProto.AuxiliarySearchEntry;
 import org.chromium.chrome.browser.auxiliary_search.schema.CustomTabWebPage;
-import org.chromium.chrome.browser.auxiliary_search.schema.TabWebPage;
 import org.chromium.chrome.browser.auxiliary_search.schema.TopSiteWebPage;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.tab.Tab;
@@ -72,6 +72,16 @@ public class AuxiliarySearchDonor {
                 Class<?> schemaClass, String packageName, String sha256Certificate);
     }
 
+    /** A helper interface for iterating search results from the App Search. */
+    interface SearchQueryChecker {
+        /**
+         * Returns whether it is the sought result.
+         *
+         * @param searchResult The current search result page.
+         */
+        boolean isSuccess(SearchResult searchResult);
+    }
+
     @VisibleForTesting static final String SCHEMA = "builtin:GlobalSearchApplicationInfo";
     @VisibleForTesting static final String SCHEMA_WEBPAGE = "builtin:WebPage";
 
@@ -89,7 +99,8 @@ public class AuxiliarySearchDonor {
 
     private ListenableFuture<AppSearchSession> mAppSearchSession;
     private ListenableFuture<GlobalSearchSession> mGlobalSearchSession;
-    private Long mTtlMillis;
+    private Long mTabTtlMillis;
+    private Long mHistoryTtlMillis;
     private boolean mIsSchemaSet;
     private List<WebPage> mPendingDocuments;
     private Callback<Boolean> mPendingCallback;
@@ -114,7 +125,7 @@ public class AuxiliarySearchDonor {
         mSkipSchemaCheck = AuxiliarySearchUtils.SKIP_SCHEMA_CHECK.getValue();
 
         mSupportMultiDataSource =
-                ChromeFeatureList.sAndroidAppIntegrationMultiDataSource.isEnabled();
+                AuxiliarySearchControllerFactory.getInstance().isMultiDataTypeEnabledOnDevice();
         mSharedTabsWithOsState = AuxiliarySearchUtils.isShareTabsWithOsEnabled();
         boolean shouldInit = mSharedTabsWithOsState || !isShareTabsWithOsEnabledKeyExist();
         if (shouldInit) {
@@ -200,7 +211,7 @@ public class AuxiliarySearchDonor {
             if (mIsSchemaSet) {
                 // If WebPage schema has been set before while the device isn't capable for Tab
                 // donations, clean up now.
-                deleteAllTabs(null);
+                deleteAll(null);
                 closeSession();
             }
             return false;
@@ -259,12 +270,10 @@ public class AuxiliarySearchDonor {
     @VisibleForTesting
     List<Class<?>> getSupportedDocumentClasses() {
         List<Class<?>> documents = new ArrayList<>();
+        documents.add(WebPage.class);
         if (mSupportMultiDataSource) {
-            documents.add(TabWebPage.class);
             documents.add(CustomTabWebPage.class);
             documents.add(TopSiteWebPage.class);
-        } else {
-            documents.add(WebPage.class);
         }
         return documents;
     }
@@ -297,6 +306,11 @@ public class AuxiliarySearchDonor {
 
     @VisibleForTesting
     String getSchemaSetPreferenceKey() {
+        // TODO(https://crbug.com/397457989): Removes here once the new schema is ready to use.
+        if (AuxiliarySearchUtils.USE_SCHEMA_V1.getValue()) {
+            return ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_SET;
+        }
+
         return mSupportMultiDataSource
                 ? ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_V2_SET
                 : ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_SET;
@@ -323,10 +337,11 @@ public class AuxiliarySearchDonor {
             List<T> entries, Map<T, Bitmap> entryToFaviconMap, Callback<Boolean> callback) {
         List<WebPage> docs = new ArrayList<>();
 
+        long currentTime = getCurrentTimeMillis();
         for (T entry : entries) {
             Bitmap favicon = entryToFaviconMap.get(entry);
             if (favicon != null) {
-                docs.add(buildDocument(entry, favicon));
+                docs.add(buildDocument(entry, favicon, /* counts= */ null, currentTime));
             }
         }
 
@@ -337,11 +352,12 @@ public class AuxiliarySearchDonor {
 
     /** Donates a list of data entries. */
     @VisibleForTesting
-    public <T> void donateEntries(List<T> entries, Callback<Boolean> callback) {
+    public <T> void donateEntries(List<T> entries, int[] counts, Callback<Boolean> callback) {
         List<WebPage> docs = new ArrayList<>();
 
+        long currentTime = getCurrentTimeMillis();
         for (T entry : entries) {
-            docs.add(buildDocument(entry, /* favicon= */ null));
+            docs.add(buildDocument(entry, /* favicon= */ null, counts, currentTime));
         }
 
         donateTabsImpl(docs, callback);
@@ -356,17 +372,24 @@ public class AuxiliarySearchDonor {
     public <T> void donateEntries(Map<T, Bitmap> entryToFaviconMap, Callback<Boolean> callback) {
         List<WebPage> docs = new ArrayList<>();
 
+        long currentTime = getCurrentTimeMillis();
         for (Map.Entry<T, Bitmap> entry : entryToFaviconMap.entrySet()) {
-            docs.add(buildDocument(entry.getKey(), entry.getValue()));
+            docs.add(
+                    buildDocument(
+                            entry.getKey(), entry.getValue(), /* counts= */ null, currentTime));
         }
         donateTabsImpl(docs, callback);
     }
 
     /** Creates a document for the given entry and favicon. */
     @VisibleForTesting
-    <T> WebPage buildDocument(T entry, @Nullable Bitmap favicon) {
+    <T> WebPage buildDocument(
+            T entry, @Nullable Bitmap favicon, @Nullable int[] counts, long currentTime) {
         if (entry instanceof Tab tab) {
             String documentId = getDocumentId(AuxiliarySearchEntryType.TAB, tab.getId());
+            if (counts != null) {
+                counts[AuxiliarySearchEntryType.TAB] += 1;
+            }
             WebPage.Builder builder = new WebPage.Builder(mNamespace, documentId);
             return buildDocumentImpl(
                     builder,
@@ -374,12 +397,18 @@ public class AuxiliarySearchDonor {
                     tab.getUrl().getSpec(),
                     tab.getTitle(),
                     tab.getTimestampMillis(),
+                    calculateDocumentTtlMs(
+                            /* isTab= */ true, tab.getTimestampMillis(), currentTime),
+                    /* score= */ 0,
                     favicon);
         }
 
         if (entry instanceof AuxiliarySearchEntry auxiliarySearchEntry) {
             String documentId =
                     getDocumentId(AuxiliarySearchEntryType.TAB, auxiliarySearchEntry.getId());
+            if (counts != null) {
+                counts[AuxiliarySearchEntryType.TAB] += 1;
+            }
             WebPage.Builder builder = new WebPage.Builder(mNamespace, documentId);
             return buildDocumentImpl(
                     builder,
@@ -387,15 +416,21 @@ public class AuxiliarySearchDonor {
                     auxiliarySearchEntry.getUrl(),
                     auxiliarySearchEntry.getTitle(),
                     auxiliarySearchEntry.getLastAccessTimestamp(),
+                    calculateDocumentTtlMs(
+                            /* isTab= */ true,
+                            auxiliarySearchEntry.getLastAccessTimestamp(),
+                            currentTime),
+                    /* score= */ 0,
                     favicon);
         }
 
         AuxiliarySearchDataEntry dataEntry = (AuxiliarySearchDataEntry) entry;
-        int entryId =
-                dataEntry.type == AuxiliarySearchEntryType.TAB
-                        ? dataEntry.tabId
-                        : dataEntry.visitId;
+        boolean isTab = dataEntry.type == AuxiliarySearchEntryType.TAB;
+        int entryId = isTab ? dataEntry.tabId : dataEntry.visitId;
         String documentId = getDocumentId(dataEntry.type, entryId);
+        if (counts != null) {
+            counts[dataEntry.type] += 1;
+        }
         // TODO(https://397457989): Creates a builder based on entry's type.
         WebPage.Builder builder = new WebPage.Builder(mNamespace, documentId);
         return buildDocumentImpl(
@@ -404,6 +439,8 @@ public class AuxiliarySearchDonor {
                 dataEntry.url.getSpec(),
                 dataEntry.title,
                 dataEntry.lastActiveTime,
+                calculateDocumentTtlMs(isTab, dataEntry.lastActiveTime, currentTime),
+                dataEntry.score,
                 favicon);
     }
 
@@ -413,6 +450,8 @@ public class AuxiliarySearchDonor {
             String url,
             String title,
             long lastAccessTimestamp,
+            long documentTtlMs,
+            int score,
             @Nullable Bitmap favicon) {
         byte[] faviconBytes = null;
         if (favicon != null) {
@@ -422,12 +461,13 @@ public class AuxiliarySearchDonor {
         builder.setUrl(url)
                 .setName(title)
                 .setCreationTimestampMillis(lastAccessTimestamp)
-                .setDocumentTtlMillis(getDocumentTtlMs());
+                .setDocumentTtlMillis(documentTtlMs)
+                .setDocumentScore(score);
 
         if (faviconBytes != null) {
             ImageObject faviconImage =
                     new ImageObject.Builder(mNamespace, documentId)
-                            .setDocumentTtlMillis(getDocumentTtlMs())
+                            .setDocumentTtlMillis(documentTtlMs)
                             .setCreationTimestampMillis(lastAccessTimestamp)
                             .setBytes(faviconBytes)
                             .build();
@@ -501,14 +541,14 @@ public class AuxiliarySearchDonor {
     }
 
     /**
-     * Removes all tabs for auxiliary search based on namespace.
+     * Removes all documents for auxiliary search based on namespace.
      *
      * @param onDeleteCompleteCallback The callback to be called when the deletion is completed.
      * @return whether it is possible to delete donated Tabs.
      */
     @SuppressLint("CheckResult")
     @VisibleForTesting
-    public boolean deleteAllTabs(@Nullable Callback<Boolean> onDeleteCompleteCallback) {
+    public boolean deleteAll(@Nullable Callback<Boolean> onDeleteCompleteCallback) {
         if (mAppSearchSession == null) return false;
 
         SearchSpec spec = new SearchSpec.Builder().addFilterNamespaces(mNamespace).build();
@@ -549,7 +589,7 @@ public class AuxiliarySearchDonor {
             createSessionAndInit();
         } else {
             // When disabled, remove all shared Tabs and closes the session.
-            deleteAllTabs(onDeleteCompleteCallback);
+            deleteAll(onDeleteCompleteCallback);
             closeSession();
         }
     }
@@ -593,15 +633,34 @@ public class AuxiliarySearchDonor {
         }
     }
 
+    /** Returns the calculated TTL for a donated document in MS. */
+    @VisibleForTesting
+    public long calculateDocumentTtlMs(boolean isTab, long creationTime, long currentTime) {
+        return currentTime
+                - creationTime
+                + (isTab ? getTabDocumentTtlMs() : getHistoryDocumentTtlMs());
+    }
+
     /** Returns the donated document's TTL in MS. */
     @VisibleForTesting
-    public long getDocumentTtlMs() {
-        if (mTtlMillis == null) {
-            mTtlMillis =
+    public long getTabDocumentTtlMs() {
+        if (mTabTtlMillis == null) {
+            mTabTtlMillis =
                     TimeUnit.HOURS.toMillis(sAndroidAppIntegrationV2ContentTtlHours.getValue());
         }
 
-        return mTtlMillis;
+        return mTabTtlMillis;
+    }
+
+    @VisibleForTesting
+    public long getHistoryDocumentTtlMs() {
+        if (mHistoryTtlMillis == null) {
+            mHistoryTtlMillis =
+                    TimeUnit.HOURS.toMillis(
+                            sAndroidAppIntegrationMultiDataSourceHistoryContentTtlHours.getValue());
+        }
+
+        return mHistoryTtlMillis;
     }
 
     private static <T> void addRequestCallback(
@@ -652,7 +711,7 @@ public class AuxiliarySearchDonor {
      *
      * @param callback The callback to be called after the query is completed.
      */
-    @SuppressLint("CheckResult")
+    @SuppressWarnings({"CheckResult", "UnsafeOptInUsageError", "RequiresFeature"})
     private void searchConsumerSchema(@NonNull Callback<Boolean> callback) {
         String supportedPackageName =
                 AuxiliarySearchControllerFactory.getInstance().getSupportedPackageName();
@@ -667,16 +726,40 @@ public class AuxiliarySearchDonor {
                         .addFilterPackageNames(supportedPackageName)
                         .build();
 
+        SearchQueryChecker searchQueryChecker =
+                searchResult -> {
+                    GenericDocument genericDocument = searchResult.getGenericDocument();
+                    try {
+                        GlobalSearchApplicationInfo info =
+                                genericDocument.toDocumentClass(GlobalSearchApplicationInfo.class);
+                        if (info.getApplicationType()
+                                        == GlobalSearchApplicationInfo.APPLICATION_TYPE_CONSUMER
+                                && info.getSchemaTypes().contains(SCHEMA_WEBPAGE)) {
+                            return true;
+                        }
+                    } catch (AppSearchException e) {
+                        Log.i(
+                                TAG,
+                                "Failed to convert GenericDocument to"
+                                        + " GlobalSearchApplicationInfo");
+                    }
+                    return false;
+                };
+
         Futures.transformAsync(
                 mGlobalSearchSession,
                 session ->
                         processSearchResults(
-                                session.search(/* queryExpression= */ "", searchSpec), callback),
+                                session.search(/* queryExpression= */ "", searchSpec),
+                                callback,
+                                searchQueryChecker),
                 AsyncTask.THREAD_POOL_EXECUTOR);
     }
 
     private ListenableFuture<Void> processSearchResults(
-            @NonNull SearchResults searchResults, @NonNull Callback<Boolean> callback) {
+            @NonNull SearchResults searchResults,
+            @NonNull Callback<Boolean> callback,
+            SearchQueryChecker searchQueryChecker) {
         if (sSkipInitializationForTesting) {
             callback.onResult(false);
             return Futures.immediateVoidFuture();
@@ -684,16 +767,16 @@ public class AuxiliarySearchDonor {
 
         return Futures.transformAsync(
                 searchResults.getNextPageAsync(),
-                page -> iterateSearchResults(searchResults, page, callback),
+                page -> iterateSearchResults(searchResults, page, callback, searchQueryChecker),
                 AsyncTask.THREAD_POOL_EXECUTOR);
     }
 
     @VisibleForTesting
-    @SuppressWarnings({"UnsafeOptInUsageError", "RequiresFeature"})
     ListenableFuture<Void> iterateSearchResults(
-            @NonNull SearchResults searchResults,
-            @NonNull List<SearchResult> page,
-            @NonNull Callback<Boolean> callback) {
+            SearchResults searchResults,
+            List<SearchResult> page,
+            Callback<Boolean> callback,
+            SearchQueryChecker searchQueryChecker) {
         if (page.isEmpty()) {
             searchResults.close();
             callback.onResult(false);
@@ -701,23 +784,14 @@ public class AuxiliarySearchDonor {
         }
 
         for (int i = 0; i < page.size(); i++) {
-            GenericDocument genericDocument = page.get(i).getGenericDocument();
-            try {
-                GlobalSearchApplicationInfo info =
-                        genericDocument.toDocumentClass(GlobalSearchApplicationInfo.class);
-                if (info.getApplicationType()
-                                == GlobalSearchApplicationInfo.APPLICATION_TYPE_CONSUMER
-                        && info.getSchemaTypes().contains(SCHEMA_WEBPAGE)) {
-                    callback.onResult(true);
-                    searchResults.close();
-                    return Futures.immediateVoidFuture();
-                }
-            } catch (AppSearchException e) {
-                Log.i(TAG, "Failed to convert GenericDocument to" + " GlobalSearchApplicationInfo");
+            if (searchQueryChecker.isSuccess(page.get(i))) {
+                callback.onResult(true);
+                searchResults.close();
+                return Futures.immediateVoidFuture();
             }
         }
 
-        return processSearchResults(searchResults, callback);
+        return processSearchResults(searchResults, callback, searchQueryChecker);
     }
 
     @SuppressLint("CheckResult")
@@ -752,6 +826,13 @@ public class AuxiliarySearchDonor {
     boolean isShareTabsWithOsEnabledKeyExist() {
         SharedPreferencesManager prefsManager = ChromeSharedPreferences.getInstance();
         return prefsManager.contains(ChromePreferenceKeys.SHARING_TABS_WITH_OS);
+    }
+
+    /** Returns the current time in milliseconds. */
+    private long getCurrentTimeMillis() {
+        // Uses TimeUtils.currentTimeMillis() since the last visited time of the document is got by
+        // using base::Time::InMillisecondsSinceUnixEpoch() in native.
+        return TimeUtils.currentTimeMillis();
     }
 
     public boolean getIsSchemaSetForTesting() {

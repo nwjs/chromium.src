@@ -8,13 +8,18 @@
 #include <cstddef>
 #include <map>
 #include <memory>
+#include <optional>
 
+#include "base/files/file_path.h"
+#include "base/threading/sequence_bound.h"
+#include "base/time/time.h"
 #include "base/timer/timer.h"
 
 namespace ip_protection {
 
 class IpProtectionProbabilisticRevealTokenCrypter;
 class IpProtectionProbabilisticRevealTokenFetcher;
+class IpProtectionProbabilisticRevealTokenDataStorage;
 struct ProbabilisticRevealToken;
 struct TryGetProbabilisticRevealTokensResult;
 struct TryGetProbabilisticRevealTokensOutcome;
@@ -25,12 +30,13 @@ struct TryGetProbabilisticRevealTokensOutcome;
 class IpProtectionProbabilisticRevealTokenManager {
  public:
   // Constructs manager and tries to fetch tokens immediately (async).
-  explicit IpProtectionProbabilisticRevealTokenManager(
-      std::unique_ptr<IpProtectionProbabilisticRevealTokenFetcher> fetcher);
-  ~IpProtectionProbabilisticRevealTokenManager();
+  IpProtectionProbabilisticRevealTokenManager(
+      std::unique_ptr<IpProtectionProbabilisticRevealTokenFetcher> fetcher,
+      std::optional<base::FilePath> data_directory);
+  virtual ~IpProtectionProbabilisticRevealTokenManager();
 
   // Returns true if there are tokens in cache.
-  bool IsTokenAvailable();
+  virtual bool IsTokenAvailable();
 
   // Get a PRT for a given first and third party pair.
   // `top_level` and `third_party` are eTLD + 1.
@@ -44,9 +50,12 @@ class IpProtectionProbabilisticRevealTokenManager {
   // * Else, seeing the first party for the first time, pick a
   //   token stored in crypter randomly, and randomize it,
   //   and return it.
-  std::optional<ProbabilisticRevealToken> GetToken(
+  virtual std::optional<ProbabilisticRevealToken> GetToken(
       const std::string& top_level,
       const std::string& third_party);
+
+  // Request new batch of tokens.
+  virtual void RequestTokens();
 
  private:
   // Passed to fetcher as a callback. Stores token fetch result in internal
@@ -64,8 +73,15 @@ class IpProtectionProbabilisticRevealTokenManager {
   // Calls `ClearTokens()` if current batch is expired.
   void ClearTokensIfExpired();
 
-  // Request new batch of tokens.
-  void RequestTokens();
+  // Stores the outcome of a token fetch if the feature is enabled.
+  void StoreTokenOutcomeIfEnabled(
+      TryGetProbabilisticRevealTokensOutcome outcome);
+
+  // True the first time GetToken() is called, false otherwise.
+  bool is_initial_get_token_call_ = true;
+
+  // Time that the current token fetch began, for measurement.
+  base::TimeTicks token_fetch_start_time_;
 
   // Used for fetching tokens.
   std::unique_ptr<IpProtectionProbabilisticRevealTokenFetcher> fetcher_;
@@ -91,6 +107,9 @@ class IpProtectionProbabilisticRevealTokenManager {
   // Stores tokens. Provides a method to randomize and retrieve a token at a
   // given index.
   std::unique_ptr<IpProtectionProbabilisticRevealTokenCrypter> crypter_;
+
+  // Data storage for persisting tokens when the feature is enabled.
+  base::SequenceBound<IpProtectionProbabilisticRevealTokenDataStorage> storage_;
 
   // A timer to schedule the next token batch request.
   base::OneShotTimer refetch_timer_ GUARDED_BY_CONTEXT(sequence_checker_);

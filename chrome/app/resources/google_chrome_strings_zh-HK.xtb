@@ -31,6 +31,7 @@
 <translation id="1356661055722410047">新功能！你可翻譯畫面上的文字和圖片</translation>
 <translation id="1363996462118479832">登入時發生錯誤，因此 Chrome OS 無法同步處理您的資料。</translation>
 <translation id="137466361146087520">Google Chrome 測試版</translation>
+<translation id="1383876407941801731">搜尋</translation>
 <translation id="1399397803214730675">這部電腦已安裝較新的 Google Chrome 版本，如果軟件無法工作，請解除安裝 Google Chrome，然後再試一次。</translation>
 <translation id="1425903838053942728">{COUNT,plural, =0{Chrome 已完成更新。重新啟動後即可立即使用最新版本。屆時會重新開啟您目前的分頁。}=1{Chrome 已完成更新。重新啟動後即可立即使用最新版本。屆時會重新開啟您目前的分頁，但您的無痕式視窗不會重新開啟。}other{Chrome 已完成更新。重新啟動後即可立即使用最新版本。屆時會重新開啟您目前的分頁，但有 # 個無痕式視窗不會重新開啟。}}</translation>
 <translation id="1434626383986940139">Chrome Canary 應用程式</translation>
@@ -39,6 +40,7 @@
 <translation id="1497802159252041924">安裝錯誤：<ph name="INSTALL_ERROR" /></translation>
 <translation id="1507198376417198979">自訂您的新 Chrome 設定檔</translation>
 <translation id="1547295885616600893">Chrome OS 得以面世，全賴其他<ph name="BEGIN_LINK_CROS_OSS" />開放原始碼軟件<ph name="END_LINK_CROS_OSS" />。</translation>
+<translation id="1547469039832541117">結束所選工作。</translation>
 <translation id="1553358976309200471">更新 Chrome</translation>
 <translation id="1587223624401073077">Google Chrome 正在使用您的相機。</translation>
 <translation id="1587325591171447154"><ph name="FILE_NAME" /> 不安全，因此 Chrome 已封鎖此檔案。</translation>
@@ -59,6 +61,7 @@
 <translation id="1786044937610313874">在 Chrome 中開啟捷徑</translation>
 <translation id="178701303897325119">此擴充程式不再受支援，Chrome 建議你將其移除。</translation>
 <translation id="1812689907177901597">關閉此功能後，您無需登入 Chrome，即可登入 Gmail 等 Google 網站</translation>
+<translation id="1821644463306970002">{NUM_TABS,plural, =1{Chrome 建議暫停導致瀏覽器運作緩慢的分頁}other{Chrome 建議暫停導致瀏覽器運作緩慢的分頁}}</translation>
 <translation id="1838374766361614909">清除搜尋</translation>
 <translation id="1860536484129686729">Chrome 需要取得權限，才能讓這個網站存取您的相機</translation>
 <translation id="1873233029667955273">Google Chrome 並非您的預設瀏覽器</translation>
@@ -122,6 +125,7 @@
 <translation id="2580411288591421699">您無法安裝這個版本的 Google Chrome，因為相同的版本目前正在執行中。請關閉 Google Chrome，然後再試一次。</translation>
 <translation id="2586406160782125153">這會刪除此裝置上的瀏覽資料。如果日後想擷取資料，請以 <ph name="USER_EMAIL" /> 的身分登入 Chrome。</translation>
 <translation id="259935314519650377">無法快取已下載的安裝程式。錯誤代碼：<ph name="UNPACK_CACHING_ERROR_CODE" />。</translation>
+<translation id="2620436844016719705">系統</translation>
 <translation id="2645435784669275700">ChromeOS</translation>
 <translation id="2649768380733403658">Chrome 會定期檢查，確保瀏覽器採用最安全的設定。如有任何需要你檢查的事項，我們會通知你。</translation>
 <translation id="2652691236519827073">在 Chrome 的新分頁中開啟連結(&amp;T)</translation>
@@ -157,7 +161,9 @@
 <translation id="2945997411976714835">安裝錯誤：安裝程式程序無法開始。</translation>
 <translation id="2969728957078202736"><ph name="PAGE_TITLE" /> - 網絡登入 - Chrome</translation>
 <translation id="2970681950995291301">如要從 Chrome 中移除 Google 帳戶，請前往「設定」頁面登出 Chrome</translation>
+<translation id="2991167882679440829">你儲存在 Google 帳戶的密碼和其他 Chrome 資料，將會從這部裝置移除。如要再次在 Chrome 中使用這些資料，請重新登入。</translation>
 <translation id="2994465299455873643">提供加密服務，以及安全復原 <ph name="BROWSER_NAME" /> 的方式 (如果已過期)。如果停用此服務，<ph name="BROWSER_NAME" /> 可能會無法存取已加密的資料，而且 <ph name="BROWSER_NAME" /> 可能無法自行復原。</translation>
+<translation id="3003694935412297923">所有工作</translation>
 <translation id="3018957014024118866">一併刪除 Chrome 中的資料 (<ph name="URL" />)</translation>
 <translation id="3019382870990049182">重新啟動以更新 ChromeOS Flex</translation>
 <translation id="3037838751736561277">Google Chrome 正在背景模式中執行。</translation>
@@ -175,6 +181,7 @@
 <translation id="3140883423282498090">您的變更將於下次重新啟動 Google Chrome 時生效。</translation>
 <translation id="3149510190863420837">Chrome 應用程式</translation>
 <translation id="3161522574479303604">所有語言</translation>
+<translation id="319199214552513804">如要在所有電腦上使用此擴充程式和其他擴充程式，請登入 Chrome</translation>
 <translation id="3196187562065225381">由於此檔案有危險，因此 Chrome 已禁止下載</translation>
 <translation id="3222857603094643834">透過「Google 智能鏡頭」搜尋此頁面上的所有內容</translation>
 <translation id="3226612997184048185">如果一併將書籤儲存在 Google 帳戶中，便可以在 Chrome 中追蹤產品價格，並在降價時收到通知</translation>
@@ -182,8 +189,8 @@
 <translation id="3245429137663807393">如果您同時分享 Chrome 使用情況報告，這些報告將會包含您瀏覽的網址</translation>
 <translation id="3282568296779691940">登入 Chrome</translation>
 <translation id="3286538390144397061">立即重新啟動</translation>
-<translation id="3289358082435924389">日後，Chrome 就會詢問你是否要使用已儲存的資料來自動填入表格</translation>
 <translation id="3292333338048274092">你將需要重新啟動 Chrome。</translation>
+<translation id="3327226547491422998">日後 Chrome 可詢問你是否要使用已儲存的資料自動填入表格</translation>
 <translation id="3360895254066713204">Chrome 輔助工具</translation>
 <translation id="3379938682270551431">{0,plural, =0{Chrome 將立即重新啟動}=1{Chrome 將於 1 秒後重新啟動}other{Chrome 將於 # 秒後重新啟動}}</translation>
 <translation id="3396977131400919238">安裝過程中發生作業系統錯誤，請再次下載 Google Chrome。</translation>
@@ -254,6 +261,7 @@
 <translation id="4281844954008187215">服務條款</translation>
 <translation id="4293420128516039005">登入即可在不同裝置上同步和設定個人化的 Chrome</translation>
 <translation id="430327780270213103">允許擴充程式在 Chrome 工具列中顯示存取要求</translation>
+<translation id="4326552909330437744">{NUM_TABS,plural, =1{Chrome 建議暫停導致瀏覽器運作緩慢的分頁}other{Chrome 建議暫停導致瀏覽器運作緩慢的分頁}}</translation>
 <translation id="4328355335528187361">Google Chrome 開發人員版 (mDNS-In)</translation>
 <translation id="4329315893554541805">如要取得個人化和其他功能，請將 Chrome 加入「網絡和應用程式活動記錄」以及連結的 Google 服務</translation>
 <translation id="4334294535648607276">下載完成。</translation>
@@ -272,6 +280,7 @@
 <translation id="4567424176335768812">您已使用 <ph name="USER_EMAIL_ADDRESS" /> 的身分登入，可以在所有登入的裝置上使用您的書籤、記錄和其他設定。</translation>
 <translation id="4571503333518166079">前往 Chrome 通知設定</translation>
 <translation id="459622048091363950">Chrome 獲得存取權後，網站便可向您要求存取權。</translation>
+<translation id="4598116752460667024">搵清單入面嘅任何程序。</translation>
 <translation id="4600710005438004015">由於 Chrome 無法更新至最新版本，因此您無法使用最新功能和安全性修正。</translation>
 <translation id="4624065194742029982">Chrome 無痕模式</translation>
 <translation id="4627412468266359539">選用：將診斷和使用情況資料自動傳送給 Google，協助改善 ChromeOS Flex 的功能和效能。</translation>
@@ -342,7 +351,6 @@ Google Chrome 無法復原您的設定。</translation>
 <translation id="5596627076506792578">更多選項</translation>
 <translation id="5602351063754773347">Chrome 建議你移除此擴充程式。<ph name="BEGIN_LINK" />進一步瞭解支援的擴充程式<ph name="END_LINK" /></translation>
 <translation id="5649156266046089790">透過 Chrome 設定檔，你可將所有 Chrome 內容分門別類，例如建立親朋好友專屬的設定檔，或劃分工作和娛樂內容。</translation>
-<translation id="5649680279845190972">如要在所有電腦上使用你的擴充程式和其他資料，請登入 Chrome</translation>
 <translation id="565744775970812598"><ph name="FILE_NAME" /> 可能不安全，因此 Chrome 已封鎖此檔案。</translation>
 <translation id="566568153320186256">Chrome 會限制背景活動和視覺效果 (例如流暢捲動和影片影格速率) 來節省電池電量。<ph name="BEGIN_LINK" />進一步瞭解省電模式<ph name="END_LINK" /></translation>
 <translation id="567202749201779594">清除帳戶中的 Chrome 資料</translation>
@@ -401,6 +409,7 @@ Google Chrome 無法復原您的設定。</translation>
 <translation id="6251759518630934363">此防護機制分析的網站資料比標準保護多，因此即使是 Google 不知道的網站，此防護機制亦能提供危險網站警告。你可選擇略過 Chrome 警告。</translation>
 <translation id="6277547788421725101">你的家長已停用 Chrome 的「網站、應用程式和擴充程式權限」設定</translation>
 <translation id="627882678981830918">自訂並控制 Chrome。將 Chrome 設定為預設瀏覽器。</translation>
+<translation id="6288580400488258237">將 Google Chrome 設定為預設瀏覽器，並釘選到工作列</translation>
 <translation id="6291089322031436445">Chrome 開發人員應用程式</translation>
 <translation id="6291549208091401781">電腦上的所有使用者均安裝了 Google Chrome。</translation>
 <translation id="6319856120645568262">Chrome 需要適當權限，才能繪製周遭環境並進行手部追蹤</translation>
@@ -468,6 +477,7 @@ Google Chrome 無法復原您的設定。</translation>
 <translation id="7193885263065350793">您的機構會在 Chrome 閒置 <ph name="TIMEOUT_DURATION" />後將其關閉。</translation>
 <translation id="7242029209006116544">您已登入受管理的帳戶，並將管理控制權授予您的 Google Chrome 設定檔。您的 Chrome 數據 (例如應用程式、書籤、記錄、密碼和其他設定) 均將永久與 <ph name="USER_NAME" /> 建立關聯。您可以透過 Google 帳戶資訊主頁刪除這些數據，但您無法將這些數據與其他帳戶建立關聯。如要另行保留現有的 Chrome 數據，您可以選擇建立新的設定檔。<ph name="LEARN_MORE" /></translation>
 <translation id="7285616922384953075">Chrome 由「<ph name="MANAGER" />」管理</translation>
+<translation id="7288567540154601580">分頁和擴充程式</translation>
 <translation id="7296210096911315575">重要的使用和安全資訊</translation>
 <translation id="7302361266603927550">部分 Chrome 資料尚未儲存至 Google 帳戶。請等待幾分鐘後再嘗試登出。如果你現在登出，系統將刪除此資料。</translation>
 <translation id="7308322188646931570">Chrome 需要儲存空間的存取權才能下載檔案</translation>
@@ -489,6 +499,7 @@ Google Chrome 無法復原您的設定。</translation>
 <translation id="7514258452813684157">Google 更新程式服務</translation>
 <translation id="7515191208480168435">你可以固定「Google 智能鏡頭」方便存取</translation>
 <translation id="7535429826459677826">Google Chrome 開發人員版</translation>
+<translation id="7543146567111253230">如要在所有裝置上使用此書籤和其他資料，請登入 Chrome</translation>
 <translation id="756809126120519699">已清除 Chrome 資料</translation>
 <translation id="7572537927358445944">已關閉 • Chrome 無法驗證此擴充程式的來源</translation>
 <translation id="7583399374488819119"><ph name="COMPANY_NAME" /> 安裝程式</translation>
@@ -521,12 +532,12 @@ Google Chrome 無法復原您的設定。</translation>
 <translation id="7886087451482920026">使用「Google 智能鏡頭」選取文字</translation>
 <translation id="7890208801193284374">如果您與親朋好友共用電腦，每個人均可享有獨立的瀏覽空間，按照自己的偏好設定 Chrome。</translation>
 <translation id="7896673875602241923">先前已有其他人在這部電腦上以 <ph name="ACCOUNT_EMAIL_LAST" /> 的身分登入 Chrome。請建立新的 Chrome 使用者以個別保存您的資料。</translation>
-<translation id="7917470403848199310">Chrome 會詢問你是否要儲存表格資料，例如出生日期、年齡和護照號碼</translation>
 <translation id="7917876797003313048">您可管理已登入的 Google 帳戶。Google 帳戶可用於 Chrome 瀏覽器、Play 商店和 Gmail 等服務。如要新增其他人 (例如家庭成員) 的帳戶，請改為將使用者新增至您的 <ph name="DEVICE_TYPE" />。<ph name="LINK_BEGIN" />瞭解詳情<ph name="LINK_END" /></translation>
 <translation id="7936702483636872823">由於此檔案是欺詐檔案，可能會對裝置造成非預期的變更，因此 Chrome 已禁止下載</translation>
 <translation id="7951272445806340501">ChromeOS Flex 必須重新啟動，才能套用更新。</translation>
 <translation id="7959172989483770734">管理 Chrome 設定檔</translation>
 <translation id="7962410387636238736">由於 Google Chrome 將停止支援 Windows XP 和 Windows Vista，因此這部電腦不會再收到 Google Chrome 更新。</translation>
+<translation id="8004582292198964060">瀏覽器</translation>
 <translation id="8005666035647241369">儲存至此裝置的「Google 密碼管理工具」</translation>
 <translation id="8008534537613507642">重新安裝 Chrome</translation>
 <translation id="8009904340233602924">在不登入帳戶的情況下使用 Chrome</translation>
@@ -571,6 +582,7 @@ Google Chrome 無法復原您的設定。</translation>
 <translation id="8516431725144212809">Chrome 推測您有以下興趣</translation>
 <translation id="8521348052903287641">允許 mDNS 流量的 Google Chrome 開發人員版輸入規則。</translation>
 <translation id="852529348814672339">使用此語言顯示 Chrome 的使用者介面</translation>
+<translation id="8533056045953418157">將 Google Chrome 設定為預設 PDF 檢視器</translation>
 <translation id="8550334526674375523">此工作設定檔與個人設定檔是完全分開。</translation>
 <translation id="8555465886620020932">服務錯誤：<ph name="SERVICE_ERROR" />。</translation>
 <translation id="856656450041460113">搜尋語言清單</translation>
@@ -591,7 +603,6 @@ Google Chrome 無法復原您的設定。</translation>
 <translation id="8765470054473112089">在網址列或搜尋框中輸入內容時，Chrome 會將輸入的內容傳送至預設搜尋引擎，以便取得更切合需求的建議。此功能不會在無痕模式下啟用。</translation>
 <translation id="8781673607513845160">如要使用攝錄機，請在<ph name="BEGIN_LINK" />系統設定<ph name="END_LINK" />中向 Chrome 授予存取權</translation>
 <translation id="878572486461146056">安裝錯誤：網絡管理員已套用防止安裝的群組政策：<ph name="INSTALL_ERROR" /></translation>
-<translation id="8796073561259064743">此檔案可能會損害你的個人和社交網絡帳戶 (包括 <ph name="USER_EMAIL" />)，因此 Chrome 已禁止下載</translation>
 <translation id="8798550110818026746">機構可查看和管理瀏覽資料 (例如書籤、記錄和密碼)，但無法查看其他 Chrome 設定檔中的瀏覽資料</translation>
 <translation id="8801657293260363985">V8 是 Chrome 的 JavaScript 和 WebAssembly 引擎，可提升網站效能</translation>
 <translation id="8821043148920470810">如要取得日後的 Google Chrome 更新，您需要使用 Windows 10 或以上版本。此電腦目前版本為 Windows 7。</translation>
@@ -604,7 +615,6 @@ Google Chrome 無法復原您的設定。</translation>
 <translation id="8914504000324227558">重新啟動 Chrome</translation>
 <translation id="8922193594870374009">如要將號碼從 <ph name="ORIGIN" /> 傳送至 Android 手機，請在這兩部裝置上登入 Chrome。</translation>
 <translation id="8948460679427074738">此擴充程式尚未發佈私隱守則，例如擴充程式如何收集和使用資料。Chrome 建議你移除此擴充程式。</translation>
-<translation id="8983860655274963234">Chrome 可以更準確識別表格內容，更快自動填入相關資料。進一步瞭解「<ph name="BEGIN_LINK" />Chrome 自動填入<ph name="END_LINK" />」功能</translation>
 <translation id="8986207147630327271">您即將在此瀏覽器中新增工作設定檔，並只將工作設定檔的控制權授予管理員。</translation>
 <translation id="8989968390305463310">您的瀏覽記錄會影響系統顯示的廣告，以及下列由系統推測的興趣。為保障您的私隱，Chrome 每個月都會自動刪除您的興趣。除非您移除興趣，否則系統會重新整理興趣。</translation>
 <translation id="8992769679401294069">你已使用密碼短語加密資料。如要在 Google 帳戶中使用及儲存 Chrome 資料，請輸入密碼短語。</translation>

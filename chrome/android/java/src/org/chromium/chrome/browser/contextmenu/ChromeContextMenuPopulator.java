@@ -62,6 +62,7 @@ import org.chromium.components.embedder_support.contextmenu.ContextMenuImageForm
 import org.chromium.components.embedder_support.contextmenu.ContextMenuNativeDelegate;
 import org.chromium.components.embedder_support.contextmenu.ContextMenuParams;
 import org.chromium.components.embedder_support.contextmenu.ContextMenuPopulator;
+import org.chromium.components.embedder_support.contextmenu.ContextMenuUtils;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.components.externalauth.ExternalAuthUtils;
@@ -74,6 +75,7 @@ import org.chromium.content_public.browser.BrowserStartupController;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.common.ContentUrlConstants;
 import org.chromium.ui.base.DeviceFormFactor;
+import org.chromium.ui.base.DeviceInput;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
@@ -171,7 +173,10 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
             Action.SHARE_HIGHLIGHT,
             Action.REMOVE_HIGHLIGHT,
             Action.LEARN_MORE,
-            Action.OPEN_IN_NEW_TAB_IN_GROUP
+            Action.OPEN_IN_NEW_TAB_IN_GROUP,
+            Action.SAVE_PAGE,
+            Action.SHARE_PAGE,
+            Action.PRINT_PAGE,
         })
         @Retention(RetentionPolicy.SOURCE)
         public @interface Action {
@@ -216,7 +221,10 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
             int LEARN_MORE = 38;
             int OPEN_IN_NEW_TAB_IN_GROUP = 39;
             int OPEN_IN_NEW_WINDOW = 40;
-            int NUM_ENTRIES = 41;
+            int SAVE_PAGE = 41;
+            int SHARE_PAGE = 42;
+            int PRINT_PAGE = 43;
+            int NUM_ENTRIES = 44;
         }
     }
 
@@ -273,11 +281,36 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
         return DeviceFormFactor.isNonMultiDisplayContextOnTablet(mContext);
     }
 
+    @VisibleForTesting
+    boolean shouldShowEmptySpaceContextMenu() {
+        return DeviceFormFactor.isDesktop()
+                && DeviceInput.supportsAlphabeticKeyboard()
+                && DeviceInput.supportsPrecisionPointer()
+                && ChromeFeatureList.isEnabled(ChromeFeatureList.CONTEXT_MENU_EMPTY_SPACE);
+    }
+
     @Override
     public List<Pair<Integer, ModelList>> buildContextMenu() {
         mShowEphemeralTabNewLabel = null;
 
         List<Pair<Integer, ModelList>> groupedItems = new ArrayList<>();
+
+        if (mParams.isPage() && shouldShowEmptySpaceContextMenu()) {
+            ModelList pageGroup = new ModelList();
+            // TODO(crbug.com/405842034): investigate supporting downloads in incognito mode.
+            if (!mItemDelegate.isIncognito()
+                    && UrlUtilities.isDownloadableScheme(mParams.getPageUrl())) {
+                pageGroup.add(
+                        createListItem(Item.SAVE_PAGE, false, !mIsDownloadRestrictedByPolicy));
+            }
+            if (enableShareFromContextMenu()) {
+                pageGroup.add(createShareListItem(Item.SHARE_PAGE, Item.DIRECT_SHARE_LINK));
+            }
+            if (mItemDelegate.isPrintSupported()) {
+                pageGroup.add(createListItem(Item.PRINT_PAGE));
+            }
+            groupedItems.add(new Pair<>(R.string.contextmenu_page_title, pageGroup));
+        }
 
         if (mParams.isAnchor()) {
             ModelList linkGroup = new ModelList();
@@ -587,14 +620,14 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
             if (mIsDownloadRestrictedByPolicy) {
                 showDownloadRestrictedToast();
             } else if (mItemDelegate.startDownload(mParams.getSrcUrl(), false)) {
-                mNativeDelegate.startDownload(false);
+                mNativeDelegate.startDownload(mParams.getSrcUrl(), true);
             }
         } else if (itemId == R.id.contextmenu_save_video) {
             recordContextMenuSelection(ContextMenuUma.Action.SAVE_VIDEO);
             if (mIsDownloadRestrictedByPolicy) {
                 showDownloadRestrictedToast();
             } else if (mItemDelegate.startDownload(mParams.getSrcUrl(), false)) {
-                mNativeDelegate.startDownload(false);
+                mNativeDelegate.startDownload(mParams.getSrcUrl(), true);
             }
         } else if (itemId == R.id.contextmenu_save_link_as) {
             recordContextMenuSelection(ContextMenuUma.Action.SAVE_LINK);
@@ -602,8 +635,34 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
             if (mIsDownloadRestrictedByPolicy) {
                 showDownloadRestrictedToast();
             } else if (mItemDelegate.startDownload(url, true)) {
-                mNativeDelegate.startDownload(true);
+                mNativeDelegate.startDownload(url, false);
             }
+        } else if (itemId == R.id.contextmenu_save_page) {
+            recordContextMenuSelection(ContextMenuUma.Action.SAVE_PAGE);
+            GURL url = mItemDelegate.getPageUrl();
+            if (mIsDownloadRestrictedByPolicy) {
+                showDownloadRestrictedToast();
+            } else if (mItemDelegate.startDownload(url, true)) {
+                mNativeDelegate.startDownload(url, false);
+            }
+        } else if (itemId == R.id.contextmenu_share_page) {
+            recordContextMenuSelection(ContextMenuUma.Action.SHARE_PAGE);
+            // TODO(crbug.com/40549331): Migrate ShareParams to GURL.
+            ShareParams linkShareParams =
+                    new ShareParams.Builder(
+                                    getWindow(),
+                                    ContextMenuUtils.getTitle(mParams),
+                                    mParams.getPageUrl().getSpec())
+                            .build();
+            mShareDelegateSupplier
+                    .get()
+                    .share(
+                            linkShareParams,
+                            new ChromeShareExtras.Builder().setSaveLastUsed(true).build(),
+                            ShareOrigin.CONTEXT_MENU);
+        } else if (itemId == R.id.contextmenu_print_page) {
+            recordContextMenuSelection(ContextMenuUma.Action.PRINT_PAGE);
+            mItemDelegate.startPrint();
         } else if (itemId == R.id.contextmenu_share_link) {
             recordContextMenuSelection(ContextMenuUma.Action.SHARE_LINK);
             // TODO(crbug.com/40549331): Migrate ShareParams to GURL.
@@ -953,7 +1012,7 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
     }
 
     private ListItem createShareListItem(@Item int item, @Item int iconButtonItem) {
-        final boolean isLink = item == Item.SHARE_LINK;
+        final boolean isLink = (item == Item.SHARE_LINK || item == Item.SHARE_PAGE);
         final Pair<Drawable, CharSequence> shareInfo = createRecentShareAppInfo(isLink);
         final PropertyModel model =
                 new PropertyModel.Builder(ContextMenuItemWithIconButtonProperties.ALL_KEYS)

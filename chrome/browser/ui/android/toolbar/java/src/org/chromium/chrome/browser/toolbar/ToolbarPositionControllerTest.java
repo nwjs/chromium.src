@@ -85,6 +85,9 @@ public class ToolbarPositionControllerTest {
                 }
 
                 @Override
+                public void setBottomControlsAdditionalHeight(int height) {}
+
+                @Override
                 public void setTopControlsHeight(int topControlsHeight, int topControlsMinHeight) {
                     mTopControlsHeight = topControlsHeight;
                     mTopControlsMinHeight = topControlsMinHeight;
@@ -378,6 +381,16 @@ public class ToolbarPositionControllerTest {
         setUserToolbarAnchorPreference(/* showToolbarOnTop= */ false);
         setUserToolbarAnchorPreference(/* showToolbarOnTop= */ true);
         watcher.assertExpected();
+    }
+
+    @Test
+    @Config(qualifiers = "sw400dp")
+    @EnableFeatures(ChromeFeatureList.ANDROID_BOTTOM_TOOLBAR + ":default_to_top/false")
+    public void testDefaultBottom() {
+        assertControlsAtBottom();
+
+        setUserToolbarAnchorPreference(/* showToolbarOnTop= */ true);
+        assertControlsAtTop();
     }
 
     @Test

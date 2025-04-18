@@ -3,10 +3,9 @@
 # found in the LICENSE file.
 
 import("//build/config/chrome_build.gni")
-import("//build/config/chromeos/ui_mode.gni")
 import("//components/vector_icons/vector_icons.gni")
 
-assert(is_chromeos_ash)
+assert(is_chromeos)
 
 aggregate_vector_icons("ash_vector_icons") {
   icon_directory = "."
@@ -194,6 +193,7 @@ aggregate_vector_icons("ash_vector_icons") {
     "ks_assistant.icon",
     "ks_browser_search.icon",
     "ks_calculator.icon",
+    "ks_camera_access_toggle.icon",
     "ks_context_menu.icon",
     "ks_dictation.icon",
     "ks_do_not_disturb.icon",
@@ -328,6 +328,9 @@ aggregate_vector_icons("ash_vector_icons") {
     "notification_stop.icon",
     "notification_stylus_battery_warning.icon",
     "notification_timer.icon",
+    "on_task_pod_position_top_left.icon",
+    "on_task_pod_position_top_right.icon",
+    "on_task_pod_tabs.icon",
     "overflow_shelf_left.icon",
     "overflow_shelf_right.icon",
     "overview_refresh.icon",

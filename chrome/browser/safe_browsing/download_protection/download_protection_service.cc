@@ -24,6 +24,7 @@
 #include "chrome/browser/safe_browsing/advanced_protection_status_manager_factory.h"
 #include "chrome/browser/safe_browsing/download_protection/check_client_download_request.h"
 #include "chrome/browser/safe_browsing/download_protection/check_file_system_access_write_request.h"
+#include "chrome/browser/safe_browsing/download_protection/download_item_metadata.h"
 #include "chrome/browser/safe_browsing/download_protection/download_protection_util.h"
 #include "chrome/browser/safe_browsing/download_protection/download_request_maker.h"
 #include "chrome/browser/safe_browsing/download_protection/download_url_sb_client.h"
@@ -78,8 +79,6 @@ inline constexpr int kDownloadAttributionUserGestureLimitForExtendedReporting =
     5;
 
 const int64_t kDownloadRequestTimeoutMs = 7000;
-// We sample 1% of allowlisted downloads to still send out download pings.
-const double kAllowlistDownloadSampleRate = 0.01;
 
 bool IsDownloadSecuritySensitive(safe_browsing::DownloadCheckResult result) {
   using Result = safe_browsing::DownloadCheckResult;
@@ -144,7 +143,6 @@ DownloadProtectionService::DownloadProtectionService(
               {base::MayBlock(), base::TaskPriority::BEST_EFFORT})
               .get())),
 #endif
-      allowlist_sample_rate_(kAllowlistDownloadSampleRate),
       weak_ptr_factory_(this) {
   CHECK(delegate_);
   if (sb_service) {
@@ -231,7 +229,7 @@ bool DownloadProtectionService::MaybeCheckClientDownload(
     // DownloadCheckResult is considered UNKNOWN. This shouldn't trigger on
     // report-only scans to avoid skipping the consumer check.
     UploadForDeepScanning(
-        item,
+        std::make_unique<DownloadItemMetadata>(item),
         base::BindRepeating(
             &DownloadProtectionService::MaybeCheckMetadataAfterDeepScanning,
             weak_ptr_factory_.GetWeakPtr(), item, std::move(callback)),
@@ -260,7 +258,7 @@ bool DownloadProtectionService::MaybeCheckClientDownload(
     // Since this branch implies that Safe Browsing is disabled, the pre-deep
     // scanning DownloadCheckResult is considered UNKNOWN.
     UploadForDeepScanning(
-        item, std::move(callback),
+        std::make_unique<DownloadItemMetadata>(item), std::move(callback),
         DownloadItemWarningData::DeepScanTrigger::TRIGGER_POLICY,
         DownloadCheckResult::UNKNOWN, std::move(settings.value()),
         /*password=*/std::nullopt);
@@ -297,7 +295,6 @@ void DownloadProtectionService::CheckDownloadUrl(
     download::DownloadItem* item,
     CheckDownloadCallback callback) {
   DCHECK(!item->GetUrlChain().empty());
-  DCHECK(ShouldCheckDownloadUrl(item));
   content::WebContents* web_contents =
       content::DownloadItemUtils::GetWebContents(item);
   // |web_contents| can be null in tests.
@@ -321,7 +318,7 @@ void DownloadProtectionService::CheckDownloadUrl(
 }
 
 bool DownloadProtectionService::IsSupportedDownload(
-    const download::DownloadItem& item,
+    download::DownloadItem& item,
     const base::FilePath& target_path) const {
   return delegate_->IsSupportedDownload(item, target_path);
 }
@@ -443,6 +440,11 @@ void DownloadProtectionService::ShowDetailsForDownload(
                              WindowOpenDisposition::NEW_FOREGROUND_TAB,
                              ui::PAGE_TRANSITION_LINK, false),
       /*navigation_handle_callback=*/{});
+}
+
+double DownloadProtectionService::allowlist_sample_rate() const {
+  return allowlist_sample_rate_.value_or(
+      delegate()->GetAllowlistedDownloadSampleRate());
 }
 
 // static
@@ -649,15 +651,16 @@ bool DownloadProtectionService::MaybeBeginFeedbackForDownload(
 
 #if !BUILDFLAG(IS_ANDROID)
 void DownloadProtectionService::UploadForDeepScanning(
-    download::DownloadItem* item,
+    std::unique_ptr<DeepScanningMetadata> metadata,
     CheckDownloadRepeatingCallback callback,
     DownloadItemWarningData::DeepScanTrigger trigger,
     DownloadCheckResult download_check_result,
     enterprise_connectors::AnalysisSettings analysis_settings,
     base::optional_ref<const std::string> password) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  content::BrowserContext* browser_context = metadata->GetBrowserContext();
   auto request = std::make_unique<DeepScanningRequest>(
-      item, trigger, download_check_result, callback, this,
+      std::move(metadata), trigger, download_check_result, callback, this,
       std::move(analysis_settings), password);
   DeepScanningRequest* request_raw = request.get();
   auto insertion_result = deep_scanning_requests_.insert(
@@ -665,8 +668,7 @@ void DownloadProtectionService::UploadForDeepScanning(
   DCHECK(insertion_result.second);
   insertion_result.first->second->Start();
 
-  Profile* profile = Profile::FromBrowserContext(
-      content::DownloadItemUtils::GetBrowserContext(item));
+  Profile* profile = Profile::FromBrowserContext(browser_context);
   SafeBrowsingMetricsCollector* metrics_collector =
       SafeBrowsingMetricsCollectorFactory::GetForProfile(profile);
   if (metrics_collector) {
@@ -711,7 +713,7 @@ void DownloadProtectionService::UploadForConsumerDeepScanning(
           enterprise_connectors::CloudAnalysisSettings());
   settings.tags = {{"malware", enterprise_connectors::TagSettings()}};
   protection_service->UploadForDeepScanning(
-      item,
+      std::make_unique<DownloadItemMetadata>(item),
       base::BindRepeating(
           &ChromeDownloadManagerDelegate::CheckClientDownloadDone,
           delegate->GetWeakPtr(), item->GetId()),
@@ -764,7 +766,8 @@ void DownloadProtectionService::UploadSavePackageForDeepScanning(
     enterprise_connectors::AnalysisSettings analysis_settings) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   auto request = std::make_unique<DeepScanningRequest>(
-      item, DownloadCheckResult::UNKNOWN, callback, this,
+      std::make_unique<DownloadItemMetadata>(item),
+      DownloadCheckResult::UNKNOWN, callback, this,
       std::move(analysis_settings), std::move(save_package_files));
   DeepScanningRequest* request_raw = request.get();
   auto insertion_result = deep_scanning_requests_.insert(

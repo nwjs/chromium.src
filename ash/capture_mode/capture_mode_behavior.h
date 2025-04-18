@@ -112,6 +112,10 @@ class CaptureModeBehavior {
   virtual bool ShouldShowCaptureButtonAfterRegionSelected() const;
   virtual bool ShouldEndSessionOnShowingSearchResults() const;
   virtual bool ShouldEndSessionOnSearchResultClicked() const;
+  // Returns true if a disclaimer dialog needs to be shown when a capture mode
+  // session is initialized with this behavior.
+  virtual bool NeedsDisclaimerOnInit() const;
+  virtual bool ShouldAnnounceCaptureModeUIOnDisclaimerDismissed() const;
   // Returns the full path for the capture file. If the creation of the path
   // failed, the path provided will be empty.
   using OnCaptureFolderCreatedCallback =
@@ -134,6 +138,20 @@ class CaptureModeBehavior {
   // Returns the text to be shown by the capture label during waiting to select
   // a capture region phase.
   virtual const std::u16string GetCaptureLabelRegionText() const;
+
+  // Returns the title to use for the action button container window. This will
+  // be announced by a screen reader when the user navigates to the action
+  // button container.
+  virtual const std::u16string GetActionButtonContainerTitle() const;
+
+  // Returns the title to use for the capture mode bar window. This will be
+  // announced by a screen reader when the user navigates to the capture mode
+  // bar.
+  virtual const std::u16string GetCaptureModeBarTitle() const;
+
+  // Returns the text to be announced by a screen reader when capture mode is
+  // opened with this behavior.
+  virtual const std::string GetCaptureModeOpenAnnouncement() const;
 
   // Creates the capture mode bar view, which might look different depending on
   // the actual type of the behavior.

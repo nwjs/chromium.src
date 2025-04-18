@@ -23,13 +23,13 @@
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_service_test_base.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
+#include "chrome/browser/extensions/permissions/permissions_updater.h"
 #include "chrome/browser/extensions/test_extension_system.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_window.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
-#include "chrome/browser/ui/tabs/public/tab_interface.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model_factory.h"
 #include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
@@ -53,6 +53,7 @@
 #include "components/lens/lens_features.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "components/strings/grit/components_strings.h"
+#include "components/tab_collections/public/tab_interface.h"
 #include "content/public/test/browser_test.h"
 #include "extensions/browser/api_test_utils.h"
 #include "extensions/browser/extension_system.h"
@@ -238,7 +239,8 @@ class SidePanelCoordinatorTest : public InProcessBrowserTest {
             .AddAPIPermission("sidePanel")
             .Build();
 
-    extension_service()->GrantPermissions(extension.get());
+    extensions::PermissionsUpdater(browser()->profile())
+        .GrantActivePermissions(extension.get());
     extension_service()->AddExtension(extension.get());
 
     return extension;

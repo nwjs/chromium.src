@@ -31,8 +31,9 @@ const CGFloat kVisibleAreaMediumDetentThreshold = 100.0f;
 
 }  // namespace
 
-@interface LensOverlayResultsPagePresenter () <LensOverlayPanTrackerDelegate,
-                                               LensOverlayDetentsChangeObserver>
+@interface LensOverlayResultsPagePresenter () <
+    LensOverlayPanTrackerDelegate,
+    LensOverlayDetentsManagerDelegate>
 @end
 
 @implementation LensOverlayResultsPagePresenter {
@@ -84,7 +85,7 @@ const CGFloat kVisibleAreaMediumDetentThreshold = 100.0f;
 
 - (SheetDimensionState)sheetDimension {
   if (!_detentsManager) {
-    return SheetDimensionStateHidden;
+    return SheetDimensionState::kHidden;
   }
 
   return _detentsManager.sheetDimension;
@@ -122,8 +123,8 @@ const CGFloat kVisibleAreaMediumDetentThreshold = 100.0f;
         constraintEqualToAnchor:_baseViewController.view.rightAnchor],
   ]];
 
-  [_delegate
-      onResultsPageVisibleAreaLayoutGuideAdjusted:_visibleAreaLayoutGuide];
+  [_delegate lensOverlayResultsPagePresenter:self
+             didAdjustVisibleAreaLayoutGuide:_visibleAreaLayoutGuide];
 }
 
 - (void)presentResultsPageAnimated:(BOOL)animated
@@ -160,7 +161,7 @@ const CGFloat kVisibleAreaMediumDetentThreshold = 100.0f;
        initWithBottomSheet:sheet
                     window:self.presentationWindow
       presentationStrategy:strategy];
-  _detentsManager.observer = self;
+  _detentsManager.delegate = self;
   [_detentsManager adjustDetentsForState:SheetDetentStateUnrestrictedMovement];
 
   if (maximizeSheet) {
@@ -312,7 +313,8 @@ const CGFloat kVisibleAreaMediumDetentThreshold = 100.0f;
     [_displayLink invalidate];
     [self sheetPresentationHeightChanged:0];
     [_windowPanTracker stopTracking];
-    [self.delegate onResultsPageWillInitiateGestureDrivenDismiss];
+    [self.delegate
+        lensOverlayResultsPagePresenterWillInitiateGestureDrivenDismiss:self];
   }
 }
 
@@ -332,8 +334,8 @@ const CGFloat kVisibleAreaMediumDetentThreshold = 100.0f;
   CGFloat estimatedMediumDetentHeight =
       _detentsManager.estimatedMediumDetentHeight;
   CGFloat offsetNeeded = estimatedMediumDetentHeight + kSelectionOffsetPadding;
-
-  [self.delegate onResultsPageVerticalOcclusionInsetsSettled:offsetNeeded];
+  [_delegate lensOverlayResultsPagePresenter:self
+               updateVerticalOcclusionOffset:offsetNeeded];
 }
 
 #pragma mark - UIPanGestureRecognizer handlers
@@ -371,35 +373,42 @@ const CGFloat kVisibleAreaMediumDetentThreshold = 100.0f;
 
 #pragma mark - LensOverlayPanTrackerDelegate
 
-- (void)onPanGestureStarted:(LensOverlayPanTracker*)tracker {
+- (void)lensOverlayPanTrackerDidBeginPanGesture:
+    (LensOverlayPanTracker*)panTracker {
   // NO-OP
 }
 
-- (void)onPanGestureEnded:(LensOverlayPanTracker*)tracker {
-  if (tracker == _windowPanTracker) {
-    // Keep peaking only for the duration of the gesture.
-    if (_detentsManager.sheetDimension == SheetDimensionStatePeaking) {
-      [_detentsManager
-          adjustDetentsForState:SheetDetentStateUnrestrictedMovement];
-    }
+- (void)lensOverlayPanTrackerDidEndPanGesture:
+    (LensOverlayPanTracker*)panTracker {
+  if (panTracker != _windowPanTracker) {
+    return;
+  }
+
+  // Keep peaking only for the duration of the gesture.
+  if (_detentsManager.sheetDimension == SheetDimensionState::kPeaking) {
+    [_detentsManager
+        adjustDetentsForState:SheetDetentStateUnrestrictedMovement];
   }
 }
 
-#pragma mark - LensOverlayDetentsChangeObserver
+#pragma mark - LensOverlayDetentsManagerDelegate
 
-- (void)onBottomSheetDimensionStateChanged:(SheetDimensionState)state {
-  [self.delegate onResultsPageDimensionStateChanged:state];
+- (void)lensOverlayDetentsManagerDidChangeDimensionState:
+    (LensOverlayDetentsManager*)detentsManager {
+  [_delegate lensOverlayResultsPagePresenter:self
+                     didUpdateDimensionState:detentsManager.sheetDimension];
 }
 
-- (BOOL)bottomSheetShouldDismissFromState:(SheetDimensionState)state {
-  switch (state) {
-    case SheetDimensionStateConsent:
-    case SheetDimensionStateHidden:
+- (BOOL)lensOverlayDetentsManagerShouldDismissBottomSheet:
+    (LensOverlayDetentsManager*)detentsManager {
+  switch (self.sheetDimension) {
+    case SheetDimensionState::kConsent:
+    case SheetDimensionState::kHidden:
       return YES;
-    case SheetDimensionStatePeaking:
-    case SheetDimensionStateLarge:
+    case SheetDimensionState::kPeaking:
+    case SheetDimensionState::kLarge:
       return NO;
-    case SheetDimensionStateMedium:
+    case SheetDimensionState::kMedium:
       // If the user is actively adjusting a selection (by moving the selection
       // frame), it means the sheet dismissal was incidental and shouldn't be
       // processed. Only when the sheet is directly dragged downwards should the

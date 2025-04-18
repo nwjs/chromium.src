@@ -5,6 +5,7 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_PLATFORM_FONTS_PLAIN_TEXT_NODE_H_
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_FONTS_PLAIN_TEXT_NODE_H_
 
+#include "third_party/blink/renderer/platform/fonts/shaping/frame_shape_cache.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_vector.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/heap/member.h"
@@ -15,10 +16,12 @@
 
 namespace blink {
 
+class Font;
+class FrameShapeCache;
 class ShapeResult;
 class ShapeResultView;
 class TextRun;
-class Font;
+struct CharacterRange;
 
 // PlainTextItem represents a sub-segment of a PlainTextNode.
 class PLATFORM_EXPORT PlainTextItem {
@@ -50,6 +53,7 @@ class PLATFORM_EXPORT PlainTextItem {
 
  private:
   friend class PlainTextNode;
+  friend class FrameShapeCacheTest;
 
   Member<ShapeResult> shape_result_;
   // This is mutable for on-demand creation.
@@ -74,26 +78,32 @@ using PlainTextItemList = HeapVector<PlainTextItem, 25>;
 class PLATFORM_EXPORT PlainTextNode : public GarbageCollected<PlainTextNode> {
  public:
   // normalize_space - Enables canvas-specific whitespace normalization
-  // bidi_overridden - Adjusts offset values for leading/trailing BiDi controls
   PlainTextNode(const TextRun& run,
                 bool normalize_space,
-                bool bidi_overridden,
                 const Font& font,
-                bool supports_bidi);
+                bool supports_bidi,
+                FrameShapeCache* cache);
   void Trace(Visitor* visitor) const;
 
   PlainTextNode(const PlainTextNode&) = delete;
   PlainTextNode& operator=(const PlainTextNode&) = delete;
+
+  float AccumulateInlineSize(gfx::RectF* glyph_bounds) const;
+  CharacterRange ComputeCharacterRange(unsigned absolute_from,
+                                       unsigned absolute_to) const;
 
   // The text contains:
   //  - Normalized whitespace
   //  - No BiDi override controls
   const String& TextContent() const { return text_content_; }
   TextDirection BaseDirection() const { return base_direction_; }
+  bool ContainsRtlItems() const { return contains_rtl_items_; }
+  bool HasVerticalOffsets() const { return has_vertical_offsets_; }
   const PlainTextItemList& ItemList() const { return item_list_; }
 
  private:
   friend class PlainTextNodeTest;
+  friend class FrameShapeCacheTest;
 
   // Up-converts to UTF-16 as needed and normalizes spaces and Unicode control
   // characters as per the CSS Text Module Level 3 specification.
@@ -112,10 +122,14 @@ class PLATFORM_EXPORT PlainTextNode : public GarbageCollected<PlainTextNode> {
                    TextDirection direction,
                    const Font& font);
 
+  void Shape(const Font& font, FrameShapeCache* cache);
+
   String text_content_;
   PlainTextItemList item_list_;
   bool normalize_space_ = false;
   TextDirection base_direction_ = TextDirection::kLtr;
+  bool contains_rtl_items_ = false;
+  bool has_vertical_offsets_ = false;
 };
 
 }  // namespace blink

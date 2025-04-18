@@ -226,6 +226,12 @@ void FakeTabGroupSyncService::MakeTabGroupShared(
   }
 }
 
+void FakeTabGroupSyncService::MakeTabGroupSharedForTesting(
+    const LocalTabGroupID& local_group_id,
+    std::string_view collaboration_id) {
+  // No op.
+}
+
 void FakeTabGroupSyncService::AboutToUnShareTabGroup(
     const LocalTabGroupID& local_group_id,
     base::OnceClosure on_complete_callback) {
@@ -254,6 +260,15 @@ void FakeTabGroupSyncService::OnTabGroupUnShareComplete(
 void FakeTabGroupSyncService::OnCollaborationRemoved(
     const syncer::CollaborationId& collaboration_id) {
   // No op.
+}
+
+std::vector<const SavedTabGroup*> FakeTabGroupSyncService::ReadAllGroups()
+    const {
+  std::vector<const SavedTabGroup*> groups;
+  for (const SavedTabGroup& group : groups_) {
+    groups.push_back(&group);
+  }
+  return groups;
 }
 
 std::vector<SavedTabGroup> FakeTabGroupSyncService::GetAllGroups() const {
@@ -310,10 +325,11 @@ FakeTabGroupSyncService::GetTitleForPreviouslyExistingSharedTabGroup(
   return std::nullopt;
 }
 
-void FakeTabGroupSyncService::OpenTabGroup(
+std::optional<LocalTabGroupID> FakeTabGroupSyncService::OpenTabGroup(
     const base::Uuid& sync_group_id,
     std::unique_ptr<TabGroupActionContext> context) {
   // No op.
+  return std::nullopt;
 }
 
 void FakeTabGroupSyncService::UpdateLocalTabGroupMapping(
@@ -398,6 +414,11 @@ FakeTabGroupSyncService::GetSavedTabGroupControllerDelegate() {
 
 base::WeakPtr<syncer::DataTypeControllerDelegate>
 FakeTabGroupSyncService::GetSharedTabGroupControllerDelegate() {
+  return base::WeakPtr<syncer::DataTypeControllerDelegate>();
+}
+
+base::WeakPtr<syncer::DataTypeControllerDelegate>
+FakeTabGroupSyncService::GetSharedTabGroupAccountControllerDelegate() {
   return base::WeakPtr<syncer::DataTypeControllerDelegate>();
 }
 

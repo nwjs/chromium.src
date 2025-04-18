@@ -104,9 +104,14 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
         type: Boolean,
         value: true,
       },
+      enableGhostLoader: {
+        type: Boolean,
+        value: () => loadTimeData.getBoolean('enableGhostLoader'),
+      },
       showGhostLoader: {
         type: Boolean,
         computed: `computeShowGhostLoader(
+                enableGhostLoader,
                 isSearchboxFocused,
                 autocompleteRequestStarted,
                 showErrorState,
@@ -133,8 +138,7 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
       },
       showUploadProgress: {
         type: Number,
-        computed:
-            `computeShowUploadProgress(uploadProgressPercentage)`,
+        computed: `computeShowUploadProgress(uploadProgressPercentage)`,
         reflectToAttribute: true,
       },
       toastMessage: String,
@@ -145,14 +149,19 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
   isBackArrowVisible: boolean;
   // Whether the user is currently focused into the searchbox.
   isSearchboxFocused: boolean;
+  private showGhostLoader: boolean;
   // Whether to purposely suppress the ghost loader. Done when escaping from
   // the searchbox when there's text or when page bytes aren't successfully
   // uploaded.
   suppressGhostLoader: boolean;
+  placeholderText: string;
   // Whether the ghost loader should show its error state.
   showErrorState: boolean;
+  private showUploadProgress: boolean;
   // The current progress of the page content upload.
   uploadProgressPercentage: number;
+  // Whether the ghost loader is enabled via feature flag.
+  private enableGhostLoader: boolean;
   // The placeholder text to show in the searchbox.
   private pageContentType: PageContentType = PageContentType.kUnknown;
   // Whether this is an in flight request to autocomplete.
@@ -373,7 +382,10 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
   }
 
   private computeShowGhostLoader(): boolean {
-    if (!this.isContextualSearchbox || this.suppressGhostLoader) {
+    // Ghost loader is disabled by the feature flag, suppressed by the
+    // LensOverlayController or not in contextual searchbox flow.
+    if (!this.isContextualSearchbox || !this.enableGhostLoader ||
+        this.suppressGhostLoader) {
       return false;
     }
     // Show the ghost loader if there is focus on the searchbox, and there is

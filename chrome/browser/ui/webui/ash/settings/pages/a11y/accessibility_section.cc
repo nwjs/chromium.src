@@ -20,7 +20,6 @@
 #include "base/containers/span.h"
 #include "base/feature_list.h"
 #include "base/metrics/histogram_functions.h"
-#include "chrome/browser/accessibility/accessibility_state_utils.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/speech/extension_api/tts_engine_extension_observer_chromeos.h"
 #include "chrome/browser/speech/extension_api/tts_engine_extension_observer_chromeos_factory.h"
@@ -44,10 +43,10 @@
 #include "extensions/browser/extension_system.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/accessibility/accessibility_switches.h"
+#include "ui/accessibility/platform/ax_platform.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/webui/web_ui_util.h"
 #include "ui/events/ash/keyboard_layout_util.h"
-#include "ui/native_theme/native_theme_features.h"
 #include "ui/webui/webui_util.h"
 
 namespace ash::settings {
@@ -328,6 +327,12 @@ base::span<const SearchConcept> GetA11ySearchConcepts() {
        {IDS_OS_SETTINGS_TAG_A11Y_REDUCED_ANIMATIONS_ALT1,
         IDS_OS_SETTINGS_TAG_A11Y_REDUCED_ANIMATIONS_ALT2,
         SearchConcept::kAltTagEnd}},
+      {IDS_OS_SETTINGS_TAG_A11Y_ALWAYS_SHOW_SCROLLBARS,
+       mojom::kDisplayAndMagnificationSubpagePath,
+       mojom::SearchResultIcon::kA11y,
+       mojom::SearchResultDefaultRank::kMedium,
+       mojom::SearchResultType::kSetting,
+       {.setting = mojom::Setting::kAlwaysShowScrollbarsEnabled}},
   });
   return tags;
 }
@@ -603,10 +608,6 @@ int GetDisplayAndMangificationLinkDescriptionResourceId() {
 
 bool IsAccessibilityReducedAnimationsEnabled() {
   return ::features::IsAccessibilityReducedAnimationsEnabled();
-}
-
-bool isAccessibilityAlwaysShowScrollbarsEnabled() {
-  return ::features::IsOverlayScrollbarOSSettingEnabled();
 }
 
 bool IsAccessibilityMagnifierFollowsChromeVoxEnabled() {
@@ -1601,9 +1602,6 @@ void AccessibilitySection::AddLoadTimeData(
   html_source->AddBoolean("isAccessibilityReducedAnimationsEnabled",
                           IsAccessibilityReducedAnimationsEnabled());
 
-  html_source->AddBoolean("isAccessibilityAlwaysShowScrollbarsEnabled",
-                          isAccessibilityAlwaysShowScrollbarsEnabled());
-
   html_source->AddBoolean("isAccessibilityMagnifierFollowsChromeVoxEnabled",
                           IsAccessibilityMagnifierFollowsChromeVoxEnabled());
 
@@ -2042,7 +2040,7 @@ void AccessibilitySection::UpdateTextToSpeechEnginesSearchTags() {
 void AccessibilitySection::UpdateSearchTags() {
   SearchTagRegistry::ScopedTagUpdater updater = registry()->StartUpdate();
 
-  if (accessibility_state_utils::IsScreenReaderEnabled()) {
+  if (ui::AXPlatform::GetInstance().IsScreenReaderActive()) {
     updater.AddSearchTags(GetA11yLabelsSearchConcepts());
   } else {
     updater.RemoveSearchTags(GetA11yLabelsSearchConcepts());

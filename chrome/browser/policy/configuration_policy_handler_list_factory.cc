@@ -62,7 +62,7 @@
 #include "chrome/common/channel_info.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
-#include "components/autofill/core/browser/autofill_policy_handler.h"
+#include "components/autofill/core/browser/permissions/autofill_policy_handler.h"
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/blocked_content/pref_names.h"
 #include "components/bookmarks/common/bookmark_pref_names.h"
@@ -583,9 +583,6 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kDefaultSearchProviderContextMenuAccessAllowed,
     prefs::kDefaultSearchProviderContextMenuAccessAllowed,
     base::Value::Type::BOOLEAN },
-  { key::kDefaultSerialGuardSetting,
-    prefs::kManagedDefaultSerialGuardSetting,
-    base::Value::Type::INTEGER },
   { key::kDefaultWebHidGuardSetting,
     prefs::kManagedDefaultWebHidGuardSetting,
     base::Value::Type::INTEGER },
@@ -772,6 +769,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kRelaunchNotificationPeriod,
     prefs::kRelaunchNotificationPeriod,
     base::Value::Type::INTEGER },
+  { key::kRelaunchSupersededReleaseAge,
+    prefs::kRelaunchSupersededReleaseAge,
+    base::Value::Type::INTEGER },
   { key::kRemoteDebuggingAllowed,
     prefs::kDevToolsRemoteDebuggingAllowed,
     base::Value::Type::BOOLEAN },
@@ -792,15 +792,6 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
     base::Value::Type::LIST },
   { key::kSecurityKeyPermitAttestation,
     prefs::kSecurityKeyPermitAttestation,
-    base::Value::Type::LIST },
-  { key::kSerialAllowAllPortsForUrls,
-    prefs::kManagedSerialAllowAllPortsForUrls,
-    base::Value::Type::LIST },
-  { key::kSerialAskForUrls,
-    prefs::kManagedSerialAskForUrls,
-    base::Value::Type::LIST },
-  { key::kSerialBlockedForUrls,
-    prefs::kManagedSerialBlockedForUrls,
     base::Value::Type::LIST },
   { key::kSharedArrayBufferUnrestrictedAccessAllowed,
     prefs::kSharedArrayBufferUnrestrictedAccessAllowed,
@@ -1041,6 +1032,18 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kWebRtcUdpPortRange,
     prefs::kWebRTCUDPPortRange,
     base::Value::Type::STRING },
+  { key::kDefaultSerialGuardSetting,
+    prefs::kManagedDefaultSerialGuardSetting,
+    base::Value::Type::INTEGER },
+  { key::kSerialAllowAllPortsForUrls,
+    prefs::kManagedSerialAllowAllPortsForUrls,
+    base::Value::Type::LIST },
+  { key::kSerialAskForUrls,
+    prefs::kManagedSerialAskForUrls,
+    base::Value::Type::LIST },
+  { key::kSerialBlockedForUrls,
+    prefs::kManagedSerialBlockedForUrls,
+    base::Value::Type::LIST },
   { key::kDefaultWebUsbGuardSetting,
     prefs::kManagedDefaultWebUsbGuardSetting,
     base::Value::Type::INTEGER },
@@ -1152,6 +1155,21 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kClassManagementEnabled,
     ash::prefs::kClassManagementToolsAvailabilitySetting,
     base::Value::Type::STRING},
+  { key::kClassManagementSendingContentEnabled,
+    ash::prefs::kClassManagementToolsSendingContentEligibilitySetting,
+    base::Value::Type::BOOLEAN},
+  { key::kClassManagementCaptionsEnabled,
+    ash::prefs::kClassManagementToolsCaptionEligibilitySetting,
+    base::Value::Type::BOOLEAN},
+  { key::kClassManagementClassroomIntegrationEnabled,
+    ash::prefs::kClassManagementToolsClassroomEligibilitySetting,
+    base::Value::Type::BOOLEAN},
+  { key::kClassManagementNetworkRestrictionEnabled,
+    ash::prefs::kClassManagementToolsNetworkRestrictionSetting,
+    base::Value::Type::BOOLEAN},
+  { key::kClassManagementViewScreenEnabled,
+    ash::prefs::kClassManagementToolsViewScreenEligibilitySetting,
+    base::Value::Type::BOOLEAN},
   { key::kDriveDisabled,
     drive::prefs::kDisableDrive,
     base::Value::Type::BOOLEAN },
@@ -1819,6 +1837,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kGenAiChromeOsSmartActionsSettings,
     ash::prefs::kScannerEnterprisePolicyAllowed,
     base::Value::Type::INTEGER},
+  { key::kGenAIInlineImageSettings,
+    ash::prefs::kLobsterEnterprisePolicySettings,
+    base::Value::Type::INTEGER},
 #endif // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_LINUX)
@@ -2131,6 +2152,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kGetDisplayMediaSetSelectAllScreensAllowedForUrls,
     capture_policy::kManagedAccessToGetAllScreensMediaAllowedForUrls,
     base::Value::Type::LIST },
+  { key::kKioskChromeAppsForceAllowed,
+    prefs::kKioskChromeAppsForceAllowed,
+    base::Value::Type::BOOLEAN },
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_CHROMEOS)
@@ -2261,6 +2285,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kStandardizedBrowserZoomEnabled,
     policy_prefs::kStandardizedBrowserZoomEnabled,
     base::Value::Type::BOOLEAN},
+  { key::kHappyEyeballsV3Enabled,
+    prefs::kHappyEyeballsV3Enabled,
+    base::Value::Type::BOOLEAN },
   { key::kIPv6ReachabilityOverrideEnabled,
     prefs::kIPv6ReachabilityOverrideEnabled,
     base::Value::Type::BOOLEAN },
@@ -2360,6 +2387,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
 
   { key::kWebAudioOutputBufferingEnabled,
     prefs::kWebAudioOutputBufferingEnabled,
+    base::Value::Type::BOOLEAN },
+  { key::kReduceAcceptLanguageEnabled,
+    prefs::kReduceAcceptLanguageEnabled,
     base::Value::Type::BOOLEAN },
 };
 // clang-format on
@@ -2652,12 +2682,6 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
 
   handlers->AddHandler(std::make_unique<RestoreOnStartupPolicyHandler>());
   handlers->AddHandler(std::make_unique<SimpleSchemaValidatingPolicyHandler>(
-      key::kSerialAllowUsbDevicesForUrls,
-      prefs::kManagedSerialAllowUsbDevicesForUrls, chrome_schema,
-      SCHEMA_ALLOW_UNKNOWN,
-      SimpleSchemaValidatingPolicyHandler::RECOMMENDED_PROHIBITED,
-      SimpleSchemaValidatingPolicyHandler::MANDATORY_ALLOWED));
-  handlers->AddHandler(std::make_unique<SimpleSchemaValidatingPolicyHandler>(
       key::kWebAppInstallForceList, prefs::kWebAppInstallForceList,
       chrome_schema, SCHEMA_ALLOW_UNKNOWN_WITHOUT_WARNING,
       SimpleSchemaValidatingPolicyHandler::RECOMMENDED_PROHIBITED,
@@ -2751,6 +2775,12 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
       SCHEMA_ALLOW_UNKNOWN,
       SimpleSchemaValidatingPolicyHandler::RECOMMENDED_PROHIBITED,
       SimpleSchemaValidatingPolicyHandler::MANDATORY_ALLOWED));
+  handlers->AddHandler(std::make_unique<SimpleSchemaValidatingPolicyHandler>(
+      key::kSerialAllowUsbDevicesForUrls,
+      prefs::kManagedSerialAllowUsbDevicesForUrls, chrome_schema,
+      SCHEMA_ALLOW_UNKNOWN,
+      SimpleSchemaValidatingPolicyHandler::RECOMMENDED_PROHIBITED,
+      SimpleSchemaValidatingPolicyHandler::MANDATORY_ALLOWED));
   handlers->AddHandler(
       std::make_unique<WebUsbAllowDevicesForUrlsPolicyHandler>(chrome_schema));
   handlers->AddHandler(std::make_unique<JavascriptPolicyHandler>());
@@ -2817,6 +2847,17 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
           policy::SchemaOnErrorStrategy::SCHEMA_STRICT,
           policy::SimpleSchemaValidatingPolicyHandler::RECOMMENDED_PROHIBITED,
           policy::SimpleSchemaValidatingPolicyHandler::MANDATORY_ALLOWED));
+
+  handlers->AddHandler(std::make_unique<CloudUserOnlyPolicyHandler>(
+      std::make_unique<SimplePolicyHandler>(
+          key::kUserSecuritySignalsReporting,
+          enterprise_reporting::kUserSecuritySignalsReporting,
+          base::Value::Type::BOOLEAN)));
+  handlers->AddHandler(std::make_unique<CloudUserOnlyPolicyHandler>(
+      std::make_unique<SimplePolicyHandler>(
+          key::kUserSecurityAuthenticatedReporting,
+          enterprise_reporting::kUserSecurityAuthenticatedReporting,
+          base::Value::Type::BOOLEAN)));
 
 #elif BUILDFLAG(IS_CHROMEOS)
   handlers->AddHandler(
@@ -3332,6 +3373,9 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
   gen_ai_default_policies.emplace_back(
       key::kGenAiChromeOsSmartActionsSettings,
       ash::prefs::kScannerEnterprisePolicyAllowed);
+  gen_ai_default_policies.emplace_back(
+      key::kGenAIInlineImageSettings,
+      ash::prefs::kLobsterEnterprisePolicySettings);
 #endif  // BUILDFLAG(IS_CHROMEOS)
   handlers->AddHandler(std::make_unique<GenAiDefaultSettingsPolicyHandler>(
       std::move(gen_ai_default_policies)));

@@ -59,6 +59,7 @@ const char* const STRING_ATTRIBUTES[] = {
     "name",
     "hint",
     "state_description",
+    "container_title",
 };
 
 const char* const INT_ATTRIBUTES[] = {
@@ -77,6 +78,7 @@ const char* const INT_ATTRIBUTES[] = {
     "range_current_value",
     "text_change_added_count",
     "text_change_removed_count",
+    "selection_mode",
 };
 
 const char* const ACTION_ATTRIBUTES[] = {
@@ -195,6 +197,7 @@ void AccessibilityTreeFormatterAndroid::AddProperties(
   dict->Set("hint", android_node->GetHint());
   dict->Set("role_description", android_node->GetRoleDescription());
   dict->Set("state_description", android_node->GetStateDescription());
+  dict->Set("container_title", android_node->GetContainerTitle());
 
   // Int attributes.
   dict->Set("item_index", android_node->GetItemIndex());
@@ -214,6 +217,7 @@ void AccessibilityTreeFormatterAndroid::AddProperties(
   dict->Set("text_change_added_count", android_node->GetTextChangeAddedCount());
   dict->Set("text_change_removed_count",
             android_node->GetTextChangeRemovedCount());
+  dict->Set("selection_mode", android_node->GetSelectionMode());
 
   // Actions.
   dict->Set("action_expand", android_node->IsCollapsed());

@@ -15,7 +15,7 @@
 #include "base/callback_list.h"
 #else
 #include "base/scoped_observation.h"
-#include "ui/accessibility/ax_mode_observer.h"
+#include "ui/accessibility/platform/ax_mode_observer.h"
 #include "ui/accessibility/platform/ax_platform.h"
 #endif
 
@@ -69,6 +69,7 @@ class PdfOcrController : public KeyedService
 #if !BUILDFLAG(IS_CHROMEOS)
   // ui::AXModeObserver:
   void OnAXModeAdded(ui::AXMode mode) override;
+  void OnAssistiveTechChanged(ui::AssistiveTech assistive_tech) override;
 #endif
 
  private:

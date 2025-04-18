@@ -22,6 +22,7 @@
 #include "mojo/public/cpp/bindings/remote.h"
 #include "net/base/isolation_info.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
+#include "net/base/schemeful_site.h"
 #include "net/base/url_util.h"
 #include "net/cookies/site_for_cookies.h"
 #include "net/http/http_request_headers.h"
@@ -76,6 +77,7 @@ constexpr char kDisconnectEndpoint[] = "disconnect_endpoint";
 constexpr char kModesKey[] = "modes";
 constexpr char kTypesKey[] = "types";
 constexpr char kFormatsKey[] = "formats";
+constexpr char kAccountLabelKey[] = "account_label";
 
 // Keys in the 'accounts' dictionary
 constexpr char kIncludeKey[] = "include";
@@ -107,12 +109,15 @@ constexpr char kIdpBrandingKey[] = "branding";
 constexpr char kAccountIdKey[] = "id";
 constexpr char kAccountEmailKey[] = "email";
 constexpr char kAccountNameKey[] = "name";
+constexpr char kAccountPhoneNumberKey[] = "phone";
+constexpr char kAccountUsernameKey[] = "username";
 constexpr char kAccountGivenNameKey[] = "given_name";
 constexpr char kAccountPictureKey[] = "picture";
 constexpr char kAccountApprovedClientsKey[] = "approved_clients";
 constexpr char kHintsKey[] = "login_hints";
 constexpr char kDomainHintsKey[] = "domain_hints";
 constexpr char kLabelsKey[] = "labels";
+constexpr char kLabelHintsKey[] = "label_hints";
 
 // Keys in 'branding' 'icons' dictionary in config for the IDP icon and client
 // metadata endpoint for the RP icon.
@@ -185,6 +190,17 @@ net::NetworkTrafficAnnotationTag CreateTrafficAnnotation() {
         })");
 }
 
+// Returns true for nullptr for easy use with Dict::FindString.
+bool IsEmptyOrWhitespace(const std::string* input) {
+  if (!input) {
+    return true;
+  }
+
+  auto trimmed_string =
+      base::TrimWhitespace(base::UTF8ToUTF16(*input), base::TRIM_ALL);
+  return trimmed_string.empty();
+}
+
 GURL ResolveConfigUrl(const GURL& config_url, const std::string& endpoint) {
   if (endpoint.empty())
     return GURL();
@@ -216,6 +232,8 @@ IdentityRequestAccountPtr ParseAccount(const base::Value::Dict& account,
   auto* id = account.FindString(kAccountIdKey);
   auto* email = account.FindString(kAccountEmailKey);
   auto* name = account.FindString(kAccountNameKey);
+  auto* phone = account.FindString(kAccountPhoneNumberKey);
+  auto* username = account.FindString(kAccountUsernameKey);
   auto* given_name = account.FindString(kAccountGivenNameKey);
   auto* picture = account.FindString(kAccountPictureKey);
   auto* approved_clients = account.FindList(kAccountApprovedClientsKey);
@@ -239,7 +257,13 @@ IdentityRequestAccountPtr ParseAccount(const base::Value::Dict& account,
   }
 
   std::vector<std::string> labels;
-  auto* labels_list = account.FindList(kLabelsKey);
+  const base::ListValue* labels_list = nullptr;
+  if (IsFedCmUseOtherAccountAndLabelsNewSyntaxEnabled()) {
+    labels_list = account.FindList(kLabelHintsKey);
+  }
+  if (!labels_list) {
+    labels_list = account.FindList(kLabelsKey);
+  }
   if (labels_list) {
     for (const base::Value& entry : *labels_list) {
       if (entry.is_string()) {
@@ -248,18 +272,46 @@ IdentityRequestAccountPtr ParseAccount(const base::Value::Dict& account,
     }
   }
 
-  // required fields
-  if (!(id && email && name)) {
+  if (!id) {
     return nullptr;
   }
 
-  auto trimmed_email =
-      base::TrimWhitespace(base::UTF8ToUTF16(*email), base::TRIM_ALL);
-  auto trimmed_name =
-      base::TrimWhitespace(base::UTF8ToUTF16(*name), base::TRIM_ALL);
-  // TODO(crbug.com/40849405): validate email address.
-  if (trimmed_email.empty() || trimmed_name.empty()) {
-    return nullptr;
+  std::string display_identifier;
+  std::string display_name;
+  std::string empty_string;
+  if (IsFedCmAlternativeIdentifiersEnabled()) {
+    std::vector<std::string_view> identifiers;
+    if (!IsEmptyOrWhitespace(name)) {
+      identifiers.emplace_back(*name);
+    } else {
+      name = &empty_string;
+    }
+    if (!IsEmptyOrWhitespace(username)) {
+      identifiers.emplace_back(*username);
+    }
+    if (!IsEmptyOrWhitespace(email)) {
+      identifiers.emplace_back(*email);
+    } else {
+      email = &empty_string;
+    }
+    if (!IsEmptyOrWhitespace(phone)) {
+      identifiers.emplace_back(*phone);
+    }
+    if (identifiers.empty()) {
+      return nullptr;
+    }
+    display_name = identifiers[0];
+    if (identifiers.size() > 1) {
+      display_identifier = identifiers[1];
+    }
+  } else {
+    // required fields
+    // TODO(crbug.com/40849405): validate email address.
+    if (IsEmptyOrWhitespace(email) || IsEmptyOrWhitespace(name)) {
+      return nullptr;
+    }
+    display_identifier = *email;
+    display_name = *name;
   }
 
   RecordApprovedClientsExistence(approved_clients != nullptr);
@@ -282,9 +334,10 @@ IdentityRequestAccountPtr ParseAccount(const base::Value::Dict& account,
   }
 
   return base::MakeRefCounted<IdentityRequestAccount>(
-      *id, *email, *name, given_name ? *given_name : "",
-      picture ? GURL(*picture) : GURL(), std::move(account_hints),
-      std::move(domain_hints), std::move(labels), approved_value,
+      *id, display_identifier, display_name, *email, *name,
+      given_name ? *given_name : "", picture ? GURL(*picture) : GURL(),
+      std::move(account_hints), std::move(domain_hints), std::move(labels),
+      approved_value,
       /*browser_trusted_login_state=*/LoginState::kSignUp);
 }
 
@@ -607,31 +660,44 @@ void OnConfigParsed(const GURL& provider,
     }
   }
 
-  const base::Value::Dict* accounts_dict = response.FindDict(kAccountsKey);
-  if (accounts_dict) {
-    const std::string* requested_label = accounts_dict->FindString(kIncludeKey);
-    if (requested_label) {
-      idp_metadata.requested_label = *requested_label;
+  const std::string* requested_label = nullptr;
+  if (IsFedCmUseOtherAccountAndLabelsNewSyntaxEnabled()) {
+    requested_label = response.FindString(kAccountLabelKey);
+  }
+  if (!requested_label) {
+    const base::Value::Dict* accounts_dict = response.FindDict(kAccountsKey);
+    if (accounts_dict) {
+      requested_label = accounts_dict->FindString(kIncludeKey);
     }
+  }
+  if (requested_label) {
+    idp_metadata.requested_label = *requested_label;
   }
 
   if (IsFedCmUseOtherAccountEnabled()) {
-    const base::Value::Dict* modes_dict = response.FindDict(kModesKey);
-    const base::Value::Dict* selected_mode_dict = nullptr;
-    if (modes_dict) {
-      switch (rp_mode) {
-        case blink::mojom::RpMode::kPassive:
-          selected_mode_dict = modes_dict->FindDict(kPassiveModeKey);
-          break;
-        case blink::mojom::RpMode::kActive:
-          selected_mode_dict = modes_dict->FindDict(kActiveModeKey);
-          break;
-      };
+    std::optional<bool> supports_add_account;
+    if (IsFedCmUseOtherAccountAndLabelsNewSyntaxEnabled()) {
+      supports_add_account = response.FindBool(kSupportsUseOtherAccountKey);
     }
-    std::optional<bool> supports_add_account =
-        selected_mode_dict
-            ? selected_mode_dict->FindBool(kSupportsUseOtherAccountKey)
-            : std::nullopt;
+
+    if (!supports_add_account) {
+      const base::Value::Dict* modes_dict = response.FindDict(kModesKey);
+      const base::Value::Dict* selected_mode_dict = nullptr;
+      if (modes_dict) {
+        switch (rp_mode) {
+          case blink::mojom::RpMode::kPassive:
+            selected_mode_dict = modes_dict->FindDict(kPassiveModeKey);
+            break;
+          case blink::mojom::RpMode::kActive:
+            selected_mode_dict = modes_dict->FindDict(kActiveModeKey);
+            break;
+        };
+      }
+      if (selected_mode_dict) {
+        supports_add_account =
+            selected_mode_dict->FindBool(kSupportsUseOtherAccountKey);
+      }
+    }
     if (supports_add_account) {
       idp_metadata.supports_add_account = *supports_add_account;
     }
@@ -738,7 +804,7 @@ std::pair<GURL, std::optional<ErrorUrlType>> GetErrorUrlAndType(
     return std::make_pair(error_url, ErrorUrlType::kSameOrigin);
   }
 
-  if (!webid::IsSameSite(error_origin, idp_origin)) {
+  if (!net::SchemefulSite::IsSameSite(error_origin, idp_origin)) {
     return std::make_pair(GURL(), ErrorUrlType::kCrossSite);
   }
 

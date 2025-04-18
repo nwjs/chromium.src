@@ -11,6 +11,7 @@
 #include <string>
 #include <tuple>
 #include <utility>
+#include <variant>
 
 #include "base/check.h"
 #include "base/containers/lru_cache.h"
@@ -233,8 +234,8 @@ bool UsernameOutsideOfFormHasHigherPriority(
 }
 
 bool ShouldUploadCrowdsourcingVotes(const FormOrDigest& form_or_digest) {
-  if (absl::holds_alternative<FormData>(form_or_digest)) {
-    return !net::IsLocalhost(absl::get<FormData>(form_or_digest).url());
+  if (std::holds_alternative<FormData>(form_or_digest)) {
+    return !net::IsLocalhost(std::get<FormData>(form_or_digest).url());
   }
   return false;
 }
@@ -249,6 +250,20 @@ bool ShouldShowKeychainErrorBubble(
          PasswordStoreBackendErrorType::kKeychainError;
 }
 #endif
+
+void RecordSavingIsDisabled(PasswordManagerClient* client) {
+  if (password_manager_util::IsLoggingActive(client)) {
+    auto logger = std::make_unique<BrowserSavePasswordProgressLogger>(
+        client->GetCurrentLogManager());
+    logger->LogProvisionalSaveFailure(
+        PasswordManagerMetricsRecorder::SAVING_DISABLED);
+  }
+  if (client->GetMetricsRecorder()) {
+    client->GetMetricsRecorder()->RecordProvisionalSaveFailure(
+        PasswordManagerMetricsRecorder::SAVING_DISABLED);
+  }
+}
+
 }  // namespace
 
 PasswordFormManager::PasswordFormManager(
@@ -560,7 +575,7 @@ void PasswordFormManager::OnNopeUpdateClicked() {
   if (votes_uploader_.has_value()) {
     votes_uploader_->UploadPasswordVote(
         *parsed_submitted_form_, *parsed_submitted_form_,
-        autofill::NOT_NEW_PASSWORD, std::string());
+        autofill::NOT_NEW_PASSWORD, /*login_form_signature=*/std::nullopt);
   }
 }
 
@@ -568,9 +583,9 @@ void PasswordFormManager::OnNeverClicked() {
   if (votes_uploader_.has_value()) {
     // |UNKNOWN_TYPE| is sent in order to record that a generation popup was
     // shown and ignored.
-    votes_uploader_->UploadPasswordVote(*parsed_submitted_form_,
-                                        *parsed_submitted_form_,
-                                        autofill::UNKNOWN_TYPE, std::string());
+    votes_uploader_->UploadPasswordVote(
+        *parsed_submitted_form_, *parsed_submitted_form_,
+        autofill::UNKNOWN_TYPE, /*login_form_signature=*/std::nullopt);
   }
   Blocklist();
 }
@@ -582,7 +597,7 @@ void PasswordFormManager::OnNoInteraction(bool is_update) {
     votes_uploader_->UploadPasswordVote(
         *parsed_submitted_form_, *parsed_submitted_form_,
         is_update ? autofill::PROBABLY_NEW_PASSWORD : autofill::UNKNOWN_TYPE,
-        std::string());
+        /*login_form_signature=*/std::nullopt);
   }
 }
 
@@ -1002,20 +1017,6 @@ void PasswordFormManager::CreatePendingCredentials() {
       IsCredentialAPISave());
 }
 
-void PasswordFormManager::RecordProvisionalSaveFailure(
-    PasswordManagerMetricsRecorder::ProvisionalSaveFailure failure,
-    const GURL& form_origin) {
-  std::unique_ptr<BrowserSavePasswordProgressLogger> logger;
-  if (password_manager_util::IsLoggingActive(client_)) {
-    logger = std::make_unique<BrowserSavePasswordProgressLogger>(
-        client_->GetCurrentLogManager());
-  }
-  if (client_->GetMetricsRecorder()) {
-    client_->GetMetricsRecorder()->RecordProvisionalSaveFailure(
-        failure, form_origin, form_origin, logger.get());
-  }
-}
-
 bool PasswordFormManager::ProvisionallySave(
     const FormData& submitted_form,
     const PasswordManagerDriver* driver,
@@ -1035,8 +1036,7 @@ bool PasswordFormManager::ProvisionallySave(
   }
 
   if (!client_->IsSavingAndFillingEnabled(submitted_form.url())) {
-    RecordProvisionalSaveFailure(
-        PasswordManagerMetricsRecorder::SAVING_DISABLED, submitted_form.url());
+    RecordSavingIsDisabled(client_);
     is_saving_allowed_ = false;
   }
 

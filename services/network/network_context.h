@@ -206,6 +206,10 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
 
   CookieManager* cookie_manager() { return cookie_manager_.get(); }
 
+  ip_protection::IpProtectionCore* ip_protection_core() {
+    return ip_protection_core_.get();
+  }
+
   const base::flat_set<std::string>* cors_exempt_header_list() const {
     return &cors_exempt_header_list_;
   }
@@ -276,6 +280,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
       const url::Origin& issuer,
       DeleteStoredTrustTokensCallback callback) override;
   void SetBlockTrustTokens(bool block) override;
+  void SetTrackingProtectionContentSetting(
+      const ContentSettingsForOneType& settings) override;
   void ClearNetworkingHistoryBetween(
       base::Time start_time,
       base::Time end_time,

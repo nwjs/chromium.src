@@ -168,11 +168,14 @@ enum DataType {
   // standard syncable prefs.
   PLUS_ADDRESS_SETTING,
 
-  // Loyalty cards stored in the Google Wallet.
+  // Valuables stored in the Google Wallet.
   // Read-only on the client.
-  AUTOFILL_LOYALTY_CARD,
+  AUTOFILL_VALUABLE,
 
-  LAST_USER_DATA_TYPE = AUTOFILL_LOYALTY_CARD,
+  // Account-local metadata for shared tab groups.
+  SHARED_TAB_GROUP_ACCOUNT_DATA,
+
+  LAST_USER_DATA_TYPE = SHARED_TAB_GROUP_ACCOUNT_DATA,
 
   // ---- Control Types ----
   // An object representing a set of Nigori keys.
@@ -270,8 +273,9 @@ enum class DataTypeForHistograms {
   kProductComparison = 66,
   kCookies = 67,
   kPlusAddressSettings = 68,
-  kAutofillLoyaltyCard = 69,
-  kMaxValue = kAutofillLoyaltyCard,
+  kAutofillValuable = 69,
+  kSharedTabGroupAccountData = 70,
+  kMaxValue = kSharedTabGroupAccountData,
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/sync/enums.xml:SyncDataTypes)
 
@@ -399,17 +403,17 @@ constexpr DataTypeSet SharedTypes() {
 }
 
 // Types triggering a warning when the user signs out and the types have
-// unsynced data. The warning offers the user to either save the data locally or
-// abort sign-out, depending on the platform.
+// unsynced data. The warning offers the user to proceed with sign-out deleting
+// any pending account data or abort, depending on the platform.
 constexpr DataTypeSet TypesRequiringUnsyncedDataCheckOnSignout() {
   static_assert(
-      54 == GetNumDataTypes(),
+      55 == GetNumDataTypes(),
       "Add new types to `TypesRequiringUnsyncedDataCheckOnSignout()` if there "
       "should be a warning when the user signs out and the types have unsynced "
-      "data. The warning offers the user to either save the data locally or "
-      "abort sign-out, depending on the platform");
-  return {syncer::BOOKMARKS, syncer::CONTACT_INFO, syncer::PASSWORDS,
-          syncer::READING_LIST, syncer::SAVED_TAB_GROUP};
+      "data. The warning offers the user to either proceed with sign-out "
+      "deleting any pending account data or abort, depending on the platform");
+  return {syncer::BOOKMARKS,    syncer::CONTACT_INFO,    syncer::PASSWORDS,
+          syncer::READING_LIST, syncer::SAVED_TAB_GROUP, syncer::THEMES};
 }
 
 // User types that can be encrypted, which is a subset of UserTypes() and a

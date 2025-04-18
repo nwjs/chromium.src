@@ -41,8 +41,8 @@ std::vector<uint8_t> GetRandomPixels(uint32_t width, uint32_t height) {
 }
 
 TEST_F(NoiseHelperTest, SeedHashFromSite) {
-  net::SchemefulSite site1(GURL("https://a.com"));
-  net::SchemefulSite site2(GURL("https://b.org"));
+  net::SchemefulSite site1(GURL("https://a.test"));
+  net::SchemefulSite site2(GURL("https://b.test"));
   const uint64_t token = 0x01234678901234567;
   auto noise_hash1 = std::make_unique<NoiseHash>(
       token, site1.registrable_domain_or_host_for_testing());
@@ -78,7 +78,7 @@ TEST_F(NoiseHelperTest, NoisePixels) {
 
   // When noised, the pixels should be perturbed by at most kMaxNoisePerChannel.
   const uint64_t token = 0x01234678901234567;
-  const auto token_hash = NoiseHash(token, "https://a.com");
+  const auto token_hash = NoiseHash(token, "https://a.test");
   NoisePixels(token_hash, pixels, width, height);
   EXPECT_NE(pixels, pixels_orig);
   double num_diff = 0;
@@ -104,7 +104,7 @@ TEST_F(NoiseHelperTest, NoisePixels) {
   EXPECT_EQ(pixels, pixels2);
 
   // Using a different token hash should result in different noise being added.
-  const auto token_hash2 = NoiseHash(token, "https://b.com");
+  const auto token_hash2 = NoiseHash(token, "https://b.test");
   pixels2.copy_from(pixels_orig);
   NoisePixels(token_hash2, pixels2, width, height);
   EXPECT_NE(pixels, pixels2);
@@ -118,7 +118,7 @@ TEST_F(NoiseHelperTest, NoisePixelsAllSameValue) {
   std::ranges::fill(pixel_arr, channel_value);
   base::span<uint8_t> pixels(pixel_arr);
   const uint64_t token = 0x01234678901234567;
-  auto token_hash = NoiseHash(token, "https://a.com");
+  auto token_hash = NoiseHash(token, "https://a.test");
   std::array<uint8_t, 4> first_pixel;
   std::ranges::fill(first_pixel, channel_value);
   // It's possible that the first pixel remains unaltered (when noise for the 4
@@ -132,6 +132,58 @@ TEST_F(NoiseHelperTest, NoisePixelsAllSameValue) {
   first_noised_pixel.copy_from(pixels.first<4>());
   for (int i = 4; i < static_cast<int>(pixels.size()); i += 4) {
     EXPECT_EQ(pixels.subspan(static_cast<uint32_t>(i), 4u), first_noised_pixel);
+  }
+}
+
+TEST_F(NoiseHelperTest, NoisePixelsVerticalStripes) {
+  const size_t width = 16u;
+  const size_t height = 16u;
+  const uint64_t token = 0x01234678901234567;
+  auto token_hash = NoiseHash(token, "https://a.test");
+
+  const std::vector<uint8_t> image_data_orig = GetRandomPixels(width, height);
+  const base::span pixels_orig(image_data_orig);
+  std::vector<uint8_t> image_data(image_data_orig.size());
+  base::span pixels(image_data);
+
+  for (size_t x = 0u; x < width; ++x) {
+    // For each column, copy the original image and create a vertical stripe.
+    pixels.copy_from(pixels_orig);
+    for (size_t y = 0u; y < height; ++y) {
+      // Fill the stripe with the same value (avoiding the empty pixel).
+      std::ranges::fill(pixels.subspan((x + y * width) * 4, 4u), x + 1);
+    }
+    // When noised, the vertical stripe should have the same color.
+    NoisePixels(token_hash, pixels, width, height);
+    for (size_t y = 1u; y < height; ++y) {
+      EXPECT_EQ(pixels.subspan(x * 4, 4u),
+                pixels.subspan((x + y * width) * 4, 4u));
+    }
+  }
+}
+
+TEST_F(NoiseHelperTest, NoisePixelsHorizontalStripes) {
+  const size_t width = 16u;
+  const size_t height = 16u;
+  const uint64_t token = 0x01234678901234567;
+  auto token_hash = NoiseHash(token, "https://a.test");
+
+  const std::vector<uint8_t> image_data_orig = GetRandomPixels(width, height);
+  const base::span pixels_orig(image_data_orig);
+  std::vector<uint8_t> image_data(image_data_orig.size());
+  base::span pixels(image_data);
+
+  for (size_t y = 0u; y < height; ++y) {
+    // For each row, copy the original image and create a horizontal stripe.
+    pixels.copy_from(pixels_orig);
+    // Fill the stripe with the same value (avoiding the empty pixel).
+    std::ranges::fill(pixels.subspan(y * width * 4, width * 4), y + 1);
+    // When noised, the horizontal stripe should have the same color.
+    NoisePixels(token_hash, pixels, width, height);
+    for (size_t x = 1; x < width; ++x) {
+      EXPECT_EQ(pixels.subspan(y * width * 4, 4u),
+                pixels.subspan((x + y * width) * 4, 4u));
+    }
   }
 }
 
@@ -156,7 +208,7 @@ TEST_F(NoiseHelperTest, NoisePixelsSingleNeighbor) {
   for (const auto& [changed, checked] : changed_to_checked) {
     pixels.copy_from(pixel_arr_orig);
     const uint64_t token = 0x01234678901234567;
-    auto token_hash = NoiseHash(token, "https://a.com");
+    auto token_hash = NoiseHash(token, "https://a.test");
     auto changed_pixel =
         pixels.subspan((changed.first + changed.second * width) * 4, 4u);
     auto checked_pixel =
@@ -191,6 +243,37 @@ TEST_F(NoiseHelperTest, NoisePixelsSingleNeighbor) {
       }
     }
   }
+}
+
+TEST_F(NoiseHelperTest, NoisePixelsAlphaNonZero) {
+  const uint32_t width = 50u;
+  const uint32_t height = 150u;
+  std::vector<uint8_t> image_data = GetRandomPixels(width, height);
+  // Set alpha channel to 1.
+  for (size_t i = 3; i < image_data.size(); i += 4) {
+    image_data[i] = 1;
+  }
+
+  base::span pixels(image_data);
+  std::vector<uint8_t> image_data_orig;
+  image_data_orig.resize(image_data.size());
+  base::span<uint8_t> pixels_orig(image_data_orig);
+  pixels_orig.copy_from(pixels);
+  EXPECT_EQ(pixels, pixels_orig);
+
+  // When noised, the alpha channel should remain > 0.
+  const uint64_t token = 0x01234678901234567;
+  const auto token_hash = NoiseHash(token, "https://a.test");
+  NoisePixels(token_hash, pixels, width, height);
+  EXPECT_NE(pixels, pixels_orig);
+  ASSERT_EQ(pixels.size(), pixels_orig.size());
+  int num_zero_noised = 0;
+  for (size_t i = 3; i < pixels.size(); i += 4) {
+    if (pixels[i] == 0) {
+      ++num_zero_noised;
+    }
+  }
+  EXPECT_EQ(num_zero_noised, 0);
 }
 
 }  // namespace

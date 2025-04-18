@@ -111,13 +111,11 @@ void TabModel::OnRemovedFromModel() {
   opener_ = nullptr;
   reset_opener_on_active_tab_change_ = false;
 
-  // Pinned state, blocked state, and group membership are all preserved, at
+  // Blocked state is preserved, at
   // least in some cases, but for now let's leave that to the existing
   // mechanisms that were handling that.
   // TODO(tbergquist): Decide whether to stick with this approach or not.
-  pinned_ = false;
   blocked_ = false;
-  group_ = std::nullopt;
 }
 
 TabCollection* TabModel::GetParentCollection(
@@ -160,6 +158,10 @@ void TabModel::WillDetach(base::PassKey<TabStripModel>,
 
 void TabModel::DidInsert(base::PassKey<TabStripModel>) {
   did_insert_callback_list_.Notify(this);
+}
+
+base::WeakPtr<TabInterface> TabModel::GetWeakPtr() {
+  return weak_factory_.GetWeakPtr();
 }
 
 content::WebContents* TabModel::GetContents() const {
@@ -251,6 +253,10 @@ bool TabModel::IsPinned() const {
 }
 
 bool TabModel::IsSplit() const {
+  return split_.has_value();
+}
+
+std::optional<split_tabs::SplitTabId> TabModel::GetSplit() const {
   return split_;
 }
 

@@ -23,7 +23,9 @@
 #import "components/signin/public/identity_manager/tribool.h"
 #import "components/sync_preferences/pref_service_mock_factory.h"
 #import "components/sync_preferences/pref_service_syncable.h"
+#import "ios/chrome/browser/authentication/ui_bundled/authentication_flow/authentication_flow_in_profile.h"
 #import "ios/chrome/browser/authentication/ui_bundled/authentication_flow/authentication_flow_performer.h"
+#import "ios/chrome/browser/authentication/ui_bundled/authentication_flow/authentication_flow_performer_delegate.h"
 #import "ios/chrome/browser/authentication/ui_bundled/authentication_ui_util.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
 #import "ios/chrome/browser/policy/model/cloud/user_policy_constants.h"
@@ -89,6 +91,7 @@ class AuthenticationFlowTest : public PlatformTest {
         case SigninCoordinatorResult::SigninCoordinatorResultCanceledByUser:
         case SigninCoordinatorResult::SigninCoordinatorResultDisabled:
         case SigninCoordinatorResult::SigninCoordinatorUINotAvailable:
+        case SigninCoordinatorResult::SigninCoordinatorProfileSwitch:
           signin_result_ = signin::Tribool::kFalse;
           break;
       }
@@ -115,18 +118,42 @@ class AuthenticationFlowTest : public PlatformTest {
   // not directly useful.
   void CreateAuthenticationFlow(PostSignInActionSet postSignInActions,
                                 id<SystemIdentity> identity,
-                                signin_metrics::AccessPoint accessPoint) {
+                                signin_metrics::AccessPoint accessPoint,
+                                BOOL shouldHandOverToFlowInProfile) {
     view_controller_mock_ = OCMClassMock([UIViewController class]);
     authentication_flow_ =
         [[AuthenticationFlow alloc] initWithBrowser:browser_.get()
                                            identity:identity
                                         accessPoint:accessPoint
+                               precedingHistorySync:NO
                                   postSignInActions:postSignInActions
                            presentingViewController:view_controller_mock_
                                          anchorView:nil
                                          anchorRect:CGRectNull];
     performer_mock_ = OCMStrictClassMock([AuthenticationFlowPerformer class]);
-    [authentication_flow_ setPerformerForTesting:performer_mock_];
+
+    // Once AuthenticationFlow is started, it'll create its performer. Replace
+    // it with a mock.
+    OCMExpect([(id)performer_mock_ alloc]).andReturn(performer_mock_);
+    OCMExpect([performer_mock_ initWithDelegate:[OCMArg any]
+                           changeProfileHandler:[OCMArg any]])
+        .andReturn(performer_mock_);
+
+    if (shouldHandOverToFlowInProfile) {
+      // Once the flow progresses into AuthenticationFlowInProfile, that class
+      // creates its own performer. For simplicity, reuse the same mock object
+      // here. Also capture a reference to the AuthenticationFlowInProfile, so
+      // the mock can call back into it.
+      OCMExpect([(id)performer_mock_ alloc]).andReturn(performer_mock_);
+      OCMExpect([performer_mock_ initWithDelegate:[OCMArg any]
+                             changeProfileHandler:[OCMArg any]])
+          .andDo(^(NSInvocation* invocation) {
+            __unsafe_unretained id argument;
+            [invocation getArgument:&argument atIndex:2];
+            authentication_flow_in_profile_ = argument;
+          })
+          .andReturn(performer_mock_);
+    }
   }
 
   // Checks if the AuthenticationFlow operation has completed, and whether it
@@ -148,31 +175,33 @@ class AuthenticationFlowTest : public PlatformTest {
                                currentProfile:profile_.get()]);
   }
 
-  // Signs in successfully as `identity`, and checks that all the intermediary
-  // steps run.
-  void SignIn(id<SystemIdentity> identity,
-              signin_metrics::AccessPoint access_point) {
-    // Get the hosted domain from the email.
-    NSString* user_email = identity.userEmail;
+  // Returns the hosted domain from `email`, or nil if this email address
+  // doesn't belong to a hosted domain.
+  NSString* GetHostedDomainFromEmail(NSString* email) const {
     NSArray* matches =
         [[NSRegularExpression regularExpressionWithPattern:@"^\\w+@([a-z.]+)$"
                                                    options:0
                                                      error:nil]
-            matchesInString:user_email
+            matchesInString:email
                     options:0
-                      range:NSMakeRange(0, user_email.length)];
-    ASSERT_EQ(1u, matches.count);
-    NSString* domain =
-        [user_email substringWithRange:[matches[0] rangeAtIndex:1]];
-    NSString* hosted_domain =
-        [domain isEqualToString:@"gmail.com"] ? nil : domain;
+                      range:NSMakeRange(0, email.length)];
+    CHECK_EQ(1u, matches.count);
+    NSString* domain = [email substringWithRange:[matches[0] rangeAtIndex:1]];
+    return [domain isEqualToString:@"gmail.com"] ? nil : domain;
+  }
 
+  // Signs in successfully as `identity`, and checks that all the intermediary
+  // steps run.
+  void SignIn(id<SystemIdentity> identity,
+              signin_metrics::AccessPoint access_point) {
     signin_result_ = signin::Tribool::kUnknown;
     // Can't use a RunLoop multiple times, create a new one.
     run_loop_ = std::make_unique<base::RunLoop>();
 
-    CreateAuthenticationFlow(PostSignInActionSet(), identity, access_point);
+    CreateAuthenticationFlow(PostSignInActionSet(), identity, access_point,
+                             /*shouldHandOverToFlowInProfile=*/YES);
 
+    NSString* hosted_domain = GetHostedDomainFromEmail(identity.userEmail);
     OCMExpect([performer_mock_ fetchManagedStatus:profile_.get()
                                       forIdentity:identity])
         .andDo(^(NSInvocation*) {
@@ -182,7 +211,7 @@ class AuthenticationFlowTest : public PlatformTest {
     if (hosted_domain.length) {
       OCMStub([performer_mock_
                   showManagedConfirmationForHostedDomain:hosted_domain
-                                               userEmail:user_email
+                                                identity:identity
                                           viewController:view_controller_mock_
                                                  browser:browser_.get()
                                skipBrowsingDataMigration:NO
@@ -196,7 +225,7 @@ class AuthenticationFlowTest : public PlatformTest {
       OCMExpect([performer_mock_ registerUserPolicy:profile_.get()
                                         forIdentity:identity])
           .andDo(^(NSInvocation*) {
-            [authentication_flow_
+            [authentication_flow_in_profile_
                 didRegisterForUserPolicyWithDMToken:kFakeDMToken
                                            clientID:kFakeClientID
                                  userAffiliationIDs:@[
@@ -210,7 +239,7 @@ class AuthenticationFlowTest : public PlatformTest {
                               userAffiliationIDs:@[ kFakeUserAffiliationID ]
                                         identity:identity])
           .andDo(^(NSInvocation*) {
-            [authentication_flow_ didFetchUserPolicyWithSuccess:YES];
+            [authentication_flow_in_profile_ didFetchUserPolicyWithSuccess:YES];
           });
     }
 
@@ -232,7 +261,7 @@ class AuthenticationFlowTest : public PlatformTest {
     // Can't use a RunLoop multiple times, create a new one.
     run_loop_ = std::make_unique<base::RunLoop>();
     authentication_service->SignOut(
-        signin_metrics::ProfileSignout::kChangeAccountInAccountMenu,
+        signin_metrics::ProfileSignout::kSignoutForAccountSwitching,
         base::CallbackToBlock(run_loop_->QuitClosure()));
     run_loop_->Run();
   }
@@ -244,13 +273,15 @@ class AuthenticationFlowTest : public PlatformTest {
 
   web::WebTaskEnvironment task_environment_;
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
-  AuthenticationFlow* authentication_flow_ = nullptr;
   std::unique_ptr<TestProfileIOS> profile_;
   std::unique_ptr<Browser> browser_;
   id<SystemIdentity> identity1_ = nil;
   id<SystemIdentity> identity2_ = nil;
   id<SystemIdentity> managed_identity1_ = nil;
   id<SystemIdentity> managed_identity2_ = nil;
+  AuthenticationFlow* authentication_flow_ = nil;
+  AuthenticationFlowInProfile<AuthenticationFlowPerformerDelegate>*
+      authentication_flow_in_profile_ = nil;
   AuthenticationFlowPerformer* performer_mock_ = nil;
   signin_ui::SigninCompletionCallback sign_in_completion_;
   UIViewController* view_controller_mock_;
@@ -267,12 +298,6 @@ class AuthenticationFlowTest : public PlatformTest {
 
 // Tests a Sign In of a normal account on the same profile.
 TEST_F(AuthenticationFlowTest, TestSignInSimple) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  // Enable user policy to make sure that the authentication flow doesn't try
-  // a registration when the account isn't managed.
-  scoped_feature_list.InitAndEnableFeature(
-      policy::kUserPolicyForSigninOrSyncConsentLevel);
-
   SignIn(identity1_, signin_metrics::AccessPoint::kStartPage);
 
   histogram_tester_.ExpectUniqueSample(
@@ -283,7 +308,8 @@ TEST_F(AuthenticationFlowTest, TestSignInSimple) {
 // Tests the fetch managed status failure case.
 TEST_F(AuthenticationFlowTest, TestFailFetchManagedStatus) {
   CreateAuthenticationFlow(PostSignInActionSet(), identity1_,
-                           signin_metrics::AccessPoint::kStartPage);
+                           signin_metrics::AccessPoint::kStartPage,
+                           /*shouldHandOverToFlowInProfile=*/NO);
 
   NSError* error = [NSError errorWithDomain:@"foo" code:0 userInfo:nil];
   OCMExpect([performer_mock_ fetchManagedStatus:profile_.get()
@@ -308,15 +334,10 @@ TEST_F(AuthenticationFlowTest, TestFailFetchManagedStatus) {
   histogram_tester_.ExpectTotalCount("Signin.AccountType.SigninConsent", 0);
 }
 
-// Tests that when signed in only with a managed account and the
-// needed features are enabled, the managed account confirmation dialog is
-// shown.
+// Tests that when signed in only with a managed account, the managed account
+// confirmation dialog is shown.
 TEST_F(AuthenticationFlowTest,
-       TestShowManagedConfirmationForSigninConsentLevelIfAllFeaturesEnabled) {
-  // Enable user policy and sign-in promos.
-  base::test::ScopedFeatureList scoped_feature_list(
-      policy::kUserPolicyForSigninAndNoSyncConsentLevel);
-
+       TestShowManagedConfirmationForSigninConsentLevel) {
   SignIn(managed_identity1_, signin_metrics::AccessPoint::kSupervisedUser);
   histogram_tester_.ExpectUniqueSample(
       "Signin.AccountType.SigninConsent",
@@ -329,10 +350,6 @@ TEST_F(AuthenticationFlowTest,
 // level. This only applies to the sign-in consent level.
 TEST_F(AuthenticationFlowTest,
        TestSkipManagedConfirmationWhenAlreadyManagedAtMachineLevel) {
-  // Enable user policy and sign-in consent only.
-  base::test::ScopedFeatureList scoped_feature_list(
-      policy::kUserPolicyForSigninAndNoSyncConsentLevel);
-
   // Set a machine level policy.
   base::ScopedTempDir state_directory;
   ASSERT_TRUE(state_directory.CreateUniqueTempDir());
@@ -354,12 +371,8 @@ TEST_F(AuthenticationFlowTest,
 // Tests that the managed confirmation dialog is only show once per account,
 // when signing in from the Account Menu.
 TEST_F(AuthenticationFlowTest, TestShowManagedConfirmationOnlyOnce) {
-  // Enable user policy and sign-in promos.
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures(
-      {policy::kUserPolicyForSigninAndNoSyncConsentLevel,
-       kIdentityDiscAccountMenu},
-      {});
+  scoped_feature_list.InitAndEnableFeature(kIdentityDiscAccountMenu);
 
   // First signin, show the dialog.
   SignIn(managed_identity1_, signin_metrics::AccessPoint::kAccountMenu);
@@ -389,7 +402,8 @@ TEST_F(AuthenticationFlowTest, TestDontShowUnsyncedDataConfirmation) {
   // Without signing out first, start signing in with a different identity. This
   // should trigger the check for unsynced data.
   CreateAuthenticationFlow(PostSignInActionSet(), identity2_,
-                           signin_metrics::AccessPoint::kStartPage);
+                           signin_metrics::AccessPoint::kStartPage,
+                           /*shouldHandOverToFlowInProfile=*/NO);
 
   syncer::SyncService* sync_service =
       SyncServiceFactory::GetForProfile(profile_.get());
@@ -419,7 +433,8 @@ TEST_F(AuthenticationFlowTest, TestShowUnsyncedDataConfirmation) {
   // Without signing out first, start signing in with a different identity. This
   // should trigger the check for unsynced data.
   CreateAuthenticationFlow(PostSignInActionSet(), identity2_,
-                           signin_metrics::AccessPoint::kStartPage);
+                           signin_metrics::AccessPoint::kStartPage,
+                           /*shouldHandOverToFlowInProfile=*/NO);
 
   syncer::SyncService* sync_service =
       SyncServiceFactory::GetForProfile(profile_.get());

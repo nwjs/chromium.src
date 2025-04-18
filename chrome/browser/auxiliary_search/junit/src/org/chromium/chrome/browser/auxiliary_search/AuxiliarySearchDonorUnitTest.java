@@ -32,6 +32,7 @@ import androidx.test.filters.SmallTest;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -42,13 +43,15 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.Callback;
+import org.chromium.base.FakeTimeTestRule;
+import org.chromium.base.TimeUtils;
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchDonor.SearchQueryChecker;
 import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchGroupProto.AuxiliarySearchEntry;
 import org.chromium.chrome.browser.auxiliary_search.schema.CustomTabWebPage;
-import org.chromium.chrome.browser.auxiliary_search.schema.TabWebPage;
 import org.chromium.chrome.browser.auxiliary_search.schema.TopSiteWebPage;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
@@ -60,12 +63,17 @@ import org.chromium.url.JUnitTestGURLs;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /** Unit tests for AuxiliarySearchDonor. */
 @RunWith(BaseRobolectricTestRunner.class)
 @SuppressWarnings("DoNotMock") // Mock ListenableFuture.
 public class AuxiliarySearchDonorUnitTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
+    @Rule public FakeTimeTestRule mFakeTime = new FakeTimeTestRule();
+
+    private static final int DEFAULT_TAB_TTL_HOURS = 168;
+    private static final int DEFAULT_HISTORY_TTL_HOURS = 24;
 
     @Mock private MigrationFailure mMigrationFailure;
     @Mock private AuxiliarySearchHooks mHooks;
@@ -84,13 +92,12 @@ public class AuxiliarySearchDonorUnitTest {
         assertTrue(AuxiliarySearchUtils.isShareTabsWithOsEnabled());
 
         AuxiliarySearchDonor.setSkipInitializationForTesting(true);
-        mAuxiliarySearchDonor = AuxiliarySearchDonor.createDonorForTesting();
-        try {
-            when(mAppSearchSession.get()).thenReturn(mSession);
-            mAuxiliarySearchDonor.setAppSearchSessionForTesting(mAppSearchSession);
-        } catch (Exception e) {
-            // Just continue.
-        }
+        createAndInitAuxiliarySearchDonor();
+    }
+
+    @After
+    public void tearDown() {
+        mFakeTime.resetTimes();
     }
 
     @Test
@@ -115,29 +122,63 @@ public class AuxiliarySearchDonorUnitTest {
     @Test
     @SmallTest
     public void testDefaultTtlIsNotZero() {
-        assertNotEquals(0L, mAuxiliarySearchDonor.getDocumentTtlMs());
+        assertNotEquals(0L, mAuxiliarySearchDonor.getTabDocumentTtlMs());
         assertEquals(
-                ((long) AuxiliarySearchUtils.DEFAULT_TTL_HOURS) * 60 * 60 * 1000,
-                mAuxiliarySearchDonor.getDocumentTtlMs());
+                DEFAULT_TAB_TTL_HOURS * 60 * 60 * 1000,
+                mAuxiliarySearchDonor.getTabDocumentTtlMs());
+
+        assertEquals(
+                DEFAULT_HISTORY_TTL_HOURS * 60 * 60 * 1000,
+                mAuxiliarySearchDonor.getHistoryDocumentTtlMs());
     }
 
     @Test
     @SmallTest
     @EnableFeatures("AndroidAppIntegration:content_ttl_hours/0")
     public void testConfiguredTtlCannotBeZero() {
-        assertNotEquals(0L, mAuxiliarySearchDonor.getDocumentTtlMs());
+        assertNotEquals(0L, mAuxiliarySearchDonor.getTabDocumentTtlMs());
         assertEquals(
-                ((long) AuxiliarySearchUtils.DEFAULT_TTL_HOURS) * 60 * 60 * 1000,
-                mAuxiliarySearchDonor.getDocumentTtlMs());
+                DEFAULT_TAB_TTL_HOURS * 60 * 60 * 1000,
+                mAuxiliarySearchDonor.getTabDocumentTtlMs());
+    }
+
+    @Test
+    @SmallTest
+    public void testCalculateDocumentTtlMs() {
+        long creationTime = 10;
+        long currentTime = 100;
+        long expectedTtl = currentTime + DEFAULT_TAB_TTL_HOURS * 60 * 60 * 1000 - creationTime;
+        assertEquals(
+                expectedTtl,
+                mAuxiliarySearchDonor.calculateDocumentTtlMs(
+                        /* isTab= */ true, creationTime, currentTime));
+
+        creationTime = 1743083874549L;
+        expectedTtl = currentTime + DEFAULT_TAB_TTL_HOURS * 60 * 60 * 1000 - creationTime;
+        assertEquals(
+                expectedTtl,
+                mAuxiliarySearchDonor.calculateDocumentTtlMs(
+                        /* isTab= */ true, creationTime, currentTime));
+
+        expectedTtl = currentTime + DEFAULT_HISTORY_TTL_HOURS * 60 * 60 * 1000 - creationTime;
+        assertEquals(
+                expectedTtl,
+                mAuxiliarySearchDonor.calculateDocumentTtlMs(
+                        /* isTab= */ false, creationTime, currentTime));
     }
 
     @Test
     @SmallTest
     public void testBuildDocument_Tab() {
         int id = 10;
+        int type = AuxiliarySearchEntryType.TAB;
         GURL url = JUnitTestGURLs.URL_1;
         String title = "Title";
         long lastAccessTimeStamp = 100;
+        long currentTime = TimeUtils.currentTimeMillis();
+        long documentTtl =
+                currentTime + TimeUnit.HOURS.toMillis(DEFAULT_TAB_TTL_HOURS) - lastAccessTimeStamp;
+        int[] counts = new int[AuxiliarySearchEntryType.MAX_VALUE + 1];
 
         Tab tab = mock(Tab.class);
         when(tab.getUrl()).thenReturn(url);
@@ -145,16 +186,33 @@ public class AuxiliarySearchDonorUnitTest {
         when(tab.getTimestampMillis()).thenReturn(lastAccessTimeStamp);
         when(tab.getId()).thenReturn(id);
 
-        testBuildDocumentImplAndVerify(tab, url.getSpec(), title, lastAccessTimeStamp, id);
+        testBuildDocumentImplAndVerify(
+                tab,
+                type,
+                url.getSpec(),
+                title,
+                lastAccessTimeStamp,
+                id,
+                documentTtl,
+                /* score= */ 0,
+                counts,
+                currentTime);
+        assertEquals(1, counts[type]);
     }
 
     @Test
     @SmallTest
     public void testBuildDocument_AuxiliarySearchEntry() {
         int id = 10;
+        int type = AuxiliarySearchEntryType.TAB;
         String url = "Url";
         String title = "Title";
         long lastAccessTimeStamp = 100;
+        long currentTime = TimeUtils.currentTimeMillis();
+
+        long documentTtl =
+                currentTime + TimeUnit.HOURS.toMillis(DEFAULT_TAB_TTL_HOURS) - lastAccessTimeStamp;
+        int[] counts = new int[AuxiliarySearchEntryType.MAX_VALUE + 1];
 
         var builder =
                 AuxiliarySearchEntry.newBuilder()
@@ -164,7 +222,18 @@ public class AuxiliarySearchDonorUnitTest {
                         .setLastAccessTimestamp(lastAccessTimeStamp);
         AuxiliarySearchEntry entry = builder.build();
 
-        testBuildDocumentImplAndVerify(entry, url, title, lastAccessTimeStamp, id);
+        testBuildDocumentImplAndVerify(
+                entry,
+                type,
+                url,
+                title,
+                lastAccessTimeStamp,
+                id,
+                documentTtl,
+                /* score= */ 0,
+                counts,
+                currentTime);
+        assertEquals(1, counts[type]);
     }
 
     @Test
@@ -174,32 +243,113 @@ public class AuxiliarySearchDonorUnitTest {
         GURL url = JUnitTestGURLs.URL_1;
         String title = "Title";
         long lastAccessTimeStamp = 100;
+        long currentTime = TimeUtils.currentTimeMillis();
+        long tabDocumentTtl =
+                currentTime + TimeUnit.HOURS.toMillis(DEFAULT_TAB_TTL_HOURS) - lastAccessTimeStamp;
+        long historyDocumentTtl =
+                currentTime
+                        + TimeUnit.HOURS.toMillis(DEFAULT_HISTORY_TTL_HOURS)
+                        - lastAccessTimeStamp;
+        int[] counts = new int[AuxiliarySearchEntryType.MAX_VALUE + 1];
 
+        int type = AuxiliarySearchEntryType.TAB;
         AuxiliarySearchDataEntry entry =
                 new AuxiliarySearchDataEntry(
-                        AuxiliarySearchEntryType.TAB,
+                        type,
                         url,
                         title,
                         lastAccessTimeStamp,
                         id,
                         /* appId= */ null,
-                        -1);
+                        /* visitId= */ -1,
+                        /* score= */ 0);
 
-        testBuildDocumentImplAndVerify(entry, url.getSpec(), title, lastAccessTimeStamp, id);
+        int visitId = 100;
+        int type2 = AuxiliarySearchEntryType.CUSTOM_TAB;
+        AuxiliarySearchDataEntry entry2 =
+                new AuxiliarySearchDataEntry(
+                        type2,
+                        url,
+                        title,
+                        lastAccessTimeStamp,
+                        Tab.INVALID_TAB_ID,
+                        /* appId= */ null,
+                        visitId,
+                        /* score= */ 0);
+
+        int visitId3 = 101;
+        int type3 = AuxiliarySearchEntryType.TOP_SITE;
+        AuxiliarySearchDataEntry entry3 =
+                new AuxiliarySearchDataEntry(
+                        type3,
+                        url,
+                        title,
+                        lastAccessTimeStamp,
+                        Tab.INVALID_TAB_ID,
+                        /* appId= */ null,
+                        visitId3,
+                        AuxiliarySearchTestHelper.SCORE_1);
+
+        testBuildDocumentImplAndVerify(
+                entry,
+                type,
+                url.getSpec(),
+                title,
+                lastAccessTimeStamp,
+                id,
+                tabDocumentTtl,
+                /* score= */ 0,
+                counts,
+                currentTime);
+        testBuildDocumentImplAndVerify(
+                entry2,
+                type2,
+                url.getSpec(),
+                title,
+                lastAccessTimeStamp,
+                visitId,
+                historyDocumentTtl,
+                /* score= */ 0,
+                counts,
+                currentTime);
+        testBuildDocumentImplAndVerify(
+                entry3,
+                type3,
+                url.getSpec(),
+                title,
+                lastAccessTimeStamp,
+                visitId3,
+                historyDocumentTtl,
+                AuxiliarySearchTestHelper.SCORE_1,
+                counts,
+                currentTime);
+        assertEquals(1, counts[type]);
+        assertEquals(1, counts[type2]);
+        assertEquals(1, counts[type3]);
     }
 
     private <T> void testBuildDocumentImplAndVerify(
-            T entry, String url, String title, long lastAccessTimeStamp, int id) {
+            T entry,
+            @AuxiliarySearchEntryType int type,
+            String url,
+            String title,
+            long lastAccessTimeStamp,
+            int id,
+            long documentTtlMs,
+            int score,
+            int[] counts,
+            long currentTime) {
         Bitmap bitmap = Bitmap.createBitmap(100, 100, Config.RGB_565);
-        String documentId = "Tab-" + id;
+        String documentId = AuxiliarySearchDonor.getDocumentId(type, id);
 
-        WebPage webPage = mAuxiliarySearchDonor.buildDocument(entry, bitmap);
+        WebPage webPage = mAuxiliarySearchDonor.buildDocument(entry, bitmap, counts, currentTime);
 
         assertEquals(documentId, webPage.getId());
         assertEquals(url, webPage.getUrl());
         assertEquals(title, webPage.getName());
         assertEquals(lastAccessTimeStamp, webPage.getCreationTimestampMillis());
-        assertEquals(mAuxiliarySearchDonor.getDocumentTtlMs(), webPage.getDocumentTtlMillis());
+        assertEquals(documentTtlMs, webPage.getDocumentTtlMillis());
+        assertEquals(score, webPage.getDocumentScore());
         assertTrue(
                 Arrays.equals(
                         AuxiliarySearchUtils.bitmapToBytes(bitmap),
@@ -237,15 +387,14 @@ public class AuxiliarySearchDonorUnitTest {
 
     @Test
     @SmallTest
-    @DisableFeatures({ChromeFeatureList.ANDROID_APP_INTEGRATION_MULTI_DATA_SOURCE})
     public void testSharedPreferenceKeyIsUpdated() {
+        assertFalse(
+                AuxiliarySearchControllerFactory.getInstance().isMultiDataTypeEnabledOnDevice());
         testSharedPreferenceKeyIsUpdatedImpl(ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_SET);
-    }
 
-    @Test
-    @SmallTest
-    @EnableFeatures({ChromeFeatureList.ANDROID_APP_INTEGRATION_MULTI_DATA_SOURCE})
-    public void testSharedPreferenceKeyIsUpdated_multiDataSourceEnabled() {
+        when(mHooks.isMultiDataTypeEnabledOnDevice()).thenReturn(true);
+        assertTrue(AuxiliarySearchControllerFactory.getInstance().isMultiDataTypeEnabledOnDevice());
+        createAndInitAuxiliarySearchDonor();
         testSharedPreferenceKeyIsUpdatedImpl(
                 ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_V2_SET);
     }
@@ -288,15 +437,15 @@ public class AuxiliarySearchDonorUnitTest {
 
     @Test
     @SmallTest
-    @DisableFeatures({ChromeFeatureList.ANDROID_APP_INTEGRATION_MULTI_DATA_SOURCE})
     public void testDoNotSetSchemaAgain() {
+        assertFalse(
+                AuxiliarySearchControllerFactory.getInstance().isMultiDataTypeEnabledOnDevice());
         testDoNotSetSchemaAgainImpl(ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_SET);
-    }
 
-    @Test
-    @SmallTest
-    @EnableFeatures({ChromeFeatureList.ANDROID_APP_INTEGRATION_MULTI_DATA_SOURCE})
-    public void testDoNotSetSchemaAgain_MultiDataSourceEnabled() {
+        // Enables multiple data source.
+        when(mHooks.isMultiDataTypeEnabledOnDevice()).thenReturn(true);
+        assertTrue(AuxiliarySearchControllerFactory.getInstance().isMultiDataTypeEnabledOnDevice());
+        createAndInitAuxiliarySearchDonor();
         testDoNotSetSchemaAgainImpl(ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_V2_SET);
     }
 
@@ -388,10 +537,12 @@ public class AuxiliarySearchDonorUnitTest {
     @SmallTest
     public void testIterateSearchResults() {
         SearchResults searchresults = Mockito.mock(SearchResults.class);
+        SearchQueryChecker searchQueryChecker = Mockito.mock(SearchQueryChecker.class);
         List<SearchResult> page = new ArrayList<>();
         assertTrue(page.isEmpty());
 
-        mAuxiliarySearchDonor.iterateSearchResults(searchresults, page, mCallback);
+        mAuxiliarySearchDonor.iterateSearchResults(
+                searchresults, page, mCallback, searchQueryChecker);
         verify(mCallback).onResult(eq(false));
 
         SearchResult searchResult1 =
@@ -405,16 +556,22 @@ public class AuxiliarySearchDonorUnitTest {
                         GlobalSearchApplicationInfo.APPLICATION_TYPE_CONSUMER,
                         AuxiliarySearchDonor.SCHEMA_WEBPAGE);
 
+        when(searchQueryChecker.isSuccess(eq(searchResult1))).thenReturn(false);
         page.add(searchResult1);
-        mAuxiliarySearchDonor.iterateSearchResults(searchresults, page, mCallback);
+        mAuxiliarySearchDonor.iterateSearchResults(
+                searchresults, page, mCallback, searchQueryChecker);
         verify(mCallback, times(2)).onResult(eq(false));
 
+        when(searchQueryChecker.isSuccess(eq(searchResult2))).thenReturn(false);
         page.add(searchResult2);
-        mAuxiliarySearchDonor.iterateSearchResults(searchresults, page, mCallback);
+        mAuxiliarySearchDonor.iterateSearchResults(
+                searchresults, page, mCallback, searchQueryChecker);
         verify(mCallback, times(3)).onResult(eq(false));
 
+        when(searchQueryChecker.isSuccess(eq(searchResult3))).thenReturn(true);
         page.add(searchResult3);
-        mAuxiliarySearchDonor.iterateSearchResults(searchresults, page, mCallback);
+        mAuxiliarySearchDonor.iterateSearchResults(
+                searchresults, page, mCallback, searchQueryChecker);
         verify(mCallback).onResult(eq(true));
     }
 
@@ -435,19 +592,26 @@ public class AuxiliarySearchDonorUnitTest {
 
     @Test
     @SmallTest
-    @DisableFeatures({ChromeFeatureList.ANDROID_APP_INTEGRATION_MULTI_DATA_SOURCE})
     public void testGetSchemaSetPreferenceKey() {
         assertEquals(
                 ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_SET,
+                mAuxiliarySearchDonor.getSchemaSetPreferenceKey());
+
+        // Enables multiple data source.
+        when(mHooks.isMultiDataTypeEnabledOnDevice()).thenReturn(true);
+        assertTrue(AuxiliarySearchControllerFactory.getInstance().isMultiDataTypeEnabledOnDevice());
+        createAndInitAuxiliarySearchDonor();
+        assertEquals(
+                ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_V2_SET,
                 mAuxiliarySearchDonor.getSchemaSetPreferenceKey());
     }
 
     @Test
     @SmallTest
-    @EnableFeatures({ChromeFeatureList.ANDROID_APP_INTEGRATION_MULTI_DATA_SOURCE})
-    public void testGetSchemaSetPreferenceKey_MultiDataSourceEnabled() {
+    @EnableFeatures({"AndroidAppIntegrationMultiDataSource:use_schema_v1/true"})
+    public void testGetSchemaSetPreferenceKey_MultiDataSourceEnabled_UseSchemaV1() {
         assertEquals(
-                ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_V2_SET,
+                ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_SET,
                 mAuxiliarySearchDonor.getSchemaSetPreferenceKey());
     }
 
@@ -458,17 +622,33 @@ public class AuxiliarySearchDonorUnitTest {
         List<Class<?>> list = mAuxiliarySearchDonor.getSupportedDocumentClasses();
         assertEquals(1, list.size());
         assertTrue(list.contains(WebPage.class));
+
+        // Enables multiple data source.
+        when(mHooks.isMultiDataTypeEnabledOnDevice()).thenReturn(true);
+        assertTrue(AuxiliarySearchControllerFactory.getInstance().isMultiDataTypeEnabledOnDevice());
+        createAndInitAuxiliarySearchDonor();
+        list = mAuxiliarySearchDonor.getSupportedDocumentClasses();
+        assertEquals(3, list.size());
+        assertTrue(list.contains(WebPage.class));
+        assertTrue(list.contains(CustomTabWebPage.class));
+        assertTrue(list.contains(TopSiteWebPage.class));
     }
 
     @Test
     @SmallTest
-    @EnableFeatures({ChromeFeatureList.ANDROID_APP_INTEGRATION_MULTI_DATA_SOURCE})
-    public void testGetSupportedDocumentClasses_MultiDataSourceEnabled() {
-        List<Class<?>> list = mAuxiliarySearchDonor.getSupportedDocumentClasses();
-        assertEquals(3, list.size());
-        assertTrue(list.contains(TabWebPage.class));
-        assertTrue(list.contains(CustomTabWebPage.class));
-        assertTrue(list.contains(TopSiteWebPage.class));
+    @EnableFeatures({"AndroidAppIntegrationMultiDataSource:use_schema_v1/true"})
+    public void testUseSchemaV1() {
+        mAuxiliarySearchDonor.resetSchemaSetForTesting();
+        SharedPreferencesManager chromeSharedPreferences = ChromeSharedPreferences.getInstance();
+        String key = ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_SET;
+        chromeSharedPreferences.writeBoolean(key, true);
+        assertFalse(mAuxiliarySearchDonor.getIsSchemaSetForTesting());
+
+        // Verifies that |mIsSchemaSet| checks the key for schema V1.
+        mAuxiliarySearchDonor.onConsumerSchemaSearchedImpl(/* success= */ true);
+        assertTrue(mAuxiliarySearchDonor.getIsSchemaSetForTesting());
+
+        chromeSharedPreferences.removeKey(key);
     }
 
     private SearchResult createSearchResult(int applicationType, @NonNull String schemaType) {
@@ -480,6 +660,16 @@ public class AuxiliarySearchDonorUnitTest {
             return new SearchResult.Builder("package", "database").setDocument(appInfo).build();
         } catch (AppSearchException e) {
             return null;
+        }
+    }
+
+    private void createAndInitAuxiliarySearchDonor() {
+        mAuxiliarySearchDonor = AuxiliarySearchDonor.createDonorForTesting();
+        try {
+            when(mAppSearchSession.get()).thenReturn(mSession);
+            mAuxiliarySearchDonor.setAppSearchSessionForTesting(mAppSearchSession);
+        } catch (Exception e) {
+            // Just continue.
         }
     }
 }

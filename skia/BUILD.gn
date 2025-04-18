@@ -44,13 +44,13 @@ source_set("path_bridge") {
 rust_static_library("bridge_rust_side") {
   allow_unsafe = true
   crate_root = skia_fontations_bridge_root
-  sources = skia_fontations_bridge_sources
-  cxx_bindings = skia_fontations_bridge_sources
+  sources = skia_ports_fontations_bridge_rust_side_sources
+  cxx_bindings = [ skia_fontations_bridge_root ]
   deps = [
     ":path_bridge",
     "//third_party/rust/font_types/v0_8:lib",
     "//third_party/rust/read_fonts/v0_27:lib",
-    "//third_party/rust/skrifa/v0_28:lib",
+    "//third_party/rust/skrifa/v0_29:lib",
   ]
   configs -= [ "//build/config/compiler:chromium_code" ]
   configs += [
@@ -235,6 +235,7 @@ component("skia") {
     "ext/image_operations.h",
     "ext/legacy_display_globals.h",
     "ext/opacity_filter_canvas.h",
+    "ext/pmcolor_utils.h",
     "ext/recursive_gaussian_convolution.h",
     "ext/rgba_to_yuva.h",
     "ext/skcolorspace_primaries.h",
@@ -629,7 +630,7 @@ if (enable_rust_png) {
     sources = skia_codec_rust_png_ffi_rs_srcs
     cxx_bindings = skia_codec_rust_png_ffi_cxx_bridge_srcs
     public_deps = [ ":rust_png_ffi_cpp" ]
-    deps = [ "//third_party/rust/png/v0_17:lib" ]
+    deps = [ "//third_party/rust/png/v0_18:lib" ]
     configs -= [ "//build/config/compiler:chromium_code" ]
     configs += [
       ":skia_config",

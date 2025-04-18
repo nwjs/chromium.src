@@ -19,6 +19,7 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/ref_counted.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/run_loop.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/single_thread_task_runner.h"
@@ -59,7 +60,6 @@
 #include "media/capture/video/chromeos/public/cros_features.h"
 #include "media/capture/video/chromeos/video_capture_device_chromeos_halv3.h"
 #include "media/capture/video/chromeos/video_capture_device_factory_chromeos.h"
-#include "media/gpu/test/local_gpu_memory_buffer_manager.h"  // nogncheck
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #endif
 
@@ -186,6 +186,8 @@ class MockMFPhotoCallback final : public IMFCaptureEngineOnSampleCallback {
 class MockImageCaptureClient
     : public base::RefCountedThreadSafe<MockImageCaptureClient> {
  public:
+  REQUIRE_ADOPTION_FOR_REFCOUNTED_TYPE();
+
   // GMock doesn't support move-only arguments, so we use this forward method.
   void DoOnPhotoTaken(mojom::BlobPtr blob) {
     if (strcmp("image/jpeg", blob->mime_type.c_str()) == 0) {
@@ -221,7 +223,7 @@ class MockImageCaptureClient
 
  private:
   friend class base::RefCountedThreadSafe<MockImageCaptureClient>;
-  virtual ~MockImageCaptureClient() = default;
+  ~MockImageCaptureClient() = default;
 
   mojom::PhotoStatePtr state_;
 };
@@ -270,15 +272,7 @@ class VideoCaptureDeviceTest
         main_thread_task_runner_(
             base::SingleThreadTaskRunner::GetCurrentDefault()),
         video_capture_client_(CreateDeviceClient()),
-        image_capture_client_(new MockImageCaptureClient()) {
-#if BUILDFLAG(IS_CHROMEOS)
-    local_gpu_memory_buffer_manager_ =
-        std::make_unique<LocalGpuMemoryBufferManager>();
-    VideoCaptureDeviceFactoryChromeOS::SetGpuBufferManager(
-        local_gpu_memory_buffer_manager_.get());
-    // TODO(b/315966244): Initialize mojo service manager when re-enabling the
-    // test cases on a real device.
-#endif
+        image_capture_client_(base::MakeRefCounted<MockImageCaptureClient>()) {
     video_capture_device_factory_ = CreateVideoCaptureDeviceFactory(
         base::SingleThreadTaskRunner::GetCurrentDefault());
   }
@@ -296,9 +290,6 @@ class VideoCaptureDeviceTest
   }
 
   void TearDown() override {
-#if BUILDFLAG(IS_CHROMEOS)
-    VideoCaptureDeviceFactoryChromeOS::SetGpuBufferManager(nullptr);
-#endif
     task_environment_.RunUntilIdle();
   }
 
@@ -458,9 +449,6 @@ class VideoCaptureDeviceTest
   std::unique_ptr<MockVideoCaptureDeviceClient> video_capture_client_;
   const scoped_refptr<MockImageCaptureClient> image_capture_client_;
   VideoCaptureFormat last_format_;
-#if BUILDFLAG(IS_CHROMEOS)
-  std::unique_ptr<LocalGpuMemoryBufferManager> local_gpu_memory_buffer_manager_;
-#endif
   std::unique_ptr<VideoCaptureDeviceFactory> video_capture_device_factory_;
 };
 

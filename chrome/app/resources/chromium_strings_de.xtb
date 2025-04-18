@@ -26,11 +26,13 @@
 <translation id="1342274909142618978">Auch Daten aus Chromium löschen (<ph name="URL" />)</translation>
 <translation id="1345251407431278948">Angepinnt! Über die neue Schaltfläche in der Symbolleiste kannst du wieder auf die Bildersuche zugreifen.</translation>
 <translation id="1356661055722410047">Neu! Du kannst sowohl Text als auch Bilder auf deinem Bildschirm übersetzen lassen</translation>
+<translation id="1383876407941801731">Durchsuchen</translation>
 <translation id="1414495520565016063">Du bist in Chromium angemeldet.</translation>
 <translation id="1465192221147974788">Wenn du dein Fenster teilen möchtest, musst du in den Systemeinstellungen die Bildschirmaufzeichnung für Chromium zulassen.</translation>
 <translation id="1478370723027452770">Hilfe zu Chrome for Testing</translation>
 <translation id="1497802159252041924">Installationsfehler: <ph name="INSTALL_ERROR" /></translation>
 <translation id="1524282610922162960">Chromium-Tab freigeben</translation>
+<translation id="1547469039832541117">Beendet den ausgewählten Task.</translation>
 <translation id="1553461853655228091">Chromium benötigt Zugriff auf die Kamera, um eine 3D-Karte deiner Umgebung zu erstellen</translation>
 <translation id="1555494096857516577">{NUM_EXTENSIONS,plural, =1{Diese Erweiterung wird nicht mehr unterstützt. Chromium empfiehlt, sie zu entfernen.}other{Diese Erweiterungen werden nicht mehr unterstützt. Chromium empfiehlt, sie zu entfernen.}}</translation>
 <translation id="1574377791422810894">Sicherheitstools von Chromium</translation>
@@ -76,6 +78,7 @@
 <translation id="2049376729098081731">Lege fest, ob der Chromium-Verlauf dafür verwendet werden soll, die Google-Dienste stärker für dich zu personalisieren</translation>
 <translation id="2086476982681781442">Chromium hat diesen Download blockiert, weil dich die Datei täuschen soll und unerwartete Änderungen an deinem Gerät vornehmen könnte</translation>
 <translation id="2088953378266246249">Informationen zur Verwaltung von Root-Zertifikaten in Chromium</translation>
+<translation id="2099452623287920103">Deine Passwörter und anderen in deinem Google-Konto gespeicherten Chromium-Daten werden von diesem Gerät entfernt. Wenn du sie in Zukunft in Chromium verwenden möchtest, melde dich einfach wieder an.</translation>
 <translation id="2120965832000301375">{COUNT,plural, =1{Deine Organisation löscht Browserdaten automatisch, wenn Chromium eine Minute lang nicht verwendet wird. Dazu können der Verlauf, Autofill-Daten und Downloads gehören. Deine Tabs bleiben dabei geöffnet.}other{Deine Organisation löscht Browserdaten automatisch, wenn Chromium # Minuten lang nicht verwendet wird. Dazu können der Verlauf, Autofill-Daten und Downloads gehören. Deine Tabs bleiben dabei geöffnet.}}</translation>
 <translation id="2126108037660393668">Die heruntergeladene Datei konnte nicht verifiziert werden.</translation>
 <translation id="2137162749895930932">Bildschirm „Übersetzen“ schließen</translation>
@@ -91,6 +94,7 @@
 <translation id="2238130810669087193">Wenn du auf allen deinen Geräten auf deine Adressen und andere Daten zugreifen möchtest, melde dich in Chromium an. Diese Adresse wird in deinem Google-Konto gespeichert, nachdem du dich angemeldet hast.</translation>
 <translation id="2240214816234246077">Du hast diese Website in letzter Zeit nicht besucht. Chromium hat „<ph name="PERMISSION_1" />“ und „<ph name="PERMISSION_2" />“ entfernt.</translation>
 <translation id="2241627712206172106">Bei gemeinsam genutzten Computern können die verschiedenen Personen separat surfen und Chromium jeweils nach ihren Wünschen einrichten.</translation>
+<translation id="2287771843518581140">{NUM_TABS,plural, =1{Chromium empfiehlt, den Tab zu pausieren, der deinen Browser verlangsamt}other{Chromium empfiehlt, die Tabs zu pausieren, die deinen Browser verlangsamen}}</translation>
 <translation id="2313870531055795960">Prüft URLs anhand einer Liste unsicherer Websites, die in Chromium gespeichert ist. Wenn eine Website versucht, dein Passwort zu stehlen, oder wenn du eine schädliche Datei herunterlädst, kann Chromium auch URLs, einschließlich Teile von Seiteninhalten, an Safe Browsing senden.</translation>
 <translation id="2343156876103232566">Wenn du eine Nummer von diesem Gerät an dein Android-Smartphone senden möchtest, musst du dich auf beiden Geräten in Chromium anmelden.</translation>
 <translation id="2359808026110333948">Weiter</translation>
@@ -116,6 +120,7 @@
 <translation id="2583187216237139145">Alle Chromium-Daten, die während der Nutzung dieses Profils erstellt werden, wie Lesezeichen, Verlauf, Passwörter und andere Einstellungen, können vom Administrator des Arbeitsprofils entfernt werden. <ph name="LEARN_MORE" /></translation>
 <translation id="2592940277904433508">Chromium weiterhin verwenden</translation>
 <translation id="259935314519650377">Die heruntergeladene Installationsdatei konnte nicht im Cache gespeichert werden. Fehler: <ph name="UNPACK_CACHING_ERROR_CODE" />.</translation>
+<translation id="2620436844016719705">System</translation>
 <translation id="2629740064077610681">Deine Organisation kann Browserdaten sehen und verwalten, wie z. B. deine Lesezeichen, deinen Verlauf und deine Passwörter. Browserdaten in anderen Chromium-Profilen sind nicht sichtbar.</translation>
 <translation id="2635452620547538388">Bestätige deine Identität, um Chromium-Daten in deinem Konto <ph name="ACCOUNT_EMAIL" /> zu verwenden und zu speichern</translation>
 <translation id="264613044588233783">Chromium wird schneller ausgeführt und Funktionen, die JavaScript verwenden, sollten wie vorgesehen funktionieren (empfohlen)</translation>
@@ -126,12 +131,11 @@
 <translation id="2721354645805494590">Wenn du dein Google-Konto von Chromium entfernen möchtest, melde dich ab</translation>
 <translation id="2738871930057338499">Internetverbindung kann nicht hergestellt werden. HTTP 403 Forbidden. Bitte prüfe deine Proxykonfiguration.</translation>
 <translation id="2753623023919742414">Zum Suchen klicken</translation>
+<translation id="2768103863314748511">Chromium als standardmäßigen PDF-Viewer festlegen</translation>
 <translation id="2770231113462710648">Standardbrowser ändern in:</translation>
-<translation id="277338894894732084">Später wirst du von Chromium gefragt, ob du gespeicherte Informationen verwenden möchtest, um Formulare automatisch auszufüllen</translation>
 <translation id="2785438272836277133">Diese Erweiterung enthält Malware und ist nicht sicher. Entferne sie aus Chromium, damit sie deine Daten auf von dir besuchten Websites nicht mehr abrufen oder ändern kann, auch nicht deine personenbezogenen Daten.</translation>
 <translation id="2799223571221894425">Neu starten</translation>
 <translation id="2803971713792056305">Mein Chromium</translation>
-<translation id="2806241689335397269">Chromium fragt dich, ob du Formularinformationen wie deinen Geburtstag, dein Alter und deine Reisepassnummer speichern möchtest</translation>
 <translation id="2841525013647267359">Übersetzen aus Sprache:</translation>
 <translation id="2846251086934905009">Installationsfehler: Die Installation konnte nicht abgeschlossen werden und wurde abgebrochen.</translation>
 <translation id="2847479871509788944">Aus Chromium entfernen...</translation>
@@ -146,6 +150,7 @@
 <translation id="2977470724722393594">Chromium ist auf dem neuesten Stand</translation>
 <translation id="2977506796191543575">Wenn eine Website versucht, dein Passwort zu stehlen, oder wenn du eine schädliche Datei herunterlädst, kann Chromium auch URLs, einschließlich Teile von Seiteninhalten, an Safe Browsing senden</translation>
 <translation id="2981563588585023386">Wenn du die von deinen Eltern festgelegten Einstellungen nutzen möchtest, um im Internet besser geschützt zu sein, melde dich in Chromium an</translation>
+<translation id="3003694935412297923">Alle Tasks</translation>
 <translation id="3013473503895162900"><ph name="URL" /> in einem neuen Tab in Chromium öffnen.</translation>
 <translation id="3032706164202344641">Chromium kann deine Passwörter nicht prüfen. Versuche es später noch einmal.</translation>
 <translation id="3032787606318309379">Wird zu Chromium hinzugefügt...</translation>
@@ -165,6 +170,7 @@
 <translation id="3179665906251668410">Link in Chromium-Inkognitofenster öffnen</translation>
 <translation id="3185330573522821672">Personalisiere dein neues Chromium-Profil</translation>
 <translation id="3224847870593914902">Wenn du dein Google-Konto von Chromium entfernen möchtest, melde dich auf der Seite „Einstellungen“ von Chromium ab</translation>
+<translation id="3234316605225071811">Später kann Chromium dich fragen, ob du die gespeicherten Informationen verwenden möchtest, um Formulare automatisch auszufüllen</translation>
 <translation id="3258596308407688501">Chromium kann im folgenden Datenverzeichnis weder lesen noch schreiben:
 
 <ph name="USER_DATA_DIRECTORY" /></translation>
@@ -177,7 +183,6 @@
 <translation id="3387527074123400161">Chromium OS</translation>
 <translation id="3406848076815591792">Zu bestehendem Chromium-Profil wechseln?</translation>
 <translation id="3412460710772753638">Im Passwortmanager auf diesem Gerät</translation>
-<translation id="3451656833730006755">Wenn du auf allen deinen Computern auf deine Erweiterungen und andere Daten zugreifen möchtest, melde dich in Chromium an</translation>
 <translation id="347328004046849135">Wenn du dich mit einem Passwort anmeldest, das kompromittiert wurde, benachrichtigt dich Chromium entsprechend.</translation>
 <translation id="3474745554856756813">Dadurch werden <ph name="ITEMS_COUNT" /> Elemente von diesem Gerät gelöscht. Wenn du deine Daten später abrufen möchtest, melde dich als <ph name="USER_EMAIL" /> in Chromium an.</translation>
 <translation id="3497319089134299931">Mit <ph name="SHORTCUT" /> kann zwischen Chromium-Profilen gewechselt werden</translation>
@@ -226,6 +231,7 @@
 <translation id="4148957013307229264">Installation wird ausgeführt...</translation>
 <translation id="419998258129752635"><ph name="PAGE_TITLE" /> – Netzwerkanmeldung – Chromium</translation>
 <translation id="421369550622382712">Entdecke tolle Apps, Spiele, Erweiterungen und Designs für Chromium.</translation>
+<translation id="4217080900579554343">Wenn du auf allen deinen Computern auf diese Erweiterung und mehr zugreifen möchtest, melde dich in Chromium an</translation>
 <translation id="4217972271355023382">Wenn du die von deinen Eltern festgelegten Einstellungen nutzen möchtest, um im Internet besser geschützt zu sein, wechsel zu deinem Chromium-Profil, in dem du bereits als <ph name="USER_EMAIL_ADDRESS" /> angemeldet bist</translation>
 <translation id="4222932583846282852">Wird abgebrochen…</translation>
 <translation id="4224210481850767180">Die Installation wurde abgebrochen.</translation>
@@ -261,6 +267,7 @@
 <translation id="4570813286784708942">Chromium hat diesen Download blockiert, weil du Safe Browsing deaktiviert hast und die Datei nicht überprüft werden kann</translation>
 <translation id="4594305310729380060">In den Passwortmanager auf diesem Gerät</translation>
 <translation id="459535195905078186">Chromium-Apps</translation>
+<translation id="4598116752460667024">Nach Prozessen in der Liste suchen.</translation>
 <translation id="4613863813562375431">Chromium OS-Version</translation>
 <translation id="4621240073146040695">Fast fertig! Starte Chromium neu, um die Aktualisierung abzuschließen.</translation>
 <translation id="4665829708273112819">Achtung: Chromium kann nicht verhindern, dass dein Browserverlauf von Erweiterungen protokolliert wird. Du kannst diese Erweiterung für den Inkognitomodus deaktivieren, indem du die Auswahl für die entsprechende Option aufhebst.</translation>
@@ -307,6 +314,7 @@
 <translation id="5405650547142096840">Aus Chromium entfernen</translation>
 <translation id="5427571867875391349">Chromium als Standardbrowser festlegen</translation>
 <translation id="5438241569118040789"><ph name="PAGE_TITLE" /> – Chromium Beta</translation>
+<translation id="5460618461609401056">{NUM_TABS,plural, =1{Chromium empfiehlt, den Tab zu pausieren, der deinen Browser verlangsamt}other{Chromium empfiehlt, die Tabs zu pausieren, die deinen Browser verlangsamen}}</translation>
 <translation id="5473971139929175403">Chromium funktioniert unter Umständen nicht ordnungsgemäß, da es unter dieser Linux-Distribution nicht mehr unterstützt wird</translation>
 <translation id="5475924890392386523">Chromium hat diesen Download blockiert, weil die Datei deine privaten Konten sowie Konten in sozialen Netzwerken schädigen kann</translation>
 <translation id="5480860683791598150">Chromium benötigt Zugriff auf deinen Standort, um ihn mit dieser Website zu teilen</translation>
@@ -338,6 +346,7 @@
 <translation id="5903106910045431592"><ph name="PAGE_TITLE" /> – Netzwerkanmeldung</translation>
 <translation id="5924017743176219022">Internetverbindung wird hergestellt…</translation>
 <translation id="5941711191222866238">Minimieren</translation>
+<translation id="5949225980829865667">Wenn du auf allen deinen Geräten auf dieses Lesezeichen und andere Daten zugreifen möchtest, melde dich in Chromium an</translation>
 <translation id="5972142260211327093">Wenn Chromium dich zufällig für einen aktiven Test angemeldet hat, hat dein Browserverlauf Einfluss auf die unten stehenden, geschätzten Interessen und darauf, welche Werbung dir gezeigt wird. Zum Schutz deiner Daten löscht Chromium jeden Monat fortlaufend deine Interessen. Solange du deine Interessen nicht entfernst, werden sie aktualisiert.</translation>
 <translation id="5986585015444752010">{COUNT,plural, =1{Deine Organisation hat festgelegt, dass Chromium automatisch geschlossen wird, wenn der Browser eine Minute lang nicht verwendet wird.}other{Deine Organisation hat festgelegt, dass Chromium automatisch geschlossen wird, wenn der Browser # Minuten lang nicht verwendet wird.}}</translation>
 <translation id="5987687638152509985">Aktualisiere Chromium, um die Synchronisierung zu starten</translation>
@@ -426,6 +435,7 @@ Einige Funktionen stehen möglicherweise nicht zur Verfügung. Gib bitte ein and
 <translation id="6857782730669500492">Chromium – <ph name="PAGE_TITLE" /></translation>
 <translation id="6873893289264747459">Chromium hat festgestellt, dass „<ph name="EXTENSION_NAME" />“ Malware enthält</translation>
 <translation id="6896758677409633944">Kopieren</translation>
+<translation id="6901631050894301805">Chromium als Standardbrowser festlegen und an die Taskleiste anheften</translation>
 <translation id="6929417474050522668">Wenn Tests aktiviert sind, können mithilfe der Anzeigenanalyse von dir besuchte Websites Informationen von Chromium anfordern, mit denen sie die Leistung ihrer Werbung analysieren können. Durch die Anzeigenanalyse wird das websiteübergreifende Tracking eingeschränkt, indem so wenig Informationen wie möglich zwischen Websites ausgetauscht werden.</translation>
 <translation id="6940431691900807093">Wenn du eine Website besuchst, kann diese von Chromium dann deine Interessen anfordern, um die dir gezeigte Werbung zu personalisieren. Chromium kann bis zu drei Interessen teilen.</translation>
 <translation id="6964305034639999644">Link in Chromium-Inkognitofenster öffnen</translation>
@@ -450,6 +460,7 @@ Einige Funktionen stehen möglicherweise nicht zur Verfügung. Gib bitte ein and
 <translation id="7223968959479464213">Task-Manager - Chromium</translation>
 <translation id="7246575524853130370">Deine von Chromium geschätzten Interessen</translation>
 <translation id="7274695763216404502">Angepinnt! Du kannst die Bildersuche wieder über die Symbolleiste verwenden.</translation>
+<translation id="7288567540154601580">Tabs und Erweiterungen</translation>
 <translation id="7295544978856094497">{NUM_EXTENSIONS,plural, =1{Chromium empfiehlt, sie zu entfernen}other{Chromium empfiehlt, sie zu entfernen}}</translation>
 <translation id="7309928523159922338">Mithilfe der Anzeigenanalyse können von dir besuchte Websites Informationen von Chromium anfordern, mit denen sie die Leistung ihrer Werbung analysieren können. Durch die Anzeigenanalyse wird das websiteübergreifende Tracking eingeschränkt, indem so wenig Informationen wie möglich zwischen Websites ausgetauscht werden.</translation>
 <translation id="731795002583552498">Chromium wird aktualisiert</translation>
@@ -459,9 +470,7 @@ Chromium kann deine Einstellungen nicht wiederherstellen.</translation>
 <translation id="7339898014177206373">Neues Fenster</translation>
 <translation id="734373864078049451">Hier kannst du im Web surfen und deine Lesezeichen und andere Chromium-Inhalte speichern.</translation>
 <translation id="7349591376906416160">Dein Systemadministrator hat Chromium so konfiguriert, dass <ph name="ALTERNATIVE_BROWSER_NAME" /> für den Zugriff auf <ph name="TARGET_URL_HOSTNAME" /> geöffnet wird.</translation>
-<translation id="7355355292030546812">Chromium hat diesen Download blockiert, weil die Datei deine privaten Konten sowie Konten in sozialen Netzwerken, einschließlich <ph name="USER_EMAIL" />, schädigen kann</translation>
 <translation id="7384121030444253939">Diese Erweiterung wird nicht mehr unterstützt. Chromium empfiehlt daher, sie zu entfernen.</translation>
-<translation id="7389750180956889333">Chromium erkennt den Inhalt von Formularen besser und kann sie schneller automatisch ausfüllen. <ph name="BEGIN_LINK" />Weitere Informationen zu Chrome Autofill<ph name="END_LINK" /></translation>
 <translation id="7449453770951226939"><ph name="PAGE_TITLE" /> – Chromium Dev</translation>
 <translation id="7450541714075000668">Text kopiert</translation>
 <translation id="7451052299415159299">Chromium benötigt für diese Website die Berechtigung, auf deine Kamera zuzugreifen</translation>
@@ -498,6 +507,7 @@ Chromium kann deine Einstellungen nicht wiederherstellen.</translation>
 <translation id="7937630085815544518">Du warst in Chromium als <ph name="USER_EMAIL_ADDRESS" /> angemeldet. Melde dich bitte wieder mit demselben Konto an.</translation>
 <translation id="7975919845073681630">Dies ist eine Zweitinstallation, daher kann Chromium nicht als Standardbrowser festgelegt werden.</translation>
 <translation id="7997934263947464652">Erweiterungen, Apps und Designs aus unbekannten Quellen können Schäden auf deinem Gerät verursachen. Chromium empfiehlt, sie nur über den <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> zu installieren.</translation>
+<translation id="8004582292198964060">Browser</translation>
 <translation id="8010081455002666927">Automatische Erkennung</translation>
 <translation id="8013436988911883588">Sobald Chromium Zugriff hat, können Websites dich um Zugriff bitten.</translation>
 <translation id="80471789339884597">Vielen Dank für die Installation. Du musst alle Browser neu starten, bevor du <ph name="BUNDLE_NAME" /> verwenden kannst.</translation>

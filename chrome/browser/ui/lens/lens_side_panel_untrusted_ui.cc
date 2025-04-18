@@ -51,10 +51,14 @@ LensSidePanelUntrustedUI::LensSidePanelUntrustedUI(content::WebUI* web_ui)
       IDS_SIDE_PANEL_COMPANION_ERROR_PAGE_SECOND_LINE);
   html_source->AddLocalizedString(
       "searchboxGhostLoaderHintTextPrimaryDefault",
-      IDS_GOOGLE_SEARCH_BOX_CONTEXTUAL_LOADING_HINT_PRIMARY);
+      lens::features::ShouldUseAltLoadingHintWeb()
+          ? IDS_GOOGLE_SEARCH_BOX_CONTEXTUAL_LOADING_HINT_PRIMARY_ALT
+          : IDS_GOOGLE_SEARCH_BOX_CONTEXTUAL_LOADING_HINT_PRIMARY);
   html_source->AddLocalizedString(
       "searchboxGhostLoaderHintTextPrimaryPdf",
-      IDS_GOOGLE_SEARCH_BOX_CONTEXTUAL_LOADING_HINT_PRIMARY_PDF);
+      lens::features::ShouldUseAltLoadingHintPdf()
+          ? IDS_GOOGLE_SEARCH_BOX_CONTEXTUAL_LOADING_HINT_PRIMARY_ALT
+          : IDS_GOOGLE_SEARCH_BOX_CONTEXTUAL_LOADING_HINT_PRIMARY_PDF);
   html_source->AddLocalizedString(
       "searchboxGhostLoaderHintTextSecondary",
       IDS_GOOGLE_SEARCH_BOX_CONTEXTUAL_LOADING_HINT_SECONDARY);
@@ -63,19 +67,19 @@ LensSidePanelUntrustedUI::LensSidePanelUntrustedUI(content::WebUI* web_ui)
   html_source->AddLocalizedString(
       "searchboxGhostLoaderNoSuggestText",
       IDS_GOOGLE_SEARCH_BOX_CONTEXTUAL_NO_SUGGEST_TEXT);
+  const bool dark_mode = lens::LensOverlayShouldUseDarkMode(
+      ThemeServiceFactory::GetForProfile(Profile::FromWebUI(web_ui)));
 
   // Add finch flags
   html_source->AddString(
       "resultsLoadingUrl",
-      lens::features::GetLensOverlayResultsSearchLoadingURL(
-          lens::LensOverlayShouldUseDarkMode(
-              ThemeServiceFactory::GetForProfile(Profile::FromWebUI(web_ui)))));
-  html_source->AddBoolean(
-      "darkMode",
-      lens::LensOverlayShouldUseDarkMode(
-          ThemeServiceFactory::GetForProfile(Profile::FromWebUI(web_ui))));
+      lens::features::GetLensOverlayResultsSearchLoadingURL(dark_mode));
+  html_source->AddBoolean("darkMode", dark_mode);
   html_source->AddBoolean("enableErrorPage",
                           lens::features::GetLensOverlayEnableErrorPage());
+  html_source->AddBoolean(
+      "enableGhostLoader",
+      lens::features::EnableContextualSearchboxGhostLoader());
   html_source->AddBoolean(
       "showContextualSearchboxLoadingState",
       lens::features::ShowContextualSearchboxGhostLoaderLoadingState());
@@ -115,7 +119,8 @@ LensSidePanelUntrustedUI::LensSidePanelUntrustedUI(content::WebUI* web_ui)
                                          Profile::FromWebUI(web_ui));
   html_source->AddString(
       "searchboxDefaultIcon",
-      "//resources/cr_components/searchbox/icons/google_g.svg");
+      dark_mode ? "//resources/cr_components/searchbox/icons/google_g_cr23.svg"
+                : "//resources/cr_components/searchbox/icons/google_g.svg");
   html_source->AddBoolean("reportMetrics", false);
   html_source->AddLocalizedString("searchBoxHint",
                                   IDS_GOOGLE_LENS_SEARCH_BOX_EMPTY_HINT);

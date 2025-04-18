@@ -31,6 +31,7 @@
 #include "gpu/command_buffer/service/gr_shader_cache.h"
 #include "gpu/command_buffer/service/graphite_cache_controller.h"
 #include "gpu/command_buffer/service/graphite_image_provider.h"
+#include "gpu/command_buffer/service/graphite_precompile.h"
 #include "gpu/command_buffer/service/service_transfer_cache.h"
 #include "gpu/command_buffer/service/service_utils.h"
 #include "gpu/command_buffer/service/skia_utils.h"
@@ -48,8 +49,6 @@
 #include "third_party/skia/include/gpu/ganesh/mock/GrMockTypes.h"
 #include "third_party/skia/include/gpu/graphite/Context.h"
 #include "third_party/skia/include/gpu/graphite/PrecompileContext.h"
-#include "third_party/skia/include/gpu/graphite/precompile/PaintOptions.h"
-#include "third_party/skia/include/gpu/graphite/precompile/Precompile.h"
 #include "ui/gl/gl_bindings.h"
 #include "ui/gl/gl_context.h"
 #include "ui/gl/gl_share_group.h"
@@ -106,20 +105,6 @@ size_t MaxNumSkSurface() {
 #endif
 }
 
-void PerformPrecompilation(
-    std::unique_ptr<skgpu::graphite::PrecompileContext> precompileContext) {
-  const skgpu::graphite::RenderPassProperties kProps = {
-      skgpu::graphite::DepthStencilFlags::kDepth, kBGRA_8888_SkColorType,
-      /* dstColorSpace= */ nullptr, /* requiresMSAA= */ false};
-
-  // TODO: crbug.com/358074434 - add actually relevant precompilation
-  skgpu::graphite::PaintOptions paintOptions;
-  paintOptions.setBlendModes({SkBlendMode::kSrcOver});
-
-  Precompile(precompileContext.get(), paintOptions,
-             skgpu::graphite::DrawTypeFlags::kBitmapText_Mask, {&kProps, 1});
-}
-
 void InitiatePrecompilation(skgpu::graphite::Context* context) {
   constexpr base::TaskTraits precompile_traits = {
       base::TaskPriority::BEST_EFFORT,
@@ -134,7 +119,8 @@ void InitiatePrecompilation(skgpu::graphite::Context* context) {
 
   base::ThreadPool::PostDelayedTask(
       FROM_HERE, precompile_traits,
-      base::BindOnce(&PerformPrecompilation, std::move(precompileContext)),
+      base::BindOnce(&GraphitePerformPrecompilation,
+                     std::move(precompileContext)),
       precompile_wait);
 }
 
@@ -142,11 +128,13 @@ void InitiatePrecompilation(skgpu::graphite::Context* context) {
 std::unique_ptr<skgpu::graphite::Recorder> MakeGraphiteRecorder(
     skgpu::graphite::Context* context,
     size_t max_resource_cache_bytes,
-    size_t max_image_provider_cache_bytes) {
+    size_t max_image_provider_cache_bytes,
+    std::optional<bool> require_ordered_recordings = {}) {
   skgpu::graphite::RecorderOptions options;
   options.fGpuBudgetInBytes = max_resource_cache_bytes;
   options.fImageProvider =
       sk_make_sp<gpu::GraphiteImageProvider>(max_image_provider_cache_bytes);
+  options.fRequireOrderedRecordings = require_ordered_recordings;
   return context->makeRecorder(options);
 }
 
@@ -668,9 +656,15 @@ bool SharedContextState::InitializeGraphite(
   // compositor which will be the GPU main context without DrDC and the
   // the CompositorGpuThread context with DrDC.
   if (!is_drdc_enabled_ || created_on_compositor_gpu_thread_) {
+    // The Viz recorder is shared across multiple output surfaces, which have
+    // independent event sequences. The Viz content is unlikely to trigger the
+    // scenarios that have improved performance when Recordings are required to
+    // be inserted in order, so this grants the Viz thread more flexibility
+    // without any negative impact. See https://crbug.com/406292843
     viz_compositor_graphite_recorder_ = MakeGraphiteRecorder(
         graphite_context_, context_options.fGpuBudgetInBytes,
-        max_viz_compositor_image_provider_cache_bytes);
+        max_viz_compositor_image_provider_cache_bytes,
+        /*require_ordered_recordings=*/false);
   }
 
   transfer_cache_ = std::make_unique<ServiceTransferCache>(

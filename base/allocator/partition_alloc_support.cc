@@ -638,7 +638,7 @@ void CheckDanglingRawPtrBufferEmpty() {
   g_stack_trace_buffer = DanglingRawPtrBuffer();
 #else
   bool errors = false;
-  for (auto entry : g_stack_trace_buffer) {
+  for (const auto& entry : g_stack_trace_buffer) {
     if (!entry) {
       continue;
     }
@@ -1379,5 +1379,11 @@ std::string PartitionAllocSupport::ExtractDanglingPtrSignatureForTests(
   return ExtractDanglingPtrSignature(stacktrace);
 }
 #endif
+
+void CheckHeapIntegrity(const void* ptr) {
+#if PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
+  partition_alloc::PartitionRoot::CheckMetadataIntegrity(ptr);
+#endif  // PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
+}
 
 }  // namespace base::allocator

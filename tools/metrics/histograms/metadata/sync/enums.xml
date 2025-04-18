@@ -719,6 +719,9 @@ chromium-metrics-reviews@google.com.
   <int value="100322"
       label="OfficeMoveConfirmationShownForCloudToOneDriveSyncable"/>
   <int value="100323" label="PinnedCastMigrationComplete"/>
+  <int value="100324" label="AccessibilityAXTreeFixingEnabled"/>
+  <int value="100325" label="TabSearchMigrationComplete"/>
+  <int value="100326" label="ReadAloudPlaybackMode"/>
 <!-- LINT.ThenChange(/chrome/browser/sync/prefs/chrome_syncable_prefs_database.cc:ChromeSyncablePref)-->
 
 <!-- LINT.IfChange(IosSyncablePref) -->
@@ -896,7 +899,8 @@ chromium-metrics-reviews@google.com.
   <int value="66" label="Product Comparison"/>
   <int value="67" label="Cookies"/>
   <int value="68" label="Plus Address Settings"/>
-  <int value="69" label="Autofill Loyalty Card"/>
+  <int value="69" label="Autofill Valuable"/>
+  <int value="70" label="Shared Tab Group Account Data"/>
 </enum>
 
 <!-- LINT.ThenChange(/components/sync/base/data_type.h:SyncDataTypes) -->

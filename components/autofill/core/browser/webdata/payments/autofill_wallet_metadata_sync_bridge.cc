@@ -8,6 +8,7 @@
 #include <optional>
 #include <unordered_set>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "base/base64.h"
@@ -721,7 +722,7 @@ void AutofillWalletMetadataSyncBridge::LocalMetadataChanged(
   // have migrated to use instrument IDs, then the branching can be removed.
   std::string metadata_id;
   if constexpr (std::same_as<DataType, Iban>) {
-    metadata_id = base::NumberToString(absl::get<int64_t>(change.key()));
+    metadata_id = base::NumberToString(std::get<int64_t>(change.key()));
   } else {
     metadata_id = change.key();
   }
@@ -732,6 +733,10 @@ void AutofillWalletMetadataSyncBridge::LocalMetadataChanged(
       CreateMetadataChangeList();
 
   switch (change.type()) {
+    case AutofillDataModelChange<DataType, KeyType>::HIDE_IN_AUTOFILL:
+      // `HIDE_IN_AUTOFILL` is not supported for wallet metadata.
+      NOTIMPLEMENTED();
+      break;
     case AutofillDataModelChange<DataType, KeyType>::REMOVE:
       if (RemoveServerMetadata(GetAutofillTable(), type, metadata_id)) {
         cache_.erase(storage_key);

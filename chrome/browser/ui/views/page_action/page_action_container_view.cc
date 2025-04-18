@@ -11,15 +11,22 @@
 #include "chrome/browser/ui/views/page_action/page_action_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_view_params.h"
 #include "ui/actions/actions.h"
+#include "ui/base/interaction/element_identifier.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/views/layout/flex_layout.h"
+#include "ui/views/view_class_properties.h"
 
 namespace page_actions {
+
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(PageActionContainerView,
+                                      kPageActionContainerViewElementId);
 
 PageActionContainerView::PageActionContainerView(
     const std::vector<actions::ActionItem*>& action_items,
     const PageActionViewParams& params) {
+  SetProperty(views::kElementIdentifierKey, kPageActionContainerViewElementId);
+
   auto* layout = SetLayoutManager(std::make_unique<views::FlexLayout>());
   layout->SetMainAxisAlignment(views::LayoutAlignment::kEnd);
 
@@ -30,18 +37,15 @@ PageActionContainerView::PageActionContainerView(
                    gfx::Insets().set_right(params.between_icon_spacing))
       .SetIgnoreDefaultMainAxisMargins(!params.should_bridge_containers);
 
-  // Callback used to handle page action view chip state changes to ensure that
-  // the container reorder the page actions accordingly.
-  base::RepeatingCallback<void(actions::ActionId, bool)>
-      chip_state_changed_callback = base::BindRepeating(
-          &PageActionContainerView::OnPageActionSuggestionChipStateChanged,
-          base::Unretained(this));
-
   int initial_index = 0;
   for (actions::ActionItem* action_item : action_items) {
-    PageActionView* view = AddChildView(std::make_unique<PageActionView>(
-        action_item, params, chip_state_changed_callback));
+    PageActionView* view =
+        AddChildView(std::make_unique<PageActionView>(action_item, params));
     page_action_views_[action_item->GetActionId().value()] = view;
+    chip_state_changed_callbacks_.push_back(
+        view->AddChipVisibilityChangedCallback(base::BindRepeating(
+            &PageActionContainerView::OnPageActionSuggestionChipStateChanged,
+            base::Unretained(this))));
 
     // Record the original index for the page action view so that even if it
     // become a suggestion chip (move to index 0) we can bring it back later at
@@ -49,10 +53,13 @@ PageActionContainerView::PageActionContainerView(
     page_action_view_initial_indices_[action_item->GetActionId().value()] =
         initial_index++;
 
-    view->SetProperty(views::kFlexBehaviorKey,
-                      views::FlexSpecification(
-                          views::MinimumFlexSizeRule::kPreferredSnapToMinimum,
-                          views::MaximumFlexSizeRule::kPreferred));
+    view->SetProperty(
+        views::kFlexBehaviorKey,
+        views::FlexSpecification(
+            params.hide_icon_on_space_constraint
+                ? views::MinimumFlexSizeRule::kScaleToMinimumSnapToZero
+                : views::MinimumFlexSizeRule::kPreferredSnapToMinimum,
+            views::MaximumFlexSizeRule::kPreferred));
   }
 }
 
@@ -71,18 +78,15 @@ PageActionView* PageActionContainerView::GetPageActionView(
 }
 
 void PageActionContainerView::OnPageActionSuggestionChipStateChanged(
-    actions::ActionId action_id,
-    bool suggestion_chip_visible) {
-  PageActionView* child = GetPageActionView(action_id);
-  CHECK(child);
-
-  if (suggestion_chip_visible) {
+    PageActionView* view) {
+  if (view->IsChipVisible()) {
     // Bring the suggestion chip to the front.
-    ReorderChildView(child, 0u);
+    ReorderChildView(view, 0u);
   } else {
+    const auto action_id = view->GetActionId();
     // Restore the original order using the recorded index.
     if (page_action_view_initial_indices_.contains(action_id)) {
-      ReorderChildView(child, page_action_view_initial_indices_.at(action_id));
+      ReorderChildView(view, page_action_view_initial_indices_.at(action_id));
     }
   }
 }

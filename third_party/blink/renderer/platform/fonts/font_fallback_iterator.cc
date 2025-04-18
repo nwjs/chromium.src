@@ -11,7 +11,6 @@
 #include "third_party/blink/renderer/platform/fonts/segmented_font_data.h"
 #include "third_party/blink/renderer/platform/fonts/shaping/harfbuzz_face.h"
 #include "third_party/blink/renderer/platform/fonts/simple_font_data.h"
-#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 
 namespace blink {
 
@@ -27,7 +26,6 @@ FontFallbackIterator::FontFallbackIterator(
       font_fallback_priority_(font_fallback_priority) {}
 
 void FontFallbackIterator::Reset() {
-  DCHECK(RuntimeEnabledFeatures::FontVariationSequencesEnabled());
   current_font_data_index_ = 0;
   segmented_face_index_ = 0;
   fallback_stage_ = kFontGroupFonts;
@@ -234,7 +232,7 @@ FontDataForRangeSet* FontFallbackIterator::Next(const HintCharList& hint_list) {
 const SimpleFontData* FontFallbackIterator::FallbackPriorityFont(UChar32 hint) {
   const SimpleFontData* font_data = FontCache::Get().FallbackFontForCharacter(
       font_description_, hint,
-      font_fallback_list_->PrimarySimpleFontData(font_description_),
+      font_fallback_list_->PrimarySimpleFontDataWithSpace(font_description_),
       font_fallback_priority_);
 
   return font_data;
@@ -278,7 +276,7 @@ const SimpleFontData* FontFallbackIterator::UniqueSystemFontForHintList(
 
   const SimpleFontData* font_data = font_cache.FallbackFontForCharacter(
       font_description_, hint,
-      font_fallback_list_->PrimarySimpleFontData(font_description_));
+      font_fallback_list_->PrimarySimpleFontDataWithSpace(font_description_));
 
   return font_data;
 }

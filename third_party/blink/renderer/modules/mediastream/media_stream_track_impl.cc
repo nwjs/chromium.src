@@ -303,7 +303,7 @@ MediaStreamTrackImpl::MediaStreamTrackImpl(
     zoom_level_ = source_device->display_media_info->initial_zoom_level;
   }
 
-  if (video_track) {
+  if (video_track && GetDisplayCaptureType(component_)) {
     video_track->RegisterCaptureSurfaceResolutionChangeCallback(
         WTF::BindRepeating(
             &MediaStreamTrackImpl::MaybeDispatchConfigurationChange,
@@ -670,14 +670,14 @@ MediaTrackSettings* MediaStreamTrackImpl::getSettings() const {
 
   if (platform_settings.display_surface) {
     settings->setDisplaySurface(
-        GetDisplaySurfaceString(platform_settings.display_surface.value()));
+        GetDisplaySurfaceString(*platform_settings.display_surface));
   }
   if (platform_settings.logical_surface) {
-    settings->setLogicalSurface(platform_settings.logical_surface.value());
+    settings->setLogicalSurface(*platform_settings.logical_surface);
   }
   if (platform_settings.cursor) {
     WTF::String value;
-    switch (platform_settings.cursor.value()) {
+    switch (*platform_settings.cursor) {
       case media::mojom::CursorCaptureType::NEVER:
         value = "never";
         break;
@@ -691,35 +691,15 @@ MediaTrackSettings* MediaStreamTrackImpl::getSettings() const {
     settings->setCursor(value);
   }
 
-#if BUILDFLAG(IS_WIN)
   if (IsCapturedSurfaceResolutionActive(platform_settings)) {
-    std::optional<float> ratio = platform_settings.device_scale_factor;
-    if (platform_settings.display_surface ==
-            media::mojom::DisplayCaptureSurfaceType::BROWSER &&
-        zoom_level_ && ratio) {
-      ratio = zoom_level_.value() * ratio.value();
-      ratio = ratio.value() / 100.0f;
-    }
-
-    if (platform_settings.physical_frame_size) {
-      settings->setPhysicalWidth(
-          platform_settings.physical_frame_size->width());
-      settings->setPhysicalHeight(
-          platform_settings.physical_frame_size->height());
-      if (ratio) {
-        settings->setLogicalWidth(
-            platform_settings.physical_frame_size->width() / ratio.value());
-        settings->setLogicalHeight(
-            platform_settings.physical_frame_size->height() / ratio.value());
-        settings->setPixelRatio(ratio.value());
-      }
+    if (platform_settings.device_scale_factor) {
+      settings->setScreenPixelRatio(*platform_settings.device_scale_factor);
     }
   }
-#endif
 
   if (suppress_local_audio_playback_setting_.has_value()) {
     settings->setSuppressLocalAudioPlayback(
-        suppress_local_audio_playback_setting_.value());
+        *suppress_local_audio_playback_setting_);
   }
 
   return settings;
@@ -1187,10 +1167,8 @@ void MediaStreamTrackImpl::SendLogMessage(const WTF::String& message) {
 
 bool MediaStreamTrackImpl::IsCapturedSurfaceResolutionActive(
     const MediaStreamTrackPlatform::Settings& platform_settings) const {
-#if BUILDFLAG(IS_WIN)
-  if (RuntimeEnabledFeatures::CapturedSurfaceResolutionEnabled(
-          execution_context_) &&
-      platform_settings.physical_frame_size) {
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+  if (platform_settings.physical_frame_size) {
     return true;
   }
 #endif

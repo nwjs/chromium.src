@@ -12,10 +12,12 @@
 
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
+#include "base/test/test_future.h"
 #include "build/build_config.h"
 #include "components/sync/base/user_selectable_type.h"
 #include "components/sync/engine/cycle/sync_cycle_snapshot.h"
 #include "components/sync/service/sync_service_impl.h"
+#include "google_apis/gaia/gaia_id.h"
 
 class Profile;
 
@@ -60,6 +62,10 @@ class SyncServiceImplHarness {
 
   signin::GaiaIdHash GetGaiaIdHashForPrimaryAccount() const;
 
+  // Returns GaiaId for the default test account. This method can be used when
+  // the account is not signed in.
+  GaiaId GetGaiaIdForDefaultTestAccount() const;
+
   // Signs in to a primary account without actually enabling sync the feature.
   [[nodiscard]] bool SignInPrimaryAccount(
       signin::ConsentLevel consent_level = signin::ConsentLevel::kSignin);
@@ -78,8 +84,17 @@ class SyncServiceImplHarness {
 #if !BUILDFLAG(IS_ANDROID)
   // Enters/exits the "Sync paused" state, which in real life happens if a
   // syncing user signs out of the content area.
+  // TODO(crbug.com/401470426): Replace the usages with
+  // Enter/ExitSignInPendingStateForPrimaryAccount().
   void EnterSyncPausedStateForPrimaryAccount();
   bool ExitSyncPausedStateForPrimaryAccount();
+
+  // Enters the "Sign-in pending" state and waits until the sync transport
+  // layer is paused. Returns true if successful.
+  bool EnterSignInPendingStateForPrimaryAccount();
+  // Exits the "Sign-in pending" state and waits until the sync transport layer
+  // is active. Returns true if successful.
+  bool ExitSignInPendingStateForPrimaryAccount();
 #endif  // !BUILDFLAG(IS_ANDROID)
 
   // Enables and configures sync for all available datatypes. Returns true only
@@ -141,6 +156,10 @@ class SyncServiceImplHarness {
   // successful.
   [[nodiscard]] bool AwaitSyncTransportActive();
 
+  // Blocks the caller until the sync transport layer is paused. Returns true if
+  // successful.
+  [[nodiscard]] bool AwaitSyncTransportPaused();
+
   // Blocks the caller until invalidations are enabled or disabled.
   [[nodiscard]] bool AwaitInvalidationsStatus(bool expected_status);
 
@@ -167,6 +186,11 @@ class SyncServiceImplHarness {
 
   // Returns a snapshot of the current sync session.
   syncer::SyncCycleSnapshot GetLastCycleSnapshot() const;
+
+  // Returns a TestFuture that will be resolved with the set of data types that
+  // have unsynced data.
+  base::test::TestFuture<syncer::DataTypeSet> GetTypesWithUnsyncedData(
+      syncer::DataTypeSet requested_types) const;
 
  private:
   SyncServiceImplHarness(Profile* profile,

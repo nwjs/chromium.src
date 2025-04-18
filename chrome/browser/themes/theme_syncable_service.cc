@@ -36,6 +36,7 @@
 #include "components/sync_preferences/pref_service_syncable_observer.h"
 #include "extensions/browser/disable_reason.h"
 #include "extensions/browser/extension_prefs.h"
+#include "extensions/browser/extension_registrar.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/pending_extension_info.h"
@@ -538,6 +539,22 @@ ThemeSyncableService::ThemeSyncState ThemeSyncableService::MaybeSetTheme(
 
   base::AutoReset<bool> processing_changes(&processing_syncer_changes_, true);
 
+  // Browser color scheme can be set alongside other themes, including extension
+  // theme.
+  if (use_new_fields && has_all_theme_attributes) {
+    DVLOG(1) << "Applying browser color scheme";
+    theme_service_->SetBrowserColorScheme(
+        ProtoEnumToBrowserColorScheme(new_specs.browser_color_scheme()));
+
+    // Prior to the ThemeSpecifics migration (crbug.com/356148174),
+    // 'browser_color_scheme' was absent. Post-migration, it's always set. If
+    // this field exists, a newer theme has been synced, making reading the
+    // syncing theme prefs pointless.
+    profile_->GetPrefs()->SetBoolean(
+        prefs::kShouldReadIncomingSyncingThemePrefs, false);
+    pref_service_syncable_observer_.reset();
+  }
+
   if (new_specs.use_custom_theme()) {
     string id(new_specs.custom_theme_id());
     GURL update_url(new_specs.custom_theme_update_url());
@@ -556,7 +573,8 @@ ThemeSyncableService::ThemeSyncState ThemeSyncableService::MaybeSetTheme(
         DVLOG(1) << "Extension " << id << " is not a theme; aborting";
         return ThemeSyncState::kFailed;
       }
-      if (extension_service->IsExtensionEnabled(id)) {
+      auto* extension_registrar = extensions::ExtensionRegistrar::Get(profile_);
+      if (extension_registrar->IsExtensionEnabled(id)) {
         // An enabled theme extension with the given id was found, so
         // just set the current theme to it.
         theme_service_->SetTheme(extension);
@@ -581,7 +599,7 @@ ThemeSyncableService::ThemeSyncState ThemeSyncableService::MaybeSetTheme(
     // so by adding it as a pending extension and then triggering an
     // auto-update cycle.
     const bool kRemoteInstall = false;
-    if (!extension_service->pending_extension_manager()->AddFromSync(
+    if (!extensions::PendingExtensionManager::Get(profile_)->AddFromSync(
             id, update_url, base::Version(), &IsTheme, kRemoteInstall)) {
       LOG(WARNING) << "Could not add pending extension for " << id;
       return ThemeSyncState::kFailed;
@@ -637,25 +655,6 @@ ThemeSyncableService::ThemeSyncState ThemeSyncableService::MaybeSetTheme(
       // committed by an old client.
       DVLOG(1) << "Removing custom NTP background";
       prefs->ClearPref(prefs::kNonSyncingNtpCustomBackgroundDictDoNotUse);
-    }
-
-    // Browser color scheme can be set alongside other (non-extension) themes.
-    if (new_specs.has_browser_color_scheme()) {
-      DVLOG(1) << "Applying browser color scheme";
-      theme_service_->SetBrowserColorScheme(
-          ProtoEnumToBrowserColorScheme(new_specs.browser_color_scheme()));
-
-      // Before the migration of syncing theme prefs to ThemeSpecifics (see
-      // crbug.com/356148174), the specifics will never have
-      // `browser_color_scheme` field. However, this field is always populated
-      // after the migration. If ThemeSpecifics includes this field, it means
-      // another client has already uploaded the latest theme with the new
-      // fields. Thus, there's no point in reading the syncing theme prefs
-      // anymore.
-      if (prefs) {
-        prefs->SetBoolean(prefs::kShouldReadIncomingSyncingThemePrefs, false);
-        pref_service_syncable_observer_.reset();
-      }
     }
   }
   return ThemeSyncState::kApplied;
@@ -924,9 +923,7 @@ bool ThemeSyncableService::ApplySavedLocalThemeIfExistsAndClear() {
     MaybeSetTheme(GetThemeSpecificsFromCurrentTheme(), *local_theme_specifics);
     if (remote_extension_theme_pending_install_) {
       extensions::PendingExtensionManager* pending_extension_manager =
-          extensions::ExtensionSystem::Get(profile_)
-              ->extension_service()
-              ->pending_extension_manager();
+          extensions::PendingExtensionManager::Get(profile_);
       // If the theme extension is still pending installation, remove from the
       // queue.
       if (const extensions::PendingExtensionInfo* extension =

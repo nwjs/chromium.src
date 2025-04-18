@@ -284,6 +284,11 @@
 #include "third_party/blink/renderer/core/layout/layout_font_accessor_win.h"
 #endif
 
+#if BUILDFLAG(IS_IOS)
+#include "third_party/blink/renderer/core/editing/dom_selection.h"
+#include "third_party/blink/renderer/core/page/autoscroll_controller.h"
+#endif  // BUILDFLAG(IS_IOS)
+
 namespace blink {
 
 namespace {
@@ -817,6 +822,11 @@ WebContentSettingsClient* WebLocalFrameImpl::GetContentSettingsClient() const {
 void WebLocalFrameImpl::SetContentSettingsClient(
     WebContentSettingsClient* client) {
   content_settings_client_ = client;
+}
+
+const mojom::RendererContentSettingsPtr& WebLocalFrameImpl::GetContentSettings()
+    const {
+  return GetFrame()->GetContentSettings();
 }
 
 ScrollableArea* WebLocalFrameImpl::LayoutViewport() const {
@@ -1618,6 +1628,34 @@ void WebLocalFrameImpl::MoveCaretSelection(
   GetFrame()->Selection().MoveCaretSelection(point_in_contents);
 }
 
+#if BUILDFLAG(IS_IOS)
+void WebLocalFrameImpl::StartAutoscrollForSelectionToPoint(
+    const gfx::PointF& point_in_viewport) {
+  TRACE_EVENT0("blink",
+               "WebLocalFrameImpl::StartAutoscrollForSelectionToPoint");
+  if (!ViewImpl() || !ViewImpl()->GetPage()) {
+    return;
+  }
+  auto* element = GetFrame()->GetDocument()->GetSelection()->baseNode();
+  if (!element) {
+    return;
+  }
+  ViewImpl()
+      ->GetPage()
+      ->GetAutoscrollController()
+      .StartAutoscrollForSelectionToPoint(element->GetLayoutObject(),
+                                          point_in_viewport);
+}
+
+void WebLocalFrameImpl::StopAutoscroll() {
+  TRACE_EVENT0("blink", "WebLocalFrameImpl::StopAutoscroll");
+  if (!ViewImpl() || !ViewImpl()->GetPage()) {
+    return;
+  }
+  ViewImpl()->GetPage()->GetAutoscrollController().StopAutoscroll();
+}
+#endif  // BUILDFLAG(IS_IOS)
+
 bool WebLocalFrameImpl::SetEditableSelectionOffsets(int start, int end) {
   TRACE_EVENT0("blink", "WebLocalFrameImpl::setEditableSelectionOffsets");
   if (EditContext* edit_context =
@@ -2118,7 +2156,6 @@ WebLocalFrameImpl* WebLocalFrameImpl::CreateProvisional(
       frame_token);
   network::mojom::blink::WebSandboxFlags sandbox_flags =
       network::mojom::blink::WebSandboxFlags::kNone;
-  network::PermissionsPolicyFeatureState feature_state;
   if (!previous_frame->Owner() || previous_frame->IsFencedFrameRoot()) {
     // Provisional main frames need to force sandbox flags.  This is necessary
     // to inherit sandbox flags when a sandboxed frame does a window.open()
@@ -2844,9 +2881,21 @@ void WebLocalFrameImpl::DownloadURL(
 }
 
 WebFrame* WebLocalFrameImpl::GetProvisionalOwnerFrame() {
-  return GetFrame()->IsProvisional()
-             ? WebFrame::FromCoreFrame(GetFrame()->GetProvisionalOwnerFrame())
-             : nullptr;
+  if (!GetFrame()->IsProvisional()) {
+    return nullptr;
+  }
+  if (GetFrame()->IsMainFrame()) {
+    // For provisional main frames created for a local <-> local swap, the
+    // `GetProvisionalOwnerFrame()` will return the "fake" RemoteFrame created
+    // as a placeholder for the new WebView / Page. To get the previous local
+    // frame, get it using `GetPreviousMainFrameForLocalSwap()` instead.
+    Frame* previous_local_main_frame =
+        ViewImpl()->GetPage()->GetPreviousMainFrameForLocalSwap();
+    if (previous_local_main_frame) {
+      return WebFrame::FromCoreFrame(previous_local_main_frame);
+    }
+  }
+  return WebFrame::FromCoreFrame(GetFrame()->GetProvisionalOwnerFrame());
 }
 
 void WebLocalFrameImpl::MaybeStartOutermostMainFrameNavigation(

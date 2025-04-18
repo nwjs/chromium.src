@@ -43,12 +43,6 @@ BASE_FEATURE(kWebAuthCableExtensionAnywhere,
 BASE_FEATURE(kWebAuthnAndroidUsePasskeyCache,
              "WebAuthenticationAndroidUsePasskeyCache",
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-// This is a deprecation flag for "Phone as a security key" privacy settings
-// fragment. Disabled in M133, remove in or after M136.
-BASE_FEATURE(kWebAuthnEnablePaaskFragment,
-             "WebAuthenticationEnablePaaskFragment",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 // Enabled in M118. Remove in or after M121.
@@ -88,11 +82,6 @@ BASE_FEATURE(kWebAuthnUseInsecureSoftwareUnexportableKeys,
              "WebAuthenticationUseInsecureSoftwareUnexportableKeys",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Default enabled in M126. Remove in or after M129.
-BASE_FEATURE(kWebAuthnCredProtectWin10BugWorkaround,
-             "WebAuthenticationCredProtectWin10BugWorkaround",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Development flag. Must not be enabled by default.
 BASE_FEATURE(kWebAuthnEnclaveAuthenticatorDelay,
              "WebAuthnEnclaveAuthenticatorDelay",
@@ -103,16 +92,10 @@ BASE_FEATURE(kWebAuthnAmbientSignin,
              "WebAuthenticationAmbientSignin",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Not yet enabled by default.
-BASE_FEATURE(kWebAuthniCloudKeychainPrf,
-             "WebAuthenticationiCloudKeychainPrf",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// This is a deprecation flag. It is now enabled by default, but we want to
-// disable it eventually.
+// This is a deprecation flag. Disabled in M136. Remove in or after M139.
 BASE_FEATURE(kWebAuthnHybridLinking,
              "WebAuthenticationHybridLinking",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // This is a deprecation flag. It is now enabled by default, but we want to
 // disable it eventually.
@@ -122,11 +105,6 @@ BASE_FEATURE(kWebAuthnPublishPrelinkingInfo,
              "WebAuthenticationPublishPrelinkingInfo",
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
-
-// Update the "last used" timestamp for GPM passkeys when asserted.
-BASE_FEATURE(kWebAuthnUpdateLastUsed,
-             "WebAuthenticationUpdateLastUsed",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Disabled by default.
 BASE_FEATURE(kWebAuthnHelloSignal,
@@ -143,15 +121,9 @@ BASE_FEATURE(kDigitalCredentialsHybridLinking,
              "DigitalCredentialsHybridLinking",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Temporarily disabled by default. Will be default enabled in M136. Remove in
-// or after M139.
+// Default enabled in M136. Remove in or after M139.
 BASE_FEATURE(kWebAuthnPasskeyUpgrade,
              "WebAuthenticationPasskeyUpgrade",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Default enabled in M133. Remove in or after M136.
-BASE_FEATURE(kWebAuthnNeverSkipTrustThisComputer,
-             "WebAuthenticationNeverSkipTrustThisComputer",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Disabled by default.
@@ -174,14 +146,19 @@ BASE_FEATURE(kSyncSecurityDomainBeforePINRenewal,
              "kWebAuthenticationSyncSecurityDomainBeforePINRenewal",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Not yet enabled by default.
+// Default enabled in M136. Remove in or after M139.
 BASE_FEATURE(kWebAuthnRemoteDesktopAllowedOriginsPolicy,
              "WebAuthenticationRemoteDesktopAllowedOriginsPolicy",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Default enabled in M135. Remove in or after M138.
 BASE_FEATURE(kWebAuthnMicrosoftSoftwareUnexportableKeyProvider,
              "WebAuthenticationMicrosoftSoftwareUnexportableKeyProvider",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Not yet enabled by default.
+BASE_FEATURE(kWebAuthnSignalApiHidePasskeys,
+             "WebAuthenticationSignalApiHidePasskeys",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace device

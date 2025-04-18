@@ -32,21 +32,21 @@ class TestLifecycleUnit : public LifecycleUnitBase {
 
   void SetSortKey(LifecycleUnit::SortKey sort_key) { sort_key_ = sort_key; }
 
-  void SetTitle(std::u16string_view title) { title_ = std::u16string(title); }
-
   void SetDiscardFailureReason(DecisionFailureReason failure_reason) {
     failure_reason_ = failure_reason;
   }
 
   void SetCanDiscard(bool can_discard) { can_discard_ = can_discard; }
 
+  void SetDiscardReason(LifecycleUnitDiscardReason discard_reason) {
+    discard_reason_ = discard_reason;
+  }
+
   // LifecycleUnit:
   TabLifecycleUnitExternal* AsTabLifecycleUnitExternal() override;
-  std::u16string GetTitle() const override;
   base::TimeTicks GetLastFocusedTimeTicks() const override;
   base::Time GetLastFocusedTime() const override;
   SortKey GetSortKey() const override;
-  content::Visibility GetVisibility() const override;
   LifecycleUnitLoadingState GetLoadingState() const override;
   bool Load() override;
   bool CanDiscard(LifecycleUnitDiscardReason reason,
@@ -56,11 +56,12 @@ class TestLifecycleUnit : public LifecycleUnitBase {
   LifecycleUnitDiscardReason GetDiscardReason() const override;
 
  private:
-  std::u16string title_;
   base::TimeTicks last_focused_time_ticks_;
   base::Time last_focused_time_;
   LifecycleUnit::SortKey sort_key_;
   bool can_discard_ = true;
+  LifecycleUnitDiscardReason discard_reason_ =
+      ::mojom::LifecycleUnitDiscardReason::EXTERNAL;
   std::optional<DecisionFailureReason> failure_reason_;
 };
 

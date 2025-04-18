@@ -4,10 +4,11 @@
 import 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 
 import type {AppElement, WordBoundaryState} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
-import {PauseActionSource, ToolbarEvent, WordBoundaryMode} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
+import {PauseActionSource, SpeechBrowserProxyImpl, ToolbarEvent, WordBoundaryMode} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 import {assertEquals, assertTrue} from 'chrome-untrusted://webui-test/chai_assert.js';
 
-import {createApp, createSpeechSynthesisVoice, emitEvent, setDefaultSpeechSynthesis} from './common.js';
+import {createApp, createSpeechSynthesisVoice, emitEvent, setupBasicSpeech} from './common.js';
+import {TestSpeechBrowserProxy} from './test_speech_browser_proxy.js';
 
 suite('WordBoundariesUsedForSpeech', () => {
   let app: AppElement;
@@ -60,10 +61,11 @@ suite('WordBoundariesUsedForSpeech', () => {
     // ReadAnythingAppController, onConnected creates mojo pipes to connect to
     // the rest of the Read Anything feature, which we are not testing here.
     chrome.readingMode.onConnected = () => {};
+    const speech = new TestSpeechBrowserProxy();
+    SpeechBrowserProxyImpl.setInstance(speech);
 
     app = await createApp();
-    const speechSynthesis = setDefaultSpeechSynthesis(app);
-    speechSynthesis.setMaxSegments(1);
+    setupBasicSpeech(app, speech);
     chrome.readingMode.setContentForTesting(axTree, [2, 4]);
   });
 
@@ -203,4 +205,20 @@ suite('WordBoundariesUsedForSpeech', () => {
         assertEquals(0, state.previouslySpokenIndex);
         assertEquals(10, state.speechUtteranceStartIndex);
       });
+
+  test('boundary offset with too long text', () => {
+    app.wordBoundaryState = {
+      mode: WordBoundaryMode.BOUNDARIES_NOT_SUPPORTED,
+      speechUtteranceStartIndex: 0,
+      previouslySpokenIndex: 0,
+      tooLongTextOffset: 10,
+    };
+
+    app.updateBoundary(10);
+
+    // The new word boundary state should be offset by the tooLongTextOffset.
+    const state: WordBoundaryState = app.wordBoundaryState;
+    assertEquals(WordBoundaryMode.BOUNDARY_DETECTED, state.mode);
+    assertEquals(20, state.previouslySpokenIndex);
+  });
 });

@@ -15,7 +15,6 @@
 #include "chrome/test/interaction/interactive_browser_test.h"
 #include "components/collaboration/public/features.h"
 #include "components/data_sharing/public/features.h"
-#include "components/saved_tab_groups/internal/tab_group_sync_service_impl.h"
 #include "components/saved_tab_groups/public/features.h"
 #include "components/saved_tab_groups/public/tab_group_sync_service.h"
 #include "components/signin/public/base/avatar_icon_util.h"
@@ -98,8 +97,7 @@ class RecentActivityBubbleDialogViewInteractiveUiTest
 
   void SetUp() override {
     scoped_feature_list_.InitWithFeatures(
-        {tab_groups::kTabGroupsSaveV2,
-         tab_groups::kTabGroupSyncServiceDesktopMigration,
+        {tab_groups::kTabGroupSyncServiceDesktopMigration,
          data_sharing::features::kDataSharingFeature,
          collaboration::features::kCollaborationMessaging},
         {});
@@ -191,9 +189,8 @@ class RecentActivityBubbleDialogViewInteractiveUiTest
 
   SavedTabGroup ShareTabGroup(TabGroupId group_id,
                               std::string collaboration_id) {
-    TabGroupSyncServiceImpl* tab_group_sync_service =
-        static_cast<TabGroupSyncServiceImpl*>(
-            TabGroupSyncServiceFactory::GetForProfile(browser()->profile()));
+    TabGroupSyncService* tab_group_sync_service =
+        TabGroupSyncServiceFactory::GetForProfile(browser()->profile());
     tab_group_sync_service->MakeTabGroupSharedForTesting(group_id,
                                                          collaboration_id);
     auto saved_tab_group = tab_group_sync_service->GetGroup(group_id);
@@ -216,7 +213,7 @@ class RecentActivityBubbleDialogViewInteractiveUiTest
   auto TriggerCurrentTabDialog(std::vector<ActivityLogItem> activity_log) {
     return WithView(kTabStripElementId, [&, activity_log](TabStrip* tab_strip) {
       bubble_coordinator_.ShowForCurrentTab(
-          tab_strip, browser()->tab_strip_model()->GetWebContentsAt(0),
+          tab_strip, browser()->tab_strip_model()->GetWebContentsAt(0), {},
           activity_log, browser()->profile());
     });
   }

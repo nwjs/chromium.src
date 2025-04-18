@@ -13,12 +13,9 @@ import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
 import org.chromium.base.ResettersForTesting;
-import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.omnibox.voice.VoiceRecognitionUtil;
 import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.segmentation_platform.proto.SegmentationProto.SegmentId;
-import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.permissions.AndroidPermissionDelegate;
 
 import java.util.List;
@@ -29,6 +26,7 @@ import java.util.List;
  * segmentation experiment.
  */
 public class AdaptiveToolbarStatePredictor {
+
     /**
      * Key used to lookup segmentation results for adaptive toolbar. Must be kept in sync with
      * components/segmentation_platform/internal/constants.cc.
@@ -36,7 +34,6 @@ public class AdaptiveToolbarStatePredictor {
     private static List<Integer> sSegmentationResultsForTesting;
 
     private static Integer sToolbarStateForTesting;
-    private final Context mContext;
     @NonNull private final Profile mProfile;
     private final AdaptiveToolbarBehavior mBehavior;
 
@@ -82,60 +79,11 @@ public class AdaptiveToolbarStatePredictor {
             Context context,
             Profile profile,
             @Nullable AndroidPermissionDelegate androidPermissionDelegate,
-            AdaptiveToolbarBehavior behavior) {
-        mContext = context;
+            @Nullable AdaptiveToolbarBehavior behavior) {
         mProfile = profile;
         mAndroidPermissionDelegate = androidPermissionDelegate;
-        mBehavior = behavior != null ? behavior : getDefaultBehavior(context);
-    }
-
-    /**
-     * Default segmentation result filter that takes into the device form factor into account. This
-     * filter is used for tabbed chrome browser and its settings UI.
-     *
-     * @param context {@link Context} object.
-     * @param segmentationResults An ordered list of predicted toolbar button ID.
-     * @return The top choice made from the input results.
-     */
-    public static int defaultResultFilter(Context context, List<Integer> segmentationResults) {
-        if (!DeviceFormFactor.isNonMultiDisplayContextOnTablet(context)) {
-            return segmentationResults.get(0);
-        }
-
-        // Exclude NTB and Bookmarks from segmentation results on tablets since these buttons
-        // are available on top chrome (on tab strip and omnibox).
-        for (int result : segmentationResults) {
-            if (AdaptiveToolbarButtonVariant.NEW_TAB == result
-                    || AdaptiveToolbarButtonVariant.ADD_TO_BOOKMARKS == result) continue;
-            return result;
-        }
-        return AdaptiveToolbarButtonVariant.UNKNOWN;
-    }
-
-    /**
-     * Default implementation of {@link AdaptiveToolbarBehavior} that takes into the device form
-     * factor into account. Used for tabbed chrome browser and its settings UI, also in tests.
-     *
-     * @param context {@link Context} object.
-     */
-    public static AdaptiveToolbarBehavior getDefaultBehavior(Context context) {
-        return new AdaptiveToolbarBehavior() {
-            @Override
-            public void registerPerSurfaceButtons(
-                    AdaptiveToolbarButtonController controller, Supplier<Tracker> trackerSupplier) {
-                // Not used in predictor.
-            }
-
-            @Override
-            public int resultFilter(List<Integer> segmentationResults) {
-                return defaultResultFilter(context, segmentationResults);
-            }
-
-            @Override
-            public boolean useRawResults() {
-                return DeviceFormFactor.isNonMultiDisplayContextOnTablet(context);
-            }
-        };
+        mBehavior =
+                behavior != null ? behavior : AdaptiveToolbarBehavior.getDefaultBehavior(context);
     }
 
     /**
@@ -167,11 +115,11 @@ public class AdaptiveToolbarStatePredictor {
         }
 
         int manualOverride = readManualOverrideFromPrefs();
-        int defaultSegment = AdaptiveToolbarFeatures.getSegmentationDefault(mContext);
         boolean toolbarToggle = readToolbarToggleStateFromPrefs();
         readFromSegmentationPlatform(
                 segmentSelectionResults -> {
                     int topSegmentationResult = filterSegmentationResults(segmentSelectionResults);
+                    int defaultSegment = mBehavior.getSegmentationDefault();
                     UiState uiState =
                             new UiState(
                                     AdaptiveToolbarFeatures.isCustomizationEnabled(),
@@ -228,6 +176,7 @@ public class AdaptiveToolbarStatePredictor {
             case AdaptiveToolbarButtonVariant.ADD_TO_BOOKMARKS:
             case AdaptiveToolbarButtonVariant.READ_ALOUD:
             case AdaptiveToolbarButtonVariant.PAGE_SUMMARY:
+            case AdaptiveToolbarButtonVariant.OPEN_IN_BROWSER:
                 return true;
             case AdaptiveToolbarButtonVariant.UNKNOWN:
             case AdaptiveToolbarButtonVariant.NONE:
@@ -277,7 +226,7 @@ public class AdaptiveToolbarStatePredictor {
     private @AdaptiveToolbarButtonVariant int replaceVariantIfDisabled(
             @AdaptiveToolbarButtonVariant int variant) {
         if (isVariantEnabled(variant)) return variant;
-        variant = AdaptiveToolbarFeatures.getSegmentationDefault(mContext);
+        variant = mBehavior.getSegmentationDefault();
         if (isVariantEnabled(variant)) return variant;
         // Fallback in the unlikely situation the default is disabled.
         return AdaptiveToolbarButtonVariant.UNKNOWN;

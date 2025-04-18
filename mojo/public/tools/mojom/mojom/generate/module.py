@@ -955,15 +955,38 @@ class Parameter:
 
 class Result:
 
-  def __init__(self, success_type, failure_type):
-    self.success_type = success_type
-    self.failure_type = failure_type
+  def __init__(self, method, success_kind, failure_kind):
+    self.method = method
+    self.success_kind = success_kind
+    self.failure_kind = failure_kind
 
   def Repr(self):
     return GenericRepr(self, {
-        'success_type': self.success_type,
-        'failure_type': self.failure_type,
+        'success_kind': self.success_kind,
+        'failure_kind': self.failure_kind,
     })
+
+  def ToResponseParam(self, module):
+    result = Union(
+        "%s_%s_ResponseParam_Result" %
+        (self.method.interface.mojom_name, self.method.mojom_name), module)
+    result.AddField(
+        'success',
+        self.success_kind,
+        0,
+    )
+    result.AddField(
+        'failure',
+        self.failure_kind,
+        1,
+    )
+
+    param = Parameter()
+    param.mojom_name = 'result'
+    param.kind = result
+    param.ordinal = 0
+    param.default = None
+    return param
 
 
 class Method:

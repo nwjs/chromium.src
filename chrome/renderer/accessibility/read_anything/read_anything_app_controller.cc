@@ -11,12 +11,14 @@
 
 #include <climits>
 #include <memory>
+#include <optional>
 #include <queue>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "base/check_deref.h"
+#include "base/containers/fixed_flat_map.h"
 #include "base/debug/stack_trace.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/metrics_hashes.h"
@@ -25,6 +27,8 @@
 #include "base/strings/string_util.h"
 #include "base/strings/to_string.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/types/cxx23_to_underlying.h"
+#include "build/build_config.h"
 #include "chrome/common/read_anything/read_anything_util.h"
 #include "chrome/renderer/accessibility/ax_tree_distiller.h"
 #include "chrome/renderer/accessibility/phrase_segmentation/dependency_parser_model.h"
@@ -370,6 +374,20 @@ SkBitmap CorrectColorOfBitMap(SkBitmap& originalBitmap) {
   return converted;
 }
 
+template <typename T>
+  requires(std::is_enum_v<T> &&
+           requires {
+             T::kMinValue;
+             T::kMaxValue;
+           })
+std::optional<T> ToEnum(int value) {
+  if (value >= base::to_underlying(T::kMinValue) &&
+      value <= base::to_underlying(T::kMaxValue)) {
+    return static_cast<T>(value);
+  }
+  return std::nullopt;
+}
+
 }  // namespace
 
 // static
@@ -447,7 +465,7 @@ void ReadAnythingAppController::OnNodeDataChanged(
     ui::AXTree* tree,
     const ui::AXNodeData& old_node_data,
     const ui::AXNodeData& new_node_data) {
-  if (tree->GetAXTreeID() == model_.active_tree_id()) {
+  if (!IsReadAloudEnabled() && tree->GetAXTreeID() == model_.active_tree_id()) {
     if (old_node_data.HasState(ax::mojom::State::kExpanded) !=
             new_node_data.HasState(ax::mojom::State::kExpanded) ||
         old_node_data.HasState(ax::mojom::State::kCollapsed) !=
@@ -543,6 +561,11 @@ void ReadAnythingAppController::AccessibilityLocationChangesReceived(
 void ReadAnythingAppController::AccessibilityLocationChangesReceived(
     const ui::AXTreeID& tree_id,
     ui::AXLocationAndScrollUpdates& details) {
+  // If the AccessibilityLocationChangesReceived callback happens after
+  // the current active tree has been destroyed, do nothing.
+  if (model_.active_tree_id() == ui::AXTreeIDUnknown()) {
+    return;
+  }
   // Listen to location change notifications to update locations of the nodes
   // accordingly.
   for (auto& change : details.location_changes) {
@@ -577,6 +600,13 @@ void ReadAnythingAppController::OnActiveAXTreeIDChanged(
   model_.SetActiveTreeId(tree_id);
   model_.SetUkmSourceId(ukm_source_id);
   model_.set_is_pdf(is_pdf);
+
+  if (IsReadAloudEnabled() && read_aloud_model_.speech_playing()) {
+    model_.SetUrlInformationCallback(
+        base::BindOnce(&ReadAnythingAppController::OnUrlInformationSet,
+                       weak_ptr_factory_.GetWeakPtr()));
+  }
+
   // Delete all pending updates on the formerly active AXTree.
   // TODO(crbug.com/40802192): If distillation is in progress, cancel the
   // distillation request.
@@ -596,8 +626,8 @@ void ReadAnythingAppController::OnActiveAXTreeIDChanged(
 }
 
 void ReadAnythingAppController::RecordNumSelections() {
-  ukm::builders::Accessibility_ReadAnything_EmptyState(model_.UkmSourceId())
-      .SetTotalNumSelections(model_.NumSelections())
+  ukm::builders::Accessibility_ReadAnything_EmptyState(model_.GetUkmSourceId())
+      .SetTotalNumSelections(model_.GetNumSelections())
       .Record(ukm_recorder_.get());
   model_.SetNumSelections(0);
 }
@@ -640,6 +670,9 @@ void ReadAnythingAppController::Distill(bool for_training_data) {
   model_.set_requires_distillation(false);
 
   ui::AXSerializableTree* tree = model_.GetTreeFromId(model_.active_tree_id());
+  if (!tree) {
+    return;
+  }
   std::unique_ptr<
       ui::AXTreeSource<const ui::AXNode*, ui::AXTreeData*, ui::AXNodeData>>
       tree_source(tree->CreateTreeSource());
@@ -660,7 +693,7 @@ void ReadAnythingAppController::Distill(bool for_training_data) {
   }
   CHECK(serializer.SerializeChanges(tree->root(), &snapshot));
   model_.set_distillation_in_progress(true);
-  distiller_->Distill(*tree, snapshot, model_.UkmSourceId());
+  distiller_->Distill(*tree, snapshot, model_.GetUkmSourceId());
 }
 
 void ReadAnythingAppController::OnAXTreeDistilled(
@@ -734,8 +767,11 @@ void ReadAnythingAppController::OnAXTreeDistilled(
 
   // AXNode's language code is BCP 47. Only the base language is needed to
   // record the metric.
-  std::string language =
-      model_.GetTreeFromId(model_.active_tree_id())->root()->GetLanguage();
+  ui::AXSerializableTree* tree = model_.GetTreeFromId(model_.active_tree_id());
+  if (!tree) {
+    return;
+  }
+  std::string language = tree->root()->GetLanguage();
   if (!language.empty()) {
     base::UmaHistogramSparse(
         "Accessibility.ReadAnything.Language",
@@ -879,6 +915,19 @@ gin::ObjectTemplateBuilder ReadAnythingAppController::GetObjectTemplateBuilder(
       .SetProperty("sentenceHighlighting",
                    &ReadAnythingAppController::SentenceHighlighting)
       .SetProperty("noHighlighting", &ReadAnythingAppController::NoHighlighting)
+      .SetProperty("pauseButtonStopSource",
+                   &ReadAnythingAppController::PauseButtonStopSource)
+      .SetProperty("keyboardShortcutStopSource",
+                   &ReadAnythingAppController::KeyboardShortcutStopSource)
+      .SetProperty("engineInterruptStopSource",
+                   &ReadAnythingAppController::EngineInterruptStopSource)
+      .SetProperty("engineErrorStopSource",
+                   &ReadAnythingAppController::EngineErrorStopSource)
+      .SetProperty("contentFinishedStopSource",
+                   &ReadAnythingAppController::ContentFinishedStopSource)
+      .SetProperty(
+          "unexpectedUpdateContentStopSource",
+          &ReadAnythingAppController::UnexpectedUpdateContentStopSource)
       .SetProperty("speechRate", &ReadAnythingAppController::SpeechRate)
       .SetProperty("isGoogleDocs", &ReadAnythingAppController::IsGoogleDocs)
       .SetProperty("isReadAloudEnabled",
@@ -973,6 +1022,7 @@ gin::ObjectTemplateBuilder ReadAnythingAppController::GetObjectTemplateBuilder(
                  &ReadAnythingAppController::GetDisplayNameForLocale)
       .SetMethod("incrementMetricCount",
                  &ReadAnythingAppController::IncrementMetricCount)
+      .SetMethod("logSpeechStop", &ReadAnythingAppController::LogSpeechStop)
       .SetMethod("sendGetVoicePackInfoRequest",
                  &ReadAnythingAppController::SendGetVoicePackInfoRequest)
       .SetMethod("sendInstallVoicePackRequest",
@@ -991,7 +1041,11 @@ gin::ObjectTemplateBuilder ReadAnythingAppController::GetObjectTemplateBuilder(
 
 ui::AXNodeID ReadAnythingAppController::RootId() const {
   ui::AXSerializableTree* tree = model_.GetTreeFromId(model_.active_tree_id());
+  DCHECK(tree);
   DCHECK(tree->root());
+  if (!tree || !tree->root()) {
+    return ui::kInvalidAXNodeID;
+  }
   return tree->root()->id();
 }
 
@@ -1036,15 +1090,15 @@ bool ReadAnythingAppController::IsPhraseHighlightingEnabled() const {
 }
 
 int ReadAnythingAppController::LetterSpacing() const {
-  return model_.letter_spacing();
+  return base::to_underlying(model_.letter_spacing());
 }
 
 int ReadAnythingAppController::LineSpacing() const {
-  return model_.line_spacing();
+  return base::to_underlying(model_.line_spacing());
 }
 
 int ReadAnythingAppController::ColorTheme() const {
-  return model_.color_theme();
+  return base::to_underlying(model_.color_theme());
 }
 
 double ReadAnythingAppController::SpeechRate() const {
@@ -1072,47 +1126,47 @@ int ReadAnythingAppController::HighlightGranularity() const {
 }
 
 int ReadAnythingAppController::StandardLineSpacing() const {
-  return static_cast<int>(read_anything::mojom::LineSpacing::kStandard);
+  return base::to_underlying(read_anything::mojom::LineSpacing::kStandard);
 }
 
 int ReadAnythingAppController::LooseLineSpacing() const {
-  return static_cast<int>(read_anything::mojom::LineSpacing::kLoose);
+  return base::to_underlying(read_anything::mojom::LineSpacing::kLoose);
 }
 
 int ReadAnythingAppController::VeryLooseLineSpacing() const {
-  return static_cast<int>(read_anything::mojom::LineSpacing::kVeryLoose);
+  return base::to_underlying(read_anything::mojom::LineSpacing::kVeryLoose);
 }
 
 int ReadAnythingAppController::StandardLetterSpacing() const {
-  return static_cast<int>(read_anything::mojom::LetterSpacing::kStandard);
+  return base::to_underlying(read_anything::mojom::LetterSpacing::kStandard);
 }
 
 int ReadAnythingAppController::WideLetterSpacing() const {
-  return static_cast<int>(read_anything::mojom::LetterSpacing::kWide);
+  return base::to_underlying(read_anything::mojom::LetterSpacing::kWide);
 }
 
 int ReadAnythingAppController::VeryWideLetterSpacing() const {
-  return static_cast<int>(read_anything::mojom::LetterSpacing::kVeryWide);
+  return base::to_underlying(read_anything::mojom::LetterSpacing::kVeryWide);
 }
 
 int ReadAnythingAppController::DefaultTheme() const {
-  return static_cast<int>(read_anything::mojom::Colors::kDefault);
+  return base::to_underlying(read_anything::mojom::Colors::kDefault);
 }
 
 int ReadAnythingAppController::LightTheme() const {
-  return static_cast<int>(read_anything::mojom::Colors::kLight);
+  return base::to_underlying(read_anything::mojom::Colors::kLight);
 }
 
 int ReadAnythingAppController::DarkTheme() const {
-  return static_cast<int>(read_anything::mojom::Colors::kDark);
+  return base::to_underlying(read_anything::mojom::Colors::kDark);
 }
 
 int ReadAnythingAppController::YellowTheme() const {
-  return static_cast<int>(read_anything::mojom::Colors::kYellow);
+  return base::to_underlying(read_anything::mojom::Colors::kYellow);
 }
 
 int ReadAnythingAppController::BlueTheme() const {
-  return static_cast<int>(read_anything::mojom::Colors::kBlue);
+  return base::to_underlying(read_anything::mojom::Colors::kBlue);
 }
 
 bool ReadAnythingAppController::IsHighlightOn() {
@@ -1140,11 +1194,43 @@ int ReadAnythingAppController::NoHighlighting() const {
   return static_cast<int>(read_anything::mojom::HighlightGranularity::kOff);
 }
 
+int ReadAnythingAppController::PauseButtonStopSource() const {
+  return base::to_underlying(ReadAloudAppModel::ReadAloudStopSource::kButton);
+}
+
+int ReadAnythingAppController::KeyboardShortcutStopSource() const {
+  return base::to_underlying(
+      ReadAloudAppModel::ReadAloudStopSource::kKeyboardShortcut);
+}
+
+int ReadAnythingAppController::EngineInterruptStopSource() const {
+  return base::to_underlying(
+      ReadAloudAppModel::ReadAloudStopSource::kEngineInterrupt);
+}
+
+int ReadAnythingAppController::EngineErrorStopSource() const {
+  return base::to_underlying(
+      ReadAloudAppModel::ReadAloudStopSource::kEngineError);
+}
+
+int ReadAnythingAppController::ContentFinishedStopSource() const {
+  return base::to_underlying(
+      ReadAloudAppModel::ReadAloudStopSource::kFinishContent);
+}
+
+int ReadAnythingAppController::UnexpectedUpdateContentStopSource() const {
+  return base::to_underlying(
+      ReadAloudAppModel::ReadAloudStopSource::kUnexpectedUpdateContent);
+}
+
 std::vector<ui::AXNodeID> ReadAnythingAppController::GetChildren(
     ui::AXNodeID ax_node_id) const {
   std::vector<ui::AXNodeID> child_ids;
   ui::AXNode* ax_node = model_.GetAXNode(ax_node_id);
   DCHECK(ax_node);
+  if (!ax_node) {
+    return child_ids;
+  }
   const std::set<ui::AXNodeID>* node_ids = model_.selection_node_ids().empty()
                                                ? &model_.display_node_ids()
                                                : &model_.selection_node_ids();
@@ -1161,6 +1247,9 @@ std::string ReadAnythingAppController::GetHtmlTag(
     ui::AXNodeID ax_node_id) const {
   ui::AXNode* ax_node = model_.GetAXNode(ax_node_id);
   DCHECK(ax_node);
+  if (!ax_node) {
+    return std::string();
+  }
 
   return a11y::GetHtmlTag(ax_node, model_.is_pdf(), model_.IsDocs());
 }
@@ -1169,6 +1258,9 @@ std::string ReadAnythingAppController::GetLanguage(
     ui::AXNodeID ax_node_id) const {
   ui::AXNode* ax_node = model_.GetAXNode(ax_node_id);
   DCHECK(ax_node);
+  if (!ax_node) {
+    return std::string();
+  }
   if (model_.NodeIsContentNode(ax_node_id)) {
     return ax_node->GetLanguage();
   }
@@ -1179,6 +1271,9 @@ std::u16string ReadAnythingAppController::GetTextContent(
     ui::AXNodeID ax_node_id) const {
   ui::AXNode* ax_node = model_.GetAXNode(ax_node_id);
   DCHECK(ax_node);
+  if (!ax_node) {
+    return std::u16string();
+  }
 
   return a11y::GetTextContent(ax_node, IsGoogleDocs());
 }
@@ -1211,6 +1306,9 @@ std::string ReadAnythingAppController::GetTextDirection(
 std::string ReadAnythingAppController::GetUrl(ui::AXNodeID ax_node_id) const {
   ui::AXNode* ax_node = model_.GetAXNode(ax_node_id);
   DCHECK(ax_node);
+  if (!ax_node) {
+    return std::string();
+  }
   const char* url =
       ax_node->GetStringAttribute(ax::mojom::StringAttribute::kUrl).c_str();
 
@@ -1256,12 +1354,18 @@ std::string ReadAnythingAppController::GetAltText(
     ui::AXNodeID ax_node_id) const {
   ui::AXNode* node = model_.GetAXNode(ax_node_id);
   CHECK(node);
+  if (!node) {
+    return std::string();
+  }
   return a11y::GetAltText(node);
 }
 
 bool ReadAnythingAppController::ShouldBold(ui::AXNodeID ax_node_id) const {
   ui::AXNode* ax_node = model_.GetAXNode(ax_node_id);
   DCHECK(ax_node);
+  if (!ax_node) {
+    return false;
+  }
   bool is_bold = ax_node->HasTextStyle(ax::mojom::TextStyle::kBold);
   bool is_italic = ax_node->HasTextStyle(ax::mojom::TextStyle::kItalic);
   bool is_underline = ax_node->HasTextStyle(ax::mojom::TextStyle::kUnderline);
@@ -1271,12 +1375,18 @@ bool ReadAnythingAppController::ShouldBold(ui::AXNodeID ax_node_id) const {
 bool ReadAnythingAppController::IsOverline(ui::AXNodeID ax_node_id) const {
   ui::AXNode* ax_node = model_.GetAXNode(ax_node_id);
   DCHECK(ax_node);
+  if (!ax_node) {
+    return false;
+  }
   return ax_node->HasTextStyle(ax::mojom::TextStyle::kOverline);
 }
 
 bool ReadAnythingAppController::IsLeafNode(ui::AXNodeID ax_node_id) const {
   ui::AXNode* ax_node = model_.GetAXNode(ax_node_id);
   DCHECK(ax_node);
+  if (!ax_node) {
+    return false;
+  }
   return ax_node->IsLeaf();
 }
 
@@ -1285,7 +1395,7 @@ bool ReadAnythingAppController::IsReadAloudEnabled() const {
 }
 
 bool ReadAnythingAppController::IsChromeOsAsh() const {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   return true;
 #else
   return false;
@@ -1373,6 +1483,9 @@ v8::Local<v8::Value> ReadAnythingAppController::GetImageBitmap(
     // factor.
     ui::AXNode* node = model_.GetAXNode(node_id);
     CHECK(node);
+    if (!node) {
+      return v8::Undefined(isolate);
+    }
     int width = bitmap.width();
     int height = bitmap.height();
     float scale = (node->data().relative_bounds.bounds.width()) / width;
@@ -1403,6 +1516,9 @@ std::string ReadAnythingAppController::GetImageDataUrl(
     ui::AXNodeID node_id) const {
   ui::AXNode* node = model_.GetAXNode(node_id);
   CHECK(node);
+  if (!node) {
+    return std::string();
+  }
   return a11y::GetImageDataUrl(node);
 }
 
@@ -1449,7 +1565,6 @@ const std::string& ReadAnythingAppController::GetDefaultLanguageCodeForSpeech()
 void ReadAnythingAppController::OnConnected() {
   // This needs to be logged here in the controller so we can base it off of the
   // controller's constructor time.
-  web_ui_connected_time_ms_ = base::TimeTicks::Now();
   base::UmaHistogramLongTimes(
       "Accessibility.ReadAnything.TimeFromEntryTriggeredToWebUIConnected",
       base::TimeTicks::Now() - renderer_load_triggered_time_ms_);
@@ -1487,12 +1602,12 @@ void ReadAnythingAppController::OnFontSizeReset() {
 }
 
 void ReadAnythingAppController::OnLinksEnabledToggled() {
-  model_.ToggleLinksEnabled();
+  model_.set_links_enabled(!model_.links_enabled());
   page_handler_->OnLinksEnabledChanged(model_.links_enabled());
 }
 
 void ReadAnythingAppController::OnImagesEnabledToggled() {
-  model_.ToggleImagesEnabled();
+  model_.set_images_enabled(!model_.images_enabled());
   page_handler_->OnImagesEnabledChanged(model_.images_enabled());
 }
 
@@ -1511,32 +1626,28 @@ void ReadAnythingAppController::OnLinkClicked(ui::AXNodeID ax_node_id) const {
   }
   page_handler_->OnLinkClicked(model_.active_tree_id(), ax_node_id);
 }
+
 void ReadAnythingAppController::OnLetterSpacingChange(int value) {
-  if (value >
-      static_cast<int>(read_anything::mojom::LetterSpacing::kMaxValue)) {
-    return;
+  if (const auto maybe_enum =
+          ToEnum<read_anything::mojom::LetterSpacing>(value)) {
+    page_handler_->OnLetterSpaceChange(maybe_enum.value());
+    model_.set_letter_spacing(maybe_enum.value());
   }
-  page_handler_->OnLetterSpaceChange(
-      static_cast<read_anything::mojom::LetterSpacing>(value));
-  model_.set_letter_spacing(value);
 }
 
 void ReadAnythingAppController::OnLineSpacingChange(int value) {
-  if (value > static_cast<int>(read_anything::mojom::LineSpacing::kMaxValue)) {
-    return;
+  if (const auto maybe_enum =
+          ToEnum<read_anything::mojom::LineSpacing>(value)) {
+    page_handler_->OnLineSpaceChange(maybe_enum.value());
+    model_.set_line_spacing(maybe_enum.value());
   }
-  page_handler_->OnLineSpaceChange(
-      static_cast<read_anything::mojom::LineSpacing>(value));
-  model_.set_line_spacing(value);
 }
 
 void ReadAnythingAppController::OnThemeChange(int value) {
-  if (value > static_cast<int>(read_anything::mojom::Colors::kMaxValue)) {
-    return;
+  if (const auto maybe_enum = ToEnum<read_anything::mojom::Colors>(value)) {
+    page_handler_->OnColorChange(maybe_enum.value());
+    model_.set_color_theme(maybe_enum.value());
   }
-  page_handler_->OnColorChange(
-      static_cast<read_anything::mojom::Colors>(value));
-  model_.set_color_theme(value);
 }
 
 void ReadAnythingAppController::OnFontChange(const std::string& font) {
@@ -1574,26 +1685,32 @@ void ReadAnythingAppController::OnHighlightGranularityChanged(
 }
 
 double ReadAnythingAppController::GetLineSpacingValue(int line_spacing) const {
-  if (line_spacing >
-      static_cast<int>(read_anything::mojom::LineSpacing::kMaxValue)) {
-    return model_.GetLineSpacingValue(
-        read_anything::mojom::LineSpacing::kDefaultValue);
-  }
-
-  return model_.GetLineSpacingValue(
-      static_cast<read_anything::mojom::LineSpacing>(line_spacing));
+  using read_anything::mojom::LineSpacing;
+  static constexpr auto kEnumToValue =
+      base::MakeFixedFlatMap<LineSpacing, double>({
+          {LineSpacing::kTightDeprecated, 1.0},
+          // This value needs to be at least 1.35 to avoid cutting off
+          // descenders with the highlight with larger fonts such as Poppins.
+          {LineSpacing::kStandard, 1.35},
+          {LineSpacing::kLoose, 1.5},
+          {LineSpacing::kVeryLoose, 2.0},
+      });
+  return kEnumToValue.at(
+      ToEnum<LineSpacing>(line_spacing).value_or(LineSpacing::kDefaultValue));
 }
 
 double ReadAnythingAppController::GetLetterSpacingValue(
     int letter_spacing) const {
-  if (letter_spacing >
-      static_cast<int>(read_anything::mojom::LetterSpacing::kMaxValue)) {
-    return model_.GetLetterSpacingValue(
-        read_anything::mojom::LetterSpacing::kDefaultValue);
-  }
-
-  return model_.GetLetterSpacingValue(
-      static_cast<read_anything::mojom::LetterSpacing>(letter_spacing));
+  using read_anything::mojom::LetterSpacing;
+  static constexpr auto kEnumToValue =
+      base::MakeFixedFlatMap<LetterSpacing, double>({
+          {LetterSpacing::kTightDeprecated, -0.05},
+          {LetterSpacing::kStandard, 0},
+          {LetterSpacing::kWide, 0.05},
+          {LetterSpacing::kVeryWide, 0.1},
+      });
+  return kEnumToValue.at(ToEnum<LetterSpacing>(letter_spacing)
+                             .value_or(LetterSpacing::kDefaultValue));
 }
 
 void ReadAnythingAppController::OnSelectionChange(ui::AXNodeID anchor_node_id,
@@ -1662,6 +1779,9 @@ void ReadAnythingAppController::ResetGranularityIndex() {
 void ReadAnythingAppController::InitAXPositionWithNode(
     const ui::AXNodeID& starting_node_id) {
   ui::AXNode* ax_node = model_.GetAXNode(starting_node_id);
+  if (!ax_node) {
+    return;
+  }
   read_aloud_model_.InitAXPositionWithNode(ax_node);
 }
 
@@ -1713,8 +1833,12 @@ void ReadAnythingAppController::SetLanguageCode(const std::string& code) {
   ExecuteJavaScript("chrome.readingMode.languageChanged();");
 }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 void ReadAnythingAppController::OnDeviceLocked() {
+  if (IsReadAloudEnabled() && read_aloud_model_.speech_playing()) {
+    read_aloud_model_.LogSpeechStop(
+        ReadAloudAppModel::ReadAloudStopSource::kLockChromeosDevice);
+  }
   // Signal to the WebUI that the device has been locked. We'll only receive
   // this callback on ChromeOS.
   ExecuteJavaScript("chrome.readingMode.onLockScreen();");
@@ -1724,6 +1848,22 @@ void ReadAnythingAppController::OnTtsEngineInstalled() {
   ExecuteJavaScript("chrome.readingMode.onTtsEngineInstalled()");
 }
 #endif
+
+void ReadAnythingAppController::OnReadingModeHidden() {
+  model_.set_will_hide(true);
+  if (read_aloud_model_.speech_playing()) {
+    read_aloud_model_.LogSpeechStop(
+        ReadAloudAppModel::ReadAloudStopSource::kCloseReadingMode);
+  }
+}
+
+void ReadAnythingAppController::OnTabWillDetach() {
+  model_.set_will_hide(true);
+  if (read_aloud_model_.speech_playing()) {
+    read_aloud_model_.LogSpeechStop(
+        ReadAloudAppModel::ReadAloudStopSource::kCloseTabOrWindow);
+  }
+}
 
 void ReadAnythingAppController::SetDefaultLanguageCode(
     const std::string& code) {
@@ -1756,14 +1896,6 @@ void ReadAnythingAppController::SetContentForTesting(
 }
 
 void ReadAnythingAppController::ShouldShowUI() {
-  // These need to be logged here in the controller so we can base them off of
-  // the controller's constructor time.
-  base::UmaHistogramLongTimes(
-      "Accessibility.ReadAnything.TimeFromEntryTriggeredToContentLoaded",
-      base::TimeTicks::Now() - renderer_load_triggered_time_ms_);
-  base::UmaHistogramLongTimes(
-      "Accessibility.ReadAnything.TimeFromWebUIConnectToContentLoaded",
-      base::TimeTicks::Now() - web_ui_connected_time_ms_);
   page_handler_factory_->ShouldShowUI();
 }
 
@@ -1838,6 +1970,29 @@ ReadAnythingAppController::GetHighlightForCurrentSegmentIndex(int index,
 void ReadAnythingAppController::IncrementMetricCount(
     const std::string& metric) {
   read_aloud_model_.IncrementMetric(metric);
+}
+
+void ReadAnythingAppController::LogSpeechStop(int source) {
+  if (!IsReadAloudEnabled()) {
+    return;
+  }
+
+  // Don't log speech stopping if the reading mode panel is going to hide. That
+  // case is logged separately.
+  if (model_.will_hide()) {
+    return;
+  }
+
+  if (const auto maybe_enum =
+          ToEnum<ReadAloudAppModel::ReadAloudStopSource>(source)) {
+    read_aloud_model_.LogSpeechStop(maybe_enum.value());
+  }
+}
+
+void ReadAnythingAppController::OnUrlInformationSet() {
+  read_aloud_model_.LogSpeechStop(
+      model_.IsReload() ? ReadAloudAppModel::ReadAloudStopSource::kReloadPage
+                        : ReadAloudAppModel::ReadAloudStopSource::kChangePage);
 }
 
 void ReadAnythingAppController::OnScrolledToBottom() {

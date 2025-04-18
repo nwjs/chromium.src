@@ -250,6 +250,11 @@ class TabGroupSyncService : public KeyedService, public base::SupportsUserData {
   virtual void MakeTabGroupShared(const LocalTabGroupID& local_group_id,
                                   std::string_view collaboration_id,
                                   TabGroupSharingCallback callback) = 0;
+  // For testing only. This is needed to test shared tab groups flow without
+  // depending on real people groups from data sharing service backend.
+  virtual void MakeTabGroupSharedForTesting(
+      const LocalTabGroupID& local_group_id,
+      std::string_view collaboration_id) = 0;
 
   // Mutator methods for shared tab groups.
   // Starts the process of converting a shared tab group to saved tab group. Due
@@ -274,7 +279,18 @@ class TabGroupSyncService : public KeyedService, public base::SupportsUserData {
       const syncer::CollaborationId& collaboration_id) = 0;
 
   // Accessor methods.
+  // ReadAllGroups and GetAllGroups both return the same list of groups,
+  // filtered by whether they should be exposed to external callers.
+  // ReadAllGroups should be used by default since it doesnt require copying
+  // unless there is a specific reason for using GetAllGroups.
+  // Note that the pointers returned by ReadAllGroups are affected by any
+  // insertion or deletion operations on the tab group, so don't hold the this
+  // vector while doing any insertion deletion, or use this pointer across
+  // multiple calls to ReadAllGroups.
+  virtual std::vector<const SavedTabGroup*> ReadAllGroups() const = 0;
   virtual std::vector<SavedTabGroup> GetAllGroups() const = 0;
+
+  // Returns groups (even if they would be filtered out in Get/ReadAllGroups).
   virtual std::optional<SavedTabGroup> GetGroup(
       const base::Uuid& guid) const = 0;
   virtual std::optional<SavedTabGroup> GetGroup(
@@ -287,8 +303,9 @@ class TabGroupSyncService : public KeyedService, public base::SupportsUserData {
       const CollaborationId& collaboration_id) const = 0;
 
   // Method invoked from UI to open a remote tab group in the local tab model.
-  virtual void OpenTabGroup(const base::Uuid& sync_group_id,
-                            std::unique_ptr<TabGroupActionContext> context) = 0;
+  virtual std::optional<LocalTabGroupID> OpenTabGroup(
+      const base::Uuid& sync_group_id,
+      std::unique_ptr<TabGroupActionContext> context) = 0;
 
   // Book-keeping methods to maintain in-memory mapping of sync and local IDs.
   // `opening_source` and `closing_source` refer to the user actions and
@@ -354,6 +371,8 @@ class TabGroupSyncService : public KeyedService, public base::SupportsUserData {
   GetSavedTabGroupControllerDelegate() = 0;
   virtual base::WeakPtr<syncer::DataTypeControllerDelegate>
   GetSharedTabGroupControllerDelegate() = 0;
+  virtual base::WeakPtr<syncer::DataTypeControllerDelegate>
+  GetSharedTabGroupAccountControllerDelegate() = 0;
 
   // Helper method to pause / resume local observer.
   virtual std::unique_ptr<ScopedLocalObservationPauser>

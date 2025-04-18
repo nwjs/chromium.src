@@ -7,6 +7,7 @@
 #include <array>
 #include <optional>
 #include <utility>
+#include <variant>
 
 #include "base/check_deref.h"
 #include "base/check_op.h"
@@ -25,7 +26,7 @@
 #include "components/autofill/core/browser/field_type_utils.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/filling/addresses/field_filling_address_util.h"
-#include "components/autofill/core/browser/filling/entities/field_filling_entity_util.h"
+#include "components/autofill/core/browser/filling/autofill_ai/field_filling_entity_util.h"
 #include "components/autofill/core/browser/filling/field_filling_skip_reason.h"
 #include "components/autofill/core/browser/filling/filling_product.h"
 #include "components/autofill/core/browser/filling/payments/field_filling_payments_util.h"
@@ -46,6 +47,7 @@
 #include "components/autofill/core/common/dense_set.h"
 #include "components/autofill/core/common/logging/log_buffer.h"
 #include "components/autofill/core/common/logging/log_macros.h"
+#include "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
 #include "components/autofill/core/common/unique_ids.h"
 
 namespace autofill {
@@ -61,11 +63,12 @@ bool FillingProductSupportsRefills(FillingProduct filling_product) {
     case FillingProduct::kAddress:
     case FillingProduct::kCreditCard:
       return true;
-    case FillingProduct::kAutofillAi:
-    case FillingProduct::kMerchantPromoCode:
-    case FillingProduct::kIban:
     case FillingProduct::kAutocomplete:
+    case FillingProduct::kAutofillAi:
     case FillingProduct::kCompose:
+    case FillingProduct::kIban:
+    case FillingProduct::kLoyaltyCard:
+    case FillingProduct::kMerchantPromoCode:
     case FillingProduct::kPlusAddresses:
       return false;
     case FillingProduct::kPassword:
@@ -76,7 +79,7 @@ bool FillingProductSupportsRefills(FillingProduct filling_product) {
 
 FillingProduct GetFillingProductFromFillingPayload(
     const FillingPayload& filling_payload) {
-  return absl::visit(
+  return std::visit(
       base::Overloaded{
           [](const AutofillProfile*) { return FillingProduct::kAddress; },
           [](const CreditCard*) { return FillingProduct::kCreditCard; },
@@ -129,6 +132,8 @@ std::optional<FieldTypeSet> GetFieldTypesToFillFromFillingProduct(
       return FieldTypeSet{MERCHANT_PROMO_CODE};
     case FillingProduct::kIban:
       return FieldTypeSet{IBAN_VALUE};
+    case FillingProduct::kLoyaltyCard:
+      return FieldTypeSet{LOYALTY_MEMBERSHIP_ID};
     case FillingProduct::kPlusAddresses:
       return FieldTypeSet{EMAIL_ADDRESS};
     case FillingProduct::kAutocomplete:
@@ -234,9 +239,60 @@ bool ShouldRecordFillingHistory(FillingProduct filling_product) {
     case FillingProduct::kAutocomplete:
     case FillingProduct::kPassword:
     case FillingProduct::kCompose:
+    case FillingProduct::kLoyaltyCard:
       return false;
   }
   NOTREACHED();
+}
+
+// Called by `FormFiller::MaybeTriggerRefill()` and constructs a refill value in
+// case the website used JavaScript to reformat an expiration date like
+// "05/2023" into "05 / 20" (i.e. it broke the year by cutting the last two
+// digits instead of stripping the first two digits).
+std::optional<std::u16string> GetRefillValueForExpirationDate(
+    const FormFieldData& field,
+    const std::u16string& old_value) {
+  // We currently support a single case of refilling credit card expiration
+  // dates: If we filled the expiration date in a format "05/2023" and the
+  // website turned it into "05 / 20" (i.e. it broke the year by cutting the
+  // last two digits instead of stripping the first two digits).
+  constexpr size_t kSupportedLength = std::string_view("MM/YYYY").size();
+  if (old_value.length() != kSupportedLength) {
+    return std::nullopt;
+  }
+  if (old_value == field.value()) {
+    return std::nullopt;
+  }
+  static constexpr char16_t kFormatRegEx[] =
+      uR"(^(\d\d)(\s?[/-]?\s?)?(\d\d|\d\d\d\d)$)";
+  std::vector<std::u16string> old_groups;
+  if (!MatchesRegex<kFormatRegEx>(old_value, &old_groups)) {
+    return std::nullopt;
+  }
+  DCHECK_EQ(old_groups.size(), 4u);
+
+  std::vector<std::u16string> new_groups;
+  if (!MatchesRegex<kFormatRegEx>(field.value(), &new_groups)) {
+    return std::nullopt;
+  }
+  DCHECK_EQ(new_groups.size(), 4u);
+
+  int old_month, old_year, new_month, new_year;
+  if (!base::StringToInt(old_groups[1], &old_month) ||
+      !base::StringToInt(old_groups[3], &old_year) ||
+      !base::StringToInt(new_groups[1], &new_month) ||
+      !base::StringToInt(new_groups[3], &new_year) ||
+      old_groups[3].size() != 4 || new_groups[3].size() != 2 ||
+      old_month != new_month ||
+      // We need to refill if the first two digits of the year were preserved.
+      old_year / 100 != new_year) {
+    return std::nullopt;
+  }
+  std::u16string refill_value = field.value();
+  CHECK(refill_value.size() >= 2);
+  refill_value[refill_value.size() - 1] = '0' + (old_year % 10);
+  refill_value[refill_value.size() - 2] = '0' + ((old_year % 100) / 10);
+  return refill_value;
 }
 
 }  // namespace
@@ -348,13 +404,13 @@ FormFiller::RefillContext::RefillContext(const AutofillField& field,
       filled_field_signature(field.GetFieldSignature()),
       filled_origin(field.origin()),
       original_fill_time(base::TimeTicks::Now()) {
-  profile_or_credit_card = absl::visit(
+  profile_or_credit_card = std::visit(
       base::Overloaded{
           // Autofill with AI doesn't support refills.
           [](const EntityInstance*)
-              -> absl::variant<CreditCard, AutofillProfile> { NOTREACHED(); },
+              -> std::variant<CreditCard, AutofillProfile> { NOTREACHED(); },
           [](const auto* x) {
-            return absl::variant<CreditCard, AutofillProfile>(*x);
+            return std::variant<CreditCard, AutofillProfile>(*x);
           }},
       filling_payload);
 }
@@ -388,9 +444,9 @@ FormFiller::GetFieldFillingSkipReasons(
   type_count.reserve(form_structure.field_count());
 
   base::flat_set<FieldGlobalId> blocked_fields;
-  if (EntityDataManager* edm = manager_->client().GetEntityDataManager();
-      edm && filling_product == FillingProduct::kAddress) {
-    blocked_fields = GetFieldsFillableByAutofillAi(form_structure, *edm);
+  if (filling_product == FillingProduct::kAddress) {
+    blocked_fields =
+        GetFieldsFillableByAutofillAi(form_structure, manager_->client());
   }
 
   CHECK_EQ(fields.size(), form_structure.field_count());
@@ -471,13 +527,15 @@ FillingProduct FormFiller::UndoAutofill(
     field.set_value(previous_state.value);
     field.set_is_autofilled(previous_state.is_autofilled);
 
-    // Update the cached AutofillField in the browser.
-    // TODO(crbug.com/40232021): Consider updating the value too.
-    autofill_field.set_is_autofilled(previous_state.is_autofilled);
-    autofill_field.set_autofill_source_profile_guid(
-        previous_state.autofill_source_profile_guid);
-    autofill_field.set_autofilled_type(previous_state.autofilled_type);
-    autofill_field.set_filling_product(previous_state.filling_product);
+    // Update the cached AutofillField in the browser if the operation isn't a
+    // preview.
+    if (action_persistence == mojom::ActionPersistence::kFill) {
+      autofill_field.set_is_autofilled(previous_state.is_autofilled);
+      autofill_field.set_autofill_source_profile_guid(
+          previous_state.autofill_source_profile_guid);
+      autofill_field.set_autofilled_type(previous_state.autofilled_type);
+      autofill_field.set_filling_product(previous_state.filling_product);
+    }
   }
   form.set_fields(std::move(fields));
 
@@ -763,47 +821,66 @@ void FormFiller::FillOrPreviewForm(
       is_refill);
 }
 
-bool FormFiller::ShouldTriggerRefill(
+void FormFiller::MaybeTriggerRefill(
+    const FormData& form,
     const FormStructure& form_structure,
-    RefillTriggerReason refill_trigger_reason) {
-  // Should not refill if a form with the same FormGlobalId that has not been
-  // filled before.
+    RefillTriggerReason refill_trigger_reason,
+    AutofillTriggerSource trigger_source,
+    base::optional_ref<const FormFieldData> field,
+    base::optional_ref<const std::u16string> old_value) {
+  // Should not refill if a form with the same FormGlobalId has not been filled
+  // before or if it has been refilled before.
   RefillContext* refill_context = GetRefillContext(form_structure.global_id());
-  if (refill_context == nullptr) {
-    return false;
+  if (!refill_context || refill_context->attempted_refill) {
+    return;
   }
 
-  // Confirm that the form changed by running a DeepEqual check on the filled
-  // form and the received form. Other trigger reasons do not need this check
-  // since they do not depend on the form changing.
-  if (refill_trigger_reason == RefillTriggerReason::kFormChanged &&
-      refill_context->filled_form &&
-      FormData::DeepEqual(form_structure.ToFormData(),
-                          *refill_context->filled_form)) {
-    return false;
-  }
-
+  // Should not refill a form that has been filled a long time ago as the UX
+  // would appear strange.
   // TODO(crbug.com/41490871): Use form_structure.last_filling_timestamp_
   // instead of filling_context->original_fill_time.
-  base::TimeDelta delta =
-      base::TimeTicks::Now() - refill_context->original_fill_time;
+  if (base::TimeDelta delta =
+          base::TimeTicks::Now() - refill_context->original_fill_time;
+      delta > limit_before_refill_) {
+    return;
+  }
 
-  return !refill_context->attempted_refill && delta < limit_before_refill_;
+  switch (refill_trigger_reason) {
+    case RefillTriggerReason::kFormChanged:
+      // Confirm that the form actually changed between filling time and
+      // parsing after filling time, and otherwise do not refill.
+      if (refill_context->filled_form &&
+          FormData::DeepEqual(form_structure.ToFormData(),
+                              *refill_context->filled_form)) {
+        return;
+      }
+      break;
+    case RefillTriggerReason::kSelectOptionsChanged:
+      break;
+    case RefillTriggerReason::kExpirationDateFormatted:
+      CHECK(field && old_value);
+      if (std::optional<std::u16string> refill_value =
+              GetRefillValueForExpirationDate(*field, *old_value)) {
+        refill_context->forced_fill_values[field->global_id()] = *refill_value;
+        break;
+      }
+      return;
+  }
+  ScheduleRefill(form, CHECK_DEREF(refill_context), trigger_source,
+                 refill_trigger_reason);
 }
 
 void FormFiller::ScheduleRefill(const FormData& form,
-                                const FormStructure& form_structure,
+                                RefillContext& refill_context,
                                 AutofillTriggerSource trigger_source,
                                 RefillTriggerReason refill_trigger_reason) {
-  RefillContext* refill_context = GetRefillContext(form_structure.global_id());
-  DCHECK(refill_context != nullptr);
   // If a timer for the refill was already running, it means the form
   // changed again. Stop the timer and start it again.
-  if (refill_context->on_refill_timer.IsRunning()) {
-    refill_context->on_refill_timer.Stop();
+  if (refill_context.on_refill_timer.IsRunning()) {
+    refill_context.on_refill_timer.Stop();
   }
   // Start a new timer to trigger refill.
-  refill_context->on_refill_timer.Start(
+  refill_context.on_refill_timer.Start(
       FROM_HERE, kWaitTimeForDynamicForms,
       base::BindRepeating(&FormFiller::TriggerRefill,
                           weak_ptr_factory_.GetWeakPtr(), form, trigger_source,
@@ -862,7 +939,7 @@ void FormFiller::TriggerRefill(const FormData& form,
   }
 
   autofill_metrics::LogRefillTriggerReason(refill_trigger_reason);
-  absl::visit(
+  std::visit(
       [&](const auto& profile_or_credit_card) {
         FillOrPreviewForm(mojom::ActionPersistence::kFill, form,
                           &profile_or_credit_card, *form_structure,
@@ -870,63 +947,6 @@ void FormFiller::TriggerRefill(const FormData& form,
                           /*is_refill=*/true);
       },
       refill_context->profile_or_credit_card);
-}
-
-void FormFiller::MaybeTriggerRefillForExpirationDate(
-    const FormData& form,
-    const FormFieldData& field,
-    const FormStructure& form_structure,
-    const std::u16string& old_value,
-    AutofillTriggerSource trigger_source) {
-  // We currently support a single case of refilling credit card expiration
-  // dates: If we filled the expiration date in a format "05/2023" and the
-  // website turned it into "05 / 20" (i.e. it broke the year by cutting the
-  // last two digits instead of stripping the first two digits).
-  constexpr size_t kSupportedLength = std::string_view("MM/YYYY").size();
-  if (old_value.length() != kSupportedLength) {
-    return;
-  }
-  if (old_value == field.value()) {
-    return;
-  }
-  static constexpr char16_t kFormatRegEx[] =
-      uR"(^(\d\d)(\s?[/-]?\s?)?(\d\d|\d\d\d\d)$)";
-  std::vector<std::u16string> old_groups;
-  if (!MatchesRegex<kFormatRegEx>(old_value, &old_groups)) {
-    return;
-  }
-  DCHECK_EQ(old_groups.size(), 4u);
-
-  std::vector<std::u16string> new_groups;
-  if (!MatchesRegex<kFormatRegEx>(field.value(), &new_groups)) {
-    return;
-  }
-  DCHECK_EQ(new_groups.size(), 4u);
-
-  int old_month, old_year, new_month, new_year;
-  if (!base::StringToInt(old_groups[1], &old_month) ||
-      !base::StringToInt(old_groups[3], &old_year) ||
-      !base::StringToInt(new_groups[1], &new_month) ||
-      !base::StringToInt(new_groups[3], &new_year) ||
-      old_groups[3].size() != 4 || new_groups[3].size() != 2 ||
-      old_month != new_month ||
-      // We need to refill if the first two digits of the year were preserved.
-      old_year / 100 != new_year) {
-    return;
-  }
-  std::u16string refill_value = field.value();
-  CHECK(refill_value.size() >= 2);
-  refill_value[refill_value.size() - 1] = '0' + (old_year % 10);
-  refill_value[refill_value.size() - 2] = '0' + ((old_year % 100) / 10);
-
-  if (ShouldTriggerRefill(form_structure,
-                          RefillTriggerReason::kExpirationDateFormatted)) {
-    RefillContext& refill_context =
-        CHECK_DEREF(GetRefillContext(form_structure.global_id()));
-    refill_context.forced_fill_values[field.global_id()] = refill_value;
-    ScheduleRefill(form, form_structure, trigger_source,
-                   RefillTriggerReason::kExpirationDateFormatted);
-  }
 }
 
 void FormFiller::SetRefillContext(FormGlobalId form_id,
@@ -951,7 +971,7 @@ FormFiller::FieldFillingData FormFiller::GetFieldFillingData(
     return {it->second, autofill_field.Type().GetStorableType(),
             /*value_is_an_override=*/true};
   }
-  const auto& [value_to_fill, filling_type] = absl::visit(
+  const auto& [value_to_fill, filling_type] = std::visit(
       base::Overloaded{
           [&](const AutofillProfile* profile)
               -> std::pair<std::u16string, std::optional<FieldType>> {
@@ -970,9 +990,12 @@ FormFiller::FieldFillingData FormFiller::GetFieldFillingData(
           },
           [&](const EntityInstance* entity)
               -> std::pair<std::u16string, std::optional<FieldType>> {
-            return GetFillValueAndTypeForEntity(
-                CHECK_DEREF(entity), autofill_field, action_persistence,
-                manager_->client().GetAppLocale());
+            // TODO(crbug.com/397620383): Which type should we return here?
+            return {GetFillValueForEntity(
+                        CHECK_DEREF(entity), autofill_field, action_persistence,
+                        manager_->client().GetAppLocale(),
+                        manager_->client().GetAddressNormalizer()),
+                    std::nullopt};
           }},
       filling_payload);
   return {value_to_fill, filling_type, /*value_is_an_override=*/false};
@@ -1019,7 +1042,7 @@ bool FormFiller::FillField(
     autofill_field.set_filling_product(filling_product);
     if (filling_product == FillingProduct::kAddress) {
       autofill_field.set_autofill_source_profile_guid(
-          absl::get<const AutofillProfile*>(filling_payload)->guid());
+          std::get<const AutofillProfile*>(filling_payload)->guid());
     }
     autofill_field.set_autofilled_type(filling_content.field_type);
   }

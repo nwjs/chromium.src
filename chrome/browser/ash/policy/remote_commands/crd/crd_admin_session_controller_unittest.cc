@@ -25,6 +25,7 @@
 #include "base/test/test_future.h"
 #include "base/time/time.h"
 #include "chrome/browser/ash/policy/remote_commands/crd/crd_remote_command_utils.h"
+#include "chrome/browser/ash/policy/remote_commands/crd/public/crd_session_result_codes.h"
 #include "chrome/browser/ui/ash/login/mock_login_display_host.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/scoped_testing_local_state.h"
@@ -66,6 +67,7 @@ using ::testing::Eq;
 
 constexpr char kTestUserName[] = "test-username";
 const SessionId kValidSessionId{678};
+const base::TimeDelta kAutoAcceptTimeout = base::Seconds(30);
 
 // Returns a valid response that can be sent to a `StartSupportSessionCallback`.
 StartSupportSessionResponsePtr AnyResponse() {
@@ -514,6 +516,42 @@ TEST_F(CrdAdminSessionControllerTest, ShouldPassUserNameToRemotingService) {
 
   ASSERT_FALSE(actual_parameters.is_null());
   EXPECT_EQ(actual_parameters->user_name, "<the-user-name>");
+}
+
+TEST_F(CrdAdminSessionControllerTest,
+       ShouldPassAutoAcceptTimeoutToRemotingService) {
+  InitWithNoReconnectableSession(session_controller());
+  SessionParameters parameters;
+  parameters.connection_auto_accept_timeout = kAutoAcceptTimeout;
+
+  remoting::ChromeOsEnterpriseParams actual_parameters;
+  EXPECT_CALL(remoting_service(), StartSession)
+      .WillOnce(SaveParamAndInvokeCallback(&actual_parameters));
+
+  delegate().StartCrdHostAndGetCode(parameters, success_callback(),
+                                    error_callback(),
+                                    session_finished_callback());
+
+  EXPECT_EQ(actual_parameters.connection_auto_accept_timeout,
+            kAutoAcceptTimeout);
+}
+
+TEST_F(CrdAdminSessionControllerTest,
+       ShouldNotPassAutoAcceptTimeoutIfUnsetToRemotingService) {
+  InitWithNoReconnectableSession(session_controller());
+  SessionParameters parameters;
+  parameters.connection_auto_accept_timeout = std::nullopt;
+
+  remoting::ChromeOsEnterpriseParams actual_parameters;
+  EXPECT_CALL(remoting_service(), StartSession)
+      .WillOnce(SaveParamAndInvokeCallback(&actual_parameters));
+
+  delegate().StartCrdHostAndGetCode(parameters, success_callback(),
+                                    error_callback(),
+                                    session_finished_callback());
+
+  EXPECT_EQ(actual_parameters.connection_auto_accept_timeout,
+            base::TimeDelta());
 }
 
 TEST_P(CrdAdminSessionControllerTestWithBoolParams,

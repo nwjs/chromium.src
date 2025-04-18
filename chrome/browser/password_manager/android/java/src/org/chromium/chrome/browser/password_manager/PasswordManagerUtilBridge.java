@@ -12,11 +12,8 @@ import org.jni_zero.NativeMethods;
 
 import org.chromium.base.PackageUtils;
 import org.chromium.chrome.browser.access_loss.PasswordAccessLossWarningType;
-import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.sync.SyncService;
-
-import java.io.File;
 
 /** Wrapper for utilities in password_manager_util. */
 public class PasswordManagerUtilBridge {
@@ -82,6 +79,18 @@ public class PasswordManagerUtilBridge {
     }
 
     /**
+     * Checks whether Google Play Services is installed and whether Play Store is installed so that
+     * the user can be redirected to the store to update Google Play Services if needed.
+     *
+     * @return true if both Google Play Services and Google Play Store are installed.
+     */
+    @CalledByNative
+    public static boolean isGooglePlayServicesUpdatable() {
+        return PackageUtils.isPackageInstalled("com.google.android.gms")
+                && PasswordManagerUtilBridge.isPlayStoreAppPresent();
+    }
+
+    /**
      * Returns whether Chrome's internal backend is available and the minimum GMS Core requirements
      * for UPM are met.
      */
@@ -96,16 +105,6 @@ public class PasswordManagerUtilBridge {
             return PasswordAccessLossWarningType.NONE;
         }
         return PasswordManagerUtilBridgeJni.get().getPasswordAccessLossWarningType(prefService);
-    }
-
-    public static String getAutoExportCsvFilePath(Profile profile) {
-        return PasswordManagerUtilBridgeJni.get().getAutoExportCsvFilePath(profile);
-    }
-
-    public static boolean hasPasswordsInCsv(Profile profile) {
-        String path = getAutoExportCsvFilePath(profile);
-        File file = new File(path);
-        return file.exists();
     }
 
     @NativeMethods
@@ -127,7 +126,5 @@ public class PasswordManagerUtilBridge {
 
         @PasswordAccessLossWarningType
         int getPasswordAccessLossWarningType(@JniType("PrefService*") PrefService prefService);
-
-        String getAutoExportCsvFilePath(@JniType("Profile*") Profile profile);
     }
 }

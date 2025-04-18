@@ -295,10 +295,6 @@ TEST(CreditCardTest, NicknameAndLastFourDigitsStrings) {
 // nickname and product description are unavailable.
 TEST(CreditCardTest,
      CardIdentifierStringsForAutofillDisplay_NoNicknameNoProductDescription) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
-      features::kAutofillEnableCardProductName);
-
   CreditCard credit_card(base::Uuid::GenerateRandomV4().AsLowercaseString(),
                          "https://www.example.com/");
   test::SetCreditCardInfo(&credit_card, "John Dillinger",
@@ -315,10 +311,6 @@ TEST(CreditCardTest,
 TEST(
     CreditCardTest,
     CardIdentifierStringsForAutofillDisplay_InvalidNicknameNoProductDescription) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
-      features::kAutofillEnableCardProductName);
-
   CreditCard credit_card(base::Uuid::GenerateRandomV4().AsLowercaseString(),
                          "https://www.example.com/");
   test::SetCreditCardInfo(&credit_card, "John Dillinger",
@@ -335,10 +327,6 @@ TEST(
 // nickname is unavailable.
 TEST(CreditCardTest,
      CardIdentifierStringsForAutofillDisplay_NoNicknameWithProductDescription) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
-      features::kAutofillEnableCardProductName);
-
   std::u16string product_description = u"ABC bank XYZ card";
 
   CreditCard credit_card(base::Uuid::GenerateRandomV4().AsLowercaseString(),
@@ -359,10 +347,6 @@ TEST(CreditCardTest,
 TEST(
     CreditCardTest,
     CardIdentifierStringsForAutofillDisplay_InvalidNicknameWithProductDescription) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
-      features::kAutofillEnableCardProductName);
-
   std::u16string product_description = u"ABC bank XYZ card";
 
   CreditCard credit_card(base::Uuid::GenerateRandomV4().AsLowercaseString(),
@@ -382,10 +366,6 @@ TEST(
 // Test that card identifier string shows nickname when it is valid.
 TEST(CreditCardTest,
      CardIdentifierStringsForAutofillDisplay_WithValidNickname) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
-      features::kAutofillEnableCardProductName);
-
   std::u16string valid_nickname = u"My Visa Card";
 
   CreditCard credit_card(base::Uuid::GenerateRandomV4().AsLowercaseString(),
@@ -405,10 +385,6 @@ TEST(CreditCardTest,
 // Test that customized nickname takes precedence over credit card's nickname.
 TEST(CreditCardTest,
      CardIdentifierStringsForAutofillDisplay_WithCustomizedNickname) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
-      features::kAutofillEnableCardProductName);
-
   std::u16string customized_nickname = u"My grocery shopping Visa card";
 
   CreditCard credit_card(base::Uuid::GenerateRandomV4().AsLowercaseString(),
@@ -425,13 +401,84 @@ TEST(CreditCardTest,
             credit_card.CardNameAndLastFourDigits(customized_nickname));
 }
 
+// Test that card identifier string shows customized nickname if given.
+TEST(CreditCardTest, CardIdentifierForAutofillDisplay_WithCustomizedNickname) {
+  std::u16string nickname = u"My Visa Card";
+  std::u16string customized_nickname = u"Unique name";
+  CreditCard credit_card(base::Uuid::GenerateRandomV4().AsLowercaseString(),
+                         "https://www.example.com/");
+  test::SetCreditCardInfo(&credit_card, "John Dillinger",
+                          "5105 1051 0510 5100" /* Mastercard */, "01", "2020",
+                          "1");
+  credit_card.SetNickname(nickname);
+  credit_card.set_product_description(u"Amex card");
+
+  EXPECT_EQ(customized_nickname,
+            credit_card.CardIdentifierForAutofillDisplay(customized_nickname));
+}
+
+// Test that card identifier string shows nickname when it is valid.
+TEST(CreditCardTest, CardIdentifierForAutofillDisplay_WithNickname) {
+  std::u16string nickname = u"My Visa Card";
+  CreditCard credit_card(base::Uuid::GenerateRandomV4().AsLowercaseString(),
+                         "https://www.example.com/");
+  test::SetCreditCardInfo(&credit_card, "John Dillinger",
+                          "5105 1051 0510 5100" /* Mastercard */, "01", "2020",
+                          "1");
+  credit_card.SetNickname(nickname);
+  credit_card.set_product_description(u"Amex card");
+
+  EXPECT_EQ(nickname, credit_card.CardIdentifierForAutofillDisplay());
+}
+
+// Test that card identifier string shows product description when it is
+// available.
+TEST(CreditCardTest, CardIdentifierForAutofillDisplay_WithProductDescription) {
+  std::u16string product_description = u"Amex card";
+  CreditCard credit_card(base::Uuid::GenerateRandomV4().AsLowercaseString(),
+                         "https://www.example.com/");
+  test::SetCreditCardInfo(&credit_card, "John Dillinger",
+                          "5105 1051 0510 5100" /* Mastercard */, "01", "2020",
+                          "1");
+  credit_card.set_product_description(product_description);
+
+  EXPECT_EQ(product_description,
+            credit_card.CardIdentifierForAutofillDisplay());
+}
+
+// Test that card identifier string falls back to product description when
+// nickname is invalid and product description is available.
+TEST(CreditCardTest,
+     CardIdentifierForAutofillDisplay_InvalidNicknameAndProductDescription) {
+  std::u16string product_description = u"Amex card";
+  CreditCard credit_card(base::Uuid::GenerateRandomV4().AsLowercaseString(),
+                         "https://www.example.com/");
+  test::SetCreditCardInfo(&credit_card, "John Dillinger",
+                          "5105 1051 0510 5100" /* Mastercard */, "01", "2020",
+                          "1");
+  credit_card.SetNickname(u"Nickname length exceeds 25 characters");
+  credit_card.set_product_description(product_description);
+
+  EXPECT_EQ(product_description,
+            credit_card.CardIdentifierForAutofillDisplay());
+}
+
+// Test that card identifier returns null when both the nickname and product
+// description are unavailable.
+TEST(CreditCardTest,
+     CardIdentifierForAutofillDisplay_NoNicknameAndProductDescription) {
+  CreditCard credit_card(base::Uuid::GenerateRandomV4().AsLowercaseString(),
+                         "https://www.example.com/");
+  test::SetCreditCardInfo(&credit_card, "John Dillinger",
+                          "5105 1051 0510 5100" /* Mastercard */, "01", "2020",
+                          "1");
+
+  EXPECT_FALSE(credit_card.CardIdentifierForAutofillDisplay().has_value());
+}
+
 // Test that the card number is formatted as per the obfuscation length.
 TEST(CreditCardTest,
      CardIdentifierStringsForAutofillDisplay_WithObfuscationLength) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
-      features::kAutofillEnableCardProductName);
-
   int obfuscation_length = 2;
 
   CreditCard credit_card(base::Uuid::GenerateRandomV4().AsLowercaseString(),
@@ -1663,6 +1710,40 @@ TEST(CreditCardTest, IsDeletable) {
   EXPECT_FALSE(card.IsDeletable());
 }
 
+TEST(CreditCardTest, LabelPieces_WithNickname) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      features::kAutofillEnableNewFopDisplayDesktop);
+  CreditCard card(base::Uuid::GenerateRandomV4().AsLowercaseString(),
+                  "https://www.example.com/");
+  // Set the card as Mastercard.
+  test::SetCreditCardInfo(&card, "John Dillinger", "5105 1051 0510 5100", "01",
+                          "2020", "1");
+  card.SetNickname(u"Nickname");
+  const std::u16string network_and_last_four =
+      UTF8ToUTF16(std::string("Mastercard  ") +
+                  test::ObfuscatedCardDigitsAsUTF8("5100", 2));
+
+  EXPECT_EQ(card.LabelPieces().first, u"Nickname");
+  EXPECT_EQ(card.LabelPieces().second, network_and_last_four);
+}
+
+TEST(CreditCardTest, LabelPieces_WithoutNickname) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      features::kAutofillEnableNewFopDisplayDesktop);
+  CreditCard card(base::Uuid::GenerateRandomV4().AsLowercaseString(),
+                  "https://www.example.com/");
+  // Set the card as Mastercard.
+  test::SetCreditCardInfo(&card, "John Dillinger", "5105 1051 0510 5100", "01",
+                          "2020", "1");
+  const std::u16string network_and_last_four =
+      UTF8ToUTF16(std::string("Mastercard  ") +
+                  test::ObfuscatedCardDigitsAsUTF8("5100", 2));
+  EXPECT_EQ(card.LabelPieces().first, network_and_last_four);
+  EXPECT_EQ(card.LabelPieces().second, u"");
+}
+
 struct CreditCardMatchingTypesCase {
   CreditCardMatchingTypesCase(const char* value,
                               const char* card_exp_month,
@@ -1825,6 +1906,18 @@ TEST(CreditCardTest, FullDigitsForDisplay) {
   // here just in case. Masked card stays the same.
   card.SetRawInfo(CREDIT_CARD_NUMBER, u"3489");
   ASSERT_EQ(u"3489", card.FullDigitsForDisplay());
+}
+
+TEST(CreditCardTest, IsBnplCard) {
+  CreditCard card;
+
+  EXPECT_FALSE(card.is_bnpl_card());
+
+  card.set_is_bnpl_card(true);
+  EXPECT_TRUE(card.is_bnpl_card());
+
+  card.set_is_bnpl_card(false);
+  EXPECT_FALSE(card.is_bnpl_card());
 }
 
 // Verifies that a credit card should be updated.

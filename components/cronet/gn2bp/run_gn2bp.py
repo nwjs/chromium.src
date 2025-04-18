@@ -19,6 +19,7 @@ import hashlib
 import multiprocessing.dummy
 import os
 import pathlib
+import string
 import subprocess
 import sys
 import tempfile
@@ -39,8 +40,7 @@ _COPYBARA_CONFIG_PATH = os.path.join(REPOSITORY_ROOT,
 _COPYBARA_PATH = os.path.join(REPOSITORY_ROOT,
                               'tools/copybara/copybara/copybara_deploy.jar')
 _GENERATE_BUILD_SCRIPT_PATH = os.path.join(
-    REPOSITORY_ROOT,
-    'components/cronet/gn2bp/generate_build_scripts_output.py')
+    REPOSITORY_ROOT, 'components/cronet/gn2bp/generate_build_scripts_output.py')
 _GENERATE_LICENSE_SCRIPT_PATH = os.path.join(
     REPOSITORY_ROOT,
     'components/cronet/license/create_android_metadata_license.py')
@@ -75,7 +75,8 @@ def _run_license_generation() -> int:
 
 
 def _run_gn2bp(desc_files: Set[tempfile.NamedTemporaryFile],
-               skip_build_scripts: bool, delete_temporary_files: bool) -> int:
+               skip_build_scripts: bool, delete_temporary_files: bool,
+               channel: str) -> int:
   """Run gen_android_bp.py to generate Android.bp.gn2bp files."""
   with tempfile.NamedTemporaryFile(
       mode='w+', encoding='utf-8',
@@ -95,7 +96,9 @@ def _run_gn2bp(desc_files: Set[tempfile.NamedTemporaryFile],
       base_cmd += ['--desc', desc_file.name]
 
     base_cmd += ["--license"]
+    base_cmd += ["--channel", channel]
     return cronet_utils.run(base_cmd)
+
 
 def _run_generate_build_scripts(output_path: str) -> int:
   """Run generate_build_scripts_output.py.
@@ -110,6 +113,7 @@ def _run_generate_build_scripts(output_path: str) -> int:
       output_path,
   ])
 
+
 def _write_desc_json(gn_out_dir: str,
                      temp_file: tempfile.NamedTemporaryFile) -> int:
   """Generate desc json files needed by gen_android_bp.py."""
@@ -120,54 +124,90 @@ def _write_desc_json(gn_out_dir: str,
                           stdout=temp_file)
 
 
-def _gen_boringssl() -> int:
+def _gen_extras_bp(import_channel: str) -> None:
+  """Generate Android.extras.bp."""
+  extras_androidbp_template_path = os.path.join(REPOSITORY_ROOT, 'components',
+                                                'cronet', 'gn2bp', 'templates',
+                                                'Android.extras.bp.template')
+  extras_androidbp_template_contents = cronet_utils.read_file(
+      extras_androidbp_template_path)
+  extras_androidbp_path = os.path.join(REPOSITORY_ROOT,
+                                       'Android.extras.bp.gn2bp')
+  cronet_utils.write_file(
+      extras_androidbp_path,
+      string.Template(extras_androidbp_template_contents).substitute(
+          GN2BP_MODULE_PREFIX=f'{import_channel}_cronet_'))
+
+
+def _gen_boringssl(import_channel: str) -> int:
   """Generate boringssl Android build files."""
-  cmd = 'cd {boringssl_path} && python3 {boringssl_script} android'.format(
-        boringssl_path=_BORINGSSL_PATH, boringssl_script=_BORINGSSL_SCRIPT)
+  module_prefix = f'{import_channel}_cronet_'
+  boringssl_androidbp_template_path = os.path.join(
+      REPOSITORY_ROOT, 'components', 'cronet', 'gn2bp', 'templates',
+      'boringssl_Android.bp.template')
+  boringssl_androidbp_template_contents = cronet_utils.read_file(
+      boringssl_androidbp_template_path)
+  boringssl_androidbp_path = os.path.join(_BORINGSSL_PATH, 'Android.bp.gn2bp')
+  cronet_utils.write_file(
+      boringssl_androidbp_path,
+      string.Template(boringssl_androidbp_template_contents).substitute(
+          GN2BP_IMPORT_CHANNEL=import_channel,
+          GN2BP_MODULE_PREFIX=module_prefix))
+  cmd = f'cd {_BORINGSSL_PATH} && python3 {_BORINGSSL_SCRIPT} --target-prefix={module_prefix} android'
   return cronet_utils.run(cmd, shell=True)
 
 
-def _run_copybara_to_aosp(config: str = _COPYBARA_CONFIG_PATH,
-                          copybara_binary: str = _COPYBARA_PATH,
-                          git_url_and_branch: Optional[Tuple[str, str]] = None,
-                          regenerate_consistency_file: bool = False) -> int:
+def _run_copybara_to_aosp(config: str, copybara_binary: str,
+                          git_url_and_branch: Optional[Tuple[str, str]],
+                          regenerate_consistency_file: bool,
+                          import_channel: str) -> int:
   """Run Copybara CLI to generate an AOSP Gerrit CL with the generated files.
   Get the commit hash of AOSP `external/cronet` tip of tree to merge into.
   It will print the generated Gerrit url to stdout.
   """
-  if not git_url_and_branch:
-    parent_commit_raw = subprocess.check_output(
-        ('git ls-remote '
-         'https://android.googlesource.com/platform/external/cronet '
-         '| grep "refs/heads/main$" | cut -f 1'),
-        shell=True)
-    parent_commit = parent_commit_raw.decode('utf-8').strip('\n')
-    print(f'AOSP {parent_commit=}')
-    # TODO(crbug.com/349099325): Generate gerrit change id until
-    # --gerrit-new-change flag is fixed.
-    msg = f'gn2bp{time.time_ns()}'
-    change_id = f'I{hashlib.sha1(msg.encode()).hexdigest()}'
-    print(f'Generated {change_id=}')
-  return cronet_utils.run([
-      _JAVA_PATH,
-      '-jar',
-      copybara_binary,
-      config,
-      "import_cronet_to_aosp_gerrit"
-      if git_url_and_branch is None else "import_cronet_to_git_branch",
-      REPOSITORY_ROOT,
+  # TODO(crbug.com/349099325): Generate gerrit change id until
+  # --gerrit-new-change flag is fixed.
+  msg = f'gn2bp{time.time_ns()}'
+  change_id = f'I{hashlib.sha1(msg.encode()).hexdigest()}'
+  print(f'Generated {change_id=}')
+
+  target_workflow = None
+  additional_parameters = [
       '--ignore-noop',
-      *(('--change-request-parent', parent_commit, '--git-push-option',
-         'nokeycheck', '--git-push-option', 'uploadvalidator~skip',
-         '--gerrit-change-id', change_id) if git_url_and_branch is None else
-        ('--git-destination-url', git_url_and_branch[0],
-         '--git-destination-push', git_url_and_branch[1])),
-      # We can't use the copybara `regenerate` subcommand because it doesn't
-      # support folder origins. See https://crbug.com/391331930.
-      *(('--disable-consistency-merge-import', 'true',
-         '--baseline-for-merge-import',
-         REPOSITORY_ROOT) if regenerate_consistency_file else ())
-  ])
+  ]
+
+  if git_url_and_branch:
+    target_workflow = f'{import_channel}_import_cronet_to_git_branch'
+    additional_parameters.extend([
+        '--git-destination-url',
+        git_url_and_branch[0],
+        '--git-destination-push',
+        git_url_and_branch[1],
+    ])
+  else:
+    target_workflow = f'{import_channel}_import_cronet_to_aosp_gerrit'
+    additional_parameters.extend([
+        '--git-push-option',
+        'nokeycheck',
+        '--git-push-option',
+        'uploadvalidator~skip',
+        '--gerrit-change-id',
+        change_id,
+    ])
+  if regenerate_consistency_file:
+    # We can't use the copybara `regenerate` subcommand because it doesn't
+    # support folder origins. See https://crbug.com/391331930.
+    additional_parameters.extend([
+        '--disable-consistency-merge-import',
+        'true',
+        '--baseline-for-merge-import',
+        REPOSITORY_ROOT,
+    ])
+
+  return cronet_utils.run([
+      _JAVA_PATH, '-jar', copybara_binary, config, target_workflow,
+      REPOSITORY_ROOT
+  ] + additional_parameters)
 
 
 def _fill_desc_file_for_arch(arch, desc_file, delete_temporary_files):
@@ -188,6 +228,7 @@ def _fill_desc_file_for_arch(arch, desc_file, delete_temporary_files):
       # Exit if we failed to generate any of the desc.json files.
       print(f"Failed to generate desc file for arch: {arch}")
       sys.exit(-1)
+
 
 def main():
   parser = argparse.ArgumentParser()
@@ -234,6 +275,11 @@ def main():
                             "import into the destination; in other words, you "
                             "must re-import the exact same Cronet version that "
                             "is currently in the destination."))
+  parser.add_argument('--channel',
+                      help='The channel this execution of gn2bp is targeting.',
+                      type=str,
+                      choices=['tot', 'stable'],
+                      default='tot')
   args = parser.parse_args()
   run_copybara = not args.skip_copybara
   delete_temporary_files = not args.keep_temporary_files
@@ -259,8 +305,10 @@ def main():
     res_license_generation = _run_license_generation()
     res_gn2bp = _run_gn2bp(desc_files=arch_to_desc_file.values(),
                            skip_build_scripts=args.skip_build_scripts,
-                           delete_temporary_files=delete_temporary_files)
-    res_boringssl = _gen_boringssl()
+                           delete_temporary_files=delete_temporary_files,
+                           channel=args.channel)
+    res_boringssl = _gen_boringssl(args.channel)
+    _gen_extras_bp(args.channel)
 
     res_copybara = 1
     if run_copybara and res_gn2bp == 0 and res_boringssl == 0 and res_license_generation == 0:
@@ -269,7 +317,8 @@ def main():
           config=args.config,
           copybara_binary=args.copybara,
           git_url_and_branch=args.git_url_and_branch,
-          regenerate_consistency_file=args.regenerate_consistency_file)
+          regenerate_consistency_file=args.regenerate_consistency_file,
+          import_channel=args.channel)
 
   finally:
     for file in arch_to_desc_file.values():

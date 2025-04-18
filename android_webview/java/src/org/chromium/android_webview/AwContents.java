@@ -39,6 +39,7 @@ import android.view.PointerIcon;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewStructure;
+import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityNodeProvider;
 import android.view.animation.AnimationUtils;
@@ -47,8 +48,9 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 import android.view.textclassifier.TextClassifier;
 import android.webkit.JavascriptInterface;
+import android.webkit.WebViewClient;
 
-import androidx.annotation.GuardedBy;
+import androidx.annotation.AnyThread;
 import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -102,7 +104,6 @@ import org.chromium.components.stylus_handwriting.StylusHandwritingFeatureMap;
 import org.chromium.components.stylus_handwriting.StylusWritingController;
 import org.chromium.components.stylus_handwriting.StylusWritingSettingsState;
 import org.chromium.components.url_formatter.UrlFormatter;
-import org.chromium.components.viz.common.VizFeatures;
 import org.chromium.components.zoom.ZoomConstants;
 import org.chromium.content_public.browser.ChildProcessImportance;
 import org.chromium.content_public.browser.ContentViewStatics;
@@ -413,7 +414,7 @@ public class AwContents implements SmartClipProvider {
     private AwWebContentsObserver mWebContentsObserver;
     private final AwContentsClientBridge mContentsClientBridge;
     private final AwWebContentsDelegateAdapter mWebContentsDelegate;
-    private final AwContentsBackgroundThreadClient mBackgroundThreadClient;
+    private final ShouldInterceptRequestMediator mShouldInterceptRequestMediator;
     private final AwContentsIoThreadClient mIoThreadClient;
     private final InterceptNavigationDelegateImpl mInterceptNavigationDelegate;
     private InternalAccessDelegate mInternalAccessAdapter;
@@ -686,33 +687,32 @@ public class AwContents implements SmartClipProvider {
     // (ie before it is destroyed).
     private CleanupReference mCleanupReference;
 
-    private final Object mAsyncShouldInterceptRequestCallbackLock = new Object();
-
-    @GuardedBy("mAsyncShouldInterceptRequestCallbackLock")
-    @Nullable
-    private AsyncShouldInterceptRequestCallback mAsyncShouldInterceptRequestCallback;
-
+    @AnyThread
     public void setAsyncShouldInterceptRequestCallback(
             AsyncShouldInterceptRequestCallback callback) {
-        synchronized (mAsyncShouldInterceptRequestCallbackLock) {
-            mAsyncShouldInterceptRequestCallback = callback;
-        }
+        mShouldInterceptRequestMediator.setAsyncCallback(callback);
     }
 
+    @AnyThread
     public void clearAsyncShouldInterceptRequestCallback() {
-        synchronized (mAsyncShouldInterceptRequestCallbackLock) {
-            mAsyncShouldInterceptRequestCallback = null;
-        }
+        mShouldInterceptRequestMediator.setAsyncCallback(null);
+    }
+
+    @AnyThread
+    public void onWebViewClientUpdated(WebViewClient client) {
+        mShouldInterceptRequestMediator.onWebViewClientUpdated(client);
     }
 
     // --------------------------------------------------------------------------------------------
-    private class BackgroundThreadClientImpl extends AwContentsBackgroundThreadClient {
+    private class AwContentsShouldInterceptRequestMediator extends ShouldInterceptRequestMediator {
         // All methods are called on the background thread.
 
         @Override
         public void shouldInterceptRequest(
-                AwContentsClient.AwWebResourceRequest request, WebResponseCallback callback) {
-            String url = request.url;
+                AwWebResourceRequest request,
+                WebResponseCallback callback,
+                AsyncShouldInterceptRequestCallback asyncShouldInterceptRequestCallback) {
+            String url = request.getUrl();
             WebResourceResponseInfo webResourceResponseInfo;
             callback.setAwContentsClient(mContentsClient);
             // Return the response directly if the url is default video poster url.
@@ -722,15 +722,11 @@ public class AwContents implements SmartClipProvider {
                 return;
             }
 
-            AsyncShouldInterceptRequestCallback asyncCallback;
-            synchronized (mAsyncShouldInterceptRequestCallbackLock) {
-                asyncCallback = mAsyncShouldInterceptRequestCallback;
-            }
-            if (asyncCallback == null) {
+            if (asyncShouldInterceptRequestCallback == null) {
                 webResourceResponseInfo = mContentsClient.shouldInterceptRequest(request);
                 callback.intercept(webResourceResponseInfo);
             } else {
-                asyncCallback.shouldInterceptRequestAsync(request, callback);
+                asyncShouldInterceptRequestCallback.shouldInterceptRequestAsync(request, callback);
             }
         }
     }
@@ -1093,11 +1089,12 @@ public class AwContents implements SmartClipProvider {
                     new AwContentsClientBridge(
                             mContext, contentsClient, AwContentsStatics.getClientCertLookupTable());
             mZoomControls = new AwZoomControls(this);
-            mBackgroundThreadClient = new BackgroundThreadClientImpl();
+            mShouldInterceptRequestMediator = new AwContentsShouldInterceptRequestMediator();
             mIoThreadClient =
                     new AwContentsIoThreadClientImpl(
                             mSettings,
-                            mBackgroundThreadClient,
+                            mContentsClient,
+                            mShouldInterceptRequestMediator,
                             () -> mBrowserContext.getCookieManager().acceptCookie());
             mInterceptNavigationDelegate = new InterceptNavigationDelegateImpl();
             mDisplayObserver = new AwDisplayAndroidObserver();
@@ -1114,8 +1111,10 @@ public class AwContents implements SmartClipProvider {
             mSettings.setZoomListener(zoomListener);
             mDefaultVideoPosterRequestHandler =
                     new DefaultVideoPosterRequestHandler(mContentsClient);
-            mSettings.setDefaultVideoPosterUrl(
-                    mDefaultVideoPosterRequestHandler.getDefaultVideoPosterUrl());
+            String defaultVideoPosterUrl =
+                    mDefaultVideoPosterRequestHandler.getDefaultVideoPosterUrl();
+            mSettings.setDefaultVideoPosterUrl(defaultVideoPosterUrl);
+            mShouldInterceptRequestMediator.setNoSkipUrl(defaultVideoPosterUrl);
             mScrollOffsetManager =
                     dependencyFactory.createScrollOffsetManager(
                             new AwScrollOffsetManagerDelegate());
@@ -2509,7 +2508,8 @@ public class AwContents implements SmartClipProvider {
         // "fixing".  See also https://crbug.com/1145717.
         params.setUrl(UrlFormatter.fixupUrl(params.getUrl()).getPossiblyInvalidSpec());
 
-        mNavigationController.loadUrl(params);
+        NavigationHandle result = mNavigationController.loadUrl(params);
+        RecordHistogram.recordBooleanHistogram("Android.WebView.LoadUrl.Success", result != null);
 
         // The behavior of WebViewClassic uses the populateVisitedLinks callback in WebKit.
         // Chromium does not use this use code path and the best emulation of this behavior to call
@@ -3457,7 +3457,19 @@ public class AwContents implements SmartClipProvider {
         mAwViewMethods.onWindowVisibilityChanged(visibility);
     }
 
-    /** @see android.view.View#onResolvePointerIcon(MotionEvent, int) */
+    /**
+     * @see android.view.View#onApplyWindowInsets(WindowInsets)
+     */
+    public WindowInsets onApplyWindowInsets(WindowInsets insets) {
+        if (mDisplayCutoutController != null) {
+            return mDisplayCutoutController.onApplyWindowInsets(insets);
+        }
+        return null;
+    }
+
+    /**
+     * @see android.view.View#onResolvePointerIcon(MotionEvent, int)
+     */
     public PointerIcon onResolvePointerIcon(MotionEvent event, int pointerIndex) {
         return mStylusWritingController.resolvePointerIcon();
     }
@@ -4372,8 +4384,7 @@ public class AwContents implements SmartClipProvider {
                 setFunctor(newFunctor);
             }
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM
-                    && AwFeatureMap.isEnabled(VizFeatures.WEBVIEW_FRAME_RATE_HINTS)) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
                 float frame_rate =
                         mSizeIsSmallForFrameRateHints
                                 ? View.REQUESTED_FRAME_RATE_CATEGORY_DEFAULT

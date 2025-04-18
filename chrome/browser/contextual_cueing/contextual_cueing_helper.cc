@@ -19,12 +19,12 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/tabs/glic_nudge_controller.h"
-#include "chrome/browser/ui/tabs/public/tab_interface.h"
 #include "components/optimization_guide/core/hints_processing_util.h"
 #include "components/optimization_guide/core/model_execution/model_execution_features_controller.h"
 #include "components/optimization_guide/core/optimization_guide_decider.h"
 #include "components/optimization_guide/core/optimization_metadata.h"
 #include "components/optimization_guide/proto/contextual_cueing_metadata.pb.h"
+#include "components/tab_collections/public/tab_interface.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/web_contents.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
@@ -46,7 +46,6 @@ class ScopedNudgeDecisionRecorder {
       ukm::SourceId source_id)
       : optimization_type_(optimization_type), source_id_(source_id) {}
   ~ScopedNudgeDecisionRecorder() {
-    CHECK_NE(nudge_decision_, NudgeDecision::kUnknown);
     base::UmaHistogramEnumeration(
         "ContextualCueing.NudgeDecision." +
             optimization_guide::GetStringNameForOptimizationType(
@@ -118,7 +117,8 @@ void ContextualCueingHelper::DidFinishNavigation(
 
 void ContextualCueingHelper::PrimaryMainDocumentElementAvailable() {
   auto* glic_nudge_controller = GetGlicNudgeController();
-  if (!glic_nudge_controller) {
+  if (!glic_nudge_controller ||
+      !web_contents()->GetLastCommittedURL().SchemeIsHTTPOrHTTPS()) {
     return;
   }
   // Determine if server data indicates a nudge should be shown.
@@ -229,11 +229,9 @@ void ContextualCueingHelper::OnCueingDecision(
 
   GetGlicNudgeController()->UpdateNudgeLabel(
       web_contents(), cue_label, /*activity=*/std::nullopt,
-      base::BindRepeating(
-          &ContextualCueingService::OnNudgeActivity,
-          contextual_cueing_service_->GetWeakPtr(), url,
-          web_contents()->GetPrimaryMainFrame()->GetPageUkmSourceId(),
-          document_available_time));
+      base::BindRepeating(&ContextualCueingService::OnNudgeActivity,
+                          contextual_cueing_service_->GetWeakPtr(),
+                          web_contents(), document_available_time));
 }
 
 // static
@@ -246,14 +244,14 @@ void ContextualCueingHelper::MaybeCreateForWebContents(
 #if BUILDFLAG(ENABLE_GLIC)
   Profile* profile =
       Profile::FromBrowserContext(web_contents->GetBrowserContext());
-  if (!glic::GlicEnabling::IsProfileEligible(profile)) {
+  if (!glic::GlicEnabling::IsEnabledForProfile(profile)) {
     return;
   }
 
   auto* optimization_guide_keyed_service =
       OptimizationGuideKeyedServiceFactory::GetForProfile(profile);
   if (!optimization_guide_keyed_service ||
-      !optimization_guide_keyed_service->GetModelExecutionFeaturesController()
+      !optimization_guide_keyed_service
            ->ShouldModelExecutionBeAllowedForUser()) {
     return;
   }

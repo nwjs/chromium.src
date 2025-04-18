@@ -10,6 +10,7 @@
 #include "ash/capture_mode/action_button_view.h"
 #include "ash/capture_mode/capture_mode_types.h"
 #include "ash/resources/vector_icons/vector_icons.h"
+#include "ash/style/ash_color_provider.h"
 #include "ash/test/view_drawn_waiter.h"
 #include "base/test/test_future.h"
 #include "testing/gmock/include/gmock/gmock-matchers.h"
@@ -37,7 +38,34 @@ bool IsActionButtonCollapsed(const ActionButtonView* action_button) {
   return !action_button->label_for_testing()->GetVisible();
 }
 
-using ActionButtonContainerViewTest = views::ViewsTestBase;
+ActionButtonView* AddCopyTextButton(
+    ActionButtonContainerView& action_button_container) {
+  return action_button_container.AddActionButton(
+      views::Button::PressedCallback(), u"Copy Text", &kCaptureModeImageIcon,
+      ActionButtonRank(ActionButtonType::kCopyText, 0),
+      ActionButtonViewID::kCopyTextButton);
+}
+
+ActionButtonView* AddSearchButton(
+    ActionButtonContainerView& action_button_container) {
+  return action_button_container.AddActionButton(
+      views::Button::PressedCallback(), u"Search", &kCaptureModeImageIcon,
+      ActionButtonRank(ActionButtonType::kSunfish, 0),
+      ActionButtonViewID::kSearchButton);
+}
+ActionButtonView* AddSmartActionsButton(
+    ActionButtonContainerView& action_button_container) {
+  return action_button_container.AddActionButton(
+      views::Button::PressedCallback(), u"Smart Actions",
+      &kCaptureModeImageIcon, ActionButtonRank(ActionButtonType::kScanner, 0),
+      ActionButtonViewID::kSmartActionsButton);
+}
+
+class ActionButtonContainerViewTest : public views::ViewsTestBase {
+ private:
+  // Required by `ActionButtonView`.
+  AshColorProvider color_provider_;
+};
 
 TEST_F(ActionButtonContainerViewTest, AddsActionButton) {
   std::unique_ptr<views::Widget> widget =
@@ -71,14 +99,9 @@ TEST_F(ActionButtonContainerViewTest, AddsActionButton) {
 TEST_F(ActionButtonContainerViewTest, ActionButtonsOrderedByRank) {
   ActionButtonContainerView action_button_container;
 
-  ActionButtonView* copy_text_button = action_button_container.AddActionButton(
-      views::Button::PressedCallback(), u"Copy Text", &kCaptureModeImageIcon,
-      ActionButtonRank(ActionButtonType::kCopyText, 0),
-      ActionButtonViewID::kCopyTextButton);
-  ActionButtonView* search_button = action_button_container.AddActionButton(
-      views::Button::PressedCallback(), u"Search Button",
-      &kCaptureModeImageIcon, ActionButtonRank(ActionButtonType::kSunfish, 0),
-      ActionButtonViewID::kSearchButton);
+  ActionButtonView* copy_text_button =
+      AddCopyTextButton(action_button_container);
+  ActionButtonView* search_button = AddSearchButton(action_button_container);
   ActionButtonView* scanner_button = action_button_container.AddActionButton(
       views::Button::PressedCallback(), u"Scanner Button",
       &kCaptureModeImageIcon, ActionButtonRank(ActionButtonType::kScanner, 0),
@@ -99,20 +122,11 @@ TEST_F(ActionButtonContainerViewTest, SmartActionsButtonTransition) {
   auto* action_button_container =
       widget->SetContentsView(std::make_unique<ActionButtonContainerView>());
   // Set up action buttons.
-  ActionButtonView* copy_text_button = action_button_container->AddActionButton(
-      views::Button::PressedCallback(), u"Copy Text", &kCaptureModeImageIcon,
-      ActionButtonRank(ActionButtonType::kCopyText, 0),
-      ActionButtonViewID::kCopyTextButton);
-  ActionButtonView* search_button = action_button_container->AddActionButton(
-      views::Button::PressedCallback(), u"Search", &kCaptureModeImageIcon,
-      ActionButtonRank(ActionButtonType::kSunfish, 0),
-      ActionButtonViewID::kSearchButton);
+  ActionButtonView* copy_text_button =
+      AddCopyTextButton(*action_button_container);
+  ActionButtonView* search_button = AddSearchButton(*action_button_container);
   ActionButtonView* smart_actions_button =
-      action_button_container->AddActionButton(
-          views::Button::PressedCallback(), u"Smart Actions",
-          &kCaptureModeImageIcon,
-          ActionButtonRank(ActionButtonType::kScanner, 0),
-          ActionButtonViewID::kSmartActionsButton);
+      AddSmartActionsButton(*action_button_container);
   EXPECT_THAT(
       action_button_container->GetActionButtons(),
       ElementsAre(smart_actions_button, copy_text_button, search_button));
@@ -125,6 +139,29 @@ TEST_F(ActionButtonContainerViewTest, SmartActionsButtonTransition) {
               ElementsAre(copy_text_button, search_button));
   EXPECT_TRUE(IsActionButtonCollapsed(copy_text_button));
   EXPECT_TRUE(IsActionButtonCollapsed(search_button));
+}
+
+TEST_F(ActionButtonContainerViewTest, RemoveSmartActionsButton) {
+  std::unique_ptr<views::Widget> widget =
+      CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
+  widget->SetBounds(gfx::Rect(50, 50, 300, 200));
+  widget->Show();
+  auto* action_button_container =
+      widget->SetContentsView(std::make_unique<ActionButtonContainerView>());
+  // Set up action buttons.
+  ActionButtonView* copy_text_button =
+      AddCopyTextButton(*action_button_container);
+  ActionButtonView* search_button = AddSearchButton(*action_button_container);
+  ActionButtonView* smart_actions_button =
+      AddSmartActionsButton(*action_button_container);
+  EXPECT_THAT(
+      action_button_container->GetActionButtons(),
+      ElementsAre(smart_actions_button, copy_text_button, search_button));
+
+  action_button_container->RemoveSmartActionsButton();
+
+  EXPECT_THAT(action_button_container->GetActionButtons(),
+              ElementsAre(copy_text_button, search_button));
 }
 
 TEST_F(ActionButtonContainerViewTest, ShowsErrorView) {
@@ -175,10 +212,7 @@ TEST_F(ActionButtonContainerViewTest, ShowsErrorViewWithTryAgainLink) {
 
 TEST_F(ActionButtonContainerViewTest, ClearsContainer) {
   ActionButtonContainerView action_button_container;
-  action_button_container.AddActionButton(
-      views::Button::PressedCallback(), u"Copy Text", &kCaptureModeImageIcon,
-      ActionButtonRank(ActionButtonType::kCopyText, 0),
-      ActionButtonViewID::kCopyTextButton);
+  AddCopyTextButton(action_button_container);
   action_button_container.ShowErrorView(u"Error message");
 
   EXPECT_THAT(action_button_container.GetActionButtons(), SizeIs(1));
@@ -192,10 +226,8 @@ TEST_F(ActionButtonContainerViewTest, ClearsContainer) {
 
 TEST_F(ActionButtonContainerViewTest, GetsFocusableViews) {
   ActionButtonContainerView action_button_container;
-  ActionButtonView* copy_text_button = action_button_container.AddActionButton(
-      views::Button::PressedCallback(), u"Copy Text", &kCaptureModeImageIcon,
-      ActionButtonRank(ActionButtonType::kCopyText, 0),
-      ActionButtonViewID::kCopyTextButton);
+  ActionButtonView* copy_text_button =
+      AddCopyTextButton(action_button_container);
 
   EXPECT_THAT(action_button_container.GetFocusableViews(),
               ElementsAre(copy_text_button));

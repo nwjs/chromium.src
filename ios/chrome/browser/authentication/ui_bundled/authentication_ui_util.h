@@ -8,8 +8,10 @@
 #import <UIKit/UIKit.h>
 
 #include <string>
+#include <string_view>
 
 #include "base/ios/block_types.h"
+#include "ios/chrome/app/change_profile_continuation.h"
 
 @class ActionSheetCoordinator;
 @class AlertCoordinator;
@@ -35,7 +37,7 @@ typedef NS_ENUM(NSUInteger, SignoutActionSheetCoordinatorResult) {
   SignoutActionSheetCoordinatorResultKeepOnDevice,
 };
 
-// Enum to describe all 3 cases for a user being signed-in and syncing.
+// Enum to describe all 3 cases for a user being signed-in.
 enum class SignedInUserState {
   // Sign-in with UNO. The sign-out needs to ask confirmation to sign out only
   // if there are unsaved data. When signed out, a snackbar needs to be
@@ -119,7 +121,8 @@ SignedInUserState GetSignedInUserState(
 // `GetLeavingPrimaryAccountConfirmationDialog()` needs to be shown, even if
 // there is no unsynced data.
 bool ForceLeavingPrimaryAccountConfirmationDialog(
-    SignedInUserState signed_in_user_state);
+    SignedInUserState signed_in_user_state,
+    std::string_view profile_name);
 
 // Returns a dialog for the user to confirm to sign out, switch account.
 // `anchorView` and `anchorRect` is the position that triggered sign-in.
@@ -135,5 +138,9 @@ ActionSheetCoordinator* GetLeavingPrimaryAccountConfirmationDialog(
     SignedInUserState signed_in_user_state,
     bool account_profile_switch,
     LeavingPrimaryAccountConfirmationDialogCompletion completion);
+
+// A block providing a continuation.
+using ChangeProfileContinuationProvider =
+    base::RepeatingCallback<ChangeProfileContinuation()>;
 
 #endif  // IOS_CHROME_BROWSER_AUTHENTICATION_UI_BUNDLED_AUTHENTICATION_UI_UTIL_H_

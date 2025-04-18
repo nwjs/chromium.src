@@ -6,7 +6,8 @@
 
 #include "base/feature_list.h"
 #include "base/task/single_thread_task_runner.h"
-#include "chrome/browser/send_tab_to_self/receiving_ui_handler_registry.h"
+#include "chrome/browser/send_tab_to_self/send_tab_to_self_client_service.h"
+#include "chrome/browser/send_tab_to_self/send_tab_to_self_client_service_factory.h"
 #include "chrome/browser/sync/send_tab_to_self_sync_service_factory.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser.h"
@@ -15,7 +16,6 @@
 #include "chrome/browser/ui/send_tab_to_self/send_tab_to_self_toolbar_icon_controller.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/send_tab_to_self/send_tab_to_self_toolbar_icon_view.h"
 #include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions_container.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/grit/generated_resources.h"
@@ -58,7 +58,6 @@ SendTabToSelfToolbarBubbleView::SendTabToSelfToolbarBubbleView(
     const SendTabToSelfEntry& entry,
     base::OnceCallback<void(NavigateParams*)> navigate_callback)
     : views::BubbleDialogDelegateView(parent, views::BubbleBorder::TOP_RIGHT),
-      toolbar_button_(parent),
       navigate_callback_(std::move(navigate_callback)),
       browser_(browser),
       title_(entry.GetTitle()),
@@ -140,7 +139,7 @@ void SendTabToSelfToolbarBubbleView::OpenInNewTab() {
   std::move(navigate_callback_).Run(&params);
 
   GetWidget()->Close();
-  LogNotificationOpened();
+  send_tab_to_self::RecordNotificationOpened();
 }
 
 void SendTabToSelfToolbarBubbleView::Timeout() {
@@ -150,10 +149,10 @@ void SendTabToSelfToolbarBubbleView::Timeout() {
 
 void SendTabToSelfToolbarBubbleView::Hide() {
   if (!opened_) {
-    LogNotificationDismissed();
+    send_tab_to_self::RecordNotificationDismissed();
   }
-  send_tab_to_self::ReceivingUiHandlerRegistry::GetInstance()
-      ->GetToolbarButtonControllerForProfile(browser_->profile())
+  SendTabToSelfClientServiceFactory::GetForProfile(browser_->profile())
+      ->GetReceivingUiHandler()
       ->DismissEntries(std::vector<std::string>({guid_}));
   auto* container = BrowserView::GetBrowserViewForBrowser(browser_)
                         ->toolbar()
@@ -175,18 +174,6 @@ void SendTabToSelfToolbarBubbleView::ReplaceEntry(
       IDS_TOOLBAR_BUTTON_SEND_TAB_TO_SELF_FROM_DEVICE,
       base::UTF8ToUTF16(new_entry.GetDeviceName())));
   guid_ = new_entry.GetGUID();
-}
-
-void SendTabToSelfToolbarBubbleView::LogNotificationOpened() {
-  send_tab_to_self::ReceivingUiHandlerRegistry::GetInstance()
-      ->GetToolbarButtonControllerForProfile(browser_->profile())
-      ->LogNotificationOpened();
-}
-
-void SendTabToSelfToolbarBubbleView::LogNotificationDismissed() {
-  send_tab_to_self::ReceivingUiHandlerRegistry::GetInstance()
-      ->GetToolbarButtonControllerForProfile(browser_->profile())
-      ->LogNotificationDismissed();
 }
 
 BEGIN_METADATA(SendTabToSelfToolbarBubbleView)

@@ -307,7 +307,24 @@ EncoderStatus D3D12VideoEncodeH264Delegate::InitializeVideoEncoder(
     }
   }
 
-  if (config.output_profile != H264PROFILE_BASELINE) {
+  D3D12_VIDEO_ENCODER_CODEC_CONFIGURATION_SUPPORT_H264 config_support_h264;
+  D3D12_FEATURE_DATA_VIDEO_ENCODER_CODEC_CONFIGURATION_SUPPORT config_support{
+      .Codec = D3D12_VIDEO_ENCODER_CODEC_H264,
+      .Profile = {.DataSize = sizeof(h264_profile_),
+                  .pH264Profile = &h264_profile_},
+      .CodecSupportLimits = {.DataSize = sizeof(config_support_h264),
+                             .pH264Support = &config_support_h264},
+  };
+  status = CheckD3D12VideoEncoderCodecConfigurationSupport(video_device_.Get(),
+                                                           &config_support);
+  if (!status.is_ok()) {
+    return status;
+  }
+
+  // Enable entropy_coding_mode_flag when allowed and supported.
+  if (config.output_profile != H264PROFILE_BASELINE &&
+      config_support_h264.SupportFlags &
+          D3D12_VIDEO_ENCODER_CODEC_CONFIGURATION_SUPPORT_H264_FLAG_CABAC_ENCODING_SUPPORT) {
     codec_config_h264_.ConfigurationFlags |=
         D3D12_VIDEO_ENCODER_CODEC_CONFIGURATION_H264_FLAG_ENABLE_CABAC_ENCODING;
   }
@@ -364,14 +381,21 @@ EncoderStatus D3D12VideoEncodeH264Delegate::InitializeVideoEncoder(
                     ? H264LevelIDCToD3D12VideoEncoderLevelsH264(
                           config.h264_output_level.value())
                     : suggested_level;
-  if (h264_level_ >= D3D12_VIDEO_ENCODER_LEVELS_H264_3) {
+  // According to H.264 spec Annex A.2, only for high profile and above, that we
+  // can support adaptive 8x8 transform.
+  if (h264_profile_ >= D3D12_VIDEO_ENCODER_PROFILE_H264_HIGH &&
+      (config_support_h264.SupportFlags &
+       D3D12_VIDEO_ENCODER_CODEC_CONFIGURATION_SUPPORT_H264_FLAG_ADAPTIVE_8x8_TRANSFORM_ENCODING_SUPPORT)) {
     codec_config_h264_.ConfigurationFlags |=
         D3D12_VIDEO_ENCODER_CODEC_CONFIGURATION_H264_FLAG_USE_ADAPTIVE_8x8_TRANSFORM;
   }
 
   dpb_.emplace(max_num_ref_frames_);
-  dpb_->InitializeTextureArray(device_.Get(), config.input_visible_size,
-                               input_format_);
+  if (!dpb_->InitializeTextureArray(device_.Get(), config.input_visible_size,
+                                    input_format_)) {
+    return {EncoderStatus::Codes::kEncoderInitializationError,
+            "Failed to initialize DPB"};
+  }
   reference_frame_manager_.emplace(max_num_ref_frames_);
 
   video_encoder_wrapper_ = video_encoder_wrapper_factory_.Run(
@@ -448,10 +472,11 @@ H264SPS D3D12VideoEncodeH264Delegate::ToSPS() const {
   sps.pic_height_in_map_units_minus1 =
       (input_size_.Height + kMbSize - 1) / kMbSize - 1;
   sps.frame_mbs_only_flag = true;
-  sps.direct_8x8_inference_flag = static_cast<bool>(
-      codec_config_h264_.ConfigurationFlags &
-      D3D12_VIDEO_ENCODER_CODEC_CONFIGURATION_H264_FLAG_USE_ADAPTIVE_8x8_TRANSFORM);
-  CHECK(sps.frame_mbs_only_flag || sps.direct_8x8_inference_flag);
+  // According to H.264 spec Table A-4, for level 3.0 and higher,
+  // direct_8x8_inference_flag should be equal to 1 for profiles that allow
+  // B-Frame.
+  sps.direct_8x8_inference_flag =
+      h264_level_ >= D3D12_VIDEO_ENCODER_LEVELS_H264_3;
   if (input_size_.Width % kMbSize != 0 || input_size_.Height % kMbSize != 0) {
     // Spec 7.4.2.1.1. Crop is in crop units, which is 2 pixels for 4:2:0.
     const int kCropUnitX = 2;
@@ -482,7 +507,9 @@ H264PPS D3D12VideoEncodeH264Delegate::ToPPS(const H264SPS& sps) const {
   // We don't use
   // D3D12_VIDEO_ENCODER_CODEC_CONFIGURATION_H264_FLAG_USE_CONSTRAINED_INTRAPREDICTION
   // yet. So let constrained_intra_pred_flag be false by default.
-  pps.transform_8x8_mode_flag = sps.direct_8x8_inference_flag;
+  pps.transform_8x8_mode_flag = static_cast<bool>(
+      codec_config_h264_.ConfigurationFlags &
+      D3D12_VIDEO_ENCODER_CODEC_CONFIGURATION_H264_FLAG_USE_ADAPTIVE_8x8_TRANSFORM);
   return pps;
 }
 

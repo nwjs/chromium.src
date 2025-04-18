@@ -2304,6 +2304,8 @@ void SyncServiceImpl::GetTypesWithUnsyncedData(
     DataTypeSet requested_types,
     base::OnceCallback<void(DataTypeSet)> callback) const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  // This should only be called in transport-only mode.
+  CHECK(!IsSyncFeatureEnabled(), base::NotFatalUntil::M138);
   // TODO(crbug.com/40901755): Consider changing this to always guarantee an
   // asynchronous behavior, rather than invoking the callback synchronously in
   // rare cases.
@@ -2399,9 +2401,17 @@ void SyncServiceImpl::SelectTypeAndMigrateLocalDataItemsWhenActive(
     return;
   }
 
-  // Enable account storage in case the user had been using local storage
-  // before.
-  GetUserSettings()->SetSelectedType(user_selectable_type.value(), true);
+  // Unset the user's preference for account storage if they had explicitly been
+  // using local storage before. This will enable account storage for the type
+  // by its default value set in the sync prefs.
+  if (!GetUserSettings()->GetSelectedTypes().Has(
+          user_selectable_type.value())) {
+    GetUserSettings()->ResetSelectedType(user_selectable_type.value());
+  }
+
+  // At this point, the type should be selected.
+  CHECK(
+      GetUserSettings()->GetSelectedTypes().Has(user_selectable_type.value()));
 
   // Move the item as soon as the sync service activates.
   local_data_migration_item_queue_

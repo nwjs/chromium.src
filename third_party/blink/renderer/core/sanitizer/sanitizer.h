@@ -53,7 +53,7 @@ class CORE_EXPORT Sanitizer final : public ScriptWrappable {
   void allowElement(
       const V8UnionSanitizerElementNamespaceWithAttributesOrString*);
   void removeElement(const V8UnionSanitizerElementNamespaceOrString*);
-  void replaceWithChildrenElement(
+  void replaceElementWithChildren(
       const V8UnionSanitizerElementNamespaceOrString*);
   void allowAttribute(const V8UnionSanitizerAttributeNamespaceOrString*);
   void removeAttribute(const V8UnionSanitizerAttributeNamespaceOrString*);
@@ -110,6 +110,13 @@ class CORE_EXPORT Sanitizer final : public ScriptWrappable {
   QualifiedName getFrom(const V8UnionSanitizerElementNamespaceOrString*) const;
   QualifiedName getFrom(
       const V8UnionSanitizerAttributeNamespaceOrString*) const;
+
+  // Helpers for setFrom(SanitizerConfig*, ...): Count items in config.
+  // These are used for error checking.
+  int countItemsInSanitizerConfig(const SanitizerConfig*) const;
+  int countItemsInSanitizerElement(
+      const V8UnionSanitizerElementNamespaceWithAttributesOrString*) const;
+  int countItemsInConfig() const;
 
   // These members are Blink-representation of SanitizerConfig, and the core
   // data structure(s) for Sanitizer. We'll try to keep them simple (sets and

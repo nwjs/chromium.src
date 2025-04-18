@@ -43,12 +43,20 @@ class MockFacilitatedPaymentsClient : public FacilitatedPaymentsClient {
               GetFacilitatedPaymentsNetworkInterface,
               (),
               (override));
+  MOCK_METHOD(MultipleRequestFacilitatedPaymentsNetworkInterface*,
+              GetMultipleRequestFacilitatedPaymentsNetworkInterface,
+              (),
+              (override));
   MOCK_METHOD(std::optional<CoreAccountInfo>,
               GetCoreAccountInfo,
               (),
               (override));
   MOCK_METHOD(bool, IsInLandscapeMode, (), (override));
   MOCK_METHOD(bool, IsFoldable, (), (override));
+  MOCK_METHOD(optimization_guide::OptimizationGuideDecider*,
+              GetOptimizationGuideDecider,
+              (),
+              (override));
   MOCK_METHOD(void,
               ShowPixPaymentPrompt,
               (base::span<const autofill::BankAccount> pix_account_suggestions,

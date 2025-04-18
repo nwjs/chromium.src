@@ -55,9 +55,8 @@ class PLATFORM_EXPORT SubresourceIntegrity final {
                                         const String& raw_headers,
                                         const FeatureContext*,
                                         IntegrityReport&);
-  static std::optional<String> GetSubresourceIntegrityHash(
-      const SegmentedBuffer*,
-      HashAlgorithm);
+  static String GetSubresourceIntegrityHash(const SegmentedBuffer*,
+                                            HashAlgorithm);
 
   static HashAlgorithm IntegrityAlgorithmToHashAlgorithm(IntegrityAlgorithm);
 
@@ -102,7 +101,7 @@ class PLATFORM_EXPORT SubresourceIntegrity final {
       HashMap<HashAlgorithm, String>* computed_hashes);
 
   // Handles hash validation during SRI checks.
-  static bool CheckHashesImpl(const WTF::HashSet<IntegrityMetadataPair>&,
+  static bool CheckHashesImpl(const WTF::Vector<IntegrityMetadata>&,
                               const SegmentedBuffer*,
                               const KURL&,
                               const FeatureContext*,
@@ -110,7 +109,7 @@ class PLATFORM_EXPORT SubresourceIntegrity final {
                               HashMap<HashAlgorithm, String>* computed_hashes);
 
   // Handles signature-based matching during SRI checks
-  static bool CheckSignaturesImpl(const WTF::HashSet<IntegrityMetadataPair>&,
+  static bool CheckSignaturesImpl(const WTF::Vector<IntegrityMetadata>&,
                                   const KURL& resource_url,
                                   const String& raw_headers,
                                   IntegrityReport&);
@@ -119,7 +118,7 @@ class PLATFORM_EXPORT SubresourceIntegrity final {
   using AlgorithmParseResult = base::expected<size_t, AlgorithmParseError>;
 
   static IntegrityAlgorithm FindBestAlgorithm(
-      const WTF::HashSet<IntegrityMetadataPair>&);
+      const WTF::Vector<IntegrityMetadata>&);
 
   static bool CheckSubresourceIntegrityDigest(const IntegrityMetadata&,
                                               const SegmentedBuffer* buffer);

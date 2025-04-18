@@ -81,10 +81,6 @@ views::Widget* CaptureModeSessionTestApi::GetDimensionsLabelWidget() {
   return session_->dimensions_label_widget_.get();
 }
 
-views::Widget* CaptureModeSessionTestApi::GetFeedbackButtonWidget() {
-  return session_->feedback_button_widget_.get();
-}
-
 UserNudgeController* CaptureModeSessionTestApi::GetUserNudgeController() {
   return session_->user_nudge_controller_.get();
 }
@@ -119,7 +115,15 @@ CaptureModeSessionTestApi::GetCurrentFocusedView() {
   return items[GetCurrentFocusIndex()];
 }
 
-bool CaptureModeSessionTestApi::HasFocus() {
+bool CaptureModeSessionTestApi::HasAxVirtualWidget() const {
+  return !!session_->focus_cycler_->ax_widget_;
+}
+
+size_t CaptureModeSessionTestApi::GetAxVirtualViewsCount() const {
+  return session_->focus_cycler_->ax_virtual_views_.size();
+}
+
+bool CaptureModeSessionTestApi::HasFocus() const {
   return session_->focus_cycler_->HasFocus();
 }
 
@@ -175,10 +179,6 @@ CaptureModeSessionTestApi::GetActionContainerErrorView() const {
 CaptureRegionOverlayController*
 CaptureModeSessionTestApi::GetCaptureRegionOverlayController() const {
   return session_->capture_region_overlay_controller_.get();
-}
-
-PillButton* CaptureModeSessionTestApi::GetFeedbackButton() {
-  return session_->feedback_button_.get();
 }
 
 }  // namespace ash

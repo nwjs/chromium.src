@@ -97,7 +97,7 @@ void CalculateSHA256OfKey(const std::string& key,
   std::unique_ptr<crypto::SecureHash> hash(
       crypto::SecureHash::Create(crypto::SecureHash::SHA256));
   hash->Update(key.data(), key.size());
-  hash->Finish(out_hash_value, sizeof(*out_hash_value));
+  hash->Finish(*out_hash_value);
 }
 
 SimpleFileTracker::SubFile SubFileForFileIndex(int file_index) {
@@ -243,11 +243,9 @@ int GetSimpleCacheTrailerPrefetchSize(int hint_size) {
 
 SimpleEntryStat::SimpleEntryStat(
     base::Time last_used,
-    base::Time last_modified,
     const std::array<int32_t, kSimpleEntryStreamCount>& data_size,
     const int32_t sparse_data_size)
     : last_used_(last_used),
-      last_modified_(last_modified),
       data_size_(data_size),
       sparse_data_size_(sparse_data_size) {}
 
@@ -615,7 +613,7 @@ void SimpleSynchronousEntry::ReadData(const ReadRequest& in_entry_op,
   DCHECK(!empty_file_omitted_[file_index]);
   std::optional<size_t> bytes_read = file->Read(
       file_offset,
-      out_buf->span().first(base::checked_cast<size_t>(in_entry_op.buf_len)));
+      out_buf->first(base::checked_cast<size_t>(in_entry_op.buf_len)));
   if (bytes_read.value_or(0) > 0) {
     entry_stat->set_last_used(Time::Now());
     if (in_entry_op.request_update_crc) {
@@ -724,8 +722,7 @@ void SimpleSynchronousEntry::WriteData(const WriteRequest& in_entry_op,
   }
   if (buf_len > 0) {
     if (!file->WriteAndCheck(
-            file_offset,
-            in_buf->span().first(base::checked_cast<size_t>(buf_len)))) {
+            file_offset, in_buf->first(base::checked_cast<size_t>(buf_len)))) {
       RecordWriteResult(cache_type_, SYNC_WRITE_RESULT_WRITE_FAILURE);
       DoomInternal(file_operations);
       out_write_result->result = net::ERR_CACHE_WRITE_FAILURE;
@@ -758,7 +755,6 @@ void SimpleSynchronousEntry::WriteData(const WriteRequest& in_entry_op,
   RecordWriteResult(cache_type_, SYNC_WRITE_RESULT_SUCCESS);
   base::Time modification_time = Time::Now();
   out_entry_stat->set_last_used(modification_time);
-  out_entry_stat->set_last_modified(modification_time);
   out_write_result->result = buf_len;
 }
 
@@ -963,7 +959,6 @@ void SimpleSynchronousEntry::WriteSparseData(const SparseRequest& in_entry_op,
 
   base::Time modification_time = Time::Now();
   out_entry_stat->set_last_used(modification_time);
-  out_entry_stat->set_last_modified(modification_time);
   int32_t old_sparse_data_size = out_entry_stat->sparse_data_size();
   out_entry_stat->set_sparse_data_size(old_sparse_data_size + appended_so_far);
   *out_result = written_so_far;
@@ -1097,10 +1092,9 @@ void SimpleSynchronousEntry::Close(
     if (stream_index == 0) {
       // Write stream 0 data.
       int stream_0_offset = entry_stat.GetOffsetInFile(key.size(), 0, 0);
-      if (!file->WriteAndCheck(
-              stream_0_offset,
-              stream_0_data->span().first(
-                  base::checked_cast<size_t>(entry_stat.data_size(0))))) {
+      if (!file->WriteAndCheck(stream_0_offset,
+                               stream_0_data->first(base::checked_cast<size_t>(
+                                   entry_stat.data_size(0))))) {
         RecordCloseResult(cache_type_, CLOSE_RESULT_WRITE_FAILURE);
         DVLOG(1) << "Could not write stream 0 data.";
         DoomInternal(file_operations.get());
@@ -1108,7 +1102,7 @@ void SimpleSynchronousEntry::Close(
       net::SHA256HashValue hash_value;
       CalculateSHA256OfKey(key, &hash_value);
       if (!file->WriteAndCheck(stream_0_offset + entry_stat.data_size(0),
-                               base::byte_span_from_ref(hash_value))) {
+                               hash_value)) {
         RecordCloseResult(cache_type_, CLOSE_RESULT_WRITE_FAILURE);
         DVLOG(1) << "Could not write stream 0 data.";
         DoomInternal(file_operations.get());
@@ -1302,7 +1296,6 @@ bool SimpleSynchronousEntry::OpenFiles(BackendFileOperations* file_operations,
       continue;
     }
     out_entry_stat->set_last_used(file_info.last_accessed);
-    out_entry_stat->set_last_modified(file_info.last_modified);
 
     // Two things prevent from knowing the right values for |data_size|:
     // 1) The key might not be known, hence its length might be unknown.
@@ -1343,7 +1336,6 @@ bool SimpleSynchronousEntry::CreateFiles(BackendFileOperations* file_operations,
   have_open_files_ = true;
 
   base::Time creation_time = Time::Now();
-  out_entry_stat->set_last_modified(creation_time);
   out_entry_stat->set_last_used(creation_time);
   for (int i = 0; i < kSimpleEntryNormalFileCount; ++i)
     out_entry_stat->set_data_size(i, 0);

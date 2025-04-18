@@ -81,6 +81,7 @@
 #include "third_party/blink/renderer/core/editing/forward.h"
 #include "third_party/blink/renderer/core/html/forms/listed_element.h"
 #include "third_party/blink/renderer/core/html/parser/parser_synchronization_policy.h"
+#include "third_party/blink/renderer/core/layout/geometry/physical_offset.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_map.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_set.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_linked_hash_set.h"
@@ -219,6 +220,7 @@ class MediaQueryMatcher;
 class NodeIterator;
 class NthIndexCache;
 class Page;
+class PaintLayerScrollableArea;
 class PendingAnimations;
 class PendingLinkPreload;
 class ProcessingInstruction;
@@ -239,6 +241,7 @@ class ScriptRunnerDelayer;
 class ScriptValue;
 class ScriptableDocumentParser;
 class ScriptedAnimationController;
+class ScrollMarkerGroupData;
 class SecurityOrigin;
 class SelectorQueryCache;
 class SerializedScriptValue;
@@ -271,7 +274,6 @@ enum class CSSPropertyID;
 struct DraggableRegionValue;
 struct FocusParams;
 struct IconURL;
-struct PhysicalOffset;
 struct TextDiffRange;
 struct WebPrintPageDescription;
 
@@ -311,14 +313,15 @@ using DocumentClassFlags = base::
 // storage, but only store a single element vector which is DCHECKED at the
 // calling site.
 using ExplicitlySetAttrElementsMap =
-    HeapHashMap<QualifiedName, Member<HeapLinkedHashSet<WeakMember<Element>>>>;
+    GCedHeapHashMap<QualifiedName,
+                    Member<GCedHeapLinkedHashSet<WeakMember<Element>>>>;
 
 // A map of IDL attribute name to Element FrozenArray value, for one particular
 // element.
 // This represents 'cached attr-associated elements' in the HTML specification.
 // https://html.spec.whatwg.org/multipage/common-dom-interfaces.html#cached-attr-associated-elements
 using CachedAttrAssociatedElementsMap =
-    HeapHashMap<QualifiedName, Member<FrozenArray<Element>>>;
+    GCedHeapHashMap<QualifiedName, Member<FrozenArray<Element>>>;
 
 // Represents the start and end time of the unload event.
 struct UnloadEventTiming {
@@ -761,7 +764,13 @@ class CORE_EXPORT Document : public ContainerNode,
   // does its own ancestor tree walk).
   void UpdateStyleAndLayoutTreeForThisDocument();
 
-  void UpdateStyleAndLayoutTreeForElement(const Element*, DocumentUpdateReason);
+  // `only_cv_auto` is passed to the constructor of
+  // DisplayLockUtilities::ScopedForcedUpdate. When set to true, this element
+  // won't get a style/layout update if it is inside a content-visibility:hidden
+  // subtree.
+  void UpdateStyleAndLayoutTreeForElement(const Element*,
+                                          DocumentUpdateReason,
+                                          bool only_cv_auto = false);
   void UpdateStyleAndLayoutTreeForSubtree(const Element*, DocumentUpdateReason);
 
   void UpdateStyleAndLayout(DocumentUpdateReason);
@@ -895,9 +904,27 @@ class CORE_EXPORT Document : public ContainerNode,
   void writeln(v8::Isolate*, const Vector<String>& text, ExceptionState&);
 
   // TrustedHTML variants of the above.
-  // TODO(mkwst): Write a spec for this.
   void write(v8::Isolate*, TrustedHTML*, ExceptionState&);
   void writeln(v8::Isolate*, TrustedHTML*, ExceptionState&);
+  void write(v8::Isolate*,
+             TrustedHTML*,
+             HeapVector<Member<V8UnionStringOrTrustedHTML>>,
+             ExceptionState&);
+  void writeln(v8::Isolate*,
+               TrustedHTML*,
+               HeapVector<Member<V8UnionStringOrTrustedHTML>>,
+               ExceptionState&);
+
+  // Corresponds to https://html.spec.whatwg.org/#document-write-steps
+  //
+  // This implements steps 1-5 of the algorithm, and calls
+  // write(const String&, LocalDOMWindow*, ExceptionState&) for the remainder.
+  void Write(v8::Isolate*,
+             TrustedHTML*,
+             HeapVector<Member<V8UnionStringOrTrustedHTML>>,
+             bool line_feed,
+             const char* sink,
+             ExceptionState&);
 
   bool WellFormed() const { return well_formed_; }
 
@@ -1816,7 +1843,6 @@ class CORE_EXPORT Document : public ContainerNode,
   // null if the document is stopped.
   FontMatchingMetrics* GetFontMatchingMetrics();
 
-  void MaybeRecordShapeTextElapsedTime(base::TimeDelta elapsed_time);
   void MaybeRecordSvgImageProcessingTime(
       int data_change_count,
       base::TimeDelta data_change_elapsed_time) const;
@@ -1987,13 +2013,25 @@ class CORE_EXPORT Document : public ContainerNode,
     return render_blocking_resource_manager_.Get();
   }
 
-  void SetHasRenderBlockingExpectLinkElements(bool flag) {
-    has_render_blocking_expect_link_elements_ = flag;
-  }
+  void SetHasRenderBlockingExpectLinkElements(bool flag);
 
   bool HasRenderBlockingExpectLinkElements() const {
     return has_render_blocking_expect_link_elements_;
   }
+
+  void SetHasFullFrameRateBlockingExpectLinkElements(bool flag);
+
+  bool HasFullFrameRateBlockingExpectLinkElements() const {
+    return has_frame_rate_blocking_expect_link_elements_;
+  }
+
+  // Whether the document has any pending elements that need to be tracked for
+  // full render blocking or full frame rate blocking.
+  bool HasPendingExpectLinkElements() const {
+    return has_pending_expect_link_elements_;
+  }
+
+  void UpdateRenderFrameRate();
 
   // Called when a previously render-blocking resource is no longer render-
   // blocking, due to it has finished loading or has given up render-blocking.
@@ -2141,6 +2179,24 @@ class CORE_EXPORT Document : public ContainerNode,
   // creation on the next layout.
   void ScheduleShadowTreeCreation(HTMLInputElement& element);
   void UnscheduleShadowTreeCreation(HTMLInputElement& element);
+
+  // Traverses DOM tree and collects HTMLAnchorElements to closest ancestor
+  // element with scroll-marker-contain property.
+  void UpdateScrollMarkerGroupRelations();
+  void SetNeedsScrollMarkerGroupRelationsUpdate() {
+    needs_scroll_marker_contain_relations_update_ = true;
+  }
+
+  // Subscribes each ScrollMarkerGroupData to all scrollers
+  // that own corresponding scroll marker's scroll target (see
+  // scroll_marker_group_to_scrollable_areas_ for details), so that the scroller
+  // will notify ScrollMarkerGroupData of updates.
+  void UpdateScrollMarkerGroupToScrollableAreasMap();
+  void AddScrollMarkerGroup(ScrollMarkerGroupData* scroll_marker_group);
+  void RemoveScrollMarkerGroup(ScrollMarkerGroupData* scroll_marker_group);
+  void SetNeedsScrollMarkerGroupsMapUpdate() {
+    needs_scroll_marker_groups_map_update_ = true;
+  }
 
   void ScheduleSelectionchangeEvent();
 
@@ -2610,6 +2666,10 @@ class CORE_EXPORT Document : public ContainerNode,
 
   bool has_render_blocking_expect_link_elements_ = false;
 
+  bool has_frame_rate_blocking_expect_link_elements_ = false;
+
+  bool has_pending_expect_link_elements_ = false;
+
   // Set to true whenever shadow root is attached to document. Does not
   // get reset if all roots are removed.
   bool may_contain_shadow_roots_ = false;
@@ -2966,6 +3026,27 @@ class CORE_EXPORT Document : public ContainerNode,
 
   // If legacy DOM Mutation event listeners are supported by the embedder.
   std::optional<bool> legacy_dom_mutations_supported_;
+
+  // True if the document has scroll marker groups that need to be
+  // recalculated due to e.g. a new element with scroll-marker-contain
+  // property was added or removed, hence it can now be a container
+  // for some html anchor scroll marker elements of other container.
+  bool needs_scroll_marker_contain_relations_update_ = false;
+  // True if the document has elements with scroll-marker-contain property
+  // and some html anchor scroll marker elements. It is a signal to update a
+  // map between scroll marker groups and scrollable areas to subscribe scroll
+  // marker groups to scrollable areas changes.
+  bool needs_scroll_marker_groups_map_update_ = false;
+  // Every element with scroll-marker-contain property set collects
+  // HTMLAnchorElements as scroll markers inside its ScrollMarkerGroupData.
+  // This is the map of ScrollMarkerGroupData to all scrollers that is the
+  // closest scroller to scroll marker's scroll target (e.g. scroll marker is <a
+  // href="#target"> then scroll target is some element with id="target" and
+  // scroller is closest ancestor scroller of scroll target).
+  // It's needed to subscribe ScrollMarkerGroupData to changes in scrollers.
+  HeapHashMap<Member<ScrollMarkerGroupData>,
+              HeapHashSet<Member<PaintLayerScrollableArea>>>
+      scroll_marker_group_to_scrollable_areas_;
 
   // For rendering media URLs in a top-level context that use the
   // Content-Security-Policy header to sandbox their content. This causes

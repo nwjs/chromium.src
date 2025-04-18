@@ -30,6 +30,7 @@ import org.chromium.chrome.browser.hub.PaneHubController;
 import org.chromium.chrome.browser.hub.PaneId;
 import org.chromium.chrome.browser.hub.ResourceButtonData;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
+import org.chromium.chrome.browser.price_tracking.PriceDropNotificationManagerFactory;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileProvider;
 import org.chromium.chrome.browser.tab.Tab;
@@ -49,6 +50,8 @@ public class BookmarkPane implements Pane {
     private final ObservableSupplier<FullButtonData> mEmptyActionButtonSupplier =
             new ObservableSupplierImpl<>();
     private final ObservableSupplierImpl<Boolean> mHairlineVisibilitySupplier =
+            new ObservableSupplierImpl<>();
+    private final ObservableSupplierImpl<Boolean> mHubSearchEnabledStateSupplier =
             new ObservableSupplierImpl<>();
 
     // FrameLayout which has HistoryManager's root view as the only child.
@@ -145,7 +148,8 @@ public class BookmarkPane implements Pane {
                             originalProfile,
                             new BookmarkUiPrefs(ChromeSharedPreferences.getInstance()),
                             mBookmarkOpener,
-                            componentName);
+                            new BookmarkManagerOpenerImpl(),
+                            PriceDropNotificationManagerFactory.create(originalProfile));
             mBookmarkManager.updateForUrl(UrlConstants.BOOKMARKS_URL);
             mRootView.addView(mBookmarkManager.getView());
         } else if (loadHint == LoadHint.COLD) {
@@ -191,6 +195,12 @@ public class BookmarkPane implements Pane {
             @NonNull HubContainerView hubContainerView) {
         return FadeHubLayoutAnimationFactory.createFadeOutAnimatorProvider(
                 hubContainerView, HUB_LAYOUT_FADE_DURATION_MS, mOnToolbarAlphaChange);
+    }
+
+    @NonNull
+    @Override
+    public ObservableSupplier<Boolean> getHubSearchEnabledStateSupplier() {
+        return mHubSearchEnabledStateSupplier;
     }
 
     private void onBookmarkOpened() {

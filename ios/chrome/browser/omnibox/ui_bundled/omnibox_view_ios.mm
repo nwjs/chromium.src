@@ -25,12 +25,12 @@
 #import "components/open_from_clipboard/clipboard_recent_content.h"
 #import "ios/chrome/browser/autocomplete/model/autocomplete_scheme_classifier_impl.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
+#import "ios/chrome/browser/omnibox/model/omnibox_text_controller.h"
 #import "ios/chrome/browser/omnibox/public/omnibox_ui_features.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/omnibox_focus_delegate.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/omnibox_metrics_helper.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/omnibox_text_field_ios.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/omnibox_util.h"
-#import "ios/chrome/browser/omnibox/ui_bundled/omnibox_view_consumer.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/public/commands/omnibox_commands.h"
 #import "ios/chrome/browser/shared/public/commands/toolbar_commands.h"
@@ -57,12 +57,10 @@ OmniboxViewIOS::OmniboxViewIOS(OmniboxTextFieldIOS* field,
                                id<OmniboxCommands> omnibox_focuser,
                                id<OmniboxFocusDelegate> focus_delegate,
                                id<ToolbarCommands> toolbar_commands_handler,
-                               id<OmniboxViewConsumer> consumer,
                                bool is_lens_overlay)
     : OmniboxView(std::move(client)),
       field_(field),
       focus_delegate_(focus_delegate),
-      consumer_(consumer),
       ignore_popup_updates_(false),
       is_lens_overlay_(is_lens_overlay),
       popup_provider_(nullptr) {
@@ -156,31 +154,20 @@ void OmniboxViewIOS::OnTemporaryTextMaybeChanged(
 }
 
 void OmniboxViewIOS::OnInlineAutocompleteTextMaybeChanged(
-    const std::u16string& display_text,
-    std::vector<gfx::Range> selections,
-    const std::u16string& prefix_autocompletion,
+    const std::u16string& user_text,
     const std::u16string& inline_autocompletion) {
+  std::u16string display_text = user_text + inline_autocompletion;
   if (display_text == GetText()) {
     return;
   }
 
   NSAttributedString* as = [[NSMutableAttributedString alloc]
       initWithString:base::SysUTF16ToNSString(display_text)];
-  // TODO(crbug.com/40122891): This `user_text_length` calculation  isn't
-  //  accurate when there's prefix autocompletion. This should be addressed
-  //  before we experiment with prefix autocompletion on iOS.
-  size_t user_text_length = display_text.size() - inline_autocompletion.size();
-  [field_ setText:as userTextLength:user_text_length];
+  [field_ setText:as userTextLength:user_text.size()];
 }
 
 void OmniboxViewIOS::SetAdditionalText(const std::u16string& text) {
-  if (!text.length()) {
-    [consumer_ updateAdditionalText:nil];
-    return;
-  }
-
-  NSString* additional_text = base::SysUTF16ToNSString(u" - " + text);
-  [consumer_ updateAdditionalText:additional_text];
+  [omnibox_text_controller_ setAdditionalText:text];
 }
 
 void OmniboxViewIOS::OnBeforePossibleChange() {
@@ -234,10 +221,6 @@ void OmniboxViewIOS::GetSelectionBounds(std::u16string::size_type* start,
   } else {
     *start = *end = 0;
   }
-}
-
-size_t OmniboxViewIOS::GetAllSelectionsLength() const {
-  return 0;
 }
 
 gfx::NativeView OmniboxViewIOS::GetNativeView() const {
@@ -538,13 +521,6 @@ void OmniboxViewIOS::OnAcceptAutocomplete() {
   OnDidChange(/*processing_user_event=*/true);
 }
 
-void OmniboxViewIOS::OnRemoveAdditionalText() {
-  if (model()) {
-    model()->UpdateInput(/*has_selected_text=*/false,
-                         /*prevent_inline_autocomplete=*/true);
-  }
-}
-
 void OmniboxViewIOS::ClearText() {
   // Ensure omnibox is first responder. This will bring up the keyboard so the
   // user can start typing a new query.
@@ -631,36 +607,5 @@ void OmniboxViewIOS::OnSelectedMatchForAppending(const std::u16string& str) {
   if (@available(iOS 17, *)) {
     // Set the caret pos to the end of the text (crbug.com/331622199).
     this->SetCaretPos(str.length());
-  }
-}
-
-#pragma mark - Thumbnail
-
-void OmniboxViewIOS::SetThumbnailImage(UIImage* image) {
-  [consumer_ setThumbnailImage:image];
-  if (popup_provider_) {
-    popup_provider_->SetHasThumbnail(image != nil);
-  }
-}
-
-void OmniboxViewIOS::RemoveThumbnail() {
-  base::RecordAction(UserMetricsAction("Mobile.OmniboxThumbnail.Deleted"));
-  // Update the client state.
-  if (OmniboxClient* client = controller()->client()) {
-    client->OnThumbnailRemoved();
-  }
-  // Update the UI.
-  [consumer_ setThumbnailImage:nil];
-  if (popup_provider_) {
-    popup_provider_->SetHasThumbnail(false);
-  }
-  // Generate new results.
-  if (model()) {
-    if (field_.userText.length) {
-      model()->UpdateInput(/*has_selected_text=*/false,
-                           /*prevent_inline_autocomplete=*/true);
-    } else {
-      CloseOmniboxPopup();
-    }
   }
 }

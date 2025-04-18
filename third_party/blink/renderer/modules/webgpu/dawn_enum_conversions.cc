@@ -32,7 +32,6 @@
 #include "third_party/blink/renderer/bindings/modules/v8/v8_gpu_texture_view_dimension.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_gpu_vertex_format.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_gpu_vertex_step_mode.h"
-#include "third_party/blink/renderer/platform/graphics/graphics_types.h"
 
 namespace blink {
 
@@ -719,6 +718,8 @@ wgpu::FeatureName AsDawnEnum(const V8GPUFeatureName& webgpu_enum) {
       return wgpu::FeatureName::DualSourceBlending;
     case V8GPUFeatureName::Enum::kSubgroups:
       return wgpu::FeatureName::Subgroups;
+    case V8GPUFeatureName::Enum::kCoreFeaturesAndLimits:
+      return wgpu::FeatureName::CoreFeaturesAndLimits;
     case V8GPUFeatureName::Enum::kClipDistances:
       return wgpu::FeatureName::ClipDistances;
     case V8GPUFeatureName::Enum::kChromiumExperimentalMultiDrawIndirect:

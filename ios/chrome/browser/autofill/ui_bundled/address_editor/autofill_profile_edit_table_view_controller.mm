@@ -5,6 +5,8 @@
 #import "ios/chrome/browser/autofill/ui_bundled/address_editor/autofill_profile_edit_table_view_controller.h"
 
 #import "base/apple/foundation_util.h"
+#import "base/metrics/user_metrics.h"
+#import "base/metrics/user_metrics_action.h"
 #import "base/strings/sys_string_conversions.h"
 #import "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
 #import "components/autofill/core/browser/field_types.h"
@@ -59,6 +61,9 @@ const CGFloat kLineSpacingBetweenErrorAndFooter = 12.0f;
   // If YES, denotes that the view is shown in the settings.
   BOOL _settingsView;
 
+  // If YES, the new address is being added manually.
+  BOOL _addManualAddress;
+
   // Points to the save/update button in the modal view.
   TableViewTextButtonItem* _modalSaveUpdateButton;
 
@@ -82,7 +87,8 @@ const CGFloat kLineSpacingBetweenErrorAndFooter = 12.0f;
                     (id<AutofillProfileEditTableViewControllerDelegate>)delegate
                        userEmail:(NSString*)userEmail
                       controller:(LegacyChromeTableViewController*)controller
-                    settingsView:(BOOL)settingsView {
+                    settingsView:(BOOL)settingsView
+                addManualAddress:(BOOL)addManualAddress {
   self = [super init];
   if (self) {
     _delegate = delegate;
@@ -90,6 +96,7 @@ const CGFloat kLineSpacingBetweenErrorAndFooter = 12.0f;
     _accountProfile = NO;
     _controller = controller;
     _settingsView = settingsView;
+    _addManualAddress = addManualAddress;
     _moveToAccountFromSettings = NO;
     _dynamicallyLoadInputFieldsEnabled = base::FeatureList::IsEnabled(
         kAutofillDynamicallyLoadsFieldsForAddressInput);
@@ -247,6 +254,9 @@ const CGFloat kLineSpacingBetweenErrorAndFooter = 12.0f;
         base::apple::ObjCCastStrict<TableViewMultiDetailTextCell>(cell);
     multiDetailTextCell.accessibilityIdentifier =
         multiDetailTextCell.textLabel.text;
+    if ([self showEditView]) {
+      multiDetailTextCell.selectionStyle = UITableViewCellSelectionStyleDefault;
+    }
     return multiDetailTextCell;
   }
 
@@ -478,6 +488,8 @@ const CGFloat kLineSpacingBetweenErrorAndFooter = 12.0f;
       AutofillEditProfileButtonFooterCell* buttonFooter =
           base::apple::ObjCCastStrict<AutofillEditProfileButtonFooterCell>(
               footer);
+      // TODO(crbug.com/407279413): Use the button footer item to change the
+      // state and remove the cell's `updateButtonColorBasedOnStatus` method.
       buttonFooter.button.enabled = enabled;
       [buttonFooter updateButtonColorBasedOnStatus];
 
@@ -493,6 +505,12 @@ const CGFloat kLineSpacingBetweenErrorAndFooter = 12.0f;
 
 - (void)didTapButton {
   CHECK(!_settingsView);
+  if (_addManualAddress) {
+    base::RecordAction(
+        base::UserMetricsAction("AddAddressManually_AddressSaved"));
+  } else if (_hasSaveButton) {
+    base::RecordAction(base::UserMetricsAction("AddressInfobar_AddressSaved"));
+  }
   [_delegate didSaveProfileFromModal];
 }
 
@@ -676,6 +694,9 @@ const CGFloat kLineSpacingBetweenErrorAndFooter = 12.0f;
         update ? IDS_AUTOFILL_UPDATE_ADDRESS_PROMPT_OK_BUTTON_LABEL
                : IDS_AUTOFILL_SAVE_ADDRESS_PROMPT_OK_BUTTON_LABEL);
   }
+  // The button should initially be disabled when manually adding a new address
+  // to the account.
+  buttonFooter.enabled = !_addManualAddress || !_accountProfile;
   return buttonFooter;
 }
 

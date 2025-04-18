@@ -91,6 +91,7 @@ test("device_unittests") {
   if (is_android) {
     sources += [
       "bluetooth/bluetooth_adapter_android_unittest.cc",
+      "bluetooth/bluetooth_socket_android_unittest.cc",
       "bluetooth/test/bluetooth_scanner_callback.cc",
       "bluetooth/test/bluetooth_scanner_callback.h",
       "bluetooth/test/bluetooth_test_android.cc",
@@ -518,14 +519,17 @@ if (is_android) {
     sources = [
       "gamepad/android/junit/src/org/chromium/device/gamepad/GamepadDeviceTest.java",
       "gamepad/android/junit/src/org/chromium/device/gamepad/GamepadMappingsTest.java",
+      "vr/public/junit/src/org/chromium/device/vr/XrFeatureStatusTest.java",
     ]
     deps = [
       "$google_play_services_package:google_play_services_base_java",
       "$google_play_services_package:google_play_services_basement_java",
       "$google_play_services_package:google_play_services_location_java",
+      "//base:base_java",
       "//base:base_java_test_support",
       "//base:base_junit_test_support",
       "//device/gamepad:java",
+      "//device/vr/public:java",
       "//mojo/public/java:bindings_java",
       "//third_party/androidx:androidx_annotation_annotation_java",
       "//third_party/hamcrest:hamcrest_java",

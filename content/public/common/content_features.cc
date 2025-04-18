@@ -180,10 +180,10 @@ BASE_FEATURE(kBrokerFileOperationsOnDiskCacheInNetworkService,
 // Allows pages with cache-control:no-store to enter the back/forward cache.
 // Feature params can specify whether pages with cache-control:no-store can be
 // restored if cookies change / if HTTPOnly cookies change.
-// TODO(crbug.com/40189625): Enable this feature.
+// TODO(crbug.com/40189625): Remove this feature and clean up.
 BASE_FEATURE(kCacheControlNoStoreEnterBackForwardCache,
              "CacheControlNoStoreEnterBackForwardCache",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // This killswitch is distinct from the OT.
 // It allows us to remotely disable the feature, and get it to stop working even
@@ -191,12 +191,6 @@ BASE_FEATURE(kCacheControlNoStoreEnterBackForwardCache,
 // calls gated by the killswitch will fail graceully.
 BASE_FEATURE(kCapturedSurfaceControlKillswitch,
              "CapturedSurfaceControlKillswitch",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// If enabled, CSC permissions are sticky - as all other permissions.
-// If disabled, CSC permissions are scoped to the capture session's duration.
-BASE_FEATURE(kCapturedSurfaceControlStickyPermissions,
-             "CapturedSurfaceControlStickyPermissions",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Clear the window.name property for the top-level cross-site navigations that
@@ -270,7 +264,7 @@ const base::FeatureParam<int> kCreateSpeculativeRFHDelayMs{
 // See crbug.com/40285083 for more info.
 BASE_FEATURE(kDeleteStaleSessionCookiesOnStartup,
              "DeleteStaleSessionCookiesOnStartup",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When a device bound session
 // (https://github.com/w3c/webappsec-dbsc/blob/main/README.md) is
@@ -302,15 +296,15 @@ BASE_FEATURE(kDigitalGoodsApi,
 // behavior (database persistence, storage deletion) will be gated by params.
 BASE_FEATURE(kBtm, "DIPS", base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Flag used to control |interaction_ttl| separately from the kBtm feature
-// flag.
+// Flag used to control the TTL for user interactions (separately from the
+// |kBtm| feature flag).
 BASE_FEATURE(kBtmTtl, "DIPSTtl", base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Set whether DIPS persists its database to disk.
+// Set whether BTM persists its database to disk.
 const base::FeatureParam<bool> kBtmPersistedDatabaseEnabled{
     &kBtm, "persist_database", true};
 
-// Set whether DIPS performs deletion.
+// Set whether BTM performs deletion.
 const base::FeatureParam<bool> kBtmDeletionEnabled{&kBtm, "delete", true};
 
 // Set the time period that Chrome will wait for before clearing storage for a
@@ -324,12 +318,12 @@ const base::FeatureParam<base::TimeDelta> kBtmGracePeriod{&kBtm, "grace_period",
 const base::FeatureParam<base::TimeDelta> kBtmTimerDelay{&kBtm, "timer_delay",
                                                          base::Hours(1)};
 
-// Sets how long DIPS maintains interactions and Web Authn Assertions (WAA) for
+// Sets how long BTM maintains interactions and Web Authn Assertions (WAA) for
 // a site.
 //
-// If a site in the DIPS database has an interaction or WAA within the grace
-// period a DIPS-triggering action, then that action and all ensuing actions are
-// protected from DIPS clearing until the interaction and WAA "expire" as set
+// If a site in the BTM database has an interaction or WAA within the grace
+// period a BTM-triggering action, then that action and all ensuing actions are
+// protected from BTM clearing until the interaction and WAA "expire" as set
 // by this param.
 // NOTE: Updating this param name (to reflect WAA) is deemed unnecessary as far
 // as readability is concerned.
@@ -343,14 +337,11 @@ constexpr base::FeatureParam<content::BtmTriggeringAction>::Option
         {content::BtmTriggeringAction::kBounce, "bounce"},
         {content::BtmTriggeringAction::kStatefulBounce, "stateful_bounce"}};
 
-// Sets the actions which will trigger DIPS clearing for a site. The default is
-// to set to kBounce, but can be overridden by Finch experiment groups,
+// Sets the actions which will trigger BTM clearing for a site. The default is
+// to set to |kBounce|, but can be overridden by Finch experiment groups,
 // command-line flags, or chrome flags.
-//
-// Note: Maintain a matching nomenclature of the options with the feature flag
-// entries at about_flags.cc.
 const base::FeatureParam<content::BtmTriggeringAction> kBtmTriggeringAction{
-    &kBtm, "triggering_action", content::BtmTriggeringAction::kStatefulBounce,
+    &kBtm, "triggering_action", content::BtmTriggeringAction::kBounce,
     &kBtmTriggeringActionOptions};
 
 // Denotes the length of a time interval within which any client-side redirect
@@ -359,6 +350,9 @@ const base::FeatureParam<content::BtmTriggeringAction> kBtmTriggeringAction{
 // registered).
 const base::FeatureParam<base::TimeDelta> kBtmClientBounceDetectionTimeout{
     &kBtm, "client_bounce_detection_timeout", base::Seconds(10)};
+
+// Enables Bounce Tracking Mitigations for Dual Use sites.
+BASE_FEATURE(kBtmDualUse, "BtmDualUse", base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables HW decode acceleration for WebRTC.
 BASE_FEATURE(kWebRtcHWDecoding,
@@ -394,7 +388,7 @@ BASE_FEATURE(kDrawCutoutEdgeToEdge,
 // Enable establishing the GPU channel early in renderer startup.
 BASE_FEATURE(kEarlyEstablishGpuChannel,
              "EarlyEstablishGpuChannel",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables canvas 2d methods BeginLayer and EndLayer.
 BASE_FEATURE(kEnableCanvas2DLayers,
@@ -428,6 +422,12 @@ BASE_FEATURE(kFedCm, "FedCm", base::FEATURE_ENABLED_BY_DEFAULT);
 // log in to another IDP account, if the IDP opts in.
 BASE_FEATURE(kFedCmUseOtherAccount,
              "FedCmUseOtherAccount",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Support usernames and phone numbers to identify users, instead of
+// (or in addition to) names and emails.
+BASE_FEATURE(kFedCmAlternativeIdentifiers,
+             "FedCmAlternativeIdentifiers",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables usage of the FedCM Authz API.
@@ -613,19 +613,6 @@ const char kIsolateOriginsFieldTrialParamName[] = "OriginsList";
 BASE_FEATURE(kLazyInitializeMediaControls,
              "LazyInitializeMediaControls",
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enables Local Network Access checks.
-// Blocks local network requests without user permission to prevent exploitation
-// of vulnerable local devices.
-//
-// This feature is being built as a replacement for Private Network Access
-// (PNA), and if this is on PNA features may stop working.
-//
-// Public explainer:
-// https://github.com/explainers-by-googlers/local-network-access
-BASE_FEATURE(kLocalNetworkAccessChecks,
-             "LocalNetworkAccessChecks",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLogJsConsoleMessages,
              "LogJsConsoleMessages",
@@ -1041,6 +1028,13 @@ BASE_FEATURE(kUserMediaCaptureOnFocus,
              "UserMediaCaptureOnFocus",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// A feature to enable using the update token in the manifest or icon url
+// changes to detect app updates. When this is enabled, automatic icon
+// downloading is disabled.
+BASE_FEATURE(kWebAppEnableUpdateTokenParsing,
+             "WebAppEnableUpdateTokenParsing",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // This is intended as a kill switch for the WebOTP Service feature. To enable
 // this feature, the experimental web platform features flag should be set.
 BASE_FEATURE(kWebOTP, "WebOTP", base::FEATURE_ENABLED_BY_DEFAULT);
@@ -1055,7 +1049,7 @@ BASE_FEATURE(kWebLockScreenApi,
 // SiteInstanceGroup as the initiator.
 BASE_FEATURE(kSiteInstanceGroupsForDataUrls,
              "SiteInstanceGroupsForDataUrls",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, puts non-isolated sites in separate SiteInstances in a default
 // SiteInstanceGroup (per BrowsingInstance), rather than sharing a default
@@ -1112,12 +1106,6 @@ const base::FeatureParam<FontDataServiceTypefaceType>
     kFontDataServiceTypefaceType{&kFontDataServiceAllWebContents, "typeface",
                                  FontDataServiceTypefaceType::kDwrite,
                                  &font_data_service_typeface};
-
-// Whether a utility process configured to use a "UI" message pump should also
-// initialize COM.
-BASE_FEATURE(kUtilityWithUiPumpInitializesCom,
-             "UtilityWithUiPumpInitializesCom",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN)
 
 // When enabled, OOPIFs will not try to reuse compatible processes from
@@ -1192,6 +1180,15 @@ BASE_FEATURE(kTouchDragAndContextMenu,
 const base::FeatureParam<int> kTouchDragMovementThresholdDip{
     &kTouchDragAndContextMenu, "DragAndDropMovementThresholdDipParam", 60};
 #endif
+
+// Controls whether the browser should track and reuse free and empty renderer
+// processes. When enabled, the browser maintains a list of renderer processes
+// that are currently not hosting any frames and are thus eligible for reuse
+// when a new renderer process is needed. Currently, only background renderer
+// processes are considered for reuse.
+BASE_FEATURE(kTrackEmptyRendererProcessesForReuse,
+             "TrackEmptyRendererProcessesForReuse",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // This feature is for a reverse Origin Trial, enabling SharedArrayBuffer for
 // sites as they migrate towards requiring cross-origin isolation for these
@@ -1319,6 +1316,10 @@ BASE_FEATURE(kWebUICodeCache,
 BASE_FEATURE(kWebUIBundledCodeCache,
              "WebUIBundledCodeCache",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables populating the WebUI URL to code cache resource map.
+const base::FeatureParam<bool> kWebUIBundledCodeCacheGenerateResourceMap{
+    &kWebUIBundledCodeCache, "WebUIBundledCodeCacheGenerateResourceMap", true};
 
 #if !BUILDFLAG(IS_ANDROID)
 // Reports WebUI Javascript errors to the crash server on all desktop platforms.

@@ -3,7 +3,9 @@
 // found in the LICENSE file.
 
 #include "components/autofill/core/browser/autofill_field.h"
+
 #include <optional>
+#include <variant>
 
 #include "base/feature_list.h"
 #include "base/test/scoped_feature_list.h"
@@ -25,14 +27,10 @@ using ::autofill::test::EqualsPrediction;
 using ::testing::ElementsAre;
 
 constexpr FieldTypeSet kMLSupportedTypesForTesting = {
-    UNKNOWN_TYPE,
-    NAME_FIRST,
-    NAME_LAST,
-    EMAIL_ADDRESS,
-    NAME_FULL,
-    PHONE_HOME_NUMBER,
-    ADDRESS_HOME_LINE1,
-    ADDRESS_HOME_STREET_ADDRESS,
+    UNKNOWN_TYPE,       NAME_FIRST,
+    NAME_LAST,          EMAIL_ADDRESS,
+    NAME_FULL,          PHONE_HOME_NUMBER,
+    ADDRESS_HOME_LINE1, ADDRESS_HOME_STREET_ADDRESS,
     ADDRESS_HOME_CITY};
 
 class AutofillFieldTest : public testing::Test {
@@ -88,24 +86,6 @@ TEST_F(AutofillFieldTest, Type_ServerPredictionOfCityAndNumber_OverrideHtml) {
             AutofillPredictionSource::kServerCrowdsourcing);
 }
 
-// Tests that a local heuristics prediction for `EMAIL_ADDRESS` overrides server
-// predictions for `USERNAME` or `SINGLE_USERNAME`.
-TEST_F(AutofillFieldTest, EmailOverridesUsernameType) {
-  base::test::ScopedFeatureList feature_list{
-      features::kAutofillGivePrecedenceToEmailOverUsername};
-  AutofillField field;
-
-  field.set_server_predictions({CreateFieldPrediction(USERNAME)});
-  field.set_heuristic_type(GetActiveHeuristicSource(), EMAIL_ADDRESS);
-  EXPECT_EQ(field.Type().GetStorableType(), EMAIL_ADDRESS);
-  EXPECT_EQ(field.PredictionSource(), AutofillPredictionSource::kHeuristics);
-
-  field.set_server_predictions({CreateFieldPrediction(SINGLE_USERNAME)});
-  field.set_heuristic_type(GetActiveHeuristicSource(), EMAIL_ADDRESS);
-  EXPECT_EQ(field.Type().GetStorableType(), EMAIL_ADDRESS);
-  EXPECT_EQ(field.PredictionSource(), AutofillPredictionSource::kHeuristics);
-}
-
 TEST_F(AutofillFieldTest, IsFieldFillable) {
   AutofillField field;
   ASSERT_EQ(UNKNOWN_TYPE, field.Type().GetStorableType());
@@ -139,11 +119,7 @@ TEST_F(AutofillFieldTest, NoPredictions) {
   EXPECT_EQ(field.PredictionSource(), std::nullopt);
 }
 
-#if !BUILDFLAG(USE_INTERNAL_AUTOFILL_PATTERNS)
-constexpr HeuristicSource kRegexSource = HeuristicSource::kLegacyRegexes;
-#else
-constexpr HeuristicSource kRegexSource = HeuristicSource::kDefaultRegexes;
-#endif
+constexpr HeuristicSource kRegexSource = HeuristicSource::kRegexes;
 constexpr HeuristicSource kMlSource = HeuristicSource::kAutofillMachineLearning;
 
 class AutofillFieldTest_MLPredictions : public AutofillFieldTest {
@@ -526,7 +502,20 @@ INSTANTIATE_TEST_SUITE_P(
             .server_type = NAME_LAST,
             .heuristic_type = NAME_LAST_CORE,
             .expected_result = NAME_LAST_CORE,
-            .expected_source = AutofillPredictionSource::kHeuristics}));
+            .expected_source = AutofillPredictionSource::kHeuristics},
+        AutofillLocalHeuristicsOverridesParams{
+            .html_field_type = HtmlFieldType::kUnspecified,
+            .server_type = PASSPORT_NAME_TAG,
+            .heuristic_type = NAME_FIRST,
+            .expected_result = NAME_FIRST,
+            .expected_source = AutofillPredictionSource::kHeuristics},
+        AutofillLocalHeuristicsOverridesParams{
+            .html_field_type = HtmlFieldType::kUnspecified,
+            .server_type = PASSPORT_NAME_TAG,
+            .heuristic_type = UNKNOWN_TYPE,
+            .expected_result = PASSPORT_NAME_TAG,
+            .expected_source =
+                AutofillPredictionSource::kServerCrowdsourcing}));
 
 // Tests that consecutive identical events are not added twice to the event log.
 TEST(AutofillFieldLogEventTypeTest, AppendLogEventIfNotRepeated) {
@@ -543,7 +532,7 @@ TEST(AutofillFieldLogEventTypeTest, AppendLogEventIfNotRepeated) {
                                .associated_country_code = "DE",
                                .timestamp = AutofillClock::Now()};
   AutofillField::FieldLogEventType c = FillFieldLogEvent{
-      .fill_event_id = absl::get<TriggerFillFieldLogEvent>(b).fill_event_id,
+      .fill_event_id = std::get<TriggerFillFieldLogEvent>(b).fill_event_id,
       .had_value_before_filling = OptionalBoolean::kTrue,
       .autofill_skipped_status = FieldFillingSkipReason::kAlreadyAutofilled,
       .was_autofilled_before_security_policy = OptionalBoolean::kTrue,
@@ -576,6 +565,24 @@ TEST(AutofillFieldLogEventTypeTest, AppendLogEventIfNotRepeated) {
   EXPECT_EQ(f.field_log_events().size(), 5u);
   f.AppendLogEventIfNotRepeated(a);
   EXPECT_EQ(f.field_log_events().size(), 5u);
+}
+
+TEST(AutofillPredictionSourceToStringViewTest, ConversionTest) {
+  EXPECT_EQ(AutofillPredictionSourceToStringView(
+                AutofillPredictionSource::kHeuristics),
+            "Heuristics");
+  EXPECT_EQ(AutofillPredictionSourceToStringView(
+                AutofillPredictionSource::kAutocomplete),
+            "AutocompleteAttribute");
+  EXPECT_EQ(AutofillPredictionSourceToStringView(
+                AutofillPredictionSource::kServerCrowdsourcing),
+            "ServerCrowdsourcing");
+  EXPECT_EQ(AutofillPredictionSourceToStringView(
+                AutofillPredictionSource::kServerOverride),
+            "ServerOverride");
+  EXPECT_EQ(AutofillPredictionSourceToStringView(
+                AutofillPredictionSource::kRationalization),
+            "Rationalization");
 }
 
 }  // namespace

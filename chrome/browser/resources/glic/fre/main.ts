@@ -2,46 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import './icons.html.js';
 import '/strings.m.js';
+import 'chrome://resources/cr_elements/cr_button/cr_button.js';
+import 'chrome://resources/cr_elements/cr_icon/cr_icon.js';
+import 'chrome://resources/cr_elements/icons.html.js';
+import 'chrome://resources/cr_elements/cr_icon_button/cr_icon_button.js';
 
-import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
+import {FreAppController} from './fre_app_controller.js';
 
-import {FrePageHandlerFactory, FrePageHandlerRemote} from './glic_fre.mojom-webui.js';
-
-const freHandler = new FrePageHandlerRemote();
-FrePageHandlerFactory.getRemote().createPageHandler(
-    (freHandler).$.bindNewPipeAndPassReceiver());
-
-const webview =
-    document.getElementById('fre-guest-frame') as chrome.webviewTag.WebView;
-
-webview.addEventListener('loadcommit', onLoadCommit);
-webview.addEventListener('newwindow', onNewWindow);
-
-function onLoadCommit(e: any) {
-  if (!e.isTopLevel) {
-    return;
-  }
-  const url = new URL(e.url);
-  const urlHash = url.hash;
-
-  // Fragment navigations are used to represent actions taken in the web client
-  // following this mapping: “Continue” button navigates to
-  // glic/intro...#continue, “No thanks” button navigates to
-  // glic/intro...#noThanks
-  if (urlHash === '#continue') {
-    freHandler.acceptFre();
-  } else if (urlHash === '#noThanks') {
-    freHandler.dismissFre();
-  }
-}
-
-function onNewWindow(e: any) {
-  e.preventDefault();
-  freHandler.validateAndOpenLinkInNewTab({
-    url: e.targetUrl,
-  });
-  e.stopPropagation();
-}
-
-webview.src = loadTimeData.getString('glicFreURL');
+new FreAppController();

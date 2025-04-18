@@ -22,12 +22,14 @@
 #include "base/run_loop.h"
 #include "base/strings/strcat.h"
 #include "base/strings/stringprintf.h"
+#include "base/strings/to_string.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_mock_time_task_runner.h"
 #include "base/test/test_timeouts.h"
+#include "base/test/values_test_util.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/uuid.h"
 #include "build/build_config.h"
@@ -77,6 +79,7 @@
 #include "content/public/test/navigation_handle_observer.h"
 #include "content/public/test/no_renderer_crashes_assertion.h"
 #include "content/public/test/slow_http_response.h"
+#include "content/public/test/test_devtools_protocol_client.h"
 #include "content/public/test/test_frame_navigation_observer.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "content/public/test/test_navigation_throttle.h"
@@ -7538,6 +7541,77 @@ class NavigationBrowserTestCredentiallessIframe : public NavigationBrowserTest {
 };
 
 IN_PROC_BROWSER_TEST_F(NavigationBrowserTestCredentiallessIframe,
+                       CheckCookiesForCredentiallessIframeNavigation) {
+  GURL main_url =
+      embedded_test_server()->GetURL("/page_with_credentialless_iframe.html");
+  GURL iframe_url_1 = embedded_test_server()->GetURL("/title1.html");
+  EXPECT_TRUE(NavigateToURL(shell(), main_url));
+
+  // Set a cookie on the main frame
+  EXPECT_TRUE(ExecJs(main_frame(), "document.cookie = 'name=main;';"));
+  EXPECT_EQ("name=main", EvalJs(main_frame(), "document.cookie;"));
+
+  // The main page has a child iframe with url `iframe_url_1`.
+  EXPECT_EQ(1U, main_frame()->child_count());
+  FrameTreeNode* child = main_frame()->child_at(0);
+  EXPECT_EQ(iframe_url_1, child->current_url());
+  EXPECT_TRUE(child->Credentialless());
+  EXPECT_TRUE(child->current_frame_host()->IsCredentialless());
+  EXPECT_TRUE(ExecJs(child->current_frame_host(), "window.credentialless"));
+
+  // Set up devtools client so we can check which cookies were sent and blocked
+  // with frame navigation
+  TestDevToolsProtocolClient fenced_frame_devtools_client;
+  fenced_frame_devtools_client.AttachToFrameTreeHost(
+      child->current_frame_host());
+  fenced_frame_devtools_client.SendCommandAsync("Network.enable");
+  fenced_frame_devtools_client.ClearNotifications();
+
+  // Set a cookie on the frame and reload so we can see which cookies are
+  // included in the network request
+  EXPECT_TRUE(ExecJs(child->current_frame_host(),
+                     "document.cookie = 'name=credentialless;';"));
+
+  EXPECT_EQ("name=credentialless",
+            EvalJs(child->current_frame_host(), "document.cookie;"));
+
+  EXPECT_TRUE(ExecJs(child->current_frame_host(), "location.reload();"));
+
+  // Check associated cookies according to devtools
+  base::Value::Dict params = fenced_frame_devtools_client.WaitForNotification(
+      "Network.requestWillBeSentExtraInfo", /*allow_existing=*/true);
+
+  const base::Value::List* associated_cookies =
+      params.FindList("associatedCookies");
+
+  EXPECT_THAT(
+      associated_cookies,
+      testing::Pointee(testing::UnorderedElementsAre(
+          base::test::IsSupersetOfValue(base::test::ParseJsonDict(R"({
+                            "blockedReasons": [ "AnonymousContext" ],
+                            "cookie" : {
+                              "name": "name",
+                              "value": "main"
+                            }
+                        })")),
+          testing::AllOf(
+              base::test::IsSupersetOfValue(base::test::ParseJsonDict(R"({
+                        "blockedReasons": [ ],
+                        "cookie" : {
+                          "name": "name",
+                          "value": "credentialless"
+                        }
+                      })")),
+              testing::ResultOf(
+                  [](const base::Value& dict) {
+                    return dict.GetDict().FindList("blockedReasons");
+                  },
+                  testing::Pointee(testing::IsEmpty()))))));
+
+  fenced_frame_devtools_client.DetachProtocolClient();
+}
+
+IN_PROC_BROWSER_TEST_F(NavigationBrowserTestCredentiallessIframe,
                        CredentiallessAttributeIsHonoredByNavigation) {
   GURL main_url = embedded_test_server()->GetURL("/page_with_iframe.html");
   GURL iframe_url_1 = embedded_test_server()->GetURL("/title1.html");
@@ -9177,7 +9251,7 @@ class DeferSpeculativeRFHCreationRenderProcessTest
   DeferSpeculativeRFHCreationRenderProcessTest()
       : warmup_spare_render_process_(GetParam()) {
     std::map<std::string, std::string> parameters = {
-        {"warmup_spare_process", GetParam() ? "true" : "false"},
+        {"warmup_spare_process", base::ToString(GetParam())},
     };
     defer_rfh_feature_list_.InitAndEnableFeatureWithParameters(
         features::kDeferSpeculativeRFHCreation, parameters);

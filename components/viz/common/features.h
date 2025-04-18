@@ -20,7 +20,6 @@ namespace features {
 
 #if BUILDFLAG(IS_ANDROID)
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kAndroidBcivBottomControls);
-VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kAndroidBcivZeroBrowserFrames);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kAndroidBrowserControlsInViz);
 #endif  // BUILDFLAG(IS_ANDROID)
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kBackdropFilterMirrorEdgeMode);
@@ -84,7 +83,6 @@ VIZ_COMMON_EXPORT extern const base::FeatureParam<std::string>
     kWebViewADPFSocManufacturerBlocklist;
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kWebViewEnableADPFRendererMain);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kWebViewEnableADPFGpuMain);
-VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kWebViewFrameRateHints);
 #endif
 #if BUILDFLAG(IS_APPLE)
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kCALayerNewLimit);
@@ -144,10 +142,6 @@ VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kDrawImmediatelyWhenInteractive);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kAckOnSurfaceActivationWhenInteractive);
 
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kShutdownForFailedChannelCreation);
-
-VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kSnapshotEvictedRootSurface);
-VIZ_COMMON_EXPORT extern const base::FeatureParam<double>
-    kSnapshotEvictedRootSurfaceScale;
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kBatchResourceRelease);
 
 #if BUILDFLAG(IS_ANDROID)
@@ -169,7 +163,6 @@ VIZ_COMMON_EXPORT bool ShouldOnBeginFrameThrottleVideo();
 VIZ_COMMON_EXPORT bool IsOnBeginFrameAcksEnabled();
 VIZ_COMMON_EXPORT bool IsOcclusionCullingForTextureQuadsEnabled();
 VIZ_COMMON_EXPORT bool ShouldDrawImmediatelyWhenInteractive();
-VIZ_COMMON_EXPORT std::optional<double> SnapshotEvictedRootSurfaceScale();
 VIZ_COMMON_EXPORT bool IsVSyncAlignedPresentEnabled();
 VIZ_COMMON_EXPORT bool ShouldLogFrameQuadInfo();
 VIZ_COMMON_EXPORT bool IsUsingFrameIntervalDecider();

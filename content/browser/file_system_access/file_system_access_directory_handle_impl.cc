@@ -142,9 +142,8 @@ void FileSystemAccessDirectoryHandleImpl::GetFile(const std::string& basename,
   // before creating the returned handle.
   if (url().virtual_path().IsContentUri()) {
     std::string mime_type;
-    std::string ext = base::FilePath(basename).Extension();
-    if (ext.empty() ||
-        !net::GetWellKnownMimeTypeFromExtension(ext.substr(1), &mime_type)) {
+    if (!net::GetWellKnownMimeTypeFromFile(base::FilePath(basename),
+                                           &mime_type)) {
       mime_type = "application/octet-stream";
     }
     base::ThreadPool::PostTaskAndReplyWithResult(
@@ -800,7 +799,7 @@ void FileSystemAccessDirectoryHandleImpl::DidReadDirectory(
               child_url.type() == storage::FileSystemType::kFileSystemTypeLocal
                   ? PathType::kLocal
                   : PathType::kExternal,
-              child_url.path(), entry.name.AsUTF8Unsafe()),
+              child_url.path(), basename),
           HandleType::kFile, UserAction::kNone, context().frame_id,
           base::BindOnce(&FileSystemAccessDirectoryHandleImpl::
                              DidVerifySensitiveAccessForFileEntry,

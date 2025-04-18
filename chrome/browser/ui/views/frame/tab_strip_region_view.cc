@@ -96,7 +96,7 @@ TabStripRegionView::TabStripRegionView(std::unique_ptr<TabStrip> tab_strip)
                    : nullptr),
       render_tab_search_before_tab_strip_(
           !tabs::GetTabSearchTrailingTabstrip(profile_) &&
-          !features::IsTabstripComboButtonEnabled()),
+          !features::IsTabSearchMoving()),
       tab_search_position_metrics_logger_(
           std::make_unique<TabSearchPositionMetricsLogger>(profile_)) {
   views::SetCascadingColorProviderColor(
@@ -120,21 +120,21 @@ TabStripRegionView::TabStripRegionView(std::unique_ptr<TabStrip> tab_strip)
   std::unique_ptr<ProductSpecificationsButton> product_specifications_button;
   if (browser &&
       (browser->GetType() == BrowserWindowInterface::Type::TYPE_NORMAL)) {
-    if (features::IsTabstripComboButtonEnabled() &&
+    if (features::IsTabSearchMoving() &&
+        !features::HasTabSearchToolbarButton() &&
         ShouldShowNewTabButton(browser)) {
       tab_strip_combo_button =
           std::make_unique<TabStripComboButton>(browser, tab_strip_);
-    } else {
+    } else if (!features::IsTabSearchMoving()) {
       tab_search_container = std::make_unique<TabSearchContainer>(
           tab_strip_->controller(), browser->GetTabStripModel(),
           render_tab_search_before_tab_strip_, this, browser,
-          browser->GetFeatures().tab_declutter_controller(),
-          /*anchor_view=*/nullptr, tab_strip_);
+          browser->GetFeatures().tab_declutter_controller(), tab_strip_);
       tab_search_container->SetProperty(views::kCrossAxisAlignmentKey,
                                         views::LayoutAlignment::kCenter);
     }
 
-    if (features::IsTabstripComboButtonEnabled()) {
+    if (features::IsTabSearchMoving()) {
       tab_strip_action_container = std::make_unique<TabStripActionContainer>(
           tab_strip_->controller(), this,
           browser->GetFeatures().tab_declutter_controller(),
@@ -287,7 +287,7 @@ bool TabStripRegionView::IsRectInWindowCaption(const gfx::Rect& rect) {
 
   // Perform checks for buttons that should be rendered above the tabstrip.
   views::View* button_painted_to_layer;
-  if (features::IsTabstripComboButtonEnabled()) {
+  if (features::IsTabSearchMoving() && !features::HasTabSearchToolbarButton()) {
     button_painted_to_layer = tab_strip_combo_button_;
   } else {
     button_painted_to_layer = new_tab_button_;
@@ -352,7 +352,7 @@ bool TabStripRegionView::IsPositionInWindowCaption(const gfx::Point& point) {
 }
 
 views::Button* TabStripRegionView::GetNewTabButton() {
-  if (features::IsTabstripComboButtonEnabled()) {
+  if (features::IsTabSearchMoving() && !features::HasTabSearchToolbarButton()) {
     return tab_strip_combo_button_->new_tab_button();
   } else {
     return new_tab_button_;
@@ -453,7 +453,7 @@ void TabStripRegionView::Layout(PassKey) {
   }
 
   views::View* button_to_paint_to_layer;
-  if (features::IsTabstripComboButtonEnabled()) {
+  if (features::IsTabSearchMoving() && !features::HasTabSearchToolbarButton()) {
     button_to_paint_to_layer = tab_strip_combo_button_;
   } else {
     button_to_paint_to_layer = new_tab_button_;
@@ -591,7 +591,7 @@ void TabStripRegionView::UpdateTabStripMargin() {
   // the tabstrip right margin to reserve space for it.
   std::optional<int> tab_strip_right_margin;
   views::View* button_to_paint_to_layer;
-  if (features::IsTabstripComboButtonEnabled()) {
+  if (features::IsTabSearchMoving() && !features::HasTabSearchToolbarButton()) {
     button_to_paint_to_layer = tab_strip_combo_button_;
   } else {
     button_to_paint_to_layer = new_tab_button_;
@@ -634,7 +634,8 @@ void TabStripRegionView::UpdateTabStripMargin() {
                             GetLayoutConstant(TAB_STRIP_PADDING) +
                             GetLayoutConstant(TAB_STRIP_PADDING) -
                             TabStyle::Get()->GetBottomCornerRadius();
-  } else if (features::IsTabstripComboButtonEnabled() &&
+  } else if (features::IsTabSearchMoving() &&
+             !features::HasTabSearchToolbarButton() &&
              !tabs::GetDefaultTabSearchRightAligned()) {
     // With the combobutton, this case has no caption buttons on the left side.
     // Leave a padding so the tabstrip is after the corner radius.

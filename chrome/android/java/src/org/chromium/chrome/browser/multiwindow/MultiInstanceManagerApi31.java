@@ -18,6 +18,7 @@ import android.util.Pair;
 import android.util.SparseBooleanArray;
 import android.util.SparseIntArray;
 
+import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ActivityState;
@@ -50,12 +51,16 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabObserver;
+import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncFeatures;
+import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
 import org.chromium.chrome.browser.tabmodel.TabClosureParams;
 import org.chromium.chrome.browser.tabmodel.TabGroupMetadata;
+import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabList;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
+import org.chromium.chrome.browser.tabmodel.TabPersistentStore;
 import org.chromium.chrome.browser.tabmodel.TabWindowManager;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiFeatureUtilities;
 import org.chromium.chrome.browser.ui.desktop_windowing.AppHeaderUtils;
@@ -65,6 +70,7 @@ import org.chromium.components.browser_ui.widget.MenuOrKeyboardActionController;
 import org.chromium.components.favicon.LargeIconBridge;
 import org.chromium.components.feature_engagement.EventConstants;
 import org.chromium.components.feature_engagement.Tracker;
+import org.chromium.components.tab_group_sync.TabGroupSyncService;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 
 import java.util.ArrayList;
@@ -164,7 +170,12 @@ class MultiInstanceManagerApi31 extends MultiInstanceManager implements Activity
     }
 
     @Override
-    protected void moveTabToOtherWindow(Tab tab) {
+    public void moveTabToOtherWindow(Tab tab) {
+        if (MultiWindowUtils.getInstanceCount() == 1) {
+            moveTabToNewWindow(tab);
+            return;
+        }
+
         TargetSelectorCoordinator.showDialog(
                 mActivity,
                 mModalDialogManagerSupplier.get(),
@@ -194,11 +205,18 @@ class MultiInstanceManagerApi31 extends MultiInstanceManager implements Activity
     }
 
     @VisibleForTesting
-    void moveTabGroupAction(InstanceInfo info, TabGroupMetadata tabGroupMetadata, int startIndex) {
+    void moveTabGroupAction(
+            InstanceInfo info,
+            TabGroupMetadata tabGroupMetadata,
+            int startIndex,
+            @Nullable Runnable onFinishedRunnable) {
         Activity targetActivity = getActivityById(info.instanceId);
         assert targetActivity != null;
         reparentTabGroupToRunningActivity(
-                (ChromeTabbedActivity) targetActivity, tabGroupMetadata, startIndex);
+                (ChromeTabbedActivity) targetActivity,
+                tabGroupMetadata,
+                startIndex,
+                onFinishedRunnable);
     }
 
     @VisibleForTesting
@@ -233,12 +251,38 @@ class MultiInstanceManagerApi31 extends MultiInstanceManager implements Activity
     void reparentTabGroupToRunningActivity(
             ChromeTabbedActivity targetActivity,
             TabGroupMetadata tabGroupMetadata,
-            int tabAtIndex) {
+            int tabAtIndex,
+            @Nullable Runnable onFinishedRunnable) {
+        // 1. Temporarily disable sync service from observing local changes to prevent unintended
+        // updates during tab group re-parenting.
+        @Nullable
+        TabGroupSyncService syncService =
+                getTabGroupSyncService(
+                        tabGroupMetadata.sourceWindowId, tabGroupMetadata.isIncognito);
+        setSyncServiceLocalObservationMode(syncService, /* shouldObserve= */ false);
+
+        // 2. Pause writes to TabPersistentStore while detaching the grouped Tabs.
+        TabPersistentStore tabPersistentStore =
+                mTabModelOrchestratorSupplier.get().getTabPersistentStore();
+        tabPersistentStore.pauseSaveTabList();
+
+        // 3. Setup the re-parenting intent, detaching the grouped tabs from the current activity.
         Intent intent = createIntentForGeneralReparenting(targetActivity, tabAtIndex);
         setupIntentForGroupReparenting(tabGroupMetadata, intent, null);
 
-        targetActivity.onNewIntent(intent);
-        bringTaskForeground(targetActivity.getTaskId());
+        // 4. Resume writes to TabPersistentStore after detaching the grouped Tabs. Don't begin
+        // re-attaching the Tabs to the target activity until they have been cleared from this
+        // activity's TabPersistentStore.
+        tabPersistentStore.resumeSaveTabList(
+                () -> {
+                    targetActivity.onNewIntent(intent);
+                    bringTaskForeground(targetActivity.getTaskId());
+                    // Re-enable sync service observation after re-parenting is completed to resume
+                    // normal sync behavior.
+                    setSyncServiceLocalObservationMode(syncService, /* shouldObserve= */ true);
+
+                    if (onFinishedRunnable != null) onFinishedRunnable.run();
+                });
     }
 
     private Intent createIntentForGeneralReparenting(
@@ -627,7 +671,7 @@ class MultiInstanceManagerApi31 extends MultiInstanceManager implements Activity
     static Activity getActivityById(int id) {
         TabWindowManager windowManager = TabWindowManagerSingleton.getInstance();
         for (Activity activity : getAllRunningActivities()) {
-            if (id == windowManager.getIndexForWindow(activity)) return activity;
+            if (id == windowManager.getIdForWindow(activity)) return activity;
         }
         return null;
     }
@@ -794,7 +838,7 @@ class MultiInstanceManagerApi31 extends MultiInstanceManager implements Activity
         var windowIdsOfRunningTabbedActivities = new SparseIntArray();
         for (Activity activity : activities) {
             if (!(activity instanceof ChromeTabbedActivity)) continue;
-            int windowId = TabWindowManagerSingleton.getInstance().getIndexForWindow(activity);
+            int windowId = TabWindowManagerSingleton.getInstance().getIdForWindow(activity);
             windowIdsOfRunningTabbedActivities.put(windowId, windowId);
         }
         return windowIdsOfRunningTabbedActivities;
@@ -1056,14 +1100,20 @@ class MultiInstanceManagerApi31 extends MultiInstanceManager implements Activity
      * @param activity Activity of the Chrome Window in which the tab group is to be moved.
      * @param tabGroupMetadata The object containing the metadata of the tab group.
      * @param atIndex Tab position index in the destination window instance.
+     * @param onFinishedRunnable Runnable to execute after the group reparenting is finished.
      */
     @Override
     public void moveTabGroupToWindow(
-            Activity activity, TabGroupMetadata tabGroupMetadata, int atIndex) {
+            Activity activity,
+            TabGroupMetadata tabGroupMetadata,
+            int atIndex,
+            @Nullable Runnable onFinishedRunnable) {
+        assert ChromeFeatureList.isEnabled(ChromeFeatureList.TAB_STRIP_GROUP_DRAG_DROP_ANDROID);
+
         // Get the current instance and move tab there.
         InstanceInfo info = getInstanceInfoFor(activity);
         if (info != null) {
-            moveTabGroupAction(info, tabGroupMetadata, atIndex);
+            moveTabGroupAction(info, tabGroupMetadata, atIndex, onFinishedRunnable);
         } else {
             Log.w(TAG, "DnD: InstanceInfo of Chrome Window not found.");
         }
@@ -1146,10 +1196,14 @@ class MultiInstanceManagerApi31 extends MultiInstanceManager implements Activity
         List<InstanceInfo> info = getInstanceInfo();
         if (info.size() != 1) return;
 
+        @Nullable
         TabModelSelector selector =
                 TabWindowManagerSingleton.getInstance()
                         .getTabModelSelectorById(info.get(0).instanceId);
-        assert selector != null;
+        if (selector == null) {
+            Log.d(TAG, "TabModelSelector is null for instance ID: " + info.get(0).instanceId);
+            return;
+        }
 
         cleanupSyncedTabGroups(selector);
     }
@@ -1159,5 +1213,41 @@ class MultiInstanceManagerApi31 extends MultiInstanceManager implements Activity
         TabModelUtils.runOnTabStateInitialized(
                 selector,
                 (TabModelSelector initializedSelector) -> cleanupSyncedTabGroupsIfLastInstance());
+    }
+
+    private @Nullable TabGroupModelFilter getTabGroupModelFilterByWindowId(
+            int windowId, boolean isIncognito) {
+        @Nullable
+        TabModelSelector selector =
+                TabWindowManagerSingleton.getInstance().getTabModelSelectorById(windowId);
+        if (selector == null) {
+            Log.d(TAG, "TabModelSelector is null for instance ID: " + windowId);
+            return null;
+        }
+
+        return selector.getTabGroupModelFilterProvider().getTabGroupModelFilter(isIncognito);
+    }
+
+    private @Nullable TabGroupSyncService getTabGroupSyncService(
+            int windowId, boolean isIncognito) {
+        TabGroupModelFilter filter = getTabGroupModelFilterByWindowId(windowId, isIncognito);
+        if (filter == null) {
+            Log.d(TAG, "TabGroupModelFilter is null for instance ID: " + windowId);
+            return null;
+        }
+
+        @Nullable Profile profile = filter.getTabModel().getProfile();
+        if (profile == null
+                || profile.isOffTheRecord()
+                || !TabGroupSyncFeatures.isTabGroupSyncEnabled(profile)) return null;
+
+        return TabGroupSyncServiceFactory.getForProfile(profile);
+    }
+
+    private void setSyncServiceLocalObservationMode(
+            @Nullable TabGroupSyncService syncService, boolean shouldObserve) {
+        if (syncService != null) {
+            syncService.setLocalObservationMode(shouldObserve);
+        }
     }
 }

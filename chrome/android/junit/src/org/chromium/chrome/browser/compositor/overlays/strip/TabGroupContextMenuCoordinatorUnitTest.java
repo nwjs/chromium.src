@@ -140,8 +140,8 @@ public class TabGroupContextMenuCoordinatorUnitTest {
                         mWindowAndroid,
                         mDataSharingTabManager);
 
-        // Set groupRootId to bypass showMenu() call.
-        mTabGroupContextMenuCoordinator.setGroupRootIdForTesting(ROOT_ID);
+        // Set group ids manually to bypass showMenu() call.
+        mTabGroupContextMenuCoordinator.setGroupDataForTesting(ROOT_ID, TAB_GROUP_ID);
     }
 
     @Test
@@ -294,7 +294,8 @@ public class TabGroupContextMenuCoordinatorUnitTest {
 
         // Verify tab group is ungrouped.
         mOnItemClickedCallback.onClick(R.id.ungroup_tab, TAB_GROUP_ID, /* collaborationId= */ null);
-        verify(mTabUngrouper).ungroupTabs(TAB_ID, /* trailing= */ true, /* allowDialog= */ true);
+        verify(mTabUngrouper)
+                .ungroupTabs(TAB_GROUP_ID, /* trailing= */ true, /* allowDialog= */ true);
     }
 
     @Test
@@ -389,10 +390,11 @@ public class TabGroupContextMenuCoordinatorUnitTest {
         when(mTabGroupModelFilter.getTabModel()).thenReturn(mTabModel);
         when(mTabGroupModelFilter.getTabUngrouper()).thenReturn(mTabUngrouper);
         when(mTabGroupModelFilter.isTabInTabGroup(tab)).thenReturn(true);
+        when(mTabGroupModelFilter.tabGroupExists(TAB_GROUP_ID)).thenReturn(true);
         when(mTabGroupModelFilter.getGroupLastShownTabId(TAB_GROUP_ID)).thenReturn(TAB_ID);
-        when(mTabGroupModelFilter.getRelatedTabCountForRootId(eq(TAB_ID))).thenReturn(1);
+        when(mTabGroupModelFilter.getTabCountForGroup(eq(TAB_GROUP_ID))).thenReturn(1);
         List<Tab> tabsInGroup = Arrays.asList(tab);
-        when(mTabGroupModelFilter.getRelatedTabListForRootId(eq(TAB_ID))).thenReturn(tabsInGroup);
+        when(mTabGroupModelFilter.getTabsInGroup(eq(TAB_GROUP_ID))).thenReturn(tabsInGroup);
         when(mTabGroupModelFilter.getRelatedTabList(eq(TAB_ID))).thenReturn(tabsInGroup);
         return tabsInGroup;
     }

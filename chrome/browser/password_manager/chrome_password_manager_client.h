@@ -19,8 +19,8 @@
 #include "components/autofill/core/browser/foundations/autofill_manager.h"
 #include "components/autofill/core/common/password_generation_util.h"
 #include "components/autofill/core/common/unique_ids.h"
+#include "components/credential_management/content_credential_manager.h"
 #include "components/enterprise/buildflags/buildflags.h"
-#include "components/password_manager/content/browser/content_credential_manager.h"
 #include "components/password_manager/content/browser/content_password_manager_driver_factory.h"
 #include "components/password_manager/core/browser/http_auth_manager.h"
 #include "components/password_manager/core/browser/http_auth_manager_impl.h"
@@ -94,6 +94,7 @@ class DeviceAuthenticator;
 
 namespace password_manager {
 class FieldInfoManager;
+class PasswordCredentialFillerImpl;
 class WebAuthnCredentialsDelegate;
 class CredManController;
 class KeyboardReplacingSurfaceVisibilityController;
@@ -164,9 +165,7 @@ class ChromePasswordManagerClient
 
   void ShowKeyboardReplacingSurface(
       password_manager::PasswordManagerDriver* driver,
-      const password_manager::PasswordFillingParams& password_filling_params,
-      bool is_webauthn_form,
-      base::OnceCallback<void(bool)> shown_cb) override;
+      const autofill::PasswordSuggestionRequest& request) override;
 #endif
 
   bool IsReauthBeforeFillingRequired(
@@ -267,13 +266,9 @@ class ChromePasswordManagerClient
       bool is_federated,
       const url::SchemeHostPort& federated_origin,
       const std::u16string& login_user_name) const override;
-#endif
 
-// TODO(crbug.com/390419758): Update the build flag after the reporting event
-// router supports reporting password breach event.
 // Reporting password breach event is only supported when extensions are enabled
 // and safe browsing is available.
-#if BUILDFLAG(ENABLE_EXTENSIONS) && BUILDFLAG(SAFE_BROWSING_AVAILABLE)
   void MaybeReportEnterprisePasswordBreachEvent(
       const std::vector<std::pair<GURL, std::u16string>>& identities)
       const override;
@@ -291,6 +286,7 @@ class ChromePasswordManagerClient
   GetPasswordRequirementsService() override;
   favicon::FaviconService* GetFaviconService() override;
   signin::IdentityManager* GetIdentityManager() override;
+  const signin::IdentityManager* GetIdentityManager() const override;
   password_manager::FieldInfoManager* GetFieldInfoManager() const override;
   scoped_refptr<network::SharedURLLoaderFactory> GetURLLoaderFactory() override;
   network::mojom::NetworkContext* GetNetworkContext() const override;
@@ -328,10 +324,7 @@ class ChromePasswordManagerClient
       const std::u16string& password_hostname,
       bool show_warning_text,
       base::OnceClosure confirmation_callback) override;
-  void ShowCredentialsInAmbientBubble(
-      std::vector<std::unique_ptr<password_manager::PasswordForm>> forms,
-      int credential_type_flags,
-      CredentialsCallback callback) override;
+  void TriggerSignIn(signin_metrics::AccessPoint access_point) const override;
 
   // autofill::mojom::PasswordGenerationDriver overrides.
   void AutomaticGenerationAvailable(
@@ -404,8 +397,8 @@ class ChromePasswordManagerClient
 
   void ShowKeyboardReplacingSurfaceOnAccountStorageNoticeDone(
       base::WeakPtr<password_manager::ContentPasswordManagerDriver> weak_driver,
-      const password_manager::PasswordFillingParams& password_filling_params,
-      base::OnceCallback<void(bool)> shown_cb);
+      autofill::TriggeringField triggering_field,
+      std::unique_ptr<password_manager::PasswordCredentialFillerImpl> filler);
 #endif
 
   // content::WebContentsObserver overrides.
@@ -506,7 +499,7 @@ class ChromePasswordManagerClient
   // As a mojo service, will be registered into service registry
   // of the main frame host by ChromeContentBrowserClient
   // once main frame host was created.
-  password_manager::ContentCredentialManager content_credential_manager_;
+  credential_management::ContentCredentialManager content_credential_manager_;
 
   content::RenderFrameHostReceiverSet<autofill::mojom::PasswordGenerationDriver>
       password_generation_driver_receivers_;

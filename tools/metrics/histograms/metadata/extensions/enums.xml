@@ -768,6 +768,9 @@ Called by update_extension_histograms.py.-->
   <int value="562" label="TTS_ENGINE_ON_UNINSTALL_LANGUAGE_REQUEST"/>
   <int value="563" label="PDF_VIEWER_PRIVATE_ON_SHOULD_UPDATE_VIEWPORT"/>
   <int value="564" label="OMNIBOX_ON_ACTION_EXECUTED"/>
+  <int value="565" label="AUTOFILL_PRIVATE_ON_ENTITY_INSTANCES_CHANGED"/>
+  <int value="566"
+      label="ENTERPRISE_REPORTING_PRIVATE_ON_DATA_MASKING_RULES_TRIGGERED"/>
 </enum>
 
 <!-- LINT.ThenChange(//extensions/browser/extension_event_histogram_value.h:HistogramValue) -->
@@ -1355,7 +1358,7 @@ Called by update_extension_histograms.py.-->
   <int value="555" label="SYNCFILESYSTEM_GETSERVICESTATUS"/>
   <int value="556" label="ECHOPRIVATE_SETOFFERINFO"/>
   <int value="557" label="ECHOPRIVATE_GETOFFERINFO"/>
-  <int value="558" label="DEVELOPERPRIVATE_ISPROFILEMANAGED"/>
+  <int value="558" label="DELETED_DEVELOPERPRIVATE_ISPROFILEMANAGED"/>
   <int value="559" label="DELETED_FILEMANAGERPRIVATE_INSTALLWEBSTOREITEM"/>
   <int value="560" label="FILEMANAGERPRIVATEINTERNAL_STARTCOPY"/>
   <int value="561" label="FILEMANAGERPRIVATE_CANCELCOPY"/>
@@ -2784,9 +2787,9 @@ Called by update_extension_histograms.py.-->
   <int value="1906" label="ACCESSIBILITY_PRIVATE_UPDATEFACEGAZEBUBBLE"/>
   <int value="1907" label="DELETED_AUTOFILLPRIVATE_HASUSERANNOTATIONSENTRIES"/>
   <int value="1908"
-      label="AUTOFILLPRIVATE_ISUSERELIGIBLEFORAUTOFILLIMPROVEMENTS"/>
+      label="DELETED_AUTOFILLPRIVATE_ISUSERELIGIBLEFORAUTOFILLIMPROVEMENTS"/>
   <int value="1909"
-      label="AUTOFILLPRIVATE_PREDICTIONIMPROVEMENTSIPHFFEATUREUSED"/>
+      label="DELETED_AUTOFILLPRIVATE_PREDICTIONIMPROVEMENTSIPHFFEATUREUSED"/>
   <int value="1910"
       label="DELETED_AUTOFILLPRIVATE_TRIGGERANNOTATIONSBOOTSTRAPPING"/>
   <int value="1911" label="ACCESSIBILITY_PRIVATE_ENABLEDRAGEVENTREWRITER"/>
@@ -2807,9 +2810,12 @@ Called by update_extension_histograms.py.-->
   <int value="1926" label="AUTOFILLPRIVATE_REMOVEENTITYINSTANCE"/>
   <int value="1927" label="ACCESSIBILITY_PRIVATE_ENABLELIVECAPTION"/>
   <int value="1928" label="AUTOFILLPRIVATE_GETALLENTITYTYPES"/>
-  <int value="1929" label="AUTOFILLPRIVATE_GETALLATTRIBUTETYPESFORENTITY"/>
+  <int value="1929"
+      label="AUTOFILLPRIVATE_GETALLATTRIBUTETYPESFORENTITYTYPENAME"/>
   <int value="1930" label="AUTOFILLPRIVATE_GETENTITYINSTANCEBYGUID"/>
   <int value="1931" label="AUTOFILLPRIVATE_GETPAYOVERTIMEISSUERLIST"/>
+  <int value="1932" label="AUTOFILLPRIVATE_SETAUTOFILLAIOPTINSTATUS"/>
+  <int value="1933" label="AUTOFILLPRIVATE_GETAUTOFILLAIOPTINSTATUS"/>
 </enum>
 
 <!-- LINT.ThenChange(//extensions/browser/extension_function_histogram_value.h:HistogramValue) -->
@@ -3386,16 +3392,6 @@ Called by update_extension_permission.py.-->
 </enum>
 
 <!-- LINT.ThenChange(/chrome/browser/extensions/unpacked_installer.h:ManifestSettingsOverrideType) -->
-
-<enum name="ManifestVersion">
-  <int value="1" label="Manifest Version 1"/>
-  <int value="2" label="Manifest Version 2"/>
-  <int value="3" label="Manifest Version 3"/>
-  <int value="4" label="Manifest Version 4"/>
-  <int value="5" label="Manifest Version 5"/>
-  <int value="6" label="Manifest Version 6"/>
-  <int value="7" label="Manifest Version 7"/>
-</enum>
 
 <enum name="ManifestVersionPopulationSplit">
   <int value="0" label="No extensions"/>

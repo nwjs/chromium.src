@@ -20,6 +20,7 @@ if (!is_android) {
       "//components/soda",
       "//components/soda:constants",
       "//components/sync_preferences",
+      "//ui/accessibility",
     ]
 
     if (is_chromeos) {
@@ -30,8 +31,6 @@ if (!is_android) {
 
 source_set("utils") {
   sources = [
-    "accessibility_state_utils.cc",
-    "accessibility_state_utils.h",
     "pdf_ocr_metrics.cc",
     "pdf_ocr_metrics.h",
   ]

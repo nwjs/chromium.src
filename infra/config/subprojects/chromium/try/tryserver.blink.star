@@ -211,7 +211,7 @@ try_.builder(
         ),
     ),
     builder_config_settings = builder_config.try_settings(
-        retry_failed_shards = True,
+        retry_failed_shards = False,
     ),
     gn_args = gn_args.config(
         configs = [
@@ -253,6 +253,7 @@ try_.builder(
     ),
     builderless = True,
     os = os.WINDOWS_ANY,
+    siso_remote_linking = True,
 )
 
 try_.builder(

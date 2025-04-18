@@ -5,7 +5,10 @@
 #ifndef CHROME_BROWSER_ASH_POLICY_SKYVAULT_POLICY_UTILS_H_
 #define CHROME_BROWSER_ASH_POLICY_SKYVAULT_POLICY_UTILS_H_
 
+#include <optional>
+
 #include "base/files/file_path.h"
+#include "base/time/time.h"
 
 class Profile;
 
@@ -23,11 +26,13 @@ enum class FileSaveDestination {
   kMaxValue = kOneDrive,
 };
 
-// Supported cloud providers.
-enum class CloudProvider {
-  kNotSpecified,  // Not set by the policy.
-  kGoogleDrive,   // Google Drive.
-  kOneDrive,      // Microsoft OneDrive.
+// Supported migration destination options.
+enum class MigrationDestination {
+  kNotSpecified,
+  kGoogleDrive,
+  kOneDrive,
+  kDelete,
+  kMaxValue = kDelete,
 };
 
 // Categories of errors that can occur during the file upload process.
@@ -114,9 +119,13 @@ enum class DialogAction {
 // policy.
 bool LocalUserFilesAllowed();
 
-// If SkyVault migration is enabled, returns the `CloudProvider` to which local
-// files should be uploaded, and `kNotSpecified` otherwise.
-CloudProvider GetMigrationDestination();
+// Returns the `MigrationDestination` indicating where local files should be
+// moved, or that they should be deleted. Returns `kNotSpecified` if the
+// migration policy is unset or explicitly set to "read-only".
+MigrationDestination GetMigrationDestination();
+
+// Returns true if `destination` is set to a cloud location.
+bool IsCloudDestination(MigrationDestination destination);
 
 // Get the destination where downloads are saved.
 FileSaveDestination GetDownloadsDestination(Profile* profile);
@@ -129,6 +138,9 @@ bool DownloadToTemp(Profile* profile);
 
 // Returns the path of MyFiles folder for `profile`.
 base::FilePath GetMyFilesPath(Profile* profile);
+
+// Returns the scheduled start time for local file migration or deletion.
+std::optional<base::Time> GetMigrationStartTime(Profile* profile);
 
 }  // namespace policy::local_user_files
 

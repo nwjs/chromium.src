@@ -17,12 +17,17 @@
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/primary_account_mutator.h"
 #include "components/sync/base/features.h"
+#include "components/sync_bookmarks/switches.h"
 #include "net/base/network_change_notifier.h"
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "components/sync/service/sync_prefs.h"
 #endif  // !BUILDFLAG(IS_ANDROID)
+
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+#include "chrome/browser/extensions/extension_sync_util.h"
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 #include "chrome/browser/autofill/personal_data_manager_factory.h"
@@ -53,7 +58,7 @@ syncer::DataType GetDataTypeFromSignInPromoType(SignInPromoType type) {
     case SignInPromoType::kBookmark:
       return syncer::BOOKMARKS;
     case SignInPromoType::kExtension:
-      NOTREACHED();
+      return syncer::EXTENSIONS;
   }
 }
 
@@ -208,6 +213,57 @@ bool ShouldShowSyncPromo(Profile& profile) {
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
 
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+bool ShouldShowExtensionSyncPromo(Profile& profile,
+                                  const extensions::Extension& extension) {
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+  // Don't show the promo if it does not pass the sync base checks.
+  if (!signin::ShouldShowSyncPromo(profile)) {
+    return false;
+  }
+
+  if (!extensions::sync_util::ShouldSync(&profile, &extension)) {
+    return false;
+  }
+
+  // `ShouldShowSyncPromo()` does not check if extensions are syncing in
+  // transport mode. That's why `IsSyncingExtensionsEnabled()` is added so the
+  // sign in promo is not shown in that case.
+  if (extensions::sync_util::IsSyncingExtensionsEnabled(&profile)) {
+    return false;
+  }
+
+  // The promo is not shown to users that have explicitly signed in through the
+  // browser (even if extensions are not syncing).
+  if (profile.GetPrefs()->GetBoolean(prefs::kExplicitBrowserSignin)) {
+    return false;
+  }
+
+  return true;
+#else
+  return false;
+#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
+}
+
+bool ShouldShowExtensionSignInPromo(Profile& profile,
+                                    const extensions::Extension& extension) {
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+  if (!base::FeatureList::IsEnabled(
+          switches::kEnableExtensionsExplicitBrowserSignin)) {
+    return false;
+  }
+
+  if (!ShouldShowExtensionSyncPromo(profile, extension)) {
+    return false;
+  }
+
+  return ShouldShowSignInPromoCommon(profile, SignInPromoType::kExtension);
+#else
+  return false;
+#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
+}
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
+
 bool ShouldShowPasswordSignInPromo(Profile& profile) {
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
   return ShouldShowSignInPromoCommon(profile, SignInPromoType::kPassword);
@@ -237,8 +293,34 @@ bool ShouldShowAddressSignInPromo(Profile& profile,
 bool ShouldShowBookmarkSignInPromo(Profile& profile) {
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
   if (!base::FeatureList::IsEnabled(
-          switches::kSyncEnableBookmarksInTransportMode)) {
+          switches::kSyncEnableBookmarksInTransportMode) ||
+      !base::FeatureList::IsEnabled(
+          switches::kSyncMinimizeDeletionsDuringBookmarkBatchUpload)) {
     return false;
+  }
+
+  // Do not show the promo if a user was previously syncing, as this may result
+  // in duplicate data.
+  // TODO(crbug.com/402748138): Remove this once bookmarks de-duplication is
+  // implemented.
+  if (!profile.GetPrefs()
+           ->GetString(::prefs::kGoogleServicesLastSyncingGaiaId)
+           .empty()) {
+    return false;
+  }
+
+  // If the user is in sign in pending state, the promo should only be shown if
+  // they already have account storage for bookmarks enabled.
+  IdentityManager* identity_manager =
+      IdentityManagerFactory::GetForProfile(&profile);
+  syncer::SyncService* sync_service =
+      SyncServiceFactory::GetForProfile(&profile);
+  if (identity_manager && signin_util::IsSigninPending(identity_manager)) {
+    if (!sync_service ||
+        !sync_service->GetUserSettings()->GetSelectedTypes().Has(
+            syncer::UserSelectableType::kBookmarks)) {
+      return false;
+    }
   }
 
   return ShouldShowSignInPromoCommon(profile, SignInPromoType::kBookmark);
@@ -260,6 +342,11 @@ bool IsSignInPromo(signin_metrics::AccessPoint access_point) {
   if (access_point == signin_metrics::AccessPoint::kExtensionInstallBubble) {
     return base::FeatureList::IsEnabled(
         switches::kEnableExtensionsExplicitBrowserSignin);
+  }
+
+  if (access_point == signin_metrics::AccessPoint::kBookmarkBubble) {
+    return base::FeatureList::IsEnabled(
+        switches::kSyncEnableBookmarksInTransportMode);
   }
 
   return false;

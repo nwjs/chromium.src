@@ -107,9 +107,13 @@ CSSPrimitiveValue* ConsumeIntegerOrNumberCalc(
     CSSPrimitiveValue::ValueRange = CSSPrimitiveValue::ValueRange::kInteger);
 CSSPrimitiveValue* ConsumePositiveInteger(CSSParserTokenStream&,
                                           const CSSParserContext&);
-bool ConsumeNumberRaw(CSSParserTokenStream&,
-                      const CSSParserContext& context,
-                      double& result);
+// All <numbers> should allow calc() expressions, and calc() expressions are not
+// always possible to reduce to a number at parse time. This method will fail
+// for valid values like `sibling-index()` and `sign(1em - 20px)`.
+// Use ConsumeNumber() instead.
+bool ConsumeNumberRaw_DO_NOT_USE(CSSParserTokenStream&,
+                                 const CSSParserContext& context,
+                                 double& result);
 CSSPrimitiveValue* ConsumeNumber(CSSParserTokenStream&,
                                  const CSSParserContext&,
                                  CSSPrimitiveValue::ValueRange);
@@ -462,7 +466,7 @@ CSSShadowValue* ParseSingleShadow(CSSParserTokenStream&,
                                   AllowInsetAndSpread);
 
 CSSValue* ConsumeColumnCount(CSSParserTokenStream&, const CSSParserContext&);
-CSSValue* ConsumeColumnWidth(CSSParserTokenStream&, const CSSParserContext&);
+CSSValue* ConsumeColumnLength(CSSParserTokenStream&, const CSSParserContext&);
 bool ConsumeColumnWidthOrCount(CSSParserTokenStream&,
                                const CSSParserContext&,
                                CSSValue*&,
@@ -784,6 +788,13 @@ CORE_EXPORT CSSValue* ConsumePositionTryFallbacks(CSSParserTokenStream&,
 // and returns false. The same pattern as above holds.
 bool MaybeConsumeImportant(CSSParserTokenStream& stream,
                            bool allow_important_annotation);
+
+// Return true if env(safe-inset-area-bottom [, ...]) exists.
+bool ContainsSafeAreaInsetBottom(StringView string);
+
+// Return true if it's a simple sum of literals, e.g. "0px + 42em - 13cqw" or
+// calc(10px + 42em - 13cqw).
+bool IsSimpleSum(StringView string);
 
 }  // namespace css_parsing_utils
 }  // namespace blink

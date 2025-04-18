@@ -7,7 +7,6 @@
 load("@builtin//path.star", "path")
 load("@builtin//struct.star", "module")
 load("./android.star", "android")
-load("./ar.star", "ar")
 load("./clang_code_coverage_wrapper.star", "clang_code_coverage_wrapper")
 load("./config.star", "config")
 load("./gn_logs.star", "gn_logs")
@@ -196,6 +195,19 @@ def __rules(ctx):
         {
             "name": "clang/cxx",
             "action": "(.*_)?cxx",
+            "command_prefix": "../../third_party/llvm-build/Release+Asserts/bin/clang++ ",
+            "inputs": [
+                "third_party/llvm-build/Release+Asserts/bin/clang++",
+            ],
+            "exclude_input_patterns": ["*.stamp"],
+            "remote": True,
+            "input_root_absolute_path": input_root_absolute_path,
+            "canonicalize_dir": canonicalize_dir,
+            "timeout": "2m",
+        },
+        {
+            "name": "clang/cxx_module",
+            "action": "(.*_)?cxx_module",
             "command_prefix": "../../third_party/llvm-build/Release+Asserts/bin/clang++ ",
             "inputs": [
                 "third_party/llvm-build/Release+Asserts/bin/clang++",

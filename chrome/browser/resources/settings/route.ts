@@ -166,6 +166,10 @@ function addPrivacyChildRoutes(r: Partial<SettingsRoutes>) {
     r.SITE_SETTINGS_WEB_APP_INSTALLATION =
         r.SITE_SETTINGS.createChild('webApplications');
   }
+  if (loadTimeData.getBoolean('enableLocalNetworkAccessSetting')) {
+    r.SITE_SETTINGS_LOCAL_NETWORK_ACCESS =
+        r.SITE_SETTINGS.createChild('localNetworkAccess');
+  }
 }
 
 /**
@@ -249,7 +253,7 @@ function createRoutes(): SettingsRoutes {
     r.PAYMENTS = r.AUTOFILL.createChild('/payments');
     r.ADDRESSES = r.AUTOFILL.createChild('/addresses');
 
-    if (loadTimeData.getBoolean('autofillAiFeatureEnabled')) {
+    if (loadTimeData.getBoolean('showAutofillAiControl')) {
       r.AUTOFILL_AI = r.AUTOFILL.createChild('/autofillAi');
     }
 

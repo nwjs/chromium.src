@@ -11,6 +11,7 @@
 #include <set>
 #include <string>
 #include <string_view>
+#include <variant>
 #include <vector>
 
 #include "base/memory/raw_ptr.h"
@@ -75,7 +76,6 @@
 #include "net/third_party/quiche/src/quiche/quic/core/quic_versions.h"
 #include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
 #include "testing/gmock/include/gmock/gmock.h"
-#include "third_party/abseil-cpp/absl/types/variant.h"
 #include "url/scheme_host_port.h"
 #include "url/url_constants.h"
 
@@ -544,8 +544,11 @@ class HttpStreamPoolAttemptManagerTest : public TestWithTaskEnvironment {
     return spdy_session;
   }
 
-  void AddQuicData(std::string_view host = kDefaultServerName,
-                   MockConnectCompleter* connect_completer = nullptr) {
+  void AddQuicData(
+      std::string_view host = kDefaultServerName,
+      MockConnectCompleter* connect_completer = nullptr,
+      quic::QuicErrorCode close_error = quic::QUIC_CONNECTION_CANCELLED,
+      std::string_view close_error_details = "net error") {
     auto client_maker = std::make_unique<QuicTestPacketMaker>(
         quic_version(),
         quic::QuicUtils::CreateRandomConnectionId(
@@ -566,12 +569,12 @@ class HttpStreamPoolAttemptManagerTest : public TestWithTaskEnvironment {
     quic_data->AddWrite(SYNCHRONOUS, client_maker->MakeInitialSettingsPacket(
                                          /*packet_number=*/packet_number++));
     // Connection close on shutdown.
-    quic_data->AddWrite(
-        SYNCHRONOUS,
-        client_maker->Packet(packet_number++)
-            .AddConnectionCloseFrame(quic::QUIC_CONNECTION_CANCELLED,
-                                     "net error", quic::NO_IETF_QUIC_ERROR)
-            .Build());
+    quic_data->AddWrite(SYNCHRONOUS,
+                        client_maker->Packet(packet_number++)
+                            .AddConnectionCloseFrame(
+                                close_error, std::string(close_error_details),
+                                quic::NO_IETF_QUIC_ERROR)
+                            .Build());
     quic_data->AddSocketDataToFactory(socket_factory());
 
     quic_client_makers_.emplace_back(std::move(client_maker));
@@ -2366,6 +2369,9 @@ TEST_F(HttpStreamPoolAttemptManagerTest,
                 Optional(IsOk()));
     limit_respecting_requesters.pop_front();
   }
+
+  // Ensure that the total connecting stream count is decremented appropriately.
+  ASSERT_EQ(pool().TotalConnectingStreamCount(), 0u);
 }
 
 // Regression test for crbug.com/397535403.
@@ -4259,6 +4265,7 @@ TEST_F(HttpStreamPoolAttemptManagerTest,
   // Destroy the failed request. This should destroy the failing attempt manager
   // and should create a new one.
   requester1.ResetRequest();
+  WaitForAttemptManagerComplete(*pool().GetGroupForTesting(stream_key));
   ASSERT_FALSE(pool()
                    .GetGroupForTesting(stream_key)
                    ->GetAttemptManagerForTesting()
@@ -4386,6 +4393,7 @@ TEST_F(HttpStreamPoolAttemptManagerTest, ResumeMultiplePausedJobsAndFailAgain) {
 
   // Destroy the first request. This should resume paused requests.
   failing_requester1.ResetRequest();
+  WaitForAttemptManagerComplete(*pool().GetGroupForTesting(stream_key));
   ASSERT_FALSE(pool()
                    .GetGroupForTesting(stream_key)
                    ->GetAttemptManagerForTesting()
@@ -4467,6 +4475,7 @@ TEST_F(HttpStreamPoolAttemptManagerTest, ReleaseStreamWhileFailing) {
   HttpStreamKey stream_key = requester1.GetStreamKey();
   requester1.ResetRequest();
   requester2.ResetRequest();
+  WaitForAttemptManagerComplete(*pool().GetGroupForTesting(stream_key));
   ASSERT_FALSE(pool()
                    .GetOrCreateGroupForTesting(stream_key)
                    .GetAttemptManagerForTesting());
@@ -4773,6 +4782,45 @@ TEST_F(HttpStreamPoolAttemptManagerTest, QuicOkDnsAlpn) {
                   .GetAttemptManagerForTesting()
                   ->GetQuicTaskResultForTesting(),
               Optional(IsOk()));
+}
+
+// Regression test for crbug.com/403341337. QuicTask should not be started when
+// the corresponding AttemptManager is failing.
+TEST_F(HttpStreamPoolAttemptManagerTest, DontStartQuicAfterFailure) {
+  AddQuicData();
+
+  FakeServiceEndpointRequest* endpoint_request = resolver()->AddFakeRequest();
+
+  // Request a stream to create an AttemptManager.
+  StreamRequester requester;
+  requester.set_destination(kDefaultDestination)
+      .set_quic_version(quic_version())
+      .RequestStream(pool());
+  ASSERT_FALSE(requester.result().has_value());
+
+  // Simulate a network change event to fail the AttemptManager.
+  NetworkChangeNotifier::NotifyObserversOfIPAddressChangeForTests();
+  FastForwardUntilNoTasksRemain();
+
+  // Complete the service endpoint resolution. QuicTask should not start.
+  endpoint_request
+      ->add_endpoint(ServiceEndpointBuilder().add_v4("192.0.2.1").endpoint())
+      .CallOnServiceEndpointRequestFinished(OK);
+  requester.WaitForResult();
+  EXPECT_THAT(requester.result(), Optional(IsError(ERR_NETWORK_CHANGED)));
+  ASSERT_TRUE(pool()
+                  .GetGroupForTesting(requester.GetStreamKey())
+                  ->GetAttemptManagerForTesting()
+                  ->is_failing());
+  ASSERT_FALSE(pool()
+                   .GetGroupForTesting(requester.GetStreamKey())
+                   ->GetAttemptManagerForTesting()
+                   ->GetQuicTaskResultForTesting());
+
+  // Ensure that the attempt manager completes after the request is destroyed.
+  requester.ResetRequest();
+  WaitForAttemptManagerComplete(
+      *pool().GetGroupForTesting(requester.GetStreamKey()));
 }
 
 // Tests that QUIC is not attempted when marked broken.
@@ -5329,6 +5377,92 @@ TEST_F(HttpStreamPoolAttemptManagerTest, QuicMatchingIpSession) {
                                                      quic_key1.destination()),
             quic_session_pool()->FindExistingSession(quic_key2.session_key(),
                                                      quic_key2.destination()));
+}
+
+// Regression test for crrev.com/c/405361789. There could be a matching QUIC
+// session while attempting a new QUIC session as a result of receiving an
+// HTTP/3 Origin frame. In such case, a preconnect request should succeed
+// with the matching QUIC session.
+TEST_F(HttpStreamPoolAttemptManagerTest, H3OriginFrameWhileAttemptingQuic) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(net::features::kAsyncQuicSession);
+
+  // Step1: Request a stream to create a QUIC session for kDefaultDestination.
+
+  AddQuicData();
+
+  // Make the TCP attempt stalled forever.
+  SequencedSocketData tcp_data1;
+  tcp_data1.set_connect_data(MockConnect(SYNCHRONOUS, ERR_IO_PENDING));
+  socket_factory()->AddSocketDataProvider(&tcp_data1);
+
+  FakeServiceEndpointRequest* endpoint_request1 = resolver()->AddFakeRequest();
+  endpoint_request1
+      ->add_endpoint(ServiceEndpointBuilder().add_v6("2001:db8::1").endpoint())
+      .CompleteStartSynchronously(OK);
+
+  StreamRequester requester;
+  requester.set_destination(kDefaultDestination)
+      .set_quic_version(quic_version())
+      .RequestStream(pool());
+  requester.WaitForResult();
+  EXPECT_THAT(requester.result(), Optional(IsOk()));
+
+  // Step2: Request a preconnect to initiate another QUIC session attempt for
+  // kAltDestination. The second session will be closed later.
+
+  constexpr std::string_view kAltDestination = "https://alt.example.org";
+
+  MockConnectCompleter quic_completer;
+  AddQuicData(/*host=*/kAltDestination, &quic_completer,
+              quic::QUIC_CONNECTION_IP_POOLED,
+              "An active session exists for the given IP.");
+
+  // Make the TCP attempt stalled forever.
+  SequencedSocketData tcp_data2;
+  tcp_data2.set_connect_data(MockConnect(SYNCHRONOUS, ERR_IO_PENDING));
+  socket_factory()->AddSocketDataProvider(&tcp_data2);
+
+  FakeServiceEndpointRequest* endpoint_request2 = resolver()->AddFakeRequest();
+  endpoint_request2
+      ->add_endpoint(ServiceEndpointBuilder().add_v6("2001:db8::2").endpoint())
+      .CompleteStartSynchronously(OK);
+
+  Preconnector preconnector(kAltDestination);
+  preconnector.set_quic_version(quic_version()).Preconnect(pool());
+
+  // Step3: Simulate receiving HTTP/3 Origin frame that contains kAltDestination
+  // as an origin.
+
+  QuicSessionAliasKey quic_key1 =
+      requester.GetStreamKey().CalculateQuicSessionAliasKey();
+  QuicChromiumClientSession* quic_session1 =
+      quic_session_pool()->FindExistingSession(quic_key1.session_key(),
+                                               quic_key1.destination());
+  ASSERT_TRUE(quic_session1);
+
+  quic::OriginFrame origin_frame;
+  origin_frame.origins.emplace_back(kAltDestination);
+  quic_session1->OnOriginFrame(origin_frame);
+
+  // Step4: Ensure that processing pending requests doesn't cause any problems.
+
+  pool().ProcessPendingRequestsInGroups();
+
+  // Step5: Ensure that the preconnect request completes with the matching QUIC
+  // session.
+
+  quic_completer.Complete(OK);
+  preconnector.WaitForResult();
+  EXPECT_THAT(preconnector.result(), Optional(IsOk()));
+
+  QuicSessionAliasKey quic_key2 =
+      preconnector.GetStreamKey().CalculateQuicSessionAliasKey();
+  QuicChromiumClientSession* quic_session2 =
+      quic_session_pool()->FindExistingSession(quic_key2.session_key(),
+                                               quic_key2.destination());
+  ASSERT_TRUE(quic_session1);
+  ASSERT_EQ(quic_session1, quic_session2);
 }
 
 // The same as above test, but the ServiceEndpointRequest provides two IP
@@ -6432,6 +6566,7 @@ TEST_F(HttpStreamPoolAttemptManagerTest, FlushWithErrorPendingJobs) {
   for (auto& requester : requesters) {
     requester->ResetRequest();
   }
+  WaitForAttemptManagerComplete(*pool().GetGroupForTesting(stream_key));
   EXPECT_FALSE(pool().GetGroupForTesting(stream_key));
   EXPECT_EQ(pool().TotalActiveStreamCount(), 0u);
 }

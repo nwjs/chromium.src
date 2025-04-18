@@ -10,9 +10,11 @@ import static org.chromium.chrome.browser.pwm_disabled.PasswordCsvDownloadDialog
 import static org.chromium.chrome.browser.pwm_disabled.PasswordCsvDownloadDialogProperties.EXPORT_BUTTON_CALLBACK;
 import static org.chromium.chrome.browser.pwm_disabled.PasswordCsvDownloadDialogProperties.TITLE;
 
+import android.text.method.LinkMovementMethod;
 import android.view.View;
 import android.widget.TextView;
 
+import org.chromium.build.annotations.NullMarked;
 import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
 
@@ -20,6 +22,7 @@ import org.chromium.ui.modelutil.PropertyModel;
  * Maps {@link PasswordCsvDownloadDialogProperties} changes in a {@link PropertyModel} to suitable
  * methods in {@link PasswordCsvDownloadDialogFragment}'s content view.
  */
+@NullMarked
 class PasswordCsvDownloadDialogViewBinder {
     private PasswordCsvDownloadDialogViewBinder() {}
 
@@ -27,13 +30,12 @@ class PasswordCsvDownloadDialogViewBinder {
         if (propertyKey == TITLE) {
             ((TextView) dialogView.findViewById(R.id.title)).setText(model.get(TITLE));
         } else if (propertyKey == DETAILS_PARAGRAPH1) {
-
-            ((TextView) dialogView.findViewById(R.id.details_paragraph1))
-                    .setText(model.get(DETAILS_PARAGRAPH1));
+            TextView detailsParagraph1 = dialogView.findViewById(R.id.details_paragraph1);
+            detailsParagraph1.setText(model.get(DETAILS_PARAGRAPH1));
+            detailsParagraph1.setMovementMethod(LinkMovementMethod.getInstance());
         } else if (propertyKey == DETAILS_PARAGRAPH2) {
             ((TextView) dialogView.findViewById(R.id.details_paragraph2))
                     .setText(model.get(DETAILS_PARAGRAPH2));
-
         } else if (propertyKey == EXPORT_BUTTON_CALLBACK) {
             dialogView
                     .findViewById(R.id.positive_button)

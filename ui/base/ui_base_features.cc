@@ -136,6 +136,11 @@ BASE_FEATURE(kWaylandTextInputV3,
 BASE_FEATURE(kWaylandUiScale,
              "WaylandUiScale",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Controls whether Wayland session management protocol is enabled.
+BASE_FEATURE(kWaylandSessionManagement,
+             "WaylandSessionManagement",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_OZONE)
 
 #if BUILDFLAG(IS_LINUX)
@@ -227,10 +232,6 @@ BASE_FEATURE(kExperimentalFlingAnimation,
 #endif
 );
 
-#if BUILDFLAG(IS_ANDROID)
-BASE_FEATURE(kDragDropEmpty, "DragDropEmpty", base::FEATURE_ENABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_ANDROID)
-
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_WIN)
 // Cached in Java as well, make sure defaults are updated together.
 BASE_FEATURE(kElasticOverscroll,
@@ -247,6 +248,10 @@ BASE_FEATURE(kElasticOverscroll,
 BASE_FEATURE(kFocusFollowsCursor,
              "FocusFollowsCursor",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kDragDropOnlySynthesizeHttpOrHttpsUrlsFromText,
+             "DragDropOnlySynthesizeHttpOrHttpsUrlsFromText",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_CHROMEOS)
 bool IsImprovedKeyboardShortcutsEnabled() {
@@ -454,6 +459,11 @@ BASE_FEATURE(kWriteBookmarkWithoutTitle,
 // If enabled, fullscreen window state is updated asynchronously.
 BASE_FEATURE(kAsyncFullscreenWindowState,
              "AsyncFullscreenWindowState",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Feature flag for enabling the clipboardchange event.
+BASE_FEATURE(kClipboardChangeEvent,
+             "ClipboardChangeEvent",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace features

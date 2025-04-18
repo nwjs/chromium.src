@@ -23,9 +23,9 @@ chromium-metrics-reviews@google.com.
 <histograms>
 
 <histogram name="Windows.AcLayersLoaded" enum="BooleanLoaded"
-    expires_after="2025-05-04">
+    expires_after="2026-05-04">
   <owner>ajgo@chromium.org</owner>
-  <owner>brucedawson@chromium.org</owner>
+  <owner>wfh@chromium.org</owner>
   <summary>
     Records if AcLayers.dll is loaded in the browser process, indicating that
     Chrome has been shimmed by Window's AppCompat mechanism. Reported once per
@@ -113,7 +113,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Windows.HasHighResolutionTimeTicks" enum="Boolean"
-    expires_after="2025-07-13">
+    expires_after="2025-09-14">
   <owner>brucedawson@chromium.org</owner>
   <owner>gab@chromium.org</owner>
   <summary>
@@ -182,7 +182,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Windows.LegacyDisplayIdAlgorithm" enum="UsedDisplayIdFallback"
-    expires_after="2025-07-13">
+    expires_after="2025-09-14">
   <owner>btriebw@google.com</owner>
   <owner>msw@google.com</owner>
   <summary>
@@ -218,6 +218,8 @@ chromium-metrics-reviews@google.com.
   <token key="SyncedState">
     <variant name="DesktopSynced"
         summary="Desktop file path is synced with cloud provided."/>
+    <variant name="DocumentsSynced"
+        summary="Documents file path is synced with cloud provided."/>
     <variant name="Synced"
         summary="File path storage is synced with cloud provided."/>
   </token>
@@ -302,6 +304,26 @@ chromium-metrics-reviews@google.com.
   <summary>
     Whether virtualization has been enabled in the system firmware. Logged
     shortly after startup. This metric will only be logged on Windows 10+.
+  </summary>
+</histogram>
+
+<histogram name="Windows.ShouldPinToTaskbarResult" enum="TaskbarPinResult"
+    expires_after="2025-12-01">
+  <owner>davidbienvenu@chromium.org</owner>
+  <owner>jessemckenna@google.com</owner>
+  <summary>
+    The result of calling ShouldOfferToPin(), logged when it is called. It is
+    called when deciding whether or not to offer to pin Chrome to the taskbar.
+  </summary>
+</histogram>
+
+<histogram name="Windows.TaskbarPinResult" enum="TaskbarPinResult"
+    expires_after="2025-12-01">
+  <owner>davidbienvenu@chromium.org</owner>
+  <owner>jessemckenna@google.com</owner>
+  <summary>
+    The result of calling PinAppToTaskbar(), logged when it is called. It is
+    called when the user has agreed to pin Chrome to the taskbar.
   </summary>
 </histogram>
 

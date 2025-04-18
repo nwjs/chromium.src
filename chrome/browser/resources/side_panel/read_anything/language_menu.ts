@@ -112,11 +112,10 @@ export class LanguageMenuElement extends LanguageMenuElementBase implements
     };
   }
 
-  selectedLang: string;
+  selectedLang: string = '';
   localeToDisplayName: {[lang: string]: string} = {};
   enabledLangs: string[] = [];
-
-  availableVoices: SpeechSynthesisVoice[];
+  availableVoices: SpeechSynthesisVoice[] = [];
   protected languageSearchValue_: string = '';
   protected availableLanguages_: LanguageDropdownItem[] = [];
   // Use this variable instead of AVAILABLE_GOOGLE_TTS_LOCALES
@@ -143,7 +142,7 @@ export class LanguageMenuElement extends LanguageMenuElementBase implements
   protected onToggleChange_(e: Event) {
     const index =
         Number.parseInt((e.currentTarget as HTMLElement).dataset['index']!);
-    const language = this.availableLanguages_[index].languageCode;
+    const language = this.availableLanguages_[index]!.languageCode;
 
     this.fire(ToolbarEvent.LANGUAGE_TOGGLE, {language});
   }
@@ -231,14 +230,6 @@ export class LanguageMenuElement extends LanguageMenuElementBase implements
         return notification satisfies never;
     }
   }
-
-  // Runtime errors were thrown when this.i18n() was called in a Polymer
-  // computed bindining callback function, so instead we call this.i18n from the
-  // html via a wrapper.
-  protected i18nWraper(s: string|undefined): string {
-    return s ? this.i18n(s) : '';
-  }
-
 
   protected searchHasLanguages(): boolean {
     // We should only show the "No results" string when there are no available

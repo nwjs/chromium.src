@@ -43,6 +43,7 @@ extern const char kPriceInsightsUseCacheParam[];
 extern const base::FeatureParam<bool> kPriceInsightsUseCache;
 BASE_DECLARE_FEATURE(kPriceTrackingPromo);
 BASE_DECLARE_FEATURE(kShopCard);
+BASE_DECLARE_FEATURE(kShopCardImpressionLimits);
 
 std::string ShopCardExperiment();
 
@@ -101,10 +102,6 @@ BASE_DECLARE_FEATURE(kDiscountConsentV2);
 
 // Feature flag for Code-based RBD.
 BASE_DECLARE_FEATURE(kCodeBasedRBD);
-
-// Feature flag for parcel tracking.
-BASE_DECLARE_FEATURE(kParcelTracking);
-BASE_DECLARE_FEATURE(kParcelTrackingRegionLaunched);
 
 // Shopping list update interval.
 constexpr base::FeatureParam<base::TimeDelta>
@@ -180,11 +177,16 @@ constexpr base::FeatureParam<std::string> kCheckoutPatternMapping{
 
 inline constexpr base::FeatureParam<std::string> kShopCardVariation{
     &kShopCard, "ShopCardVariant", ""};
+inline constexpr base::FeatureParam<std::string> kShopCardPosition{
+    &kShopCard, "ShopCardPosition", ""};
 
 extern const char kShopCardArm1[];
 extern const char kShopCardArm2[];
 extern const char kShopCardArm3[];
 extern const char kShopCardArm4[];
+extern const char kShopCardArm5[];
+extern const char kShopCardFrontPosition[];
+extern const char kShopCardMaxImpressions[];
 
 // Feature params for product specifications.
 extern const char kProductSpecificationsSetValidForClusteringTimeParam[];

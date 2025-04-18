@@ -250,7 +250,7 @@ function setUpStopRecording() {
   resetTimeout();
 }
 
-function setUpAutofillInternals() {
+function setUpAutofillInternals(autofillAiEnabled: boolean) {
   document.title = 'Autofill Internals';
   getRequiredElement('h1-title').textContent = 'Autofill Internals';
   getRequiredElement('logging-note').innerText =
@@ -263,6 +263,9 @@ function setUpAutofillInternals() {
   setUpMarker();
   setUpSubmittedFormsJSONDataDownload();
   setUpDownload('autofill');
+  if (autofillAiEnabled) {
+    addAutofillTabs();
+  }
   setUpStopRecording();
 }
 
@@ -624,6 +627,87 @@ function setUpSettingCheckboxe() {
   }
 }
 
+function addTabLink(linkText: string, tabId: string) {
+  const tabsDiv = getRequiredElement('tab-links');
+  const link = document.createElement('a');
+  link.innerText = linkText;
+  link.addEventListener('click', () => {
+    const tabsContainer = getRequiredElement('tabs-container');
+    for (const tab of tabsContainer.children) {
+      if (tab instanceof HTMLElement) {
+        tab.style.display = 'none';
+      }
+    }
+    getRequiredElement(tabId).style.display = 'block';
+    onTabShown(tabId);
+  });
+  tabsDiv.appendChild(link);
+}
+
+function onTabShown(tabId: string) {
+  if (tabId === 'tab-autofill-ai-cache') {
+    chrome.send('getAutofillAiCache');
+  }
+}
+
+function addAutofillTabs() {
+  addTabLink('Autofill logs', 'tab-logs');
+  addTabLink('AutofillAI cache', 'tab-autofill-ai-cache');
+  getRequiredElement('tab-links').style.display = 'block';
+}
+
+interface AutofillAiFieldCacheEntry {
+  signature: string;
+  rank: string;
+  type: string;
+  format?: string;
+}
+
+interface AutofillAiCacheEntry {
+  formSignature: string;
+  creationTime: string;
+  fields: AutofillAiFieldCacheEntry[];
+}
+
+function displayAutofillAiCache(entries: AutofillAiCacheEntry[]) {
+  const container = getRequiredElement('tab-autofill-ai-cache');
+  if (entries.length === 0) {
+    container.innerText = 'Cache is empty.';
+    return;
+  }
+
+  container.innerText = '';
+  for (const entry of entries) {
+    const entryTable = document.createElement('table');
+    entryTable.className = 'cache-entry';
+    const entryHeader = document.createElement('th');
+
+    entryHeader.innerText = `Form signature: ${
+        entry.formSignature}, creation time: ${entry.creationTime}.`;
+    const deleteButton = document.createElement('span');
+    deleteButton.innerText = 'Remove';
+    deleteButton.className = 'fake-button delete-cache-entry-button';
+    deleteButton.addEventListener('click', () => {
+      chrome.send('removeAutofillAiCacheEntry', [entry.formSignature]);
+      chrome.send('getAutofillAiCache');
+    });
+    entryHeader.appendChild(deleteButton);
+    entryTable.appendChild(entryHeader);
+
+    for (const field of entry.fields) {
+      const row = document.createElement('tr');
+      row.innerText = `Signature = ${field.signature}, rank = ${
+          field.rank}, type = ${field.type}`;
+      if (field.format) {
+        row.innerText += `, format = ${field.format}`;
+      }
+      entryTable.appendChild(row);
+    }
+    container.appendChild(entryTable);
+    container.appendChild(document.createElement('hr'));
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   addWebUiListener('enable-reset-cache-button', enableResetCacheButton);
   addWebUiListener('notify-about-incognito', notifyAboutIncognito);
@@ -631,6 +715,7 @@ document.addEventListener('DOMContentLoaded', () => {
   addWebUiListener(
       'notify-reset-done', (message: string) => showModalDialog(message));
   addWebUiListener('add-structured-log', addStructuredLog);
+  addWebUiListener('display-autofill-ai-cache', displayAutofillAiCache);
   addWebUiListener('setup-autofill-internals', setUpAutofillInternals);
   addWebUiListener(
       'setup-password-manager-internals', setUpPasswordManagerInternals);

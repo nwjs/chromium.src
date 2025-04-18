@@ -285,7 +285,12 @@ export class Service implements ServiceInterface {
   }
 
   repairItem(id: string): void {
-    chrome.developerPrivate.repairExtension(id);
+    chrome.developerPrivate.repairExtension(id).catch(
+        _ => {
+            // This can legitimately fail (e.g. if a reinstall is already
+            // in progress). Ignore the error to avoid crashing the browser,
+            // since WebUI errors are treated as crashes.
+        });
   }
 
   showItemOptionsPage(extension: chrome.developerPrivate.ExtensionInfo): void {
@@ -530,7 +535,7 @@ export class Service implements ServiceInterface {
     return chrome.developerPrivate.dismissMv2DeprecationNoticeForExtension(id);
   }
 
-  uploadItemToAccount(id: string): Promise<void> {
+  uploadItemToAccount(id: string): Promise<boolean> {
     return chrome.developerPrivate.uploadExtensionToAccount(id);
   }
 

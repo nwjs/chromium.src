@@ -4000,7 +4000,7 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest, ReloadWithUrlAnchor) {
 
   double window_scroll_y = EvalJs(shell(), "window.scrollY").ExtractDouble();
 
-  // TODO(bokan): The floor hack below can go
+  // TODO(bokan): The round hack below can go
   // away once FractionalScrolLOffsets ships. The reason it's required is that,
   // at certain device scale factors, the given CSS pixel scroll value may land
   // between physical pixels. Without the feature Blink will truncate to the
@@ -4017,7 +4017,7 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest, ReloadWithUrlAnchor) {
                                     ->GetRenderWidgetHostView()
                                     ->GetDeviceScaleFactor();
     expected_window_scroll_y =
-        floor(device_scale_factor * expected_window_scroll_y) /
+        round(device_scale_factor * expected_window_scroll_y) /
         device_scale_factor;
   }
   EXPECT_FLOAT_EQ(expected_window_scroll_y, window_scroll_y);
@@ -4044,7 +4044,7 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
 
   double window_scroll_y = EvalJs(shell(), "window.scrollY").ExtractDouble();
 
-  // TODO(bokan): The floor hack below can go
+  // TODO(bokan): The round hack below can go
   // away once FractionalScrolLOffsets ships. The reason it's required is that,
   // at certain device scale factors, the given CSS pixel scroll value may land
   // between physical pixels. Without the feature Blink will truncate to the
@@ -4060,7 +4060,7 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
                                     ->GetRenderWidgetHostView()
                                     ->GetDeviceScaleFactor();
     expected_window_scroll_y =
-        floor(device_scale_factor * expected_window_scroll_y) /
+        round(device_scale_factor * expected_window_scroll_y) /
         device_scale_factor;
   }
   EXPECT_FLOAT_EQ(expected_window_scroll_y, window_scroll_y);
@@ -4091,7 +4091,7 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
 
   double window_scroll_y = EvalJs(shell(), "window.scrollY").ExtractDouble();
 
-  // TODO(bokan): The floor hack below can go
+  // TODO(bokan): The round hack below can go
   // away once FractionalScrolLOffsets ships. The reason it's required is that,
   // at certain device scale factors, the given CSS pixel scroll value may land
   // between physical pixels. Without the feature Blink will truncate to the
@@ -4107,7 +4107,7 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
                                     ->GetRenderWidgetHostView()
                                     ->GetDeviceScaleFactor();
     window_scroll_y_with_user_scroll =
-        floor(device_scale_factor * window_scroll_y_with_user_scroll) /
+        round(device_scale_factor * window_scroll_y_with_user_scroll) /
         device_scale_factor;
   }
   EXPECT_FLOAT_EQ(window_scroll_y_with_user_scroll, window_scroll_y);
@@ -4156,7 +4156,7 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
 
   double window_scroll_y = EvalJs(shell(), "window.scrollY").ExtractDouble();
 
-  // TODO(bokan): The floor hack below can go
+  // TODO(bokan): The round hack below can go
   // away once FractionalScrolLOffsets ships. The reason it's required is that,
   // at certain device scale factors, the given CSS pixel scroll value may land
   // between physical pixels. Without the feature Blink will truncate to the
@@ -4172,7 +4172,7 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
                                     ->GetRenderWidgetHostView()
                                     ->GetDeviceScaleFactor();
     window_scroll_y_with_user_scroll =
-        floor(device_scale_factor * window_scroll_y_with_user_scroll) /
+        round(device_scale_factor * window_scroll_y_with_user_scroll) /
         device_scale_factor;
   }
   EXPECT_FLOAT_EQ(window_scroll_y_with_user_scroll, window_scroll_y);
@@ -21385,6 +21385,38 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
 
   EXPECT_EQ(url1, controller.GetLastCommittedEntry()->GetURL());
   EXPECT_EQ(initial_site_instance, contents()->GetSiteInstance());
+}
+
+IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
+                       NavigateToNavigationApiKey_NullCommittedOrigin) {
+  // Ensure there's a history entry before the error page.
+  GURL url1(embedded_test_server()->GetURL("a.com", "/title1.html"));
+  EXPECT_TRUE(NavigateToURL(shell(), url1));
+
+  NavigationControllerImpl& controller = static_cast<NavigationControllerImpl&>(
+      shell()->web_contents()->GetController());
+
+  GURL server_redirecting_url(
+      embedded_test_server()->GetURL("/server-redirect?/empty404.html"));
+
+  // Browser-initiated same-site navigation that server-redirects to an empty
+  // 404 page, which would result in an error page.
+  EXPECT_FALSE(NavigateToURL(shell(), server_redirecting_url));
+  EXPECT_EQ(2, controller.GetEntryCount());
+  NavigationEntryImpl* entry = controller.GetLastCommittedEntry();
+  GURL fail_url(embedded_test_server()->GetURL("/empty404.html"));
+  EXPECT_EQ(fail_url, entry->GetURL());
+
+  // The error page should have a nullopt committed origin.
+  FrameTreeNode* root = static_cast<WebContentsImpl*>(shell()->web_contents())
+                            ->GetPrimaryFrameTree()
+                            .root();
+  ASSERT_EQ(std::nullopt, entry->GetFrameEntry(root)->committed_origin());
+
+  // NavigateToNavigationApiKey() should not crash if the renderer manages to
+  // call it when there is no committed origin.
+  controller.NavigateToNavigationApiKey(current_main_frame_host(), std::nullopt,
+                                        "key_doesnt_matter");
 }
 
 // Tests that renderer-initiated navigation cancellation from the same JS task

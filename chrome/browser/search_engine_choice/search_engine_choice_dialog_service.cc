@@ -14,8 +14,10 @@
 #include "base/not_fatal_until.h"
 #include "base/notreached.h"
 #include "base/strings/utf_string_conversions.h"
+#include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/regional_capabilities/regional_capabilities_service_factory.h"
 #include "chrome/browser/search_engine_choice/search_engine_choice_dialog_service_factory.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/ui/browser.h"
@@ -25,6 +27,9 @@
 #include "chrome/browser/ui/webui/ntp/new_tab_ui.h"
 #include "components/country_codes/country_codes.h"
 #include "components/prefs/pref_service.h"
+#include "components/regional_capabilities/access/country_access_reason.h"
+#include "components/regional_capabilities/regional_capabilities_country_id.h"
+#include "components/regional_capabilities/regional_capabilities_service.h"
 #include "components/search_engines/search_engine_choice/search_engine_choice_service.h"
 #include "components/search_engines/search_engine_choice/search_engine_choice_utils.h"
 #include "components/search_engines/search_engines_pref_names.h"
@@ -48,7 +53,7 @@ bool IsBrowserTypeSupported(const Browser& browser) {
     case Browser::TYPE_PICTURE_IN_PICTURE:
     case Browser::TYPE_APP:
     case Browser::TYPE_DEVTOOLS:
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
     case Browser::TYPE_CUSTOM_TAB:
 #endif
       return false;
@@ -141,10 +146,17 @@ void SearchEngineChoiceDialogService::NotifyChoiceMade(
     int prepopulate_id,
     bool save_guest_mode_selection,
     EntryPoint entry_point) {
-  int country_id = search_engine_choice_service_->GetCountryId();
+  regional_capabilities::CountryIdHolder country_id_holder =
+      regional_capabilities::RegionalCapabilitiesServiceFactory::GetForProfile(
+          &profile_.get())
+          ->GetCountryId();
   SCOPED_CRASH_KEY_STRING32(
       "ChoiceService", "choice_country",
-      country_codes::CountryIDToCountryString(country_id));
+      country_id_holder
+          .GetRestricted(regional_capabilities::CountryAccessKey(
+              regional_capabilities::CountryAccessReason::
+                  kSearchEngineChoiceNotifyChoiceMadeDebug))
+          .CountryCode());
   SCOPED_CRASH_KEY_NUMBER("ChoiceService", "prepopulate_id", prepopulate_id);
   SCOPED_CRASH_KEY_NUMBER("ChoiceService", "entry_point",
                           static_cast<int>(entry_point));
@@ -382,11 +394,11 @@ SearchEngineChoiceDialogService::ComputeDialogConditions(
   // currently displayed or is about to be displayed.
   bool signin_dialog_displayed_or_pending =
       browser.signin_view_controller()->ShowsModalDialog();
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
+#if !BUILDFLAG(IS_CHROMEOS)
   signin_dialog_displayed_or_pending =
       signin_dialog_displayed_or_pending ||
       IsProfileCustomizationBubbleSyncControllerRunning(&browser);
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
   if (signin_dialog_displayed_or_pending) {
     return search_engines::SearchEngineChoiceScreenConditions::
         kSuppressedByOtherDialog;

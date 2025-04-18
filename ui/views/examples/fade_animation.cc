@@ -61,10 +61,10 @@ FadingView::FadingView() {
       .AddChildren(
           Builder<BoxLayoutView>()
               .CopyAddressTo(&primary_view_)
-              .SetBorder(CreateThemedRoundedRectBorder(
+              .SetBorder(CreateRoundedRectBorder(
                   1, kCornerRadius,
                   ExamplesColorIds::kColorFadeAnimationExampleBorder))
-              .SetBackground(CreateThemedRoundedRectBackground(
+              .SetBackground(CreateRoundedRectBackground(
                   ExamplesColorIds::kColorFadeAnimationExampleBackground,
                   kCornerRadius, 1))
               .SetPaintToLayer()
@@ -83,10 +83,10 @@ FadingView::FadingView() {
                                .SetVerticalAlignment(gfx::ALIGN_MIDDLE)),
           Builder<BoxLayoutView>()
               .CopyAddressTo(&secondary_view_)
-              .SetBorder(CreateThemedRoundedRectBorder(
+              .SetBorder(CreateRoundedRectBorder(
                   1, kCornerRadius,
                   ExamplesColorIds::kColorFadeAnimationExampleBorder))
-              .SetBackground(CreateThemedRoundedRectBackground(
+              .SetBackground(CreateRoundedRectBackground(
                   ExamplesColorIds::kColorFadeAnimationExampleBackground,
                   kCornerRadius, 1))
               .SetPaintToLayer()
@@ -149,7 +149,7 @@ FadeAnimationExample::FadeAnimationExample() : ExampleBase("Fade Animation") {}
 FadeAnimationExample::~FadeAnimationExample() = default;
 
 void FadeAnimationExample::CreateExampleView(View* container) {
-  container->SetBackground(CreateThemedSolidBackground(
+  container->SetBackground(CreateSolidBackground(
       ExamplesColorIds::kColorFadeAnimationExampleBackground));
   container->SetLayoutManager(std::make_unique<CenteringLayoutManager>());
   container->AddChildView(std::make_unique<FadingView>());

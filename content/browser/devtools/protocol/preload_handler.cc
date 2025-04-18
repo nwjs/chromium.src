@@ -281,6 +281,18 @@ Preload::PrefetchStatus PrefetchStatusToProtocol(PrefetchStatus status) {
       return Preload::PrefetchStatusEnum::PrefetchEvictedAfterCandidateRemoved;
     case PrefetchStatus::kPrefetchEvictedForNewerPrefetch:
       return Preload::PrefetchStatusEnum::PrefetchEvictedForNewerPrefetch;
+    case PrefetchStatus::kPrefetchIneligibleRedirectFromServiceWorker:
+      return Preload::PrefetchStatusEnum::
+          PrefetchNotEligibleRedirectFromServiceWorker;
+    case PrefetchStatus::kPrefetchIneligibleRedirectToServiceWorker:
+      return Preload::PrefetchStatusEnum::
+          PrefetchNotEligibleRedirectToServiceWorker;
+    case PrefetchStatus::kPrefetchIneligibleUserHasServiceWorkerNoFetchHandler:
+      return Preload::PrefetchStatusEnum::
+          PrefetchNotEligibleUserHasServiceWorkerNoFetchHandler;
+    case PrefetchStatus::kPrefetchEvictedAfterBrowsingDataRemoved:
+      return Preload::PrefetchStatusEnum::
+          PrefetchEvictedAfterBrowsingDataRemoved;
   }
 }
 

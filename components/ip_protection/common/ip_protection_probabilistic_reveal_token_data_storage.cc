@@ -4,8 +4,12 @@
 
 #include "components/ip_protection/common/ip_protection_probabilistic_reveal_token_data_storage.h"
 
+#include <optional>
+
+#include "base/base64.h"
 #include "base/files/file_util.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/numerics/byte_conversions.h"
 #include "components/ip_protection/common/ip_protection_probabilistic_reveal_token_fetcher.h"
 #include "sql/database.h"
 #include "sql/error_delegate_util.h"
@@ -18,22 +22,23 @@
 namespace {
 
 // Version number of the database.
-const int kCurrentVersionNumber = 1;
+const int kCurrentVersionNumber = 3;
 
 // clang-format off
 static constexpr char kCreateProbabilisticRevealTokensTableSql[] =
   "CREATE TABLE IF NOT EXISTS tokens("
       "version INTEGER NOT NULL,"
-      "u TEXT NOT NULL,"
-      "e TEXT NOT NULL,"
+      "u BLOB NOT NULL,"
+      "e BLOB NOT NULL,"
+      "epoch_id INTEGER NOT NULL,"
       "expiration INTEGER NOT NULL,"
       "num_tokens_with_signal INTEGER NOT NULL,"
       "public_key TEXT NOT NULL)";
 
 static constexpr char kInsertProbabilisticRevealTokenSql[] =
   "INSERT INTO tokens("
-      "version,u,e,expiration,num_tokens_with_signal,public_key) "
-      "VALUES(?,?,?,?,?,?)";
+      "version,u,e,epoch_id,expiration,num_tokens_with_signal,public_key) "
+      "VALUES(?,?,?,?,?,?,?)";
 // clang-format on
 
 }  // namespace
@@ -42,12 +47,11 @@ namespace ip_protection {
 
 IpProtectionProbabilisticRevealTokenDataStorage::
     IpProtectionProbabilisticRevealTokenDataStorage(
-        const base::FilePath& path_to_database)
+        std::optional<base::FilePath> path_to_database)
     : path_to_database_(path_to_database),
       db_(sql::DatabaseOptions{},
           sql::Database::Tag("IpProtectionProbabilisticRevealTokens")) {
   DETACH_FROM_SEQUENCE(sequence_checker_);
-  DCHECK(!path_to_database_.empty());
 }
 
 IpProtectionProbabilisticRevealTokenDataStorage::
@@ -69,7 +73,13 @@ bool IpProtectionProbabilisticRevealTokenDataStorage::InitializeDB() {
       &IpProtectionProbabilisticRevealTokenDataStorage::DatabaseErrorCallback,
       base::Unretained(this)));
 
-  const base::FilePath dir = path_to_database_.DirName();
+  if (!path_to_database_.has_value() || path_to_database_->empty()) {
+    DLOG(ERROR) << "Failed to initialize Probabilistic Reveal Token database. "
+                   "No path given.";
+    return false;
+  }
+
+  const base::FilePath dir = path_to_database_->DirName();
   if (!base::CreateDirectory(dir)) {
     DLOG(ERROR)
         << "Failed to create directory for Probabilistic Reveal Token database";
@@ -80,7 +90,7 @@ bool IpProtectionProbabilisticRevealTokenDataStorage::InitializeDB() {
         << "Probabilistic Reveal Token database directory is not writable";
     return false;
   }
-  if (!db_.Open(path_to_database_)) {
+  if (!db_.Open(*path_to_database_)) {
     DLOG(ERROR) << "Failed to open Probabilistic Reveal Token database: "
                 << db_.GetErrorMessage();
     return false;
@@ -174,12 +184,16 @@ void IpProtectionProbabilisticRevealTokenDataStorage::StoreTokenOutcome(
           << "InsertProbabilisticRevealToken SQL statement did not compile.";
       return;
     }
+    CHECK_EQ(token.epoch_id.size(), 8u);
+
     statement.BindInt64(0, token.version);
-    statement.BindString(1, token.u);
-    statement.BindString(2, token.e);
-    statement.BindInt64(3, outcome.expiration_time_seconds);
-    statement.BindInt64(4, outcome.num_tokens_with_signal);
-    statement.BindString(5, outcome.public_key);
+    statement.BindBlob(1, token.u);
+    statement.BindBlob(2, token.e);
+    statement.BindInt64(3, base::U64FromBigEndian(
+                               base::as_byte_span(token.epoch_id).first<8u>()));
+    statement.BindInt64(4, outcome.expiration_time_seconds);
+    statement.BindInt64(5, outcome.num_tokens_with_signal);
+    statement.BindString(6, base::Base64Encode(outcome.public_key));
 
     if (!statement.Run()) {
       DLOG(ERROR) << "Could not insert Probabilistic Reveal Token: "

@@ -42,22 +42,14 @@ _CONFIG = [
         'allowed': [
             # absl
             'absl::Cleanup',
-            'absl::get',
-            'absl::get_if',
-            'absl::holds_alternative',
-            'absl::in_place',
-            'absl::in_place_type',
             'absl::int128',
             'absl::Int128High64',
             'absl::Int128Low64',
             'absl::MakeInt128',
             'absl::MakeUint128',
-            'absl::monostate',
             'absl::uint128',
             'absl::Uint128High64',
             'absl::Uint128Low64',
-            'absl::variant',
-            'absl::visit',
 
             # //base constructs that are allowed everywhere
             'base::(byte_)?span_from_ref',
@@ -158,6 +150,7 @@ _CONFIG = [
             'base::Time',
             'base::TimeDelta',
             'base::TimeTicks',
+            'base::to_address',
             'base::to_underlying',
             'base::Token',
             'base::ToVector',
@@ -352,6 +345,16 @@ _CONFIG = [
             'base::UnsafeSharedMemoryRegion',
             'base::WritableSharedMemoryMapping',
             'base::subtle::SharedAtomic',
+
+            # Std.
+            'std::get',
+            'std::get_if',
+            'std::holds_alternative',
+            'std::in_place',
+            'std::in_place_type',
+            'std::monostate',
+            'std::variant',
+            'std::visit',
 
             # tracing
             'perfetto::.+',
@@ -1024,12 +1027,18 @@ _CONFIG = [
             'third_party/blink/common/messaging/accelerated_static_bitmap_image_mojom_traits.cc'
         ],
         'allowed': [
+            'gfx::ColorSpace',
+            'gfx::Size',
+            'gfx::SizeToSkISize',
             'gpu::ExportedSharedImage',
             'gpu::SHARED_IMAGE_USAGE_DISPLAY_READ',
             'gpu::SHARED_IMAGE_USAGE_SCANOUT',
             'gpu::SHARED_IMAGE_USAGE_CONCURRENT_READ_WRITE',
             'gpu::SharedImageUsageSet',
             'gpu::SyncToken',
+            'viz::SharedImageFormat',
+            'viz::SkColorTypeToSinglePlaneSharedImageFormat',
+            'viz::ToClosestSkColorType',
         ],
     },
     {
@@ -1451,6 +1460,7 @@ _CONFIG = [
             'third_party/blink/renderer/core/inspector',
             'third_party/blink/renderer/controller/dev_tools_frontend_impl.h',
             'third_party/blink/renderer/controller/dev_tools_frontend_impl.cc',
+            'third_party/blink/renderer/modules/credentialmanagement/digital_identity_credential.cc',
             'third_party/blink/renderer/modules/filesystem/dev_tools_host_file_system.cc'
         ],
         'allowed': [
@@ -1801,6 +1811,7 @@ _CONFIG = [
             'media::.+',
             'viz::RasterContextProvider',
             'viz::ReleaseCallback',
+            'viz::SkColorTypeToSinglePlaneSharedImageFormat',
         ]
     },
     {
@@ -1976,11 +1987,13 @@ _CONFIG = [
         'paths': [
             'third_party/blink/public/platform/web_theme_engine.h',
             'third_party/blink/renderer/core/css/resolver/style_builder_converter.h',
+            'third_party/blink/renderer/core/animation/css_color_interpolation_type.cc',
+            'third_party/blink/renderer/core/animation/interpolable_shadow.cc',
             'third_party/blink/renderer/core/layout/layout_theme.cc',
             'third_party/blink/renderer/core/layout/layout_theme.h',
             'third_party/blink/renderer/core/scroll/',
-            'third_party/blink/renderer/modules/canvas/canvas2d/base_rendering_context_2d.cc',
-            'third_party/blink/renderer/modules/canvas/canvas2d/base_rendering_context_2d.h',
+            'third_party/blink/renderer/modules/canvas/canvas2d/canvas_2d_recorder_context.cc',
+            'third_party/blink/renderer/modules/canvas/canvas2d/canvas_2d_recorder_context.h',
         ],
         'allowed': ['ui::ColorProvider'],
     },
@@ -2193,6 +2206,13 @@ _CONFIG = [
             'third_party/blink/renderer/core/view_transition/',
         ],
         'allowed': ['base::flat_map', 'cc::ScopedPauseRendering'],
+    },
+    {
+        'paths': [
+            'third_party/blink/public/common/frame/view_transition_state_mojom_traits.h',
+            'third_party/blink/public/common/frame/view_transition_state.h',
+        ],
+        'allowed': ['base::flat_map'],
     },
     {
         'paths': [

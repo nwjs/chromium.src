@@ -27,11 +27,6 @@ BASE_DECLARE_FEATURE(kWebAuthCableExtensionAnywhere);
 // passkeys from GMSCore. This is for comparison only.
 COMPONENT_EXPORT(DEVICE_FIDO)
 BASE_DECLARE_FEATURE(kWebAuthnAndroidUsePasskeyCache);
-
-// Enable the "Phone as a security key" fragment in Privacy Settings. This flag
-// is now handled by Gmscore, in Android Settings > "Passkey-linked devices".
-COMPONENT_EXPORT(DEVICE_FIDO)
-BASE_DECLARE_FEATURE(kWebAuthnEnablePaaskFragment);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 // These five feature flags control whether iCloud Keychain is the default
@@ -61,11 +56,6 @@ BASE_DECLARE_FEATURE(kWebAuthnRetryU2FErrors);
 COMPONENT_EXPORT(DEVICE_FIDO)
 BASE_DECLARE_FEATURE(kWebAuthnUseInsecureSoftwareUnexportableKeys);
 
-// Enable a workaround for an interaction between Windows 10 and certain
-// security keys.
-COMPONENT_EXPORT(DEVICE_FIDO)
-BASE_DECLARE_FEATURE(kWebAuthnCredProtectWin10BugWorkaround);
-
 // Send enclave requests with 5 seconds delay. For development purposes only.
 COMPONENT_EXPORT(DEVICE_FIDO)
 BASE_DECLARE_FEATURE(kWebAuthnEnclaveAuthenticatorDelay);
@@ -73,10 +63,6 @@ BASE_DECLARE_FEATURE(kWebAuthnEnclaveAuthenticatorDelay);
 // Enable non-autofill sign-in UI for conditional mediation.
 COMPONENT_EXPORT(DEVICE_FIDO)
 BASE_DECLARE_FEATURE(kWebAuthnAmbientSignin);
-
-// Support the PRF extension with iCloud Keychain credentials.
-COMPONENT_EXPORT(DEVICE_FIDO)
-BASE_DECLARE_FEATURE(kWebAuthniCloudKeychainPrf);
 
 // Enables linking of hybrid devices to Chrome, both pre-linking (i.e. through
 // Sync) and through hybrid.
@@ -88,10 +74,6 @@ BASE_DECLARE_FEATURE(kWebAuthnHybridLinking);
 COMPONENT_EXPORT(DEVICE_FIDO)
 BASE_DECLARE_FEATURE(kWebAuthnPublishPrelinkingInfo);
 #endif  // BUILDFLAG(IS_ANDROID)
-
-// Update the "last_used" timestamp in GPM passkeys when asserted.
-COMPONENT_EXPORT(DEVICE_FIDO)
-BASE_DECLARE_FEATURE(kWebAuthnUpdateLastUsed);
 
 // Enables the WebAuthn Signal API for Windows Hello.
 COMPONENT_EXPORT(DEVICE_FIDO)
@@ -110,11 +92,6 @@ BASE_DECLARE_FEATURE(kDigitalCredentialsHybridLinking);
 // Enable passkey upgrade requests in Google Password Manager.
 COMPONENT_EXPORT(DEVICE_FIDO)
 BASE_DECLARE_FEATURE(kWebAuthnPasskeyUpgrade);
-
-// Stops Chrome from skipping the "Trust this computer" screen if the user
-// doesn't have phones.
-COMPONENT_EXPORT(DEVICE_FIDO)
-BASE_DECLARE_FEATURE(kWebAuthnNeverSkipTrustThisComputer);
 
 // Checks attestation from the enclave service.
 COMPONENT_EXPORT(DEVICE_FIDO)
@@ -148,6 +125,11 @@ BASE_DECLARE_FEATURE(kWebAuthnRemoteDesktopAllowedOriginsPolicy);
 // unexportable keys when a TPM is not available.
 COMPONENT_EXPORT(DEVICE_FIDO)
 BASE_DECLARE_FEATURE(kWebAuthnMicrosoftSoftwareUnexportableKeyProvider);
+
+// Enables hiding passkeys instead of hard deleting them when reported as
+// obsolete by the signal API.
+COMPONENT_EXPORT(DEVICE_FIDO)
+BASE_DECLARE_FEATURE(kWebAuthnSignalApiHidePasskeys);
 
 }  // namespace device
 

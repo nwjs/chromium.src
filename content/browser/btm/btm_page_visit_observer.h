@@ -15,6 +15,7 @@
 #include "base/time/default_clock.h"
 #include "base/time/time.h"
 #include "content/common/content_export.h"
+#include "content/public/browser/btm_redirect_info.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "url/gurl.h"
 
@@ -39,27 +40,31 @@ struct CONTENT_EXPORT BtmServerRedirectInfo {
 };
 
 struct CONTENT_EXPORT BtmNavigationInfo {
+  // Precondition: `navigation_handle.HasCommitted()` must be `true`.
   explicit BtmNavigationInfo(NavigationHandle& navigation_handle);
   BtmNavigationInfo(const BtmNavigationInfo&);
+  BtmNavigationInfo& operator=(const BtmNavigationInfo&);
   BtmNavigationInfo(BtmNavigationInfo&&);
+  BtmNavigationInfo& operator=(BtmNavigationInfo&&);
   ~BtmNavigationInfo();
 
   std::vector<BtmServerRedirectInfo> server_redirects;
   bool was_user_initiated;
   bool was_renderer_initiated;
   ui::PageTransition page_transition;
+  // The page where the navigation ultimately committed.
+  UrlAndSourceId destination;
 };
 
 class CONTENT_EXPORT BtmPageVisitObserver : public WebContentsObserver {
  public:
-  using VisitCallback = base::RepeatingCallback<
-      void(const BtmPageVisitInfo&, const BtmNavigationInfo&, const GURL&)>;
+  using VisitCallback = base::RepeatingCallback<void(const BtmPageVisitInfo&,
+                                                     const BtmNavigationInfo&)>;
 
-  // The three arguments to `VisitCallback`.
+  // The arguments to `VisitCallback`.
   struct VisitTuple {
     BtmPageVisitInfo prev_page;
     BtmNavigationInfo navigation;
-    GURL url;
   };
 
   BtmPageVisitObserver(WebContents* web_contents,
@@ -69,6 +74,7 @@ class CONTENT_EXPORT BtmPageVisitObserver : public WebContentsObserver {
 
   // WebContentsObserver overrides:
   void DidStartNavigation(NavigationHandle* navigation_handle) override;
+  void DidRedirectNavigation(NavigationHandle* navigation_handle) override;
   void DidFinishNavigation(NavigationHandle* navigation_handle) override;
   void NotifyStorageAccessed(RenderFrameHost* render_frame_host,
                              blink::mojom::StorageTypeAccessed storage_type,
@@ -81,6 +87,8 @@ class CONTENT_EXPORT BtmPageVisitObserver : public WebContentsObserver {
   void WebAuthnAssertionRequestSucceeded(
       RenderFrameHost* render_frame_host) override;
 
+  void SetClockForTesting(base::Clock* clock) { clock_ = CHECK_DEREF(clock); }
+
  private:
   // Execute the visit callback with a tuple from the pending queue.
   void ReportVisit();
@@ -90,7 +98,7 @@ class CONTENT_EXPORT BtmPageVisitObserver : public WebContentsObserver {
   // Metadata on the currently committed page.
   BtmPageVisitInfo current_page_;
   raw_ref<base::Clock> clock_;
-  std::optional<base::Time> last_page_change_time_;
+  base::Time last_page_change_time_;
   // Past page visits that we are still waiting to see if late cookie accesses
   // are reported for them.
   std::deque<VisitTuple> pending_visits_;

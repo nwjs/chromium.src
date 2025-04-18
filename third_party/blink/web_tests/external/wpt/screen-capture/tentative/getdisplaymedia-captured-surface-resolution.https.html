@@ -21,6 +21,7 @@
     return navigator.mediaDevices.getDisplayMedia(constraints);
   }
 
+  // On MacOS these tests need to be run with setTimeout for threading purposes.
   promise_test(async t => {
     var video = document.createElement("video");
     const stream = await getDisplayMedia({ displaySurface: "monitor" });
@@ -34,16 +35,12 @@
       assert_not_equals(video.srcObject, null);
       let settings = track.getSettings();
       let capabilities = track.getCapabilities();
-      assert_greater_than(settings.physicalWidth, 0);
-      assert_greater_than(settings.physicalHeight, 0);
-      assert_equals(settings.physicalWidth / screenDetails.screens[0].devicePixelRatio, settings.logicalWidth);
-      assert_equals(settings.physicalHeight / screenDetails.screens[0].devicePixelRatio, settings.logicalHeight);
-      assert_equals(screenDetails.screens[0].devicePixelRatio, settings.pixelRatio);
-      assert_equals(capabilities.width.max, settings.physicalWidth);
-      assert_equals(capabilities.height.max, settings.physicalHeight);
+      assert_greater_than(capabilities.width.max, 0);
+      assert_greater_than(capabilities.height.max, 0);
+      assert_equals(screenDetails.screens[0].devicePixelRatio, settings.screenPixelRatio);
     };
-    video.requestVideoFrameCallback(onFrame);
-  }, "getDisplayMedia() and resolution for captured surface type monitor");
+    setTimeout(() => { video.requestVideoFrameCallback(onFrame); }, 100);
+  }, "getDisplayMedia() and screenPixelRatio for captured surface type monitor");
 
   promise_test(async t => {
     var video = document.createElement("video");
@@ -52,46 +49,38 @@
     const screenDetails = await window.getScreenDetails();
     video.srcObject = stream;
     await video.play();
+    t.add_cleanup(() => stopTracks(stream));
 
     const onFrame = (now, metadata) => {
       const track = video.srcObject.getVideoTracks()[0];
       assert_not_equals(video.srcObject, null);
       let settings = track.getSettings();
       let capabilities = track.getCapabilities();
-      assert_greater_than(settings.physicalWidth, 0);
-      assert_greater_than(settings.physicalHeight, 0);
-      assert_equals(settings.physicalWidth / screenDetails.screens[0].devicePixelRatio, settings.logicalWidth);
-      assert_equals(settings.physicalHeight / screenDetails.screens[0].devicePixelRatio, settings.logicalHeight);
-      assert_equals(screenDetails.screens[0].devicePixelRatio, settings.pixelRatio);
-      assert_equals(capabilities.width.max, settings.physicalWidth);
-      assert_equals(capabilities.height.max, settings.physicalHeight);
+      assert_greater_than(capabilities.width.max, 0);
+      assert_greater_than(capabilities.height.max, 0);
+      assert_equals(screenDetails.screens[0].devicePixelRatio, settings.screenPixelRatio);
     };
-    video.requestVideoFrameCallback(onFrame);
-
-  }, "getDisplayMedia() and resolution for captured surface type window");
+    setTimeout(() => { video.requestVideoFrameCallback(onFrame); }, 100);
+  }, "getDisplayMedia() and screenPixelRatio for captured surface type window");
 
   promise_test(async t => {
     var video = document.createElement("video");
     const stream = await getDisplayMedia({ displaySurface: "browser" });
     video.srcObject = stream;
     await video.play();
+    t.add_cleanup(() => stopTracks(stream));
 
     const onFrame = (now, metadata) => {
       const track = video.srcObject.getVideoTracks()[0];
       assert_not_equals(video.srcObject, null);
       let settings = track.getSettings();
       let capabilities = track.getCapabilities();
-      assert_greater_than(settings.physicalWidth, 0);
-      assert_greater_than(settings.physicalHeight, 0);
-      assert_equals(settings.physicalWidth / window.devicePixelRatio, settings.logicalWidth);
-      assert_equals(settings.physicalHeight / window.devicePixelRatio, settings.logicalHeight);
-      assert_equals(window.devicePixelRatio, settings.pixelRatio);
-      assert_equals(capabilities.width.max, settings.physicalWidth);
-      assert_equals(capabilities.height.max, settings.physicalHeight);
+      assert_greater_than(capabilities.width.max, 0);
+      assert_greater_than(capabilities.height.max, 0);
+      assert_equals(window.devicePixelRatio, settings.screenPixelRatio);
     };
-    video.requestVideoFrameCallback(onFrame);
-
-  }, "getDisplayMedia() and resolution for captured surface type browser");
+    setTimeout(() => { video.requestVideoFrameCallback(onFrame); }, 100);
+  }, "getDisplayMedia() and screenPixelRatio for captured surface type browser");
 
   promise_test(async t => {
     var video = document.createElement("video");
@@ -100,6 +89,7 @@
     const screenDetails = await window.getScreenDetails();
     video.srcObject = stream;
     await video.play();
+    t.add_cleanup(() => stopTracks(stream));
 
     const onFrame = async (now, metadata) => {
       const track = video.srcObject.getVideoTracks()[0];
@@ -108,8 +98,8 @@
       let capabilities = track.getCapabilities();
       let oldWidth = settings.width;
       let oldHeight = settings.height;
-      let oldPhysicalWidth = settings.physicalWidth;
-      let oldPhysicalHeight = settings.physicalHeight;
+      let oldCapbilitiesWidth = capabilities.width.max;
+      let oldCapabilitiesHeight = capabilities.height.max;
       assert_greater_than(settings.width, 0);
       assert_greater_than(settings.height, 0);
 
@@ -117,16 +107,12 @@
       settings = track.getSettings();
       assert_less_than_equal(settings.width, oldWidth);
       assert_less_than_equal(settings.height, oldHeight);
-      assert_equals(oldPhysicalWidth, settings.physicalWidth);
-      assert_equals(oldPhysicalHeight, settings.physicalHeight);
-      assert_equals(oldPhysicalWidth / screenDetails.screens[0].devicePixelRatio, settings.logicalWidth);
-      assert_equals(oldPhysicalHeight / screenDetails.screens[0].devicePixelRatio, settings.logicalHeight);
-      assert_equals(screenDetails.screens[0].devicePixelRatio, settings.pixelRatio);
-      assert_equals(capabilities.width.max, settings.physicalWidth);
-      assert_equals(capabilities.height.max, settings.physicalHeight);
+      assert_equals(screenDetails.screens[0].devicePixelRatio, settings.screenPixelRatio);
+      assert_equals(capabilities.width.max, oldCapbilitiesWidth);
+      assert_equals(capabilities.height.max, oldCapabilitiesHeight);
     };
-    video.requestVideoFrameCallback(onFrame);
-  }, "applyConstraints() should not change the physical and logical size of captured surface type monitor");
+    setTimeout(() => { video.requestVideoFrameCallback(onFrame); }, 100);
+  }, "applyConstraints() should not change the capabilities resolution and screenPixelRatio of captured surface type monitor");
 
   promise_test(async t => {
     var video = document.createElement("video");
@@ -135,6 +121,7 @@
     const screenDetails = await window.getScreenDetails();
     video.srcObject = stream;
     await video.play();
+    t.add_cleanup(() => stopTracks(stream));
 
     const onFrame = async (now, metadata) => {
       const track = video.srcObject.getVideoTracks()[0];
@@ -143,8 +130,8 @@
       let capabilities = track.getCapabilities();
       let oldWidth = settings.width;
       let oldHeight = settings.height;
-      let oldPhysicalWidth = settings.physicalWidth;
-      let oldPhysicalHeight = settings.physicalHeight;
+      let oldCapbilitiesWidth = capabilities.width.max;
+      let oldCapabilitiesHeight = capabilities.height.max;
       assert_greater_than(settings.width, 0);
       assert_greater_than(settings.height, 0);
 
@@ -152,22 +139,19 @@
       settings = track.getSettings();
       assert_less_than_equal(settings.width, oldWidth);
       assert_less_than_equal(settings.height, oldHeight);
-      assert_equals(oldPhysicalWidth, settings.physicalWidth);
-      assert_equals(oldPhysicalHeight, settings.physicalHeight);
-      assert_equals(oldPhysicalWidth / screenDetails.screens[0].devicePixelRatio, settings.logicalWidth);
-      assert_equals(oldPhysicalHeight / screenDetails.screens[0].devicePixelRatio, settings.logicalHeight);
-      assert_equals(screenDetails.screens[0].devicePixelRatio, settings.pixelRatio);
-      assert_equals(capabilities.width.max, settings.physicalWidth);
-      assert_equals(capabilities.height.max, settings.physicalHeight);
+      assert_equals(screenDetails.screens[0].devicePixelRatio, settings.screenPixelRatio);
+      assert_equals(capabilities.width.max, oldCapbilitiesWidth);
+      assert_equals(capabilities.height.max, oldCapabilitiesHeight);
     };
-    video.requestVideoFrameCallback(onFrame);
-  }, "applyConstraints() should not change the physical and logical size of captured surface type window");
+    setTimeout(() => { video.requestVideoFrameCallback(onFrame); }, 100);
+  }, "applyConstraints() should not change the capabilities resolution and screenPixelRatio of captured surface type window");
 
   promise_test(async t => {
     var video = document.createElement("video");
     const stream = await getDisplayMedia({ displaySurface: "browser" });
     video.srcObject = stream;
     await video.play();
+    t.add_cleanup(() => stopTracks(stream));
 
     const onFrame = async (now, metadata) => {
       const track = video.srcObject.getVideoTracks()[0];
@@ -176,8 +160,8 @@
       let capabilities = track.getCapabilities();
       let oldWidth = settings.width;
       let oldHeight = settings.height;
-      let oldPhysicalWidth = settings.physicalWidth;
-      let oldPhysicalHeight = settings.physicalHeight;
+      let oldCapbilitiesWidth = capabilities.width.max;
+      let oldCapabilitiesHeight = capabilities.height.max;
       assert_greater_than(settings.width, 0);
       assert_greater_than(settings.height, 0);
 
@@ -185,16 +169,12 @@
       settings = track.getSettings();
       assert_less_than_equal(settings.width, oldWidth);
       assert_less_than_equal(settings.height, oldHeight);
-      assert_equals(oldPhysicalWidth, settings.physicalWidth);
-      assert_equals(oldPhysicalHeight, settings.physicalHeight);
-      assert_equals(oldPhysicalWidth / window.devicePixelRatio, settings.logicalWidth);
-      assert_equals(oldPhysicalHeight / window.devicePixelRatio, settings.logicalHeight);
-      assert_equals(window.devicePixelRatio, settings.pixelRatio);
-      assert_equals(capabilities.width.max, settings.physicalWidth);
-      assert_equals(capabilities.height.max, settings.physicalHeight);
+      assert_equals(screenDetails.screens[0].devicePixelRatio, settings.screenPixelRatio);
+      assert_equals(capabilities.width.max, oldCapbilitiesWidth);
+      assert_equals(capabilities.height.max, oldCapabilitiesHeight);
     };
-    video.requestVideoFrameCallback(onFrame);
-  }, "applyConstraints() should not change the physical and logical size of captured surface type browser");
+    setTimeout(() => { video.requestVideoFrameCallback(onFrame); }, 100);
+  }, "applyConstraints() should not change the capabilities resolution and screenPixelRatio of captured surface type browser");
 
 
 </script>

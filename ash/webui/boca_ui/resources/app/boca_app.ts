@@ -73,7 +73,8 @@ export enum NavigationType {
   BLOCK = 2,
   DOMAIN = 3,
   LIMITED = 4,
-  SAME_DOMAIN_OPEN_OTHER_DOMAIN_LIMITED = 5
+  SAME_DOMAIN_OPEN_OTHER_DOMAIN_LIMITED = 5,
+  WORKSPACE_NAVIGATION = 6
 }
 
 export enum JoinMethod {
@@ -85,6 +86,26 @@ export enum SubmitAccessCodeResult {
   UNKNOWN = 0,
   SUCCESS = 1,
   INVALID_CODE = 2,
+}
+
+export enum StudentStatusDetail {
+  STUDENT_STATE_UNKNOWN = 0,
+
+  NOT_FOUND = 1,
+
+  ADDED = 2,
+
+  ACTIVE = 3,
+
+  REMOVED_BY_OTHER_SESSION = 4,
+
+  REMOVED_BY_BEING_TEACHER = 5,
+
+  REMOVED_BY_TEACHER = 6,
+
+  NOT_ADDED_CONFIGURED_AS_TEACHER = 7,
+
+  NOT_ADDED_NOT_CONFIGURED = 8,
 }
 
 /**
@@ -131,6 +152,7 @@ export enum PermissionSetting {
 export enum BocaValidPref {
   NAVIGATION_SETTING = 0,
   CAPTION_ENABLEMENT_SETTING = 1,
+  DEFAULT_MEDIASTREAM_SETTING = 2,
 }
 
 /**
@@ -167,6 +189,7 @@ export declare interface ControlledTab {
  */
 export declare interface OnTaskConfig {
   isLocked: boolean;
+  isPaused?: boolean;
   tabs: ControlledTab[];
 }
 
@@ -205,6 +228,7 @@ export declare interface Session {
  * Declare StudentActivity
  */
 export declare interface StudentActivity {
+  studentStatusDetail?: StudentStatusDetail;
   // Whether the student status have flipped from added to active in the
   // session.
   isActive: boolean;
@@ -258,6 +282,11 @@ export declare interface ClientApiDelegate {
    * Get list of students in a course.
    */
   getStudentList(courseId: string): Promise<Identity[]>;
+
+  /**
+   * Add students to the current session.
+   */
+  addStudents(ids: string[]): Promise<boolean>;
 
   /**
    * Get list of assignments in a course.
@@ -346,6 +375,11 @@ export declare interface ClientApiDelegate {
   closeTab(tabId: number): Promise<boolean>;
 
   openFeedbackDialog(): Promise<void>;
+
+  /**
+   * Refresh the workbook for students.
+   */
+  refreshWorkbook(): Promise<void>;
 }
 
 /**

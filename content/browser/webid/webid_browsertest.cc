@@ -17,6 +17,7 @@
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/run_loop.h"
 #include "base/strings/pattern.h"
 #include "base/strings/string_number_conversions.h"
@@ -40,6 +41,8 @@
 #include "content/browser/webid/test/webid_test_content_browser_client.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/content_browser_client.h"
+#include "content/public/browser/federated_auth_autofill_source.h"
+#include "content/public/browser/identity_request_account.h"
 #include "content/public/browser/identity_request_dialog_controller.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_features.h"
@@ -73,6 +76,7 @@ using net::test_server::BasicHttpResponse;
 using net::test_server::HttpMethod;
 using net::test_server::HttpRequest;
 using net::test_server::HttpResponse;
+using DigitalCredential = content::DigitalIdentityProvider::DigitalCredential;
 using ::testing::_;
 using ::testing::Eq;
 using ::testing::NiceMock;
@@ -1287,8 +1291,10 @@ MATCHER_P(JsonMatches, ref, "") {
 // JS API
 IN_PROC_BROWSER_TEST_F(WebIdDigitalCredentialsBrowserTest,
                        NavigatorIdentityApi) {
-  constexpr char kIdentityProviderResponse[] =
-      "&vp_token=token&presentation_submission=bar";
+  base::Value kIdentityProviderResponse =
+      base::JSONReader::Read(
+          R"({"vp_token": "token data" , "presentation_submission":"bar"})")
+          .value();
 
   idp_server()->SetConfigResponseDetails(BuildValidConfigDetails());
   MockDigitalIdentityProvider* digital_identity_provider =
@@ -1318,9 +1324,10 @@ IN_PROC_BROWSER_TEST_F(WebIdDigitalCredentialsBrowserTest,
 
   EXPECT_CALL(*digital_identity_provider, Get(_, _, JsonMatches(json), _))
       .WillOnce(WithArg<3>(
-          [kIdentityProviderResponse](
+          [&kIdentityProviderResponse](
               DigitalIdentityProvider::DigitalIdentityCallback callback) {
-            std::move(callback).Run(kIdentityProviderResponse);
+            std::move(callback).Run(DigitalCredential(
+                "openid4vp", kIdentityProviderResponse.Clone()));
           }));
 
   EXPECT_EQ(kIdentityProviderResponse, RunDigitalIdentityValidRequest(shell()));
@@ -1330,8 +1337,10 @@ IN_PROC_BROWSER_TEST_F(WebIdDigitalCredentialsBrowserTest,
 // navigator.credentials JS API too.
 IN_PROC_BROWSER_TEST_F(WebIdDigitalCredentialsBrowserTest,
                        NavigatorCredentialsApi) {
-  constexpr char kIdentityProviderResponse[] =
-      "&vp_token=token&presentation_submission=bar";
+  base::Value kIdentityProviderResponse =
+      base::JSONReader::Read(
+          R"({"vp_token": "token data" , "presentation_submission":"bar"})")
+          .value();
 
   idp_server()->SetConfigResponseDetails(BuildValidConfigDetails());
   MockDigitalIdentityProvider* digital_identity_provider =
@@ -1361,9 +1370,10 @@ IN_PROC_BROWSER_TEST_F(WebIdDigitalCredentialsBrowserTest,
 
   EXPECT_CALL(*digital_identity_provider, Get(_, _, JsonMatches(json), _))
       .WillOnce(WithArg<3>(
-          [kIdentityProviderResponse](
+          [&kIdentityProviderResponse](
               DigitalIdentityProvider::DigitalIdentityCallback callback) {
-            std::move(callback).Run(kIdentityProviderResponse);
+            std::move(callback).Run(DigitalCredential(
+                "openid4vp", kIdentityProviderResponse.Clone()));
           }));
 
   std::string script = base::StringPrintf(
@@ -1381,6 +1391,9 @@ IN_PROC_BROWSER_TEST_F(WebIdDigitalCredentialsBrowserTest,
       static_cast<MockDigitalIdentityProvider*>(
           test_browser_client_->GetDigitalIdentityProviderForTests());
 
+  base::Value kResponse =
+      base::JSONReader::Read(R"({"token":"test-mdoc"})").value();
+
   EXPECT_CALL(*digital_identity_provider, Get)
       .WillOnce(WithArg<3>(
           [&](DigitalIdentityProvider::DigitalIdentityCallback callback) {
@@ -1388,10 +1401,11 @@ IN_PROC_BROWSER_TEST_F(WebIdDigitalCredentialsBrowserTest,
                 "NotAllowedError: Only one navigator.credentials.get request "
                 "may be outstanding at one time.",
                 ExtractJsError(RunDigitalIdentityValidRequest(shell())));
-            std::move(callback).Run("test-mdoc");
+            std::move(callback).Run(
+                DigitalCredential("openid4vp", kResponse.Clone()));
           }));
 
-  EXPECT_EQ("test-mdoc", RunDigitalIdentityValidRequest(shell()));
+  EXPECT_EQ(kResponse, RunDigitalIdentityValidRequest(shell()));
 }
 
 // Test that when the user declines a digital identity request, the error
@@ -1430,7 +1444,9 @@ IN_PROC_BROWSER_TEST_F(WebIdDigitalCredentialsBrowserTest,
   EXPECT_CALL(*digital_identity_provider, Get)
       .WillOnce(WithArg<3>(
           [](DigitalIdentityProvider::DigitalIdentityCallback callback) {
-            std::move(callback).Run("test-mdoc");
+            std::move(callback).Run(DigitalCredential(
+                "openid4vp",
+                base::JSONReader::Read(R"({"token":"test-mdoc"})").value()));
           }));
 
   RunDigitalIdentityValidRequest(shell());
@@ -2070,6 +2086,74 @@ IN_PROC_BROWSER_TEST_F(WebIdDelegationBrowserTest, IssueVCs) {
               testing::UnorderedElementsAre("Sam"));
 }
 
+IN_PROC_BROWSER_TEST_F(WebIdDelegationBrowserTest, ConditionalMediation) {
+  auto mock = std::make_unique<
+      ::testing::NiceMock<MockIdentityRequestDialogController>>();
+  // Keep a copy of the pointer before the std::move.
+  MockIdentityRequestDialogController* controller = mock.get();
+  test_browser_client_->SetIdentityRequestDialogController(std::move(mock));
+
+  base::RunLoop run_loop;
+  SetVcIssuanceConfigDetails(&run_loop);
+
+  EXPECT_TRUE(NavigateToURL(
+      shell(), https_server().GetURL(kRpHostName, "/fedcm/sd_jwt.html")));
+
+  std::string script = R"(
+    var token = navigator.credentials.get({
+      mediation: 'conditional',
+      identity: {
+        providers: [{
+          format: 'vc+sd-jwt',
+          fields: ['name'],
+          configURL: ')" +
+                       BaseIdpUrl() + R"(',
+          clientId: 'client_id_1',
+          nonce: '12345',
+        }],
+      },
+    }).then(({token}) => token)
+  )";
+
+  // Await until the accounts are available for autofill.
+  EXPECT_CALL(*controller, NotifyAutofillSourceReadyForTesting)
+      .WillOnce([&run_loop]() { run_loop.Quit(); });
+
+  auto promise = EvalJs(shell(), script, EXECUTE_SCRIPT_NO_RESOLVE_PROMISES);
+
+  run_loop.Run();
+
+  // Gets the pending conditional request.
+  auto* source = FederatedAuthAutofillSource::FromPage(
+      shell()->web_contents()->GetPrimaryPage());
+
+  EXPECT_TRUE(source != nullptr);
+
+  // Gets all the autofill suggestion and selects the first one.
+  auto suggestions = source->GetAutofillSuggestions();
+  EXPECT_TRUE(suggestions);
+  EXPECT_EQ(suggestions->size(), 1ul);
+
+  auto account = (*suggestions)[0];
+  source->NotifyAutofillSuggestionAccepted(
+      account->identity_provider->idp_metadata.config_url, account->id);
+
+  auto public_key = sdjwt::ExportPublicKey(*private_key_);
+  EXPECT_TRUE(public_key);
+
+  // Load the key into an object
+  ASSERT_TRUE(ExecJs(shell(), "var key = " + *public_key->Serialize() + ";"));
+
+  // Load the audience into a string
+  ASSERT_TRUE(ExecJs(shell(), "var aud = '" + BaseRpUrl() + "';"));
+
+  // Verify the SD-JWT+KB.
+  EXPECT_THAT(
+      EvalJs(shell(), "(async () => main(await token, key, aud, '12345'))()")
+          .ExtractList(),
+      testing::UnorderedElementsAre("Sam"));
+}
+
 class WebIdMetricsBrowserTest : public WebIdBrowserTest {
  public:
   void SetUpCommandLine(base::CommandLine* command_line) override {
@@ -2302,12 +2386,12 @@ IN_PROC_BROWSER_TEST_F(WebIdLightweightFedcmBrowserTest,
   ASSERT_TRUE(value.has_value());
   EXPECT_TRUE(*value);
 
-  std::vector<blink::common::webid::LoginStatusAccount> accounts =
-      sharing_context()->GetAccountProfiles(url::Origin::Create(configURL));
+  std::vector<scoped_refptr<content::IdentityRequestAccount>> accounts =
+      sharing_context()->GetAccounts(url::Origin::Create(configURL));
   ASSERT_EQ(1U, accounts.size());
-  EXPECT_EQ("12345", accounts[0].id);
-  EXPECT_EQ("User", accounts[0].name);
-  EXPECT_EQ("user@idp.example", accounts[0].email);
+  EXPECT_EQ("12345", accounts[0]->id);
+  EXPECT_EQ("User", accounts[0]->name);
+  EXPECT_EQ("user@idp.example", accounts[0]->email);
 }
 
 }  // namespace content

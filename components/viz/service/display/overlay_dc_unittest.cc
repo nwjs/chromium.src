@@ -7,6 +7,7 @@
 #include <functional>
 #include <memory>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "base/containers/flat_map.h"
@@ -161,11 +162,11 @@ TextureDrawQuad* CreateYUVTextureQuadAt(
     RasterContextProvider* child_context_provider,
     const SharedQuadState* shared_quad_state,
     AggregatedRenderPass* render_pass,
-    const gfx::Rect& rect,
+    const gfx::Rect& quad_rect,
     const gfx::ColorSpace& color_space = gfx::ColorSpace(),
     const gfx::HDRMetadata& hdr_metadata = gfx::HDRMetadata(),
     SharedImageFormat format = SinglePlaneFormat::kRGBA_8888) {
-  gfx::Size resource_size_in_pixels = rect.size();
+  gfx::Size resource_size_in_pixels = render_pass->output_rect.size();
   bool is_overlay_candidate = true;
   ResourceId resource_id =
       CreateResource(parent_resource_provider, child_resource_provider,
@@ -173,7 +174,9 @@ TextureDrawQuad* CreateYUVTextureQuadAt(
                      color_space, hdr_metadata, format, is_overlay_candidate);
 
   auto* overlay_quad = render_pass->CreateAndAppendDrawQuad<TextureDrawQuad>();
-  overlay_quad->SetNew(shared_quad_state, rect, /*visible_rect=*/rect,
+  overlay_quad->SetNew(shared_quad_state,
+                       /*rect=*/quad_rect,
+                       /*visible_rect=*/quad_rect,
                        /*needs_blending=*/false, resource_id,
                        /*premultiplied=*/true,
                        /*top_left=*/gfx::PointF(0, 0),
@@ -195,11 +198,16 @@ TextureDrawQuad* CreateFullscreenCandidateYUVTextureQuad(
     AggregatedRenderPass* render_pass,
     const gfx::ColorSpace& color_space = gfx::ColorSpace(),
     const gfx::HDRMetadata& hdr_metadata = gfx::HDRMetadata(),
-    SharedImageFormat format = SinglePlaneFormat::kRGBA_8888) {
-  return CreateYUVTextureQuadAt(
-      parent_resource_provider, child_resource_provider, child_context_provider,
-      shared_quad_state, render_pass, render_pass->output_rect, color_space,
-      hdr_metadata, format);
+    SharedImageFormat format = SinglePlaneFormat::kRGBA_8888,
+    const gfx::Rect& quad_rect = gfx::Rect()) {
+  // If `quad_rect` is empty, use `render_pass->output_rect`.
+  const gfx::Rect& final_quad_rect =
+      quad_rect.IsEmpty() ? render_pass->output_rect : quad_rect;
+
+  return CreateYUVTextureQuadAt(parent_resource_provider,
+                                child_resource_provider, child_context_provider,
+                                shared_quad_state, render_pass, final_quad_rect,
+                                color_space, hdr_metadata, format);
 }
 
 AggregatedRenderPassDrawQuad* CreateRenderPassDrawQuadAt(
@@ -269,7 +277,7 @@ class OverlayProcessorTestBase : public testing::Test {
   SharedQuadState* CreateSharedQuadStateWithLayerNamespaceId(
       AggregatedRenderPass* pass) {
     SharedQuadState* sqs = pass->CreateAndAppendSharedQuadState();
-    sqs->layer_namespace_id = 1;
+    sqs->layer_namespace_id = std::make_pair(1, 1);
     return sqs;
   }
 
@@ -277,8 +285,9 @@ class OverlayProcessorTestBase : public testing::Test {
   // namespace id that matches the output of
   // `CreateSharedQuadStateWithLayerNamespaceId`.
   testing::Matcher<const OverlayCandidate&> OverlayHasLayerId() {
-    return testing::Field("layer_id", &OverlayCandidate::layer_id,
-                          testing::Eq(gfx::OverlayLayerId(1, 0)));
+    return testing::Field(
+        "layer_id", &OverlayCandidate::layer_id,
+        testing::Eq(gfx::OverlayLayerId(std::make_pair(1, 1), 0)));
   }
 
   base::test::ScopedFeatureList feature_list_;
@@ -1368,10 +1377,10 @@ void DCLayerOverlayProcessorTest::TestRenderPassRootTransform(bool is_overlay) {
               << " damage rect: " << overlay_data.damage_rect.ToString();
 
     EXPECT_EQ(overlay_data.promoted_overlays.size(), 1u);
-    EXPECT_TRUE(absl::holds_alternative<gfx::Transform>(
+    EXPECT_TRUE(std::holds_alternative<gfx::Transform>(
         overlay_data.promoted_overlays[0].transform));
     EXPECT_EQ(
-        absl::get<gfx::Transform>(overlay_data.promoted_overlays[0].transform),
+        std::get<gfx::Transform>(overlay_data.promoted_overlays[0].transform),
         kRenderPassToRootTransform);
     if (is_overlay) {
       EXPECT_GT(overlay_data.promoted_overlays[0].plane_z_order, 0);
@@ -1461,7 +1470,7 @@ TEST_F(DCLayerOverlayProcessorTest, MultipleRenderPassesOneOverlay) {
       if (render_pass->id == AggregatedRenderPassId(1)) {
         // The render pass that contains an overlay.
         EXPECT_EQ(overlay_data.promoted_overlays.size(), 1u);
-        EXPECT_EQ(absl::get<gfx::Transform>(
+        EXPECT_EQ(std::get<gfx::Transform>(
                       overlay_data.promoted_overlays[0].transform),
                   gfx::Transform::MakeTranslation(1, 0));
         EXPECT_GT(overlay_data.promoted_overlays[0].plane_z_order, 0);
@@ -1924,6 +1933,233 @@ TEST_F(DCLayerOverlayProcessorTest, HDR10VideoOverlay) {
 
     // Recover config.
     gl::SetDirectCompositionScaledOverlaysSupportedForTesting(true);
+  }
+
+  // Frame 10 should skip overlay as AMD platform without HW HDR support.
+  {
+    // Device has RGB10A2 overlay support.
+    gl::SetDirectCompositionScaledOverlaysSupportedForTesting(true);
+
+    // Device has HDR-enabled display and no non-HDR-enabled display.
+    dc_layer_overlay_processor_
+        ->set_system_hdr_disabled_on_any_display_for_testing(false);
+
+    // Device has video processor support.
+    dc_layer_overlay_processor_
+        ->set_has_p010_video_processor_support_for_testing(true);
+
+    gl::SetSupportsAMDHwOffloadHDRCapsForTesting(
+        /*amd_hdr_hw_offload_supported=*/false,
+        /*amd_platform_detected=*/true,
+        /*amd_hdr_hw_offload_max_width=*/0,
+        /*amd_hdr_hw_offload_max_height=*/0);
+
+    auto pass = CreateRenderPass();
+    pass->content_color_usage = gfx::ContentColorUsage::kHDR;
+
+    // Content is 10bit P010 content with HDR10 colorspace.
+    CreateFullscreenCandidateYUVTextureQuad(
+        resource_provider_.get(), child_resource_provider_.get(),
+        child_provider_.get(), pass->shared_quad_state_list.back(), pass.get(),
+        gfx::ColorSpace::CreateHDR10(), valid_hdr_metadata,
+        MultiPlaneFormat::kP010);
+
+    OverlayProcessorInterface::FilterOperationsMap render_pass_filters;
+    OverlayProcessorInterface::FilterOperationsMap render_pass_backdrop_filters;
+    pass->damage_rect = gfx::Rect(0, 0, 220, 220);
+    AggregatedRenderPassList pass_list;
+    pass_list.push_back(std::move(pass));
+    SurfaceDamageRectList surface_damage_rect_list;
+
+    auto overlay_data = ProcessRootPassForOverlays(
+        &pass_list, render_pass_filters, render_pass_backdrop_filters,
+        std::move(surface_damage_rect_list));
+
+    // Should not promote overlay.
+    EXPECT_EQ(0U, overlay_data.promoted_overlays.size());
+  }
+
+  // Landscape - Following cases are not promoted.
+  // Frame 11 - limit(220,210),resource_rect(256,254),quad_rect(200,190)
+  // resource_rect > limit.
+  // Frame 12 - limit(280,270),resource_rect(256,254),quad_rect(320,300)
+  // quad_rect > limit.
+
+  // Landscape - Following cases are promoted.
+  // Frame 13 - limit(256,254),resource_rect(256,254),quad_rect(256,254).
+
+  // Portrait - Following cases are promoted.
+  // Frame 14 - limit(256,254),resource_rect(254,256),quad_rect(256,254).
+  // Frame 15 - limit(256,254),resource_rect(256,254),quad_rect(254,256).
+
+  // Frame 11 should not promote overlay.
+  {
+    gl::SetSupportsAMDHwOffloadHDRCapsForTesting(
+        /*amd_hdr_hw_offload_supported=*/true,
+        /*amd_platform_detected=*/true,
+        /*amd_hdr_hw_offload_max_width=*/220,
+        /*amd_hdr_hw_offload_max_height=*/210);
+
+    auto pass = CreateRenderPass();
+    pass->content_color_usage = gfx::ContentColorUsage::kHDR;
+    pass->output_rect = gfx::Rect(0, 0, 256, 254);
+    gfx::Rect quad_rect(200, 190);
+    // Content is 10bit P010 content with HDR10 colorspace.
+    CreateFullscreenCandidateYUVTextureQuad(
+        resource_provider_.get(), child_resource_provider_.get(),
+        child_provider_.get(), pass->shared_quad_state_list.back(), pass.get(),
+        gfx::ColorSpace::CreateHDR10(), valid_hdr_metadata,
+        MultiPlaneFormat::kP010, quad_rect);
+
+    OverlayProcessorInterface::FilterOperationsMap render_pass_filters;
+    OverlayProcessorInterface::FilterOperationsMap render_pass_backdrop_filters;
+    pass->damage_rect = gfx::Rect(0, 0, 220, 220);
+    AggregatedRenderPassList pass_list;
+    pass_list.push_back(std::move(pass));
+    SurfaceDamageRectList surface_damage_rect_list;
+
+    auto overlay_data = ProcessRootPassForOverlays(
+        &pass_list, render_pass_filters, render_pass_backdrop_filters,
+        std::move(surface_damage_rect_list));
+
+    // Should not promote overlay.
+    EXPECT_EQ(0U, overlay_data.promoted_overlays.size());
+  }
+
+  // Frame 12 should not promote the overlay.
+  {
+    gl::SetSupportsAMDHwOffloadHDRCapsForTesting(
+        /*amd_hdr_hw_offload_supported=*/true,
+        /*amd_platform_detected=*/true,
+        /*amd_hdr_hw_offload_max_width=*/280,
+        /*amd_hdr_hw_offload_max_height=*/270);
+
+    auto pass = CreateRenderPass();
+    pass->content_color_usage = gfx::ContentColorUsage::kHDR;
+    pass->output_rect = gfx::Rect(0, 0, 256, 254);
+    gfx::Rect quad_rect(320, 300);
+    // Content is 10bit P010 content with HDR10 colorspace.
+    CreateFullscreenCandidateYUVTextureQuad(
+        resource_provider_.get(), child_resource_provider_.get(),
+        child_provider_.get(), pass->shared_quad_state_list.back(), pass.get(),
+        gfx::ColorSpace::CreateHDR10(), valid_hdr_metadata,
+        MultiPlaneFormat::kP010, quad_rect);
+
+    OverlayProcessorInterface::FilterOperationsMap render_pass_filters;
+    OverlayProcessorInterface::FilterOperationsMap render_pass_backdrop_filters;
+    pass->damage_rect = gfx::Rect(0, 0, 220, 220);
+    AggregatedRenderPassList pass_list;
+    pass_list.push_back(std::move(pass));
+    SurfaceDamageRectList surface_damage_rect_list;
+
+    auto overlay_data = ProcessRootPassForOverlays(
+        &pass_list, render_pass_filters, render_pass_backdrop_filters,
+        std::move(surface_damage_rect_list));
+
+    // Should not promote overlay.
+    EXPECT_EQ(0U, overlay_data.promoted_overlays.size());
+  }
+
+  // Frame 13 should promote the overlay.
+  {
+    gl::SetSupportsAMDHwOffloadHDRCapsForTesting(
+        /*amd_hdr_hw_offload_supported=*/true,
+        /*amd_platform_detected=*/true,
+        /*amd_hdr_hw_offload_max_width=*/256,
+        /*amd_hdr_hw_offload_max_height=*/254);
+
+    auto pass = CreateRenderPass();
+    pass->content_color_usage = gfx::ContentColorUsage::kHDR;
+    pass->output_rect = gfx::Rect(0, 0, 256, 254);
+    gfx::Rect quad_rect(256, 254);
+    // Content is 10bit P010 content with HDR10 colorspace.
+    CreateFullscreenCandidateYUVTextureQuad(
+        resource_provider_.get(), child_resource_provider_.get(),
+        child_provider_.get(), pass->shared_quad_state_list.back(), pass.get(),
+        gfx::ColorSpace::CreateHDR10(), valid_hdr_metadata,
+        MultiPlaneFormat::kP010, quad_rect);
+
+    OverlayProcessorInterface::FilterOperationsMap render_pass_filters;
+    OverlayProcessorInterface::FilterOperationsMap render_pass_backdrop_filters;
+    pass->damage_rect = gfx::Rect(0, 0, 220, 220);
+    AggregatedRenderPassList pass_list;
+    pass_list.push_back(std::move(pass));
+    SurfaceDamageRectList surface_damage_rect_list;
+
+    auto overlay_data = ProcessRootPassForOverlays(
+        &pass_list, render_pass_filters, render_pass_backdrop_filters,
+        std::move(surface_damage_rect_list));
+
+    // Should promote overlay.
+    EXPECT_EQ(1U, overlay_data.promoted_overlays.size());
+  }
+
+  // Frame 14 should promote the overlay.
+  {
+    gl::SetSupportsAMDHwOffloadHDRCapsForTesting(
+        /*amd_hdr_hw_offload_supported=*/true,
+        /*amd_platform_detected=*/true,
+        /*amd_hdr_hw_offload_max_width=*/256,
+        /*amd_hdr_hw_offload_max_height=*/254);
+
+    auto pass = CreateRenderPass();
+    pass->content_color_usage = gfx::ContentColorUsage::kHDR;
+    pass->output_rect = gfx::Rect(0, 0, 254, 256);
+    gfx::Rect quad_rect(256, 254);
+    // Content is 10bit P010 content with HDR10 colorspace.
+    CreateFullscreenCandidateYUVTextureQuad(
+        resource_provider_.get(), child_resource_provider_.get(),
+        child_provider_.get(), pass->shared_quad_state_list.back(), pass.get(),
+        gfx::ColorSpace::CreateHDR10(), valid_hdr_metadata,
+        MultiPlaneFormat::kP010, quad_rect);
+
+    OverlayProcessorInterface::FilterOperationsMap render_pass_filters;
+    OverlayProcessorInterface::FilterOperationsMap render_pass_backdrop_filters;
+    pass->damage_rect = gfx::Rect(0, 0, 220, 220);
+    AggregatedRenderPassList pass_list;
+    pass_list.push_back(std::move(pass));
+    SurfaceDamageRectList surface_damage_rect_list;
+
+    auto overlay_data = ProcessRootPassForOverlays(
+        &pass_list, render_pass_filters, render_pass_backdrop_filters,
+        std::move(surface_damage_rect_list));
+
+    // Should promote overlay.
+    EXPECT_EQ(1U, overlay_data.promoted_overlays.size());
+  }
+
+  // Frame 15 should promote the overlay.
+  {
+    gl::SetSupportsAMDHwOffloadHDRCapsForTesting(
+        /*amd_hdr_hw_offload_supported=*/true,
+        /*amd_platform_detected=*/true,
+        /*amd_hdr_hw_offload_max_width=*/256,
+        /*amd_hdr_hw_offload_max_height=*/254);
+
+    auto pass = CreateRenderPass();
+    pass->content_color_usage = gfx::ContentColorUsage::kHDR;
+    pass->output_rect = gfx::Rect(0, 0, 256, 254);
+    gfx::Rect quad_rect(254, 256);
+    // Content is 10bit P010 content with HDR10 colorspace.
+    CreateFullscreenCandidateYUVTextureQuad(
+        resource_provider_.get(), child_resource_provider_.get(),
+        child_provider_.get(), pass->shared_quad_state_list.back(), pass.get(),
+        gfx::ColorSpace::CreateHDR10(), valid_hdr_metadata,
+        MultiPlaneFormat::kP010, quad_rect);
+
+    OverlayProcessorInterface::FilterOperationsMap render_pass_filters;
+    OverlayProcessorInterface::FilterOperationsMap render_pass_backdrop_filters;
+    pass->damage_rect = gfx::Rect(0, 0, 256, 256);
+    AggregatedRenderPassList pass_list;
+    pass_list.push_back(std::move(pass));
+    SurfaceDamageRectList surface_damage_rect_list;
+
+    auto overlay_data = ProcessRootPassForOverlays(
+        &pass_list, render_pass_filters, render_pass_backdrop_filters,
+        std::move(surface_damage_rect_list));
+
+    // Should promote overlay.
+    EXPECT_EQ(1U, overlay_data.promoted_overlays.size());
   }
 }
 
@@ -2404,7 +2640,7 @@ class OverlayProcessorWinSurfacePlaneTest
             /*opacity_f=*/1.f, SkBlendMode::kSrc, /*sorting_context=*/0,
             /*layer_id=*/0u,
             /*fast_rounded_corner=*/false);
-        shared_quad_state->layer_namespace_id = 1;
+        shared_quad_state->layer_namespace_id = std::make_pair(1, 1);
 
         auto* quad =
             pass->CreateAndAppendDrawQuad<AggregatedRenderPassDrawQuad>();

@@ -28,6 +28,8 @@ std::string_view SuggestionTypeToStringView(SuggestionType type) {
       return "kManageIban";
     case SuggestionType::kManagePlusAddress:
       return "kManagePlusAddress";
+    case SuggestionType::kManageLoyaltyCard:
+      return "kManageLoyaltyCard";
     case SuggestionType::kComposeResumeNudge:
       return "kComposeResumeNudge";
     case SuggestionType::kComposeDisable:
@@ -48,8 +50,6 @@ std::string_view SuggestionTypeToStringView(SuggestionType type) {
       return "kAllSavedPasswordsEntry";
     case SuggestionType::kGeneratePasswordEntry:
       return "kGeneratePasswordEntry";
-    case SuggestionType::kShowAccountCards:
-      return "kShowAccountCards";
     case SuggestionType::kAccountStoragePasswordEntry:
       return "kAccountStoragePasswordEntry";
     case SuggestionType::kPasswordFieldByFieldFilling:
@@ -88,6 +88,8 @@ std::string_view SuggestionTypeToStringView(SuggestionType type) {
       return "kWebauthnCredential";
     case SuggestionType::kWebauthnSignInWithAnotherDevice:
       return "kWebauthnSignInWithAnotherDevice";
+    case SuggestionType::kIdentityCredential:
+      return "kIdentityCredential";
     case SuggestionType::kTitle:
       return "kTitle";
     case SuggestionType::kSeparator:
@@ -104,6 +106,10 @@ std::string_view SuggestionTypeToStringView(SuggestionType type) {
       return "kDevtoolsTestAddressEntry";
     case SuggestionType::kFillAutofillAi:
       return "kFillAutofillAi";
+    case SuggestionType::kPendingStateSignin:
+      return "kPendingStateSignin";
+    case SuggestionType::kLoyaltyCardEntry:
+      return "kLoyaltyCardEntry";
   }
   NOTREACHED();
 }

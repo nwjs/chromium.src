@@ -51,7 +51,7 @@ chromium-metrics-reviews@google.com.
 </variants>
 
 <histogram name="Renderer.BrowserLaunchToRunLoopStart" units="ms"
-    expires_after="2025-07-13">
+    expires_after="2025-09-14">
   <owner>sky@chromium.org</owner>
   <owner>jam@chromium.org</owner>
   <summary>
@@ -116,7 +116,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Renderer.Core.Timing.Performance.SwapsPerPerformanceEntryInsertion"
-    units="swaps" expires_after="2025-07-06">
+    units="swaps" expires_after="2025-09-07">
   <owner>iclelland@chromium.org</owner>
   <owner>speed-metrics-dev@chromium.org</owner>
   <summary>
@@ -141,7 +141,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Renderer.CriticalFonts.CriticalFontDelay" units="ms"
-    expires_after="2025-07-06">
+    expires_after="2025-09-07">
   <owner>iclelland@chromium.org</owner>
   <owner>speed-metrics-dev@chromium.org</owner>
   <summary>
@@ -154,7 +154,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Renderer.CriticalFonts.PreloadedFontsLoadTime" units="ms"
-    expires_after="2025-07-06">
+    expires_after="2025-09-07">
   <owner>iclelland@chromium.org</owner>
   <owner>speed-metrics-dev@chromium.org</owner>
   <summary>
@@ -277,7 +277,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Renderer.Font.PrimaryFont.DomContentLoaded" units="ms"
-    expires_after="2025-07-13">
+    expires_after="2025-09-14">
   <owner>kojii@chromium.org</owner>
   <owner>tkent@chromium.org</owner>
   <owner>layout-dev@chromium.org</owner>
@@ -301,7 +301,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Renderer.Font.PrimaryFont.FCP" units="ms"
-    expires_after="2025-07-13">
+    expires_after="2025-09-14">
   <owner>kojii@chromium.org</owner>
   <owner>tkent@chromium.org</owner>
   <owner>layout-dev@chromium.org</owner>
@@ -325,7 +325,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Renderer.Font.SystemFallback.DomContentLoaded" units="ms"
-    expires_after="2025-07-13">
+    expires_after="2025-09-14">
   <owner>kojii@chromium.org</owner>
   <owner>tkent@chromium.org</owner>
   <owner>layout-dev@chromium.org</owner>
@@ -340,7 +340,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Renderer.Font.SystemFallback.FCP" units="ms"
-    expires_after="2025-07-13">
+    expires_after="2025-09-14">
   <owner>kojii@chromium.org</owner>
   <owner>tkent@chromium.org</owner>
   <owner>layout-dev@chromium.org</owner>
@@ -543,7 +543,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Renderer.RenderThreadImpl.Init" units="ms"
-    expires_after="2025-06-08">
+    expires_after="2025-09-07">
   <owner>jam@chromium.org</owner>
   <owner>sky@chromium.org</owner>
   <summary>
@@ -594,7 +594,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="RendererScheduler.DiscreteInputResponseDuration" units="ms"
-    expires_after="2025-07-01">
+    expires_after="2025-08-31">
   <owner>shaseley@chromium.org</owner>
   <owner>speed-metrics-dev@chromium.org</owner>
   <summary>
@@ -603,7 +603,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="RendererScheduler.QueueingDuration.{Priority}Priority"
-    units="microseconds" expires_after="2025-07-13">
+    units="microseconds" expires_after="2025-09-14">
   <owner>szager@chromium.org</owner>
   <owner>paint-dev@chromium.org</owner>
   <summary>
@@ -633,7 +633,6 @@ chromium-metrics-reviews@google.com.
 <histogram name="RendererScheduler.RendererMainThreadLoad6" units="%"
     expires_after="2025-08-17">
   <owner>lizeb@chromium.org</owner>
-  <owner>altimin@chromium.org</owner>
   <summary>
     Renderer main thread load (percentage of time spent in tasks), reported in
     one second chunks.
@@ -642,13 +641,6 @@ chromium-metrics-reviews@google.com.
 
     This metric is emitted when the renderer main thread task is completed, at
     most once per second per renderer amortized.
-  </summary>
-</histogram>
-
-<histogram name="RendererSyncIPC.ElapsedTime" units="ms" expires_after="M85">
-  <owner>ppi@chromium.org</owner>
-  <summary>
-    Roundtrip times for synchronous IPC calls from the renderer to browser.
   </summary>
 </histogram>
 

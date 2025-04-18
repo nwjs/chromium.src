@@ -354,6 +354,7 @@ UIColor* DimColorIncognito() {
          _match.type == AutocompleteMatchType::CALCULATOR ||
          _match.type == AutocompleteMatchType::HISTORY_BODY ||
          _match.type == AutocompleteMatchType::HISTORY_CLUSTER ||
+         _match.type == AutocompleteMatchType::HISTORY_KEYWORD ||
          _match.type == AutocompleteMatchType::HISTORY_TITLE ||
          _match.type == AutocompleteMatchType::HISTORY_URL ||
          _match.type == AutocompleteMatchType::NAVSUGGEST ||
@@ -372,7 +373,7 @@ UIColor* DimColorIncognito() {
 }
 
 - (id<OmniboxPedal>)pedal {
-  return self.pedalData;
+  return nil;
 }
 
 - (UIImage*)matchTypeIcon {

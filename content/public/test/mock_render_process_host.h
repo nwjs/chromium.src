@@ -141,6 +141,7 @@ class MockRenderProcessHost : public RenderProcessHost {
   bool HasPriorityOverride() override;
   void ClearPriorityOverride() override;
 #endif
+  void SetHasSpareRendererPriority(bool) override;
 #if BUILDFLAG(IS_ANDROID)
   ChildProcessImportance GetEffectiveImportance() override;
   base::android::ChildBindingState GetEffectiveChildBindingState() override;
@@ -276,9 +277,8 @@ class MockRenderProcessHost : public RenderProcessHost {
       mojo::PendingReceiver<blink::mojom::WebSocketConnector> receiver)
       override {}
 #if BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
-  void CreateStableVideoDecoder(
-      mojo::PendingReceiver<media::stable::mojom::StableVideoDecoder> receiver)
-      override {}
+  void CreateOOPVideoDecoder(
+      mojo::PendingReceiver<media::mojom::VideoDecoder> receiver) override {}
 #endif  // BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
 
   std::string GetInfoForBrowserContextDestructionCrashReporting() override;

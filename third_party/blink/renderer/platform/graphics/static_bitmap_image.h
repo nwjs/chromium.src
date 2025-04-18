@@ -11,7 +11,6 @@
 #include "gpu/command_buffer/client/client_shared_image.h"
 #include "gpu/command_buffer/common/mailbox_holder.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
-#include "third_party/blink/renderer/platform/graphics/graphics_types.h"
 #include "third_party/blink/renderer/platform/graphics/image.h"
 #include "third_party/blink/renderer/platform/wtf/casting.h"
 #include "third_party/khronos/GLES2/gl2.h"
@@ -117,6 +116,7 @@ class PLATFORM_EXPORT StaticBitmapImage : public Image {
   virtual SkAlphaType GetAlphaType() const = 0;
   virtual SkColorType GetSkColorType() const = 0;
   virtual sk_sp<SkColorSpace> GetSkColorSpace() const = 0;
+  virtual gfx::ColorSpace GetColorSpace() const = 0;
   virtual viz::SharedImageFormat GetSharedImageFormat() const = 0;
 
  protected:

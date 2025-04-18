@@ -13,14 +13,14 @@ import {SemanticEvent, UserAction} from 'chrome-untrusted://lens-overlay/lens.mo
 import {ContextMenuOption} from 'chrome-untrusted://lens-overlay/metrics_utils.js';
 import type {OverlayObject} from 'chrome-untrusted://lens-overlay/overlay_object.mojom-webui.js';
 import {ScreenshotBitmapBrowserProxyImpl} from 'chrome-untrusted://lens-overlay/screenshot_bitmap_browser_proxy.js';
-import type {SelectionOverlayElement} from 'chrome-untrusted://lens-overlay/selection_overlay.js';
+import type {SelectedRegionContextMenuData, SelectionOverlayElement} from 'chrome-untrusted://lens-overlay/selection_overlay.js';
 import type {TextLayerBase} from 'chrome-untrusted://lens-overlay/text_layer_base.js';
 import {loadTimeData} from 'chrome-untrusted://resources/js/load_time_data.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertNotEquals, assertStringContains, assertTrue} from 'chrome-untrusted://webui-test/chai_assert.js';
 import type {MetricsTracker} from 'chrome-untrusted://webui-test/metrics_test_support.js';
 import {fakeMetricsPrivate} from 'chrome-untrusted://webui-test/metrics_test_support.js';
 import {flushTasks, waitAfterNextRender} from 'chrome-untrusted://webui-test/polymer_test_util.js';
-import {isVisible} from 'chrome-untrusted://webui-test/test_util.js';
+import {eventToPromise, isVisible} from 'chrome-untrusted://webui-test/test_util.js';
 
 import {fakeScreenshotBitmap, waitForScreenshotRendered} from '../utils/image_utils.js';
 import {assertBoxesWithinThreshold, createObject} from '../utils/object_utils.js';
@@ -77,7 +77,7 @@ suite('SelectionOverlay', function() {
   });
 
   function getTextSelectionLayer(): TextLayerBase {
-    return selectionOverlayElement.getTextSelectionLayerForTesting()!;
+    return selectionOverlayElement.getTextSelectionLayerForTesting();
   }
 
   function getWordNodes(): NodeListOf<Element> {
@@ -157,6 +157,27 @@ suite('SelectionOverlay', function() {
     // requestAnimationFrame callback queued by the ResizeObserver.
     await waitAfterNextRender(selectionOverlayElement);
     await waitAfterNextRender(selectionOverlayElement);
+  }
+
+  async function dispatchUpdateSelectedRegionContextMenuEvent() {
+    const centerRotatedBox: CenterRotatedBox = {
+      box: {x: 0.2, y: 0.2, width: 0.4, height: 0.4},
+      rotation: 0,
+      coordinateType: CenterRotatedBox_CoordinateType.kNormalized,
+    };
+    selectionOverlayElement.dispatchEvent(
+        new CustomEvent<SelectedRegionContextMenuData>(
+            'update-selected-region-context-menu', {
+              bubbles: true,
+              composed: true,
+              detail: {
+                box: centerRotatedBox,
+                selectionStartIndex: 0,
+                selectionEndIndex: 1,
+                text: 'text',
+              },
+            }));
+    await flushTasks();
   }
 
   suite('WithoutWordsOrObjects', function() {
@@ -1637,6 +1658,23 @@ suite('SelectionOverlay', function() {
       return waitAfterNextRender(selectionOverlayElement);
     });
 
+    test('UpdateRegionContextMenuEventDoesNotShow', async () => {
+      // Default state of selection overlay.
+      assertFalse(
+          selectionOverlayElement.getShowSelectedRegionContextMenuForTesting());
+      assertEquals(
+          undefined,
+          selectionOverlayElement
+              .getShowDetectedTextContextMenuOptionsForTesting());
+
+      await dispatchUpdateSelectedRegionContextMenuEvent();
+
+      assertFalse(
+          selectionOverlayElement.getShowSelectedRegionContextMenuForTesting());
+      assertTrue(selectionOverlayElement
+                     .getShowDetectedTextContextMenuOptionsForTesting());
+    });
+
     test('SelectedRegionContextMenuAppearsWithNoText', async () => {
       await simulateDrag(
           selectionOverlayElement, {x: 50, y: 25}, {x: 300, y: 200});
@@ -1914,6 +1952,21 @@ suite('SelectionOverlay', function() {
           metrics.count(
               'Lens.Overlay.Overlay.ByInvocationSource.AppMenu.UserAction',
               UserAction.kCopyText));
+    });
+
+    test('TextDetectedInRegionEventFired', async () => {
+      await addGenericWordsToPage(
+          callbackRouterRemote, selectionOverlayElement);
+      const textDetectedInRegionEvent =
+          eventToPromise('text-found-in-region', document.body);
+      await simulateDrag(selectionOverlayElement, {x: 0, y: 0}, {x: 50, y: 20});
+      await textDetectedInRegionEvent;
+      await waitAfterNextRender(selectionOverlayElement);
+
+      assertTrue(
+          selectionOverlayElement.getShowSelectedRegionContextMenuForTesting());
+      assertTrue(selectionOverlayElement
+                     .getShowDetectedTextContextMenuOptionsForTesting());
     });
   });
 

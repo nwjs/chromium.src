@@ -118,6 +118,7 @@ class ResizeObserver;
 class ResizeObserverSize;
 class ScrollIntoViewOptions;
 class CheckVisibilityOptions;
+class ScrollMarkerGroupData;
 class ScrollMarkerPseudoElement;
 class ScrollToOptions;
 class SetHTMLOptions;
@@ -296,7 +297,7 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
 
   // Set an attribute with Trusted Type validation. Passing g_null_atom
   // is the same as removing the attribute.
-  void SetAttributeWithValidation(const QualifiedName&,
+  void SetAttributeWithValidation(Attr*,
                                   const AtomicString& value,
                                   ExceptionState&);
 
@@ -342,7 +343,7 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   // This is only exposed as an implementation detail to AXRelationCache, which
   // computes aria-owns differently for element reflection.
   bool HasExplicitlySetAttrAssociatedElements(const QualifiedName& name) const;
-  HeapLinkedHashSet<WeakMember<Element>>* GetExplicitlySetElementsForAttr(
+  GCedHeapLinkedHashSet<WeakMember<Element>>* GetExplicitlySetElementsForAttr(
       const QualifiedName& name) const;
   Element* GetElementAttribute(const QualifiedName& name) const;
   Element* GetElementAttributeResolvingReferenceTarget(
@@ -509,7 +510,6 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   void scrollBy(const ScrollToOptions*);
   void scrollTo(double x, double y);
   void scrollTo(const ScrollToOptions*);
-  LayoutBox* GetLayoutBoxForScrolling() const override;
 
   // Returns the bounds of this Element, unclipped, in the coordinate space of
   // the local root's widget. That is, in the outermost main frame, this will
@@ -1202,6 +1202,9 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
       const AtomicString& view_transition_name = g_null_atom) const;
   LayoutObject* PseudoElementLayoutObject(PseudoId) const;
 
+  // Returns true if this element has ::view-transition-group children.
+  bool HasViewTransitionGroupChildren() const;
+
   bool PseudoElementStylesAffectCounters() const;
 
   bool PseudoElementStylesDependOnFontMetrics() const;
@@ -1378,6 +1381,16 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
 
   void setTabIndex(int);
   int tabIndex() const;
+  // If element is a reading flow container or display: contents whose layout
+  // parent is one, return the nodes corresponding to its direct children
+  // sorted in reading flow order.
+  const HeapVector<Member<Node>> ReadingFlowChildren() const;
+
+  void setHeadingOffset(int);
+  int headingOffset() const;
+  void setHeadingReset(bool);
+  bool headingReset() const;
+  int GetComputedHeadingOffset(int max_offset);
 
   void setEditContext(EditContext* editContext, ExceptionState&);
   EditContext* editContext() const;
@@ -1556,6 +1569,17 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
 
   void DefaultEventHandler(Event&) override;
 
+  // Set on elements with scroll-marker-contain property to
+  // collect HTMLAnchorElement scroll markers.
+  ScrollMarkerGroupData& EnsureScrollMarkerGroupData();
+  void RemoveScrollMarkerGroupData();
+  ScrollMarkerGroupData* GetScrollMarkerGroupData() const;
+
+  // Used for HTMLAnchorElement scroll markers to point to
+  // its scroll marker group container (element with scroll-marker-contain).
+  void SetScrollMarkerGroupContainerData(ScrollMarkerGroupData*);
+  ScrollMarkerGroupData* GetScrollMarkerGroupContainerData() const;
+
   // Retrieves the element pointed to by this element's 'anchor' content
   // attribute, if that element exists.
   // TODO(crbug.com/40059176) If the HTMLAnchorAttribute feature is disabled,
@@ -1715,6 +1739,8 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   void AttachPseudoElement(PseudoId, AttachContext&);
   void DetachPseudoElement(PseudoId, bool performing_reattach);
 
+  void ProcessElementRenderBlocking(const AtomicString& id_or_name);
+
  private:
   friend class AXObject;
   struct AffectedByPseudoStateChange;
@@ -1740,6 +1766,7 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   void ClearPseudoElement(
       PseudoId,
       const AtomicString& view_transition_name = g_null_atom);
+  void ClearTransitionPseudoTreeIfNeeded(const StyleRecalcChange);
 
   bool IsElementNode() const =
       delete;  // This will catch anyone doing an unnecessary check.
@@ -1860,19 +1887,67 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
       const StyleRecalcContext&,
       const AtomicString& view_transition_name = g_null_atom);
 
+  // For document element scroll control pseudo elements become not layout
+  // siblings, but layout children.
+  void AttachDocumentElementPrecedingPseudoElements(AttachContext& context) {
+    if (!IsDocumentElement()) {
+      return;
+    }
+    AttachPrecedingScrollControlsPseudoElements(context);
+  }
+
+  void AttachLayoutPrecedingPseudoElements(AttachContext& context) {
+    if (IsDocumentElement()) {
+      return;
+    }
+    AttachPrecedingScrollControlsPseudoElements(context);
+  }
+
+  void AttachPrecedingScrollControlsPseudoElements(AttachContext& context) {
+    AttachPseudoElement(kPseudoIdScrollMarkerGroupBefore, context);
+  }
+
   void AttachPrecedingPseudoElements(AttachContext& context) {
+    AttachDocumentElementPrecedingPseudoElements(context);
     AttachPseudoElement(kPseudoIdScrollMarker, context);
     AttachPseudoElement(kPseudoIdMarker, context);
     AttachPseudoElement(kPseudoIdCheckMark, context);
     AttachPseudoElement(kPseudoIdBefore, context);
   }
 
+  // For document element scroll control pseudo elements become not layout
+  // siblings, but layout children.
+  void AttachDocumentElementSucceedingPseudoElements(AttachContext& context) {
+    if (!IsDocumentElement()) {
+      return;
+    }
+    AttachSucceedingScrollControlsPseudoElements(context);
+  }
+
+  void AttachLayoutSucceedingPseudoElements(AttachContext& context) {
+    if (IsDocumentElement()) {
+      return;
+    }
+    AttachSucceedingScrollControlsPseudoElements(context);
+  }
+
   void AttachSucceedingPseudoElements(AttachContext& context) {
     AttachPseudoElement(kPseudoIdPickerIcon, context);
     AttachPseudoElement(kPseudoIdAfter, context);
+    AttachDocumentElementSucceedingPseudoElements(context);
     AttachPseudoElement(kPseudoIdBackdrop, context);
     UpdateFirstLetterPseudoElement(StyleUpdatePhase::kAttachLayoutTree);
     AttachPseudoElement(kPseudoIdFirstLetter, context);
+  }
+
+  void AttachSucceedingScrollControlsPseudoElements(AttachContext& context) {
+    // The order for buttons is described in
+    // https://drafts.csswg.org/css-overflow-5/#scroll-buttons.
+    AttachPseudoElement(kPseudoIdScrollButtonBlockStart, context);
+    AttachPseudoElement(kPseudoIdScrollButtonInlineStart, context);
+    AttachPseudoElement(kPseudoIdScrollButtonInlineEnd, context);
+    AttachPseudoElement(kPseudoIdScrollButtonBlockEnd, context);
+    AttachPseudoElement(kPseudoIdScrollMarkerGroupAfter, context);
   }
 
   void AttachColumnPseudoElements(AttachContext& context);

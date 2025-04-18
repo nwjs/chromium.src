@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "third_party/blink/renderer/core/css/parser/css_parser_impl.h"
 
 #include <bitset>
@@ -15,6 +10,7 @@
 #include <utility>
 
 #include "base/auto_reset.h"
+#include "base/compiler_specific.h"
 #include "base/cpu.h"
 #include "third_party/blink/renderer/core/animation/timeline_offset.h"
 #include "third_party/blink/renderer/core/core_probes_inl.h"
@@ -672,9 +668,10 @@ CSSPropertyValueSet* CSSParserImpl::ParseDeclarationListForLazyStyle(
                                    context->GetDocument());
 }
 
-static AllowedRules ComputeNewAllowedRules(AllowedRules old_allowed_rules,
-                                           StyleRuleBase* rule,
-                                           bool& seen_import_rule) {
+static AllowedRules ComputeNewAllowedRules(
+    AllowedRules old_allowed_rules,
+    StyleRuleBase* rule,
+    bool& seen_import_or_namespace_rule) {
   if (!rule) {
     return old_allowed_rules;
   }
@@ -691,24 +688,27 @@ static AllowedRules ComputeNewAllowedRules(AllowedRules old_allowed_rules,
   // or any later regular rule) has been seen, it's too late to parse @charset.
   //
   // @layer statement rules are in brackets above because they are special:
-  // they can be used before @import rules (without causing them to become
-  // disallowed), but can *also* be used as a regular rule (i.e. where @layer
-  // block rules are allowed).
+  // they can be used before @import/namespace rules (without causing them
+  // to become disallowed), but can *also* be used as a regular rule
+  // (i.e. where @layer block rules are allowed).
   //
   // https://drafts.csswg.org/css-cascade-5/#layer-empty
   AllowedRules new_allowed_rules = old_allowed_rules;
   if (rule->IsCharsetRule()) {
     // @charset is only allowed once.
     new_allowed_rules.Remove(CSSAtRuleID::kCSSAtRuleCharset);
-  } else if (rule->IsLayerStatementRule() && !seen_import_rule) {
+  } else if (rule->IsLayerStatementRule() && !seen_import_or_namespace_rule) {
     // Any number of @layer statements may appear before @import rules.
     new_allowed_rules.Remove(CSSAtRuleID::kCSSAtRuleCharset);
   } else if (rule->IsImportRule()) {
-    seen_import_rule = true;
+    // @layer statements are still allowed once @import rules have been seen,
+    // but they are treated as regular rules ("else" branch).
+    seen_import_or_namespace_rule = true;
     new_allowed_rules.Remove(CSSAtRuleID::kCSSAtRuleCharset);
-    // Note that @layer statements are still allowed once @import rules
-    // have been seen, but they are treated as regular rules ("else" branch).
   } else if (rule->IsNamespaceRule()) {
+    // @layer statements are still allowed once @namespace rules have been seen,
+    // but they are treated as regular rules ("else" branch).
+    seen_import_or_namespace_rule = true;
     new_allowed_rules.Remove(CSSAtRuleID::kCSSAtRuleCharset);
     new_allowed_rules.Remove(CSSAtRuleID::kCSSAtRuleImport);
   } else {
@@ -728,7 +728,7 @@ bool CSSParserImpl::ConsumeRuleList(CSSParserTokenStream& stream,
                                     StyleRule* parent_rule_for_nesting,
                                     const T callback) {
   bool seen_rule = false;
-  bool seen_import_rule = false;
+  bool seen_import_or_namespace_rule = false;
   bool first_rule_valid = false;
   while (!stream.AtEnd()) {
     wtf_size_t offset = stream.Offset();
@@ -758,8 +758,8 @@ bool CSSParserImpl::ConsumeRuleList(CSSParserTokenStream& stream,
       first_rule_valid = rule;
     }
     if (rule) {
-      allowed_rules =
-          ComputeNewAllowedRules(allowed_rules, rule, seen_import_rule);
+      allowed_rules = ComputeNewAllowedRules(allowed_rules, rule,
+                                             seen_import_or_namespace_rule);
       callback(rule, offset);
     }
     DCHECK_GT(stream.Offset(), offset);
@@ -1225,10 +1225,9 @@ StyleRuleNestedDeclarations* CreateNestedDeclarationsRule(
     HeapVector<CSSPropertyValue, 64>& declarations) {
   return MakeGarbageCollected<StyleRuleNestedDeclarations>(
       nesting_type,
-      StyleRule::Create(
-          base::span<CSSSelector>{selectors.begin(), selectors.size()},
-          CreateCSSPropertyValueSet(declarations, context.Mode(),
-                                    context.GetDocument())));
+      StyleRule::Create(selectors,
+                        CreateCSSPropertyValueSet(declarations, context.Mode(),
+                                                  context.GetDocument())));
 }
 
 }  // namespace
@@ -1244,8 +1243,9 @@ StyleRuleBase* CSSParserImpl::CreateDeclarationsRule(
   // Create a nested declarations rule containing all declarations
   // in [start_index, end_index).
   HeapVector<CSSPropertyValue, 64> declarations;
-  declarations.AppendRange(parsed_properties_.begin() + start_index,
-                           parsed_properties_.begin() + end_index);
+  declarations.AppendRange(
+      UNSAFE_TODO(parsed_properties_.begin() + start_index),
+      UNSAFE_TODO(parsed_properties_.begin() + end_index));
 
   // Create the selector for StyleRuleNestedDeclarations's inner StyleRule.
 
@@ -2497,13 +2497,8 @@ StyleRule* CSSParserImpl::ConsumeStyleRule(CSSParserTokenStream& stream,
   // are not allowed by css-syntax.
   //
   // https://drafts.csswg.org/css-syntax/#consume-qualified-rule
-  bool custom_property_ambiguity = false;
-  if (CSSVariableParser::IsValidVariableName(stream.Peek())) {
-    CSSParserTokenStream::State state = stream.Save();
-    stream.ConsumeIncludingWhitespace();  // <ident>
-    custom_property_ambiguity = stream.Peek().GetType() == kColonToken;
-    stream.Restore(state);
-  }
+  bool custom_property_ambiguity =
+      CSSVariableParser::StartsCustomPropertyDeclaration(stream);
 
   bool has_visited_pseudo = false;
   // Parse the prelude of the style rule

@@ -128,11 +128,15 @@ ContextProperties ContextImplDml::GetProperties(
        /*clamp_input=*/{kFloat16To32Ints8To32, kMaxRank},
 
        // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_join_operator_desc#tensor-support
-       /*concat_inputs=*/kFloat16To32Ints8To32,
+       /*concat_inputs=*/{kFloat16To32Ints8To32, kMaxRank},
 
        // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_convolution_operator_desc#tensor-support
-       /*conv2d_input=*/DataTypeConstraint::kFloat16To32,
-       /*conv_transpose2d_input=*/DataTypeConstraint::kFloat16To32,
+       /*conv2d_input=*/{DataTypeConstraint::kFloat16To32, {3, 5}},
+       /*conv2d_bias=*/
+       {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(1)},
+       /*conv_transpose2d_input=*/{DataTypeConstraint::kFloat16To32, {3, 5}},
+       /*conv_transpose2d_bias=*/
+       {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(1)},
 
        // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_cumulative_summation_operator_desc#tensor-support
        /*cumulative_sum_input=*/{kFloat16To32Ints32, kMaxRank},
@@ -265,16 +269,18 @@ ContextProperties ContextImplDml::GetProperties(
        /*expand_input=*/{kFloat16To32Ints8To32, kMaxRank},
 
        // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_gather_operator_desc#tensor-support
-       /*gather_input=*/kFloat16To32Ints8To32,
-       /*gather_indices=*/kGatherScatterIndicesSupportedDataTypes,
+       /*gather_input=*/{kFloat16To32Ints8To32, kMaxRank},
+       /*gather_indices=*/{kGatherScatterIndicesSupportedDataTypes, kMaxRank},
 
        // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_gather_elements_operator_desc#tensor-support
-       /*gather_elements_input=*/kFloat16To32Ints8To32,
-       /*gather_elements_indices=*/kGatherScatterIndicesSupportedDataTypes,
+       /*gather_elements_input=*/{kFloat16To32Ints8To32, kMaxRank},
+       /*gather_elements_indices=*/
+       {kGatherScatterIndicesSupportedDataTypes, kMaxRank},
 
        // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_gather_nd_operator_desc#tensor-support
-       /*gather_nd_input=*/kFloat16To32Ints8To32,
-       /*gather_nd_indices=*/kGatherScatterIndicesSupportedDataTypes,
+       /*gather_nd_input=*/{kFloat16To32Ints8To32, kMaxRank},
+       /*gather_nd_indices=*/
+       {kGatherScatterIndicesSupportedDataTypes, kMaxRank},
 
        // Gelu is emulated when the feature level is less than 5.1.
        // https://learn.microsoft.com/en-us/windows/ai/directml/api/ns-directml-dml_activation_gelu_operator_desc#availability
@@ -282,11 +288,18 @@ ContextProperties ContextImplDml::GetProperties(
        {DataTypeConstraint::kFloat16To32, kMaxRank},
 
        // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_gemm_operator_desc#tensor-support
-       /*gemm_input=*/DataTypeConstraint::kFloat16To32,
+       /*gemm_a=*/{DataTypeConstraint::kFloat16To32, {2, 4}},
+       /*gemm_c=*/{DataTypeConstraint::kFloat16To32, SupportedRanks::UpTo(2)},
 
        // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_gru_operator_desc#tensor-support
-       /*gru_input=*/DataTypeConstraint::kFloat16To32,
-       /*gru_cell_input=*/DataTypeConstraint::kFloat16To32,
+       /*gru_input=*/
+       {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(3)},
+       /*gru_bias=*/
+       {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(2)},
+       /*gru_cell_input=*/
+       {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(2)},
+       /*gru_cell_bias=*/
+       {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(1)},
 
        // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_activation_hard_sigmoid_operator_desc#tensor-support
        /*hard_sigmoid_input=*/
@@ -314,8 +327,14 @@ ContextProperties ContextImplDml::GetProperties(
        {DataTypeConstraint::kFloat16To32, kMaxRank},
 
        // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_lstm_operator_desc#tensor-support
-       /*lstm_input=*/DataTypeConstraint::kFloat16To32,
-       /*lstm_cell_input=*/DataTypeConstraint::kFloat16To32,
+       /*lstm_input=*/
+       {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(3)},
+       /*lstm_bias=*/
+       {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(2)},
+       /*lstm_cell_input=*/
+       {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(2)},
+       /*lstm_cell_bias=*/
+       {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(1)},
 
        // Matmul is emulated by gemm however inputs are flattened to support
        // ranks greater than 4.
@@ -433,7 +452,7 @@ ContextProperties ContextImplDml::GetProperties(
        /*where_value=*/{kFloat16To32Ints8To32, kMaxRank}});
 
   if (feature_level >= DML_FEATURE_LEVEL_4_1) {
-    properties.data_type_limits.concat_inputs =
+    properties.data_type_limits.concat_inputs.data_types =
         DataTypeConstraint::kAllDataTypesAtLeast8bits;
     properties.data_type_limits.add_input.data_types =
         DataTypeConstraint::kFloat16To32Ints32To64;
@@ -456,11 +475,11 @@ ContextProperties ContextImplDml::GetProperties(
         DataTypeConstraint::kAllDataTypesAtLeast8bits;
     properties.data_type_limits.expand_input.data_types =
         DataTypeConstraint::kAllDataTypesAtLeast8bits;
-    properties.data_type_limits.gather_input =
+    properties.data_type_limits.gather_input.data_types =
         DataTypeConstraint::kAllDataTypesAtLeast8bits;
-    properties.data_type_limits.gather_elements_input =
+    properties.data_type_limits.gather_elements_input.data_types =
         DataTypeConstraint::kAllDataTypesAtLeast8bits;
-    properties.data_type_limits.gather_nd_input =
+    properties.data_type_limits.gather_nd_input.data_types =
         DataTypeConstraint::kAllDataTypesAtLeast8bits;
     properties.data_type_limits.not_equal_input.data_types =
         DataTypeConstraint::kAllDataTypesAtLeast8bits;

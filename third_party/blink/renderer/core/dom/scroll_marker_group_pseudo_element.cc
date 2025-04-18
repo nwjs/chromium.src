@@ -44,7 +44,7 @@ ScrollMarkerGroupPseudoElement::FindPreviousScrollMarker(
 }
 
 void ScrollMarkerGroupPseudoElement::RemoveFromFocusGroup(
-    const ScrollMarkerPseudoElement& scroll_marker) {
+    ScrollMarkerPseudoElement& scroll_marker) {
   scroll_marker_group_data_->RemoveFromFocusGroup(scroll_marker);
 }
 
@@ -118,6 +118,10 @@ void ScrollMarkerGroupPseudoElement::Dispose() {
     scroll_marker_group_data_->SetSelected(nullptr);
   }
   scroll_marker_group_data_->ClearFocusGroup();
+  if (GetLayoutBox() && GetLayoutBox()->GetFrameView()) {
+    GetLayoutBox()->GetFrameView()->RemovePendingScrollMarkerSelectionUpdate(
+        this);
+  }
   PseudoElement::Dispose();
 }
 
@@ -125,18 +129,17 @@ void ScrollMarkerGroupPseudoElement::ClearFocusGroup() {
   scroll_marker_group_data_->ClearFocusGroup();
 }
 
-bool ScrollMarkerGroupPseudoElement::UpdateSelectedScrollMarker(
-    const ScrollOffset& offset) {
+void ScrollMarkerGroupPseudoElement::UpdateSelectedScrollMarker() {
   // Implements scroll tracking for scroll marker controls as per
   // https://drafts.csswg.org/css-overflow-5/#scroll-container-scroll.
   auto* scroller =
       DynamicTo<LayoutBox>(UltimateOriginatingElement().GetLayoutObject());
-  if (!scroller || !scroller->IsScrollContainer()) {
-    return false;
+  if (!scroller ||
+      (!scroller->IsScrollContainer() && !scroller->IsDocumentElement())) {
+    return;
   }
 
-  return scroll_marker_group_data_->UpdateSelectedScrollMarker(offset,
-                                                               scroller);
+  scroll_marker_group_data_->UpdateSelectedScrollMarker();
 }
 
 void ScrollMarkerGroupPseudoElement::DetachLayoutTree(
@@ -150,6 +153,12 @@ void ScrollMarkerGroupPseudoElement::DetachLayoutTree(
   scroll_marker_group_data_->SetSelected(nullptr);
   scroll_marker_group_data_->ClearFocusGroup();
   PseudoElement::DetachLayoutTree(performing_reattach);
+}
+
+void ScrollMarkerGroupPseudoElement::ScrollSelectedIntoView(bool apply_snap) {
+  if (ScrollMarkerPseudoElement* selected = Selected()) {
+    selected->ScrollIntoView(apply_snap);
+  }
 }
 
 }  // namespace blink

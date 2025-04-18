@@ -108,6 +108,10 @@ const char kAutoSelectTabCaptureSourceByTitle[] =
 const char kAutoSelectWindowCaptureSourceByTitle[] =
     "auto-select-window-capture-source-by-title";
 
+// Automatically signs the user into Chrome when signing in to other Google
+// services on the web. This makes it easier for automated browsers to sign in.
+const char kBrowserSigninAutoAccept[] = "auto-accept-browser-signin-for-tests";
+
 // If specified, allows syncing multiple profiles to the same account. Used for
 // multi-client E2E tests.
 constexpr char kBypassAccountAlreadyUsedByAnotherProfileCheck[] =
@@ -542,6 +546,11 @@ const char kRestart[] = "restart";
 // on OS X and Windows.
 const char kRestoreLastSession[] = "restore-last-session";
 
+// Indicates that the URL in the command line should open in the active tab
+// instead of a new tab. In case of multiple URLS given as arguments, the
+// first one will replace the active tab.
+const char kSameTab[] = "same-tab";
+
 // This flag sets the checkboxes for sharing audio during screen capture to off
 // by default. It is primarily intended to be used for tests.
 const char kScreenCaptureAudioDefaultUnchecked[] =
@@ -893,8 +902,13 @@ const char kGlicFreURL[] = "glic-fre-url";
 const char kGlicOpenOnStartup[] = "glic-open-on-startup";
 // List of allowed origins in the glic webview, as a space-separated list.
 const char kGlicAllowedOrigins[] = "glic-webui-allowed-origins";
+// Automation is intended to be passed in addition to glic-dev. It further
+// disables functionality to make basic testing easier.
+const char kGlicAutomation[] = "glic-automation";
 // Dev mode for glic only exposed via command line flag.
 const char kGlicDev[] = "glic-dev";
+// Whether additional logging is enabled in the glic api host.
+const char kGlicHostLogging[] = "glic-host-logging";
 #endif
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)

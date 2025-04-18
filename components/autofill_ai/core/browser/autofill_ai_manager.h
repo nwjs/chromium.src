@@ -16,7 +16,7 @@
 #include "components/autofill/core/common/aliases.h"
 #include "components/autofill/core/common/unique_ids.h"
 #include "components/autofill_ai/core/browser/autofill_ai_client.h"
-#include "components/autofill_ai/core/browser/autofill_ai_logger.h"
+#include "components/autofill_ai/core/browser/metrics/autofill_ai_logger.h"
 
 namespace autofill {
 class FormData;
@@ -45,23 +45,20 @@ class AutofillAiManager : public autofill::AutofillAiDelegate {
   std::vector<autofill::Suggestion> GetSuggestions(
       autofill::FormGlobalId form_global_id,
       autofill::FieldGlobalId field_global_id) override;
-  bool IsFormAndFieldEligibleForAutofillAi(
-      const autofill::FormStructure& form,
-      const autofill::AutofillField& field) const override;
-  bool IsUserEligible() const override;
-  bool IsUserEligibleForFillingAndImporting() const override;
-  void MaybeImportForm(
-      std::unique_ptr<autofill::FormStructure> form,
-      base::OnceCallback<void(std::unique_ptr<autofill::FormStructure> form,
-                              bool autofill_ai_shows_bubble)> callback)
-      override;
-  bool ShouldDisplayIph(const autofill::AutofillField& field) const override;
-  void OnSuggestionsShown(const autofill::DenseSet<autofill::SuggestionType>&
-                              shown_suggestion_types,
-                          const autofill::FormGlobalId& form_id) override;
+  bool OnFormSubmitted(const autofill::FormStructure& form,
+                       ukm::SourceId ukm_source_id) override;
+  bool ShouldDisplayIph(autofill::FormGlobalId form,
+                        autofill::FieldGlobalId field) const override;
+  void OnSuggestionsShown(const autofill::FormStructure& form,
+                          const autofill::AutofillField& field,
+                          ukm::SourceId ukm_source_id) override;
   void OnFormSeen(const autofill::FormStructure& form) override;
-  void OnDidFillSuggestion(autofill::FormGlobalId form_id) override;
-  void OnEditedAutofilledField(autofill::FormGlobalId form_id) override;
+  void OnDidFillSuggestion(const autofill::FormStructure& form,
+                           const autofill::AutofillField& field,
+                           ukm::SourceId ukm_source_id) override;
+  void OnEditedAutofilledField(const autofill::FormStructure& form,
+                               const autofill::AutofillField& field,
+                               ukm::SourceId ukm_source_id) override;
 
   base::WeakPtr<AutofillAiManager> GetWeakPtr();
 
@@ -80,6 +77,10 @@ class AutofillAiManager : public autofill::AutofillAiDelegate {
       const autofill::EntityInstance& entity) const;
   bool IsUpdateBlockedByStrikeDatabase(const base::Uuid& entity_uuid) const;
 
+  // Attempts to display an import bubble for `form` if Autofill AI is
+  // interested in the form. Returns whether an import bubble will be shown.
+  bool MaybeImportForm(const autofill::FormStructure& form);
+
   // Updates the `EntityDataManager` and the save strike database depending on
   // the prompt `result`.
   void HandleSavePromptResult(
@@ -92,17 +93,14 @@ class AutofillAiManager : public autofill::AutofillAiDelegate {
       const base::Uuid& entity_uuid,
       AutofillAiClient::SaveOrUpdatePromptResult result);
 
-  void OnReceivedAXTree(const autofill::FormData& form,
-                        optimization_guide::proto::AXTreeUpdate);
-
-  // Logger that records various Autofill AI metrics.
-  AutofillAiLogger logger_;
-
   autofill::LogManager* GetCurrentLogManager();
 
   // A raw reference to the client, which owns `this` and therefore outlives
   // it.
   const raw_ref<AutofillAiClient> client_;
+
+  // Logger that records various Autofill AI metrics.
+  AutofillAiLogger logger_{&*client_};
 
   // A strike database for save prompts keyed by (entity_type_name, host).
   std::unique_ptr<autofill::AutofillAiSaveStrikeDatabaseByHost>

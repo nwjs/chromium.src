@@ -23,6 +23,8 @@ import org.chromium.content_public.browser.ContentFeatureList;
 import org.chromium.content_public.browser.ContentFeatureMap;
 import org.chromium.content_public.browser.HostZoomMap;
 import org.chromium.content_public.common.ContentSwitches;
+import org.chromium.device.DeviceFeatureList;
+import org.chromium.device.DeviceFeatureMap;
 import org.chromium.url.Origin;
 
 import java.util.ArrayList;
@@ -104,10 +106,12 @@ public class WebsitePermissionsFetcher {
             case ContentSettingsType.PROTECTED_MEDIA_IDENTIFIER:
             case ContentSettingsType.SENSORS:
             case ContentSettingsType.VR:
+            case ContentSettingsType.LOCAL_NETWORK_ACCESS:
                 return WebsitePermissionsType.PERMISSION_INFO;
             case ContentSettingsType.STORAGE_ACCESS:
                 return WebsitePermissionsType.EMBEDDED_PERMISSION;
             case ContentSettingsType.BLUETOOTH_GUARD:
+            case ContentSettingsType.SERIAL_GUARD:
             case ContentSettingsType.USB_GUARD:
                 return WebsitePermissionsType.CHOSEN_OBJECT_INFO;
             default:
@@ -331,6 +335,17 @@ public class WebsitePermissionsFetcher {
             if (contentSettingsType == ContentSettingsType.BLUETOOTH_GUARD
                     && !ContentFeatureMap.isEnabled(
                             ContentFeatureList.WEB_BLUETOOTH_NEW_PERMISSIONS_BACKEND)) {
+                return;
+            }
+
+            // The serial guard permission controls access to the Web Serial API, which enables
+            // sites to request access to connect specific serial ports. Users are presented with a
+            // chooser prompt in which they must select the serial port they would like to allow the
+            // site to connect to. Therefore, this permission also displays a list of permitted
+            // serial ports that each site can connect to.
+            // Remove this check after the flag is removed.
+            if (contentSettingsType == ContentSettingsType.SERIAL_GUARD
+                    && !DeviceFeatureMap.isEnabled(DeviceFeatureList.BLUETOOTH_RFCOMM_ANDROID)) {
                 return;
             }
 
@@ -653,7 +668,6 @@ public class WebsitePermissionsFetcher {
         private class RelatedWebsiteSetsInfoFetcher extends Task {
             private boolean canDealWithRelatedWebsiteSetsInfo() {
                 return mSiteSettingsDelegate != null
-                        && mSiteSettingsDelegate.isPrivacySandboxFirstPartySetsUiFeatureEnabled()
                         && mSiteSettingsDelegate.isRelatedWebsiteSetsDataAccessEnabled();
             }
 
@@ -664,8 +678,7 @@ public class WebsitePermissionsFetcher {
                             buildOwnerToMembersMapFromFetchedSites();
 
                     // For each {@link Website} sets its RelatedWebsiteSet info: the RWS Owner and
-                    // the
-                    // number of members of that RWS.
+                    // the number of members of that RWS.
                     for (Website site : mSites.values()) {
                         String rwsOwnerHostname =
                                 mSiteSettingsDelegate.getRelatedWebsiteSetOwner(
@@ -685,22 +698,26 @@ public class WebsitePermissionsFetcher {
              */
             private Map<String, List<Website>> buildOwnerToMembersMapFromFetchedSites() {
                 // set to avoid equals implementation for Website object
-                Set<String> domainAndRegistryToWebsite = new HashSet<>();
+                Set<String> originToWebsite = new HashSet<>();
                 Map<String, List<Website>> rwsOwnerToMember = new HashMap<>();
-
                 for (Website site : mSites.values()) {
-                    String rwsMemberHostname = site.getAddress().getDomainAndRegistry();
+                    // Use the origin when RWS UI feature is enabled to include
+                    // subdomain variations in the members
+                    String rwsMemberHostname =
+                            mSiteSettingsDelegate.shouldShowPrivacySandboxRwsUi()
+                                    ? site.getAddress().getOrigin()
+                                    : site.getAddress().getDomainAndRegistry();
                     String rwsOwnerHostname =
                             mSiteSettingsDelegate.getRelatedWebsiteSetOwner(
                                     site.getAddress().getOrigin());
                     if (rwsOwnerHostname == null) continue;
                     List<Website> members = rwsOwnerToMember.get(rwsOwnerHostname);
-                    if (!domainAndRegistryToWebsite.contains(rwsMemberHostname)) {
+                    if (!originToWebsite.contains(rwsMemberHostname)) {
                         if (members == null) {
                             members = new ArrayList<>();
                         }
                         members.add(site);
-                        domainAndRegistryToWebsite.add(rwsMemberHostname);
+                        originToWebsite.add(rwsMemberHostname);
                         rwsOwnerToMember.put(rwsOwnerHostname, members);
                     }
                 }
@@ -728,10 +745,7 @@ public class WebsitePermissionsFetcher {
                                 var cookieInfo = new CookiesInfo(info.getCookieCount());
                                 website.setCookiesInfo(cookieInfo);
                                 website.addStorageInfo(
-                                        new StorageInfo(
-                                                origin.getHost(),
-                                                /* type= */ 0,
-                                                info.getStorageSize()));
+                                        new StorageInfo(origin.getHost(), info.getStorageSize()));
                                 website.setDomainImportant(info.isDomainImportant());
                             }
                             queue.next();

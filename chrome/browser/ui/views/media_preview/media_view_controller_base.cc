@@ -61,9 +61,9 @@ MediaViewControllerBase::MediaViewControllerBase(
     const int kBorderThickness =
         provider->GetDistanceMetric(views::DISTANCE_UNRELATED_CONTROL_VERTICAL);
 
-    base_view_->SetBorder(views::CreateThemedRoundedRectBorder(
+    base_view_->SetBorder(views::CreateRoundedRectBorder(
         kBorderThickness, kRoundedRadius, ui::kColorMenuBackground));
-    base_view_->SetBackground(views::CreateThemedRoundedRectBackground(
+    base_view_->SetBackground(views::CreateRoundedRectBackground(
         ui::kColorMenuBackground, kRoundedRadius));
   }
 

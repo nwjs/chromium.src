@@ -829,7 +829,6 @@ TEST_F(
   EXPECT_TRUE(service()->GetUserSettings()->GetSelectedTypes().Has(
       UserSelectableType::kAutofill));
 }
-#endif  // !BUILDFLAG(IS_CHROMEOS)
 
 TEST_F(
     SyncServiceImplTest,
@@ -838,9 +837,6 @@ TEST_F(
   scoped_feature_list.InitWithFeatures(
       /*enabled_features=*/
       {syncer::kReplaceSyncPromosWithSignInPromos,
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-       switches::kExplicitBrowserSigninUIOnDesktop,
-#endif
        syncer::kSyncEnableContactInfoDataTypeForCustomPassphraseUsers},
       /*disabled_features=*/{});
 
@@ -886,6 +882,7 @@ TEST_F(
   EXPECT_TRUE(service()->GetUserSettings()->GetSelectedTypes().Has(
       UserSelectableType::kAutofill));
 }
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 
 TEST_F(SyncServiceImplTest, GetSyncTokenStatus) {
   PopulatePrefsForInitialSyncFeatureSetupComplete();
@@ -2336,9 +2333,14 @@ TEST_F(SyncServiceImplTest,
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 class SyncServiceImplWithBatchUploadDesktopTest : public SyncServiceImplTest {
+  void SetUp() override {
+    SyncServiceImplTest::SetUp();
+    scoped_feature_list_.InitWithFeatures(
+        /*enabled_features=*/{switches::kBatchUploadDesktop}, {});
+  }
+
  private:
-  base::test::ScopedFeatureList scoped_feature_list_{
-      switches::kBatchUploadDesktop};
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 TEST_F(SyncServiceImplWithBatchUploadDesktopTest,

@@ -203,6 +203,12 @@ export declare interface ReadGroupParams {
   groupId: string;
   consistencyToken?: string;
 }
+export declare interface ReadGroupOptions {
+  accessToken?: string;
+}
+export declare interface ReadGroupResult {
+  groupData: DataSharingSdkGroupData;
+}
 export declare interface ReadGroupsParams {
   params: ReadGroupParams[];
 }
@@ -242,6 +248,7 @@ export const enum LoggingIntent {
   ACCEPT_JOIN_AND_OPEN = 13,
   ABANDON_JOIN = 14,
   KEEP_GROUP = 15,
+  DELETE_GROUP = 16,
 }
 export const enum Progress {
   UNKNOWN = 0,
@@ -297,6 +304,10 @@ export declare interface DataSharingSdk {
   createGroup(
       params: CreateGroupParams,
       ): Promise<{result?: CreateGroupResult; status: Code}>;
+  readGroup(
+      params: ReadGroupParams,
+      options?: ReadGroupOptions,
+      ): Promise<{result?: ReadGroupResult; status: Code}>;
   readGroups(
       params: ReadGroupsParams,
       ): Promise<{result?: ReadGroupsResult; status: Code}>;

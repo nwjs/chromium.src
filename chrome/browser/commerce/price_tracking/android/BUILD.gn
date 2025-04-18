@@ -11,7 +11,11 @@ generate_jni("jni_headers") {
 }
 
 android_resources("java_resources") {
-  sources = [ "java/res/layout/price_tracking_layout_v2.xml" ]
+  sources = [
+    "java/res/drawable/price_tracking_button_background.xml",
+    "java/res/layout/price_tracking_layout_v2.xml",
+    "java/res/values/dimens.xml",
+  ]
 
   deps = [
     "//chrome/android:chrome_app_java_resources",
@@ -68,6 +72,7 @@ android_library("price_tracking_bottom_sheet_java") {
     "//third_party/androidx:androidx_annotation_annotation_java",
     "//third_party/androidx:androidx_core_core_java",
     "//ui/android:ui_java",
+    "//url:url_java",
   ]
 }
 

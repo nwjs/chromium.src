@@ -14,11 +14,6 @@ BASE_FEATURE(kAutofillDisableDefaultSaveCardFixFlowDetection,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
-// When enabled, local credit card migration flows will not be offered.
-BASE_FEATURE(kAutofillDisableLocalCardMigration,
-             "AutofillDisableLocalCardMigration",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // When enabled, card category benefits offered by BMO will be shown in Autofill
 // suggestions on the allowlisted merchant websites.
 BASE_FEATURE(kAutofillEnableAllowlistForBmoCardCategoryBenefits,
@@ -37,6 +32,13 @@ BASE_FEATURE(kAutofillEnableAmountExtractionAllowlistDesktop,
 // of the allowlisted merchant websites.
 BASE_FEATURE(kAutofillEnableAmountExtractionDesktop,
              "AutofillEnableAmountExtractionDesktop",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables logging of the result of checkout amount extraction on desktop.
+// This flag will allow amount extraction to run on any website when a CC
+// form is clicked. This flag should never be enabled.
+BASE_FEATURE(kAutofillEnableAmountExtractionDesktopLogging,
+             "AutofillEnableAmountExtractionDesktopLogging",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, buy now pay later (BNPL) in Autofill will be offered.
@@ -80,21 +82,11 @@ BASE_FEATURE(kAutofillEnableCardBenefitsSync,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
-BASE_FEATURE(kAutofillEnableCardExpiredText,
-             "AutofillEnableCardExpiredText",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // When enabled, runtime retrieval of CVC along with card number and expiry
 // from issuer for enrolled cards will be enabled during form fill.
 BASE_FEATURE(kAutofillEnableCardInfoRuntimeRetrieval,
              "AutofillEnableCardInfoRuntimeRetrieval",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// When enabled, card product name (instead of issuer network) will be shown in
-// Payments Autofill UI.
-BASE_FEATURE(kAutofillEnableCardProductName,
-             "AutofillEnableCardProductName",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, we will store CVC for both local and server credit cards. This
 // will also allow the users to autofill their CVCs on checkout pages.
@@ -149,6 +141,11 @@ BASE_FEATURE(kAutofillEnableLogFormEventsToAllParsedFormTypes,
              "AutofillEnableLogFormEventsToAllParsedFormTypes",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// When enabled, card and IBAN autofill will be shown in new FOP style.
+BASE_FEATURE(kAutofillEnableNewFopDisplayDesktop,
+             "AutofillEnableNewFopDisplayDesktop",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When enabled, offers will be displayed in the Clank keyboard accessory during
 // downstream.
 BASE_FEATURE(kAutofillEnableOffersInClankKeyboardAccessory,
@@ -160,7 +157,7 @@ BASE_FEATURE(kAutofillEnableOffersInClankKeyboardAccessory,
 // card scans.
 BASE_FEATURE(kAutofillEnablePaymentSettingsCardPromoAndScanCard,
              "AutofillEnablePaymentSettingsCardPromoAndScanCard",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, the payment settings page will save new cards to the payment
 // server instead of locally.
@@ -186,7 +183,7 @@ BASE_FEATURE(kAutofillEnableSaveAndFill,
 // stored in the local db.
 BASE_FEATURE(kAutofillEnableSyncingOfPixBankAccounts,
              "AutofillEnableSyncingOfPixBankAccounts",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 // When enabled, Chrome will trigger 3DS authentication during a virtual card
@@ -207,13 +204,14 @@ BASE_FEATURE(kAutofillEnableVerveCardSupport,
              "AutofillEnableVerveCardSupport",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-
-
-// When enabled, the "Show cards from your Google Account" Autofill suggestion
-// will not be displayed, and Autofill will work as if it had been selected.
-BASE_FEATURE(kAutofillRemovePaymentsButterDropdown,
-             "AutofillRemovePaymentsButterDropdown",
+#if BUILDFLAG(IS_IOS)
+// When enabled, save card bottomsheet will be shown when the user has not
+// previously rejected the offer to save the card, and both a valid expiry date
+// and cardholder name are present.
+BASE_FEATURE(kAutofillSaveCardBottomSheet,
+             "AutofillSaveCardBottomSheet",
              base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
 
 // If enabled, we will store autofill server card data in shared storage.
 BASE_FEATURE(kAutofillSharedStorageServerCardData,

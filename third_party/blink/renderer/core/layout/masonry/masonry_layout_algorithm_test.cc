@@ -13,6 +13,10 @@
 
 namespace blink {
 
+namespace {
+
+}  // namespace
+
 class MasonryLayoutAlgorithmTest : public BaseLayoutAlgorithmTest {
  protected:
   void SetUp() override { BaseLayoutAlgorithmTest::SetUp(); }
@@ -21,47 +25,46 @@ class MasonryLayoutAlgorithmTest : public BaseLayoutAlgorithmTest {
     wtf_size_t start_offset;
     const GridLineResolver line_resolver(algorithm.Style(),
                                          /*auto_repetitions=*/0);
-    virtual_masonry_items_ =
-        algorithm.VirtualMasonryItems(line_resolver, &start_offset);
 
-    grid_axis_tracks_ = std::make_unique<GridSizingTrackCollection>(
-        algorithm.BuildGridAxisTracks(line_resolver, SizingConstraint::kLayout,
-                                      &start_offset));
+    grid_axis_tracks_ = algorithm.BuildGridAxisTracks(
+        line_resolver, SizingConstraint::kLayout, start_offset);
 
-    masonry_items_ =
-        algorithm.Node().ConstructMasonryItems(line_resolver, start_offset);
+    const auto grid_axis_direction = grid_axis_tracks_->Direction();
+    for (const auto& masonry_item :
+         algorithm.BuildVirtualMasonryItems(line_resolver, start_offset)) {
+      MasonryItemCachedData item_data;
+
+      item_data.resolved_span =
+          masonry_item.resolved_position.Span(grid_axis_direction);
+      if (masonry_item.contribution_sizes) {
+        item_data.contribution_sizes = *masonry_item.contribution_sizes;
+      }
+      virtual_items_data_.emplace_back(std::move(item_data));
+    }
   }
 
+  wtf_size_t VirtualItemCount() { return virtual_items_data_.size(); }
   const GridRangeVector& Ranges() { return grid_axis_tracks_->ranges_; }
-  wtf_size_t SetCount() { return grid_axis_tracks_->GetSetCount(); }
-  wtf_size_t VirtualItemCount() {
-    return virtual_masonry_items_ ? virtual_masonry_items_->Size() : 0;
-  }
-  wtf_size_t MasonryItemCount() {
-    return masonry_items_ ? masonry_items_->Size() : 0;
-  }
 
-  LayoutUnit TrackSize(wtf_size_t index) {
-    return grid_axis_tracks_->GetSetOffset(index + 1) -
-           grid_axis_tracks_->GetSetOffset(index);
+  Vector<LayoutUnit> TrackSizes() {
+    Vector<LayoutUnit> track_sizes;
+    for (wtf_size_t i = 0; i < grid_axis_tracks_->GetSetCount(); ++i) {
+      track_sizes.push_back(grid_axis_tracks_->GetSetOffset(i + 1) -
+                            grid_axis_tracks_->GetSetOffset(i));
+    }
+    return track_sizes;
   }
 
   LayoutUnit MaxContentContribution(wtf_size_t index) {
-    return ContributionSizes(index).max_size;
+    return VirtualItemData(index).contribution_sizes.max_size;
   }
 
   LayoutUnit MinContentContribution(wtf_size_t index) {
-    return ContributionSizes(index).min_size;
+    return VirtualItemData(index).contribution_sizes.min_size;
   }
 
   const GridSpan& VirtualItemSpan(wtf_size_t index) {
-    return virtual_masonry_items_->At(index).resolved_position.Span(
-        grid_axis_tracks_->Direction());
-  }
-
-  const GridSpan& MasonryItemSpan(wtf_size_t index) {
-    return masonry_items_->At(index).resolved_position.Span(
-        grid_axis_tracks_->Direction());
+    return VirtualItemData(index).resolved_span;
   }
 
   const Vector<LayoutUnit>& GetRunningPositions(
@@ -69,61 +72,83 @@ class MasonryLayoutAlgorithmTest : public BaseLayoutAlgorithmTest {
     return running_positions.running_positions_;
   }
 
- private:
-  const MinMaxSizes& ContributionSizes(wtf_size_t index) {
-    const auto& contribution_sizes =
-        virtual_masonry_items_->At(index).contribution_sizes;
-
-    DCHECK(contribution_sizes);
-    return *contribution_sizes;
+  Vector<LayoutUnit> GetMaxPositionsForAllTracks(
+      const MasonryRunningPositions& running_positions,
+      wtf_size_t span_size) {
+    return running_positions.GetMaxPositionsForAllTracks(span_size);
   }
 
-  std::unique_ptr<GridSizingTrackCollection> grid_axis_tracks_;
+  MasonryRunningPositions InitializeMasonryRunningPositions(
+      const Vector<LayoutUnit>& running_positions,
+      LayoutUnit tie_threshold) {
+    return MasonryRunningPositions(running_positions, tie_threshold);
+  }
+
+  void SetAutoPlacementCursor(wtf_size_t cursor,
+                              MasonryRunningPositions& running_positions) {
+    running_positions.SetAutoPlacementCursorForTesting(cursor);
+  }
+
+ private:
+  struct MasonryItemCachedData {
+    MinMaxSizes contribution_sizes;
+    GridSpan resolved_span{GridSpan::IndefiniteGridSpan()};
+  };
+
+  const MasonryItemCachedData& VirtualItemData(wtf_size_t index) {
+    DCHECK_LT(index, virtual_items_data_.size());
+    return virtual_items_data_[index];
+  }
+
+  std::optional<GridSizingTrackCollection> grid_axis_tracks_;
 
   // Virtual items represent the contributions of item groups in track sizing
   // and are not directly related to any children of the container.
-  Persistent<GridItems> virtual_masonry_items_;
-
-  // Children of the container to be laid out are represented by masonry items.
-  Persistent<GridItems> masonry_items_;
+  Vector<MasonryItemCachedData> virtual_items_data_;
 };
 
-TEST_F(MasonryLayoutAlgorithmTest, BuildMasonryItems) {
-  LoadAhem();
+TEST_F(MasonryLayoutAlgorithmTest, ConstructMasonryItems) {
   SetBodyInnerHTML(R"HTML(
-    <div id="masonry" style="display: masonry">
+    <style>
+    #masonry {
+      display: masonry;
+      masonry-template-tracks: auto auto [header-start] auto auto [header-end];
+    }
+    </style>
+    <div id="masonry">
       <div>1</div>
       <div style="masonry-track: 3 / span 2">2</div>
       <div style="masonry-track: span 2">3</div>
       <div style="masonry-track: span 3">4</div>
       <div style="masonry-track: 2 / 5">5</div>
+      <div style="masonry-track: header-start / header-end">1</div>
+      <div style="masonry-track: 1 / header-start">2</div>
+      <div style="masonry-track: 3 / header-end">2</div>
     </div>
   )HTML");
 
-  BlockNode node(GetLayoutBoxByElementId("masonry"));
+  MasonryNode node(GetLayoutBoxByElementId("masonry"));
 
-  const auto space = ConstructBlockLayoutTestConstraintSpace(
-      {WritingMode::kHorizontalTb, TextDirection::kLtr},
-      LogicalSize(LayoutUnit(100), LayoutUnit(100)),
-      /*stretch_inline_size_if_auto=*/true,
-      /*is_new_formatting_context=*/true);
-
-  const auto fragment_geometry =
-      CalculateInitialFragmentGeometry(space, node, /*break_token=*/nullptr);
-  MasonryLayoutAlgorithm algorithm({node, fragment_geometry, space});
-
-  EXPECT_EQ(MasonryItemCount(), 0U);
-  ComputeGeometry(algorithm);
-  EXPECT_EQ(MasonryItemCount(), 5U);
+  const GridLineResolver line_resolver(node.Style(), /*auto_repetitions=*/0);
+  const auto masonry_items =
+      node.ConstructMasonryItems(line_resolver, /*start_offset=*/0);
 
   const Vector<GridSpan> expected_spans = {
       GridSpan::IndefiniteGridSpan(1),
       GridSpan::TranslatedDefiniteGridSpan(2, 4),
-      GridSpan::IndefiniteGridSpan(2), GridSpan::IndefiniteGridSpan(3),
-      GridSpan::TranslatedDefiniteGridSpan(1, 4)};
+      GridSpan::IndefiniteGridSpan(2),
+      GridSpan::IndefiniteGridSpan(3),
+      GridSpan::TranslatedDefiniteGridSpan(1, 4),
+      GridSpan::TranslatedDefiniteGridSpan(2, 4),
+      GridSpan::TranslatedDefiniteGridSpan(0, 2),
+      GridSpan::TranslatedDefiniteGridSpan(2, 4)};
 
-  for (wtf_size_t i = 0; i < expected_spans.size(); ++i) {
-    EXPECT_EQ(MasonryItemSpan(i), expected_spans[i]);
+  EXPECT_EQ(masonry_items.Size(), expected_spans.size());
+
+  const auto grid_axis_direction = node.Style().MasonryTrackSizingDirection();
+  for (wtf_size_t i = 0; const auto& masonry_item : masonry_items) {
+    EXPECT_EQ(masonry_item.resolved_position.Span(grid_axis_direction),
+              expected_spans[i++]);
   }
 }
 
@@ -160,7 +185,7 @@ TEST_F(MasonryLayoutAlgorithmTest, BuildRanges) {
   // single track for the `5%`, then a range for the `repeat(3, ...)` which
   // spans 6 tracks. The last repeat creates a range of 3 tracks, but it's split
   // by the second item, creating one range of 1 track and another of 2 tracks.
-  // Finally, the second item spans a range of 3 track past the explicit grid.
+  // Finally, the second item spans a range of 3 tracks past the explicit grid.
   const Vector<wtf_size_t> expected_start_lines = {0, 2, 3, 9, 10, 12};
   const Vector<wtf_size_t> expected_track_counts = {2, 1, 6, 1, 2, 3};
 
@@ -199,13 +224,9 @@ TEST_F(MasonryLayoutAlgorithmTest, BuildFixedTrackSizes) {
   MasonryLayoutAlgorithm algorithm({node, fragment_geometry, space});
   ComputeGeometry(algorithm);
 
-  const Vector<int> expected_track_sizes = {5, 30, 45, 15, 5, 20};
-
-  const auto set_count = SetCount();
-  EXPECT_EQ(set_count, expected_track_sizes.size());
-  for (wtf_size_t i = 0; i < set_count; ++i) {
-    EXPECT_EQ(TrackSize(i), LayoutUnit(expected_track_sizes[i]));
-  }
+  EXPECT_EQ(TrackSizes(), Vector<LayoutUnit>({LayoutUnit(5), LayoutUnit(30),
+                                              LayoutUnit(45), LayoutUnit(15),
+                                              LayoutUnit(5), LayoutUnit(20)}));
 }
 
 TEST_F(MasonryLayoutAlgorithmTest, CollectMasonryItemGroups) {
@@ -222,20 +243,21 @@ TEST_F(MasonryLayoutAlgorithmTest, CollectMasonryItemGroups) {
 
   MasonryNode node(GetLayoutBoxByElementId("masonry"));
 
-  wtf_size_t start_offset;
+  wtf_size_t max_end_line, start_offset;
   const GridLineResolver line_resolver(node.Style(), /*auto_repetitions=*/0);
-  const auto item_groups = node.CollectItemGroups(line_resolver, &start_offset);
+  const auto item_groups =
+      node.CollectItemGroups(line_resolver, max_end_line, start_offset);
 
   EXPECT_EQ(item_groups.size(), 4u);
 
-  for (const auto& [properties, items] : item_groups) {
+  for (const auto& [items, properties] : item_groups) {
     wtf_size_t expected_size = 0;
     const auto& span = properties.Span();
     if (span == GridSpan::IndefiniteGridSpan(3) ||
-        span == GridSpan::UntranslatedDefiniteGridSpan(0, 1)) {
+        span == GridSpan::TranslatedDefiniteGridSpan(0, 1)) {
       expected_size = 1;
     } else if (span == GridSpan::IndefiniteGridSpan(1) ||
-               span == GridSpan::UntranslatedDefiniteGridSpan(0, 3)) {
+               span == GridSpan::TranslatedDefiniteGridSpan(0, 3)) {
       expected_size = 2;
     }
     EXPECT_EQ(items.size(), expected_size);
@@ -291,6 +313,60 @@ TEST_F(MasonryLayoutAlgorithmTest, ExplicitlyPlacedVirtualItems) {
   }
 }
 
+TEST_F(MasonryLayoutAlgorithmTest, AutoPlacedVirtualItems) {
+  LoadAhem();
+  SetBodyInnerHTML(R"HTML(
+    <style>
+    body { font: 10px/1 Ahem }
+    #masonry {
+      display: masonry;
+      masonry-template-tracks: repeat(3, auto);
+    }
+    </style>
+    <div id="masonry">
+      <div>X X X X X</div>
+      <div style="masonry-track: span 2">XXX X</div>
+      <div>XX XX XX XX XX</div>
+      <div style="masonry-track: span 2">X XX X</div>
+      <div>X XX XXX XX X</div>
+    </div>
+  )HTML");
+
+  BlockNode node(GetLayoutBoxByElementId("masonry"));
+
+  const auto space = ConstructBlockLayoutTestConstraintSpace(
+      {WritingMode::kHorizontalTb, TextDirection::kLtr},
+      LogicalSize(LayoutUnit(100), LayoutUnit(100)),
+      /*stretch_inline_size_if_auto=*/true,
+      /*is_new_formatting_context=*/true);
+
+  const auto fragment_geometry =
+      CalculateInitialFragmentGeometry(space, node, /*break_token=*/nullptr);
+
+  MasonryLayoutAlgorithm algorithm({node, fragment_geometry, space});
+  ComputeGeometry(algorithm);
+
+  const auto item_count = VirtualItemCount();
+  EXPECT_EQ(item_count, 5u);
+
+  for (wtf_size_t i = 0; i < item_count; ++i) {
+    LayoutUnit expected_max_size, expected_min_size;
+    const auto& span = VirtualItemSpan(i);
+    if (span == GridSpan::TranslatedDefiniteGridSpan(0, 2) ||
+        span == GridSpan::TranslatedDefiniteGridSpan(1, 3)) {
+      expected_max_size = LayoutUnit(60);
+      expected_min_size = LayoutUnit(30);
+    } else if (span == GridSpan::TranslatedDefiniteGridSpan(0, 1) ||
+               span == GridSpan::TranslatedDefiniteGridSpan(1, 2) ||
+               span == GridSpan::TranslatedDefiniteGridSpan(2, 3)) {
+      expected_max_size = LayoutUnit(140);
+      expected_min_size = LayoutUnit(30);
+    }
+    EXPECT_EQ(MaxContentContribution(i), expected_max_size);
+    EXPECT_EQ(MinContentContribution(i), expected_min_size);
+  }
+}
+
 TEST_F(MasonryLayoutAlgorithmTest, BuildIntrinsicTrackSizes) {
   LoadAhem();
   SetBodyInnerHTML(R"HTML(
@@ -322,13 +398,8 @@ TEST_F(MasonryLayoutAlgorithmTest, BuildIntrinsicTrackSizes) {
   MasonryLayoutAlgorithm algorithm({node, fragment_geometry, space});
   ComputeGeometry(algorithm);
 
-  const Vector<int> expected_track_sizes = {30, 170};
-
-  const auto set_count = SetCount();
-  EXPECT_EQ(set_count, expected_track_sizes.size());
-  for (wtf_size_t i = 0; i < set_count; ++i) {
-    EXPECT_EQ(TrackSize(i), LayoutUnit(expected_track_sizes[i]));
-  }
+  EXPECT_EQ(TrackSizes(),
+            Vector<LayoutUnit>({LayoutUnit(30), LayoutUnit(170)}));
 }
 
 TEST_F(MasonryLayoutAlgorithmTest, MaximizeAndStretchAutoTracks) {
@@ -367,17 +438,44 @@ TEST_F(MasonryLayoutAlgorithmTest, MaximizeAndStretchAutoTracks) {
   // 15px that the first track already has, the second track expands to 45px.
   // Finally, the last track takes the remaining space after the first two
   // tracks are maximized, which is 100px - 30px - 45px = 25px.
-  const Vector<int> expected_track_sizes = {30, 45, 25};
+  EXPECT_EQ(TrackSizes(), Vector<LayoutUnit>({LayoutUnit(30), LayoutUnit(45),
+                                              LayoutUnit(25)}));
+}
 
-  const auto set_count = SetCount();
-  EXPECT_EQ(set_count, expected_track_sizes.size());
-  for (wtf_size_t i = 0; i < set_count; ++i) {
-    EXPECT_EQ(TrackSize(i), LayoutUnit(expected_track_sizes[i]));
-  }
+TEST_F(MasonryLayoutAlgorithmTest, ExpandFlexibleTracks) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+    #masonry {
+      display: masonry;
+      masonry-template-tracks: 1fr 5fr 3fr 1fr;
+    }
+    </style>
+    <div id="masonry"></div>
+  )HTML");
+
+  BlockNode node(GetLayoutBoxByElementId("masonry"));
+
+  const auto space = ConstructBlockLayoutTestConstraintSpace(
+      {WritingMode::kHorizontalTb, TextDirection::kLtr},
+      LogicalSize(LayoutUnit(100), LayoutUnit(100)),
+      /*stretch_inline_size_if_auto=*/true,
+      /*is_new_formatting_context=*/true);
+
+  const auto fragment_geometry =
+      CalculateInitialFragmentGeometry(space, node, /*break_token=*/nullptr);
+
+  MasonryLayoutAlgorithm algorithm({node, fragment_geometry, space});
+  ComputeGeometry(algorithm);
+
+  EXPECT_EQ(TrackSizes(), Vector<LayoutUnit>({LayoutUnit(10), LayoutUnit(50),
+                                              LayoutUnit(30), LayoutUnit(10)}));
 }
 
 TEST_F(MasonryLayoutAlgorithmTest, UpdateRunningPositionsForSpan) {
-  MasonryRunningPositions running_positions(4);
+  MasonryRunningPositions running_positions(
+      /*track_count=*/4,
+      /*initial_running_position=*/LayoutUnit(),
+      /*tie_threshold=*/LayoutUnit());
 
   Vector<LayoutUnit> expected_running_positions = {
       LayoutUnit(0), LayoutUnit(3), LayoutUnit(3), LayoutUnit(0)};
@@ -396,6 +494,62 @@ TEST_F(MasonryLayoutAlgorithmTest, UpdateRunningPositionsForSpan) {
   running_positions.UpdateRunningPositionsForSpan(
       GridSpan::TranslatedDefiniteGridSpan(2, 4), LayoutUnit(5));
   EXPECT_EQ(expected_running_positions, GetRunningPositions(running_positions));
+}
+
+TEST_F(MasonryLayoutAlgorithmTest, GetFirstEligibleLine) {
+  auto running_positions = InitializeMasonryRunningPositions(
+      {LayoutUnit(2.0), LayoutUnit(3.0), LayoutUnit(3.5), LayoutUnit(2.5)},
+      /*tie_threshold=*/LayoutUnit(0.5));
+
+  SetAutoPlacementCursor(1, running_positions);
+  LayoutUnit max_position;
+  EXPECT_EQ(
+      running_positions.GetFirstEligibleLine(/*span_size=*/2, max_position),
+      GridSpan::TranslatedDefiniteGridSpan(1, 3));
+  EXPECT_EQ(max_position, LayoutUnit(3.5));
+
+  EXPECT_EQ(
+      running_positions.GetFirstEligibleLine(/*span_size=*/1, max_position),
+      GridSpan::TranslatedDefiniteGridSpan(3, 4));
+  EXPECT_EQ(max_position, LayoutUnit(2.5));
+
+  EXPECT_EQ(
+      running_positions.GetFirstEligibleLine(/*span_size=*/4, max_position),
+      GridSpan::TranslatedDefiniteGridSpan(0, 4));
+  EXPECT_EQ(max_position, LayoutUnit(3.5));
+
+  SetAutoPlacementCursor(2, running_positions);
+  EXPECT_EQ(
+      running_positions.GetFirstEligibleLine(/*span_size=*/2, max_position),
+      GridSpan::TranslatedDefiniteGridSpan(2, 4));
+  EXPECT_EQ(max_position, LayoutUnit(3.5));
+
+  SetAutoPlacementCursor(3, running_positions);
+  EXPECT_EQ(
+      running_positions.GetFirstEligibleLine(/*span_size=*/2, max_position),
+      GridSpan::TranslatedDefiniteGridSpan(0, 2));
+  EXPECT_EQ(max_position, LayoutUnit(3));
+
+  SetAutoPlacementCursor(4, running_positions);
+  EXPECT_EQ(
+      running_positions.GetFirstEligibleLine(/*span_size=*/2, max_position),
+      GridSpan::TranslatedDefiniteGridSpan(0, 2));
+  EXPECT_EQ(max_position, LayoutUnit(3));
+}
+
+TEST_F(MasonryLayoutAlgorithmTest, GetMaxPositionsForAllTracks) {
+  auto running_positions = InitializeMasonryRunningPositions(
+      {LayoutUnit(2.0), LayoutUnit(3.0), LayoutUnit(3.5), LayoutUnit(2.5)},
+      /*tie_threshold=*/LayoutUnit());
+
+  EXPECT_EQ(
+      GetMaxPositionsForAllTracks(running_positions, /*span_size=*/2),
+      Vector<LayoutUnit>({LayoutUnit(3), LayoutUnit(3.5), LayoutUnit(3.5)}));
+  EXPECT_EQ(GetMaxPositionsForAllTracks(running_positions, /*span_size=*/4),
+            Vector<LayoutUnit>({LayoutUnit(3.5)}));
+  EXPECT_EQ(GetMaxPositionsForAllTracks(running_positions, /*span_size=*/1),
+            Vector<LayoutUnit>({LayoutUnit(2.0), LayoutUnit(3.0),
+                                LayoutUnit(3.5), LayoutUnit(2.5)}));
 }
 
 }  // namespace blink

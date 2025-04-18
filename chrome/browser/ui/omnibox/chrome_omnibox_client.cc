@@ -16,6 +16,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
 #include "base/metrics/user_metrics_action.h"
+#include "base/rand_util.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/trace_event/typed_macros.h"
@@ -26,6 +27,7 @@
 #include "chrome/browser/autocomplete/shortcuts_backend_factory.h"
 #include "chrome/browser/bitmap_fetcher/bitmap_fetcher_service_factory.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/command_updater.h"
 #include "chrome/browser/extensions/api/omnibox/omnibox_api.h"
 #include "chrome/browser/favicon/favicon_service_factory.h"
@@ -52,10 +54,14 @@
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/hats/hats_service.h"
+#include "chrome/browser/ui/hats/hats_service_factory.h"
 #include "chrome/browser/ui/layout_constants.h"
+#include "chrome/browser/ui/lens/lens_overlay_controller.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/omnibox/chrome_omnibox_navigation_observer.h"
 #include "chrome/browser/ui/omnibox/omnibox_tab_helper.h"
+#include "chrome/common/pref_names.h"
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/favicon/content/content_favicon_driver.h"
 #include "components/favicon/core/favicon_service.h"
@@ -64,8 +70,13 @@
 #include "components/omnibox/browser/autocomplete_result.h"
 #include "components/omnibox/browser/base_search_provider.h"
 #include "components/omnibox/browser/location_bar_model.h"
+#include "components/omnibox/browser/most_visited_sites_provider.h"
+#include "components/omnibox/browser/omnibox_prefs.h"
+#include "components/omnibox/browser/page_classification_functions.h"
 #include "components/omnibox/browser/search_provider.h"
 #include "components/omnibox/browser/shortcuts_backend.h"
+#include "components/omnibox/browser/zero_suggest_provider.h"
+#include "components/omnibox/common/omnibox_feature_configs.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/profile_metrics/browser_profile_type.h"
 #include "components/search_engines/template_url_service.h"
@@ -333,6 +344,79 @@ void ChromeOmniboxClient::OnFocusChanged(OmniboxFocusState state,
   }
 }
 
+void ChromeOmniboxClient::MaybeShowOnFocusHatsSurvey(
+    AutocompleteProviderClient* client,
+    std::u16string text) {
+  if (!g_browser_process ||
+      !base::StartsWith(g_browser_process->GetApplicationLocale(), "en")) {
+    return;
+  }
+  // Check zero-suggest eligibility criteria.
+  auto classification = GetPageClassification(/*is_prefetch=*/false);
+  AutocompleteInput input(text, classification, GetSchemeClassifier());
+  input.set_current_url(GetNavigationEntryURL());
+  input.set_focus_type(metrics::OmniboxFocusType::INTERACTION_FOCUS);
+  if (!ZeroSuggestProvider::GetResultTypeAndEligibility(client, input).second ||
+      !MostVisitedSitesProvider::AllowMostVisitedSitesSuggestions(client,
+                                                                  input)) {
+    return;
+  }
+
+  // If the content is for an SRP or Web Page.
+  if (!omnibox::IsSearchResultsPage(classification) &&
+      !omnibox::IsOtherWebPage(classification)) {
+    return;
+  }
+
+  auto focus_count = GetPrefs()->GetInteger(omnibox::kFocusedSrpWebCount);
+  focus_count += 1;
+
+  if (focus_count <
+      static_cast<int>(omnibox_feature_configs::
+                           HappinessTrackingSurveyForOmniboxOnFocusZps::Get()
+                               .focus_threshold)) {
+    GetPrefs()->SetInteger(omnibox::kFocusedSrpWebCount, focus_count);
+    return;
+  }
+
+  const auto survey_delay_time_ms =
+      omnibox_feature_configs::HappinessTrackingSurveyForOmniboxOnFocusZps::
+          Get()
+              .survey_delay;
+  HatsService* hats_service =
+      HatsServiceFactory::GetForProfile(profile_, /*create_if_necessary=*/true);
+  // Roll the dice as we want to show one of two surveys to the treatment
+  // group but only one survey to the control group.
+  bool show_happiness_survey = base::RandInt(0, 1) == 0;
+  if (omnibox_feature_configs::OmniboxUrlSuggestionsOnFocus::Get().enabled) {
+    if (show_happiness_survey) {
+      hats_service->LaunchDelayedSurvey(
+          kHatsSurveyTriggerOnFocusZpsSuggestionsHappiness,
+          survey_delay_time_ms, {},
+          {{"page classification",
+            metrics::OmniboxEventProto::PageClassification_Name(
+                classification)}});
+    } else {
+      hats_service->LaunchDelayedSurvey(
+          kHatsSurveyTriggerOnFocusZpsSuggestionsUtility, survey_delay_time_ms,
+          {},
+          {{"page classification",
+            metrics::OmniboxEventProto::PageClassification_Name(
+                classification)}});
+    }
+  } else {
+    // Control
+    if (show_happiness_survey) {
+      hats_service->LaunchDelayedSurvey(
+          kHatsSurveyTriggerOnFocusZpsSuggestionsHappiness,
+          survey_delay_time_ms, {},
+          {{"page classification",
+            metrics::OmniboxEventProto::PageClassification_Name(
+                classification)}});
+    }
+  }
+}
+
 void ChromeOmniboxClient::OnResultChanged(
     const AutocompleteResult& result,
     bool default_match_changed,
@@ -365,13 +449,13 @@ void ChromeOmniboxClient::OnResultChanged(
       request_ids_.push_back(bitmap_fetcher_service->RequestImage(
           match.ImageUrl(), base::BindOnce(on_bitmap_fetched, result_index)));
     } else if (match.associated_keyword) {
-      // - Fetch the favicon here for these purposes:
-      //   - Featured search aggregator matches (e.g., when user types
-      // '@aggregator') use the policy favicon in both the popup keyword row UI
+      // - Fetch the favicon here for non-featured matches that have the search
+      // aggregator keyword hint attached to them (e.g., verbatim match when
+      // user types 'aggregator') use the policy favicon only in location bar
+      // keyword UI.
+      // - Featured search aggregator matches (e.g., when user types
+      // '@aggregator') use the match icon_url in both the popup keyword row UI
       // and the location bar keyword UI.
-      //   - Non-featured matches that have the search aggregator keyword hint
-      // attached to them (e.g., verbatim match when user types 'aggregator')
-      // use the policy favicon only in location bar keyword UI.
       // - Site search matches do not use the policy favicon so do not fetch the
       // favicon here.
       const TemplateURL* turl = match.associated_keyword->GetTemplateURL(
@@ -599,6 +683,20 @@ void ChromeOmniboxClient::OpenIphLink(GURL gurl) {
 
 bool ChromeOmniboxClient::IsHistoryEmbeddingsEnabled() const {
   return history_embeddings::IsHistoryEmbeddingsEnabledForProfile(profile_);
+}
+
+std::optional<lens::proto::LensOverlaySuggestInputs>
+ChromeOmniboxClient::GetLensOverlaySuggestInputs() const {
+  content::WebContents* web_contents = location_bar_->GetWebContents();
+  if (!web_contents) {
+    return std::nullopt;
+  }
+  LensSearchboxClient* client =
+      LensOverlayController::GetController(web_contents);
+  if (!client) {
+    return std::nullopt;
+  }
+  return client->GetLensSuggestInputs();
 }
 
 base::WeakPtr<OmniboxClient> ChromeOmniboxClient::AsWeakPtr() {

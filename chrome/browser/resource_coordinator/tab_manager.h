@@ -21,7 +21,6 @@
 #include "chrome/browser/resource_coordinator/lifecycle_unit_observer.h"
 #include "chrome/browser/resource_coordinator/lifecycle_unit_source_observer.h"
 #include "chrome/browser/resource_coordinator/lifecycle_unit_state.mojom-forward.h"
-#include "chrome/browser/resource_coordinator/tab_lifecycle_observer.h"
 #include "chrome/browser/resource_coordinator/tab_manager_features.h"
 #include "chrome/browser/sessions/session_restore_observer.h"
 #include "content/public/browser/navigation_throttle.h"
@@ -69,25 +68,11 @@ class TabManager : public LifecycleUnitObserver,
   // vector after a LifecycleUnit has been destroyed.
   LifecycleUnitVector GetSortedLifecycleUnits();
 
-  // Discards a tab to free the memory occupied by its renderer. The tab still
-  // exists in the tab-strip; clicking on it will reload it. If the |reason| is
-  // urgent, an aggressive fast-kill will be attempted if the sudden termination
-  // disablers are allowed to be ignored (e.g. On ChromeOS, we can ignore an
-  // unload handler and fast-kill the tab regardless).
-  void DiscardTab(
-      LifecycleUnitDiscardReason reason,
-      TabDiscardDoneCB tab_discard_done = TabDiscardDoneCB(base::DoNothing()));
-
   // Method used by the extensions API to discard tabs. If |contents| is null,
   // discards the least important tab using DiscardTab(). Otherwise discards
   // the given contents. Returns the new web_contents or null if no tab
   // was discarded.
   content::WebContents* DiscardTabByExtension(content::WebContents* contents);
-
-  // TODO(fdoray): Remove these methods. TabManager shouldn't know about tabs.
-  // https://crbug.com/775644
-  void AddObserver(TabLifecycleObserver* observer);
-  void RemoveObserver(TabLifecycleObserver* observer);
 
  private:
   friend class TabManagerStatsCollectorTest;

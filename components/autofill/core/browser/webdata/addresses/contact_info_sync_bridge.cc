@@ -227,6 +227,16 @@ void ContactInfoSyncBridge::AutofillProfileChanged(
                                  syncer::DeletionOrigin::Unspecified(),
                                  metadata_change_list.get());
       break;
+    case AutofillProfileChange::HIDE_IN_AUTOFILL:
+      auto entity_data = CreateContactInfoEntityDataFromAutofillProfile(
+              change.data_model(),
+              GetPossiblyTrimmedContactInfoSpecificsDataFromProcessor(
+                  change.key()));
+      entity_data->specifics.mutable_contact_info()->set_invisible_in_autofill(
+        true);
+      change_processor()->Put(
+          change.key(), std::move(entity_data), metadata_change_list.get());
+      break;
   }
 
   // Local changes (written by the processor via the metadata change list) don't

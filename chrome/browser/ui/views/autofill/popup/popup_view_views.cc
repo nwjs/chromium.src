@@ -12,6 +12,7 @@
 #include <string_view>
 #include <type_traits>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "base/auto_reset.h"
@@ -67,7 +68,6 @@
 #include "components/sync/service/sync_service.h"
 #include "components/user_education/common/feature_promo/feature_promo_controller.h"
 #include "content/public/browser/web_contents.h"
-#include "third_party/abseil-cpp/absl/types/variant.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -290,21 +290,18 @@ bool PopupViewViews::Show(
   // Compose has separate on show announcements.
   // TODO(crbug.com/340359989): Replace with AutofillComposeDelegate::OnShow
   if (controller_->GetMainFillingProduct() == FillingProduct::kCompose) {
-    const bool announce_politely =
-        base::FeatureList::IsEnabled(features::kComposePopupAnnouncePolitely);
-
     switch (controller_->GetSuggestionAt(0).type) {
       case SuggestionType::kComposeResumeNudge:
       case SuggestionType::kComposeSavedStateNotification: {
         const std::u16string saved_state_message = l10n_util::GetStringUTF16(
             IDS_COMPOSE_SUGGESTION_AX_MESSAGE_ON_SHOW_RESUME);
-        a11y_announcer_.Run(saved_state_message, announce_politely);
+        a11y_announcer_.Run(saved_state_message, /*polite=*/true);
         break;
       }
       case SuggestionType::kComposeProactiveNudge: {
         const std::u16string proactive_message = l10n_util::GetStringUTF16(
             IDS_COMPOSE_SUGGESTION_AX_MESSAGE_ON_SHOW_PROACTIVE);
-        a11y_announcer_.Run(proactive_message, announce_politely);
+        a11y_announcer_.Run(proactive_message, /*polite=*/true);
         break;
       }
       case SuggestionType::kComposeDisable:
@@ -692,6 +689,7 @@ void PopupViewViews::OnSuggestionsChanged(bool prefer_prev_arrow_side) {
   }
 
   MaybeA11yFocusInformationalSuggestion();
+  ShowIPHFeaturePromos();
 }
 
 bool PopupViewViews::OverlapsWithPictureInPictureWindow() const {
@@ -768,12 +766,7 @@ bool PopupViewViews::HasFocus() const {
 
 void PopupViewViews::OnWidgetVisibilityChanged(views::Widget* widget,
                                                bool visible) {
-  if (!visible || !controller_) {
-    return;
-  }
-
-  Browser* browser = GetBrowser();
-  if (!browser) {
+  if (!visible) {
     return;
   }
 
@@ -782,21 +775,7 @@ void PopupViewViews::OnWidgetVisibilityChanged(views::Widget* widget,
   // educational messages. The promo bubble should only be shown once in one
   // session and has a limit for how many times it can be shown at most in a
   // period of time.
-  for (const auto& iph_metadata : base::MakeFlatSet<Suggestion::IPHMetadata>(
-           controller_->GetSuggestions(), /*comp=*/{},
-           &Suggestion::iph_metadata)) {
-    if (iph_metadata.feature) {
-      user_education::FeaturePromoParams params(*iph_metadata.feature);
-      // Setting the params to a `std::vector` (even if it is empty), indicates
-      // to the framework that a substitution should be made. Therefore only
-      // set it if `iph_params` is non-empty.
-      if (!iph_metadata.iph_params.empty()) {
-        params.body_params = iph_metadata.iph_params;
-        params.screen_reader_params = iph_metadata.iph_params;
-      }
-      browser->window()->MaybeShowFeaturePromo(std::move(params));
-    }
-  }
+  ShowIPHFeaturePromos();
 }
 
 void PopupViewViews::SearchBarOnInputChanged(std::u16string_view query) {
@@ -898,6 +877,33 @@ void PopupViewViews::SetSelectedCell(
   }
 }
 
+void PopupViewViews::ShowIPHFeaturePromos() {
+  Browser* browser = GetBrowser();
+  if (!browser) {
+    return;
+  }
+
+  if (!GetWidget() || !GetWidget()->IsVisible() || !controller_) {
+    return;
+  }
+
+  for (const auto& iph_metadata : base::MakeFlatSet<Suggestion::IPHMetadata>(
+           controller_->GetSuggestions(), /*comp=*/{},
+           &Suggestion::iph_metadata)) {
+    if (iph_metadata.feature) {
+      user_education::FeaturePromoParams params(*iph_metadata.feature);
+      // Setting the params to a `std::vector` (even if it is empty), indicates
+      // to the framework that a substitution should be made. Therefore only
+      // set it if `iph_params` is non-empty.
+      if (!iph_metadata.iph_params.empty()) {
+        params.body_params = iph_metadata.iph_params;
+        params.screen_reader_params = iph_metadata.iph_params;
+      }
+      browser->window()->MaybeShowFeaturePromo(std::move(params));
+    }
+  }
+}
+
 void PopupViewViews::UpdateAccessibleStates() const {
   if (controller_) {
     GetViewAccessibility().SetIsExpanded();
@@ -910,7 +916,7 @@ void PopupViewViews::UpdateAccessibleStates() const {
 
 bool PopupViewViews::HasSelectablePopupRowViewAt(size_t index) const {
   return index < rows_.size() &&
-         absl::holds_alternative<PopupRowView*>(rows_[index]) &&
+         std::holds_alternative<PopupRowView*>(rows_[index]) &&
          GetPopupRowViewAt(index).IsSelectable();
 }
 
@@ -964,8 +970,7 @@ void PopupViewViews::CreateSuggestionViews() {
   const int kInterItemsPadding = GetContentsVerticalPadding();
   const std::vector<Suggestion> suggestions = controller_->GetSuggestions();
 
-  SetBackground(
-      views::CreateThemedSolidBackground(ui::kColorDropdownBackground));
+  SetBackground(views::CreateSolidBackground(ui::kColorDropdownBackground));
 
   rows_.reserve(suggestions.size());
   size_t current_line_number = 0u;
@@ -1060,6 +1065,16 @@ void PopupViewViews::CreateSuggestionViews() {
                                     kIPHPlusAddressCreateSuggestionFeature) {
             row_view->SetProperty(views::kElementIdentifierKey,
                                   kPlusAddressCreateSuggestionElementId);
+          } else if (feature ==
+                     &feature_engagement::
+                         kIPHAutofillBnplAffirmOrZipSuggestionFeature) {
+            row_view->SetProperty(views::kElementIdentifierKey,
+                                  kAutofillBnplAffirmOrZipSuggestionElementId);
+          } else if (feature ==
+                     &feature_engagement::
+                         kIPHAutofillHomeWorkProfileSuggestionFeature) {
+            row_view->SetProperty(views::kElementIdentifierKey,
+                                  kAutofillHomeWorkSuggestionElementId);
           }
       }
     }
@@ -1096,7 +1111,7 @@ void PopupViewViews::CreateSuggestionViews() {
       views::Builder<views::BoxLayoutView>()
           .SetOrientation(views::BoxLayout::Orientation::kVertical)
           .SetBackground(
-              views::CreateThemedSolidBackground(ui::kColorDropdownBackground))
+              views::CreateSolidBackground(ui::kColorDropdownBackground))
           .Build();
 
   if (IsFooterScrollable()) {
@@ -1394,7 +1409,7 @@ void PopupViewViews::MaybeA11yFocusInformationalSuggestion() {
     return;
   }
 
-  if (auto* warning_view = absl::get_if<PopupWarningView*>(&rows_[0]);
+  if (auto* warning_view = std::get_if<PopupWarningView*>(&rows_[0]);
       warning_view && *warning_view) {
     NotifyAXSelection(**warning_view);
     (*warning_view)
@@ -1408,6 +1423,24 @@ base::WeakPtr<AutofillPopupView> PopupViewViews::GetWeakPtr() {
 
 BEGIN_METADATA(PopupViewViews)
 END_METADATA
+
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(
+    PopupViewViews,
+    kAutofillBnplAffirmOrZipSuggestionElementId);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(PopupViewViews,
+                                      kAutofillCreditCardBenefitElementId);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(
+    PopupViewViews,
+    kAutofillCreditCardSuggestionEntryElementId);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(PopupViewViews,
+                                      kAutofillAiOptInIphElementId);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(
+    PopupViewViews,
+    kAutofillStandaloneCvcSuggestionElementId);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(PopupViewViews,
+                                      kAutofillSuggestionElementId);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(PopupViewViews,
+                                      kAutofillHomeWorkSuggestionElementId);
 
 // static
 base::WeakPtr<AutofillPopupView> AutofillPopupView::Create(

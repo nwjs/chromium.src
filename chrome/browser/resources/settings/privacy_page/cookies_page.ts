@@ -64,14 +64,6 @@ export class SettingsCookiesPageElement extends SettingsCookiesPageElementBase {
   static get properties() {
     return {
       /**
-       * Preferences state.
-       */
-      prefs: {
-        type: Object,
-        notify: true,
-      },
-
-      /**
        * Current search term.
        */
       searchTerm: {
@@ -91,7 +83,7 @@ export class SettingsCookiesPageElement extends SettingsCookiesPageElementBase {
         value: ThirdPartyCookieBlockingSetting,
       },
 
-      contentSetting_: {
+      contentSettingEnum_: {
         type: Object,
         value: ContentSetting,
       },
@@ -111,11 +103,6 @@ export class SettingsCookiesPageElement extends SettingsCookiesPageElementBase {
       focusConfig: {
         type: Object,
         observer: 'focusConfigChanged_',
-      },
-
-      enableFirstPartySetsUI_: {
-        type: Boolean,
-        value: () => loadTimeData.getBoolean('firstPartySetsUIEnabled'),
       },
 
       is3pcdRedesignEnabled_: {
@@ -147,7 +134,6 @@ export class SettingsCookiesPageElement extends SettingsCookiesPageElementBase {
   private cookiesContentSettingType_: ContentSettingsTypes;
   private blockAllPref_: chrome.settingsPrivate.PrefObject;
   focusConfig: FocusConfig;
-  private enableFirstPartySetsUI_: boolean;
   private is3pcdRedesignEnabled_: boolean;
   private isIpProtectionAvailable_: boolean;
   private isFingerprintingProtectionAvailable_: boolean;
@@ -293,14 +279,6 @@ export class SettingsCookiesPageElement extends SettingsCookiesPageElementBase {
   private relatedWebsiteSetsToggle3pcSettingDisabled_() {
     return this.getPref('generated.third_party_cookie_blocking_setting')
                .value !== ThirdPartyCookieBlockingSetting.BLOCK_THIRD_PARTY;
-  }
-
-  private getThirdPartyCookiesPageBlockThirdPartyIncognitoBulTwoLabel_():
-      string {
-    return this.i18n(
-        this.enableFirstPartySetsUI_ ?
-            'cookiePageBlockThirdIncognitoBulTwoRws' :
-            'thirdPartyCookiesPageBlockIncognitoBulTwo');
   }
 
   private getThirdPartyCookiesPageDescription_():

@@ -9,10 +9,12 @@
 #include <string_view>
 #include <vector>
 
+#include "base/auto_reset.h"
 #include "base/files/file_path.h"
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/on_device_translation/component_manager.h"
 #include "chrome/browser/on_device_translation/language_pack_util.h"
+#include "chrome/browser/on_device_translation/translation_manager_impl.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
 class Browser;
@@ -95,7 +97,29 @@ class MockComponentManager : public ComponentManager {
   void InstallComponent(base::FilePath library_path);
 
   const base::FilePath package_dir_;
+  base::AutoReset<ComponentManager*> mock_component_manager_;
   base::WeakPtrFactory<MockComponentManager> weak_ptr_factory_{this};
+};
+
+class MockTranslationManagerImpl : public TranslationManagerImpl {
+ public:
+  explicit MockTranslationManagerImpl(content::BrowserContext* browser_context,
+                                      const url::Origin& origin);
+  ~MockTranslationManagerImpl() override;
+
+  MockTranslationManagerImpl(const MockTranslationManagerImpl&) = delete;
+  MockTranslationManagerImpl& operator=(const MockTranslationManagerImpl&) =
+      delete;
+
+  MOCK_METHOD(base::TimeDelta, GetTranslatorDownloadDelay, (), (override));
+
+  MOCK_METHOD(component_updater::ComponentUpdateService*,
+              GetComponentUpdateService,
+              (),
+              (override));
+
+ private:
+  base::AutoReset<TranslationManagerImpl*> mock_translation_manager_impl_;
 };
 
 // Creates a fake dictionary data file for the given source and target
@@ -123,20 +147,7 @@ void TestCreateTranslator(Browser* browser,
                           const std::string_view targetLang,
                           const std::string_view result);
 
-// Tests that the AITranslatorCapabilities.available returns the expected
-// result.
-void TestTranslatorCapabilitiesAvailable(Browser* browser,
-                                         const std::string_view result);
-
-// Tests that the AITranslatorCapabilities.languagePairAvailable() returns the
-// expected result.
-void TestLanguagePairAvailable(Browser* browser,
-                               const std::string_view sourceLang,
-                               const std::string_view targetLang,
-                               const std::string_view result);
-
-// Tests that the AITranslatorCapabilities.languagePairAvailable() returns the
-// expected result.
+// Tests that`availability()` returns the expected result.
 void TestTranslationAvailable(Browser* browser,
                               const std::string_view sourceLang,
                               const std::string_view targetLang,

@@ -4246,6 +4246,20 @@ class ChromeDriverTest(ChromeDriverBaseTestWithWebServer):
     self._driver.Load(self.GetHttpUrlForFile(
         '/chromedriver/log_long_unicode_string.html'))
 
+class ChromeDriverPdfTest(ChromeDriverBaseTestWithWebServer):
+  """ Regression test for crbug.com/396611138 """
+  def testPdfWindows(self):
+    driver = self.CreateDriver(
+        chrome_switches=[
+          'disable-features=PdfOopif'
+        ])
+    # Open an additional tab for PDF.
+    new_tab = driver.NewWindow(window_type='tab')
+    driver.SwitchToWindow(new_tab['handle'])
+    driver.Load(self.GetHttpUrlForFile('/download.pdf'))
+    window_handles = driver.GetWindowHandles()
+    self.assertEqual(len(window_handles), 2)
+
 class ChromeDriverBackgroundTest(ChromeDriverBaseTestWithWebServer):
   def setUp(self):
     self._driver1 = self.CreateDriver()
@@ -6157,6 +6171,31 @@ class ChromeDriverAndroidTest(ChromeDriverBaseTest):
     self.assertGreaterEqual(size[0], 20)
     self.assertGreaterEqual(size[1], 20)
 
+  def testAndroidOpenNewWindow(self):
+      self._driver = self.CreateDriver()
+      size = self._driver.GetWindowRect()
+
+      old_window_handle = self._driver.GetCurrentWindowHandle()
+      # window1 = self._driver.SendCommandAndGetResult(
+      #     'Browser.getWindowForTarget', {'targetId': old_window_handle})
+      new_window = self._driver.NewWindow(window_type='window')
+      self._driver.SwitchToWindow(new_window['handle'])
+      self.assertTrue(
+          self.WaitForCondition(
+              lambda: self._driver.GetCurrentWindowHandle() !=
+                old_window_handle))
+      new_window_handle = self._driver.GetCurrentWindowHandle()
+      self.assertNotEqual(None, new_window_handle)
+      self.assertNotEqual(old_window_handle, new_window_handle)
+
+      # TODO(crbug.com/6236167): Until Browser.getWindowForTarget is supported
+      # on Android, it's not possible to assert window IDs of two tabs are
+      # different.
+      # window2 = self._driver.SendCommandAndGetResult(
+      #     'Browser.getWindowForTarget', {'targetId': new_window_handle})
+      # Verify that the second tab target is indeed a different window.
+      # self.assertNotEqual(window1['windowId'], window2['windowId'])
+
 class ChromeDownloadDirTest(ChromeDriverBaseTest):
 
   def RespondWithCsvFile(self, request):
@@ -6433,11 +6472,32 @@ class ChromeExtensionsCapabilityTest(ChromeDriverBaseTestWithWebServer):
           'disable-features=ExtensionManifestV2Disabled',
           'load-extension=' + crx_unpacked
         ])
-    time.sleep(0.5)
+    time.sleep(0.3)
     handles = driver.GetWindowHandles()
     self.assertEqual(len(handles), 2)
-
     for handle in handles:
+      driver.SwitchToWindow(handle)
+      if driver.GetCurrentUrl() == 'chrome://new-tab-page/':
+        return
+    self.fail("couldn't find extension-created window")
+
+  def testCanInspectExtensionTabs(self):
+    crx_unpacked = os.path.join(_TEST_DATA_DIR, 'extv3_new_tab')
+    # This test inspects an extension created new tab.
+    # Extension created regular windows/tabs, unlike background_page, is not
+    # considered an extension target.
+    driver = self.CreateDriver(
+        chrome_switches=[
+          'load-extension=' + crx_unpacked
+        ])
+
+    # Wait for extension window to be open.
+    self.WaitForCondition(lambda: len(driver.GetWindowHandles()) > 1)
+
+    handles = driver.GetWindowHandles()
+    self.assertEqual(len(handles), 2)
+    for handle in handles:
+      # Ensure each exposed window can be switched into
       driver.SwitchToWindow(handle)
       if driver.GetCurrentUrl() == 'chrome://new-tab-page/':
         return

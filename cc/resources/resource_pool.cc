@@ -38,7 +38,11 @@ using base::trace_event::MemoryDumpLevelOfDetail;
 
 namespace cc {
 
-ResourcePool::Backing::Backing() = default;
+ResourcePool::Backing::Backing(const gfx::Size& size,
+                               viz::SharedImageFormat format,
+                               const gfx::ColorSpace& color_space)
+    : size_(size), format_(format), color_space_(color_space) {}
+
 ResourcePool::Backing::~Backing() {
   if (!shared_image_) {
     return;
@@ -52,12 +56,60 @@ ResourcePool::Backing::~Backing() {
   shared_image_.reset();
 }
 
+void ResourcePool::Backing::CreateSharedImage(
+    gpu::SharedImageInterface* sii,
+    const gpu::SharedImageUsageSet& usage,
+    std::string_view debug_label) {
+  shared_image_ = sii->CreateSharedImage(
+      {format(), size(), color_space(), usage, debug_label},
+      gpu::kNullSurfaceHandle);
+  CHECK(shared_image());
+}
+
+void ResourcePool::Backing::CreateSharedImageForTesting() {
+  CreateSharedImageForTesting(GL_TEXTURE_2D);  // IN-TEST
+}
+
+void ResourcePool::Backing::CreateSharedImageForTesting(
+    uint32_t texture_target) {
+  gpu::SharedImageMetadata metadata;
+  metadata.format = format();
+  metadata.size = size();
+  metadata.color_space = color_space();
+  metadata.surface_origin = kTopLeft_GrSurfaceOrigin;
+  metadata.alpha_type = kOpaque_SkAlphaType;
+  metadata.usage = gpu::SHARED_IMAGE_USAGE_SCANOUT;
+  shared_image_ =
+      gpu::ClientSharedImage::CreateForTesting(metadata, texture_target);
+}
+
+void ResourcePool::Backing::CreateSharedImageForSoftwareCompositor(
+    gpu::SharedImageInterface* sii,
+    std::string_view debug_label) {
+  shared_image_ = sii->CreateSharedImageForSoftwareCompositor(
+      {format(), size(), color_space(), gpu::SHARED_IMAGE_USAGE_CPU_WRITE_ONLY,
+       debug_label});
+  CHECK(shared_image());
+}
+
+bool ResourcePool::Backing::CreateSharedImage(
+    gpu::SharedImageInterface* sii,
+    const gpu::SharedImageUsageSet& usage,
+    std::string_view debug_label,
+    gfx::BufferUsage buffer_usage) {
+  shared_image_ = sii->CreateSharedImage(
+      {format(), size(), color_space(), usage, debug_label},
+      gpu::kNullSurfaceHandle, buffer_usage);
+  return !!shared_image();
+}
+
 void ResourcePool::InUsePoolResource::InstallGpuBacking(
     gpu::SharedImageInterface* sii,
     bool is_overlay_candidate,
     bool use_gpu_rasterization,
     std::string_view debug_label) const {
-  auto backing = std::make_unique<ResourcePool::Backing>();
+  auto backing =
+      std::make_unique<ResourcePool::Backing>(size(), format(), color_space());
 
   gpu::SharedImageUsageSet flags = gpu::SHARED_IMAGE_USAGE_DISPLAY_READ |
                                    gpu::SHARED_IMAGE_USAGE_RASTER_WRITE;
@@ -67,10 +119,7 @@ void ResourcePool::InUsePoolResource::InstallGpuBacking(
   if (is_overlay_candidate) {
     flags |= gpu::SHARED_IMAGE_USAGE_SCANOUT;
   }
-  backing->set_shared_image(sii->CreateSharedImage(
-      {format(), size(), color_space(), flags, debug_label},
-      gpu::kNullSurfaceHandle));
-  CHECK(backing->shared_image());
+  backing->CreateSharedImage(sii, flags, debug_label);
   set_backing(std::move(backing));
 }
 
@@ -78,11 +127,9 @@ void ResourcePool::InUsePoolResource::InstallSoftwareBacking(
     scoped_refptr<gpu::SharedImageInterface> sii,
     std::string_view debug_label) const {
   CHECK(!backing());
-  auto backing = std::make_unique<ResourcePool::Backing>();
-  backing->set_shared_image(sii->CreateSharedImageForSoftwareCompositor(
-      {format(), size(), color_space(), gpu::SHARED_IMAGE_USAGE_CPU_WRITE_ONLY,
-       debug_label}));
-  CHECK(backing->shared_image());
+  auto backing =
+      std::make_unique<ResourcePool::Backing>(size(), format(), color_space());
+  backing->CreateSharedImageForSoftwareCompositor(sii.get(), debug_label);
   set_backing(std::move(backing));
 }
 
@@ -684,7 +731,8 @@ void ResourcePool::PoolResource::OnMemoryDump(
   // the root ownership.
   const int kImportance =
       static_cast<int>(gpu::TracingImportance::kClientOwner);
-  if (backing_ && backing_->shared_image()) {
+  if (backing_ && backing_->can_access_shared_image_on_compositor_thread &&
+      backing_->shared_image()) {
     backing_->shared_image()->OnMemoryDump(pmd, dump->guid(), kImportance);
   }
 

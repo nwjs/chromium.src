@@ -10,6 +10,7 @@
 #include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
+#include "components/autofill/core/browser/field_types.h"
 
 namespace autofill {
 class AutofillDriver;
@@ -55,10 +56,18 @@ class AmountExtractionManager {
   static std::optional<uint64_t> MaybeParseAmountToMonetaryMicroUnits(
       const std::string& amount);
 
-  // Decide whether amount extraction should be triggered.
+  // Determines if amount extraction should be initiated.
+  // Triggers extraction when:
+  //   Autofill is available in the given `SuggestionsContext`;
+  //   Autofill provides non-empty, non-suppressed suggestions;
+  //   The form being interacted with is a credit card form but not the CVC
+  //   field of the credit card form;
+  //   The url being visited is within the amount extraction allowlist;
+  //   Amount Extraction feature is enabled;
   virtual bool ShouldTriggerAmountExtraction(const SuggestionsContext& context,
                                              bool should_suppress_suggestions,
-                                             bool has_suggestions) const;
+                                             bool has_suggestions,
+                                             FieldType field_type) const;
 
   // Trigger the search for the final checkout amount from the DOM of the
   // current page.
@@ -67,6 +76,8 @@ class AmountExtractionManager {
   void SetSearchRequestPendingForTesting(bool search_request_pending);
 
   bool GetSearchRequestPendingForTesting();
+
+  bool IsUrlEligibleForAmountExtractionForTesting() const;
 
  private:
   friend class AmountExtractionManagerTest;
@@ -83,7 +94,6 @@ class AmountExtractionManager {
   // so, cancel the ongoing search.
   virtual void OnTimeoutReached();
 
- private:
   // Check whether the host of the checkout webpage exists in the amount
   // extraction allowlist.
   bool IsUrlEligibleForAmountExtraction() const;

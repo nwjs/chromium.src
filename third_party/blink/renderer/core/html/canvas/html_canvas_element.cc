@@ -59,6 +59,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/script_controller.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_image_bitmap_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_image_encode_options.h"
+#include "third_party/blink/renderer/core/canvas_interventions/canvas_interventions_helper.h"
 #include "third_party/blink/renderer/core/css/css_font_selector.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/dom/document.h"
@@ -80,6 +81,7 @@
 #include "third_party/blink/renderer/core/html/canvas/canvas_resource_tracker.h"
 #include "third_party/blink/renderer/core/html/canvas/image_data.h"
 #include "third_party/blink/renderer/core/html/canvas/predefined_color_space.h"
+#include "third_party/blink/renderer/core/html/canvas/unique_font_selector.h"
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_select_element.h"
 #include "third_party/blink/renderer/core/html/html_image_element.h"
@@ -99,14 +101,17 @@
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
+#include "third_party/blink/renderer/platform/fonts/plain_text_painter.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_2d_layer_bridge.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_resource_dispatcher.h"
+#include "third_party/blink/renderer/platform/graphics/canvas_resource_host.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_resource_provider.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_context.h"
 #include "third_party/blink/renderer/platform/graphics/image_data_buffer.h"
 #include "third_party/blink/renderer/platform/graphics/memory_managed_paint_recorder.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_canvas.h"
+#include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
 #include "third_party/blink/renderer/platform/graphics/static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/graphics/static_bitmap_image_to_video_frame_copier.h"
 #include "third_party/blink/renderer/platform/graphics/static_bitmap_image_transform.h"
@@ -124,34 +129,6 @@
 namespace blink {
 
 namespace {
-
-// Serves as killswitch for changing GetOrCreateCanvasResourceProvider() away
-// from using GetOrCreateCanvas2DLayerBridge() for 2D contexts.
-// TODO(crbug.com/401192130): Resolve crash and re-enable.
-// TODO(crbug.com/40280152): Eliminate post safe-rollout.
-BASE_FEATURE(kAdjustGetOrCreate2DCanvasProvider,
-             "AdjustGetOrCreate2DCanvasProvider",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-bool AdjustGetOrCreate2DCanvasProvider() {
-  // The change to GetOrCreateCanvasResourceProvider() is safe only if the below
-  // new features are also enabled, as (a) our reasoning about the
-  // GetOrCreateCanvasResourceProvider() change is built on the behavior enabled
-  // by these features feature, and (b) if we were to ever disable the below
-  // features but leave the GetOrCreateCanvasResourceProvider() change in place
-  // we would be putting the codebase in an untested state.
-  if (!CanvasRenderingContext::
-          CheckProviderInCanCreateCanvas2dResourceProvider()) {
-    return false;
-  }
-
-  if (!CanvasRenderingContext::
-          CheckProviderInCanvas2DRenderingContextIsPaintable()) {
-    return false;
-  }
-
-  return base::FeatureList::IsEnabled(kAdjustGetOrCreate2DCanvasProvider);
-}
 
 // These two constants determine if a newly created canvas starts with
 // acceleration disabled. Specifically:
@@ -649,7 +626,7 @@ CanvasRenderingContext* HTMLCanvasElement::GetCanvasRenderingContextInternal(
   }
 
   // A 2D context does not know before lazy creation whether or not it is
-  // direct composited. The Canvas2DLayerBridge will handle this
+  // direct composited.
   if (!IsRenderingContext2D())
     SetNeedsCompositingUpdate();
 
@@ -749,11 +726,13 @@ void HTMLCanvasElement::PreFinalizeFrame() {
 
   // Low-latency 2d canvases produce their frames after the resource gets single
   // buffered.
-  if (LowLatencyEnabled() && !dirty_rect_.IsEmpty() &&
-      GetOrCreateCanvasResourceProvider(RasterModeHint::kPreferGPU)) {
-    // TryEnableSingleBuffering() the first time we FinalizeFrame().  This is
-    // a nop if already single buffered or if single buffering is unsupported.
-    ResourceProvider()->TryEnableSingleBuffering();
+  // TODO(crbug.com/40280152): Analyze whether this call is redundant (i.e.,
+  // whether the CRP is guaranteed to always be present) once
+  // Canvas2DLayerBridge is definitively eliminated and the dust has settled on
+  // all flows via which CanvasResourceProviders are or are nont created coming
+  // into this flow.
+  if (LowLatencyEnabled() && !dirty_rect_.IsEmpty()) {
+    GetOrCreateCanvasResourceProvider(RasterModeHint::kPreferGPU);
   }
 }
 
@@ -783,6 +762,13 @@ void HTMLCanvasElement::PostFinalizeFrame(FlushReason reason) {
   if (!did_notify_listeners_for_current_frame_)
     NotifyListenersCanvasChanged();
   did_notify_listeners_for_current_frame_ = false;
+
+  if (plain_text_painter_ != nullptr) {
+    plain_text_painter_->DidSwitchFrame();
+  }
+  if (unique_font_selector_) {
+    unique_font_selector_->DidSwitchFrame();
+  }
 }
 
 void HTMLCanvasElement::DisableAcceleration() {
@@ -963,7 +949,7 @@ void HTMLCanvasElement::NotifyListenersCanvasChanged() {
   }
 
   const bool context_color_is_opaque =
-      context_ ? SkAlphaTypeIsOpaque(context_->GetAlphaType()) : false;
+      context_ && SkAlphaTypeIsOpaque(context_->GetAlphaType());
 
   for (CanvasDrawListener* listener : listeners_) {
     if (!listener->NeedsNewFrame())
@@ -998,8 +984,8 @@ void HTMLCanvasElement::NotifyListenersCanvasChanged() {
 
     if (!source_image) {
       SourceImageStatus status;
-      source_image = GetSourceImageForCanvasInternal(FlushReason::kDrawListener,
-                                                     &status, kDontChangeAlpha);
+      source_image =
+          GetSourceImageForCanvasInternal(FlushReason::kDrawListener, &status);
       if (status != kNormalSourceImageStatus)
         continue;
     }
@@ -1203,8 +1189,9 @@ void HTMLCanvasElement::SetSurfaceSize(gfx::Size size) {
 }
 
 const AtomicString HTMLCanvasElement::ImageSourceURL() const {
-  return AtomicString(ToDataURLInternal(
-      ImageEncoderUtils::kDefaultRequestedMimeType, 0, kFrontBuffer));
+  return AtomicString(
+      ToDataURLInternal(ImageEncoderUtils::kDefaultRequestedMimeType, 0,
+                        kFrontBuffer, ReadbackType::kNotWebExposed));
 }
 
 scoped_refptr<StaticBitmapImage> HTMLCanvasElement::Snapshot(
@@ -1260,10 +1247,10 @@ scoped_refptr<StaticBitmapImage> HTMLCanvasElement::Snapshot(
   return image_bitmap;
 }
 
-String HTMLCanvasElement::ToDataURLInternal(
-    const String& mime_type,
-    const double& quality,
-    SourceDrawingBuffer source_buffer) const {
+String HTMLCanvasElement::ToDataURLInternal(const String& mime_type,
+                                            const double& quality,
+                                            SourceDrawingBuffer source_buffer,
+                                            ReadbackType readback_type) const {
   base::TimeTicks start_time = base::TimeTicks::Now();
   if (!IsPaintable())
     return String("data:,");
@@ -1275,6 +1262,11 @@ String HTMLCanvasElement::ToDataURLInternal(
   scoped_refptr<StaticBitmapImage> image_bitmap =
       Snapshot(FlushReason::kToDataURL, source_buffer);
   if (image_bitmap) {
+    bool noised = false;
+    if (readback_type == ReadbackType::kWebExposed) {
+      noised = CanvasInterventionsHelper::MaybeNoiseSnapshot(
+          context_, GetExecutionContext(), image_bitmap, GetRasterMode());
+    }
     std::unique_ptr<ImageDataBuffer> data_buffer =
         ImageDataBuffer::Create(image_bitmap);
     if (!data_buffer)
@@ -1313,6 +1305,11 @@ String HTMLCanvasElement::ToDataURLInternal(
       NOTREACHED();
     }
     IdentifiabilityReportWithDigest(IdentifiabilityBenignStringToken(data_url));
+    if (readback_type == ReadbackType::kWebExposed) {
+      TRACE_EVENT_INSTANT(
+          TRACE_DISABLED_BY_DEFAULT("identifiability.high_entropy_api"),
+          "CanvasReadback", "data_url", data_url.Utf8(), "noised", noised);
+    }
     return data_url;
   }
 
@@ -1340,11 +1337,8 @@ String HTMLCanvasElement::toDataURL(const String& mime_type,
     if (v8_value->IsNumber())
       quality = v8_value.As<v8::Number>()->Value();
   }
-  String data = ToDataURLInternal(mime_type, quality, kBackBuffer);
-  TRACE_EVENT_INSTANT(
-      TRACE_DISABLED_BY_DEFAULT("identifiability.high_entropy_api"),
-      "CanvasReadback", "data_url", data.Utf8());
-  return data;
+  return ToDataURLInternal(mime_type, quality, kBackBuffer,
+                           ReadbackType::kWebExposed);
 }
 
 void HTMLCanvasElement::toBlob(V8BlobCallback* callback,
@@ -1392,8 +1386,15 @@ void HTMLCanvasElement::toBlob(V8BlobCallback* callback,
   scoped_refptr<StaticBitmapImage> image_bitmap =
       Snapshot(FlushReason::kToBlob, kBackBuffer);
   if (image_bitmap) {
+    auto intervention_type =
+        CanvasInterventionsHelper::CanvasInterventionType::kNone;
+    if (CanvasInterventionsHelper::MaybeNoiseSnapshot(
+            context_, GetExecutionContext(), image_bitmap, GetRasterMode())) {
+      intervention_type =
+          CanvasInterventionsHelper::CanvasInterventionType::kNoise;
+    }
     auto* options = ImageEncodeOptions::Create();
-    options->setType(ImageEncodingMimeTypeName(encoding_mime_type));
+    options->setType(ImageEncoderUtils::MimeTypeName(encoding_mime_type));
     async_creator = MakeGarbageCollected<CanvasAsyncBlobCreator>(
         image_bitmap, options,
         CanvasAsyncBlobCreator::kHTMLCanvasToBlobCallback, callback, start_time,
@@ -1401,7 +1402,8 @@ void HTMLCanvasElement::toBlob(V8BlobCallback* callback,
         IdentifiabilityStudySettings::Get()->ShouldSampleType(
             IdentifiableSurface::Type::kCanvasReadback)
             ? IdentifiabilityInputDigest(context_)
-            : 0);
+            : 0,
+        intervention_type);
   }
 
   if (async_creator) {
@@ -1554,6 +1556,7 @@ void HTMLCanvasElement::Trace(Visitor* visitor) const {
   PageVisibilityObserver::Trace(visitor);
   CanvasRenderingContextHost::Trace(visitor);
   HTMLElement::Trace(visitor);
+  CanvasRenderingContextHost::Trace(visitor);
 }
 
 CanvasHibernationHandler* HTMLCanvasElement::GetHibernationHandler() const {
@@ -1627,7 +1630,30 @@ void HTMLCanvasElement::SetResourceProviderForTesting(
 }
 
 void HTMLCanvasElement::DiscardResourceProvider() {
-  canvas2d_bridge_.reset();
+  // Historically this method dropped `canvas2d_bridge_`. However, changing
+  // CanvasRenderingContext2D::IsPaintable() to check for the presence of the
+  // resource provider instead of the bridge has the intentional behavioral
+  // change that we no longer guard recreation of the resource provider in
+  // CanvasRenderingContext2D::Restore() by a check of IsPaintable() being true.
+  // In this case, it is necessary to preserve the bridge (and hibernation
+  // handler) to preserve the invariant that the hibernation handler is present
+  // whenever there is a valid resource provider for Canvas2D. We can simply
+  // clear hibernation rather than dropping the bridge entirely.
+  if (CanvasRenderingContext::
+          CheckProviderInCanvas2DRenderingContextIsPaintable()) {
+    if (IsHibernating()) {
+      // Ensure consistency of metrics reporting across the change from the
+      // previous code flow.
+      // TODO(crbug.com/40280152): Determine how we want to report metrics here
+      // in the long-term once the dust has settled on the killswitch removal.
+      CanvasHibernationHandler::ReportHibernationEvent(
+          CanvasHibernationHandler::HibernationEvent::
+              kHibernationEndedWithTeardown);
+      GetHibernationHandler()->Clear();
+    }
+  } else {
+    canvas2d_bridge_.reset();
+  }
   ResetLayer();
   CanvasResourceHost::DiscardResourceProvider();
   dirty_rect_ = gfx::Rect();
@@ -1750,8 +1776,7 @@ void HTMLCanvasElement::WillDrawImageTo2DContext(CanvasImageSource* source) {
 }
 
 bool HTMLCanvasElement::EnableAcceleration() {
-  return GetRasterMode() == RasterMode::kCPU ? RecreateCanvasInGPURasterMode()
-                                             : true;
+  return GetRasterMode() != RasterMode::kCPU || RecreateCanvasInGPURasterMode();
 }
 
 bool HTMLCanvasElement::RecreateCanvasInGPURasterMode() {
@@ -1766,16 +1791,13 @@ bool HTMLCanvasElement::RecreateCanvasInGPURasterMode() {
 scoped_refptr<Image> HTMLCanvasElement::GetSourceImageForCanvas(
     FlushReason reason,
     SourceImageStatus* status,
-    const gfx::SizeF&,
-    const AlphaDisposition alpha_disposition) {
-  return GetSourceImageForCanvasInternal(reason, status, alpha_disposition);
+    const gfx::SizeF&) {
+  return GetSourceImageForCanvasInternal(reason, status);
 }
 
 scoped_refptr<StaticBitmapImage>
-HTMLCanvasElement::GetSourceImageForCanvasInternal(
-    FlushReason reason,
-    SourceImageStatus* status,
-    const AlphaDisposition alpha_disposition) {
+HTMLCanvasElement::GetSourceImageForCanvasInternal(FlushReason reason,
+                                                   SourceImageStatus* status) {
   if (ContextHasOpenLayers(context_)) {
     *status = kLayersOpenInCanvasSource;
     return nullptr;
@@ -1828,11 +1850,7 @@ HTMLCanvasElement::GetSourceImageForCanvasInternal(
   }
 
   *status = kNormalSourceImageStatus;
-
-  // If the alpha_disposition is already correct, or the image is opaque, this
-  // is a no-op.
-  return StaticBitmapImageTransform::GetWithAlphaDisposition(
-      reason, std::move(image), alpha_disposition);
+  return image;
 }
 
 bool HTMLCanvasElement::WouldTaintOrigin() const {
@@ -1951,23 +1969,21 @@ const LayoutLocale* HTMLCanvasElement::GetLocale() const {
     return LayoutLocale::Get(language);
   }
 
-  // The computed language may be null if the element is disconnected and does
-  // not have it's own language attribute. Fall back to the language of the
-  // document from the execution context.
-  if (const auto* window = DynamicTo<LocalDOMWindow>(GetExecutionContext())) {
-    const Element* document_element = window->document()->documentElement();
-    if (document_element) {
-      return &LayoutLocale::ValueOrDefault(
-          LayoutLocale::Get(document_element->ComputeInheritedLanguage()));
-    }
-  }
-
-  // If all else fails, return the default.
+  // The spec says to use the language of the canvas element, so if it doesn't
+  // have one we need to return the default (the "unknown language").
   return &LayoutLocale::GetDefault();
 }
 
-FontSelector* HTMLCanvasElement::GetFontSelector() {
-  return GetDocument().GetStyleEngine().GetFontSelector();
+UniqueFontSelector* HTMLCanvasElement::GetFontSelector() {
+  if (UniqueFontSelector* unique_font_selector = unique_font_selector_) {
+    return unique_font_selector;
+  }
+  auto* unique_font_selector = MakeGarbageCollected<UniqueFontSelector>(
+      GetDocument().GetStyleEngine().GetFontSelector(),
+      RuntimeEnabledFeatures::CanvasTextNgEnabled(
+          GetDocument().GetExecutionContext()));
+  unique_font_selector_ = unique_font_selector;
+  return unique_font_selector;
 }
 
 void HTMLCanvasElement::UpdateMemoryUsage() {
@@ -2102,7 +2118,8 @@ void HTMLCanvasElement::ReplaceExistingResourceProviderFor2DContext() {
 CanvasResourceProvider* HTMLCanvasElement::GetOrCreateCanvasResourceProvider(
     RasterModeHint hint) {
   if (IsRenderingContext2D()) {
-    if (!AdjustGetOrCreate2DCanvasProvider()) {
+    if (!CanvasRenderingContext::
+            CheckProviderInCanvas2DRenderingContextIsPaintable()) {
       Canvas2DLayerBridge* bridge = GetOrCreateCanvas2DLayerBridge();
       if (bridge == nullptr) {
         return nullptr;
@@ -2119,7 +2136,8 @@ CanvasResourceProvider* HTMLCanvasElement::GetOrCreateCanvasResourceProvider(
       return resource_provider;
     }
 
-    if (AdjustGetOrCreate2DCanvasProvider()) {
+    if (CanvasRenderingContext::
+            CheckProviderInCanvas2DRenderingContextIsPaintable()) {
       if (did_fail_to_create_resource_provider_) {
         return nullptr;
       }
@@ -2142,7 +2160,8 @@ CanvasResourceProvider* HTMLCanvasElement::GetOrCreateCanvasResourceProvider(
     resource_provider = RecreateCanvasResourceProviderFor2DContext(
         canvas2d_bridge_->GetHibernationHandler());
 
-    if (AdjustGetOrCreate2DCanvasProvider()) {
+    if (CanvasRenderingContext::
+            CheckProviderInCanvas2DRenderingContextIsPaintable()) {
       UpdateMemoryUsage();
 
       if (context_) {
@@ -2159,20 +2178,17 @@ CanvasResourceProvider* HTMLCanvasElement::GetOrCreateCanvasResourceProvider(
 CanvasResourceProvider*
 HTMLCanvasElement::RecreateCanvasResourceProviderFor2DContext(
     CanvasHibernationHandler& hibernation_handler) {
-  // Restore() is tried at most four times in two seconds to recreate the
-  // ResourceProvider before the final attempt, in which a new
-  // Canvas2DLayerBridge is created along with its resource provider.
-
   bool want_acceleration = ShouldTryToUseGpuRaster();
   RasterModeHint adjusted_hint = want_acceleration ? RasterModeHint::kPreferGPU
                                                    : RasterModeHint::kPreferCPU;
 
-  // Re-creation will happen through Restore().
-  // If the Canvas2DLayerBridge has just been created, possibly due to failed
-  // attempts of Restore(), the layer would not exist, therefore, it will not
-  // fall through this clause to try Restore() again
   if (CcLayer() && adjusted_hint == RasterModeHint::kPreferGPU &&
       !hibernation_handler.IsHibernating()) {
+    // In this case re-creation will happen through
+    // CanvasRenderingContext2D::Restore(). Restore() attempts to recreate the
+    // ResourceProvider at most four times in two seconds before it clears all
+    // state (including the CC layer) by calling DiscardResourceProvider() on
+    // this object.
     return nullptr;
   }
 

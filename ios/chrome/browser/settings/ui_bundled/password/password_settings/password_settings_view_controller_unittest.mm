@@ -10,7 +10,6 @@
 #import "base/test/scoped_feature_list.h"
 #import "base/test/task_environment.h"
 #import "base/test/test_timeouts.h"
-#import "components/sync/base/features.h"
 #import "ios/chrome/browser/credential_provider/model/features.h"
 #import "ios/chrome/browser/settings/ui_bundled/password/password_manager_ui_features.h"
 #import "ios/chrome/browser/settings/ui_bundled/password/password_settings/password_settings_consumer.h"
@@ -114,7 +113,7 @@ TEST_F(PasswordSettingsViewControllerTest, DisplaysOfferToSavePasswords) {
 
 TEST_F(PasswordSettingsViewControllerTest,
        DisplaysOfferToSavePasswordsManagedByPolicy) {
-  [controller() setSavePasswordsEnabled:NO managedByPolicy:YES];
+  [controller() setSavingPasswordsEnabled:NO managedByPolicy:YES];
   TableViewInfoButtonItem* managedSavePasswordsItem =
       static_cast<TableViewInfoButtonItem*>(GetTableViewItem(/*section=*/0, 0));
   EXPECT_NSEQ(managedSavePasswordsItem.text,
@@ -123,7 +122,7 @@ TEST_F(PasswordSettingsViewControllerTest,
 
 TEST_F(PasswordSettingsViewControllerTest,
        DisplaysMovePasswordsToAccountButtonWithLocalPasswords) {
-  [controller() setLocalPasswordsCount:2 withUserEligibility:YES];
+  [controller() setCanBulkMove:YES localPasswordsCount:2];
 
   TableViewDetailTextItem* movePasswordsToAccountDescriptionItem =
       static_cast<TableViewDetailTextItem*>(
@@ -294,18 +293,14 @@ TEST_F(PasswordSettingsViewControllerTest, TurnOnAutoFillButtonMetric) {
 
 TEST_F(PasswordSettingsViewControllerTest,
        DisplaysAutomaticPasskeyUpgradesSwitchWithFeatureEnabled) {
-  if (!syncer::IsWebauthnCredentialSyncEnabled()) {
-    GTEST_SKIP() << "This build configuration does not support passkeys.";
-  }
-
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeature(
       kCredentialProviderAutomaticPasskeyUpgrade);
 
   // Re-create the controller so that the enabled flag is picked up.
   CreateController();
-  [controller() setSavePasswordsEnabled:YES managedByPolicy:NO];
-  [controller() setSavePasskeysEnabled:YES];
+  [controller() setSavingPasswordsEnabled:YES managedByPolicy:NO];
+  [controller() setSavingPasskeysEnabled:YES];
 
   TableViewSwitchItem* automaticPasskeyUpgradesSwitch =
       static_cast<TableViewSwitchItem*>(
@@ -319,7 +314,7 @@ TEST_F(PasswordSettingsViewControllerTest,
 
 TEST_F(PasswordSettingsViewControllerTest,
        DisplaysChangeGPMPinButtonForEligibleUser) {
-  [controller() setupChangeGPMPinButton];
+  [controller() setCanChangeGPMPin:YES];
 
   TableViewImageItem* changeGPMPinDescription =
       static_cast<TableViewImageItem*>(GetTableViewItem(
@@ -341,7 +336,7 @@ TEST_F(PasswordSettingsViewControllerTest,
 
 TEST_F(PasswordSettingsViewControllerTest,
        CallsPresentationDelegateOnGPMPinButtonTap) {
-  [controller() setupChangeGPMPinButton];
+  [controller() setCanChangeGPMPin:YES];
 
   id mockPresentationDelegate =
       OCMProtocolMock(@protocol(PasswordSettingsPresentationDelegate));
@@ -406,7 +401,6 @@ TEST_F(PasswordSettingsViewControllerTest,
 TEST_F(PasswordSettingsViewControllerTest,
        ExportButtonDisabledWhenUserNotEligible) {
   [controller() setCanExportPasswords:NO];
-  [controller() updateExportPasswordsButton];
   EXPECT_TRUE(GetTableViewItem(ExpectedSectionAfterAlwaysVisibleTopSections(),
                                /*item=*/0)
                   .accessibilityTraits &
@@ -416,7 +410,6 @@ TEST_F(PasswordSettingsViewControllerTest,
 TEST_F(PasswordSettingsViewControllerTest,
        ExportButtonEnabledWhenUserEligible) {
   [controller() setCanExportPasswords:YES];
-  [controller() updateExportPasswordsButton];
   EXPECT_FALSE(GetTableViewItem(ExpectedSectionAfterAlwaysVisibleTopSections(),
                                 /*item=*/0)
                    .accessibilityTraits &
@@ -432,7 +425,6 @@ TEST_F(PasswordSettingsViewControllerTest,
   // Re-create the controller so that the enabled flag is picked up.
   CreateController();
   [controller() setCanDeleteAllCredentials:NO];
-  [controller() updateDeleteAllCredentialsSection];
   EXPECT_TRUE(
       GetTableViewItem(ExpectedSectionAfterAlwaysVisibleTopSections() + 1,
                        /*item=*/0)
@@ -449,7 +441,6 @@ TEST_F(PasswordSettingsViewControllerTest,
   // Re-create the controller so that the enabled flag is picked up.
   CreateController();
   [controller() setCanDeleteAllCredentials:YES];
-  [controller() updateDeleteAllCredentialsSection];
   EXPECT_FALSE(
       GetTableViewItem(ExpectedSectionAfterAlwaysVisibleTopSections() + 1,
                        /*item=*/0)

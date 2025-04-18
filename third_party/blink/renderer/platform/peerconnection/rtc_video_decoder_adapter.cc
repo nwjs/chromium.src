@@ -8,6 +8,7 @@
 #include <atomic>
 #include <functional>
 #include <utility>
+#include <variant>
 
 #include "base/containers/contains.h"
 #include "base/feature_list.h"
@@ -34,7 +35,6 @@
 #include "media/base/video_decoder.h"
 #include "media/base/video_types.h"
 #include "media/video/gpu_video_accelerator_factories.h"
-#include "third_party/abseil-cpp/absl/types/variant.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/platform/peerconnection/rtc_video_decoder_fallback_recorder.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
@@ -47,6 +47,7 @@
 #include "third_party/webrtc/api/video/video_frame.h"
 #include "third_party/webrtc/api/video_codecs/vp9_profile.h"
 #include "third_party/webrtc/modules/video_coding/codecs/h264/include/h264.h"
+#include "third_party/webrtc/modules/video_coding/include/video_error_codes.h"
 #include "third_party/webrtc/rtc_base/ref_count.h"
 #include "third_party/webrtc/rtc_base/ref_counted_object.h"
 #include "ui/gfx/color_space.h"
@@ -232,7 +233,7 @@ class RTCVideoDecoderAdapter::Impl {
   void Decode(scoped_refptr<media::DecoderBuffer> buffer,
               base::WaitableEvent* waiter,
               std::optional<RTCVideoDecoderAdapter::DecodeResult>* result);
-  absl::variant<DecodeResult, RTCVideoDecoderFallbackReason> EnqueueBuffer(
+  std::variant<DecodeResult, RTCVideoDecoderFallbackReason> EnqueueBuffer(
       scoped_refptr<media::DecoderBuffer> buffer);
   void Flush(WTF::CrossThreadOnceClosure flush_success_cb,
              WTF::CrossThreadOnceClosure flush_fail_cb);
@@ -328,7 +329,7 @@ void RTCVideoDecoderAdapter::Impl::Decode(
 
   auto enque_result = EnqueueBuffer(std::move(buffer));
   if (const auto* fallback_reason =
-          absl::get_if<RTCVideoDecoderFallbackReason>(&enque_result)) {
+          std::get_if<RTCVideoDecoderFallbackReason>(&enque_result)) {
     RecordRTCVideoDecoderFallbackReason(video_codec_, *fallback_reason);
     if (waiter) {
       *result = std::nullopt;
@@ -340,7 +341,7 @@ void RTCVideoDecoderAdapter::Impl::Decode(
   }
 
   const auto* decode_result =
-      absl::get_if<RTCVideoDecoderAdapter::DecodeResult>(&enque_result);
+      std::get_if<RTCVideoDecoderAdapter::DecodeResult>(&enque_result);
   switch (*decode_result) {
     case DecodeResult::kOk:
       DecodePendingBuffers();
@@ -359,8 +360,8 @@ void RTCVideoDecoderAdapter::Impl::Decode(
   }
 }
 
-absl::variant<RTCVideoDecoderAdapter::DecodeResult,
-              RTCVideoDecoderFallbackReason>
+std::variant<RTCVideoDecoderAdapter::DecodeResult,
+             RTCVideoDecoderFallbackReason>
 RTCVideoDecoderAdapter::Impl::EnqueueBuffer(
     scoped_refptr<media::DecoderBuffer> buffer) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(media_sequence_checker_);

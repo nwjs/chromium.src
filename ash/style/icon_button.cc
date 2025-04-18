@@ -4,6 +4,8 @@
 
 #include "ash/style/icon_button.h"
 
+#include <variant>
+
 #include "ash/public/cpp/style/color_provider.h"
 #include "ash/style/blurred_background_shield.h"
 #include "ash/style/style_util.h"
@@ -181,15 +183,15 @@ bool IsProminentFloatingType(IconButton::Type type) {
 std::unique_ptr<views::Background> CreateThemedBackground(
     ui::ColorId color_id,
     IconButton::Type type) {
-  return views::CreateThemedRoundedRectBackground(
-      color_id, GetButtonSizeOnType(type) / 2);
+  return views::CreateRoundedRectBackground(color_id,
+                                            GetButtonSizeOnType(type) / 2);
 }
 
 // Create a solid color fully rounded rect background for icon button.
 std::unique_ptr<views::Background> CreateSolidBackground(
     ui::ColorVariant color,
     IconButton::Type type) {
-  return views::CreateSolidOrThemedRoundedRectBackground(
+  return views::CreateRoundedRectBackground(
       color, gfx::RoundedCornersF(GetButtonSizeOnType(type) / 2));
 }
 
@@ -227,11 +229,11 @@ std::unique_ptr<IconButton> IconButton::Builder::Build() {
   }
 
   std::u16string accessible_name;
-  if (absl::holds_alternative<int>(accessible_name_)) {
+  if (std::holds_alternative<int>(accessible_name_)) {
     accessible_name =
-        l10n_util::GetStringUTF16(absl::get<int>(accessible_name_));
+        l10n_util::GetStringUTF16(std::get<int>(accessible_name_));
   } else {
-    accessible_name = absl::get<std::u16string>(accessible_name_);
+    accessible_name = std::get<std::u16string>(accessible_name_);
   }
 
   auto button = std::make_unique<IconButton>(
@@ -535,8 +537,7 @@ void IconButton::OnFocus() {
   if (IsProminentFloatingType(type_) && !IsToggledOn()) {
     // If prominent floating button is still using default colors, updates its
     // icon color on focus.
-    if (icon_color_.GetColorId() ==
-        GetDefaultIconColorId(type_, /*focused=*/false)) {
+    if (icon_color_ == GetDefaultIconColorId(type_, /*focused=*/false)) {
       icon_color_ = GetDefaultIconColorId(type_, /*focused=*/true);
       UpdateVectorIcon(/*color_changes_only=*/true);
     }
@@ -548,8 +549,7 @@ void IconButton::OnBlur() {
   if (IsProminentFloatingType(type_) && !IsToggledOn()) {
     // If prominent floating button is still using default colors, updates its
     // icon color on focus.
-    if (icon_color_.GetColorId() ==
-        GetDefaultIconColorId(type_, /*focused=*/true)) {
+    if (icon_color_ == GetDefaultIconColorId(type_, /*focused=*/true)) {
       icon_color_ = GetDefaultIconColorId(type_, /*focused=*/false);
       UpdateVectorIcon(/*color_changes_only=*/true);
     }
@@ -683,11 +683,6 @@ void IconButton::OnEnabledStateChanged() {
   UpdateBackground();
 }
 
-SkColor IconButton::GetBackgroundColor() const {
-  DCHECK(background());
-  return background()->get_color();
-}
-
 bool IconButton::IsToggledOn() const {
   return toggled_ &&
          (GetEnabled() ||
@@ -718,14 +713,8 @@ std::pair<ui::ImageModel, ui::ImageModel> IconButton::VectorImages(
     return {ui::ImageModel(), ui::ImageModel()};
   }
 
-  ui::ImageModel new_normal_image_model;
-  if (auto sk_color = color.GetSkColor()) {
-    new_normal_image_model =
-        ui::ImageModel::FromVectorIcon(*icon, *sk_color, icon_size);
-  } else {
-    new_normal_image_model =
-        ui::ImageModel::FromVectorIcon(*icon, *color.GetColorId(), icon_size);
-  }
+  ui::ImageModel new_normal_image_model =
+      ui::ImageModel::FromVectorIcon(*icon, color, icon_size);
 
   ui::ImageModel disabled_image_model = ui::ImageModel::FromVectorIcon(
       *icon, cros_tokens::kCrosSysDisabled, icon_size);

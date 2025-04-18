@@ -4,10 +4,6 @@
 
 package org.chromium.android_webview.test.payments;
 
-import android.app.Activity;
-import android.content.Intent;
-import android.os.Bundle;
-
 import androidx.test.filters.SmallTest;
 
 import org.junit.After;
@@ -29,19 +25,14 @@ import org.chromium.android_webview.test.TestAwContentsClient;
 import org.chromium.android_webview.test.TestWebMessageListener;
 import org.chromium.android_webview.test.TestWebMessageListener.Data;
 import org.chromium.android_webview.test.util.JSUtils;
-import org.chromium.base.Callback;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
-import org.chromium.components.payments.AndroidIntentLauncher;
-import org.chromium.components.payments.AndroidPaymentAppFinder;
-import org.chromium.components.payments.MockPackageManagerDelegate;
-import org.chromium.components.payments.PaymentManifestDownloader;
+import org.chromium.components.payments.MockPaymentApp;
+import org.chromium.components.payments.MockPaymentAppInstaller;
+import org.chromium.components.payments.PaymentRequestTestWebPageContents;
 import org.chromium.content_public.common.ContentFeatures;
 import org.chromium.net.test.util.TestWebServer;
-import org.chromium.ui.base.WindowAndroid;
-import org.chromium.url.GURL;
-import org.chromium.url.Origin;
 
 /** Tests that the PaymentRequest API works as expected in WebView. */
 @RunWith(Parameterized.class)
@@ -53,10 +44,12 @@ public class AwPaymentRequestServiceTest extends AwParameterizedTest {
             "https://other-payments.example/web-pay";
 
     @Rule public AwActivityTestRule mActivityTestRule;
+    private MockPaymentAppInstaller mMockPaymentAppInstaller;
     private AwTestContainerView mTestContainerView;
     private AwContents mAwContents;
     private TestWebMessageListener mWebMessageListener;
     private TestWebServer mMerchantServer;
+    private PaymentRequestTestWebPageContents mPageContents;
 
     public AwPaymentRequestServiceTest(AwSettingsMutation params) {
         this.mActivityTestRule = new AwActivityTestRule(params.getMutation());
@@ -64,6 +57,8 @@ public class AwPaymentRequestServiceTest extends AwParameterizedTest {
 
     @Before
     public void setUp() throws Exception {
+        mMockPaymentAppInstaller = new MockPaymentAppInstaller();
+
         mTestContainerView =
                 mActivityTestRule.createAwTestContainerViewOnMainSync(new TestAwContentsClient());
         mAwContents = mTestContainerView.getAwContents();
@@ -74,12 +69,14 @@ public class AwPaymentRequestServiceTest extends AwParameterizedTest {
                 mAwContents, "resultListener", new String[] {"*"}, mWebMessageListener);
 
         mMerchantServer = TestWebServer.start();
+        mPageContents = new PaymentRequestTestWebPageContents();
+
+        mAwContents.getSettings().setPaymentRequestEnabled(true);
     }
 
     @After
     public void tearDown() throws Exception {
-        AndroidPaymentAppFinder.setPackageManagerDelegateForTest(null);
-        AndroidPaymentAppFinder.setDownloaderForTest(null);
+        mMockPaymentAppInstaller.reset();
         mMerchantServer.close();
     }
 
@@ -91,7 +88,7 @@ public class AwPaymentRequestServiceTest extends AwParameterizedTest {
     @SmallTest
     @DisableFeatures(ContentFeatures.WEB_PAYMENTS)
     public void testPaymentRequestIsNotDefined() throws Exception {
-        loadMerchantCheckoutPage(/* multiplePaymentMethods= */ false);
+        loadMerchantCheckoutPage(mPageContents.addMethod(PAYMENT_METHOD_NAME).build());
 
         JSUtils.clickNodeWithUserGesture(
                 mAwContents.getWebContents(), "checkPaymentRequestDefined");
@@ -109,7 +106,7 @@ public class AwPaymentRequestServiceTest extends AwParameterizedTest {
     @SmallTest
     @EnableFeatures(ContentFeatures.WEB_PAYMENTS)
     public void testPaymentRequestIsDefined() throws Exception {
-        loadMerchantCheckoutPage(/* multiplePaymentMethods= */ false);
+        loadMerchantCheckoutPage(mPageContents.addMethod(PAYMENT_METHOD_NAME).build());
 
         JSUtils.clickNodeWithUserGesture(
                 mAwContents.getWebContents(), "checkPaymentRequestDefined");
@@ -127,7 +124,7 @@ public class AwPaymentRequestServiceTest extends AwParameterizedTest {
     @SmallTest
     @EnableFeatures(ContentFeatures.WEB_PAYMENTS)
     public void testPaymentRequestCannotMakePaymentWithoutApps() throws Exception {
-        loadMerchantCheckoutPage(/* multiplePaymentMethods= */ false);
+        loadMerchantCheckoutPage(mPageContents.addMethod(PAYMENT_METHOD_NAME).build());
 
         JSUtils.clickNodeWithUserGesture(mAwContents.getWebContents(), "checkCanMakePayment");
 
@@ -144,7 +141,7 @@ public class AwPaymentRequestServiceTest extends AwParameterizedTest {
     @SmallTest
     @EnableFeatures(ContentFeatures.WEB_PAYMENTS)
     public void testPaymentRequestHasNoEnrolledInstrumentsWithoutApps() throws Exception {
-        loadMerchantCheckoutPage(/* multiplePaymentMethods= */ false);
+        loadMerchantCheckoutPage(mPageContents.addMethod(PAYMENT_METHOD_NAME).build());
 
         JSUtils.clickNodeWithUserGesture(
                 mAwContents.getWebContents(), "checkHasEnrolledInstrument");
@@ -162,7 +159,7 @@ public class AwPaymentRequestServiceTest extends AwParameterizedTest {
     @SmallTest
     @EnableFeatures(ContentFeatures.WEB_PAYMENTS)
     public void testPaymentRequestCannotLaunchAppsWithoutApps() throws Exception {
-        loadMerchantCheckoutPage(/* multiplePaymentMethods= */ false);
+        loadMerchantCheckoutPage(mPageContents.addMethod(PAYMENT_METHOD_NAME).build());
 
         JSUtils.clickNodeWithUserGesture(mAwContents.getWebContents(), "launchPaymentApp");
 
@@ -177,8 +174,8 @@ public class AwPaymentRequestServiceTest extends AwParameterizedTest {
     @SmallTest
     @EnableFeatures(ContentFeatures.WEB_PAYMENTS)
     public void testPaymentRequestCanMakePayments() throws Exception {
-        installPaymentApps(/* multipleApps= */ false);
-        loadMerchantCheckoutPage(/* multiplePaymentMethods= */ false);
+        mMockPaymentAppInstaller.addApp(createPaymentApp()).install();
+        loadMerchantCheckoutPage(mPageContents.addMethod(PAYMENT_METHOD_NAME).build());
 
         JSUtils.clickNodeWithUserGesture(mAwContents.getWebContents(), "checkCanMakePayment");
 
@@ -194,8 +191,8 @@ public class AwPaymentRequestServiceTest extends AwParameterizedTest {
     @SmallTest
     @EnableFeatures(ContentFeatures.WEB_PAYMENTS)
     public void testPaymentRequestHasEnrolledInstrument() throws Exception {
-        installPaymentApps(/* multipleApps= */ false);
-        loadMerchantCheckoutPage(/* multiplePaymentMethods= */ false);
+        mMockPaymentAppInstaller.addApp(createPaymentApp()).install();
+        loadMerchantCheckoutPage(mPageContents.addMethod(PAYMENT_METHOD_NAME).build());
 
         JSUtils.clickNodeWithUserGesture(
                 mAwContents.getWebContents(), "checkHasEnrolledInstrument");
@@ -210,8 +207,8 @@ public class AwPaymentRequestServiceTest extends AwParameterizedTest {
     @SmallTest
     @EnableFeatures(ContentFeatures.WEB_PAYMENTS)
     public void testPaymentRequestLaunchPaymentApp() throws Exception {
-        installPaymentApps(/* multipleApps= */ false);
-        loadMerchantCheckoutPage(/* multiplePaymentMethods= */ false);
+        mMockPaymentAppInstaller.addApp(createPaymentApp()).install();
+        loadMerchantCheckoutPage(mPageContents.addMethod(PAYMENT_METHOD_NAME).build());
 
         JSUtils.clickNodeWithUserGesture(mAwContents.getWebContents(), "launchPaymentApp");
 
@@ -232,8 +229,12 @@ public class AwPaymentRequestServiceTest extends AwParameterizedTest {
     @EnableFeatures(ContentFeatures.WEB_PAYMENTS)
     public void testPaymentRequestCanMakePaymentsWhenMerchantSupportsMultiplePaymentMethods()
             throws Exception {
-        installPaymentApps(/* multipleApps= */ false);
-        loadMerchantCheckoutPage(/* multiplePaymentMethods= */ true);
+        mMockPaymentAppInstaller.addApp(createPaymentApp()).install();
+        loadMerchantCheckoutPage(
+                mPageContents
+                        .addMethod(PAYMENT_METHOD_NAME)
+                        .addMethod(OTHER_PAYMENT_METHOD_NAME)
+                        .build());
 
         JSUtils.clickNodeWithUserGesture(mAwContents.getWebContents(), "checkCanMakePayment");
 
@@ -253,8 +254,12 @@ public class AwPaymentRequestServiceTest extends AwParameterizedTest {
     @EnableFeatures(ContentFeatures.WEB_PAYMENTS)
     public void testPaymentRequestHasEnrolledInstrumentWhenMerchantSupportsMultiplePaymentMethods()
             throws Exception {
-        installPaymentApps(/* multipleApps= */ false);
-        loadMerchantCheckoutPage(/* multiplePaymentMethods= */ true);
+        mMockPaymentAppInstaller.addApp(createPaymentApp()).install();
+        loadMerchantCheckoutPage(
+                mPageContents
+                        .addMethod(PAYMENT_METHOD_NAME)
+                        .addMethod(OTHER_PAYMENT_METHOD_NAME)
+                        .build());
 
         JSUtils.clickNodeWithUserGesture(
                 mAwContents.getWebContents(), "checkHasEnrolledInstrument");
@@ -274,8 +279,12 @@ public class AwPaymentRequestServiceTest extends AwParameterizedTest {
     @EnableFeatures(ContentFeatures.WEB_PAYMENTS)
     public void testPaymentRequestLaunchPaymentAppWhenMerchantSupportsMultiplePaymentMethods()
             throws Exception {
-        installPaymentApps(/* multipleApps= */ false);
-        loadMerchantCheckoutPage(/* multiplePaymentMethods= */ true);
+        mMockPaymentAppInstaller.addApp(createPaymentApp()).install();
+        loadMerchantCheckoutPage(
+                mPageContents
+                        .addMethod(PAYMENT_METHOD_NAME)
+                        .addMethod(OTHER_PAYMENT_METHOD_NAME)
+                        .build());
 
         JSUtils.clickNodeWithUserGesture(mAwContents.getWebContents(), "launchPaymentApp");
 
@@ -296,8 +305,15 @@ public class AwPaymentRequestServiceTest extends AwParameterizedTest {
     @SmallTest
     @EnableFeatures(ContentFeatures.WEB_PAYMENTS)
     public void testPaymentRequestCannotMakePaymentsWithMoreThaOneAppAtOnce() throws Exception {
-        installPaymentApps(/* multipleApps= */ true);
-        loadMerchantCheckoutPage(/* multiplePaymentMethods= */ true);
+        mMockPaymentAppInstaller
+                .addApp(createPaymentApp())
+                .addApp(createOtherPaymentApp())
+                .install();
+        loadMerchantCheckoutPage(
+                mPageContents
+                        .addMethod(PAYMENT_METHOD_NAME)
+                        .addMethod(OTHER_PAYMENT_METHOD_NAME)
+                        .build());
 
         JSUtils.clickNodeWithUserGesture(mAwContents.getWebContents(), "checkCanMakePayment");
 
@@ -317,8 +333,15 @@ public class AwPaymentRequestServiceTest extends AwParameterizedTest {
     @EnableFeatures(ContentFeatures.WEB_PAYMENTS)
     public void testPaymentRequestHasNoEnrolledInstrumentWithMoreThaOneAppAtOnce()
             throws Exception {
-        installPaymentApps(/* multipleApps= */ true);
-        loadMerchantCheckoutPage(/* multiplePaymentMethods= */ true);
+        mMockPaymentAppInstaller
+                .addApp(createPaymentApp())
+                .addApp(createOtherPaymentApp())
+                .install();
+        loadMerchantCheckoutPage(
+                mPageContents
+                        .addMethod(PAYMENT_METHOD_NAME)
+                        .addMethod(OTHER_PAYMENT_METHOD_NAME)
+                        .build());
 
         JSUtils.clickNodeWithUserGesture(
                 mAwContents.getWebContents(), "checkHasEnrolledInstrument");
@@ -338,8 +361,15 @@ public class AwPaymentRequestServiceTest extends AwParameterizedTest {
     @EnableFeatures(ContentFeatures.WEB_PAYMENTS)
     public void testPaymentRequestCannotLaunchPaymentAppWithMoreThanOneAppAtOnce()
             throws Exception {
-        installPaymentApps(/* multipleApps= */ true);
-        loadMerchantCheckoutPage(/* multiplePaymentMethods= */ true);
+        mMockPaymentAppInstaller
+                .addApp(createPaymentApp())
+                .addApp(createOtherPaymentApp())
+                .install();
+        loadMerchantCheckoutPage(
+                mPageContents
+                        .addMethod(PAYMENT_METHOD_NAME)
+                        .addMethod(OTHER_PAYMENT_METHOD_NAME)
+                        .build());
 
         JSUtils.clickNodeWithUserGesture(mAwContents.getWebContents(), "launchPaymentApp");
 
@@ -353,8 +383,8 @@ public class AwPaymentRequestServiceTest extends AwParameterizedTest {
     @SmallTest
     @EnableFeatures(ContentFeatures.WEB_PAYMENTS)
     public void testCannotRetry() throws Exception {
-        installPaymentApps(/* multipleApps= */ false);
-        loadMerchantCheckoutPage(/* multiplePaymentMethods= */ false);
+        mMockPaymentAppInstaller.addApp(createPaymentApp()).install();
+        loadMerchantCheckoutPage(mPageContents.addMethod(PAYMENT_METHOD_NAME).build());
 
         JSUtils.clickNodeWithUserGesture(mAwContents.getWebContents(), "retryPayment");
 
@@ -364,226 +394,515 @@ public class AwPaymentRequestServiceTest extends AwParameterizedTest {
     }
 
     /**
+     * Tests that WebView indicates lack of ability to make payments when the merchant requests a
+     * shipping address, but the user's payment app does not support returning a shipping address.
+     */
+    @Test
+    @SmallTest
+    @EnableFeatures(ContentFeatures.WEB_PAYMENTS)
+    public void testCannotMakePaymentsWithAddressWithAppThatCannotReturnAddress() throws Exception {
+        mMockPaymentAppInstaller.addApp(createPaymentApp()).install();
+        loadMerchantCheckoutPage(
+                mPageContents.addMethod(PAYMENT_METHOD_NAME).requestShippingAddress().build());
+
+        JSUtils.clickNodeWithUserGesture(mAwContents.getWebContents(), "checkCanMakePayment");
+
+        Assert.assertEquals(
+                "PaymentRequest cannot make payments.",
+                mWebMessageListener.waitForOnPostMessage().getAsString());
+    }
+
+    /**
+     * Tests that WebView indicates lack of ability to make payments when the merchant requests
+     * contact information, but the user's payment app does not support returning contact
+     * information.
+     */
+    @Test
+    @SmallTest
+    @EnableFeatures(ContentFeatures.WEB_PAYMENTS)
+    public void testCannotMakePaymentsWithContactInfoWithAppThatCannotReturnContactInfo()
+            throws Exception {
+        mMockPaymentAppInstaller.addApp(createPaymentApp()).install();
+        loadMerchantCheckoutPage(
+                mPageContents.addMethod(PAYMENT_METHOD_NAME).requestContactInformation().build());
+
+        JSUtils.clickNodeWithUserGesture(mAwContents.getWebContents(), "checkCanMakePayment");
+
+        Assert.assertEquals(
+                "PaymentRequest cannot make payments.",
+                mWebMessageListener.waitForOnPostMessage().getAsString());
+    }
+
+    /**
+     * Tests that WebView confirms ability to make payments when the merchant requests a shipping
+     * address and the user's payment app supports returning a shipping address.
+     */
+    @Test
+    @SmallTest
+    @EnableFeatures(ContentFeatures.WEB_PAYMENTS)
+    public void testCanMakePaymentsWithAddressWhenAppCanReturnAddress() throws Exception {
+        mMockPaymentAppInstaller.addApp(createPaymentApp().setHandlesShippingAddress()).install();
+        loadMerchantCheckoutPage(
+                mPageContents.addMethod(PAYMENT_METHOD_NAME).requestShippingAddress().build());
+
+        JSUtils.clickNodeWithUserGesture(mAwContents.getWebContents(), "checkCanMakePayment");
+
+        Assert.assertEquals(
+                "PaymentRequest can make payments.",
+                mWebMessageListener.waitForOnPostMessage().getAsString());
+    }
+
+    /**
+     * Tests that WebView confirms ability to make payments when the merchant requests contact
+     * information and the user's payment app supports returning contact information.
+     */
+    @Test
+    @SmallTest
+    @EnableFeatures(ContentFeatures.WEB_PAYMENTS)
+    public void testCanMakePaymentsWithContactInfosWhenAppCanReturnContactInfos() throws Exception {
+        mMockPaymentAppInstaller
+                .addApp(createPaymentApp().setHandlesContactInformation())
+                .install();
+        loadMerchantCheckoutPage(
+                mPageContents.addMethod(PAYMENT_METHOD_NAME).requestContactInformation().build());
+
+        JSUtils.clickNodeWithUserGesture(mAwContents.getWebContents(), "checkCanMakePayment");
+
+        Assert.assertEquals(
+                "PaymentRequest can make payments.",
+                mWebMessageListener.waitForOnPostMessage().getAsString());
+    }
+
+    /**
+     * Tests that WebView confirms ability to make payments when the merchant requests both shipping
+     * address and contact information, and the user's payment app supports returning both of these.
+     */
+    @Test
+    @SmallTest
+    @EnableFeatures(ContentFeatures.WEB_PAYMENTS)
+    public void testCanMakePaymentsWithAddressAndContactWhenAppCanReturnBoth() throws Exception {
+        mMockPaymentAppInstaller
+                .addApp(
+                        createPaymentApp()
+                                .setHandlesShippingAddress()
+                                .setHandlesContactInformation())
+                .install();
+        loadMerchantCheckoutPage(
+                mPageContents
+                        .addMethod(PAYMENT_METHOD_NAME)
+                        .requestShippingAddress()
+                        .requestContactInformation()
+                        .build());
+
+        JSUtils.clickNodeWithUserGesture(mAwContents.getWebContents(), "checkCanMakePayment");
+
+        Assert.assertEquals(
+                "PaymentRequest can make payments.",
+                mWebMessageListener.waitForOnPostMessage().getAsString());
+    }
+
+    /**
+     * Tests that WebView indicates lack of enrolled instruments when the merchant requests a
+     * shipping address, but the user's payment app does not support returning a shipping address.
+     */
+    @Test
+    @SmallTest
+    @EnableFeatures(ContentFeatures.WEB_PAYMENTS)
+    public void testHasNoEnrolledInstrumentWithAddressWithAppThatCannotReturnAddress()
+            throws Exception {
+        mMockPaymentAppInstaller.addApp(createPaymentApp()).install();
+        loadMerchantCheckoutPage(
+                mPageContents.addMethod(PAYMENT_METHOD_NAME).requestShippingAddress().build());
+
+        JSUtils.clickNodeWithUserGesture(
+                mAwContents.getWebContents(), "checkHasEnrolledInstrument");
+
+        Assert.assertEquals(
+                "PaymentRequest does not have enrolled instrument.",
+                mWebMessageListener.waitForOnPostMessage().getAsString());
+    }
+
+    /**
+     * Tests that WebView indicates lack of enrolled instruments when the merchant requests contact
+     * information, but the user's payment app does not support returning contact information.
+     */
+    @Test
+    @SmallTest
+    @EnableFeatures(ContentFeatures.WEB_PAYMENTS)
+    public void testHasNoEnrolledInstrumentWithContactInfoWithAppThatCannotReturnContactInfo()
+            throws Exception {
+        mMockPaymentAppInstaller.addApp(createPaymentApp()).install();
+        loadMerchantCheckoutPage(
+                mPageContents.addMethod(PAYMENT_METHOD_NAME).requestContactInformation().build());
+
+        JSUtils.clickNodeWithUserGesture(
+                mAwContents.getWebContents(), "checkHasEnrolledInstrument");
+
+        Assert.assertEquals(
+                "PaymentRequest does not have enrolled instrument.",
+                mWebMessageListener.waitForOnPostMessage().getAsString());
+    }
+
+    /**
+     * Tests that WebView indicates presence of enrolled instruments when the merchant requests a
+     * shipping address and the user's payment app supports returning a shipping address.
+     */
+    @Test
+    @SmallTest
+    @EnableFeatures(ContentFeatures.WEB_PAYMENTS)
+    public void testHasEnrolledInstrumentWithAddressWithAppThatCanReturnAddress() throws Exception {
+        mMockPaymentAppInstaller.addApp(createPaymentApp().setHandlesShippingAddress()).install();
+        loadMerchantCheckoutPage(
+                mPageContents.addMethod(PAYMENT_METHOD_NAME).requestShippingAddress().build());
+
+        JSUtils.clickNodeWithUserGesture(
+                mAwContents.getWebContents(), "checkHasEnrolledInstrument");
+
+        Assert.assertEquals(
+                "PaymentRequest has enrolled instrument.",
+                mWebMessageListener.waitForOnPostMessage().getAsString());
+    }
+
+    /**
+     * Tests presence of enrolled instruments when the merchant requests contact information and the
+     * user's payment app supports returning contact information.
+     */
+    @Test
+    @SmallTest
+    @EnableFeatures(ContentFeatures.WEB_PAYMENTS)
+    public void testHasEnrolledInstrumentWithContactInfoWithAppThatCanReturnContactInfo()
+            throws Exception {
+        mMockPaymentAppInstaller
+                .addApp(createPaymentApp().setHandlesContactInformation())
+                .install();
+        loadMerchantCheckoutPage(
+                mPageContents.addMethod(PAYMENT_METHOD_NAME).requestContactInformation().build());
+
+        JSUtils.clickNodeWithUserGesture(
+                mAwContents.getWebContents(), "checkHasEnrolledInstrument");
+
+        Assert.assertEquals(
+                "PaymentRequest has enrolled instrument.",
+                mWebMessageListener.waitForOnPostMessage().getAsString());
+    }
+
+    /**
+     * Tests presence of enrolled instruments when the merchant requests a shipping address and
+     * contact information and the user's payment app supports returning both.
+     */
+    @Test
+    @SmallTest
+    @EnableFeatures(ContentFeatures.WEB_PAYMENTS)
+    public void testHasEnrolledInstrumentWithAddressAndContactWithAppThatCanReturnBoth()
+            throws Exception {
+        mMockPaymentAppInstaller
+                .addApp(
+                        createPaymentApp()
+                                .setHandlesShippingAddress()
+                                .setHandlesContactInformation())
+                .install();
+        loadMerchantCheckoutPage(
+                mPageContents
+                        .addMethod(PAYMENT_METHOD_NAME)
+                        .requestShippingAddress()
+                        .requestContactInformation()
+                        .build());
+
+        JSUtils.clickNodeWithUserGesture(
+                mAwContents.getWebContents(), "checkHasEnrolledInstrument");
+
+        Assert.assertEquals(
+                "PaymentRequest has enrolled instrument.",
+                mWebMessageListener.waitForOnPostMessage().getAsString());
+    }
+
+    /**
+     * Tests that it is not possible to invoke a payment app that does not support returning a
+     * shipping address, if the merchant requests shipping address through PaymentRequest API in
+     * WebView.
+     */
+    @Test
+    @SmallTest
+    @EnableFeatures(ContentFeatures.WEB_PAYMENTS)
+    public void testCannotLaunchAppWithoutShippingAddressWhenMerchantRequestsShippingAddress()
+            throws Exception {
+        mMockPaymentAppInstaller.addApp(createPaymentApp()).install();
+        loadMerchantCheckoutPage(
+                mPageContents.addMethod(PAYMENT_METHOD_NAME).requestShippingAddress().build());
+
+        JSUtils.clickNodeWithUserGesture(mAwContents.getWebContents(), "launchPaymentApp");
+
+        Assert.assertEquals(
+                String.format(
+                        "NotSupportedError: The payment method \"%s\" is not supported.",
+                        PAYMENT_METHOD_NAME),
+                mWebMessageListener.waitForOnPostMessage().getAsString());
+    }
+
+    /**
+     * Tests that it is not possible to invoke a payment app that does not support returning contact
+     * information, if the merchant requests contact information through PaymentRequest API in
+     * WebView.
+     */
+    @Test
+    @SmallTest
+    @EnableFeatures(ContentFeatures.WEB_PAYMENTS)
+    public void testCannotLaunchAppWithoutContactInfoWhenMerchantRequestsContactInfo()
+            throws Exception {
+        mMockPaymentAppInstaller.addApp(createPaymentApp()).install();
+        loadMerchantCheckoutPage(
+                mPageContents.addMethod(PAYMENT_METHOD_NAME).requestContactInformation().build());
+
+        JSUtils.clickNodeWithUserGesture(mAwContents.getWebContents(), "launchPaymentApp");
+
+        Assert.assertEquals(
+                String.format(
+                        "NotSupportedError: The payment method \"%s\" is not supported.",
+                        PAYMENT_METHOD_NAME),
+                mWebMessageListener.waitForOnPostMessage().getAsString());
+    }
+
+    /**
+     * Tests launching a payment app that supports returning a shipping address when the merchant
+     * requests a shipping address through PaymentRequest API in WebView.
+     */
+    @Test
+    @SmallTest
+    @EnableFeatures(ContentFeatures.WEB_PAYMENTS)
+    public void testLaunchAppWithShippingAddress() throws Exception {
+        mMockPaymentAppInstaller.addApp(createPaymentApp().setHandlesShippingAddress()).install();
+        loadMerchantCheckoutPage(
+                mPageContents.addMethod(PAYMENT_METHOD_NAME).requestShippingAddress().build());
+
+        JSUtils.clickNodeWithUserGesture(mAwContents.getWebContents(), "launchPaymentApp");
+
+        String response = mWebMessageListener.waitForOnPostMessage().getAsString();
+        Assert.assertTrue(
+                response.contains(String.format("\"methodName\":\"%s\"", PAYMENT_METHOD_NAME)));
+        Assert.assertTrue(response.contains(String.format("\"details\":{\"key\":\"value\"}")));
+        Assert.assertTrue(
+                "Shipping address should be in " + response,
+                response.contains(String.format("\"shippingAddress\":{")));
+        Assert.assertTrue(
+                "Shipping address country code should be in " + response,
+                response.contains(String.format("\"country\":\"CA\"")));
+    }
+
+    /**
+     * Tests launching a payment app that supports returning contact information when the merchant
+     * requests contact information through PaymentRequest API in WebView.
+     */
+    @Test
+    @SmallTest
+    @EnableFeatures(ContentFeatures.WEB_PAYMENTS)
+    public void testLaunchAppWithContactInformation() throws Exception {
+        mMockPaymentAppInstaller
+                .addApp(createPaymentApp().setHandlesContactInformation())
+                .install();
+        loadMerchantCheckoutPage(
+                mPageContents.addMethod(PAYMENT_METHOD_NAME).requestContactInformation().build());
+
+        JSUtils.clickNodeWithUserGesture(mAwContents.getWebContents(), "launchPaymentApp");
+
+        String response = mWebMessageListener.waitForOnPostMessage().getAsString();
+        Assert.assertTrue(
+                response.contains(String.format("\"methodName\":\"%s\"", PAYMENT_METHOD_NAME)));
+        Assert.assertTrue(response.contains(String.format("\"details\":{\"key\":\"value\"}")));
+        Assert.assertTrue(
+                "Payer name should be in " + response,
+                response.contains(String.format("\"payerName\":\"John Smith\"")));
+        Assert.assertTrue(
+                "Payer phone should be in " + response,
+                response.contains(String.format("\"payerPhone\":\"+15555555555\"")));
+        Assert.assertTrue(
+                "Payer email should be in " + response,
+                response.contains(String.format("\"payerEmail\":\"John.Smith@gmail.com\"")));
+    }
+
+    /**
+     * Tests launching a payment app that supports returning both shipping addresses and contact
+     * information when the merchant requests both of these pieces of information.
+     */
+    @Test
+    @SmallTest
+    @EnableFeatures(ContentFeatures.WEB_PAYMENTS)
+    public void testLaunchAppWithBothShippingAddressAndContactInformation() throws Exception {
+        mMockPaymentAppInstaller
+                .addApp(
+                        createPaymentApp()
+                                .setHandlesShippingAddress()
+                                .setHandlesContactInformation())
+                .install();
+        loadMerchantCheckoutPage(
+                mPageContents
+                        .addMethod(PAYMENT_METHOD_NAME)
+                        .requestShippingAddress()
+                        .requestContactInformation()
+                        .build());
+
+        JSUtils.clickNodeWithUserGesture(mAwContents.getWebContents(), "launchPaymentApp");
+
+        String response = mWebMessageListener.waitForOnPostMessage().getAsString();
+        Assert.assertTrue(
+                response.contains(String.format("\"methodName\":\"%s\"", PAYMENT_METHOD_NAME)));
+        Assert.assertTrue(response.contains(String.format("\"details\":{\"key\":\"value\"}")));
+        Assert.assertTrue(
+                "Shipping address should be in " + response,
+                response.contains(String.format("\"shippingAddress\":{")));
+        Assert.assertTrue(
+                "Shipping address country code should be in " + response,
+                response.contains(String.format("\"country\":\"CA\"")));
+        Assert.assertTrue(
+                "Payer name should be in " + response,
+                response.contains(String.format("\"payerName\":\"John Smith\"")));
+        Assert.assertTrue(
+                "Payer phone should be in " + response,
+                response.contains(String.format("\"payerPhone\":\"+15555555555\"")));
+        Assert.assertTrue(
+                "Payer email should be in " + response,
+                response.contains(String.format("\"payerEmail\":\"John.Smith@gmail.com\"")));
+    }
+
+    /**
+     * Tests launching a payment app that supports returning both shipping address and contact
+     * information when a merchant requests a strictly smaller set set of capabilities: only
+     * shipping address in this instance.
+     */
+    @Test
+    @SmallTest
+    @EnableFeatures(ContentFeatures.WEB_PAYMENTS)
+    public void testLaunchWithBotShippingAddressAndContactInformationWhenMerchantWantsOnlyAddress()
+            throws Exception {
+        mMockPaymentAppInstaller
+                .addApp(
+                        createPaymentApp()
+                                .setHandlesShippingAddress()
+                                .setHandlesContactInformation())
+                .install();
+        loadMerchantCheckoutPage(
+                mPageContents.addMethod(PAYMENT_METHOD_NAME).requestShippingAddress().build());
+
+        JSUtils.clickNodeWithUserGesture(mAwContents.getWebContents(), "launchPaymentApp");
+
+        String response = mWebMessageListener.waitForOnPostMessage().getAsString();
+        Assert.assertTrue(
+                response.contains(String.format("\"methodName\":\"%s\"", PAYMENT_METHOD_NAME)));
+        Assert.assertTrue(response.contains(String.format("\"details\":{\"key\":\"value\"}")));
+        Assert.assertTrue(
+                "Shipping address should be in " + response,
+                response.contains(String.format("\"shippingAddress\":{")));
+        Assert.assertTrue(
+                "Shipping address country code should be in " + response,
+                response.contains(String.format("\"country\":\"CA\"")));
+    }
+
+    /**
+     * Tests that the payment app that supports returning a shipping address is launched when the
+     * merchant requests a shipping address on user's device that has two payment apps that match
+     * the PaymentRequest API parameters, but one app does not support returning a shipping address.
+     */
+    @Test
+    @SmallTest
+    @EnableFeatures(ContentFeatures.WEB_PAYMENTS)
+    public void testLaunchAppWithShippingAddressWhenMerchantRequestsItButOtherAppDoesNotSupportIt()
+            throws Exception {
+        mMockPaymentAppInstaller
+                .addApp(createPaymentApp())
+                .addApp(createOtherPaymentApp().setHandlesShippingAddress())
+                .install();
+        loadMerchantCheckoutPage(
+                mPageContents
+                        .addMethod(PAYMENT_METHOD_NAME)
+                        .addMethod(OTHER_PAYMENT_METHOD_NAME)
+                        .requestShippingAddress()
+                        .build());
+
+        JSUtils.clickNodeWithUserGesture(mAwContents.getWebContents(), "launchPaymentApp");
+
+        String response = mWebMessageListener.waitForOnPostMessage().getAsString();
+        Assert.assertTrue(
+                response.contains(
+                        String.format("\"methodName\":\"%s\"", OTHER_PAYMENT_METHOD_NAME)));
+        Assert.assertTrue(response.contains(String.format("\"details\":{\"key\":\"value\"}")));
+        Assert.assertTrue(
+                "Shipping address should be in " + response,
+                response.contains(String.format("\"shippingAddress\":{")));
+        Assert.assertTrue(
+                "Shipping address country code should be in " + response,
+                response.contains(String.format("\"country\":\"CA\"")));
+    }
+
+    /**
+     * Tests that the payment app that supports returning contact information is launched when the
+     * merchant requests contact information on user's device that has two payment app that match
+     * the PaymentRequest API parameters, but the second app does not support returning contact
+     * information.
+     */
+    @Test
+    @SmallTest
+    @EnableFeatures(ContentFeatures.WEB_PAYMENTS)
+    public void testLaunchAppWithContactInfoWhenMerchantRequestsItButOtherappDoesNotSupportIt()
+            throws Exception {
+        mMockPaymentAppInstaller
+                .addApp(createPaymentApp().setHandlesContactInformation())
+                .addApp(createOtherPaymentApp())
+                .install();
+        loadMerchantCheckoutPage(
+                mPageContents
+                        .addMethod(PAYMENT_METHOD_NAME)
+                        .addMethod(OTHER_PAYMENT_METHOD_NAME)
+                        .requestContactInformation()
+                        .build());
+
+        JSUtils.clickNodeWithUserGesture(mAwContents.getWebContents(), "launchPaymentApp");
+
+        String response = mWebMessageListener.waitForOnPostMessage().getAsString();
+        Assert.assertTrue(
+                response.contains(String.format("\"methodName\":\"%s\"", PAYMENT_METHOD_NAME)));
+        Assert.assertTrue(response.contains(String.format("\"details\":{\"key\":\"value\"}")));
+        Assert.assertTrue(
+                "Payer name should be in " + response,
+                response.contains(String.format("\"payerName\":\"John Smith\"")));
+        Assert.assertTrue(
+                "Payer phone should be in " + response,
+                response.contains(String.format("\"payerPhone\":\"+15555555555\"")));
+        Assert.assertTrue(
+                "Payer email should be in " + response,
+                response.contains(String.format("\"payerEmail\":\"John.Smith@gmail.com\"")));
+    }
+
+    /**
      * Loads a test web-page for exercising the PaymentRequest API.
      *
-     * @param multiplePaymentMethods Whether multiple payment methods should be requested in the
-     *     PaymentRequest API call.
+     * @param webPageContents The contents of the test web page to load.
      */
-    private void loadMerchantCheckoutPage(boolean multiplePaymentMethods) throws Exception {
-        String checkoutPageHtmlFormat =
-                """
-            <!doctype html>
-            <button id="checkPaymentRequestDefined">Check defined</button>
-            <button id="checkCanMakePayment">Check can make payment</button>
-            <button id="checkHasEnrolledInstrument">Check has enrolled instrument</button>
-            <button id="launchPaymentApp">Launch payment app</button>
-            <button id="retryPayment">Retry payment</button>
-
-            <script>
-              function createPaymentRequest() {
-                const firstMethod = '%s';
-                const secondMethod = '%s';
-                const total = {label: 'Total', amount: {value: '0.01', currency: 'USD'}};
-                return secondMethod
-                       ? new PaymentRequest([{supportedMethods: firstMethod},
-                                             {supportedMethods: secondMethod}], {total})
-                       : new PaymentRequest([{supportedMethods: firstMethod}], {total});
-              }
-
-              function checkPaymentRequestDefined() {
-                if (!window.PaymentRequest) {
-                  resultListener.postMessage('PaymentRequest is not defined.');
-                } else {
-                  resultListener.postMessage('PaymentRequest is defined.');
-                }
-              }
-
-              async function checkCanMakePayment() {
-                try {
-                  const request = createPaymentRequest();
-                  if (await request.canMakePayment()) {
-                    resultListener.postMessage('PaymentRequest can make payments.');
-                  } else {
-                    resultListener.postMessage('PaymentRequest cannot make payments.');
-                  }
-                } catch (e) {
-                  resultListener.postMessage(e.toString());
-                }
-              }
-
-              async function checkHasEnrolledInstrument() {
-                try {
-                  const request = createPaymentRequest();
-                  if (await request.hasEnrolledInstrument()) {
-                    resultListener.postMessage('PaymentRequest has enrolled instrument.');
-                  } else {
-                    resultListener.postMessage('PaymentRequest does not have enrolled instrument.');
-                  }
-                } catch (e) {
-                  resultListener.postMessage(e.toString());
-                }
-              }
-
-              async function launchPaymentApp() {
-                try {
-                  const request = createPaymentRequest();
-                  const response = await request.show();
-                  await response.complete('success');
-                  resultListener.postMessage(JSON.stringify(response));
-                } catch (e) {
-                  resultListener.postMessage(e.toString());
-                }
-              }
-
-              async function retryPayment() {
-                try {
-                  const request = createPaymentRequest();
-                  let response = await request.show();
-                  response = await response.retry();
-                  await response.complete('success');
-                  resultListener.postMessage(JSON.stringify(response));
-                } catch (e) {
-                  resultListener.postMessage(e.toString());
-                }
-              }
-
-              document.getElementById('checkPaymentRequestDefined')
-                  .addEventListener('click', checkPaymentRequestDefined);
-              document.getElementById('checkCanMakePayment')
-                  .addEventListener('click', checkCanMakePayment);
-              document.getElementById('checkHasEnrolledInstrument')
-                  .addEventListener('click', checkHasEnrolledInstrument);
-              document.getElementById('launchPaymentApp')
-                  .addEventListener('click', launchPaymentApp);
-              document.getElementById('retryPayment')
-                  .addEventListener('click', retryPayment);
-
-              resultListener.postMessage('Page loaded.');
-            </script>
-            """;
-
+    private void loadMerchantCheckoutPage(String contents) throws Exception {
         String merchantCheckoutPageUrl =
-                mMerchantServer.setResponse(
-                        "/checkout",
-                        String.format(
-                                checkoutPageHtmlFormat,
-                                PAYMENT_METHOD_NAME,
-                                multiplePaymentMethods ? OTHER_PAYMENT_METHOD_NAME : ""),
-                        /* responseHeaders= */ null);
+                mMerchantServer.setResponse("/checkout", contents, /* responseHeaders= */ null);
         mActivityTestRule.loadUrlAsync(mAwContents, merchantCheckoutPageUrl);
         Data messageFromPage = mWebMessageListener.waitForOnPostMessage();
         Assert.assertEquals("Page loaded.", messageFromPage.getAsString());
     }
 
-    /**
-     * Injects a fake Android payment app into the package manager delegate, with the correct
-     * signature being returned from the downloader. Also turns off connecting to the
-     * IS_READY_TO_PAY service or sending the PAY intent to this app.
-     *
-     * @param multipleApps Whether multiple apps should be installed.
-     */
-    private void installPaymentApps(boolean multipleApps) {
-        MockPackageManagerDelegate packageManagerDelegate = new MockPackageManagerDelegate();
-        // The SHA256 of the string "AABBCCDDEEFF001122334455" equals to the fingerprints[0].value
-        // in the "downloaded" manifest file.
-        packageManagerDelegate.installPaymentApp(
-                "Test Payment App",
-                "test.payments.app",
-                PAYMENT_METHOD_NAME,
-                "AABBCCDDEEFF001122334455");
-        if (multipleApps) {
-            // The SHA256 of the string "001122334455AABBCCDDEEFF" equals to the
-            // fingerprints[0].value in the "downloaded" manifest file.
-            packageManagerDelegate.installPaymentApp(
-                    "Other Test Payment App",
-                    "test.payments.other.app",
-                    OTHER_PAYMENT_METHOD_NAME,
-                    "001122334455AABBCCDDEEFF");
-        }
-        AndroidPaymentAppFinder.setPackageManagerDelegateForTest(packageManagerDelegate);
-        AndroidPaymentAppFinder.setDownloaderForTest(new MockPaymentManifestDownloader());
-        AndroidPaymentAppFinder.setAndroidIntentLauncherForTest(new MockAndroidIntentLauncher());
-        AndroidPaymentAppFinder.bypassIsReadyToPayServiceInTest();
+    private MockPaymentApp createPaymentApp() {
+        return new MockPaymentApp()
+                .setLabel("Test Payments App")
+                .setPackage("test.payments.app")
+                .setMethod(PAYMENT_METHOD_NAME)
+                .setSignature("AABBCCDDEEFF001122334455")
+                .setSha256CertificateFingerprint(
+                        "79:5C:8E:4D:57:7B:76:49:3A:0A:0B:93:B9:BE:06:50:CE:E4:75:80:62:65:02:FB:"
+                                + "F6:F9:91:AB:6E:BE:21:7E");
     }
 
-    /**
-     * An override for the downloader with static responses instead of querying servers on the
-     * network.
-     */
-    private static final class MockPaymentManifestDownloader extends PaymentManifestDownloader {
-        // The fingerprints[0].value is the SHA256 of the string "AABBCCDDEEFF001122334455".
-        private static final String MANIFEST_JSON =
-                """
-            {
-              "default_applications": ["/web-pay/manifest.json"],
-              "related_applications": [{
-                  "platform": "play",
-                  "id": "test.payments.app",
-                  "min_version": "1",
-                  "fingerprints": [{
-                    "type": "sha256_cert",
-                    "value": "79:5C:8E:4D:57:7B:76:49:3A:0A:0B:93:B9:BE:06:50:CE:E4:75:80:62:65:02:FB:F6:F9:91:AB:6E:BE:21:7E"
-                  }]
-              }]
-            }
-            """;
-        // The fingerprints[0].value is the SHA256 of the string "001122334455AABBCCDDEEFF".
-        private static final String OTHER_MANIFEST_JSON =
-                """
-            {
-              "default_applications": ["/web-pay/manifest.json"],
-              "related_applications": [{
-                  "platform": "play",
-                  "id": "test.payments.other.app",
-                  "min_version": "1",
-                  "fingerprints": [{
-                    "type": "sha256_cert",
-                    "value": "01:9D:A6:93:7D:A2:1D:64:25:D8:D4:93:37:29:55:20:D9:54:16:A0:99:DD:E3:CA:31:EE:94:A4:70:AD:BD:70"
-                  }]
-              }]
-            }
-            """;
-
-        @Override
-        public void downloadPaymentMethodManifest(
-                Origin merchantOrigin, GURL url, ManifestDownloadCallback callback) {
-            callback.onPaymentMethodManifestDownloadSuccess(
-                    url,
-                    Origin.create(url),
-                    url.getSpec().equals(PAYMENT_METHOD_NAME)
-                            ? MANIFEST_JSON
-                            : OTHER_MANIFEST_JSON);
-        }
-
-        @Override
-        public void downloadWebAppManifest(
-                Origin paymentMethodManifestOrigin, GURL url, ManifestDownloadCallback callback) {
-            callback.onWebAppManifestDownloadSuccess(
-                    url.getSpec().startsWith(PAYMENT_METHOD_NAME)
-                            ? MANIFEST_JSON
-                            : OTHER_MANIFEST_JSON);
-        }
-    }
-
-    /**
-     * An app launcher that does not fire off any Android intents, but instead immediately returns a
-     * successful intent result.
-     */
-    private static final class MockAndroidIntentLauncher implements AndroidIntentLauncher {
-        @Override
-        public void launchPaymentApp(
-                Intent intent,
-                Callback<String> errorCallback,
-                WindowAndroid.IntentCallback intentCallback) {
-            Bundle launchParameters = intent.getExtras();
-            String paymentMethodName = launchParameters.getStringArrayList("methodNames").get(0);
-
-            Intent response = new Intent();
-            Bundle extras = new Bundle();
-            extras.putString("methodName", paymentMethodName);
-            extras.putString("details", "{\"key\": \"value\"}");
-            response.putExtras(extras);
-            intentCallback.onIntentCompleted(Activity.RESULT_OK, response);
-        }
+    private MockPaymentApp createOtherPaymentApp() {
+        return new MockPaymentApp()
+                .setLabel("Other Test Payments App")
+                .setPackage("test.payments.other.app")
+                .setMethod(OTHER_PAYMENT_METHOD_NAME)
+                .setSignature("001122334455AABBCCDDEEFF")
+                .setSha256CertificateFingerprint(
+                        "01:9D:A6:93:7D:A2:1D:64:25:D8:D4:93:37:29:55:20:D9:54:16:A0:99:DD:E3:CA:"
+                                + "31:EE:94:A4:70:AD:BD:70");
     }
 }

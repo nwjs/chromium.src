@@ -651,8 +651,9 @@ const WebViewImpl* WebViewImpl::GetTab() {
 }
 
 Status WebViewImpl::GetActivePage(WebView** web_view) {
-  if (!GetTab() || !(GetTab()->GetPageTracker())) {
-    return Status(kUnknownError, "no page tracker");
+  auto* page_tracker = GetTab() ? GetTab()->GetPageTracker() : nullptr;
+  if (!page_tracker) {
+    return Status(kUnknownError, "page tracker not found");
   }
   return GetTab()->GetPageTracker()->GetActivePage(web_view);
 }

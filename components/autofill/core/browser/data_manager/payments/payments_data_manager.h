@@ -411,14 +411,6 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
   // Check whether a card is a server card or has a duplicated server card.
   bool IsServerCard(const CreditCard* credit_card) const;
 
-  // Returns whether a row to give the option of showing cards from the user's
-  // account should be shown in the dropdown.
-  virtual bool ShouldShowCardsFromAccountOption() const;
-
-  // Triggered when a user selects the option to see cards from their account.
-  // Records the sync transport consent.
-  void OnUserAcceptedCardsFromAccountOption();
-
   // Records the sync transport consent if the user is in sync transport mode.
   virtual void OnUserAcceptedUpstreamOffer();
 
@@ -633,6 +625,12 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
   // Check if credit card benefits sync flag is enabled.
   bool IsCardBenefitsSyncEnabled() const;
 
+  // Returns whether Autofill card benefit suggestion labels should be blocked.
+  bool ShouldBlockCardBenefitSuggestionLabels(
+      const CreditCard& credit_card,
+      const url::Origin& origin,
+      const AutofillOptimizationGuide* optimization_guide) const;
+
   // Returns the value of the AutofillBnplEnabled pref.
   virtual bool IsAutofillBnplPrefEnabled() const;
 
@@ -684,6 +682,15 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
   // Clears all credit card benefits in `credit_card_benefits_`.
   void ClearAllCreditCardBenefits();
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
+  // Monitors the `kAutofillBnplEnabled` preference for changes and controls the
+  // clearing/loading of payment instruments accordingly. Will also log the
+  // `Autofill.SettingsPage.BnplToggled` metric.
+  void OnBnplEnabledPrefChange();
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
+        // BUILDFLAG(IS_CHROMEOS)
+
   // Saves |imported_credit_card| to the WebDB if it exists. Returns the guid of
   // the new or updated card, or the empty string if no card was saved.
   virtual std::string SaveImportedCreditCard(
@@ -724,6 +731,12 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
   void CacheIfBnplPaymentInstrumentCreationOption(
       const sync_pb::PaymentInstrumentCreationOption&
           payment_instrument_creation_option);
+
+  // Checks whether at least one eligible price range specifies `currency_code`
+  // as the currency.
+  bool HasEligibleCurrencyPriceRangeForBnplIssuer(
+      const std::vector<BnplIssuer::EligiblePriceRange>& eligible_price_ranges,
+      const std::string& currency_code) const;
 
   // Decides which database type to use for server and local cards.
   std::unique_ptr<PaymentsDatabaseHelper> database_helper_;

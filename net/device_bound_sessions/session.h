@@ -79,6 +79,8 @@ class NET_EXPORT Session {
 
   bool should_defer_when_expired() const { return should_defer_when_expired_; }
 
+  const std::vector<CookieCraving>& cookies() const { return cookie_cravings_; }
+
   bool IsEqualForTesting(const Session& other) const;
 
   void set_cached_challenge(std::string challenge) {
@@ -100,6 +102,8 @@ class NET_EXPORT Session {
   // Inform the session about a refresh so it can decide whether to
   // enter backoff mode.
   void InformOfRefreshResult(SessionError::ErrorType error_type);
+
+  const url::Origin& origin() const { return inclusion_rules_.origin(); }
 
  private:
   Session(Id id, url::Origin origin, GURL refresh);

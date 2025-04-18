@@ -12,6 +12,8 @@ external/wpt/secure-payment-confirmation/*
 
 # crbug.com/338470959 set_rph_registration_mode not implemented for headless shell
 external/wpt/html/webappapis/system-state-and-capabilities/*
+virtual/speculation-rules-prerender-target-hint/external/wpt/speculation-rules/prerender/protocol-handler-register.https.html
+virtual/speculation-rules-prerender-target-hint/external/wpt/speculation-rules/prerender/protocol-handler-unregister.https.html
 
 # crbug.com/397998925 run_bounce_tracking_mitigations and the bounce tracking
 # mitigations feature are not implemented for content shell yet.
@@ -28,6 +30,13 @@ external/wpt/ai/translator/*
 # Storage Access API is implemented in the `//chrome` layer.
 external/wpt/storage-access-api/*
 external/wpt/fedcm/fedcm-storage-access-api-autogrant.tentative.https.sub.html
+external/wpt/partitioned-popins/partitioned-popins.cookies-allowed.tentative.sub.https.window.html
+external/wpt/partitioned-popins/partitioned-popins.cookies-blocked.tentative.sub.https.window.html
+external/wpt/partitioned-popins/partitioned-popins.localStorage.tentative.sub.https.window.html
+virtual/cross-partition-blob-url/external/wpt/*
+virtual/partitioned-popins-disabled/external/wpt/partitioned-popins/partitioned-popins.cookies-allowed.tentative.sub.https.window.html
+virtual/partitioned-popins-disabled/external/wpt/partitioned-popins/partitioned-popins.cookies-blocked.tentative.sub.https.window.html
+virtual/partitioned-popins-disabled/external/wpt/partitioned-popins/partitioned-popins.localStorage.tentative.sub.https.window.html
 
 # Device Bound Session Credentials relies on the `//chrome` layer.
 virtual/dbsc-enabled/external/wpt/device-bound-session-credentials/*
@@ -43,7 +52,6 @@ external/wpt/client-hints/sandbox/iframe-same-origin.https.html
 external/wpt/cookies/attributes/max-age.html
 external/wpt/fetch/fetch-later/new-window.tentative.https.window.html
 external/wpt/html/browsers/the-window-object/window-open-windowfeatures-values.html
-external/wpt/html/cross-origin-opener-policy/reporting/navigation-reporting/report-only-same-origin-report-to.https.html
 external/wpt/html/infrastructure/safe-passing-of-structured-data/shared-array-buffers/window-iframe-messagechannel.https.html
 external/wpt/notifications/cross-origin-serviceworker.tentative.https.sub.html
 external/wpt/notifications/event-onclose.https.html
@@ -51,7 +59,6 @@ external/wpt/notifications/instance.https.window.html
 external/wpt/notifications/permissions-non-secure.html
 external/wpt/notifications/shownotification-without-permission.https.window.html
 external/wpt/notifications/shownotification.https.window.html
-external/wpt/permissions-policy/reporting/report-only-single-endpoint.https.sub.html
 external/wpt/service-workers/service-worker/controller-on-reload.https.html
 external/wpt/service-workers/service-worker/fetch-request-xhr.https.html
 external/wpt/speech-api/SpeechRecognition-availableOnDevice.https.html

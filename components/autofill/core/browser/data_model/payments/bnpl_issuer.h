@@ -15,6 +15,8 @@
 
 namespace autofill {
 
+std::u16string BnplIssuerIdToDisplayName(std::string_view issuer_id);
+
 // Contains information regarding a Buy Now Pay Later issuer that the user is
 // eligible to use on certain merchant webpages.
 class BnplIssuer {
@@ -52,6 +54,7 @@ class BnplIssuer {
     uint64_t price_upper_bound;
   };
 
+  BnplIssuer();
   // `instrument_id` is present for linked issuers, and nullopt for unlinked
   // issuers. `issuer_id` is the unique identifier of this specfiic issuer.
   // `eligible_price_ranges` is a list of currencies mapped to their price

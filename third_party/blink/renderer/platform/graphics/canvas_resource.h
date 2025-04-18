@@ -22,7 +22,6 @@
 #include "gpu/command_buffer/common/sync_token.h"
 #include "skia/buildflags.h"
 #include "third_party/blink/public/platform/web_graphics_shared_image_interface_provider.h"
-#include "third_party/blink/renderer/platform/graphics/graphics_types.h"
 #include "third_party/blink/renderer/platform/graphics/web_graphics_context_3d_provider_wrapper.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread.h"
 #include "third_party/blink/renderer/platform/wtf/thread_safe_ref_counted.h"
@@ -32,6 +31,7 @@
 #include "ui/gfx/geometry/size.h"
 
 class GrBackendTexture;
+class SkSurface;
 
 #ifndef THIRD_PARTY_BLINK_RENDERER_PLATFORM_GRAPHICS_CANVAS_RESOURCE_H_
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_GRAPHICS_CANVAS_RESOURCE_H_
@@ -93,10 +93,6 @@ class PLATFORM_EXPORT CanvasResource
   // outstanding references).
   virtual bool IsRecycleable() const = 0;
 
-  // Uploads the contents of |sk_surface| to the resource's backing memory.
-  // Should be called only if the resource is using software raster.
-  void UploadSoftwareRenderingResults(SkSurface* sk_surface);
-
   // Returns true if this instance creates TransferableResources for usage with
   // GPU compositing.
   virtual bool CreatesAcceleratedTransferableResources() const = 0;
@@ -126,6 +122,10 @@ class PLATFORM_EXPORT CanvasResource
   gfx::Size Size() const { return size_; }
 
   viz::SharedImageFormat GetFormat() const { return format_; }
+
+  const gfx::ColorSpace& GetColorSpace() const { return color_space_; }
+
+  SkAlphaType GetAlphaType() const { return alpha_type_; }
 
   // The ClientSharedImage containing information on the SharedImage
   // attached to the resource.
@@ -190,9 +190,6 @@ class PLATFORM_EXPORT CanvasResource
     return viz::TransferableResource::ResourceSource::kCanvas;
   }
 
-  // Creates an unaccelerated bitmap from this resource's mappable SharedImage.
-  scoped_refptr<StaticBitmapImage> CreateUnacceleratedBitmap();
-
   gpu::InterfaceBase* InterfaceBase() const;
   gpu::gles2::GLES2Interface* ContextGL() const;
   gpu::raster::RasterInterface* RasterInterface() const;
@@ -207,9 +204,6 @@ class PLATFORM_EXPORT CanvasResource
   const scoped_refptr<base::SingleThreadTaskRunner> owning_thread_task_runner_;
 
  private:
-  // Updates the resource's SyncToken to `sync_token`.
-  virtual void SetSyncToken(gpu::SyncToken sync_token) { NOTREACHED(); }
-
   // Returns true if the resource is rastered via the GPU.
   virtual bool UsesAcceleratedRaster() const = 0;
 
@@ -288,6 +282,10 @@ class PLATFORM_EXPORT CanvasResourceSharedImage final : public CanvasResource {
   // via raster or the compositor) waits on this token.
   void EndExternalWrite(const gpu::SyncToken& external_write_sync_token);
 
+  // Uploads the contents of |sk_surface| to the resource's backing memory.
+  // Should be called only if the resource is using software raster.
+  void UploadSoftwareRenderingResults(SkSurface* sk_surface);
+
  private:
   // These members are either only accessed on the owning thread, or are only
   // updated on the owning thread and then are read on a different thread.
@@ -345,11 +343,6 @@ class PLATFORM_EXPORT CanvasResourceSharedImage final : public CanvasResource {
   const OwningThreadData& owning_thread_data() const {
     DCHECK(!is_cross_thread());
     return owning_thread_data_;
-  }
-
-  void SetSyncToken(gpu::SyncToken sync_token) override {
-    DCHECK(!is_cross_thread());
-    owning_thread_data().sync_token = sync_token;
   }
 
   // Can be read on any thread.
@@ -435,6 +428,7 @@ class PLATFORM_EXPORT ExternalCanvasResource final : public CanvasResource {
 
 class PLATFORM_EXPORT CanvasResourceSwapChain final : public CanvasResource {
  public:
+  // The passed-in WeakPtrs must be non-null.
   static scoped_refptr<CanvasResourceSwapChain> Create(
       gfx::Size size,
       viz::SharedImageFormat format,

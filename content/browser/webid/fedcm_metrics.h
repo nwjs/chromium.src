@@ -81,8 +81,9 @@ enum class FedCmRequestIdTokenStatus {
   kRpOriginIsOpaque = 49,
   kConfigNotMatchingType = 50,
   kLoginPopupClosedWithoutSignin = 51,
+  kSuppressedBySegmentationPlatform = 52,
 
-  kMaxValue = kLoginPopupClosedWithoutSignin
+  kMaxValue = kSuppressedBySegmentationPlatform
 };
 
 // This enum describes whether user sign-in states between IDP and browser
@@ -501,6 +502,15 @@ class CONTENT_EXPORT FedCmMetrics {
   // already initiated an API call.
   void RecordMultipleRequestsFromDifferentIdPs(bool has_collision);
 
+  // Records whether the RP's URL has a path.
+  void RecordRpUrlHasPath(bool rp_url_has_path);
+
+  // Records the page scroll Y-axis position upon account selection.
+  void RecordAccountSelectionScrollPosition(const gfx::Point& scroll_position);
+
+  // Records the count of identity providers in the request
+  void RecordIdentityProvidersCount(int count);
+
   int session_id() { return session_id_; }
 
  private:
@@ -557,9 +567,6 @@ void RecordRawAccountsSize(int size);
 // Records the number of accounts received after applying login/domain hints
 // filter. If no account left, nothing will be recorded.
 void RecordReadyToShowAccountsSize(int size);
-
-// Records the count of identity providers in the request
-void RecordIdentityProvidersCount(int count);
 
 }  // namespace content
 

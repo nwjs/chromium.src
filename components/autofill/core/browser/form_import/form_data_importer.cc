@@ -52,7 +52,6 @@
 #include "components/autofill/core/browser/metrics/profile_import_metrics.h"
 #include "components/autofill/core/browser/payments/credit_card_save_manager.h"
 #include "components/autofill/core/browser/payments/iban_save_manager.h"
-#include "components/autofill/core/browser/payments/local_card_migration_manager.h"
 #include "components/autofill/core/browser/payments/mandatory_reauth_manager.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
 #include "components/autofill/core/browser/payments/payments_network_interface.h"
@@ -240,10 +239,6 @@ FormDataImporter::FormDataImporter(AutofillClient* client,
 #if !BUILDFLAG(IS_IOS)
       iban_save_manager_(std::make_unique<IbanSaveManager>(client)),
 #endif  // !BUILDFLAG(IS_IOS)
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-      local_card_migration_manager_(
-          std::make_unique<LocalCardMigrationManager>(client)),
-#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
       multistep_importer_(client_->GetAppLocale(),
                           client_->GetVariationConfigCountryCode()) {
   address_data_manager_observation_.Observe(&address_data_manager());
@@ -254,12 +249,10 @@ FormDataImporter::FormDataImporter(AutofillClient* client,
 
 FormDataImporter::~FormDataImporter() = default;
 
-FormDataImporter::AddressProfileImportCandidate::
-    AddressProfileImportCandidate() = default;
-FormDataImporter::AddressProfileImportCandidate::AddressProfileImportCandidate(
-    const FormDataImporter::AddressProfileImportCandidate& other) = default;
-FormDataImporter::AddressProfileImportCandidate::
-    ~AddressProfileImportCandidate() = default;
+FormDataImporter::ExtractedAddressProfile::ExtractedAddressProfile() = default;
+FormDataImporter::ExtractedAddressProfile::ExtractedAddressProfile(
+    const FormDataImporter::ExtractedAddressProfile& other) = default;
+FormDataImporter::ExtractedAddressProfile::~ExtractedAddressProfile() = default;
 
 void FormDataImporter::ImportAndProcessFormData(
     const FormStructure& submitted_form,
@@ -270,12 +263,11 @@ void FormDataImporter::ImportAndProcessFormData(
       ExtractFormData(submitted_form, profile_autofill_enabled,
                       payment_methods_autofill_enabled);
 
-  // Create a vector of address profile import candidates.
+  // Create a vector of extracted address profiles.
   // This is used to make preliminarily imported profiles available
   // to the credit card import logic.
   std::vector<AutofillProfile> preliminary_imported_address_profiles;
-  for (const auto& candidate :
-       extracted_data.address_profile_import_candidates) {
+  for (const auto& candidate : extracted_data.extracted_address_profiles) {
     if (candidate.all_requirements_fulfilled) {
       preliminary_imported_address_profiles.push_back(candidate.profile);
     }
@@ -283,9 +275,18 @@ void FormDataImporter::ImportAndProcessFormData(
   credit_card_save_manager_->SetPreliminarilyImportedAutofillProfile(
       preliminary_imported_address_profiles);
 
-  bool cc_prompt_potentially_shown = ProcessExtractedCreditCard(
-      submitted_form, extracted_data.extracted_credit_card,
-      credit_card_save_manager_->IsCreditCardUploadEnabled(), ukm_source_id);
+  bool cc_prompt_potentially_shown = false;
+  if (credit_card_import_type_ != CreditCardImportType::kNoCard) {
+    // Only check IsCreditCardUploadEnabled() if payment method autofill is
+    // enabled and a credit card was extracted from the form, in order to
+    // prevent the metrics it logs from being diluted by cases where payment
+    // method autofill is off or there was no credit card to process.
+    bool credit_card_upload_enabled =
+        credit_card_save_manager_->IsCreditCardUploadEnabled();
+    cc_prompt_potentially_shown = ProcessExtractedCreditCard(
+        submitted_form, extracted_data.extracted_credit_card,
+        credit_card_upload_enabled, ukm_source_id);
+  }
   fetched_card_instrument_id_.reset();
 
   bool iban_prompt_potentially_shown = false;
@@ -295,10 +296,10 @@ void FormDataImporter::ImportAndProcessFormData(
         ProcessIbanImportCandidate(*extracted_data.extracted_iban);
   }
 
-  // If a prompt for credit cards or IBANs is potentially shown, do not allow
-  // for a second address profile import dialog.
-  ProcessAddressProfileImportCandidates(
-      extracted_data.address_profile_import_candidates,
+  ProcessExtractedAddressProfiles(
+      extracted_data.extracted_address_profiles,
+      // If a prompt for credit cards or IBANs is potentially shown, do not
+      // allow for a second address profile import dialog.
       /*allow_prompt=*/!cc_prompt_potentially_shown &&
           !iban_prompt_potentially_shown,
       ukm_source_id);
@@ -386,7 +387,7 @@ FormDataImporter::ExtractedFormData FormDataImporter::ExtractFormData(
   if (profile_autofill_enabled &&
       !base::FeatureList::IsEnabled(features::kAutofillDisableAddressImport)) {
     num_complete_address_profiles = ExtractAddressProfiles(
-        submitted_form, &extracted_form_data.address_profile_import_candidates);
+        submitted_form, &extracted_form_data.extracted_address_profiles);
   }
 
   if (profile_autofill_enabled && payment_methods_autofill_enabled) {
@@ -409,8 +410,8 @@ FormDataImporter::ExtractedFormData FormDataImporter::ExtractFormData(
 
 size_t FormDataImporter::ExtractAddressProfiles(
     const FormStructure& form,
-    std::vector<FormDataImporter::AddressProfileImportCandidate>*
-        address_profile_import_candidates) {
+    std::vector<FormDataImporter::ExtractedAddressProfile>*
+        extracted_address_profiles) {
   // Create a buffer to collect logging output for the autofill-internals.
   LogManager* log_manager = client_->GetCurrentLogManager();
   LogBuffer import_log_buffer(IsLoggingActive(log_manager));
@@ -449,7 +450,7 @@ size_t FormDataImporter::ExtractAddressProfiles(
       // Try to extract an address profile from the form fields of this section.
       // Only allow for a prompt if no other complete profile was found so far.
       if (ExtractAddressProfileFromSection(fields, form.source_url(),
-                                           address_profile_import_candidates,
+                                           extracted_address_profiles,
                                            &import_log_buffer)) {
         num_complete_profiles++;
       }
@@ -654,8 +655,8 @@ FormDataImporter::GetAddressObservedFieldValues(
 bool FormDataImporter::ExtractAddressProfileFromSection(
     base::span<const AutofillField* const> section_fields,
     const GURL& source_url,
-    std::vector<FormDataImporter::AddressProfileImportCandidate>*
-        address_profile_import_candidates,
+    std::vector<FormDataImporter::ExtractedAddressProfile>*
+        extracted_address_profiles,
     LogBuffer* import_log_buffer) {
   // Tracks if the form section contains multiple distinct email addresses.
   bool has_multiple_distinct_email_addresses = false;
@@ -757,20 +758,20 @@ bool FormDataImporter::ExtractAddressProfileFromSection(
   // incognito mode.
   DCHECK(!client_->IsOffTheRecord());
 
-  AddressProfileImportCandidate import_candidate;
-  import_candidate.profile = candidate_profile;
-  import_candidate.url = source_url;
-  import_candidate.all_requirements_fulfilled = all_fulfilled;
-  import_candidate.import_metadata = import_metadata;
-  address_profile_import_candidates->push_back(import_candidate);
+  ExtractedAddressProfile extracted_address_profile;
+  extracted_address_profile.profile = candidate_profile;
+  extracted_address_profile.url = source_url;
+  extracted_address_profile.all_requirements_fulfilled = all_fulfilled;
+  extracted_address_profile.import_metadata = import_metadata;
+  extracted_address_profiles->push_back(std::move(extracted_address_profile));
 
   // Return true if a complete importable profile was found.
   return all_fulfilled;
 }
 
-bool FormDataImporter::ProcessAddressProfileImportCandidates(
-    const std::vector<FormDataImporter::AddressProfileImportCandidate>&
-        address_profile_import_candidates,
+bool FormDataImporter::ProcessExtractedAddressProfiles(
+    const std::vector<FormDataImporter::ExtractedAddressProfile>&
+        extracted_address_profiles,
     bool allow_prompt,
     ukm::SourceId ukm_source_id) {
   int imported_profiles = 0;
@@ -780,7 +781,7 @@ bool FormDataImporter::ProcessAddressProfileImportCandidates(
   // import addresses. If it is false, we should not display UI to import
   // addresses due to a possible dialog or bubble conflict.
   if (allow_prompt) {
-    for (const auto& candidate : address_profile_import_candidates) {
+    for (const auto& candidate : extracted_address_profiles) {
       // First try to import a single complete profile.
       if (!candidate.all_requirements_fulfilled) {
         continue;
@@ -801,7 +802,7 @@ bool FormDataImporter::ProcessAddressProfileImportCandidates(
     return true;
   }
   // Otherwise try again but restrict the import to silent updates.
-  for (const auto& candidate : address_profile_import_candidates) {
+  for (const auto& candidate : extracted_address_profiles) {
     // First try to import a single complete profile.
     address_profile_save_manager_->ImportProfileFromForm(
         candidate.profile, client_->GetAppLocale(), candidate.url,
@@ -816,11 +817,6 @@ bool FormDataImporter::ProcessExtractedCreditCard(
     const std::optional<CreditCard>& extracted_credit_card,
     bool is_credit_card_upstream_enabled,
     ukm::SourceId ukm_source_id) {
-  // If no card was successfully extracted from the form, return.
-  if (credit_card_import_type_ == CreditCardImportType::kNoCard) {
-    return false;
-  }
-
   // If a flow without interactive authentication was completed and the user
   // didn't update the result that was filled into the form, re-auth opt-in flow
   // might be offered.
@@ -858,19 +854,6 @@ bool FormDataImporter::ProcessExtractedCreditCard(
                                 VirtualCardEnrollmentSource::kDownstream);
     return true;
   }
-
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-  // A credit card was successfully extracted, but it's possible it is already a
-  // local or server card. First, check to see if we should offer local card
-  // migration in this case, as local cards could go either way.
-  if (local_card_migration_manager_ &&
-      local_card_migration_manager_->ShouldOfferLocalCardMigration(
-          extracted_credit_card, credit_card_import_type_)) {
-    local_card_migration_manager_->AttemptToOfferLocalCardMigration(
-        /*is_from_settings_page=*/false);
-    return true;
-  }
-#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
   // Proceed with card or CVC saving if applicable.
   return extracted_credit_card &&
@@ -1073,8 +1056,7 @@ FormDataImporter::ExtractCreditCardFromForm(const FormStructure& form) {
 
     // If we don't know the type of the field, or the user hasn't entered any
     // information into the field, then skip it.
-    if (!field.IsFieldFillable() || value.empty() ||
-        field.Type().group() != FieldTypeGroup::kCreditCard) {
+    if (value.empty() || field.Type().group() != FieldTypeGroup::kCreditCard) {
       return;
     }
     std::u16string old_value = result.card.GetInfo(field.Type(), app_locale);

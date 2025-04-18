@@ -10,7 +10,6 @@
 #include "components/prefs/pref_change_registrar.h"
 #include "ui/base/accelerators/accelerator.h"
 
-class PrefRegistrySimple;
 namespace glic {
 
 // This class observes and reports changes to glic prefs such as the
@@ -27,14 +26,15 @@ class GlicLauncherConfiguration {
   explicit GlicLauncherConfiguration(Observer* manager);
   ~GlicLauncherConfiguration();
 
-  static void RegisterLocalStatePrefs(PrefRegistrySimple* registry);
-
   // Returns whether the glic launcher is enabled. If `is_default_value` is
   // provided, then it will be updated to reflect if the glic launcher enabled
   // pref is the default value.
   static bool IsEnabled(bool* is_default_value = nullptr);
 
   static ui::Accelerator GetGlobalHotkey();
+
+  // Returns the default hotkey for the glic launcher.
+  static ui::Accelerator GetDefaultHotkey();
 
  private:
   void OnEnabledPrefChanged();

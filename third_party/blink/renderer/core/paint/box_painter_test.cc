@@ -21,7 +21,7 @@ TEST_P(BoxPainterTest, EmptyDecorationBackground) {
     <style>
       body {
         margin: 0;
-        /* to force a subsequene and paint chunk */
+        /* to force a subsequence and paint chunk */
         opacity: 0.5;
         /* to verify child empty backgrounds expand chunk bounds */
         height: 0;

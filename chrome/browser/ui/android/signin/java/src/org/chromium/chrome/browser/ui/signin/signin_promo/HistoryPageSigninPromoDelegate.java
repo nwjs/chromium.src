@@ -29,6 +29,7 @@ import org.chromium.components.signin.metrics.SigninAccessPoint;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.concurrent.TimeUnit;
 
 /** {@link SigninPromoDelegate} for the History page sign-in promo. */
 public class HistoryPageSigninPromoDelegate extends SigninPromoDelegate {
@@ -47,8 +48,13 @@ public class HistoryPageSigninPromoDelegate extends SigninPromoDelegate {
         int HISTORY_SYNC = 1;
     }
 
-    @VisibleForTesting static final int MAX_IMPRESSIONS_HISTORY_PAGE = 10;
+    // 2 weeks in ms.
+    @VisibleForTesting
+    static final long MIN_DELAY_BETWEEN_IMPRESSIONS_MS = TimeUnit.DAYS.toMillis(14);
 
+    @VisibleForTesting static final int MAX_IMPRESSIONS = 10;
+
+    private boolean mIsCreatedInCct;
     private final String mPromoShowCountPreferenceName;
     private @PromoState int mPromoState = PromoState.NONE;
 
@@ -56,9 +62,11 @@ public class HistoryPageSigninPromoDelegate extends SigninPromoDelegate {
             Context context,
             Profile profile,
             SigninAndHistorySyncActivityLauncher launcher,
-            Runnable onPromoStateChange) {
+            Runnable onPromoStateChange,
+            boolean isCreatedInCct) {
         super(context, profile, launcher, onPromoStateChange);
 
+        mIsCreatedInCct = isCreatedInCct;
         mPromoShowCountPreferenceName =
                 ChromePreferenceKeys.SYNC_PROMO_SHOW_COUNT.createKey(
                         SigninPreferencesManager.SigninPromoAccessPointId.HISTORY_PAGE);
@@ -126,13 +134,17 @@ public class HistoryPageSigninPromoDelegate extends SigninPromoDelegate {
 
     @Override
     void recordImpression() {
+        ChromeSharedPreferences.getInstance()
+                .writeLong(
+                        ChromePreferenceKeys.SIGNIN_PROMO_HISTORY_PAGE_LAST_SHOWN_TIME,
+                        System.currentTimeMillis());
         ChromeSharedPreferences.getInstance().incrementInt(mPromoShowCountPreferenceName);
     }
 
     @Override
     boolean isMaxImpressionsReached() {
         return ChromeSharedPreferences.getInstance().readInt(mPromoShowCountPreferenceName)
-                >= MAX_IMPRESSIONS_HISTORY_PAGE;
+                >= MAX_IMPRESSIONS;
     }
 
     @Override
@@ -142,9 +154,30 @@ public class HistoryPageSigninPromoDelegate extends SigninPromoDelegate {
     }
 
     private @PromoState int computePromoState() {
-        // TODO(crbug.com/388201374): Add delay between 2 impressions.
+        // The history page promo should always be hidden in CCT for privacy concern: it's hard to
+        // clarify that the history sync promo affect only Chrome and not the app that launched the
+        // CCT.
+        if (mIsCreatedInCct) {
+            return PromoState.NONE;
+        }
+
         if (ChromeSharedPreferences.getInstance()
                 .readBoolean(ChromePreferenceKeys.SIGNIN_PROMO_HISTORY_PAGE_DECLINED, false)) {
+            return PromoState.NONE;
+        }
+
+        final long currentTime = System.currentTimeMillis();
+        final long lastShownTime =
+                ChromeSharedPreferences.getInstance()
+                        .readLong(
+                                ChromePreferenceKeys.SIGNIN_PROMO_HISTORY_PAGE_LAST_SHOWN_TIME, 0L);
+        if (mPromoState == PromoState.NONE
+                && currentTime > lastShownTime
+                && currentTime - lastShownTime < MIN_DELAY_BETWEEN_IMPRESSIONS_MS) {
+            // Hide promo if it was last shown less than two weeks ago and is not currently showing.
+            // (If the promo is already showing, the delay should have been checked before the promo
+            // was first shown to the user, and a new last shown time should have been recorded
+            // afterward.)
             return PromoState.NONE;
         }
 
@@ -155,7 +188,7 @@ public class HistoryPageSigninPromoDelegate extends SigninPromoDelegate {
             return PromoState.NONE;
         }
         final HistorySyncHelper historySyncHelper = HistorySyncHelper.getForProfile(mProfile);
-        return historySyncHelper.shouldSuppressHistorySync()
+        return historySyncHelper.shouldSuppressHistorySync() || historySyncHelper.isDeclinedOften()
                 ? PromoState.NONE
                 : PromoState.HISTORY_SYNC;
     }

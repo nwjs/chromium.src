@@ -260,6 +260,7 @@ public class SearchActivity extends AsyncInitializationActivity
                 this,
                 /* listenToActivityState= */ true,
                 new ActivityKeyboardVisibilityDelegate(new WeakReference(this)),
+                /* activityTopResumedSupported= */ false,
                 getIntentRequestTracker(),
                 getInsetObserver(),
                 /* trackOcclusion= */ true) {
@@ -695,7 +696,7 @@ public class SearchActivity extends AsyncInitializationActivity
 
     private void setIncognitoColorScheme() {
         @ColorInt
-        int anchorViewBackgroundColor = getColor(R.color.default_bg_color_dark_elev_3_baseline);
+        int anchorViewBackgroundColor = getColor(R.color.omnibox_dropdown_bg_incognito);
         GradientDrawable anchorViewBackground = (GradientDrawable) mAnchorView.getBackground();
         anchorViewBackground.setColor(anchorViewBackgroundColor);
         GradientDrawable searchBoxBackground =
@@ -718,7 +719,9 @@ public class SearchActivity extends AsyncInitializationActivity
         int anchorViewColor =
                 ((GradientDrawable) anchorViewBackground).getColor().getDefaultColor();
         EdgeToEdgeSystemBarColorHelper helper =
-                getEdgeToEdgeManager().getEdgeToEdgeSystemBarColorHelper();
+                getEdgeToEdgeManager() != null
+                        ? getEdgeToEdgeManager().getEdgeToEdgeSystemBarColorHelper()
+                        : null;
         StatusBarColorController.setStatusBarColor(helper, getWindow(), anchorViewColor);
         helper.setNavigationBarColor(anchorViewColor);
     }

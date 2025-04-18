@@ -35,12 +35,12 @@ std::unique_ptr<views::View> CreatePreviewBadge() {
   const int kBorderThickness = 0;
   const int kRoundedRadius =
       GetLayoutConstant(LOCATION_BAR_CHILD_CORNER_RADIUS);
-  badge_view->SetBorder(views::CreateThemedRoundedRectBorder(
+  badge_view->SetBorder(views::CreateRoundedRectBorder(
       kBorderThickness, kRoundedRadius,
       gfx::Insets::TLBR(kVerticalInset, kLeftInset, kVerticalInset,
                         kRightInset),
       ui::kColorSysTertiaryContainer));
-  badge_view->SetBackground(views::CreateThemedRoundedRectBackground(
+  badge_view->SetBackground(views::CreateRoundedRectBackground(
       ui::kColorSysTertiaryContainer, kRoundedRadius));
 
   const int kIconSize = 12;

@@ -2,15 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 import type {CrActionMenuElement} from '//resources/cr_elements/cr_action_menu/cr_action_menu.js';
-import type {CrLazyRenderElement} from '//resources/cr_elements/cr_lazy_render/cr_lazy_render.js';
-import {flush} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+import type {CrLazyRenderLitElement} from '//resources/cr_elements/cr_lazy_render/cr_lazy_render_lit.js';
 import type {AppElement} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
-import {MetricsBrowserProxyImpl, playFromSelectionTimeout, spinnerDebounceTimeout} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
+import {MetricsBrowserProxyImpl, playFromSelectionTimeout, ReadAnythingLogger} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 import {MockTimer} from 'chrome-untrusted://webui-test/mock_timer.js';
 import {microtasksFinished} from 'chrome-untrusted://webui-test/test_util.js';
 
-import {FakeSpeechSynthesis} from './fake_speech_synthesis.js';
 import {TestMetricsBrowserProxy} from './test_metrics_browser_proxy.js';
+import type {TestSpeechBrowserProxy} from './test_speech_browser_proxy.js';
 
 export async function createApp(): Promise<AppElement> {
   const app = document.createElement('read-anything-app');
@@ -22,29 +21,12 @@ export async function createApp(): Promise<AppElement> {
 export function mockMetrics(): TestMetricsBrowserProxy {
   const metrics = new TestMetricsBrowserProxy();
   MetricsBrowserProxyImpl.setInstance(metrics);
+  ReadAnythingLogger.setInstance(new ReadAnythingLogger());
   return metrics;
 }
 
 export function emitEvent(app: AppElement, name: string, options?: any): void {
   app.$.toolbar.dispatchEvent(new CustomEvent(name, options));
-}
-
-// TODO(crbug.com/40927698): Remove this function and use the above one once
-// we've fully migrated away from polymer to Lit.
-export function emitEventForPolymer(
-    target: HTMLElement, name: string, options?: any): void {
-  target.dispatchEvent(new CustomEvent(name, options));
-}
-
-// Creates a FakeSpeechSynthesis object with default voices and updates the app
-// to use it.
-export function setDefaultSpeechSynthesis(app: AppElement):
-    FakeSpeechSynthesis {
-  const speechSynthesis = new FakeSpeechSynthesis();
-  speechSynthesis.setDefaultVoices();
-  app.synth = speechSynthesis;
-  app.enabledLangs = ['en'];
-  return speechSynthesis;
 }
 
 // Runs the requestAnimationFrame callback immediately
@@ -63,35 +45,46 @@ export function playFromSelectionWithMockTimer(app: AppElement): void {
   mockTimer.uninstall();
 }
 
-export async function waitForSpinnerTimeout(): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, spinnerDebounceTimeout));
-}
-
 // Returns the list of items in the given dropdown menu
 export function getItemsInMenu(
-    lazyMenu: CrLazyRenderElement<CrActionMenuElement>): HTMLButtonElement[] {
+    lazyMenu: CrLazyRenderLitElement<CrActionMenuElement>):
+    HTMLButtonElement[] {
   // We need to call menu.get here to ensure the menu has rendered before we
   // query the dropdown item elements.
   const menu = lazyMenu.get();
-  flush();
   return Array.from(menu.querySelectorAll<HTMLButtonElement>('.dropdown-item'));
 }
 
-// Creates SpeechSynthesisVoices and sets them on the given FakeSpeechSynthesis.
+export function createSpeechErrorEvent(
+    utterance: SpeechSynthesisUtterance,
+    errorCode: SpeechSynthesisErrorCode): SpeechSynthesisErrorEvent {
+  return new SpeechSynthesisErrorEvent(
+      'type', {utterance: utterance, error: errorCode});
+}
+
+export function setupBasicSpeech(
+    app: AppElement, speech: TestSpeechBrowserProxy) {
+  app.enabledLangs = ['en'];
+  createAndSetVoices(
+      app, speech, [{lang: 'en', name: 'Google Basic', default: true}]);
+}
+
+// Creates SpeechSynthesisVoices and sets them on the given
+// TestSpeechBrowserProxy.
 export function createAndSetVoices(
-    app: AppElement, speechSynthesis: FakeSpeechSynthesis,
+    app: AppElement, speech: TestSpeechBrowserProxy,
     overrides: Array<Partial<SpeechSynthesisVoice>>) {
   const voices: SpeechSynthesisVoice[] = [];
   overrides.forEach(partialVoice => {
     voices.push(createSpeechSynthesisVoice(partialVoice));
   });
-  setVoices(app, speechSynthesis, voices);
+  setVoices(app, speech, voices);
 }
 
 export function setVoices(
-    app: AppElement, speechSynthesis: FakeSpeechSynthesis,
+    app: AppElement, speech: TestSpeechBrowserProxy,
     voices: SpeechSynthesisVoice[]) {
-  speechSynthesis.setVoices(voices);
+  speech.setVoices(voices);
   app.onVoicesChanged();
 }
 

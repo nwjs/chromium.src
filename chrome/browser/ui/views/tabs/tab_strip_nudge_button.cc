@@ -147,17 +147,24 @@ void TabStripNudgeButton::SetCloseButton(PressedCallback pressed_callback) {
       kTabStripNudgeCloseButtonMargin, kTabStripNudgeCloseButtonMargin);
   close_button->SetProperty(views::kMarginsKey, margin);
 
-  close_button->SetFocusBehavior(FocusBehavior::NEVER);
   close_button_ = AddChildView(std::move(close_button));
+  SetIsShowingNudge(false);
 }
 
 void TabStripNudgeButton::SetIsShowingNudge(bool is_showing) {
   is_showing_nudge_ = is_showing;
   if (is_showing) {
-    close_button_->SetFocusBehavior(FocusBehavior::ALWAYS);
+    SetFocusBehavior(FocusBehavior::ALWAYS);
+    SetCloseButtonFocusBehavior(FocusBehavior::ALWAYS);
   } else {
-    close_button_->SetFocusBehavior(FocusBehavior::NEVER);
+    SetFocusBehavior(FocusBehavior::NEVER);
+    SetCloseButtonFocusBehavior(FocusBehavior::NEVER);
   }
+}
+
+void TabStripNudgeButton::SetCloseButtonFocusBehavior(
+    views::View::FocusBehavior focus_behavior) {
+  close_button_->SetFocusBehavior(focus_behavior);
 }
 
 BEGIN_METADATA(TabStripNudgeButton)

@@ -21,6 +21,7 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHAccountSettingsHistorySync,
     &kIPHAndroidTabDeclutter,
     &kIPHAdaptiveButtonInTopToolbarCustomizationNewTabFeature,
+    &kIPHAdaptiveButtonInTopToolbarCustomizationOpenInBrowserFeature,
     &kIPHAdaptiveButtonInTopToolbarCustomizationShareFeature,
     &kIPHAdaptiveButtonInTopToolbarCustomizationVoiceSearchFeature,
     &kIPHAdaptiveButtonInTopToolbarCustomizationAddToBookmarksFeature,
@@ -67,6 +68,7 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHPageInfoFeature,
     &kIPHPageInfoStoreInfoFeature,
     &kIPHPageZoomFeature,
+    &kIPHPdfPageDownloadFeature,
     &kIPHPreviewsOmniboxUIFeature,
     &kIPHReadAloudAppMenuFeature,
     &kIPHReadAloudExpandedPlayerFeature,
@@ -130,6 +132,8 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHiOSDefaultBrowserBadgeEligibilityFeature,
     &kIPHiOSDefaultBrowserOverflowMenuBadgeFeature,
     &kIPHiOSDownloadAutoDeletionFeature,
+    &kIPHiOSFeedSwipeAnimatedFeature,
+    &kIPHiOSFeedSwipeStaticFeature,
     &kIPHiOSLensKeyboardFeature,
     &kIPHiOSPromoAppStoreFeature,
     &kIPHiOSPromoWhatsNewFeature,
@@ -168,6 +172,7 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHiOSDefaultBrowserBannerPromoFeature,
     &kIPHiOSReminderNotificationsOverflowMenuBubbleFeature,
     &kIPHiOSReminderNotificationsOverflowMenuNewBadgeFeature,
+    &kIPHiOSSettingsInOverflowMenuBubbleFeature,
 #endif  // BUILDFLAG(IS_IOS)
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_FUCHSIA)
@@ -230,6 +235,7 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHTabGroupsSharedTabFeedbackFeature,
     &kIPHTabOrganizationSuccessFeature,
     &kIPHTabSearchFeature,
+    &kIPHTabSearchToolbarButtonFeature,
     &kIPHWebUITabStripFeature,
     &kIPHDesktopPwaInstallFeature,
     &kIPHProfileSwitchFeature,
@@ -243,11 +249,13 @@ const base::Feature* const kAllFeatures[] = {
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_FUCHSIA)
+    &kIPHAutofillAiOptInFeature,
+    &kIPHAutofillBnplAffirmOrZipSuggestionFeature,
     &kIPHAutofillCardInfoRetrievalSuggestionFeature,
     &kIPHAutofillCreditCardBenefitFeature,
     &kIPHAutofillDisabledVirtualCardSuggestionFeature,
     &kIPHAutofillExternalAccountProfileSuggestionFeature,
-    &kIPHAutofillPredictionImprovementsFeature,
+    &kIPHAutofillHomeWorkProfileSuggestionFeature,
     &kIPHAutofillVirtualCardCVCSuggestionFeature,
     &kIPHAutofillVirtualCardSuggestionFeature,
     &kIPHCookieControlsFeature,

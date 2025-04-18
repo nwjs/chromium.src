@@ -295,6 +295,7 @@ class ProcessPerfResults_HardenedUnittest(unittest.TestCase):
 class ProcessPerfResults_PerfSkiaJsonUnittest(unittest.TestCase):
   @mock.patch.object(json_util, 'gcs_buckets_from_builder_name', autospec=True,
                      return_value=['chrome-perf-dashboard-test'])
+  @mock.patch.object(json_util, 'is_empty', autospec=True, return_value=False)
   @mock.patch('builtins.open', new_callable=mock.mock_open)
   @mock.patch.object(json, 'dump', autospec=True)
   @mock.patch.object(ppr_module, '_process_skia_json', autospec=True)
@@ -302,15 +303,9 @@ class ProcessPerfResults_PerfSkiaJsonUnittest(unittest.TestCase):
   @mock.patch.object(google_storage_helper, 'upload', autospec=True,
                      return_value='')
   @mock.patch.object(google_storage_helper, 'unique_name', autospec=True)
-  def test_upload_skia_json(
-      self,
-      mock_unique_name,
-      mock_upload,
-      mock_get_gcs_prefix_path,
-      mock_process_skia_json,
-      mock_dump,
-      mock_file_open,
-      _):
+  def test_upload_skia_json(self, mock_unique_name, mock_upload,
+                            mock_get_gcs_prefix_path, mock_process_skia_json,
+                            mock_dump, mock_file_open, mock_is_empty, _):
     key = {
         'improvement_direction': 'down',
         'unit': 'ms_smallerIsBetter',
@@ -416,7 +411,8 @@ class ProcessPerfResults_PerfSkiaJsonUnittest(unittest.TestCase):
     self.assertEqual(got, 0)
     mock_process_skia_json.assert_called_once_with(
         results_filename=results_filename,
-        builder_details=builder_details)
+        builder_details=builder_details,
+        benchmark_name=benchmark_name)
     mock_get_gcs_prefix_path.assert_called_once_with(
         build_properties=build_properties,
         builder_details=builder_details,
@@ -424,17 +420,17 @@ class ProcessPerfResults_PerfSkiaJsonUnittest(unittest.TestCase):
         given_datetime=None,
         filename=('skia_results_benchmark.example_'
                   'win-11-perf_9719_2024_08_25_T00_39_41-UTC.json'))
+    skia_results_filepath = os.path.join('tmpfile_dir', 'skia_results.json')
     mock_upload.assert_called_once_with(
         name=('ingest/2024/08/29/ChromiumPerf/win-11-perf/9719/'
               'benchmark.example/skia_results.json'),
-        filepath='tmpfile_dir/skia_results.json',
+        filepath=skia_results_filepath,
         bucket='chrome-perf-dashboard-test',
         content_type='application/json',
-        authenticated_link=True
-    )
+        authenticated_link=True)
     mock_dump.assert_called_once_with(skia_json, mock.ANY)
-    mock_file_open.assert_called_once_with(
-        'tmpfile_dir/skia_results.json', 'w')
+    mock_file_open.assert_called_once_with(skia_results_filepath, 'w')
+    mock_is_empty.assert_called_once_with(skia_json)
 
 
 if __name__ == '__main__':

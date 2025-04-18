@@ -60,6 +60,10 @@
 #error This file should only be included on desktop.
 #endif
 
+#if BUILDFLAG(IS_OZONE)
+#include "ui/ozone/public/platform_session_manager.h"
+#endif
+
 class BackgroundContents;
 class BreadcrumbManagerBrowserAgent;
 class BrowserActions;
@@ -323,9 +327,6 @@ class Browser : public TabStripModelObserver,
     CreationSource creation_source = CreationSource::kUnknown;
 
 #if BUILDFLAG(IS_CHROMEOS)
-    // The id from the restore data to restore the browser window.
-    int32_t restore_id = kDefaultRestoreId;
-
     // If set, the browser should be created on the display given by
     // `display_id`.
     std::optional<int64_t> display_id;
@@ -336,6 +337,18 @@ class Browser : public TabStripModelObserver,
     // using this ID.  In response, the desktop will stop playing the "waiting
     // for startup" animation (if any).
     std::string startup_id;
+#endif
+
+#if BUILDFLAG(IS_OZONE)
+    // Some platforms support session management assisted by the windowing
+    // system, such as:
+    // -ChromeOS, where this id is retrieved from the session backing
+    // storage and used by Ash to restore the browser window state.
+    // - Ozone/Wayland, with xdg-session-management protocol extension, in
+    // which case, this id is sent to the Wayland compositor, so it can also
+    // restore the window state when the window is initialized. Se
+    // ui/ozone/public/platfrom_session_manager.h for more details.
+    int32_t restore_id = kDefaultRestoreId;
 #endif
 
     // Whether this browser was created by a user gesture. We track this
@@ -846,6 +859,8 @@ class Browser : public TabStripModelObserver,
   void DraggableRegionsChanged(
       const std::vector<blink::mojom::DraggableRegionPtr>& regions,
       content::WebContents* contents) override;
+  std::vector<blink::mojom::RelatedApplicationPtr> GetSavedRelatedApplications(
+      content::WebContents* web_contents) override;
 
   bool is_type_normal() const { return type_ == TYPE_NORMAL; }
   bool is_type_popup() const { return type_ == TYPE_POPUP; }
@@ -885,7 +900,7 @@ class Browser : public TabStripModelObserver,
   // returns the current browser.
   Browser* GetBrowserForOpeningWebUi();
 
-  StatusBubble* GetStatusBubbleForTesting();
+  std::vector<StatusBubble*> GetStatusBubblesForTesting();
   UnloadController* GetUnloadControllerForTesting() {
     return &unload_controller_;
   }
@@ -909,13 +924,16 @@ class Browser : public TabStripModelObserver,
   base::CallbackListSubscription RegisterBrowserDidClose(
       BrowserDidCloseCallback callback) override;
   views::View* TopContainer() override;
+  bool IsMinimized() const override;
+  base::WeakPtr<BrowserWindowInterface> GetWeakPtr() override;
+  views::View* LensOverlayView() override;
   base::CallbackListSubscription RegisterActiveTabDidChange(
       ActiveTabChangeCallback callback) override;
   tabs::TabInterface* GetActiveTabInterface() override;
   BrowserWindowFeatures& GetFeatures() override;
   web_modal::WebContentsModalDialogHost*
   GetWebContentsModalDialogHostForWindow() override;
-  bool IsActive() override;
+  bool IsActive() const override;
   base::CallbackListSubscription RegisterDidBecomeActive(
       DidBecomeActiveCallback callback) override;
   base::CallbackListSubscription RegisterDidBecomeInactive(
@@ -936,6 +954,13 @@ class Browser : public TabStripModelObserver,
 #if BUILDFLAG(IS_CHROMEOS)
   bool IsLockedForOnTask();
   void SetLockedForOnTask(bool locked);
+#endif
+
+#if BUILDFLAG(IS_OZONE)
+  const std::optional<ui::PlatformSessionWindowData>& platform_session_data()
+      const {
+    return platform_session_data_;
+  }
 #endif
 
  private:
@@ -1229,10 +1254,12 @@ class Browser : public TabStripModelObserver,
 
   // Getters for UI ///////////////////////////////////////////////////////////
 
-  // Returns the StatusBubble from the current toolbar. It is possible for
-  // this to return NULL if called before the toolbar has initialized.
+  // Returns the list of StatusBubbles from the current toolbar. It is possible
+  // for this to be empty if called before the toolbar has initialized. In a
+  // split view, there will be multiple status bubbles with the active one
+  // listed first.
   // TODO(beng): remove this.
-  StatusBubble* GetStatusBubble();
+  std::vector<StatusBubble*> GetStatusBubbles();
 
   // Session restore functions ////////////////////////////////////////////////
 
@@ -1345,6 +1372,10 @@ class Browser : public TabStripModelObserver,
       const GURL& target_url,
       const content::StoragePartitionConfig& partition_config,
       content::SessionStorageNamespace* session_storage_namespace);
+
+  void UpdateTabGroupSessionDataForTab(
+      tabs::TabInterface* tab,
+      std::optional<tab_groups::TabGroupId> group);
 
   // Data members /////////////////////////////////////////////////////////////
 
@@ -1567,6 +1598,14 @@ class Browser : public TabStripModelObserver,
   DidBecomeInactiveCallbackList did_become_inactive_callback_list_;
 
   std::unique_ptr<BrowserWindowFeatures> features_;
+
+#if BUILDFLAG(IS_OZONE)
+  // If supported by the platform, this stores stores data related to the
+  // windowing system level session. E.g: session and window IDs. See
+  // ui/ozone/public/platform_session_manager.h for more details.
+  std::optional<ui::PlatformSessionWindowData> platform_session_data_ =
+      std::nullopt;
+#endif
 
   // The following factory is used for chrome update coalescing.
   base::WeakPtrFactory<Browser> chrome_updater_factory_{this};

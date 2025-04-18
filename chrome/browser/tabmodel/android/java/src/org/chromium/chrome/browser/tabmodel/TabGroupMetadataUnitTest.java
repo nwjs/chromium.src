@@ -20,8 +20,8 @@ import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /** Tests for {@link TabGroupMetadata}. */
 @RunWith(BaseRobolectricTestRunner.class)
@@ -29,20 +29,21 @@ import java.util.Arrays;
 @EnableFeatures({ChromeFeatureList.TAB_STRIP_GROUP_DRAG_DROP_ANDROID})
 public class TabGroupMetadataUnitTest {
 
-    private static final ArrayList<Integer> TAB_IDS = new ArrayList<>(Arrays.asList(1, 2, 3));
-    private static final ArrayList<String> TAB_URLS =
-            new ArrayList<>(
-                    Arrays.asList(
-                            "https://www.amazon.com",
-                            "https://www.youtube.com",
-                            "https://www.facebook.com"));
+    private static final LinkedHashMap<Integer, String> TAB_IDS_TO_URLS =
+            new LinkedHashMap<>(
+                    Map.ofEntries(
+                            Map.entry(1, "https://www.amazon.com"),
+                            Map.entry(2, "https://www.youtube.com"),
+                            Map.entry(3, "https://www.facebook.com")));
     private static final Token TAB_GROUP_ID = new Token(2L, 2L);
     private static final int ROOT_ID = 1;
     private static final int SELECTED_TAB_ID = 2;
     private static final int SOURCE_WINDOW_INDEX = 5;
     private static final @ColorInt int TAB_GROUP_COLOR = 0;
     private static final String TAB_GROUP_TITLE = "Title";
+    private static final String MHTML_TAB_TITLE = "mhtml tab";
     private static final boolean TAB_GROUP_COLLAPSED = true;
+    private static final boolean IS_GROUP_SHARED = false;
     private static final boolean IS_INCOGNITO = false;
     private Intent mIntent = new Intent();
     private TabGroupMetadata mTabGroupMetadata;
@@ -56,11 +57,12 @@ public class TabGroupMetadataUnitTest {
                         SELECTED_TAB_ID,
                         SOURCE_WINDOW_INDEX,
                         TAB_GROUP_ID,
-                        TAB_IDS,
-                        TAB_URLS,
+                        TAB_IDS_TO_URLS,
                         TAB_GROUP_COLOR,
                         TAB_GROUP_TITLE,
+                        MHTML_TAB_TITLE,
                         TAB_GROUP_COLLAPSED,
+                        IS_GROUP_SHARED,
                         IS_INCOGNITO);
         IntentHandler.setTabGroupMetadata(mIntent, mTabGroupMetadata);
 

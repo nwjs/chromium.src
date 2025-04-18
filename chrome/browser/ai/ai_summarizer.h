@@ -15,6 +15,8 @@
 #include "third_party/blink/public/mojom/ai/ai_summarizer.mojom.h"
 #include "third_party/blink/public/mojom/ai/model_streaming_responder.mojom-forward.h"
 
+// TODO(crbug.com/402442890): Refactor Writing Assistance APIs to reduce
+// duplicated code.
 class AISummarizer : public AIContextBoundObject,
                      public blink::mojom::AISummarizer {
  public:
@@ -30,6 +32,9 @@ class AISummarizer : public AIContextBoundObject,
                  const std::string& context,
                  mojo::PendingRemote<blink::mojom::ModelStreamingResponder>
                      pending_responder) override;
+  void MeasureUsage(const std::string& input,
+                    const std::string& context,
+                    MeasureUsageCallback callback) override;
 
   ~AISummarizer() override;
 
@@ -42,14 +47,27 @@ class AISummarizer : public AIContextBoundObject,
   static std::string CombineContexts(const std::string& shared_context,
                                      const std::string& context);
 
+  void DidGetExecutionInputSizeForSummarize(
+      mojo::RemoteSetElementId responder_id,
+      optimization_guide::proto::SummarizeRequest request,
+      std::optional<uint32_t> result);
+
+  void DidGetExecutionInputSizeInTokensForMeasure(
+      MeasureUsageCallback callback,
+      std::optional<uint32_t> result);
+
   void ModelExecutionCallback(
       mojo::RemoteSetElementId responder_id,
       optimization_guide::OptimizationGuideModelStreamingExecutionResult
           result);
 
+  optimization_guide::proto::SummarizeRequest BuildRequest(
+      const std::string& input,
+      const std::string& context);
+
   // The underlying session provided by optimization guide component.
   std::unique_ptr<optimization_guide::OptimizationGuideModelExecutor::Session>
-      summarize_session_;
+      session_;
   mojo::Remote<blink::mojom::AISummarizer> remote_;
   // The `RemoteSet` storing all the responders, each of them corresponds to one
   // `Summarize()` call.

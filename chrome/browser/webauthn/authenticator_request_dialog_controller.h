@@ -17,8 +17,10 @@
 #include "base/scoped_observation.h"
 #include "base/timer/timer.h"
 #include "chrome/browser/ui/webauthn/passkey_upgrade_request_controller.h"
+#include "chrome/browser/webauthn/authenticator_reference.h"
 #include "chrome/browser/webauthn/authenticator_request_dialog_model.h"
 #include "chrome/browser/webauthn/authenticator_transport.h"
+#include "chrome/browser/webauthn/observable_authenticator_list.h"
 #include "chrome/browser/webauthn/password_credential_controller.h"
 #include "components/webauthn/core/browser/passkey_model.h"
 #include "components/webauthn/core/browser/passkey_model_change.h"
@@ -104,10 +106,9 @@ class AuthenticatorRequestDialogController
   // screen or the guided flow for the most likely transport.
   //
   // Valid action when at step: kNotStarted.
-  void StartFlow(
-      device::FidoRequestHandlerBase::TransportAvailabilityInfo
-          transport_availability,
-      webauthn::PasswordCredentialController::PasswordCredentials passwords);
+  void StartFlow(device::FidoRequestHandlerBase::TransportAvailabilityInfo
+                     transport_availability,
+                 PasswordCredentialController::PasswordCredentials passwords);
 
   // Starts a modal WebAuthn flow (i.e. what you normally get if you call
   // WebAuthn with no mediation parameter) from a conditional request.
@@ -360,7 +361,7 @@ class AuthenticatorRequestDialogController
 
   content::AuthenticatorRequestClientDelegate::UIPresentation ui_presentation()
       const;
-  void set_ui_presentation(
+  void SetUIPresentation(
       content::AuthenticatorRequestClientDelegate::UIPresentation modality);
 
   void ProvideChallengeUrl(
@@ -520,7 +521,7 @@ class AuthenticatorRequestDialogController
   device::FidoRequestHandlerBase::TransportAvailabilityInfo
       transport_availability_;
 
-  webauthn::PasswordCredentialController::PasswordCredentials passwords_;
+  PasswordCredentialController::PasswordCredentials passwords_;
 
   content::AuthenticatorRequestClientDelegate::AccountPreselectedCallback
       account_preselected_callback_;
@@ -537,9 +538,6 @@ class AuthenticatorRequestDialogController
 
   base::OnceCallback<void(device::AuthenticatorGetAssertionResponse)>
       selection_callback_;
-
-  content::AuthenticatorRequestClientDelegate::UIPresentation ui_presentation_ =
-      content::AuthenticatorRequestClientDelegate::UIPresentation::kModal;
 
   // cable_extension_provided_ indicates whether the request included a caBLE
   // extension.

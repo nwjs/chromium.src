@@ -120,8 +120,7 @@
                   type:config->infobar_type()];
   mediator.consumer = self.bannerViewController;
   mediator.engagementTracker =
-      feature_engagement::TrackerFactory::GetForProfile(
-          self.browser->GetProfile());
+      feature_engagement::TrackerFactory::GetForProfile(self.profile);
 
   self.mediator = mediator;
   // Present the banner.
@@ -241,9 +240,6 @@
     case InfobarType::kInfobarTypeTranslate:
       mediatorClass = [TranslateInfobarBannerOverlayMediator class];
       break;
-    case InfobarType::kInfobarTypeParcelTracking:
-      // TODO(crbug.com/391002352): Remove kInfobarTypeParcelTracking
-      NOTREACHED();
     case InfobarType::kInfobarTypeEnhancedSafeBrowsing:
       mediatorClass = [EnhancedSafeBrowsingBannerOverlayMediator class];
       break;

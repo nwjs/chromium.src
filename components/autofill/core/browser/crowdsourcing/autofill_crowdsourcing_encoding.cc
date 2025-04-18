@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <deque>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -356,9 +357,13 @@ void PopulateRandomizedFieldMetadata(
 
 // Encodes the fields of `upload_fields` in the in-out parameter `upload`.
 // Helper function for EncodeUploadRequest().
-void EncodeFormFieldsForUpload(const FormStructure& form,
-                               base::span<AutofillField*> upload_fields,
-                               AutofillUploadContents* upload) {
+void EncodeFormFieldsForUpload(
+    const FormStructure& form,
+    base::optional_ref<RandomizedEncoder> encoder,
+    const std::map<FieldGlobalId, base::flat_set<std::u16string>>&
+        format_strings,
+    base::span<AutofillField*> upload_fields,
+    AutofillUploadContents* upload) {
   DCHECK(!IsMalformed(form));
 
   for (AutofillField* field : upload_fields) {
@@ -396,15 +401,27 @@ void EncodeFormFieldsForUpload(const FormStructure& form,
           field->initial_value_changed().value());
     }
 
+    if (auto it = format_strings.find(field->global_id());
+        it != format_strings.end()) {
+      for (const std::u16string& format_string : it->second) {
+        DCHECK(data_util::IsValidDateFormat(format_string));
+        auto* added_format_string = added_field->add_format_string();
+        added_format_string->set_type(
+            AutofillUploadContents_Field_FormatString_Type_DATE);
+        added_format_string->set_format_string(
+            base::UTF16ToUTF8(format_string));
+      }
+    }
+
     added_field->set_signature(field->GetFieldSignature().value());
 
     if (field->properties_mask()) {
       added_field->set_properties_mask(field->properties_mask());
     }
 
-    if (form.randomized_encoder().has_value()) {
+    if (encoder.has_value()) {
       PopulateRandomizedFieldMetadata(
-          *form.randomized_encoder(), form, *field,
+          *encoder, form, *field,
           added_field->mutable_randomized_field_metadata());
     }
 
@@ -412,6 +429,7 @@ void EncodeFormFieldsForUpload(const FormStructure& form,
       added_field->set_single_username_vote_type(
           field->single_username_vote_type().value());
     }
+
     switch (field->is_most_recent_single_username_candidate()) {
       case IsMostRecentSingleUsernameCandidate::kNotPartOfUsernameFirstFlow:
         added_field->clear_is_most_recent_single_username_candidate();
@@ -670,8 +688,11 @@ base::flat_set<FormSignature> GetFormsForWhichToRunAiModel(
 
 std::vector<AutofillUploadContents> EncodeUploadRequest(
     const FormStructure& form,
+    base::optional_ref<RandomizedEncoder> encoder,
+    const std::map<FieldGlobalId, base::flat_set<std::u16string>>&
+        format_strings,
     const FieldTypeSet& available_field_types,
-    std::string_view login_form_signature,
+    std::optional<FormSignature> login_form_signature,
     bool observed_submission) {
   DCHECK_EQ(FirstNonCapturedType(form, available_field_types),
             MAX_VALID_FIELD_TYPE);
@@ -686,8 +707,7 @@ std::vector<AutofillUploadContents> EncodeUploadRequest(
   upload.set_autofill_used(false);
   upload.set_data_present(data_present);
   upload.set_has_form_tag(form.is_form_element());
-  if (!form.current_page_language()->empty() &&
-      form.randomized_encoder().has_value()) {
+  if (!form.current_page_language()->empty() && encoder.has_value()) {
     upload.set_language(form.current_page_language().value());
   }
 
@@ -714,26 +734,24 @@ std::vector<AutofillUploadContents> EncodeUploadRequest(
       static_cast<AutofillUploadContents_SubmissionIndicatorEvent>(
           triggering_event));
 
-  if (!login_form_signature.empty()) {
-    uint64_t login_sig;
-    if (base::StringToUint64(login_form_signature, &login_sig)) {
-      upload.set_login_form_signature(login_sig);
-    }
+  if (login_form_signature.has_value()) {
+    upload.set_login_form_signature(login_form_signature->value());
   }
 
   if (IsMalformed(form)) {
     return {};  // Malformed form, skip it.
   }
 
-  if (form.randomized_encoder().has_value()) {
-    PopulateRandomizedFormMetadata(*form.randomized_encoder(), form,
+  if (encoder.has_value()) {
+    PopulateRandomizedFormMetadata(*encoder, form,
                                    upload.mutable_randomized_form_metadata());
   }
 
   std::vector<AutofillField*> upload_fields(form.fields().size());
   std::ranges::transform(form.fields(), upload_fields.begin(),
                          &std::unique_ptr<AutofillField>::get);
-  EncodeFormFieldsForUpload(form, upload_fields, &upload);
+  EncodeFormFieldsForUpload(form, encoder, format_strings, upload_fields,
+                            &upload);
   std::vector<AutofillUploadContents> uploads = {std::move(upload)};
 
   // Build AutofillUploadContents for the renderer forms that have been
@@ -765,8 +783,9 @@ std::vector<AutofillUploadContents> EncodeUploadRequest(
                               (*subform_begin)->renderer_form_id();
                      });
     // SAFETY: The iterators are from the same container.
-    EncodeFormFieldsForUpload(
-        form, UNSAFE_BUFFERS({subform_begin, subform_end}), &uploads.back());
+    EncodeFormFieldsForUpload(form, encoder, format_strings,
+                              UNSAFE_BUFFERS({subform_begin, subform_end}),
+                              &uploads.back());
     subform_begin = subform_end;
   }
   return uploads;
@@ -814,7 +833,7 @@ void ParseServerPredictionsQueryResponse(
 
   std::string decoded_payload;
   if (!base::Base64Decode(payload, &decoded_payload)) {
-    VLOG(1) << "Could not decode payload from base64 to bytes";
+    DVLOG(1) << "Could not decode payload from base64 to bytes";
     return;
   }
 
@@ -824,8 +843,8 @@ void ParseServerPredictionsQueryResponse(
     return;
   }
 
-  VLOG(1) << "Autofill query response from API was successfully parsed: "
-          << response;
+  DVLOG(1) << "Autofill query response from API was successfully parsed: "
+           << response;
 
   ProcessServerPredictionsQueryResponse(response, forms,
                                         queried_form_signatures, log_manager);
@@ -883,7 +902,7 @@ void ProcessServerPredictionsQueryResponse(
       }
       if (field_suggestion->has_format_string()) {
         field->set_format_string_unless_overruled(
-            field_suggestion->format_string(),
+            base::UTF8ToUTF16(field_suggestion->format_string()),
             AutofillField::FormatStringSource::kServer);
       }
       ++field_rank_map[field->GetFieldSignature()];
@@ -918,33 +937,6 @@ void ProcessServerPredictionsQueryResponse(
     AutofillMetrics::LogServerResponseHasDataForForm(std::ranges::any_of(
         form->fields(), [](FieldType t) { return t != NO_SERVER_DATA; },
         &AutofillField::server_type));
-
-    form->UpdateAutofillCount();
-    form->RationalizeFormStructure(log_manager);
-
-    AssignSections(form->fields());
-
-    // Since this step requires the sections to be available, it is done after
-    // the sectioning logic is ran. Note that since this step doesn't change the
-    // types of the individual field, this should not break any assumption that
-    // was made to compute the sections.
-    form->RationalizePhoneNumberFieldsForFilling();
-
-    // Log the field type predicted by rationalization.
-    // The sections are mapped to consecutive natural numbers starting at 1.
-    std::map<Section, size_t> section_id_map;
-    for (const auto& field : form->fields()) {
-      if (!base::Contains(section_id_map, field->section())) {
-        size_t next_section_id = section_id_map.size() + 1;
-        section_id_map[field->section()] = next_section_id;
-      }
-      field->AppendLogEventIfNotRepeated(RationalizationFieldLogEvent{
-          .field_type = field->Type().GetStorableType(),
-          .section_id = section_id_map[field->section()],
-          .type_changed = field->Type().GetStorableType() !=
-                          field->ComputedType().GetStorableType(),
-      });
-    }
   }
 
   AutofillMetrics::ServerQueryMetric metric;

@@ -33,11 +33,12 @@ class RecentActivityBubbleDialogView : public LocationBarBubbleDelegateView {
   METADATA_HEADER(RecentActivityBubbleDialogView, LocationBarBubbleDelegateView)
 
  public:
-  RecentActivityBubbleDialogView(View* anchor_view,
-                                 content::WebContents* web_contents,
-                                 std::optional<int> current_tab_activity_index,
-                                 std::vector<ActivityLogItem> activity_log,
-                                 Profile* profile);
+  RecentActivityBubbleDialogView(
+      View* anchor_view,
+      content::WebContents* web_contents,
+      std::vector<ActivityLogItem> tab_activity_log,
+      std::vector<ActivityLogItem> group_activity_log,
+      Profile* profile);
   ~RecentActivityBubbleDialogView() override;
 
   // The maximum number of rows that can be displayed in this dialog.
@@ -72,8 +73,8 @@ class RecentActivityBubbleDialogView : public LocationBarBubbleDelegateView {
   raw_ptr<views::View> tab_activity_container_ = nullptr;
   raw_ptr<views::View> group_activity_container_ = nullptr;
 
-  std::vector<ActivityLogItem> activity_log_;
-  std::optional<int> current_tab_activity_index_;
+  std::vector<ActivityLogItem> tab_activity_log_;
+  std::vector<ActivityLogItem> group_activity_log_;
   const raw_ptr<Profile> profile_;
 
   base::WeakPtrFactory<RecentActivityBubbleDialogView> weak_factory_{this};
@@ -86,7 +87,6 @@ class RecentActivityRowView : public HoverButton {
 
  public:
   RecentActivityRowView(ActivityLogItem item,
-                        const bool is_current_tab,
                         Profile* profile,
                         base::OnceCallback<void()> close_callback);
   ~RecentActivityRowView() override;
@@ -112,7 +112,6 @@ class RecentActivityRowView : public HoverButton {
   std::u16string activity_text_;
   std::u16string metadata_text_;
   raw_ptr<RecentActivityRowImageView> image_view_ = nullptr;
-  const bool is_current_tab_;
   ActivityLogItem item_;
   const raw_ptr<Profile> profile_ = nullptr;
   base::OnceCallback<void()> close_callback_;
@@ -137,11 +136,11 @@ class RecentActivityRowImageView : public views::View {
   // views::View
   void OnPaint(gfx::Canvas* canvas) override;
 
-  // Perform the avatar fetch, calling |SetAvatar| when complete.
+  // Perform the avatar fetch, calling `SetAvatar` when complete.
   void FetchAvatar();
   void SetAvatar(const gfx::Image& avatar);
 
-  // Perform the favicon fetch, calling |SetFavicon| when complete.
+  // Perform the favicon fetch, calling `SetFavicon` when complete.
   void FetchFavicon();
   void SetFavicon(const favicon_base::FaviconImageResult& favicon);
   void PaintFavicon(gfx::Canvas* canvas, const gfx::Rect& avatar_bounds);
@@ -185,7 +184,8 @@ class RecentActivityBubbleCoordinator : public views::WidgetObserver {
   // TOP_RIGHT arrow.
   void ShowForCurrentTab(views::View* anchor_view,
                          content::WebContents* web_contents,
-                         std::vector<ActivityLogItem> activity_log,
+                         std::vector<ActivityLogItem> tab_activity_log,
+                         std::vector<ActivityLogItem> group_activity_log,
                          Profile* profile);
   void Hide();
 

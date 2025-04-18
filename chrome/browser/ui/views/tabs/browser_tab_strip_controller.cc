@@ -189,8 +189,8 @@ class BrowserTabStripController::TabContextMenuContents
                                                                accelerator);
   }
   void ExecuteCommand(int command_id, int event_flags) override {
-    // Executing the command destroys |this|, and can also end up destroying
-    // |controller_|. So stop the highlights before executing the command.
+    // Executing the command destroys `this`, and can also end up destroying
+    // `controller_`. So stop the highlights before executing the command.
     controller_->ExecuteCommandForTab(
         static_cast<TabStripModel::ContextMenuCommand>(command_id), tab_);
   }
@@ -345,7 +345,7 @@ void BrowserTabStripController::SelectTab(int model_index,
           [](std::unique_ptr<viz::PeakGpuMemoryTracker> tracker,
              const viz::FrameTimingDetails& frame_timing_details) {
             // This callback will be ran once the ui::Compositor presents the
-            // next frame for the |tabstrip_|. The destruction of |tracker| will
+            // next frame for the `tabstrip_`. The destruction of `tracker` will
             // get the peak GPU memory and record a histogram.
           },
           std::move(tracker)));
@@ -435,7 +435,7 @@ void BrowserTabStripController::OnCloseTab(
   std::vector<tab_groups::TabGroupId> groups_to_delete =
       model_->GetGroupsDestroyedFromRemovingIndices({model_index});
 
-  if (!tab_groups::IsTabGroupsSaveV2Enabled() || groups_to_delete.empty()) {
+  if (groups_to_delete.empty()) {
     std::move(callback).Run(source);
     return;
   }
@@ -799,7 +799,7 @@ void BrowserTabStripController::OnTabStripModelChanged(
   }
 
   if (selection.active_tab_changed()) {
-    // It's possible for |new_contents| to be null when the final tab in a tab
+    // It's possible for `new_contents` to be null when the final tab in a tab
     // strip is closed.
     content::WebContents* new_contents = selection.new_contents;
     std::optional<size_t> index = selection.new_model.active();
@@ -842,6 +842,7 @@ void BrowserTabStripController::OnTabGroupChanged(
              i < static_cast<int>(tabs_in_group.end()); i++) {
           tabstrip_->AddTabToGroup(change.group, i);
         }
+        tabstrip_->OnGroupContentsChanged(change.group);
       }
       break;
     }
@@ -933,6 +934,27 @@ bool BrowserTabStripController::IsFrameButtonsRightAligned() const {
 #else
   return true;
 #endif  // BUILDFLAG(IS_MAC)
+}
+
+void BrowserTabStripController::OnSplitTabCreated(
+    std::vector<std::pair<tabs::TabInterface*, int>> tabs,
+    split_tabs::SplitTabId split_id,
+    TabStripModelObserver::SplitTabAddReason reason,
+    tabs::SplitTabLayout tab_layout) {
+  for (const auto& tab_pair : tabs) {
+    int index = tab_pair.second;
+    tabstrip_->SetSplit(index, split_id);
+  }
+}
+
+void BrowserTabStripController::OnSplitTabRemoved(
+    std::vector<std::pair<tabs::TabInterface*, int>> tabs,
+    split_tabs::SplitTabId split_id,
+    SplitTabRemoveReason reason) {
+  for (const auto& tab_pair : tabs) {
+    int index = tab_pair.second;
+    tabstrip_->SetSplit(index, std::nullopt);
+  }
 }
 
 BrowserNonClientFrameView* BrowserTabStripController::GetFrameView() {

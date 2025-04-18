@@ -4,6 +4,7 @@
 
 import("//tools/typescript/ts_library.gni")
 import("//ui/webui/resources/tools/bundle_js.gni")
+import("//ui/webui/resources/tools/generate_code_cache.gni")
 import("//ui/webui/resources/tools/generate_grd.gni")
 import("//ui/webui/resources/tools/minify_js.gni")
 import("//ui/webui/webui_features.gni")
@@ -53,12 +54,14 @@ ts_library("build_ts") {
     "//chrome/browser/resources/settings:build_ts",
     "//chrome/browser/resources/side_panel/bookmarks:build_ts",
     "//chrome/browser/resources/side_panel/customize_chrome:build_ts",
+    "//chrome/browser/resources/side_panel/history:build_ts",
     "//chrome/browser/resources/side_panel/history_clusters:build_ts",
     "//chrome/browser/resources/side_panel/read_anything:build_ts",
     "//chrome/browser/resources/side_panel/reading_list:build_ts",
     "//chrome/browser/resources/side_panel/shared:build_ts",
     "//chrome/browser/resources/signin:build_ts",
     "//chrome/browser/resources/signin/batch_upload:build_ts",
+    "//chrome/browser/resources/signin/history_sync_optin:build_ts",
     "//chrome/browser/resources/signin/profile_picker:build_ts",
     "//chrome/browser/resources/signin/signout_confirmation:build_ts",
     "//chrome/browser/resources/tab_search:build_ts",
@@ -68,9 +71,11 @@ ts_library("build_ts") {
     "//chrome/test/data/pdf:build_ts",
     "//chrome/test/data/webui/app_home:build_ts",
     "//chrome/test/data/webui/app_settings:build_ts",
+    "//chrome/test/data/webui/bookmarks:build_ts",
     "//chrome/test/data/webui/commerce/product_specifications:build_ts",
     "//chrome/test/data/webui/cr_components:build_ts",
     "//chrome/test/data/webui/cr_components/cr_shortcut_input:build_ts",
+    "//chrome/test/data/webui/cr_components/custom_help_bubble:build_ts",
     "//chrome/test/data/webui/cr_components/help_bubble:build_ts",
     "//chrome/test/data/webui/cr_components/history_clusters:build_ts",
     "//chrome/test/data/webui/cr_elements:build_ts",
@@ -211,6 +216,9 @@ minify_js("build_min_js") {
     # don't need to depend on this target.
     "//components/neterror/resources:bundle_js_internal",
   ]
+  if (enable_webui_generate_code_cache) {
+    visibility += [ ":build_code_cache" ]
+  }
   deps = [ ":build_bundle" ]
   in_folder = "$target_gen_dir/bundled"
   in_files = [ "lit.rollup.js" ]
@@ -224,4 +232,23 @@ generate_grd("build_grdp") {
   resource_path_prefix = "lit/v3_0"
   manifest_files = [ "${target_gen_dir}/build_min_js_manifest.json" ]
   deps = [ ":build_min_js" ]
+}
+
+if (enable_webui_generate_code_cache) {
+  generate_code_cache("build_code_cache") {
+    in_folder = "$target_gen_dir/minified"
+    in_files = [ "lit.rollup.js" ]
+    out_folder = "$target_gen_dir/code_cache"
+    out_manifest = "$target_gen_dir/build_code_cache_manifest.json"
+
+    deps = [ ":build_min_js" ]
+  }
+
+  generate_grd("build_code_cache_grdp") {
+    grd_prefix = "lit_v3_0_code_cache"
+    out_grd = "$target_gen_dir/code_cache_resources.grdp"
+    resource_path_prefix = "lit/v3_0"
+    manifest_files = [ "${target_gen_dir}/build_code_cache_manifest.json" ]
+    deps = [ ":build_code_cache" ]
+  }
 }

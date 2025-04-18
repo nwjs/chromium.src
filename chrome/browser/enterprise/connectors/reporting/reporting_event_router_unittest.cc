@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/enterprise/connectors/reporting/reporting_event_router.h"
+#include "components/enterprise/connectors/core/reporting_event_router.h"
 
 #include "chrome/browser/enterprise/connectors/reporting/realtime_reporting_client_factory.h"
 #include "chrome/browser/enterprise/connectors/test/deep_scanning_test_utils.h"
@@ -24,7 +24,23 @@ namespace enterprise_connectors {
 
 namespace {
 
+// Alias to reduce verbosity when using TriggeredRuleInfo.
+using TriggeredRuleInfo = ::chrome::cros::reporting::proto::TriggeredRuleInfo;
+
 constexpr char kFakeProfileUsername[] = "Fakeuser";
+
+TriggeredRuleInfo MakeTriggeredRuleInfo(TriggeredRuleInfo::Action action,
+                                        bool has_watermark) {
+  TriggeredRuleInfo info;
+  info.set_action(action);
+  info.set_rule_id(123);
+  info.set_rule_name("test rule name");
+  info.set_url_category("test rule category");
+  if (has_watermark) {
+    info.set_has_watermarking(true);
+  }
+  return info;
+}
 
 }  // namespace
 
@@ -51,7 +67,8 @@ class ReportingEventRouterTest : public testing::Test {
         profile_)
         ->SetBrowserCloudPolicyClientForTesting(client_.get());
 
-    reporting_event_router_ = std::make_unique<ReportingEventRouter>(profile_);
+    reporting_event_router_ = std::make_unique<ReportingEventRouter>(
+        RealtimeReportingClientFactory::GetForProfile(profile_));
 
     enterprise_connectors::RealtimeReportingClientFactory::GetForProfile(
         profile_)
@@ -160,6 +177,206 @@ TEST_F(ReportingEventRouterTest, TestOnLoginEventFederated) {
   reporting_event_router_->OnLoginEvent(GURL("https://www.example.com/"),
                                         federated_origin.IsValid(),
                                         federated_origin, u"Fakeuser");
+}
+
+TEST_F(ReportingEventRouterTest, TestOnPasswordBreach) {
+  test::SetOnSecurityEventReporting(
+      profile_->GetPrefs(), /*enabled=*/true,
+      /*enabled_event_names=*/{},
+      /*enabled_opt_in_events=*/{{kKeyPasswordBreachEvent, {"*"}}});
+
+  test::EventReportValidatorBase validator(client_.get());
+  validator.ExpectPasswordBreachEvent(
+      "SAFETY_CHECK",
+      {
+          {"https://first.example.com/", u"*****"},
+          {"https://second.example.com/", u"*****@gmail.com"},
+      },
+      profile_->GetProfileUserName(), GetProfileIdentifier());
+
+  reporting_event_router_->OnPasswordBreach(
+      "SAFETY_CHECK",
+      {
+          {GURL("https://first.example.com"), u"first_user_name"},
+          {GURL("https://second.example.com"), u"second_user_name@gmail.com"},
+      });
+}
+
+TEST_F(ReportingEventRouterTest, TestOnPasswordBreachNoMatchingUrlPattern) {
+  test::SetOnSecurityEventReporting(
+      profile_->GetPrefs(), /*enabled=*/true,
+      /*enabled_event_names=*/{},
+      /*enabled_opt_in_events=*/
+      {{kKeyPasswordBreachEvent, {"notexample.com"}}});
+
+  test::EventReportValidatorBase validator(client_.get());
+  validator.ExpectNoReport();
+
+  reporting_event_router_->OnPasswordBreach(
+      "SAFETY_CHECK",
+      {
+          {GURL("https://first.example.com"), u"first_user_name"},
+          {GURL("https://second.example.com"), u"second_user_name"},
+      });
+}
+
+TEST_F(ReportingEventRouterTest,
+       TestOnPasswordBreachPartiallyMatchingUrlPatterns) {
+  test::SetOnSecurityEventReporting(
+      profile_->GetPrefs(), /*enabled=*/true,
+      /*enabled_event_names=*/{},
+      /*enabled_opt_in_events=*/
+      {{kKeyPasswordBreachEvent, {"secondexample.com"}}});
+
+  // The event is only enabled on secondexample.com, so expect only the
+  // information related to that origin to be reported.
+  test::EventReportValidatorBase validator(client_.get());
+  validator.ExpectPasswordBreachEvent(
+      "SAFETY_CHECK",
+      {
+          {"https://secondexample.com/", u"*****"},
+      },
+      profile_->GetProfileUserName(), GetProfileIdentifier());
+
+  reporting_event_router_->OnPasswordBreach(
+      "SAFETY_CHECK",
+      {
+          {GURL("https://firstexample.com"), u"first_user_name"},
+          {GURL("https://secondexample.com"), u"second_user_name"},
+      });
+}
+
+TEST_F(ReportingEventRouterTest, TestOnUrlFilteringInterstitial_Blocked) {
+  test::SetOnSecurityEventReporting(
+      profile_->GetPrefs(), /*enabled=*/true,
+      /*enabled_event_names=*/{kKeyUrlFilteringInterstitialEvent},
+      /*enabled_opt_in_events=*/{});
+
+  chrome::cros::reporting::proto::UrlFilteringInterstitialEvent expected_event;
+  expected_event.set_url("https://filteredurl.com/");
+  expected_event.set_event_result(
+      chrome::cros::reporting::proto::EVENT_RESULT_BLOCKED);
+  expected_event.set_profile_user_name(profile_->GetProfileUserName());
+  expected_event.set_profile_identifier(GetProfileIdentifier());
+  *expected_event.add_triggered_rule_info() = MakeTriggeredRuleInfo(
+      /*action=*/TriggeredRuleInfo::BLOCK, /*has_watermark=*/false);
+
+  test::EventReportValidatorBase validator(client_.get());
+  validator.ExpectURLFilteringInterstitialEvent(expected_event);
+
+  safe_browsing::RTLookupResponse response;
+  auto* threat_info = response.add_threat_info();
+  threat_info->set_verdict_type(
+      safe_browsing::RTLookupResponse::ThreatInfo::DANGEROUS);
+  auto* matched_url_navigation_rule =
+      threat_info->mutable_matched_url_navigation_rule();
+  matched_url_navigation_rule->set_rule_id("123");
+  matched_url_navigation_rule->set_rule_name("test rule name");
+  matched_url_navigation_rule->set_matched_url_category("test rule category");
+
+  reporting_event_router_->OnUrlFilteringInterstitial(
+      GURL("https://filteredurl.com"), "ENTERPRISE_BLOCKED_SEEN", response);
+}
+
+TEST_F(ReportingEventRouterTest, TestOnUrlFilteringInterstitial_Warned) {
+  test::SetOnSecurityEventReporting(
+      profile_->GetPrefs(), /*enabled=*/true,
+      /*enabled_event_names=*/{kKeyUrlFilteringInterstitialEvent},
+      /*enabled_opt_in_events=*/{});
+
+  chrome::cros::reporting::proto::UrlFilteringInterstitialEvent expected_event;
+  expected_event.set_url("https://filteredurl.com/");
+  expected_event.set_event_result(
+      chrome::cros::reporting::proto::EVENT_RESULT_WARNED);
+  expected_event.set_profile_user_name(profile_->GetProfileUserName());
+  expected_event.set_profile_identifier(GetProfileIdentifier());
+  *expected_event.add_triggered_rule_info() = MakeTriggeredRuleInfo(
+      /*action=*/TriggeredRuleInfo::WARN, /*has_watermark=*/true);
+
+  test::EventReportValidatorBase validator(client_.get());
+  validator.ExpectURLFilteringInterstitialEvent(expected_event);
+
+  safe_browsing::RTLookupResponse response;
+  auto* threat_info = response.add_threat_info();
+  threat_info->set_verdict_type(
+      safe_browsing::RTLookupResponse::ThreatInfo::WARN);
+  auto* matched_url_navigation_rule =
+      threat_info->mutable_matched_url_navigation_rule();
+  matched_url_navigation_rule->set_rule_id("123");
+  matched_url_navigation_rule->set_rule_name("test rule name");
+  matched_url_navigation_rule->set_matched_url_category("test rule category");
+  matched_url_navigation_rule->mutable_watermark_message()
+      ->set_watermark_message("watermark message");
+
+  reporting_event_router_->OnUrlFilteringInterstitial(
+      GURL("https://filteredurl.com"), "ENTERPRISE_WARNED_SEEN", response);
+}
+
+TEST_F(ReportingEventRouterTest, TestOnUrlFilteringInterstitial_Bypassed) {
+  test::SetOnSecurityEventReporting(
+      profile_->GetPrefs(), /*enabled=*/true,
+      /*enabled_event_names=*/{kKeyUrlFilteringInterstitialEvent},
+      /*enabled_opt_in_events=*/{});
+
+  chrome::cros::reporting::proto::UrlFilteringInterstitialEvent expected_event;
+  expected_event.set_url("https://filteredurl.com/");
+  expected_event.set_event_result(
+      chrome::cros::reporting::proto::EVENT_RESULT_BYPASSED);
+  expected_event.set_profile_user_name(profile_->GetProfileUserName());
+  expected_event.set_profile_identifier(GetProfileIdentifier());
+  *expected_event.add_triggered_rule_info() = MakeTriggeredRuleInfo(
+      /*action=*/TriggeredRuleInfo::WARN, /*has_watermark=*/true);
+
+  test::EventReportValidatorBase validator(client_.get());
+  validator.ExpectURLFilteringInterstitialEvent(expected_event);
+
+  safe_browsing::RTLookupResponse response;
+  auto* threat_info = response.add_threat_info();
+  threat_info->set_verdict_type(
+      safe_browsing::RTLookupResponse::ThreatInfo::WARN);
+  auto* matched_url_navigation_rule =
+      threat_info->mutable_matched_url_navigation_rule();
+  matched_url_navigation_rule->set_rule_id("123");
+  matched_url_navigation_rule->set_rule_name("test rule name");
+  matched_url_navigation_rule->set_matched_url_category("test rule category");
+  matched_url_navigation_rule->mutable_watermark_message()
+      ->set_watermark_message("confidential");
+
+  reporting_event_router_->OnUrlFilteringInterstitial(
+      GURL("https://filteredurl.com"), "ENTERPRISE_WARNED_BYPASS", response);
+}
+
+TEST_F(ReportingEventRouterTest,
+       TestOnUrlFilteringInterstitial_WatermarkAudit) {
+  test::SetOnSecurityEventReporting(
+      profile_->GetPrefs(), /*enabled=*/true,
+      /*enabled_event_names=*/{kKeyUrlFilteringInterstitialEvent},
+      /*enabled_opt_in_events=*/{});
+
+  chrome::cros::reporting::proto::UrlFilteringInterstitialEvent expected_event;
+  expected_event.set_url("https://filteredurl.com/");
+  expected_event.set_event_result(
+      chrome::cros::reporting::proto::EVENT_RESULT_ALLOWED);
+  expected_event.set_profile_user_name(profile_->GetProfileUserName());
+  expected_event.set_profile_identifier(GetProfileIdentifier());
+  *expected_event.add_triggered_rule_info() = MakeTriggeredRuleInfo(
+      /*action=*/TriggeredRuleInfo::ACTION_UNKNOWN, /*has_watermark=*/true);
+
+  test::EventReportValidatorBase validator(client_.get());
+  validator.ExpectURLFilteringInterstitialEvent(expected_event);
+
+  safe_browsing::RTLookupResponse response;
+  auto* threat_info = response.add_threat_info();
+  auto* matched_url_navigation_rule =
+      threat_info->mutable_matched_url_navigation_rule();
+  matched_url_navigation_rule->set_rule_id("123");
+  matched_url_navigation_rule->set_rule_name("test rule name");
+  matched_url_navigation_rule->set_matched_url_category("test rule category");
+  matched_url_navigation_rule->mutable_watermark_message()
+      ->set_watermark_message("confidential");
+
+  reporting_event_router_->OnUrlFilteringInterstitial(
+      GURL("https://filteredurl.com"), "", response);
 }
 
 }  // namespace enterprise_connectors

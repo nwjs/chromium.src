@@ -18,7 +18,7 @@
 #include "base/uuid.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
-#include "components/autofill/core/browser/data_model/passes/loyalty_card.h"
+#include "components/autofill/core/browser/data_model/valuables/loyalty_card.h"
 #include "components/autofill/core/browser/webdata/autofill_webdata_backend.h"
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/webdata/common/web_data_results.h"
@@ -136,6 +136,7 @@ class AutofillWebDataBackendImpl
   // Removes an Autofill profile from the web database.
   WebDatabase::State RemoveAutofillProfile(
       const std::string& guid,
+      AutofillProfileChange::Type change_type,
       base::OnceCallback<void(const AutofillProfileChange&)> on_success,
       WebDatabase* db);
 

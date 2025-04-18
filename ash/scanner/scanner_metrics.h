@@ -122,7 +122,12 @@ enum class ScannerFeatureUserState {
   kFeedbackFormOpened = 55,
   kFeedbackSent = 56,
 
-  kMaxValue = kFeedbackSent,
+  // These enum values should semantically be placed in a group above:
+  // Should be placed after `NoControllerOnShell` and before `EnterprisePolicy`.
+  kCanShowUiReturnedFalseDueToPinnedMode = 57,
+  kSunfishSessionStartedFromKeyboardShortcut = 58,
+
+  kMaxValue = kSunfishSessionStartedFromKeyboardShortcut,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/ash/enums.xml:ScannerFeatureUserState)
 

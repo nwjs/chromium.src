@@ -519,16 +519,8 @@ IN_PROC_BROWSER_TEST_F(BtmNavigationFlowDetectorTest,
   // Implied assert: no DirectNavigation UKM entry for link_target_url.
 }
 
-// TODO - crbug.com/388718419: Flaky on release builds
-#if defined(NDEBUG)
-#define MAYBE_SuspectedTrackerFlowEmittedForServerRedirectExit \
-  DISABLED_SuspectedTrackerFlowEmittedForServerRedirectExit
-#else
-#define MAYBE_SuspectedTrackerFlowEmittedForServerRedirectExit \
-  SuspectedTrackerFlowEmittedForServerRedirectExit
-#endif
 IN_PROC_BROWSER_TEST_F(BtmNavigationFlowDetectorTest,
-                       MAYBE_SuspectedTrackerFlowEmittedForServerRedirectExit) {
+                       SuspectedTrackerFlowEmittedForServerRedirectExit) {
   // Visit A.
   WebContents* web_contents = GetActiveWebContents();
   GURL referrer_url =
@@ -571,17 +563,9 @@ IN_PROC_BROWSER_TEST_F(BtmNavigationFlowDetectorTest,
   ExpectNoUkmEventsOfType(kInFlowInteractionUkmEventName);
 }
 
-// TODO - crbug.com/388718419: Flaky on release builds
-#if defined(NDEBUG)
-#define MAYBE_SuspectedTrackerFlowEmittedForServerRedirectExitConsecutiveEvents \
-  DISABLED_SuspectedTrackerFlowEmittedForServerRedirectExitConsecutiveEvents
-#else
-#define MAYBE_SuspectedTrackerFlowEmittedForServerRedirectExitConsecutiveEvents \
-  SuspectedTrackerFlowEmittedForServerRedirectExitConsecutiveEvents
-#endif
 IN_PROC_BROWSER_TEST_F(
     BtmNavigationFlowDetectorTest,
-    MAYBE_SuspectedTrackerFlowEmittedForServerRedirectExitConsecutiveEvents) {
+    SuspectedTrackerFlowEmittedForServerRedirectExitConsecutiveEvents) {
   // Visit A.
   WebContents* web_contents = GetActiveWebContents();
   GURL referrer_url =
@@ -652,38 +636,11 @@ IN_PROC_BROWSER_TEST_F(
   ExpectNoUkmEventsOfType(kInFlowInteractionUkmEventName);
 }
 
-namespace {
-enum ClientRedirectType {
-  kMetaTag = 0,
-  kJsWindowLocationReplace = 1,
-  kRedirectLikeNavigation = 2,
-};
-
-const std::vector<std::string_view> kClientRedirectTypeNames = {
-    "MetaTag", "JsWindowLocationReplace", "RedirectLikeNavigation"};
-}  // namespace
-
 class BtmNavigationFlowDetectorClientRedirectTest
     : public BtmNavigationFlowDetectorTest,
-      public testing::WithParamInterface<ClientRedirectType> {
+      public testing::WithParamInterface<BtmClientRedirectMethod> {
  protected:
-  ClientRedirectType client_redirect_type() { return GetParam(); }
-  void PerformClientRedirect(WebContents* web_contents, const GURL& final_url) {
-    switch (client_redirect_type()) {
-      case kMetaTag:
-        ASSERT_TRUE(ClientSideRedirectViaMetaTag(
-            web_contents, web_contents->GetPrimaryMainFrame(), final_url));
-        break;
-      case kJsWindowLocationReplace:
-        ASSERT_TRUE(ClientSideRedirectViaJS(
-            web_contents, web_contents->GetPrimaryMainFrame(), final_url));
-        break;
-      case kRedirectLikeNavigation:
-        ASSERT_TRUE(NavigateToURLFromRendererWithoutUserGesture(web_contents,
-                                                                final_url));
-        break;
-    }
-  }
+  BtmClientRedirectMethod client_redirect_type() { return GetParam(); }
 };
 
 IN_PROC_BROWSER_TEST_P(
@@ -715,7 +672,8 @@ IN_PROC_BROWSER_TEST_P(
   ukm_recorder().SetOnAddEntryCallback(
       kSuspectedTrackerFlowEntrypointUkmEventName, ukm_loop.QuitClosure());
   GURL final_url = embedded_https_test_server_.GetURL(kSiteC, "/title1.html");
-  PerformClientRedirect(web_contents, final_url);
+  ASSERT_TRUE(
+      PerformClientRedirect(client_redirect_type(), web_contents, final_url));
   ukm_loop.Run();
 
   // Expect referrer event to be accurate.
@@ -772,7 +730,8 @@ IN_PROC_BROWSER_TEST_P(
   ukm_recorder().SetOnAddEntryCallback(
       kSuspectedTrackerFlowEntrypointUkmEventName, ukm_loop.QuitClosure());
   GURL final_url = embedded_https_test_server_.GetURL(kSiteC, "/title1.html");
-  PerformClientRedirect(web_contents, final_url);
+  ASSERT_TRUE(
+      PerformClientRedirect(client_redirect_type(), web_contents, final_url));
   ukm_loop.Run();
 
   ExpectNoUkmEventsOfType(kInFlowInteractionUkmEventName);
@@ -1059,12 +1018,14 @@ IN_PROC_BROWSER_TEST_P(BtmNavigationFlowDetectorClientRedirectTest,
   // Client-redirect to B, the entrypoint for this flow.
   GURL entrypoint_url =
       embedded_https_test_server_.GetURL(kSiteB, "/title1.html");
-  PerformClientRedirect(web_contents, entrypoint_url);
+  ASSERT_TRUE(PerformClientRedirect(client_redirect_type(), web_contents,
+                                    entrypoint_url));
   // Client-redirect to another page on B, the successor for this flow, and
   // interact with the page.
   GURL successor_url =
       embedded_https_test_server_.GetURL(kSiteB, "/title2.html");
-  PerformClientRedirect(web_contents, successor_url);
+  ASSERT_TRUE(PerformClientRedirect(client_redirect_type(), web_contents,
+                                    successor_url));
   SimulateUserActivation(web_contents);
   // TODO - crbug.com/389048223: Speed up this step
   ASSERT_TRUE(WaitUntilTransientActivationLost(
@@ -1075,7 +1036,8 @@ IN_PROC_BROWSER_TEST_P(BtmNavigationFlowDetectorClientRedirectTest,
   base::RunLoop ukm_loop;
   ukm_recorder().SetOnAddEntryCallback(kInFlowSuccessorInteractionUkmEventName,
                                        ukm_loop.QuitClosure());
-  PerformClientRedirect(web_contents, flow_end_url);
+  ASSERT_TRUE(PerformClientRedirect(client_redirect_type(), web_contents,
+                                    flow_end_url));
   ukm_loop.Run();
 
   // Expect InFlowSuccessorInteraction to have been emitted correctly.
@@ -1100,7 +1062,8 @@ IN_PROC_BROWSER_TEST_P(
   // Client-redirect to B, the entrypoint for this flow.
   GURL entrypoint_url =
       embedded_https_test_server_.GetURL(kSiteB, "/title1.html");
-  PerformClientRedirect(web_contents, entrypoint_url);
+  ASSERT_TRUE(PerformClientRedirect(client_redirect_type(), web_contents,
+                                    entrypoint_url));
   // Client-redirect to another page on B, which server-redirects to yet another
   // page on B (the successor for this flow), and interact with the page.
   GURL successor_url =
@@ -1119,7 +1082,8 @@ IN_PROC_BROWSER_TEST_P(
   base::RunLoop ukm_loop;
   ukm_recorder().SetOnAddEntryCallback(kInFlowSuccessorInteractionUkmEventName,
                                        ukm_loop.QuitClosure());
-  PerformClientRedirect(web_contents, flow_end_url);
+  ASSERT_TRUE(PerformClientRedirect(client_redirect_type(), web_contents,
+                                    flow_end_url));
   ukm_loop.Run();
 
   // Expect InFlowSuccessorInteraction to have been emitted correctly.
@@ -1204,6 +1168,13 @@ IN_PROC_BROWSER_TEST_F(BtmNavigationFlowDetectorTest,
       embedded_https_test_server_.GetURL(kSiteB, "/title1.html");
   ASSERT_TRUE(NavigateToURLFromRendererWithoutUserGesture(
       web_contents, first_entrypoint_url));
+  // Access cookies during the visit on the entrypoint.
+  RenderFrameHost* frame = web_contents->GetPrimaryMainFrame();
+  FrameCookieAccessObserver observer(web_contents, frame,
+                                     CookieOperation::kChange);
+  ASSERT_TRUE(ExecJs(frame, "document.cookie = 'name=value;';",
+                     EXECUTE_SCRIPT_NO_USER_GESTURE));
+  observer.Wait();
   // Client-redirect to another page on B, the successor for the first flow, and
   // interact with the page.
   GURL first_successor_url =
@@ -1254,21 +1225,23 @@ IN_PROC_BROWSER_TEST_F(BtmNavigationFlowDetectorTest,
   auto ukm_entries =
       ukm_recorder().GetEntriesByName(kInFlowSuccessorInteractionUkmEventName);
   ASSERT_EQ(ukm_entries.size(), 2u);
+
   auto first_ukm_entry = ukm_entries.at(0);
   ukm_recorder().ExpectEntrySourceHasUrl(first_ukm_entry, first_entrypoint_url);
   ukm_recorder().ExpectEntryMetric(first_ukm_entry, "SuccessorRedirectIndex",
                                    1);
+  // In-visit storage access should be reported.
   ukm_recorder().ExpectEntryMetric(first_ukm_entry,
-                                   "DidEntrypointAccessStorage", false);
+                                   "DidEntrypointAccessStorage", true);
+
   auto second_ukm_entry = ukm_entries.at(1);
   ukm_recorder().ExpectEntrySourceHasUrl(second_ukm_entry,
                                          second_entrypoint_url);
   ukm_recorder().ExpectEntryMetric(second_ukm_entry, "SuccessorRedirectIndex",
                                    3);
-  // TODO - crbug.com/388718419: Uncomment this assertion — currently flaky on
-  // release builds.
-  // ukm_recorder().ExpectEntryMetric(second_ukm_entry,
-  //                                  "DidEntrypointAccessStorage", true);
+  // Navigational storage access should be reported.
+  ukm_recorder().ExpectEntryMetric(second_ukm_entry,
+                                   "DidEntrypointAccessStorage", true);
 }
 
 IN_PROC_BROWSER_TEST_F(BtmNavigationFlowDetectorTest,
@@ -1455,16 +1428,8 @@ IN_PROC_BROWSER_TEST_F(
   ExpectNoNavigationFlowNodeUkmEvents();
 }
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC)
-#define MAYBE_NavigationFlowNodeNotEmittedWhenCookiesReadViaHeaders \
-  DISABLED_NavigationFlowNodeNotEmittedWhenCookiesReadViaHeaders
-#else
-#define MAYBE_NavigationFlowNodeNotEmittedWhenCookiesReadViaHeaders \
-  NavigationFlowNodeNotEmittedWhenCookiesReadViaHeaders
-#endif
-IN_PROC_BROWSER_TEST_F(
-    BtmNavigationFlowDetectorTest,
-    MAYBE_NavigationFlowNodeNotEmittedWhenCookiesReadViaHeaders) {
+IN_PROC_BROWSER_TEST_F(BtmNavigationFlowDetectorTest,
+                       NavigationFlowNodeNotEmittedWhenCookiesReadViaHeaders) {
   // Pre-write a cookie for site B so it can be passed in request headers later.
   WebContents* web_contents = GetActiveWebContents();
   ASSERT_TRUE(
@@ -2304,15 +2269,11 @@ IN_PROC_BROWSER_TEST_F(BtmNavigationFlowDetectorWebAuthnTest,
 INSTANTIATE_TEST_SUITE_P(
     All,
     BtmNavigationFlowDetectorClientRedirectTest,
-    testing::Values(ClientRedirectType::kMetaTag,
-                    ClientRedirectType::kJsWindowLocationReplace,
-                    ClientRedirectType::kRedirectLikeNavigation),
+    kAllBtmClientRedirectMethods,
     [](const testing::TestParamInfo<
         BtmNavigationFlowDetectorClientRedirectTest::ParamType>& param_info) {
-      ClientRedirectType client_redirect_type = param_info.param;
-      CHECK(client_redirect_type >= 0 &&
-            client_redirect_type < kClientRedirectTypeNames.size());
-      return std::string(kClientRedirectTypeNames[client_redirect_type]);
+      BtmClientRedirectMethod client_redirect_method = param_info.param;
+      return StringifyBtmClientRedirectMethod(client_redirect_method);
     });
 
 }  // namespace content

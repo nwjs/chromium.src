@@ -31,7 +31,8 @@ constexpr size_t kFullSpaceTextLength = 0;
 constexpr size_t kReducedSpaceTextLength = 500;
 
 bool IsLabelVisible(PageActionView* page_action) {
-  return page_action->GetLabelForTesting()->size().width() != 0;
+  return page_action->IsChipVisible() &&
+         page_action->GetLabelForTesting()->width() != 0;
 }
 
 bool IsAtMinimumSize(PageActionView* page_action) {
@@ -85,9 +86,22 @@ class PageActionUiTestBase {
     return GetPageActionView(kActionShowTranslate);
   }
 
+  void FastForwardAnimation(PageActionView* view) {
+    auto animation = std::make_unique<gfx::AnimationTestApi>(
+        &view->GetSlideAnimationForTesting());
+    auto now = base::TimeTicks::Now();
+    animation->SetStartTime(now);
+    animation->Step(now + base::Minutes(1));
+    EnsureLayout();
+  }
+
   void ShowSuggestionChip(actions::ActionId action_id) const {
     EnsurePageActionEnabled(action_id);
     page_action_controller()->ShowSuggestionChip(action_id);
+  }
+
+  void HideSuggestionChip(actions::ActionId action_id) const {
+    page_action_controller()->HideSuggestionChip(action_id);
   }
 
   PageActionView* GetTranslatePageActionView() const {
@@ -99,7 +113,7 @@ class PageActionUiTestBase {
   }
 
   void ShowPageAction(actions::ActionId action_id) const {
-    EnsurePageActionEnabled(kActionShowTranslate);
+    EnsurePageActionEnabled(action_id);
     page_action_controller()->Show(action_id);
   }
 
@@ -111,6 +125,7 @@ class PageActionUiTestBase {
   }
 
   void ShowTranslatePageActionIcon() const {
+    HideSuggestionChip(kActionShowTranslate);
     ShowPageAction(kActionShowTranslate);
   }
 
@@ -120,7 +135,8 @@ class PageActionUiTestBase {
   }
 
   void ShowMemorySaverPageActionIcon() const {
-    ShowSuggestionChip(kActionShowMemorySaverChip);
+    HideSuggestionChip(kActionShowMemorySaverChip);
+    ShowPageAction(kActionShowMemorySaverChip);
   }
 
   void ShowMemorySaverSuggestionChip() const {
@@ -131,8 +147,16 @@ class PageActionUiTestBase {
   // Dynamically adjust the available space in the location bar by setting
   // the omnibox text length. A larger `text_length` will reduce available
   // space, while a smaller text_length (or 0) will increase available space.
-  void AdjustAvailableSpace(size_t text_length) const {
+  void AdjustAvailableSpace(size_t text_length) {
     omnibox_view()->SetUserText(std::u16string(text_length, 'a'));
+
+    // Step 2: Immediately unhide the page actions.
+    page_action_controller()->SetShouldHidePageActions(false);
+
+    EnsureLayout();
+  }
+
+  void EnsureLayout() {
     views::test::RunScheduledLayout(
         BrowserView::GetBrowserViewForBrowser(GetBrowser()));
   }
@@ -158,15 +182,20 @@ class PageActionInteractiveUiTest : public InteractiveBrowserTest,
 // collapses the suggestion chip from label mode to icon-only mode.
 IN_PROC_BROWSER_TEST_F(PageActionInteractiveUiTest,
                        SuggestionChipCollapsesToIconWhenSpaceIsReduced) {
-  ShowTestSuggestionChip();
+  PageActionView* view = GetTestPageActionView();
+
   AdjustAvailableSpace(kFullSpaceTextLength);
 
-  PageActionView* view = GetTestPageActionView();
+  ShowTestSuggestionChip();
+  FastForwardAnimation(view);
 
   EXPECT_TRUE(IsLabelVisible(view));
   EXPECT_FALSE(IsAtMinimumSize(view));
 
   AdjustAvailableSpace(kReducedSpaceTextLength);
+
+  ShowTestSuggestionChip();
+  FastForwardAnimation(view);
 
   EXPECT_FALSE(IsLabelVisible(view));
   EXPECT_TRUE(IsAtMinimumSize(view));
@@ -177,13 +206,18 @@ IN_PROC_BROWSER_TEST_F(PageActionInteractiveUiTest,
 IN_PROC_BROWSER_TEST_F(PageActionInteractiveUiTest,
                        SuggestionChipRestoresLabelWhenSpaceIsRestored) {
   AdjustAvailableSpace(kReducedSpaceTextLength);
-  ShowTestSuggestionChip();
 
   PageActionView* view = GetTestPageActionView();
+
+  ShowTestSuggestionChip();
+  FastForwardAnimation(view);
 
   EXPECT_FALSE(IsLabelVisible(view));
 
   AdjustAvailableSpace(kFullSpaceTextLength);
+
+  ShowTestSuggestionChip();
+  FastForwardAnimation(view);
 
   EXPECT_TRUE(IsLabelVisible(view));
   EXPECT_FALSE(IsAtMinimumSize(view));
@@ -194,20 +228,27 @@ IN_PROC_BROWSER_TEST_F(PageActionInteractiveUiTest,
 IN_PROC_BROWSER_TEST_F(
     PageActionInteractiveUiTest,
     SuggestionChipTransitionsBetweenLabelAndIconWhenSpaceChanges) {
-  ShowTestSuggestionChip();
-  AdjustAvailableSpace(kFullSpaceTextLength);
-
   PageActionView* view = GetTestPageActionView();
+
+  AdjustAvailableSpace(kFullSpaceTextLength);
+  ShowTestSuggestionChip();
+  FastForwardAnimation(view);
 
   EXPECT_TRUE(IsLabelVisible(view));
   EXPECT_FALSE(IsAtMinimumSize(view));
 
   AdjustAvailableSpace(kReducedSpaceTextLength);
 
+  ShowTestSuggestionChip();
+  FastForwardAnimation(view);
+
   EXPECT_FALSE(IsLabelVisible(view));
   EXPECT_TRUE(IsAtMinimumSize(view));
 
   AdjustAvailableSpace(kFullSpaceTextLength);
+
+  ShowTestSuggestionChip();
+  FastForwardAnimation(view);
 
   EXPECT_TRUE(IsLabelVisible(view));
   EXPECT_FALSE(IsAtMinimumSize(view));
@@ -218,20 +259,27 @@ IN_PROC_BROWSER_TEST_F(
 // label modes repeatedly.
 IN_PROC_BROWSER_TEST_F(PageActionInteractiveUiTest,
                        SuggestionChipSwitchesModesOnMultipleSpaceAdjustments) {
-  ShowTestSuggestionChip();
+  PageActionView* view = GetTestPageActionView();
   AdjustAvailableSpace(kReducedSpaceTextLength);
 
-  PageActionView* view = GetTestPageActionView();
+  ShowTestSuggestionChip();
+  FastForwardAnimation(view);
 
   EXPECT_FALSE(IsLabelVisible(view));
   EXPECT_TRUE(IsAtMinimumSize(view));
 
   AdjustAvailableSpace(kFullSpaceTextLength);
 
+  ShowTestSuggestionChip();
+  FastForwardAnimation(view);
+
   EXPECT_TRUE(IsLabelVisible(view));
   EXPECT_FALSE(IsAtMinimumSize(view));
 
   AdjustAvailableSpace(kReducedSpaceTextLength);
+
+  ShowTestSuggestionChip();
+  FastForwardAnimation(view);
 
   EXPECT_FALSE(IsLabelVisible(view));
   EXPECT_TRUE(IsAtMinimumSize(view));
@@ -414,6 +462,7 @@ class PageActionPixelShowChipTest : public PageActionPixelTestBase {
   void ShowUi(const std::string& name) override {
     AdjustAvailableSpace(kFullSpaceTextLength);
     ShowTestSuggestionChip();
+    FastForwardAnimation(GetTestPageActionView());
     PageActionPixelTestBase::ShowUi(name);
   }
 
@@ -443,6 +492,7 @@ class PageActionPixelShowChipReducedTest : public PageActionPixelTestBase {
   void ShowUi(const std::string& name) override {
     AdjustAvailableSpace(kReducedSpaceTextLength);
     ShowTestSuggestionChip();
+    FastForwardAnimation(GetTestPageActionView());
     PageActionPixelTestBase::ShowUi(name);
   }
 
@@ -472,7 +522,7 @@ class PageActionPixelReorderTest : public PageActionPixelTestBase {
     ShowMemorySaverPageActionIcon();
 
     // Now, activate the suggestion chip for the translate action.
-    ShowSuggestionChip(kActionShowTranslate);
+    ShowTranslateSuggestionChip();
 
     // Run any pending layout tasks.
     PageActionPixelTestBase::ShowUi(name);

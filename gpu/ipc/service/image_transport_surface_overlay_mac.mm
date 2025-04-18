@@ -9,6 +9,7 @@
 
 #include <memory>
 #include <sstream>
+#include <variant>
 
 #include "base/command_line.h"
 #include "base/functional/bind.h"
@@ -27,7 +28,7 @@
 #include "ui/gfx/overlay_plane_data.h"
 #include "ui/gl/ca_renderer_layer_params.h"
 
-#if BUILDFLAG(IS_IOS)
+#if BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_IOS_TVOS)
 #include "gpu/ipc/common/ios/be_layer_hierarchy_transport.h"
 #endif
 
@@ -63,6 +64,48 @@ void RecordVSyncCallbackDelay(base::TimeDelta delay) {
       /*min=*/base::Microseconds(10),
       /*max=*/base::Milliseconds(33), /*bucket_count=*/50);
 }
+
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+//
+// LINT.IfChange(AnimationOrInteractionType)
+enum class AnimationOrInteractionType {
+  kNone = 0,
+  kInteractionOnly = 1,
+  kAnimationOnly = 2,
+  kAnimationAndInteraction = 3,
+  kMaxValue = kAnimationAndInteraction,
+};
+// LINT.ThenChange(//tools/metrics/histograms/enums.xml:FrameHandlingType)
+
+void RecordFrameTypes(bool is_handling_interaction,
+                      bool is_handling_animation,
+                      bool has_prev_pending_frame) {
+  AnimationOrInteractionType type;
+  if (is_handling_interaction && is_handling_animation) {
+    type = AnimationOrInteractionType::kAnimationAndInteraction;
+  } else if (is_handling_interaction) {
+    type = AnimationOrInteractionType::kInteractionOnly;
+  } else if (is_handling_animation) {
+    type = AnimationOrInteractionType::kAnimationOnly;
+  } else {
+    type = AnimationOrInteractionType::kNone;
+  }
+
+  UMA_HISTOGRAM_ENUMERATION(
+      "GPU.Presentation.FrameHandlesAnimationOrInteraction", type);
+
+  // Although the current frame is free of interation and animation, the pending
+  // frame blocks the current frame from being swapped immediately when
+  // VSyncAlignedPresent and kPresentationDelayForInteractiveFrames are enabled.
+  // Note: |num_pending_frames| is always 0 when VSyncAlignedPresent is
+  // disabled.
+  if (type == AnimationOrInteractionType::kNone) {
+    UMA_HISTOGRAM_BOOLEAN(
+        "GPU.Presentation.NonAnimatedOrInteractiveFrameWithPendingFrame",
+        has_prev_pending_frame);
+  }
+}
 #endif  // BUILDFLAG(IS_MAC)
 
 }  // namespace
@@ -81,7 +124,7 @@ ImageTransportSurfaceOverlayMacEGL::ImageTransportSurfaceOverlayMacEGL(
   ca_layer_tree_coordinator_ = std::make_unique<ui::CALayerTreeCoordinator>(
       !av_disabled_at_command_line, std::move(buffer_presented_callback));
 
-#if BUILDFLAG(IS_IOS)
+#if BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_IOS_TVOS)
   // The BELayerHierarchy needs to be created on a thread that supports
   // libdispatch, so we proxy over to the main dispatch queue to do that.
   CALayer* root_ca_layer = ca_layer_tree_coordinator_->root_ca_layer();
@@ -104,7 +147,7 @@ ImageTransportSurfaceOverlayMacEGL::ImageTransportSurfaceOverlayMacEGL(
 ImageTransportSurfaceOverlayMacEGL::~ImageTransportSurfaceOverlayMacEGL() {
   ca_layer_tree_coordinator_.reset();
 
-#if BUILDFLAG(IS_IOS)
+#if BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_IOS_TVOS)
   BELayerHierarchy* layer_hierarchy = std::move(layer_hierarchy_);
   dispatch_async(dispatch_get_main_queue(), ^{
     [layer_hierarchy invalidate];
@@ -129,7 +172,7 @@ void ImageTransportSurfaceOverlayMacEGL::Present(
   // Commit the first pending frame before adding one more in Present() if there
   // are more than supported .
   if (ca_layer_tree_coordinator_->NumPendingSwaps() >= cap_max_pending_swaps_) {
-    TRACE_EVENT0("gpu", "Commit now. Exceeds the max pending swaps.");
+    TRACE_EVENT0("gpu", "Exceeds the max pending swaps. Commit now.");
     CommitPresentedFrameToCA();
   }
 
@@ -183,10 +226,23 @@ void ImageTransportSurfaceOverlayMacEGL::Present(
   bool delay_presenetation_until_next_vsync =
       features::IsVSyncAlignedPresentEnabled();
 
+  // The current frame has been added to
+  // ca_layer_tree_coordinator_->NumPendingSwaps() after calling
+  // ca_layer_tree_coordinator_->Present(). Check NumPendingSwaps() > 1 to see
+  // whether there is any previous pending frame. The current frame must wait in
+  // the queue if there is already one before this.
   if (base::FeatureList::IsEnabled(kPresentationDelayForInteractiveFrames) &&
-      !ca_layer_tree_coordinator_->NumPendingSwaps() &&
-      !data.is_handling_interaction_or_animation) {
+      ca_layer_tree_coordinator_->NumPendingSwaps() > 1 &&
+      !data.is_handling_interaction && !data.is_handling_animation) {
     delay_presenetation_until_next_vsync = false;
+  }
+
+  if (features::IsVSyncAlignedPresentEnabled() &&
+      base::FeatureList::IsEnabled(kPresentationDelayForInteractiveFrames)) {
+    bool has_prev_pending_frame =
+        ca_layer_tree_coordinator_->NumPendingSwaps() > 1;
+    RecordFrameTypes(data.is_handling_interaction, data.is_handling_animation,
+                     has_prev_pending_frame);
   }
 
   if (vsync_callback_mac_) {
@@ -213,7 +269,6 @@ void ImageTransportSurfaceOverlayMacEGL::CommitPresentedFrameToCA() {
 
   // Update the CALayer tree in the GPU process.
   {
-    base::TimeTicks before_transaction_time = base::TimeTicks::Now();
     base::TimeTicks display_time;
     base::TimeDelta frame_interval;
 #if BUILDFLAG(IS_MAC)
@@ -224,12 +279,6 @@ void ImageTransportSurfaceOverlayMacEGL::CommitPresentedFrameToCA() {
                  (display_time - base::TimeTicks::Now()).InMicroseconds());
     ca_layer_tree_coordinator_->CommitPresentedFrameToCA(frame_interval,
                                                          display_time);
-
-    base::TimeDelta transaction_time =
-        base::TimeTicks::Now() - before_transaction_time;
-    UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES(
-        "GPU.IOSurface.CATransactionTimeUs", transaction_time,
-        kHistogramMinTime, kHistogramMaxTime, kHistogramTimeBuckets);
   }
 }
 
@@ -237,7 +286,7 @@ bool ImageTransportSurfaceOverlayMacEGL::ScheduleOverlayPlane(
     gl::OverlayImage image,
     std::unique_ptr<gfx::GpuFence> gpu_fence,
     const gfx::OverlayPlaneData& overlay_plane_data) {
-  if (absl::get<gfx::OverlayTransform>(overlay_plane_data.plane_transform) !=
+  if (std::get<gfx::OverlayTransform>(overlay_plane_data.plane_transform) !=
       gfx::OVERLAY_TRANSFORM_NONE) {
     DLOG(ERROR) << "Invalid overlay plane transform.";
     return false;

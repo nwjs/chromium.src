@@ -76,11 +76,6 @@ public interface SiteSettingsDelegate {
     boolean isPermissionSiteSettingsRadioButtonFeatureEnabled();
 
     /**
-     * @return true if the PrivacySandboxFirstPartySetsUi Feature is enabled.
-     */
-    boolean isPrivacySandboxFirstPartySetsUiFeatureEnabled();
-
-    /**
      * @return The id of the notification channel associated with the given origin.
      */
     // TODO(crbug.com/40126121): Remove this once WebLayer supports notifications.
@@ -124,8 +119,8 @@ public interface SiteSettingsDelegate {
      */
     void launchProtectedContentHelpAndFeedbackActivity(Activity currentActivity);
 
-    /** Launches the Storage Access API help center link in a Chrome Custom Tab. */
-    void launchStorageAccessHelpActivity(Activity currentActivity);
+    /** Launches a Help Center URL in a custom tab. */
+    void launchUrlInCustomTab(Activity currentActivity, String url);
 
     /**
      * @return The set of all origins that have a WebAPK or TWA installed.

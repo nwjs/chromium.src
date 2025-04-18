@@ -148,9 +148,9 @@ TEST_F(TabGroupSyncCoordinatorTest, OnTabGroupRemovedFromLocal) {
 
 TEST_F(TabGroupSyncCoordinatorTest, ReconcileGroupsToSync) {
   group_1_.SetLocalGroupId(local_group_id_1_);
-  std::vector<SavedTabGroup> groups = {group_1_};
+  std::vector<const SavedTabGroup*> groups = {&group_1_};
 
-  EXPECT_CALL(*service_, GetAllGroups()).WillRepeatedly(Return(groups));
+  EXPECT_CALL(*service_, ReadAllGroups()).WillRepeatedly(Return(groups));
   EXPECT_CALL(*service_, GetGroup(group_1_.saved_guid()))
       .WillRepeatedly(Return(group_1_));
 
@@ -159,11 +159,20 @@ TEST_F(TabGroupSyncCoordinatorTest, ReconcileGroupsToSync) {
   coordinator_->OnInitialized();
 }
 
+// Desktop Platforms do not use Startup Helper to perform initializing
+// actions.
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+#define MAYBE_SaveUnsavedLocalGroupsOnStartupForFirstTimeFeatureLaunch \
+  SaveUnsavedLocalGroupsOnStartupForFirstTimeFeatureLaunch
+#else
+#define MAYBE_SaveUnsavedLocalGroupsOnStartupForFirstTimeFeatureLaunch \
+  DISABLED_SaveUnsavedLocalGroupsOnStartupForFirstTimeFeatureLaunch
+#endif
 TEST_F(TabGroupSyncCoordinatorTest,
-       SaveUnsavedLocalGroupsOnStartupForFirstTimeFeatureLaunch) {
+       MAYBE_SaveUnsavedLocalGroupsOnStartupForFirstTimeFeatureLaunch) {
   pref_service_.SetBoolean(prefs::kDidSyncTabGroupsInLastSession, false);
-  EXPECT_CALL(*service_, GetAllGroups())
-      .WillRepeatedly(Return(std::vector<SavedTabGroup>()));
+  EXPECT_CALL(*service_, ReadAllGroups())
+      .WillRepeatedly(Return(std::vector<const SavedTabGroup*>()));
 
   LocalTabGroupID local_id = test::GenerateRandomTabGroupID();
   EXPECT_CALL(*service_,
@@ -179,10 +188,18 @@ TEST_F(TabGroupSyncCoordinatorTest,
   coordinator_->OnInitialized();
 }
 
-TEST_F(TabGroupSyncCoordinatorTest, CloseUnsavedLocalGroupsOnStartup) {
+// Desktop Platforms do not use Startup Helper to perform initializing
+// actions.
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+#define MAYBE_CloseUnsavedLocalGroupsOnStartup CloseUnsavedLocalGroupsOnStartup
+#else
+#define MAYBE_CloseUnsavedLocalGroupsOnStartup \
+  DISABLED_CloseUnsavedLocalGroupsOnStartup
+#endif
+TEST_F(TabGroupSyncCoordinatorTest, MAYBE_CloseUnsavedLocalGroupsOnStartup) {
   pref_service_.SetBoolean(prefs::kDidSyncTabGroupsInLastSession, true);
-  EXPECT_CALL(*service_, GetAllGroups())
-      .WillRepeatedly(Return(std::vector<SavedTabGroup>()));
+  EXPECT_CALL(*service_, ReadAllGroups())
+      .WillRepeatedly(Return(std::vector<const SavedTabGroup*>()));
 
   LocalTabGroupID local_id = test::GenerateRandomTabGroupID();
   EXPECT_CALL(*service_,

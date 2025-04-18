@@ -57,6 +57,7 @@
 #include "ui/events/keycodes/dom/keycode_converter.h"
 #include "ui/events/platform/platform_event_source.h"
 #include "ui/gfx/mac/coordinate_conversion.h"
+#include "ui/gfx/native_widget_types.h"
 
 using blink::WebGestureEvent;
 using blink::WebInputEvent;
@@ -188,8 +189,6 @@ void ExtractUnderlines(NSAttributedString* string,
 @property(getter=isAutomaticDashSubstitutionEnabled)
     BOOL automaticDashSubstitutionEnabled;
 
-- (void)processedWheelEvent:(const blink::WebMouseWheelEvent&)event
-                   consumed:(BOOL)consumed;
 - (void)keyEvent:(NSEvent*)theEvent wasKeyEquivalent:(BOOL)equiv;
 - (void)windowDidChangeScreenOrBackingProperties:(NSNotification*)notification;
 - (void)windowChangedGlobalFrame:(NSNotification*)notification;
@@ -295,7 +294,7 @@ void ExtractUnderlines(NSAttributedString* string,
   // full string in the renderer.
   std::u16string _availableText;
   size_t _availableTextOffset;
-  NSUInteger _availableTextChangeCounter;
+  NSUInteger _availableTextChangeNumber;
   gfx::Range _textSelectionRange;
 
   // The composition range, cached from the RenderWidgetHostView. This is only
@@ -485,7 +484,7 @@ void ExtractUnderlines(NSAttributedString* string,
   NSRect textRectInViewCoordinates =
       [self convertRect:textRectInWindowCoordinates fromView:nil];
 
-  NSUInteger capturedChangeCounter = _availableTextChangeCounter;
+  NSUInteger capturedChangeNumber = _availableTextChangeNumber;
 
   [self.spellChecker
       showCorrectionIndicatorOfType:NSCorrectionIndicatorTypeDefault
@@ -496,7 +495,7 @@ void ExtractUnderlines(NSAttributedString* string,
                   completionHandler:^(NSString* acceptedString) {
                     [self didAcceptReplacementString:acceptedString
                                forTextCheckingResult:candidateResult
-                                    withChangeNumber:capturedChangeCounter];
+                                    withChangeNumber:capturedChangeNumber];
                   }];
 }
 
@@ -508,8 +507,11 @@ void ExtractUnderlines(NSAttributedString* string,
   // Call it to report whether they initially accepted or rejected the
   // suggestion, but also if they edit, revert, etc. later.
 
-  if (acceptedString == nil)
+  // Exit if there's no replacement string, or if the web contents changed
+  // in between our spell checker request and this response.
+  if (acceptedString == nil || _availableTextChangeNumber != changeNumber) {
     return;
+  }
 
   NSRange availableTextRange =
       NSMakeRange(_availableTextOffset, _availableText.length());
@@ -532,18 +534,6 @@ void ExtractUnderlines(NSAttributedString* string,
     if ([self.spellChecker preventsAutocorrectionBeforeString:trailingString
                                                      language:nil])
       return;
-
-    // Gather some info in case -doubleClickAtIndex: throws an exception.
-    // This change will eventually be reverted.
-    NSString* info = [NSString
-        stringWithFormat:@"%lu == %lu %lu %@ %@ %@ %@", changeNumber,
-                         _availableTextChangeCounter, attString.string.length,
-                         NSStringFromRange(availableTextRange),
-                         NSStringFromRange(correction.range),
-                         NSStringFromRange(trailingRange),
-                         NSStringFromRange(trailingRangeInAvailableText)];
-    SCOPED_CRASH_KEY_STRING256("RenderWidgetHostViewCocoa", "didAcceptTR",
-                               base::SysNSStringToUTF8(info));
 
     if ([attString doubleClickAtIndex:trailingRangeInAvailableText.location]
             .location < trailingRangeInAvailableText.location)
@@ -665,7 +655,7 @@ void ExtractUnderlines(NSAttributedString* string,
                        range:(gfx::Range)range {
   _availableText = text;
   _availableTextOffset = offset;
-  _availableTextChangeCounter++;
+  _availableTextChangeNumber++;
   _textSelectionRange = range;
   _substitutionWasApplied = NO;
   [NSSpellChecker.sharedSpellChecker dismissCorrectionIndicatorForView:self];
@@ -734,11 +724,6 @@ void ExtractUnderlines(NSAttributedString* string,
 - (void)resetCursorRects {
   if (_currentCursor)
     [self addCursorRect:[self visibleRect] cursor:_currentCursor];
-}
-
-- (void)processedWheelEvent:(const blink::WebMouseWheelEvent&)event
-                   consumed:(BOOL)consumed {
-  [_responderDelegate rendererHandledWheelEvent:event consumed:consumed];
 }
 
 - (void)processedGestureScrollEvent:(const blink::WebGestureEvent&)event
@@ -1774,7 +1759,7 @@ void ExtractUnderlines(NSAttributedString* string,
   auto* screen = display::Screen::GetScreen();
   const display::ScreenInfos newScreenInfos =
       screen->GetScreenInfosNearestDisplay(
-          screen->GetDisplayNearestView(self).id());
+          screen->GetDisplayNearestView(gfx::NativeView(self)).id());
   _host->OnScreenInfosChanged(newScreenInfos);
 }
 
@@ -2518,6 +2503,21 @@ extern NSString* NSTextInputReplacementRangeAttributeName;
     _textToBeInserted.append(base::SysNSStringToUTF16(imText));
     _shouldRequestTextSubstitutions = YES;
   } else {
+    // Fix the issue that Apple intelligence's writing tools not working. The
+    // writing tools bubble will grab the focus from browser after the user
+    // clicks replace button in the bubble which causes the replaced text can
+    // not be inserted into browser IME since the content's NSView loses focus.
+    // Please note that this is a workaround fix and should be removed after the
+    // issue is finally fixed by Apple which is tracked via FB16872510.
+    NSResponder* firstResponder = [self.window firstResponder];
+    if ([firstResponder isKindOfClass:NSClassFromString(@"NSRemoteView")]) {
+      NSView* firstResponderView = (NSView*)firstResponder;
+      NSView* superView = firstResponderView.superview;
+      if ([superView isKindOfClass:NSClassFromString(@"WTWritingToolsView")]) {
+        [self becomeFirstResponder];
+      }
+    }
+
     // The user uses mouse or touch bar to select a word on the IME.
     gfx::Range replacementGfxRange =
         gfx::Range::FromPossiblyInvalidNSRange(replacementRange);

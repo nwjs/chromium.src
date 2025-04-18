@@ -4,11 +4,11 @@
 
 package org.chromium.components.collaboration;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.components.data_sharing.GroupData;
 import org.chromium.components.data_sharing.member_role.MemberRole;
 import org.chromium.url.GURL;
@@ -17,6 +17,7 @@ import org.chromium.url.GURL;
  * CollaborationService is the core class for managing collaboration group flows. It represents a
  * native CollaborationService object in Java.
  */
+@NullMarked
 public interface CollaborationService {
     /** Observers for listening updates from the CollaborationService. */
     interface Observer {
@@ -45,7 +46,10 @@ public interface CollaborationService {
      * @param delegate The delegate to perform action on the Android UI.
      * @param url The URL of the join request.
      */
-    void startJoinFlow(CollaborationControllerDelegate delegate, GURL url);
+    void startJoinFlow(
+            CollaborationControllerDelegate delegate,
+            GURL url,
+            @CollaborationServiceJoinEntryPoint int entry);
 
     /**
      * Starts a new collaboration share or manage flow.
@@ -53,10 +57,12 @@ public interface CollaborationService {
      * @param delegate The delegate to perform action on the Android UI.
      * @param either_id The ID to identify a tab group.
      */
-    void startShareOrManageFlow(CollaborationControllerDelegate delegate, String syncId);
+    void startShareOrManageFlow(
+            CollaborationControllerDelegate delegate,
+            String syncId,
+            @CollaborationServiceShareOrManageEntryPoint int entry);
 
     /** Returns the current {@link ServiceStatus} of the service. */
-    @NonNull
     ServiceStatus getServiceStatus();
 
     /**
@@ -67,7 +73,7 @@ public interface CollaborationService {
      *     found.
      */
     @MemberRole
-    int getCurrentUserRoleForGroup(String collaborationId);
+    int getCurrentUserRoleForGroup(@Nullable String collaborationId);
 
     /**
      * Synchronously get group data for a given group id.
@@ -75,8 +81,7 @@ public interface CollaborationService {
      * @param collaborationId The collaboration group id.
      * @return The {@link GroupData} of the group.
      */
-    @Nullable
-    GroupData getGroupData(String collaborationId);
+    @Nullable GroupData getGroupData(@Nullable String collaborationId);
 
     /**
      * Attempt to leave a collaboration group.

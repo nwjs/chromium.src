@@ -162,8 +162,7 @@ String HTMLOptionElement::DisplayLabel() const {
     // value. Otherwise, use inner text.
     String label_attr = String(FastGetAttribute(html_names::kLabelAttr));
     if (!label_attr.empty()) {
-      return label_attr.StripWhiteSpace(IsHTMLSpace<UChar>)
-          .SimplifyWhiteSpace(IsHTMLSpace<UChar>);
+      return label_attr;
     }
     return CollectOptionInnerText()
         .StripWhiteSpace(IsHTMLSpace<UChar>)
@@ -454,9 +453,9 @@ String HTMLOptionElement::CollectOptionInnerText() const {
   return text.ToString();
 }
 
-HTMLFormElement* HTMLOptionElement::form() const {
+HTMLElement* HTMLOptionElement::formForBinding() const {
   if (HTMLSelectElement* select_element = OwnerSelectElement())
-    return select_element->formOwner();
+    return select_element->formForBinding();
 
   return nullptr;
 }

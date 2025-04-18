@@ -400,8 +400,8 @@ class WPTManifest:
 
         if not port.should_update_manifest(path):
             return
-        _log.debug('%s MANIFEST.json for %s ...',
-                   'Partially updating' if test_paths else 'Generating', path)
+        _log.info('%s MANIFEST.json for %s ...',
+                  'Partially updating' if test_paths else 'Generating', path)
 
         wpt_path = fs.join(port.web_tests_dir(), path)
         manifest_path = fs.join(wpt_path, MANIFEST_NAME)
@@ -425,8 +425,8 @@ class WPTManifest:
                            base_manifest_path, manifest_path)
                 fs.copyfile(base_manifest_path, manifest_path)
             else:
-                _log.error('Manifest base not found at "%s".',
-                           base_manifest_path)
+                _log.info('Manifest base not found at "%s".',
+                          base_manifest_path)
             url_base = '/'
         elif path.startswith('wpt_internal'):
             url_base = '/wpt_internal/'

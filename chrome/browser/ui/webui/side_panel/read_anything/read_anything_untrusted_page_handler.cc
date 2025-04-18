@@ -14,6 +14,7 @@
 #include "base/containers/flat_map.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/types/cxx23_to_underlying.h"
 #include "base/values.h"
 #include "chrome/browser/accessibility/phrase_segmentation/dependency_parser_model_loader.h"
 #include "chrome/browser/accessibility/phrase_segmentation/dependency_parser_model_loader_factory.h"
@@ -91,7 +92,7 @@ namespace {
 
 // All AXMode flags of kAXModeWebContentsOnly are needed. |ui::AXMode::kHTML| is
 // needed for retrieveing the `aria-expanded` attribute.
-// |ui::AXMode::kScreenReader| is needed for HTML tag, and heading level
+// |ui::AXMode::kExtendedProperties| is needed for HTML tag, and heading level
 // information. |ui::AXMode::kInlineTextBoxes| is needed for complete screen2x
 // output -- if excluded, some nodes from the tree will not be identified as
 // content nodes.
@@ -589,14 +590,14 @@ void ReadAnythingUntrustedPageHandler::OnCopy() {
 void ReadAnythingUntrustedPageHandler::OnLineSpaceChange(
     read_anything::mojom::LineSpacing line_spacing) {
   profile_->GetPrefs()->SetInteger(prefs::kAccessibilityReadAnythingLineSpacing,
-                                   static_cast<size_t>(line_spacing));
+                                   base::to_underlying(line_spacing));
 }
 
 void ReadAnythingUntrustedPageHandler::OnLetterSpaceChange(
     read_anything::mojom::LetterSpacing letter_spacing) {
   profile_->GetPrefs()->SetInteger(
       prefs::kAccessibilityReadAnythingLetterSpacing,
-      static_cast<size_t>(letter_spacing));
+      base::to_underlying(letter_spacing));
 }
 void ReadAnythingUntrustedPageHandler::OnFontChange(const std::string& font) {
   profile_->GetPrefs()->SetString(prefs::kAccessibilityReadAnythingFontName,
@@ -621,7 +622,7 @@ void ReadAnythingUntrustedPageHandler::OnImagesEnabledChanged(bool enabled) {
 void ReadAnythingUntrustedPageHandler::OnColorChange(
     read_anything::mojom::Colors color) {
   profile_->GetPrefs()->SetInteger(prefs::kAccessibilityReadAnythingColorInfo,
-                                   static_cast<size_t>(color));
+                                   base::to_underlying(color));
 }
 
 void ReadAnythingUntrustedPageHandler::OnSpeechRateChange(double rate) {
@@ -787,10 +788,23 @@ void ReadAnythingUntrustedPageHandler::SetDefaultLanguageCode(
 
 void ReadAnythingUntrustedPageHandler::Activate(bool active) {
   active_ = active;
+  if (features::IsReadAnythingReadAloudEnabled() && !active &&
+      side_panel_controller_->tab()->IsActivated() && !tab_will_detach_) {
+    page_->OnReadingModeHidden();
+  }
 }
 
 void ReadAnythingUntrustedPageHandler::OnSidePanelControllerDestroyed() {
   side_panel_controller_ = nullptr;
+}
+
+void ReadAnythingUntrustedPageHandler::OnTabWillDetach() {
+  if (!features::IsReadAnythingReadAloudEnabled()) {
+    return;
+  }
+
+  tab_will_detach_ = true;
+  page_->OnTabWillDetach();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

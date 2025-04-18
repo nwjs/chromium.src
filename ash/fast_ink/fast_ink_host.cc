@@ -192,7 +192,6 @@ gfx::Rect FastInkHost::BufferRectFromWindowRect(
 
 void FastInkHost::Draw(SkBitmap bitmap, const gfx::Rect& damage_rect) {
   const bool initialized = client_shared_image_ != nullptr;
-
   if (!initialized) {
     // GPU process should be ready soon after start and `pending_bitmaps_`
     // should be drawn promptly. 60 is an arbitrary cap that should never

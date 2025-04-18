@@ -76,7 +76,6 @@ class TaskManagerView : public TableViewDelegate,
   bool IsTableSorted() const override;
   TableSortDescriptor GetSortDescriptor() const override;
   void SetSortDescriptor(const TableSortDescriptor& descriptor) override;
-  void MaybeHighlightActiveTask() override;
 
   // views::View:
   gfx::Size CalculatePreferredSize(
@@ -91,6 +90,9 @@ class TaskManagerView : public TableViewDelegate,
   bool Accept() override;
   bool IsDialogButtonEnabled(ui::mojom::DialogButton button) const override;
   void WindowClosing() override;
+
+  // WidgetDelegate:
+  void OnWidgetInitialized() override;
 
   // views::TableGrouper:
   void GetGroupRange(size_t model_index, views::GroupRange* range) override;
@@ -150,8 +152,7 @@ class TaskManagerView : public TableViewDelegate,
   // Creates a new TableModel which only operates on the subset of tasks
   // associated with the DisplayCategory (e.g. kTabs means only Tab processes
   // are displayed).
-  void PerformFilter(DisplayCategory category,
-                     std::u16string_view search_term = {});
+  void PerformFilter(DisplayCategory category);
 
   // Creates all corresponding subcomponents for the header.
   std::unique_ptr<views::TabbedPaneTabStrip> CreateTabbedPane(
@@ -160,8 +161,6 @@ class TaskManagerView : public TableViewDelegate,
       const gfx::Outsets& tab_outsets);
   std::unique_ptr<views::View> CreateSearchBar(
       const ChromeLayoutProvider* provider);
-  std::unique_ptr<views::MdTextButton> CreateEndProcessButton(
-      const gfx::Insets& margins);
   std::unique_ptr<views::ScrollView> CreateProcessView(
       std::unique_ptr<views::TableView> tab_table,
       bool table_has_border,
@@ -181,6 +180,13 @@ class TaskManagerView : public TableViewDelegate,
 
   // Restores saved "always on top" state from a previous session.
   void RetrieveSavedAlwaysOnTopState();
+
+  // Restores saved tab.
+  void RestoreSavedCategory();
+
+  // Saves the provided category in the browser's local_state(). This is used to
+  // restore the category on the next boot up of the Task Manager.
+  void SaveCategoryToLocalState(DisplayCategory category);
 
   void EndSelectedProcess();
   bool IsEndProcessButtonEnabled() const;
@@ -208,6 +214,9 @@ class TaskManagerView : public TableViewDelegate,
   // The tabs which holds different task categories which is not null if task
   // manager refresh is enabled.
   raw_ptr<views::TabbedPaneTabStrip> tabs_ = nullptr;
+
+  // Search keyword the user input.
+  std::u16string search_terms_;
 
   // This button is not the same as the dialog button. It is only non-null if
   // task manager refresh is enabled.

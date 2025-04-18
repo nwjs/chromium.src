@@ -23,7 +23,7 @@ std::pair<std::u16string, bool>
 ReconcilingTemplateURLDataHolder::GetOrComputeKeyword() const {
   std::u16string keyword = search_engine_->keyword();
 
-  if (!search_engine_->created_from_play_api) {
+  if (search_engine_->regulatory_origin == RegulatoryExtensionType::kDefault) {
     return {std::move(keyword), false};
   }
 
@@ -66,7 +66,8 @@ ReconcilingTemplateURLDataHolder::FindMatchingBuiltInDefinitionsByKeyword(
   std::unique_ptr<TemplateURLData> result;
   if (engine_iter != prepopulated_urls.end()) {
     result = std::move(*engine_iter);
-  } else if (switches::kReconcileWithAllKnownEngines.Get()) {
+  } else {
+    // Search the entire search engine database to find matching entry.
     auto all_engines = TemplateURLPrepopulateData::GetAllPrepopulatedEngines();
     for (const auto* engine : all_engines) {
       if (engine->keyword == keyword) {
@@ -91,7 +92,8 @@ ReconcilingTemplateURLDataHolder::FindMatchingBuiltInDefinitionsById(
   std::unique_ptr<TemplateURLData> result;
   if (engine_iter != prepopulated_urls.end()) {
     result = std::move(*engine_iter);
-  } else if (switches::kReconcileWithAllKnownEngines.Get()) {
+  } else {
+    // Search the entire search engine database to find matching entry.
     auto all_engines = TemplateURLPrepopulateData::GetAllPrepopulatedEngines();
     for (const auto* engine : all_engines) {
       if (engine->id == prepopulate_id) {
@@ -120,14 +122,14 @@ void ReconcilingTemplateURLDataHolder::SetAndReconcile(
   }
 
   // Evaluate whether items should be reconciled.
-  // Permit merging Play entries if feature is enabled.
+  // Permit merging regulatory entries if feature is enabled.
   bool reconcile_by_keyword =
-      search_engine_->created_from_play_api &&
-      base::FeatureList::IsEnabled(switches::kTemplateUrlReconciliation);
+      search_engine_->regulatory_origin != RegulatoryExtensionType::kDefault;
 
-  // Permit merging by Prepopulated ID (except Play entries).
+  // Permit merging by Prepopulated ID (except regulatory entries).
   bool reconcile_by_id =
-      search_engine_->prepopulate_id && !search_engine_->created_from_play_api;
+      search_engine_->prepopulate_id &&
+      (search_engine_->regulatory_origin == RegulatoryExtensionType::kDefault);
 
   // Don't call GetPrepopulatedEngines() if we don't have anything to reconcile.
   if (!(reconcile_by_id || reconcile_by_keyword)) {
@@ -174,7 +176,7 @@ void ReconcilingTemplateURLDataHolder::SetAndReconcile(
   engine->last_modified = search_engine_->last_modified;
   engine->last_visited = search_engine_->last_visited;
   engine->favicon_url = search_engine_->favicon_url;
-  engine->created_from_play_api = search_engine_->created_from_play_api;
+  engine->regulatory_origin = search_engine_->regulatory_origin;
 
   search_engine_ = std::move(engine);
 }

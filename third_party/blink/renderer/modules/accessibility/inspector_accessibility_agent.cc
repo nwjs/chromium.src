@@ -21,6 +21,7 @@
 #include "third_party/blink/renderer/modules/accessibility/ax_object.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_object_cache_impl.h"
 #include "third_party/blink/renderer/modules/accessibility/inspector_type_builder_helper.h"
+#include "third_party/blink/renderer/platform/heap/disallow_new_wrapper.h"
 #include "third_party/blink/renderer/platform/wtf/deque.h"
 #include "ui/accessibility/ax_enums.mojom-blink.h"
 #include "ui/accessibility/ax_mode.h"
@@ -133,12 +134,13 @@ std::unique_ptr<protocol::Array<AXNode>> WalkAXNodesToDepth(
 
 using EnabledAgentsMultimap =
     HeapHashMap<WeakMember<LocalFrame>,
-                Member<HeapHashSet<Member<InspectorAccessibilityAgent>>>>;
+                Member<GCedHeapHashSet<Member<InspectorAccessibilityAgent>>>>;
 
 EnabledAgentsMultimap& EnabledAgents() {
-  DEFINE_STATIC_LOCAL(Persistent<EnabledAgentsMultimap>, enabled_agents,
-                      (MakeGarbageCollected<EnabledAgentsMultimap>()));
-  return *enabled_agents;
+  using EnabledAgentsMultimapHolder = DisallowNewWrapper<EnabledAgentsMultimap>;
+  DEFINE_STATIC_LOCAL(Persistent<EnabledAgentsMultimapHolder>, holder,
+                      (MakeGarbageCollected<EnabledAgentsMultimapHolder>()));
+  return holder->Value();
 }
 
 InspectorAccessibilityAgent::InspectorAccessibilityAgent(
@@ -400,40 +402,30 @@ void InspectorAccessibilityAgent::queryAXTree(
   auto& cache = AttachToAXObjectCache(&document);
   cache.UpdateAXForAllDocuments();
 
-  AXQuery query = {std::move(dom_node_id), std::move(backend_node_id),
-                   std::move(object_id),   std::move(accessible_name),
-                   std::move(role),        std::move(callback)};
-  auto it = queries_.find(&document);
-  if (it != queries_.end()) {
-    it->value.push_back(std::move(query));
-  } else {
-    Vector<AXQuery> vector;
-    vector.emplace_back(std::move(query));
-    queries_.insert(&document, std::move(vector));
-  }
-  // ScheduleAXUpdate() ensures the lifecycle doesn't get stalled,
-  // and therefore ensures we get the AXReadyCallback callback as soon as a11y
-  // is clean again.
-  cache.ScheduleAXUpdate();
+  // ScheduleAXUpdateWithCallback() ensures the lifecycle doesn't get stalled,
+  // and therefore ensures we get the callback as soon as a11y is clean again.
+  cache.ScheduleAXUpdateWithCallback(WTF::BindOnce(
+      &InspectorAccessibilityAgent::CompleteQuery, WrapWeakPersistent(this),
+      WrapWeakPersistent(root_dom_node), std::move(accessible_name),
+      std::move(role), std::move(callback)));
 }
 
-void InspectorAccessibilityAgent::CompleteQuery(AXQuery& query) {
-  Node* root_dom_node = nullptr;
-
-  protocol::Response response = dom_agent_->AssertNode(
-      query.dom_node_id, query.backend_node_id, query.object_id, root_dom_node);
-  if (!response.IsSuccess()) {
-    query.callback->sendFailure(response);
-    return;
+void InspectorAccessibilityAgent::CompleteQuery(
+    Node* root_dom_node,
+    std::optional<String> accessible_name,
+    std::optional<String> role,
+    std::unique_ptr<QueryAXTreeCallback> callback) {
+  if (!root_dom_node) {
+    return callback->sendFailure(protocol::Response::ServerError(
+        "Root DOM node was GC'ed while the query was in-flight."));
   }
-
   // Shadow roots are missing from a11y tree.
   // We start searching the host element instead as a11y tree does not
   // care about shadow roots.
   if (root_dom_node->IsShadowRoot())
     root_dom_node = root_dom_node->OwnerShadowHost();
   if (!root_dom_node) {
-    query.callback->sendFailure(
+    callback->sendFailure(
         protocol::Response::InvalidParams("Root DOM node could not be found"));
     return;
   }
@@ -471,20 +463,20 @@ void InspectorAccessibilityAgent::CompleteQuery(AXQuery& query) {
     // if querying by name: skip if name of current object does not match.
     // For now, we need to handle names of ignored nodes separately, since they
     // do not get a name assigned when serializing to AXNodeData.
-    if (ignored && query.accessible_name.has_value() &&
-        query.accessible_name.value() != ax_object->ComputedName()) {
+    if (ignored && accessible_name.has_value() &&
+        accessible_name.value() != ax_object->ComputedName()) {
       continue;
     }
-    if (!ignored && query.accessible_name.has_value() &&
-        query.accessible_name.value().Utf8() !=
+    if (!ignored && accessible_name.has_value() &&
+        accessible_name.value().Utf8() !=
             node_data.GetStringAttribute(
                 ax::mojom::blink::StringAttribute::kName)) {
       continue;
     }
 
     // if querying by role: skip if role of current object does not match.
-    if (query.role.has_value() &&
-        query.role.value() != AXObject::RoleName(node_data.role)) {
+    if (role.has_value() &&
+        role.value() != AXObject::RoleName(node_data.role)) {
       continue;
     }
 
@@ -493,11 +485,10 @@ void InspectorAccessibilityAgent::CompleteQuery(AXQuery& query) {
         *ax_object, /* force_name_and_role */ true));
   }
 
-  query.callback->sendSuccess(std::move(nodes));
+  callback->sendSuccess(std::move(nodes));
 }
 
 void InspectorAccessibilityAgent::AXReadyCallback(Document& document) {
-  ProcessPendingQueries(document);
   ProcessPendingDirtyNodes(document);
   if (load_complete_needs_processing_.Contains(&document) &&
       document.IsLoadCompleted()) {
@@ -512,15 +503,6 @@ void InspectorAccessibilityAgent::AXReadyCallback(Document& document) {
     ScopedFreezeAXCache freeze(*cache);
     GetFrontend()->loadComplete(BuildProtocolAXNodeForAXObject(*root));
   }
-}
-
-void InspectorAccessibilityAgent::ProcessPendingQueries(Document& document) {
-  auto it = queries_.find(&document);
-  if (it == queries_.end())
-    return;
-  for (auto& query : it->value)
-    CompleteQuery(query);
-  queries_.erase(&document);
 }
 
 void InspectorAccessibilityAgent::ProcessPendingDirtyNodes(Document& document) {
@@ -538,7 +520,7 @@ void InspectorAccessibilityAgent::ProcessPendingDirtyNodes(Document& document) {
   // Sometimes, computing properties for an object while serializing will
   // mark other objects dirty. This makes us re-enter this function.
   // To make this benign, we use a copy of dirty_nodes_ when iterating.
-  Member<HeapHashSet<WeakMember<AXObject>>> dirty_nodes =
+  Member<GCedHeapHashSet<WeakMember<AXObject>>> dirty_nodes =
       dirty_nodes_.Take(&document);
   auto nodes =
       std::make_unique<protocol::Array<protocol::Accessibility::AXNode>>();
@@ -608,7 +590,7 @@ bool InspectorAccessibilityAgent::MarkAXObjectDirty(AXObject* ax_object) {
   auto inserted = dirty_nodes_.insert(document, nullptr);
   if (inserted.is_new_entry) {
     inserted.stored_value->value =
-        MakeGarbageCollected<HeapHashSet<WeakMember<AXObject>>>();
+        MakeGarbageCollected<GCedHeapHashSet<WeakMember<AXObject>>>();
   }
   return inserted.stored_value->value->insert(ax_object).is_new_entry;
 }
@@ -643,7 +625,7 @@ void InspectorAccessibilityAgent::EnableAndReset() {
   if (!EnabledAgents().Contains(frame)) {
     EnabledAgents().Set(
         frame, MakeGarbageCollected<
-                   HeapHashSet<Member<InspectorAccessibilityAgent>>>());
+                   GCedHeapHashSet<Member<InspectorAccessibilityAgent>>>());
   }
   EnabledAgents().find(frame)->value->insert(this);
   for (auto& context : document_to_context_map_.Values()) {
@@ -721,7 +703,6 @@ void InspectorAccessibilityAgent::Trace(Visitor* visitor) const {
   visitor->Trace(document_to_context_map_);
   visitor->Trace(dirty_nodes_);
   visitor->Trace(timers_);
-  visitor->Trace(queries_);
   visitor->Trace(last_sync_times_);
   visitor->Trace(load_complete_needs_processing_);
   InspectorBaseAgent::Trace(visitor);

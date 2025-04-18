@@ -565,6 +565,29 @@ void RecordWastedAndReplacementRFHDiff(
   }
 }
 
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+enum class ProcessReuseOnCOOPType {
+  kDifferentSiteInstance = 0,
+  kSameSiteNavigationInSingleWebContents = 1,
+  kPrerender = 2,
+  kNone = 3,
+  kMaxValue = kNone,
+};
+
+constexpr std::array<const char*,
+                     static_cast<size_t>(ProcessReuseOnCOOPType::kMaxValue) + 1>
+    kProcessReuseOnCOOPTypeStrings = {"DifferentSiteInstance",
+                                      "SameSiteNavigationInSingleWebContents",
+                                      "Prerender", "None"};
+
+void RecordProcessReuseOnCoopResult(ProcessReuseOnCOOPType type, bool success) {
+  base::UmaHistogramBoolean(
+      base::StrCat({"Navigation.ProcessReuseOnCOOP.",
+                    kProcessReuseOnCOOPTypeStrings[static_cast<int>(type)]}),
+      success);
+}
+
 }  // namespace
 
 RenderFrameHostManager::IsSameSiteGetter::IsSameSiteGetter()
@@ -1730,9 +1753,19 @@ RenderFrameHostManager::GetFrameHostForNavigation(
       render_frame_host_->IsNavigationSameSite(request->GetUrlInfo());
 
   IsSameSiteGetter is_same_site_getter(is_same_site);
+  std::string site_instance_reason;
+  std::string* reason_output =
+      base::FeatureList::IsEnabled(features::kHoldbackDebugReasonStringRemoval)
+          ? &site_instance_reason
+          : reason;
   scoped_refptr<SiteInstanceImpl> dest_site_instance =
       GetSiteInstanceForNavigationRequest(request, is_same_site_getter,
-                                          browsing_context_group_swap, reason);
+                                          browsing_context_group_swap,
+                                          reason_output);
+  if (reason && base::FeatureList::IsEnabled(
+                    features::kHoldbackDebugReasonStringRemoval)) {
+    reason->append(site_instance_reason);
+  }
 
   // A subframe should always be in the same BrowsingInstance as the parent
   // (see also https://crbug.com/1107269).
@@ -3131,18 +3164,24 @@ RenderFrameHostManager::GetSiteInstanceForNavigation(
   //
   // TODO(alexmos): Study if this kind of reuse might be useful in other cases
   // beyond COOP.
+  ProcessReuseOnCOOPType coop_process_reuse_type =
+      ProcessReuseOnCOOPType::kNone;
   if (should_swap_result->type() == BrowsingContextGroupSwapType::kCoopSwap ||
       should_swap_result->type() ==
           BrowsingContextGroupSwapType::kRelatedCoopSwap) {
     if (candidate_instance && candidate_instance != new_instance &&
         candidate_instance->GetSiteInfo() == new_instance->GetSiteInfo()) {
+      coop_process_reuse_type = ProcessReuseOnCOOPType::kDifferentSiteInstance;
       process_to_reuse = candidate_instance->GetProcess();
     } else if (is_same_site.Get(*render_frame_host_, dest_url_info) &&
                current_instance->GetRelatedActiveContentsCount() == 1) {
+      coop_process_reuse_type =
+          ProcessReuseOnCOOPType::kSameSiteNavigationInSingleWebContents;
       process_to_reuse = current_instance->GetProcess();
     } else if (base::FeatureList::IsEnabled(
                    features::kProcessReuseOnPrerenderCOOPSwap) &&
                frame_tree_node_->frame_tree().is_prerendering()) {
+      coop_process_reuse_type = ProcessReuseOnCOOPType::kPrerender;
       process_to_reuse = current_instance->GetProcess();
     }
   }
@@ -3151,16 +3190,20 @@ RenderFrameHostManager::GetSiteInstanceForNavigation(
     DCHECK(frame_tree_node_->IsMainFrame());
     new_instance->ReuseExistingProcessIfPossible(process_to_reuse);
   }
-  if (!new_instance->HasProcess() &&
-      (should_swap_result->type() == BrowsingContextGroupSwapType::kCoopSwap ||
-       should_swap_result->type() ==
-           BrowsingContextGroupSwapType::kRelatedCoopSwap)) {
-    // Mark the coop_reuse_process_failed_ field in SiteInstance.
-    // This may happen in the navigation between non-COOP and COOP
-    // sites.
-    // The field will be passed to the ProcessAllocationContext when the
-    // new_instance tries to create a renderer process.
-    new_instance->SetCOOPReuseProcessFailed();
+  if (should_swap_result->type() == BrowsingContextGroupSwapType::kCoopSwap ||
+      should_swap_result->type() ==
+          BrowsingContextGroupSwapType::kRelatedCoopSwap) {
+    if (new_instance->HasProcess()) {
+      RecordProcessReuseOnCoopResult(coop_process_reuse_type, true);
+    } else {
+      RecordProcessReuseOnCoopResult(coop_process_reuse_type, false);
+      // Mark the coop_reuse_process_failed_ field in SiteInstance.
+      // This may happen in the navigation between non-COOP and COOP
+      // sites.
+      // The field will be passed to the ProcessAllocationContext when the
+      // new_instance tries to create a renderer process.
+      new_instance->SetCOOPReuseProcessFailed();
+    }
   }
 
   // We want fenced frame BrowsingInstances to share the same default

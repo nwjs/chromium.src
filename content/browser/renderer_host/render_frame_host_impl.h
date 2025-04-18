@@ -52,6 +52,7 @@
 #include "content/browser/renderer_host/back_forward_cache_metrics.h"
 #include "content/browser/renderer_host/browsing_context_state.h"
 #include "content/browser/renderer_host/code_cache_host_impl.h"
+#include "content/browser/renderer_host/cookie_access_observers.h"
 #include "content/browser/renderer_host/document_associated_data.h"
 #include "content/browser/renderer_host/frame_navigation_entry.h"
 #include "content/browser/renderer_host/keep_alive_handle_factory.h"
@@ -81,6 +82,7 @@
 #include "content/public/browser/back_forward_cache.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/content_browser_client.h"
+#include "content/public/browser/cookie_access_details.h"
 #include "content/public/browser/frame_tree_node_id.h"
 #include "content/public/browser/frame_type.h"
 #include "content/public/browser/global_request_id.h"
@@ -108,6 +110,7 @@
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
+#include "mojo/public/cpp/bindings/receiver_set.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/system/data_pipe.h"
 #include "net/base/isolation_info.h"
@@ -127,6 +130,7 @@
 #include "services/network/public/mojom/shared_dictionary_access_observer.mojom.h"
 #include "services/network/public/mojom/trust_token_access_observer.mojom.h"
 #include "services/network/public/mojom/url_loader_network_service_observer.mojom-forward.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/frame/delegated_capability_request_token.h"
 #include "third_party/blink/public/common/frame/frame_owner_element_type.h"
@@ -322,7 +326,6 @@ class CONTENT_EXPORT RenderFrameHostImpl
       public blink::mojom::LocalMainFrameHost,
       public ui::AXActionHandlerBase,
       public device::mojom::VibrationManagerListener,
-      public network::mojom::CookieAccessObserver,
       public network::mojom::TrustTokenAccessObserver,
       public network::mojom::SharedDictionaryAccessObserver,
       public network::mojom::DeviceBoundSessionAccessObserver,
@@ -2746,8 +2749,10 @@ class CONTENT_EXPORT RenderFrameHostImpl
   mojo::PendingRemote<network::mojom::URLLoaderNetworkServiceObserver>
   CreateURLLoaderNetworkObserver();
 
+  // All `CookieAccessDetails` reported via the returned `PendingRemote` will
+  // have their source member set to `source`.
   mojo::PendingRemote<network::mojom::CookieAccessObserver>
-  CreateCookieAccessObserver();
+  CreateCookieAccessObserver(CookieAccessDetails::Source source);
 
   mojo::PendingRemote<network::mojom::TrustTokenAccessObserver>
   CreateTrustTokenAccessObserver();
@@ -2761,9 +2766,13 @@ class CONTENT_EXPORT RenderFrameHostImpl
   mojo::PendingRemote<network::mojom::DeviceBoundSessionAccessObserver>
   CreateDeviceBoundSessionObserver();
 
-  // network::mojom::CookieAccessObserver:
-  void OnCookiesAccessed(std::vector<network::mojom::CookieAccessDetailsPtr>
-                             details_vector) override;
+  // Emits cookie warnings/metrics and calls OnCookiesAccessed() on the
+  // RenderFrameHostDelegate, for all cookies in `details_vector`. Every
+  // `CookieAccessDetails` passed to `OnCookiesAccessed()` will have its source
+  // set to `source`.
+  void NotifyCookiesAccessed(
+      std::vector<network::mojom::CookieAccessDetailsPtr> details_vector,
+      CookieAccessDetails::Source source);
 
   // network::mojom::TrustTokenAccessObserver:
   void OnTrustTokensAccessed(
@@ -2971,8 +2980,8 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // from the browser process, this may be different.
   // |is_payment_credential_creation| indicates whether MakeCredential is making
   // a payment credential.
-  // |remote_desktop_client_override| optionally contains a
-  // RemoteDesktopClientOverride client extension for the request.
+  // |remote_desktop_client_override_origin| is the origin from the
+  // RemoteDesktopClientOverride client extension for this request, if present.
   // |PerformGetAssertionWebAuthSecurityChecks| returns a security check result
   // and a boolean representing whether the given origin is cross-origin with
   // any frame in this frame's ancestor chain. This extra cross-origin bit is
@@ -2981,12 +2990,14 @@ class CONTENT_EXPORT RenderFrameHostImpl
       const std::string& relying_party_id,
       const url::Origin& effective_origin,
       bool is_payment_credential_get_assertion,
+      const std::optional<url::Origin>& remote_desktop_client_override_origin,
       base::OnceCallback<void(blink::mojom::AuthenticatorStatus, bool)>
           callback);
   void PerformMakeCredentialWebAuthSecurityChecks(
       const std::string& relying_party_id,
       const url::Origin& effective_origin,
       bool is_payment_credential_creation,
+      const std::optional<url::Origin>& remote_desktop_client_override_origin,
       base::OnceCallback<void(blink::mojom::AuthenticatorStatus, bool)>
           callback);
 #endif
@@ -3248,7 +3259,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // popin and this host is not within a fenced frame (as this prevents the
   // popin from impacting partitioning).
   // See https://explainers-by-googlers.github.io/partitioned-popins/
-  bool ShouldPartitionAsPopin() const;
+  bool ShouldPartitionAsPopin() const override;
 
   void SimulateDiscardShutdownKeepAliveTimeoutForTesting();
 
@@ -3646,10 +3657,6 @@ class CONTENT_EXPORT RenderFrameHostImpl
 
   // mojom::DomAutomationControllerHost:
   void DomOperationResponse(const std::string& json_string) override;
-
-  // network::mojom::CookieAccessObserver
-  void Clone(mojo::PendingReceiver<network::mojom::CookieAccessObserver>
-                 observer) override;
 
   // network::mojom::TrustTokenAccessObserver
   void Clone(mojo::PendingReceiver<network::mojom::TrustTokenAccessObserver>
@@ -4252,6 +4259,10 @@ class CONTENT_EXPORT RenderFrameHostImpl
       const GURL& blocked_url,
       std::optional<blink::mojom::PartitioningBlobURLInfo> info);
 
+  // This runs when fetches to cross-partition, same-origin Blob URL checks for
+  // storage access
+  bool DoesDocumentHaveStorageAccess();
+
   // For frames and main thread worklets we use a navigation-associated
   // interface and bind `receiver` to a `BlobURLStore` instance, which
   // implements the Blob URL API in the browser process.
@@ -4760,7 +4771,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // A mapping of each AXNodeID managed by `browser_accessibility_manager_`,
   // which is only unique within its renderer, to an AXUniqueId, which is unique
   // within the scope of the web contents.
-  std::map<ui::AXNodeID, ui::AXUniqueId> ax_unique_ids_;
+  absl::flat_hash_map<ui::AXNodeID, ui::AXUniqueId> ax_unique_ids_;
 
   // This is the value of the reset token expected for accessibility messages.
   // Any message with a different reset token will be dropped.
@@ -5247,15 +5258,14 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // scoped lifetime and changes on cross-document navigations.
   std::optional<base::UnguessableToken> embedding_token_;
 
-  // Observers listening to cookie access notifications for the current document
-  // in this RenderFrameHost.
-  // Note: at the moment this set is not cleared when a new document is created
-  // in this RenderFrameHost. This is done because the first observer is created
-  // before the navigation actually commits and because the old routing-id based
-  // behaved in the same way as well.
-  // This problem should go away with RenderDocument in any case.
+  // Observers listening to cookie access notifications for the current
+  // document in this RenderFrameHost. Note: at the moment this set is not
+  // cleared when a new document is created in this RenderFrameHost. This is
+  // done because the first observer is created before the navigation actually
+  // commits and because the old routing-id based behaved in the same way as
+  // well. This problem should go away with RenderDocument in any case.
   // TODO(crbug.com/40615943): Remove this warning after the RD ships.
-  mojo::ReceiverSet<network::mojom::CookieAccessObserver> cookie_observers_;
+  CookieAccessObservers cookie_observers_;
 
   // Observers listening to Trust Token access notifications for the current
   // document in this RenderFrameHost. Note: at the moment this set is not

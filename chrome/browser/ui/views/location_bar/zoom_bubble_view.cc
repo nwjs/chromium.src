@@ -15,16 +15,21 @@
 #include "build/build_config.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/platform_util.h"
+#include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_dialogs.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
+#include "chrome/browser/ui/tabs/public/tab_features.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
+#include "chrome/browser/ui/views/page_action/page_action_view.h"
 #include "chrome/browser/ui/views/page_action/zoom_view.h"
+#include "chrome/browser/ui/views/zoom/zoom_view_controller.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/zoom/page_zoom.h"
 #include "components/zoom/zoom_controller.h"
@@ -179,15 +184,22 @@ void ParentToBrowser(Browser* browser,
                      content::WebContents* web_contents) {
   BrowserView* const browser_view =
       BrowserView::GetBrowserViewForBrowser(browser);
-  zoom_bubble->SetHighlightedButton(
-      browser_view->toolbar_button_provider()->GetPageActionIconView(
-          PageActionIconType::kZoom));
+  views::Button* button;
+  if (IsPageActionMigrated(PageActionIconType::kZoom)) {
+    button = browser_view->toolbar_button_provider()->GetPageActionView(
+        kActionZoomNormal);
+  } else {
+    button = browser_view->toolbar_button_provider()->GetPageActionIconView(
+        PageActionIconType::kZoom);
+  }
+
+  zoom_bubble->SetHighlightedButton(button);
 
   // If we don't anchor to anything the BrowserView is our parent. This happens
   // in fullscreen cases.
   zoom_bubble->set_parent_window(
       zoom_bubble->anchor_widget()
-          ? nullptr
+          ? gfx::NativeView()
           : browser_view->GetWidget()->GetNativeView());
 
   views::BubbleDialogDelegateView::CreateBubble(zoom_bubble);
@@ -344,9 +356,15 @@ std::u16string ZoomBubbleView::GetAccessibleWindowTitle() const {
   if (!browser) {
     return {};
   }
-  return BrowserView::GetBrowserViewForBrowser(browser)
-      ->toolbar_button_provider()
-      ->GetPageActionIconView(PageActionIconType::kZoom)
+
+  ToolbarButtonProvider* provider =
+      BrowserView::GetBrowserViewForBrowser(browser)->toolbar_button_provider();
+
+  if (IsPageActionMigrated(PageActionIconType::kZoom)) {
+    return provider->GetPageActionView(kActionZoomNormal)->GetAccessibleName();
+  }
+
+  return provider->GetPageActionIconView(PageActionIconType::kZoom)
       ->GetTextForTooltipAndAccessibleName();
 }
 
@@ -593,8 +611,15 @@ void ZoomBubbleView::UpdateZoomIconVisibility() {
   // may also be destroyed: the call to WindowClosing() may be triggered by
   // parent window destruction tearing down its child windows.
   Browser* browser = chrome::FindBrowserWithID(session_id_);
-  if (browser && browser->window()) {
-    browser->window()->UpdatePageActionIcon(PageActionIconType::kZoom);
+  if (browser && browser->window() && browser->GetActiveTabInterface()) {
+    if (IsPageActionMigrated(PageActionIconType::kZoom)) {
+      if (auto* tab_feature =
+              browser->GetActiveTabInterface()->GetTabFeatures()) {
+        tab_feature->zoom_view_controller()->UpdatePageActionIcon();
+      }
+    } else {
+      browser->window()->UpdatePageActionIcon(PageActionIconType::kZoom);
+    }
   }
 }
 

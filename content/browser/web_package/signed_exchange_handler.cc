@@ -4,11 +4,6 @@
 
 #include "content/browser/web_package/signed_exchange_handler.h"
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/342213636): Remove this and spanify to fix the errors.
-#pragma allow_unsafe_buffers
-#endif
-
 #include <memory>
 #include <string_view>
 #include <utility>
@@ -348,8 +343,7 @@ SignedExchangeHandler::ParsePrologueBeforeFallbackUrl() {
 
   prologue_before_fallback_url_ =
       signed_exchange_prologue::BeforeFallbackUrl::Parse(
-          base::span(
-              header_buf_->bytes(),
+          header_buf_->first(
               signed_exchange_prologue::BeforeFallbackUrl::kEncodedSizeInBytes),
           devtools_proxy_.get());
 
@@ -370,8 +364,7 @@ SignedExchangeHandler::ParsePrologueFallbackUrlAndAfter() {
 
   prologue_fallback_url_and_after_ =
       signed_exchange_prologue::FallbackUrlAndAfter::Parse(
-          base::span(
-              header_buf_->bytes(),
+          header_buf_->first(
               prologue_before_fallback_url_.ComputeFallbackUrlAndAfterLength()),
           prologue_before_fallback_url_, devtools_proxy_.get());
 
@@ -729,7 +722,8 @@ void SignedExchangeHandler::CheckAbsenceOfCookies(base::OnceClosure callback) {
                             : net::CookieSettingOverrides(),
           /*devtools_cookie_setting_overrides=*/net::CookieSettingOverrides(),
           cookie_manager_.BindNewPipeAndPassReceiver(),
-          render_frame_host ? render_frame_host->CreateCookieAccessObserver()
+          render_frame_host ? render_frame_host->CreateCookieAccessObserver(
+                                  CookieAccessDetails::Source::kNonNavigation)
                             : mojo::NullRemote());
 
   CHECK(isolation_info.top_frame_origin().has_value());

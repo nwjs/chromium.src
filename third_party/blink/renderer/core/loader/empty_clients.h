@@ -129,6 +129,7 @@ class CORE_EXPORT EmptyChromeClient : public ChromeClient {
                              cc::PaintHoldingReason reason) override;
   void StopDeferringCommits(LocalFrame& main_frame,
                             cc::PaintHoldingCommitTrigger) override {}
+  void SetShouldThrottleFrameRate(bool flag, LocalFrame& main_frame) override {}
   void StartDragging(LocalFrame*,
                      const WebDragData&,
                      DragOperationsMask,
@@ -185,7 +186,8 @@ class CORE_EXPORT EmptyChromeClient : public ChromeClient {
 
   void InvalidateContainer() override {}
   void ScheduleAnimation(const LocalFrameView*,
-                         base::TimeDelta delay) override {}
+                         base::TimeDelta delay,
+                         bool urgent) override {}
   gfx::Rect LocalRootToScreenDIPs(const gfx::Rect& r,
                                   const LocalFrameView*) const override {
     return r;

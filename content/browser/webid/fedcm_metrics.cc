@@ -226,6 +226,17 @@ void FedCmMetrics::RecordMismatchDialogShownDuration(
 
 void FedCmMetrics::RecordCancelReason(
     IdentityRequestDialogController::DismissReason dismiss_reason) {
+  DCHECK_GT(session_id_, 0);
+  auto RecordUkm = [&](auto& ukm_builder) {
+    ukm_builder.SetCancelReason(
+        static_cast<std::underlying_type_t<
+            IdentityRequestDialogController::DismissReason>>(dismiss_reason));
+    ukm_builder.SetFedCmSessionID(session_id_);
+    ukm_builder.Record(ukm::UkmRecorder::Get());
+  };
+  ukm::builders::Blink_FedCm fedcm_builder(page_source_id_);
+  RecordUkm(fedcm_builder);
+
   base::UmaHistogramEnumeration("Blink.FedCm.CancelReason", dismiss_reason);
 }
 
@@ -761,6 +772,40 @@ void FedCmMetrics::RecordMultipleRequestsFromDifferentIdPs(
                             from_different_idps);
 }
 
+void FedCmMetrics::RecordRpUrlHasPath(bool rp_url_has_path) {
+  DCHECK_GT(session_id_, 0);
+  auto RecordUkm = [&](auto& ukm_builder) {
+    ukm_builder.SetRpUrlHasPath(rp_url_has_path);
+    ukm_builder.SetFedCmSessionID(session_id_);
+    ukm_builder.Record(ukm::UkmRecorder::Get());
+  };
+  ukm::builders::Blink_FedCm fedcm_builder(page_source_id_);
+  RecordUkm(fedcm_builder);
+}
+
+void FedCmMetrics::RecordAccountSelectionScrollPosition(
+    const gfx::Point& scroll_position) {
+  DCHECK_GT(session_id_, 0);
+  auto RecordUkm = [&](auto& ukm_builder) {
+    ukm_builder.SetAccountSelectionScrollPosition(ukm::GetExponentialBucketMin(
+        scroll_position.y(), /*bucket_spacing=*/1.15));
+    ukm_builder.SetFedCmSessionID(session_id_);
+    ukm_builder.Record(ukm::UkmRecorder::Get());
+  };
+  ukm::builders::Blink_FedCm fedcm_builder(page_source_id_);
+  RecordUkm(fedcm_builder);
+}
+
+void FedCmMetrics::RecordIdentityProvidersCount(int count) {
+  CHECK_GT(count, 0);
+  base::UmaHistogramCounts100("Blink.FedCm.IdentityProvidersCount", count);
+  ukm::builders::Blink_FedCm fedcm_builder(page_source_id_);
+  fedcm_builder.SetIdentityProvidersCount(
+      ukm::GetExponentialBucketMin(count, /*bucket_spacing=*/1.3));
+  fedcm_builder.SetFedCmSessionID(session_id_);
+  fedcm_builder.Record(ukm::UkmRecorder::Get());
+}
+
 ukm::SourceId FedCmMetrics::GetOrCreateProviderSourceId(const GURL& provider) {
   auto it = provider_source_ids_.find(provider);
   if (it != provider_source_ids_.end()) {
@@ -833,11 +878,6 @@ void RecordReadyToShowAccountsSize(int size) {
   base::UmaHistogramCustomCounts("Blink.FedCm.AccountsSize.ReadyToShow", size,
                                  /*min=*/1,
                                  /*exclusive_max=*/10, /*buckets=*/10);
-}
-
-void RecordIdentityProvidersCount(int count) {
-  CHECK_GT(count, 0);
-  base::UmaHistogramCounts100("Blink.FedCm.IdentityProvidersCount", count);
 }
 
 }  // namespace content

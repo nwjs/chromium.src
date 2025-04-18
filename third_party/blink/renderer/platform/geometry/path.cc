@@ -32,13 +32,16 @@
 #include <math.h>
 
 #include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <optional>
 
+#include "third_party/blink/renderer/platform/geometry/path_builder.h"
 #include "third_party/blink/renderer/platform/geometry/skia_geometry_utils.h"
 #include "third_party/blink/renderer/platform/geometry/stroke_data.h"
 #include "third_party/blink/renderer/platform/transforms/affine_transform.h"
 #include "third_party/blink/renderer/platform/wtf/math_extras.h"
 #include "third_party/skia/include/pathops/SkPathOps.h"
-#include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/point_f.h"
 #include "ui/gfx/geometry/quad_f.h"
 #include "ui/gfx/geometry/rect_f.h"
@@ -51,10 +54,10 @@ namespace {
 
 bool PathQuadIntersection(const SkPath& path, const gfx::QuadF& quad) {
   SkPath quad_path, intersection;
-  quad_path.moveTo(FloatPointToSkPoint(quad.p1()))
-      .lineTo(FloatPointToSkPoint(quad.p2()))
-      .lineTo(FloatPointToSkPoint(quad.p3()))
-      .lineTo(FloatPointToSkPoint(quad.p4()))
+  quad_path.moveTo(gfx::PointFToSkPoint(ClampNonFiniteToZero(quad.p1())))
+      .lineTo(gfx::PointFToSkPoint(ClampNonFiniteToZero(quad.p2())))
+      .lineTo(gfx::PointFToSkPoint(ClampNonFiniteToZero(quad.p3())))
+      .lineTo(gfx::PointFToSkPoint(ClampNonFiniteToZero(quad.p4())))
       .close();
   if (!Op(path, quad_path, kIntersect_SkPathOp, &intersection)) {
     return false;
@@ -62,155 +65,17 @@ bool PathQuadIntersection(const SkPath& path, const gfx::QuadF& quad) {
   return !intersection.isEmpty();
 }
 
-enum class Corner { kTopLeft, kTopRight, kBottomRight, kBottomLeft };
-
-gfx::Vector2dF SuperellipseAt(float s, float t) {
-  float n = std::pow(2, s);
-  float x = std::pow(t, 1 / n);
-  float y = std::pow(1 - t, 1 / n);
-  return gfx::Vector2dF(x, y);
-}
-
-// TODO(fserb) document this.
-std::array<gfx::Vector2dF, 5> ApproximateSuperellipseAsBezierCurvePair(
-    float curvature) {
-  static constexpr std::array<double, 7> p = {
-      1.2430920942724248, 2.010479023614843,  0.32922901179443753,
-      0.2823023142212073, 1.3473704261055421, 2.9149468637949814,
-      0.9106507102917086};
-
-  DCHECK_GT(curvature, 0);
-  const float s = std::log2(curvature);
-  const float abs_s = std::abs(s);
-  const float slope =
-      p[0] + (p[6] - p[0]) * 0.5 * (1 + std::tanh(p[5] * (abs_s - p[1])));
-  const float base = 1 / (1 + std::exp(-slope * (0 - p[1])));
-  const float logistic = 1 / (1 + std::exp(-slope * (abs_s - p[1])));
-
-  const float a = (logistic - base) / (1 - base);
-  const float b = p[2] * std::exp(-p[3] * std::pow(abs_s, p[4]));
-
-  gfx::Vector2dF P1(a, 1);
-  gfx::Vector2dF P3 = SuperellipseAt(abs_s, 0.5);
-  gfx::Vector2dF P5(1, a);
-
-  if (s < 0) {
-    P1 = gfx::Vector2dF(1 - P1.y(), 1 - P1.x());
-    P3 = gfx::Vector2dF(1 - P3.y(), 1 - P3.x());
-    P5 = gfx::Vector2dF(1 - P5.y(), 1 - P5.x());
-  }
-
-  gfx::Vector2dF P2(P3.x() - b, P3.y() + b);
-  gfx::Vector2dF P4(P3.x() + b, P3.y() - b);
-  return {P1, P2, P3, P4, P5};
-}
-
-void AddCornerShape(SkPath& path,
-                    gfx::RectF corner_rect,
-                    Corner corner,
-                    float curvature) {
-  gfx::PointF target_point;
-  switch (corner) {
-    case Corner::kTopLeft:
-      target_point = corner_rect.top_right();
-      break;
-    case Corner::kTopRight:
-      target_point = corner_rect.bottom_right();
-      break;
-    case Corner::kBottomRight:
-      target_point = corner_rect.bottom_left();
-      break;
-    case Corner::kBottomLeft:
-      target_point = corner_rect.origin();
-      break;
-  }
-  if (curvature == FloatRoundedRect::CornerCurvature::kBevel) {
-    path.lineTo(gfx::PointFToSkPoint(target_point));
-  } else if (curvature <= 0.001) {
-    // Notch or very close to it, draw two lines.
-    gfx::PointF control_point;
-    switch (corner) {
-      case Corner::kTopLeft:
-        control_point = corner_rect.bottom_right();
-        break;
-      case Corner::kTopRight:
-        control_point = corner_rect.bottom_left();
-        break;
-      case Corner::kBottomRight:
-        control_point = corner_rect.origin();
-        break;
-      case Corner::kBottomLeft:
-        control_point = corner_rect.top_right();
-        break;
-    }
-    path.lineTo(gfx::PointFToSkPoint(control_point));
-    path.lineTo(gfx::PointFToSkPoint(target_point));
-  } else if (curvature == 2) {
-    gfx::PointF control_point;
-    switch (corner) {
-      case Corner::kTopLeft:
-        control_point = corner_rect.origin();
-        break;
-      case Corner::kTopRight:
-        control_point = corner_rect.top_right();
-        break;
-      case Corner::kBottomRight:
-        control_point = corner_rect.bottom_right();
-        break;
-      case Corner::kBottomLeft:
-        control_point = corner_rect.bottom_left();
-        break;
-    }
-    path.conicTo(gfx::PointFToSkPoint(control_point),
-                 gfx::PointFToSkPoint(target_point), SK_ScalarRoot2Over2);
-  } else {
-    auto control_points = ApproximateSuperellipseAsBezierCurvePair(
-        corner == Corner::kBottomRight || corner == Corner::kTopLeft
-            ? 1 / curvature
-            : curvature);
-    gfx::PointF starting_point;
-    switch (corner) {
-      case Corner::kTopLeft:
-        starting_point = corner_rect.bottom_left();
-        break;
-      case Corner::kTopRight:
-        starting_point = corner_rect.origin();
-        break;
-      case Corner::kBottomRight:
-        starting_point = corner_rect.top_right();
-        break;
-      case Corner::kBottomLeft:
-        starting_point = corner_rect.bottom_right();
-        break;
-    }
-    const gfx::Vector2dF target_vector = target_point - starting_point;
-    std::array<SkPoint, 5> points;
-    std::ranges::transform(
-        control_points, points.begin(), [&](gfx::Vector2dF cv) {
-          auto out_cv = gfx::ScaleVector2d(target_vector, cv.x(), 1 - cv.y());
-          return gfx::PointFToSkPoint(starting_point + out_cv);
-        });
-
-    path.cubicTo(points.at(0), points.at(1), points.at(2));
-    path.cubicTo(points.at(3), points.at(4),
-                 gfx::PointFToSkPoint(target_point));
-  }
-}
-
 }  // namespace
 
-Path::Path() : path_() {}
+Path::Path() = default;
 
-Path::Path(const Path& other) : path_(other.path_) {}
+Path::Path(const Path& other) = default;
 
 Path::Path(const SkPath& other) : path_(other) {}
 
 Path::~Path() = default;
 
-Path& Path::operator=(const Path& other) {
-  path_ = other.path_;
-  return *this;
-}
+Path& Path::operator=(const Path&) = default;
 
 Path& Path::operator=(const SkPath& other) {
   path_ = other;
@@ -225,16 +90,16 @@ bool Path::Contains(const gfx::PointF& point) const {
   if (!std::isfinite(point.x()) || !std::isfinite(point.y())) {
     return false;
   }
-  return path_.contains(SkScalar(point.x()), SkScalar(point.y()));
+  return path_.contains(point.x(), point.y());
 }
 
 bool Path::Contains(const gfx::PointF& point, WindRule rule) const {
   if (!std::isfinite(point.x()) || !std::isfinite(point.y())) {
     return false;
   }
-  SkScalar x = point.x();
-  SkScalar y = point.y();
-  SkPathFillType fill_type = WebCoreWindRuleToSkFillType(rule);
+  const float x = point.x();
+  const float y = point.y();
+  const SkPathFillType fill_type = WebCoreWindRuleToSkFillType(rule);
   if (path_.getFillType() != fill_type) {
     SkPath tmp(path_);
     tmp.setFillType(fill_type);
@@ -281,8 +146,7 @@ bool Path::StrokeContains(const gfx::PointF& point,
   if (!std::isfinite(point.x()) || !std::isfinite(point.y())) {
     return false;
   }
-  return StrokePath(stroke_data, transform)
-      .contains(SkScalar(point.x()), SkScalar(point.y()));
+  return StrokePath(stroke_data, transform).contains(point.x(), point.y());
 }
 
 gfx::RectF Path::TightBoundingRect() const {
@@ -304,9 +168,7 @@ static base::span<gfx::PointF> ConvertPathPoints(
     std::array<gfx::PointF, 3>& dst,
     base::span<const SkPoint> src) {
   for (size_t i = 0; i < src.size(); ++i) {
-    const SkPoint& src_point = src[i];
-    dst[i].set_x(SkScalarToFloat(src_point.fX));
-    dst[i].set_y(SkScalarToFloat(src_point.fY));
+    dst[i] = gfx::SkPointToPointF(src[i]);
   }
   return base::span(dst).first(src.size());
 }
@@ -372,20 +234,15 @@ Path& Path::Transform(const AffineTransform& xform) {
   return *this;
 }
 
-Path& Path::Transform(const gfx::Transform& transform) {
-  path_.transform(gfx::TransformToFlattenedSkMatrix(transform));
-  return *this;
-}
-
 float Path::length() const {
-  SkScalar length = 0;
+  float length = 0;
   SkPathMeasure measure(path_, false);
 
   do {
     length += measure.getLength();
   } while (measure.nextContour());
 
-  return SkScalarToFloat(length);
+  return length;
 }
 
 gfx::PointF Path::PointAtLength(float length) const {
@@ -394,20 +251,20 @@ gfx::PointF Path::PointAtLength(float length) const {
 
 static std::optional<PointAndTangent> CalculatePointAndNormalOnPath(
     SkPathMeasure& measure,
-    SkScalar& contour_start,
-    SkScalar length) {
+    float& contour_start,
+    float length) {
   do {
-    SkScalar contour_end = contour_start + measure.getLength();
+    const float contour_end = contour_start + measure.getLength();
     if (length <= contour_end) {
       SkVector tangent;
       SkPoint position;
 
-      SkScalar pos_in_contour = length - contour_start;
+      const float pos_in_contour = length - contour_start;
       if (measure.getPosTan(pos_in_contour, &position, &tangent)) {
         PointAndTangent result;
         result.point = gfx::SkPointToPointF(position);
         result.tangent_in_degrees =
-            Rad2deg(SkScalarToFloat(SkScalarATan2(tangent.fY, tangent.fX)));
+            Rad2deg(SkScalarATan2(tangent.fY, tangent.fX));
         return result;
       }
     }
@@ -418,9 +275,9 @@ static std::optional<PointAndTangent> CalculatePointAndNormalOnPath(
 
 PointAndTangent Path::PointAndNormalAtLength(float length) const {
   SkPathMeasure measure(path_, false);
-  SkScalar start = 0;
+  float start = 0;
   if (std::optional<PointAndTangent> result = CalculatePointAndNormalOnPath(
-          measure, start, WebCoreFloatToSkScalar(length))) {
+          measure, start, ClampNonFiniteToZero(length))) {
     return *result;
   }
   return {gfx::SkPointToPointF(path_.getPoint(0)), 0};
@@ -432,16 +289,16 @@ Path::PositionCalculator::PositionCalculator(const Path& path)
       accumulated_length_(0) {}
 
 PointAndTangent Path::PositionCalculator::PointAndNormalAtLength(float length) {
-  SkScalar sk_length = WebCoreFloatToSkScalar(length);
-  if (sk_length >= 0) {
-    if (sk_length < accumulated_length_) {
+  length = ClampNonFiniteToZero(length);
+  if (length >= 0) {
+    if (length < accumulated_length_) {
       // Reset path measurer to rewind (and restart from 0).
       path_measure_.setPath(&path_, false);
       accumulated_length_ = 0;
     }
 
     std::optional<PointAndTangent> result = CalculatePointAndNormalOnPath(
-        path_measure_, accumulated_length_, sk_length);
+        path_measure_, accumulated_length_, length);
     if (result) {
       return *result;
     }
@@ -462,35 +319,19 @@ bool Path::IsClosed() const {
 }
 
 bool Path::IsLine() const {
-  SkPoint dummy_line[2];
-  return path_.isLine(dummy_line);
+  return path_.isLine(nullptr);
 }
 
 void Path::SetIsVolatile(bool is_volatile) {
   path_.setIsVolatile(is_volatile);
 }
 
-bool Path::HasCurrentPoint() const {
-  return path_.getPoints(nullptr, 0);
-}
-
-gfx::PointF Path::CurrentPoint() const {
-  if (path_.countPoints() > 0) {
-    SkPoint sk_result;
-    path_.getLastPt(&sk_result);
-    gfx::PointF result;
-    result.set_x(SkScalarToFloat(sk_result.fX));
-    result.set_y(SkScalarToFloat(sk_result.fY));
-    return result;
+std::optional<gfx::PointF> Path::CurrentPoint() const {
+  SkPoint point;
+  if (path_.getLastPt(&point)) {
+    return gfx::SkPointToPointF(point);
   }
-
-  // FIXME: Why does this return quietNaN? Other ports return 0,0.
-  float quiet_na_n = std::numeric_limits<float>::quiet_NaN();
-  return gfx::PointF(quiet_na_n, quiet_na_n);
-}
-
-void Path::SetWindRule(const WindRule rule) {
-  path_.setFillType(WebCoreWindRuleToSkFillType(rule));
+  return std::nullopt;
 }
 
 void Path::MoveTo(const gfx::PointF& point) {
@@ -515,29 +356,14 @@ void Path::AddBezierCurveTo(const gfx::PointF& p1,
 void Path::AddArcTo(const gfx::PointF& p1,
                     const gfx::PointF& p2,
                     float radius) {
-  path_.arcTo(gfx::PointFToSkPoint(p1), gfx::PointFToSkPoint(p2),
-              WebCoreFloatToSkScalar(radius));
-}
-
-void Path::AddArcTo(const gfx::PointF& p,
-                    float radius_x,
-                    float radius_y,
-                    float x_rotate,
-                    bool large_arc,
-                    bool sweep) {
-  path_.arcTo(WebCoreFloatToSkScalar(radius_x),
-              WebCoreFloatToSkScalar(radius_y),
-              WebCoreFloatToSkScalar(x_rotate),
-              large_arc ? SkPath::kLarge_ArcSize : SkPath::kSmall_ArcSize,
-              sweep ? SkPathDirection::kCW : SkPathDirection::kCCW,
-              WebCoreFloatToSkScalar(p.x()), WebCoreFloatToSkScalar(p.y()));
+  path_.arcTo(gfx::PointFToSkPoint(p1), gfx::PointFToSkPoint(p2), radius);
 }
 
 void Path::CloseSubpath() {
   path_.close();
 }
 
-void Path::AddEllipse(const gfx::PointF& p,
+void Path::AddEllipse(const gfx::PointF& c,
                       float radius_x,
                       float radius_y,
                       float start_angle,
@@ -546,42 +372,27 @@ void Path::AddEllipse(const gfx::PointF& p,
   DCHECK_GE(start_angle, 0);
   DCHECK_LT(start_angle, kTwoPiFloat);
 
-  SkScalar cx = WebCoreFloatToSkScalar(p.x());
-  SkScalar cy = WebCoreFloatToSkScalar(p.y());
-  SkScalar radius_x_scalar = WebCoreFloatToSkScalar(radius_x);
-  SkScalar radius_y_scalar = WebCoreFloatToSkScalar(radius_y);
+  const SkRect oval = SkRect::MakeLTRB(c.x() - radius_x, c.y() - radius_y,
+                                       c.x() + radius_x, c.y() + radius_y);
 
-  SkRect oval;
-  oval.setLTRB(cx - radius_x_scalar, cy - radius_y_scalar, cx + radius_x_scalar,
-               cy + radius_y_scalar);
-
-  float sweep = end_angle - start_angle;
-  SkScalar start_degrees = WebCoreFloatToSkScalar(start_angle * 180 / kPiFloat);
-  SkScalar sweep_degrees = WebCoreFloatToSkScalar(sweep * 180 / kPiFloat);
-  SkScalar s360 = SkIntToScalar(360);
+  const float start_degrees = Rad2deg(start_angle);
+  const float sweep_degrees = Rad2deg(end_angle - start_angle);
 
   // We can't use SkPath::addOval(), because addOval() makes a new sub-path.
   // addOval() calls moveTo() and close() internally.
 
-  // Use s180, not s360, because SkPath::arcTo(oval, angle, s360, false) draws
+  // Use 180, not 360, because SkPath::arcTo(oval, angle, 360, false) draws
   // nothing.
-  SkScalar s180 = SkIntToScalar(180);
-  if (SkScalarNearlyEqual(sweep_degrees, s360)) {
+  // TODO(fmalita): we should fix that in Skia.
+  if (WebCoreFloatNearlyEqual(std::abs(sweep_degrees), 360)) {
     // incReserve() results in a single allocation instead of multiple as is
     // done by multiple calls to arcTo().
     path_.incReserve(10, 5, 4);
     // SkPath::arcTo can't handle the sweepAngle that is equal to or greater
     // than 2Pi.
-    path_.arcTo(oval, start_degrees, s180, false);
-    path_.arcTo(oval, start_degrees + s180, s180, false);
-    return;
-  }
-  if (SkScalarNearlyEqual(sweep_degrees, -s360)) {
-    // incReserve() results in a single allocation instead of multiple as is
-    // done by multiple calls to arcTo().
-    path_.incReserve(10, 5, 4);
-    path_.arcTo(oval, start_degrees, -s180, false);
-    path_.arcTo(oval, start_degrees - s180, -s180, false);
+    const float sweep180 = std::copysign(180, sweep_degrees);
+    path_.arcTo(oval, start_degrees, sweep180, false);
+    path_.arcTo(oval, start_degrees + sweep180, sweep180, false);
     return;
   }
 
@@ -593,18 +404,6 @@ void Path::AddArc(const gfx::PointF& p,
                   float start_angle,
                   float end_angle) {
   AddEllipse(p, radius, radius, start_angle, end_angle);
-}
-
-void Path::AddRect(const gfx::RectF& rect) {
-  // Start at upper-left, add clock-wise.
-  path_.addRect(gfx::RectFToSkRect(rect), SkPathDirection::kCW, 0);
-}
-
-void Path::AddRect(const gfx::PointF& origin,
-                   const gfx::PointF& opposite_point) {
-  path_.addRect(SkRect::MakeLTRB(origin.x(), origin.y(), opposite_point.x(),
-                                 opposite_point.y()),
-                SkPathDirection::kCW, 0);
 }
 
 void Path::AddEllipse(const gfx::PointF& p,
@@ -632,45 +431,27 @@ void Path::AddEllipse(const gfx::PointF& p,
   Transform(ellipse_transform);
 }
 
-void Path::AddEllipse(const gfx::PointF& center,
-                      float radius_x,
-                      float radius_y) {
-  // Start at 3 o'clock, add clock-wise.
-  path_.addOval(SkRect::MakeLTRB(center.x() - radius_x, center.y() - radius_y,
-                                 center.x() + radius_x, center.y() + radius_y),
-                SkPathDirection::kCW, 1);
+Path Path::MakeRect(const gfx::RectF& rect) {
+  return PathBuilder().AddRect(rect).Finalize();
 }
 
-void Path::AddRoundedRect(const FloatRoundedRect& rect, bool clockwise) {
-  if (rect.IsEmpty()) {
-    return;
-  }
+Path Path::MakeRect(const gfx::PointF& origin,
+                    const gfx::PointF& opposite_point) {
+  return PathBuilder().AddRect(origin, opposite_point).Finalize();
+}
 
-  if (rect.HasSimpleRoundedCurvature()) {
-    path_.addRRect(SkRRect(rect),
-                   clockwise ? SkPathDirection::kCW : SkPathDirection::kCCW,
-                   /* start at upper-left after corner radius */ 0);
-    return;
-  }
+Path Path::MakeContouredRect(const ContouredRect& crect) {
+  return PathBuilder().AddContouredRect(crect).Finalize();
+}
 
-  // Counterclockwise rounded rects are only available in canvas, and there is
-  // no canvas API (at this moment) to change corner curvature.
-  DCHECK(clockwise);
+Path Path::MakeRoundedRect(const FloatRoundedRect& rrect) {
+  return PathBuilder().AddRoundedRect(rrect).Finalize();
+}
 
-  path_.moveTo(gfx::PointFToSkPoint(rect.TopLeftCorner().top_right()));
-
-  path_.lineTo(gfx::PointFToSkPoint((rect.TopRightCorner().origin())));
-  AddCornerShape(path_, rect.TopRightCorner(), Corner::kTopRight,
-                 rect.GetCornerCurvature().TopRight());
-  path_.lineTo(gfx::PointFToSkPoint((rect.BottomRightCorner().top_right())));
-  AddCornerShape(path_, rect.BottomRightCorner(), Corner::kBottomRight,
-                 rect.GetCornerCurvature().BottomRight());
-  path_.lineTo(gfx::PointFToSkPoint(rect.BottomLeftCorner().bottom_right()));
-  AddCornerShape(path_, rect.BottomLeftCorner(), Corner::kBottomLeft,
-                 rect.GetCornerCurvature().BottomLeft());
-  path_.lineTo(gfx::PointFToSkPoint(rect.TopLeftCorner().bottom_left()));
-  AddCornerShape(path_, rect.TopLeftCorner(), Corner::kTopLeft,
-                 rect.GetCornerCurvature().TopLeft());
+Path Path::MakeEllipse(const gfx::PointF& center,
+                       float radius_x,
+                       float radius_y) {
+  return PathBuilder().AddEllipse(center, radius_x, radius_y).Finalize();
 }
 
 void Path::AddPath(const Path& src, const AffineTransform& transform) {
@@ -678,22 +459,13 @@ void Path::AddPath(const Path& src, const AffineTransform& transform) {
 }
 
 void Path::Translate(const gfx::Vector2dF& offset) {
-  path_.offset(WebCoreFloatToSkScalar(offset.x()),
-               WebCoreFloatToSkScalar(offset.y()));
-}
-
-bool Path::SubtractPath(const Path& other) {
-  return Op(path_, other.path_, kDifference_SkPathOp, &path_);
-}
-
-bool Path::UnionPath(const Path& other) {
-  return Op(path_, other.path_, kUnion_SkPathOp, &path_);
+  path_.offset(offset.x(), offset.y());
 }
 
 bool EllipseIsRenderable(float start_angle, float end_angle) {
-  return (std::abs(end_angle - start_angle) < kTwoPiFloat) ||
-         WebCoreFloatNearlyEqual(std::abs(end_angle - start_angle),
-                                 kTwoPiFloat);
+  const float abs_sweep = std::abs(end_angle - start_angle);
+  return (abs_sweep < kTwoPiFloat) ||
+         WebCoreFloatNearlyEqual(abs_sweep, kTwoPiFloat);
 }
 
 }  // namespace blink

@@ -4,7 +4,6 @@
 
 import("//ash/ambient/resources/resources.gni")
 import("//build/config/chrome_build.gni")
-import("//build/config/chromeos/ui_mode.gni")
 import("//build/config/features.gni")
 import("//build/config/ui.gni")
 import("//chromeos/ash/components/assistant/ambient.gni")
@@ -16,7 +15,7 @@ import("//ui/base/ui_features.gni")
 
 # Historical note: Ash shipped on Windows for a couple years to support
 # Windows 8 Metro mode. Windows support was removed in 2016.
-assert(is_chromeos_ash)
+assert(is_chromeos)
 assert(use_aura)
 assert(enable_hidpi)
 
@@ -1257,6 +1256,8 @@ component("ash") {
     "scanner/scanner_command_delegate_impl.h",
     "scanner/scanner_controller.cc",
     "scanner/scanner_controller.h",
+    "scanner/scanner_disclaimer.cc",
+    "scanner/scanner_disclaimer.h",
     "scanner/scanner_enterprise_policy.h",
     "scanner/scanner_feedback.cc",
     "scanner/scanner_feedback.h",
@@ -3510,7 +3511,9 @@ component("ash") {
     "//components/history/core/browser",
     "//components/language/core/browser:browser",
     "//components/language/core/common:common",
+    "//components/lens",
     "//components/lens:enterprise_policy",
+    "//components/lens:lens_mojo_shared_cpp_sources",
     "//components/live_caption",
     "//components/live_caption:constants",
     "//components/live_caption:utils",
@@ -3523,6 +3526,7 @@ component("ash") {
     "//components/pref_registry",
     "//components/prefs",
     "//components/quirks",
+    "//components/search_engines",
     "//components/services/app_service",
     "//components/session_manager:base",
     "//components/session_manager/core",
@@ -4077,6 +4081,7 @@ test("ash_unittests") {
     "scalable_iph/wallpaper_ash_notification_view_unittest.cc",
     "scanner/scanner_action_handler_unittest.cc",
     "scanner/scanner_controller_unittest.cc",
+    "scanner/scanner_disclaimer_unittest.cc",
     "scanner/scanner_feedback_unittest.cc",
     "scanner/scanner_metrics_unittest.cc",
     "scanner/scanner_session_unittest.cc",
@@ -4672,6 +4677,7 @@ test("ash_unittests") {
     "//chromeos/ash/components/dbus/shill",
     "//chromeos/ash/components/dbus/userdataauth",
     "//chromeos/ash/components/dbus/userdataauth:userdataauth_proto",
+    "//chromeos/ash/components/demo_mode",
     "//chromeos/ash/components/editor_menu/public/cpp",
     "//chromeos/ash/components/emoji",
     "//chromeos/ash/components/emoji:resources_grit",
@@ -4681,6 +4687,7 @@ test("ash_unittests") {
     "//chromeos/ash/components/geolocation",
     "//chromeos/ash/components/growth:test_support",
     "//chromeos/ash/components/human_presence:human_presence",
+    "//chromeos/ash/components/install_attributes:test_support",
     "//chromeos/ash/components/login/auth",
     "//chromeos/ash/components/login/auth:test_support",
     "//chromeos/ash/components/login/login_state",
@@ -5150,6 +5157,8 @@ static_library("test_support") {
     "drag_drop/draggable_test_view.h",
     "drag_drop/mock_drag_drop_observer.cc",
     "drag_drop/mock_drag_drop_observer.h",
+    "fast_ink/fast_ink_host_test_api.cc",
+    "fast_ink/fast_ink_host_test_api.h",
     "fast_ink/laser/laser_pointer_controller_test_api.cc",
     "fast_ink/laser/laser_pointer_controller_test_api.h",
     "frame_sink/frame_sink_holder_test_api.cc",
@@ -5333,6 +5342,7 @@ static_library("test_support") {
     "test/fake_android_intent_helper.h",
     "test/layer_animation_verifier.cc",
     "test/layer_animation_verifier.h",
+    "test/login_info.h",
     "test/pixel/ash_pixel_test_helper.cc",
     "test/pixel/ash_pixel_test_helper.h",
     "test/pixel/ash_pixel_test_init_params.cc",

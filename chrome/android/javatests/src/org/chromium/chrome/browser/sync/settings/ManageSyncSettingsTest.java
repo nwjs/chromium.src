@@ -56,7 +56,8 @@ import org.junit.rules.RuleChain;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.Callback;
 import org.chromium.base.ServiceLoaderUtil;
@@ -110,6 +111,8 @@ import org.chromium.components.sync.TransportState;
 import org.chromium.components.sync.UserSelectableType;
 import org.chromium.components.sync.internal.SyncPrefNames;
 import org.chromium.components.user_prefs.UserPrefs;
+import org.chromium.google_apis.gaia.GoogleServiceAuthError;
+import org.chromium.google_apis.gaia.GoogleServiceAuthErrorState;
 import org.chromium.ui.modaldialog.ModalDialogManagerHolder;
 import org.chromium.ui.test.util.ViewUtils;
 
@@ -171,6 +174,8 @@ public class ManageSyncSettingsTest {
 
     // SettingsActivity needs to be initialized and destroyed with the mock
     // signin environment setup in SyncTestRule
+    @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
+
     @Rule
     public final RuleChain mRuleChain =
             RuleChain.outerRule(mSyncTestRule).around(mSettingsActivityTestRule);
@@ -193,7 +198,6 @@ public class ManageSyncSettingsTest {
 
     @Before
     public void setUp() {
-        MockitoAnnotations.initMocks(this);
         UnifiedConsentServiceBridgeJni.setInstanceForTesting(mUnifiedConsentServiceBridgeMock);
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -1421,6 +1425,8 @@ public class ManageSyncSettingsTest {
                 .thenReturn(biometricAvailabilityStatus);
         SyncServiceFactory.setInstanceForTesting(mSyncService);
         when(mSyncService.getTransportState()).thenReturn(transportState);
+        when(mSyncService.getAuthError())
+                .thenReturn(new GoogleServiceAuthError(GoogleServiceAuthErrorState.NONE));
     }
 
     private void setupMockSyncService() {

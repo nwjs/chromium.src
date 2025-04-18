@@ -88,7 +88,7 @@ struct QuickActionsWidget: Widget {
     var body: some WidgetConfiguration {
       AppIntentConfiguration(
         kind: kind,
-        intent: SelectProfileIntent.self,
+        intent: SelectAccountIntent.self,
         provider: ConfigurableQuickActionsWidgetEntryProvider()
       ) { entry in
         QuickActionsWidgetEntryView(entry: entry)
@@ -115,11 +115,11 @@ struct QuickActionsWidget: Widget {
       )
     }
 
-    func snapshot(for configuration: SelectProfileIntent, in context: Context) async
+    func snapshot(for configuration: SelectAccountIntent, in context: Context) async
       -> ConfigureQuickActionsWidgetEntry
     {
-      let avatar: Image? = configuration.avatarForAccount(account: configuration.profile)
-      let gaiaID: String? = configuration.gaiaForAccount(account: configuration.profile)
+      let avatar: Image? = configuration.avatar()
+      let gaiaID: String? = configuration.gaia()
       let entry = ConfigureQuickActionsWidgetEntry(
         date: Date(),
         useLens: shouldUseLens(),
@@ -131,11 +131,11 @@ struct QuickActionsWidget: Widget {
       return entry
     }
 
-    func timeline(for configuration: SelectProfileIntent, in context: Context) async -> Timeline<
+    func timeline(for configuration: SelectAccountIntent, in context: Context) async -> Timeline<
       ConfigureQuickActionsWidgetEntry
     > {
-      let avatar: Image? = configuration.avatarForAccount(account: configuration.profile)
-      let gaiaID: String? = configuration.gaiaForAccount(account: configuration.profile)
+      let avatar: Image? = configuration.avatar()
+      let gaiaID: String? = configuration.gaia()
       let entry = ConfigureQuickActionsWidgetEntry(
         date: Date(),
         useLens: shouldUseLens(),

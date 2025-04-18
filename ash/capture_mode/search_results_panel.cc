@@ -15,9 +15,11 @@
 #include "ash/public/cpp/style/color_provider.h"
 #include "ash/resources/vector_icons/vector_icons.h"
 #include "ash/shell.h"
+#include "ash/strings/grit/ash_strings.h"
 #include "ash/style/icon_button.h"
 #include "ash/style/typography.h"
 #include "components/vector_icons/vector_icons.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/image_model.h"
 #include "ui/chromeos/styles/cros_tokens_color_mappings.h"
@@ -33,6 +35,7 @@
 #include "ui/views/controls/textfield/textfield_controller.h"
 #include "ui/views/focus/focus_manager.h"
 #include "ui/views/layout/flex_layout_view.h"
+#include "ui/views/widget/widget_delegate.h"
 #include "ui/wm/core/coordinate_conversion.h"
 #include "ui/wm/core/shadow_types.h"
 
@@ -44,7 +47,6 @@ inline constexpr int kPanelCornerRadius = 16;
 const std::u16string kSearchBoxPlaceholderText = u"Add to your search";
 inline constexpr gfx::Insets kPanelPadding =
     gfx::Insets(capture_mode::kPanelPaddingSize);
-inline constexpr int kHeaderIconSize = 20;
 inline constexpr int kSearchBoxHeight = 48;
 inline constexpr int kSearchBoxRadius = 24;
 inline constexpr int kSearchBoxImageRadius = 8;
@@ -55,13 +57,17 @@ inline constexpr gfx::Insets kSearchImageSpacing =
     gfx::Insets::TLBR(8, 16, 8, 12);
 inline constexpr gfx::Insets kSearchTextfieldSpacing =
     gfx::Insets::TLBR(14, 0, 14, 16);
-inline constexpr gfx::Insets kHeaderIconSpacing = gfx::Insets::TLBR(0, 2, 0, 8);
 
 // Returns the target container window for the panel widget.
 aura::Window* GetParentContainer(aura::Window* root, bool is_active) {
   return Shell::GetContainer(
       root, is_active ? kShellWindowId_CaptureModeSearchResultsPanel
                       : kShellWindowId_SystemModalContainer);
+}
+
+std::u16string GetSearchResultsPanelTitle() {
+  return l10n_util::GetStringUTF16(
+      IDS_ASH_SCREEN_CAPTURE_SEARCH_RESULTS_PANEL_TITLE);
 }
 
 }  // namespace
@@ -106,7 +112,7 @@ class SunfishSearchBoxView : public views::View,
             .SetBorder(nullptr)
             .Build());
 
-    SetBackground(views::CreateThemedRoundedRectBackground(
+    SetBackground(views::CreateRoundedRectBackground(
         cros_tokens::kCrosSysSystemOnBase1, kSearchBoxRadius));
 
     SetPreferredSize(gfx::Size(capture_mode::kSearchResultsPanelWebViewWidth,
@@ -183,18 +189,12 @@ SearchResultsPanel::SearchResultsPanel() {
           .SetIgnoreDefaultMainAxisMargins(true)
           .SetCollapseMargins(true)
           .AddChildren(
-              // Lens icon.
-              views::Builder<views::ImageView>()
-                  .SetImage(ui::ImageModel::FromVectorIcon(
-                      kLensIcon, ui::kColorMenuIcon, kHeaderIconSize))
-                  .SetProperty(views::kMarginsKey, kHeaderIconSpacing),
               // Title.
               views::Builder<views::Label>()
-                  .SetText(u"Search with Lens")
+                  .SetText(GetSearchResultsPanelTitle())
+                  .SetTextContext(views::style::CONTEXT_DIALOG_TITLE)
+                  .SetTextStyle(views::style::STYLE_HEADLINE_5)
                   .SetHorizontalAlignment(gfx::HorizontalAlignment::ALIGN_LEFT)
-                  .SetFontList(
-                      TypographyProvider::Get()->ResolveTypographyToken(
-                          TypographyToken::kCrosTitle1))
                   .SetEnabledColor(cros_tokens::kCrosSysOnSurface),
               // Close Button, aligned to the right by setting a
               // `FlexSpecification` with unbounded maximum flex size and
@@ -203,7 +203,8 @@ SearchResultsPanel::SearchResultsPanel() {
                   IconButton::Builder()
                       .SetType(IconButton::Type::kSmallFloating)
                       .SetVectorIcon(&kMediumOrLargeCloseButtonIcon)
-                      .SetAccessibleName(u"Close Panel")
+                      .SetAccessibleName(l10n_util::GetStringUTF16(
+                          IDS_ASH_SUNFISH_SEARCH_DIALOG_CLOSE))
                       .Build())
                   .CopyAddressTo(&close_button_)
                   .SetCallback(base::BindRepeating(
@@ -239,7 +240,7 @@ SearchResultsPanel::SearchResultsPanel() {
                                       kSearchResultsViewSpacing);
   }
 
-  SetBackground(views::CreateThemedRoundedRectBackground(
+  SetBackground(views::CreateRoundedRectBackground(
       cros_tokens::kCrosSysSystemBaseElevated, kPanelCornerRadius));
   SetPaintToLayer();
   layer()->SetRoundedCornerRadius(gfx::RoundedCornersF{kPanelCornerRadius});
@@ -281,6 +282,7 @@ views::UniqueWidgetPtr SearchResultsPanel::CreateWidget(aura::Window* root,
   params.name = "SearchResultsPanelWidget";
   auto widget = std::make_unique<views::Widget>(std::move(params));
   widget->SetContentsView(std::make_unique<SearchResultsPanel>());
+  widget->widget_delegate()->SetTitle(GetSearchResultsPanelTitle());
   return widget;
 }
 
@@ -290,10 +292,22 @@ views::Textfield* SearchResultsPanel::GetSearchBoxTextfield() const {
 
 std::vector<CaptureModeSessionFocusCycler::HighlightableView*>
 SearchResultsPanel::GetHighlightableItems() const {
-  return {
-      CaptureModeSessionFocusCycler::HighlightHelper::Get(close_button_.get()),
-      CaptureModeSessionFocusCycler::HighlightHelper::Get(
-          search_box_view_->textfield_.get())};
+  std::vector<CaptureModeSessionFocusCycler::HighlightableView*>
+      highlightable_items;
+  CHECK(close_button_);
+  highlightable_items.push_back(
+      CaptureModeSessionFocusCycler::HighlightHelper::Get(close_button_.get()));
+  if (!features::IsSunfishLensWebEnabled()) {
+    CHECK(search_box_view_);
+    highlightable_items.push_back(
+        CaptureModeSessionFocusCycler::HighlightHelper::Get(
+            search_box_view_->textfield_.get()));
+  }
+  return highlightable_items;
+}
+
+views::View* SearchResultsPanel::GetWebViewForFocus() {
+  return search_results_view_->GetInitiallyFocusedView();
 }
 
 void SearchResultsPanel::Navigate(const GURL& url) {
@@ -320,6 +334,11 @@ void SearchResultsPanel::RefreshStackingOrder(aura::Window* new_root) {
 }
 
 bool SearchResultsPanel::IsTextfieldPseudoFocused() const {
+  if (features::IsSunfishLensWebEnabled()) {
+    return false;
+  }
+
+  CHECK(search_box_view_);
   return CaptureModeSessionFocusCycler::HighlightHelper::Get(
              search_box_view_->textfield_)
       ->has_focus();
@@ -367,9 +386,6 @@ void SearchResultsPanel::OnDisplayMetricsChanged(
   RefreshPanelBounds();
 }
 
-void SearchResultsPanel::OnWillChangeFocus(View* focused_before,
-                                           View* focused_now) {}
-
 void SearchResultsPanel::OnDidChangeFocus(View* focused_before,
                                           View* focused_now) {
   // Update the focus ring of the previously focused view, if available.
@@ -402,7 +418,7 @@ void SearchResultsPanel::RefreshPanelBounds() {
   gfx::Rect widget_bounds_in_screen(
       widget->GetWindowBoundsInScreen().origin(),
       gfx::Size(capture_mode::kSearchResultsPanelTotalWidth,
-                capture_mode::kSearchResultsPanelHeight));
+                capture_mode::kSearchResultsPanelTotalHeight));
 
   // Adjust the preferred size and bounds based on the current display.
   const display::Display display =

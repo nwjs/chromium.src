@@ -14,6 +14,7 @@ import os
 import random
 import shutil
 import subprocess
+import getpass
 import sys
 import re
 from datetime import datetime
@@ -162,11 +163,23 @@ def uploadScratch(creds, file_name, scratch_dir):
         print(f"Failed to upload scratch: {e}", file=sys.stderr)
 
 
+def writeCommonArgs(f):
+    f.write("target_os = \"linux\"\n")
+    f.write("clang_use_chrome_plugins = false\n")
+    f.write("dcheck_always_on = true\n")
+    f.write("is_chrome_branded = true\n")
+    f.write("is_debug = false\n")
+    f.write("is_official_build = true\n")
+    f.write("chrome_pgo_phase = 0\n")
+    f.write("force_enable_raw_ptr_exclusion = true\n")
+
+
 today = datetime.now().strftime("%Y/%m/%d")
 today_underscore = today.replace("/", "_")
 scratch_dir = os.path.expanduser("~/scratch")
 creds = getGoogleCreds()
 spreadsheet = getSpreadsheet(creds)
+user = getpass.getuser()
 
 
 print("Running evaluate_patches.py...")
@@ -179,22 +192,27 @@ run("git reset --hard origin/main")
 # Setup a build directory to evaluate the patches. This is common to all the
 # patches to avoid recompiling the entire project for each patch.
 run("gclient sync -fD", exit_on_error=False)
-run("gn gen out/linux", "Failed to generate out/linux.")
 
 try:
-    run("gcertstatus --check_remaining=3h --check_loas2=false")
+    run("gcertstatus --check_remaining=3h --nocheck_ssh")
     print("Remote exec available. Enabling.")
     with open("out/linux/args.gn", "w") as f:
+        writeCommonArgs(f)
         f.write("use_remoteexec = true\n")
         f.write("use_siso = true\n")
 except:
     print("Remote exec not available. Disabling.")
     with open("out/linux/args.gn", "w") as f:
+        writeCommonArgs(f)
         f.write("use_remoteexec = false\n")
+        f.write("use_reclient = false\n")
         f.write("use_siso = true\n")
 
+# We've updated the args and need to generate new build files.
+run("gn gen out/linux", "Failed to generate out/linux.")
+
 # Produce a full rewrite, and store individual patches below ~/scratch/patch_*
-run("./tools/clang/spanify/rewrite-multiple-platforms.sh", exit_on_error=False)
+run("./tools/clang/spanify/rewrite-multiple-platforms.sh")
 
 run("git reset --hard origin/main")  # Restore source code.
 run("gclient sync -fD", exit_on_error=False)  # Restore compiler.
@@ -270,6 +288,7 @@ try:
                 "fail",
                 error_msg,
                 diff,
+                user,
             ])
             run("git restore .", "Failed to restore after failed patch.")
 
@@ -278,6 +297,7 @@ try:
                 f.write(str(e.stdout))
             continue
 
+        run("git cl format")
 
         # Commit changes
         run("git add -u", "Failed to add changes.")
@@ -285,7 +305,25 @@ try:
         with open("commit_message.txt", "w+") as f:
             f.write(
                 f"""spanification patch {index} applied.\n\nPatch: {index}""")
-        run("git commit -F commit_message.txt")
+        # Sometimes we generate patches that apply_edits will skip (for example
+        # third_party) thus don't treat failure to commit as an error.
+        if not run("git commit -F commit_message.txt", exit_on_error=False):
+            with open(scratch_dir + "/evaluation.csv", "a") as f:
+                f.write(f"{index}, fail, {error_msg}\n")
+
+            # We fail when there is no diff get the replacements instead.
+            diff = open(scratch_dir + f"/patch_{index}.txt").read()
+
+            appendRow(spreadsheet, [
+                today,
+                index,
+                len(patches),
+                "fail",
+                "Failed to commit diff",
+                diff,
+                user,
+            ])
+            continue
 
         # Serialize changes
         run(f"git diff HEAD~...HEAD > ~/scratch/patch_{index}.diff")
@@ -327,10 +365,29 @@ try:
                 "fail",
                 error_msg,
                 diff,
+                user,
             ])
 
             shutil.copy(scratch_dir + f"/patch_{index}.out",
                         scratch_dir + f"/patch_{index}.fail")
+        elif not run('gn check out/linux', exit_on_error=False):
+            error_msg = "failed gn check"
+            with open(scratch_dir + "/evaluation.csv", "a") as f:
+                f.write(f"{index}, fail, {error_msg}\n")
+
+            appendRow(spreadsheet, [
+                today,
+                index,
+                len(patches),
+                "fail",
+                error_msg,
+                diff,
+                user,
+            ])
+
+            shutil.copy(scratch_dir + f"/patch_{index}.out",
+                        scratch_dir + f"/patch_{index}.fail")
+            continue
         else:
             with open(scratch_dir + "/evaluation.csv", "a") as f:
                 f.write(f"{index}, pass, \"\"\n")
@@ -341,6 +398,7 @@ try:
                 "pass",
                 "",
                 diff,
+                user,
             ])
             shutil.copy(scratch_dir + f"/patch_{index}.out",
                         scratch_dir + f"/patch_{index}.pass")
@@ -349,5 +407,5 @@ finally:
     # to the shared google drive for easy debugging of either compile errors or
     # the evaluate_patches tool itself.
     unique_id = random.randint(1, 10000)
-    file_name = f"{today_underscore}_evaluate_patches_{unique_id}.zip"
+    file_name = f"{today_underscore}_evaluate_patches_{user}_{unique_id}.zip"
     uploadScratch(creds, file_name, scratch_dir)

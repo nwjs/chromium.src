@@ -68,20 +68,14 @@ OriginRelationHeaderValue GetRelationOfURLToOrigin(
     const url::Origin& related_origin) {
   url::Origin target_origin = url::Origin::Create(target_url);
 
-  if (target_origin == related_origin) {
-    return OriginRelationHeaderValue::kSameOrigin;
+  if (!net::SchemefulSite::IsSameSite(url::Origin::Create(target_url),
+                                      related_origin)) {
+    return OriginRelationHeaderValue::kCrossSite;
   }
 
-  // Cross-scheme origin should be considered cross-site (even if it's host
-  // is same-site with the target).  See also https://crbug.com/979257.
-  if (related_origin.scheme() == target_origin.scheme() &&
-      net::registry_controlled_domains::SameDomainOrHost(
-          related_origin, target_origin,
-          net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES)) {
-    return OriginRelationHeaderValue::kSameSite;
-  }
-
-  return OriginRelationHeaderValue::kCrossSite;
+  return target_origin == related_origin
+             ? OriginRelationHeaderValue::kSameOrigin
+             : OriginRelationHeaderValue::kSameSite;
 }
 
 OriginRelationHeaderValue GetHeaderValueForRequest(
@@ -143,7 +137,8 @@ char const* GetSecFetchStorageAccessHeaderValue(
 net::cookie_util::SecFetchStorageAccessOutcome
 ComputeSecFetchStorageAccessOutcome(const net::URLRequest& request,
                                     mojom::CredentialsMode credentials_mode) {
-  if (!request.storage_access_status()) {
+  if (request.storage_access_status().IsSet() &&
+      !request.storage_access_status().GetStatusForThirdPartyContext()) {
     return net::cookie_util::SecFetchStorageAccessOutcome::
         kOmittedStatusMissing;
   }
@@ -151,7 +146,9 @@ ComputeSecFetchStorageAccessOutcome(const net::URLRequest& request,
     return net::cookie_util::SecFetchStorageAccessOutcome::
         kOmittedRequestOmitsCredentials;
   }
-  switch (request.storage_access_status().value()) {
+  CHECK(request.storage_access_status().IsSet());
+  switch (
+      request.storage_access_status().GetStatusForThirdPartyContext().value()) {
     case net::cookie_util::StorageAccessStatus::kInactive:
       return net::cookie_util::SecFetchStorageAccessOutcome::kValueInactive;
     case net::cookie_util::StorageAccessStatus::kActive:
@@ -210,7 +207,8 @@ void SetSecFetchStorageAccessHeader(net::URLRequest& request,
       ComputeSecFetchStorageAccessOutcome(request, credentials_mode));
 
   if (credentials_mode != mojom::CredentialsMode::kInclude ||
-      !request.storage_access_status()) {
+      (request.storage_access_status().IsSet() &&
+       !request.storage_access_status().GetStatusForThirdPartyContext())) {
     // A credentials mode of "same-origin" or "omit" prevents including cookies
     // on the request in the first place, so we don't bother to include the
     // `Sec-Fetch-Storage-Access` header in that case.
@@ -221,10 +219,12 @@ void SetSecFetchStorageAccessHeader(net::URLRequest& request,
     request.RemoveRequestHeaderByName(kSecFetchStorageAccess);
     return;
   }
+  CHECK(request.storage_access_status().IsSet());
   request.SetExtraRequestHeaderByName(
       kSecFetchStorageAccess,
-      GetSecFetchStorageAccessHeaderValue(
-          request.storage_access_status().value()),
+      GetSecFetchStorageAccessHeaderValue(request.storage_access_status()
+                                              .GetStatusForThirdPartyContext()
+                                              .value()),
       /*overwrite=*/true);
 }
 

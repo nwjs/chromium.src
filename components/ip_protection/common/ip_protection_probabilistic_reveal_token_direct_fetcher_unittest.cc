@@ -22,6 +22,7 @@
 #include "base/test/test_future.h"
 #include "base/time/time.h"
 #include "base/types/expected.h"
+#include "base/version_info/channel.h"
 #include "components/ip_protection/common/ip_protection_probabilistic_reveal_token_fetcher.h"
 #include "components/ip_protection/get_probabilistic_reveal_token.pb.h"
 #include "net/base/features.h"
@@ -54,13 +55,14 @@ using ::private_join_and_compute::ECGroup;
 using ::private_join_and_compute::ECPoint;
 using ::testing::StartsWith;
 
+constexpr size_t kGetProbabilisticRevealTokenResponseMaxBodySize = 40 * 1024;
 constexpr char kIssuerServerUrl[] =
-    "https://prod.probabilisticrevealtoken.goog/v1/ipblinding/"
-    "getProbabilisticRevealToken";
+    "https://aaftokenissuer.pa.googleapis.com/v1/issueprts";
 
 absl::StatusOr<std::string> GetTestPublicKeyBytes(uint64_t private_key) {
   Context context;
-  ASSIGN_OR_RETURN(ECGroup group, ECGroup::Create(NID_secp224r1, &context));
+  ASSIGN_OR_RETURN(ECGroup group,
+                   ECGroup::Create(NID_X9_62_prime256v1, &context));
   ASSIGN_OR_RETURN(ECPoint g, group.GetFixedGenerator());
   ASSIGN_OR_RETURN(ECPoint y, g.Mul(context.CreateBigNum(private_key)));
   return y.ToBytesCompressed();
@@ -116,6 +118,7 @@ class FetcherTestBase : public testing::Test {
           EXPECT_THAT(
               request.headers.GetHeader("Ip-Protection-Debug-Experiment-Arm"),
               expected_experiment_arm_);
+          EXPECT_TRUE(request.headers.HasHeader("X-Goog-Api-Key"));
           ASSERT_TRUE(request.request_body);
           GetProbabilisticRevealTokenRequest request_proto;
           ASSERT_TRUE(request_proto.ParseFromString(GetUploadData(request)));
@@ -145,7 +148,8 @@ class IpProtectionProbabilisticRevealTokenDirectFetcherRetrieverTest
     FetcherTestBase::SetFeatureParameters(parameters);
     retriever_ = std::make_unique<
         IpProtectionProbabilisticRevealTokenDirectFetcher::Retriever>(
-        test_url_loader_factory_.GetSafeWeakWrapper()->Clone());
+        test_url_loader_factory_.GetSafeWeakWrapper()->Clone(),
+        version_info::Channel::DEFAULT);
   }
 
   std::unique_ptr<IpProtectionProbabilisticRevealTokenDirectFetcher::Retriever>
@@ -197,7 +201,8 @@ TEST_F(IpProtectionProbabilisticRevealTokenDirectFetcherRetrieverTest,
 
 TEST_F(IpProtectionProbabilisticRevealTokenDirectFetcherRetrieverTest,
        LargeResponseWithinLimit) {
-  const std::string response_str = std::string(32 * 1024, 'a');
+  const std::string response_str =
+      std::string(kGetProbabilisticRevealTokenResponseMaxBodySize, 'a');
   SetResponse(response_str);
   base::test::TestFuture<base::expected<std::optional<std::string>, int>>
       result_future;
@@ -210,7 +215,8 @@ TEST_F(IpProtectionProbabilisticRevealTokenDirectFetcherRetrieverTest,
 
 TEST_F(IpProtectionProbabilisticRevealTokenDirectFetcherRetrieverTest,
        LargeResponseOverLimit) {
-  const std::string response_str = std::string(32 * 1024 + 1, 'a');
+  const std::string response_str =
+      std::string(kGetProbabilisticRevealTokenResponseMaxBodySize + 1, 'a');
   SetResponse(response_str);
   base::test::TestFuture<base::expected<std::optional<std::string>, int>>
       result_future;
@@ -246,7 +252,8 @@ class IpProtectionProbabilisticRevealTokenDirectFetcherTest
     FetcherTestBase::SetFeatureParameters(parameters);
     fetcher_ =
         std::make_unique<IpProtectionProbabilisticRevealTokenDirectFetcher>(
-            test_url_loader_factory_.GetSafeWeakWrapper()->Clone());
+            test_url_loader_factory_.GetSafeWeakWrapper()->Clone(),
+            version_info::Channel::DEFAULT);
 
     absl::StatusOr<std::string> maybe_public_key_bytes =
         GetTestPublicKeyBytes(/*private_key=*/1);
@@ -263,17 +270,19 @@ class IpProtectionProbabilisticRevealTokenDirectFetcherTest
             response_proto.add_tokens();
         token->set_version(1);
         std::string i_string = base::NumberToString(i);
-        // Pad the token string to 29 characters (including "token", the index,
+        // Pad the token string to 33 characters (including "token", the index,
         // and "-u"). Example: "token0-u---------------------".
-        int padding_length = 22 - i_string.size();
+        int padding_length = 26 - i_string.size();
         std::string padding(padding_length, '-');
         token->set_u(base::StrCat({"token", i_string, "-u", padding}));
         token->set_e(base::StrCat({"token", i_string, "-e", padding}));
       }
       response_proto.mutable_public_key()->set_y(public_key_bytes_);
-      response_proto.set_expiration_time_seconds(expiration_time_);
-      response_proto.set_next_epoch_start_time_seconds(next_epoch_start_time_);
+      response_proto.mutable_expiration_time()->set_seconds(expiration_time_);
+      response_proto.mutable_next_epoch_start_time()->set_seconds(
+          next_epoch_start_time_);
       response_proto.set_num_tokens_with_signal(num_tokens);
+      response_proto.set_epoch_id(std::string(8, '0'));
     }
     return response_proto;
   }
@@ -308,9 +317,11 @@ TEST_F(IpProtectionProbabilisticRevealTokenDirectFetcherTest,
   EXPECT_EQ(tokens[0].version, 1);
   EXPECT_THAT(tokens[0].u, StartsWith("token0-u"));
   EXPECT_THAT(tokens[0].e, StartsWith("token0-e"));
+  EXPECT_THAT(tokens[0].epoch_id, std::string(8, '0'));
   EXPECT_EQ(tokens[1].version, 1);
   EXPECT_THAT(tokens[1].u, StartsWith("token1-u"));
   EXPECT_THAT(tokens[1].e, StartsWith("token1-e"));
+  EXPECT_THAT(tokens[1].epoch_id, std::string(8, '0'));
 
   EXPECT_EQ(outcome.public_key, public_key_bytes_);
   EXPECT_EQ(outcome.expiration_time_seconds, expiration_time_);
@@ -376,7 +387,7 @@ TEST_F(IpProtectionProbabilisticRevealTokenDirectFetcherTest,
           /*num_tokens=*/10);
   uint64_t expiration_time =
       (base::Time::Now() + base::Hours(1)).InSecondsFSinceUnixEpoch();
-  response_proto.set_expiration_time_seconds(expiration_time);
+  response_proto.mutable_expiration_time()->set_seconds(expiration_time);
   const std::string response_str = response_proto.SerializeAsString();
   SetResponse(response_str);
 
@@ -402,7 +413,7 @@ TEST_F(IpProtectionProbabilisticRevealTokenDirectFetcherTest,
           /*num_tokens=*/10);
   uint64_t expiration_time =
       (base::Time::Now() + base::Days(10)).InSecondsFSinceUnixEpoch();
-  response_proto.set_expiration_time_seconds(expiration_time);
+  response_proto.mutable_expiration_time()->set_seconds(expiration_time);
   const std::string response_str = response_proto.SerializeAsString();
   SetResponse(response_str);
 
@@ -614,8 +625,9 @@ TEST_F(IpProtectionProbabilisticRevealTokenDirectFetcherTest,
           /*num_tokens=*/400);
   response_proto.set_num_tokens_with_signal(123);
   const std::string response_str = response_proto.SerializeAsString();
-  // When last checked (01/24/2025) response_str.size() is 26447.
-  ASSERT_LT(response_str.size(), std::size_t(32 * 1024));
+  // When last checked (03/25/2025) response_str.size() is 29659.
+  ASSERT_LT(response_str.size(),
+            std::size_t(kGetProbabilisticRevealTokenResponseMaxBodySize));
 
   SetResponse(response_str);
   base::test::TestFuture<std::optional<TryGetProbabilisticRevealTokensOutcome>,
@@ -653,7 +665,8 @@ TEST_F(IpProtectionProbabilisticRevealTokenDirectFetcherTest,
           /*num_tokens=*/1000);
   const std::string response_str = response_proto.SerializeAsString();
   // When last checked (01/24/2025) response_str.size() is 66047.
-  ASSERT_GT(response_str.size(), std::size_t(32 * 1024));
+  ASSERT_GT(response_str.size(),
+            std::size_t(kGetProbabilisticRevealTokenResponseMaxBodySize));
 
   SetResponse(response_str);
 
@@ -723,7 +736,8 @@ TEST_F(IpProtectionProbabilisticRevealTokenDirectFetcherTest,
       BuildProbabilisticRevealTokenResponse(
           /*num_tokens=*/1000);
   std::string response_str = large_response_proto.SerializeAsString();
-  ASSERT_GT(response_str.size(), std::size_t(32 * 1024));
+  ASSERT_GT(response_str.size(),
+            std::size_t(kGetProbabilisticRevealTokenResponseMaxBodySize));
   SetResponse(response_str);
 
   base::test::TestFuture<std::optional<TryGetProbabilisticRevealTokensOutcome>,
@@ -816,7 +830,8 @@ TEST_F(
       BuildProbabilisticRevealTokenResponse(
           /*num_tokens=*/1000);
   std::string response_str = large_response_proto.SerializeAsString();
-  ASSERT_GT(response_str.size(), std::size_t(32 * 1024));
+  ASSERT_GT(response_str.size(),
+            std::size_t(kGetProbabilisticRevealTokenResponseMaxBodySize));
   SetResponse(response_str);
 
   base::test::TestFuture<std::optional<TryGetProbabilisticRevealTokensOutcome>,
@@ -865,7 +880,8 @@ TEST_F(
       BuildProbabilisticRevealTokenResponse(
           /*num_tokens=*/1000);
   std::string response_str = large_response_proto.SerializeAsString();
-  ASSERT_GT(response_str.size(), std::size_t(32 * 1024));
+  ASSERT_GT(response_str.size(),
+            std::size_t(kGetProbabilisticRevealTokenResponseMaxBodySize));
   SetResponse(response_str);
 
   base::test::TestFuture<std::optional<TryGetProbabilisticRevealTokensOutcome>,

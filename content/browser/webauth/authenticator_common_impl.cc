@@ -13,6 +13,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "base/barrier_callback.h"
@@ -90,7 +91,6 @@
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
-#include "third_party/abseil-cpp/absl/types/variant.h"
 #include "third_party/blink/public/mojom/webauthn/authenticator.mojom.h"
 #include "third_party/boringssl/src/pki/input.h"
 #include "third_party/boringssl/src/pki/parse_values.h"
@@ -401,9 +401,7 @@ std::optional<device::CredProtectRequest> ProtectionPolicyToCredProtect(
       //
       // If a site explicitly requests a credProtect level, we'll still respect
       // that because they are presumably going to check the response.
-      if (base::FeatureList::IsEnabled(
-              device::kWebAuthnCredProtectWin10BugWorkaround) &&
-          make_credential_options.resident_key ==
+      if (make_credential_options.resident_key ==
               device::ResidentKeyRequirement::kPreferred &&
           device::WinWebAuthnApi::GetDefault() &&
           device::WinWebAuthnApi::GetDefault()->Version() < 3) {
@@ -638,6 +636,7 @@ std::vector<blink::mojom::WebAuthnClientCapabilityPtr> InsertIsPPAACapability(
   capabilities.push_back(
       MakeCapability(client_capabilities::kPasskeyPlatformAuthenticator,
                      isUVPAA || hybridTransport));
+
   return capabilities;
 }
 
@@ -755,10 +754,10 @@ struct AuthenticatorCommonImpl::RequestState {
   raw_ptr<device::FidoDiscoveryFactory,
           FlakyDanglingUntriaged | AcrossTasksDanglingUntriaged>
       discovery_factory_testing_override = nullptr;
-  absl::variant<absl::monostate,
-                MakeCredentialCallback,
-                GetCredentialCallback,
-                ReportCallback>
+  std::variant<std::monostate,
+               MakeCredentialCallback,
+               GetCredentialCallback,
+               ReportCallback>
       response_callback;
   std::string client_data_json;
   url::Origin caller_origin;
@@ -766,13 +765,13 @@ struct AuthenticatorCommonImpl::RequestState {
   std::unique_ptr<base::OneShotTimer> timer =
       std::make_unique<base::OneShotTimer>();
   std::optional<std::string> app_id;
-  absl::variant<absl::monostate,
-                device::CtapMakeCredentialRequest,
-                device::CtapGetAssertionRequest>
+  std::variant<std::monostate,
+               device::CtapMakeCredentialRequest,
+               device::CtapGetAssertionRequest>
       ctap_request;
-  absl::variant<absl::monostate,
-                device::MakeCredentialOptions,
-                device::CtapGetAssertionOptions>
+  std::variant<std::monostate,
+               device::MakeCredentialOptions,
+               device::CtapGetAssertionOptions>
       request_options;
   blink::mojom::AuthenticatorStatus error_awaiting_user_acknowledgement =
       blink::mojom::AuthenticatorStatus::NOT_ALLOWED_ERROR;
@@ -783,7 +782,7 @@ struct AuthenticatorCommonImpl::RequestState {
   // The hints set by the request, if any.
   base::flat_set<blink::mojom::Hint> hints;
   std::optional<CredentialRequestResult> request_result;
-  absl::variant<absl::monostate, MakeCredentialOutcome, GetAssertionOutcome>
+  std::variant<std::monostate, MakeCredentialOutcome, GetAssertionOutcome>
       request_outcome;
 
   base::flat_set<RequestExtension> requested_extensions;
@@ -856,9 +855,9 @@ void AuthenticatorCommonImpl::StartMakeCredentialRequest(
   InitDiscoveryFactory();
 
   auto* ctap_make_credential_request =
-      &absl::get<device::CtapMakeCredentialRequest>(req_state_->ctap_request);
+      &std::get<device::CtapMakeCredentialRequest>(req_state_->ctap_request);
   auto* make_credential_options =
-      &absl::get<device::MakeCredentialOptions>(req_state_->request_options);
+      &std::get<device::MakeCredentialOptions>(req_state_->request_options);
   req_state_->request_delegate->ConfigureDiscoveries(
       req_state_->caller_origin, req_state_->relying_party_id, RequestSource(),
       device::FidoRequestType::kMakeCredential,
@@ -918,9 +917,9 @@ void AuthenticatorCommonImpl::StartGetAssertionRequest(
 
   base::span<const device::CableDiscoveryData> cable_pairings;
   auto* ctap_get_assertion_request =
-      &absl::get<device::CtapGetAssertionRequest>(req_state_->ctap_request);
+      &std::get<device::CtapGetAssertionRequest>(req_state_->ctap_request);
   auto* ctap_get_assertion_options =
-      &absl::get<device::CtapGetAssertionOptions>(req_state_->request_options);
+      &std::get<device::CtapGetAssertionOptions>(req_state_->request_options);
   if (ctap_get_assertion_request->cable_extension && IsFocused()) {
     cable_pairings = *ctap_get_assertion_request->cable_extension;
   }
@@ -1056,10 +1055,19 @@ void AuthenticatorCommonImpl::MakeCredential(
   const std::string relying_party_id = options->relying_party.id;
   const blink::mojom::RemoteDesktopClientOverridePtr&
       remote_desktop_client_override = options->remote_desktop_client_override;
+  std::optional<url::Origin> remote_desktop_override_origin;
+  if (remote_desktop_client_override) {
+    // SECURITY: RemoteDesktopClientOverride comes from the renderer process and
+    // is untrusted. This `remote_desktop_override_origin` is only used after
+    // ValidateDomainAndRelyingPartyID verifies that the `caller_origin` is
+    // explicitly allowlisted via enterprise policy in
+    // WebAuthenticationDelegateBase::OriginMayUseRemoteDesktopClientOverride().
+    remote_desktop_override_origin = remote_desktop_client_override->origin;
+  }
   std::unique_ptr<WebAuthRequestSecurityChecker::RemoteValidation>
       remote_validation = security_checker_->ValidateDomainAndRelyingPartyID(
           caller_origin, relying_party_id, request_type,
-          remote_desktop_client_override,
+          remote_desktop_override_origin,
           base::BindOnce(
               &AuthenticatorCommonImpl::ContinueMakeCredentialAfterRpIdCheck,
               weak_factory_.GetWeakPtr(), GetRequestKey(), caller_origin,
@@ -1196,7 +1204,7 @@ void AuthenticatorCommonImpl::ContinueMakeCredentialAfterRpIdCheck(
   req_state_->request_options =
       device::MakeCredentialOptions(authenticator_selection_criteria);
   auto* make_credential_options =
-      &absl::get<device::MakeCredentialOptions>(req_state_->request_options);
+      &std::get<device::MakeCredentialOptions>(req_state_->request_options);
   make_credential_options->json =
       base::MakeRefCounted<device::JSONRequest>(webauthn::ToValue(options));
   make_credential_options->is_passkey_upgrade_request = options->is_conditional;
@@ -1275,7 +1283,7 @@ void AuthenticatorCommonImpl::ContinueMakeCredentialAfterRpIdCheck(
       req_state_->client_data_json, options->relying_party, options->user,
       device::PublicKeyCredentialParams(options->public_key_parameters));
   auto* ctap_make_credential_request =
-      &absl::get<device::CtapMakeCredentialRequest>(req_state_->ctap_request);
+      &std::get<device::CtapMakeCredentialRequest>(req_state_->ctap_request);
 
   ctap_make_credential_request->exclude_list = options->exclude_credentials;
   if (options->prf_enable) {
@@ -1470,10 +1478,19 @@ void AuthenticatorCommonImpl::GetCredential(
   const blink::mojom::RemoteDesktopClientOverridePtr&
       remote_desktop_client_override =
           options->extensions->remote_desktop_client_override;
+  std::optional<url::Origin> remote_desktop_override_origin;
+  if (remote_desktop_client_override) {
+    // SECURITY: RemoteDesktopClientOverride comes from the renderer process and
+    // is untrusted. This `remote_desktop_override_origin` is only used after
+    // ValidateDomainAndRelyingPartyID verifies that the `caller_origin` is
+    // explicitly allowlisted via enterprise policy in
+    // WebAuthenticationDelegateBase::OriginMayUseRemoteDesktopClientOverride().
+    remote_desktop_override_origin = remote_desktop_client_override->origin;
+  }
   std::unique_ptr<WebAuthRequestSecurityChecker::RemoteValidation>
       remote_validation = security_checker_->ValidateDomainAndRelyingPartyID(
           caller_origin, relying_party_id, request_type,
-          remote_desktop_client_override,
+          remote_desktop_override_origin,
           base::BindOnce(
               &AuthenticatorCommonImpl::ContinueGetAssertionAfterRpIdCheck,
               weak_factory_.GetWeakPtr(), GetRequestKey(), caller_origin,
@@ -1675,11 +1692,11 @@ void AuthenticatorCommonImpl::ContinueGetAssertionAfterRpIdCheck(
   req_state_->ctap_request = CreateCtapGetAssertionRequest(
       req_state_->client_data_json, options, req_state_->app_id);
   auto* ctap_get_assertion_request =
-      &absl::get<device::CtapGetAssertionRequest>(req_state_->ctap_request);
+      &std::get<device::CtapGetAssertionRequest>(req_state_->ctap_request);
 
   req_state_->request_options.emplace<device::CtapGetAssertionOptions>();
   auto* ctap_get_assertion_options =
-      &absl::get<device::CtapGetAssertionOptions>(req_state_->request_options);
+      &std::get<device::CtapGetAssertionOptions>(req_state_->request_options);
   ctap_get_assertion_options->is_off_the_record_context =
       GetBrowserContext()->IsOffTheRecord();
   ctap_get_assertion_options->json =
@@ -1757,13 +1774,16 @@ void AuthenticatorCommonImpl::GetClientCapabilities(
   // collect the results of the check with the `BarrierCallback`), update this
   // constant to match the number of `barrier_callback.Run()` calls. Otherwise,
   // the `GetClientCapabilities()` call will crash or timeout.
-  constexpr size_t kNumberOfComputedCapabilities = 4;
+  constexpr size_t kNumberOfComputedCapabilities = 5;
   auto barrier_callback =
       base::BarrierCallback<blink::mojom::WebAuthnClientCapabilityPtr>(
           kNumberOfComputedCapabilities, std::move(completion_callback));
 
   barrier_callback.Run(
       MakeCapability(client_capabilities::kRelatedOrigins, true));
+  barrier_callback.Run(MakeCapability(
+      client_capabilities::kConditionalCreate,
+      base::FeatureList::IsEnabled(device::kWebAuthnPasskeyUpgrade)));
 
   IsHybridTransportSupported(
       base::BindOnce(&MakeCapability, client_capabilities::kHybridTransport)
@@ -1927,7 +1947,7 @@ void AuthenticatorCommonImpl::Report(
       remote_validation = security_checker_->ValidateDomainAndRelyingPartyID(
           req_state_->caller_origin, req_state_->relying_party_id,
           WebAuthRequestSecurityChecker::RequestType::kReport,
-          /*remote_desktop_client_override=*/nullptr,
+          /*remote_desktop_client_override_origin=*/std::nullopt,
           base::BindOnce(&AuthenticatorCommonImpl::ContinueReportAfterRpIdCheck,
                          weak_factory_.GetWeakPtr(), GetRequestKey(),
                          std::move(options)));
@@ -1958,9 +1978,9 @@ void AuthenticatorCommonImpl::ContinueReportAfterRpIdCheck(
         render_frame_host, req_state_->relying_party_id,
         options->all_accepted_credentials->user_id,
         options->all_accepted_credentials->all_accepted_credentials_ids);
-    GetWebAuthenticationDelegate()->DeleteUnacceptedPasskeys(
+    GetWebAuthenticationDelegate()->SignalAllAcceptedCredentials(
         WebContents::FromRenderFrameHost(render_frame_host),
-        req_state_->relying_party_id,
+        req_state_->caller_origin, req_state_->relying_party_id,
         options->all_accepted_credentials->user_id,
         options->all_accepted_credentials->all_accepted_credentials_ids);
 #if BUILDFLAG(IS_WIN)
@@ -1990,9 +2010,10 @@ void AuthenticatorCommonImpl::ContinueReportAfterRpIdCheck(
     DeleteVirtualAuthenticatorCreds(render_frame_host,
                                     *options->unknown_credential_id,
                                     req_state_->relying_party_id);
-    GetWebAuthenticationDelegate()->DeletePasskey(
+    GetWebAuthenticationDelegate()->PasskeyUnrecognized(
         WebContents::FromRenderFrameHost(render_frame_host),
-        *options->unknown_credential_id, req_state_->relying_party_id);
+        req_state_->caller_origin, *options->unknown_credential_id,
+        req_state_->relying_party_id);
   }
   CompleteReportRequest(blink::mojom::AuthenticatorStatus::SUCCESS, nullptr);
 }
@@ -2228,7 +2249,7 @@ void AuthenticatorCommonImpl::OnRegisterResponse(
   }
 
   const auto attestation =
-      absl::get<device::CtapMakeCredentialRequest>(req_state_->ctap_request)
+      std::get<device::CtapMakeCredentialRequest>(req_state_->ctap_request)
           .attestation_preference;
   std::optional<AttestationErasureOption> attestation_erasure;
 
@@ -2489,7 +2510,7 @@ void AuthenticatorCommonImpl::OnTimeout() {
   }
 
   req_state_->request_result = CredentialRequestResult::kTimeout;
-  if (absl::holds_alternative<GetCredentialCallback>(
+  if (std::holds_alternative<GetCredentialCallback>(
           req_state_->response_callback)) {
     req_state_->request_outcome = GetAssertionOutcome::kUiTimeout;
   } else {
@@ -2519,32 +2540,32 @@ void AuthenticatorCommonImpl::CancelWithStatus(
   }
 
   DCHECK(
-      !absl::holds_alternative<absl::monostate>(req_state_->response_callback));
-  if (absl::holds_alternative<MakeCredentialCallback>(
+      !std::holds_alternative<std::monostate>(req_state_->response_callback));
+  if (std::holds_alternative<MakeCredentialCallback>(
           req_state_->response_callback) &&
-      absl::get<MakeCredentialCallback>(req_state_->response_callback)) {
+      std::get<MakeCredentialCallback>(req_state_->response_callback)) {
     CompleteMakeCredentialRequest(status);
     return;
   }
-  if (absl::holds_alternative<GetCredentialCallback>(
+  if (std::holds_alternative<GetCredentialCallback>(
           req_state_->response_callback) &&
-      absl::get<GetCredentialCallback>(req_state_->response_callback)) {
+      std::get<GetCredentialCallback>(req_state_->response_callback)) {
     CompleteGetAssertionRequest(status);
   }
 }
 
 void AuthenticatorCommonImpl::OnCancelFromUI() {
   if (!req_state_->request_result &&
-      absl::holds_alternative<GetCredentialCallback>(
+      std::holds_alternative<GetCredentialCallback>(
           req_state_->response_callback) &&
-      absl::get<GetCredentialCallback>(req_state_->response_callback)) {
+      std::get<GetCredentialCallback>(req_state_->response_callback)) {
     // The user cancelled before the request finished.
     req_state_->request_result = CredentialRequestResult::kUserCancelled;
     req_state_->request_outcome = GetAssertionOutcome::kUserCancellation;
   } else if (!req_state_->request_result &&
-             absl::holds_alternative<MakeCredentialCallback>(
+             std::holds_alternative<MakeCredentialCallback>(
                  req_state_->response_callback) &&
-             absl::get<MakeCredentialCallback>(req_state_->response_callback)) {
+             std::get<MakeCredentialCallback>(req_state_->response_callback)) {
     req_state_->request_result = CredentialRequestResult::kUserCancelled;
     req_state_->request_outcome = MakeCredentialOutcome::kUserCancellation;
   }
@@ -2717,22 +2738,22 @@ void AuthenticatorCommonImpl::CompleteMakeCredentialRequest(
     blink::mojom::MakeCredentialAuthenticatorResponsePtr response,
     blink::mojom::WebAuthnDOMExceptionDetailsPtr dom_exception_details,
     Focus check_focus) {
-  DCHECK(absl::holds_alternative<MakeCredentialCallback>(
+  DCHECK(std::holds_alternative<MakeCredentialCallback>(
              req_state_->response_callback) &&
-         absl::get<MakeCredentialCallback>(req_state_->response_callback));
+         std::get<MakeCredentialCallback>(req_state_->response_callback));
   auto make_credential_response_callback = std::move(
-      absl::get<MakeCredentialCallback>(req_state_->response_callback));
+      std::get<MakeCredentialCallback>(req_state_->response_callback));
 
   if (req_state_->request_result) {
     UMA_HISTOGRAM_ENUMERATION("WebAuthentication.MakeCredential.Result",
                               *req_state_->request_result);
   }
 
-  if (absl::holds_alternative<MakeCredentialOutcome>(
+  if (std::holds_alternative<MakeCredentialOutcome>(
           req_state_->request_outcome)) {
     RecordRegisterOutcomeMetric(
         req_state_->mode, GetRenderFrameHost()->GetPageUkmSourceId(),
-        absl::get<MakeCredentialOutcome>(req_state_->request_outcome));
+        std::get<MakeCredentialOutcome>(req_state_->request_outcome));
   } else if (status == blink::mojom::AuthenticatorStatus::SUCCESS) {
     RecordRegisterOutcomeMetric(req_state_->mode,
                                 GetRenderFrameHost()->GetPageUkmSourceId(),
@@ -2842,22 +2863,22 @@ void AuthenticatorCommonImpl::CompleteGetAssertionRequest(
     blink::mojom::AuthenticatorStatus status,
     blink::mojom::GetAssertionAuthenticatorResponsePtr response,
     blink::mojom::WebAuthnDOMExceptionDetailsPtr dom_exception_details) {
-  CHECK(absl::holds_alternative<GetCredentialCallback>(
+  CHECK(std::holds_alternative<GetCredentialCallback>(
             req_state_->response_callback) &&
-        absl::get<GetCredentialCallback>(req_state_->response_callback));
-  auto get_credential_response_callback = std::move(
-      absl::get<GetCredentialCallback>(req_state_->response_callback));
+        std::get<GetCredentialCallback>(req_state_->response_callback));
+  auto get_credential_response_callback =
+      std::move(std::get<GetCredentialCallback>(req_state_->response_callback));
 
   if (req_state_->request_result) {
     UMA_HISTOGRAM_ENUMERATION("WebAuthentication.GetAssertion.Result",
                               *req_state_->request_result);
   }
 
-  if (absl::holds_alternative<GetAssertionOutcome>(
+  if (std::holds_alternative<GetAssertionOutcome>(
           req_state_->request_outcome)) {
     RecordSignOutcomeMetric(
         req_state_->mode, GetRenderFrameHost()->GetPageUkmSourceId(),
-        absl::get<GetAssertionOutcome>(req_state_->request_outcome));
+        std::get<GetAssertionOutcome>(req_state_->request_outcome));
   } else if (status == blink::mojom::AuthenticatorStatus::SUCCESS) {
     RecordSignOutcomeMetric(req_state_->mode,
                             GetRenderFrameHost()->GetPageUkmSourceId(),
@@ -2876,16 +2897,16 @@ void AuthenticatorCommonImpl::CompleteGetAssertionRequest(
 
 void AuthenticatorCommonImpl::HandlePasswordResponse(
     password_manager::CredentialInfo credential) {
-  CHECK(absl::holds_alternative<GetCredentialCallback>(
+  CHECK(std::holds_alternative<GetCredentialCallback>(
             req_state_->response_callback) &&
-        absl::get<GetCredentialCallback>(req_state_->response_callback));
+        std::get<GetCredentialCallback>(req_state_->response_callback));
   // TODO(crbug.com/393055190): Define the required metrics and emit them.
   static_cast<RenderFrameHostImpl*>(GetRenderFrameHost())
       ->WebAuthnAssertionRequestSucceeded();
   auto credential_response =
       blink::mojom::GetCredentialResponse::NewPasswordResponse(
           std::move(credential));
-  std::move(absl::get<GetCredentialCallback>(req_state_->response_callback))
+  std::move(std::get<GetCredentialCallback>(req_state_->response_callback))
       .Run(std::move(credential_response));
   Cleanup();
 }
@@ -2894,9 +2915,9 @@ void AuthenticatorCommonImpl::CompleteReportRequest(
     blink::mojom::AuthenticatorStatus status,
     blink::mojom::WebAuthnDOMExceptionDetailsPtr dom_exception_details) {
   DCHECK(
-      absl::holds_alternative<ReportCallback>(req_state_->response_callback) &&
-      absl::get<ReportCallback>(req_state_->response_callback));
-  std::move(absl::get<ReportCallback>(req_state_->response_callback))
+      std::holds_alternative<ReportCallback>(req_state_->response_callback) &&
+      std::get<ReportCallback>(req_state_->response_callback));
+  std::move(std::get<ReportCallback>(req_state_->response_callback))
       .Run(status, std::move(dom_exception_details));
   Cleanup();
 }
@@ -2995,9 +3016,9 @@ void AuthenticatorCommonImpl::OnMakeCredentialProxyResponse(
     return;
   }
   DCHECK_EQ(*req_state_->pending_proxied_request_id, request_id);
-  DCHECK(absl::holds_alternative<MakeCredentialCallback>(
+  DCHECK(std::holds_alternative<MakeCredentialCallback>(
              req_state_->response_callback) &&
-         absl::get<MakeCredentialCallback>(req_state_->response_callback));
+         std::get<MakeCredentialCallback>(req_state_->response_callback));
   req_state_->pending_proxied_request_id.reset();
   if (error) {
     DCHECK(!response);
@@ -3019,7 +3040,7 @@ void AuthenticatorCommonImpl::OnGetAssertionProxyResponse(
     return;
   }
   DCHECK_EQ(*req_state_->pending_proxied_request_id, request_id);
-  DCHECK(absl::holds_alternative<GetCredentialCallback>(
+  DCHECK(std::holds_alternative<GetCredentialCallback>(
       req_state_->response_callback));
   req_state_->pending_proxied_request_id.reset();
   if (error) {
@@ -3037,7 +3058,7 @@ void AuthenticatorCommonImpl::UpdateChallengeFromUrl(
     ClientDataJsonParams params,
     std::optional<base::span<const uint8_t>> challenge) {
   // ChallengeUrl is only valid for GetAssertion requests.
-  CHECK(absl::holds_alternative<device::CtapGetAssertionRequest>(
+  CHECK(std::holds_alternative<device::CtapGetAssertionRequest>(
       req_state_->ctap_request));
 
   if (!challenge) {
@@ -3054,7 +3075,7 @@ void AuthenticatorCommonImpl::UpdateChallengeFromUrl(
 
   params.challenge = device::fido_parsing_utils::Materialize(*challenge);
   req_state_->client_data_json = BuildClientDataJson(std::move(params));
-  absl::get<device::CtapGetAssertionRequest>(req_state_->ctap_request)
+  std::get<device::CtapGetAssertionRequest>(req_state_->ctap_request)
       .SetClientDataJson(req_state_->client_data_json);
   reinterpret_cast<device::GetAssertionRequestHandler*>(
       req_state_->request_handler.get())

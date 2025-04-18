@@ -172,8 +172,10 @@
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/jni_android.h"
 #include "base/trace_event/cpufreq_monitor_android.h"
+#include "components/input/android/input_token_forwarder.h"
 #include "components/tracing/common/graphics_memory_dump_provider_android.h"
 #include "content/browser/android/browser_startup_controller.h"
+#include "content/browser/android/input_token_forwarder_manager.h"
 #include "content/browser/android/launcher_thread.h"
 #include "content/browser/android/scoped_surface_request_manager.h"
 #include "content/browser/android/tracing_controller_android.h"
@@ -707,7 +709,9 @@ void BrowserMainLoop::PostCreateMainMessageLoop() {
 
   // TODO(boliu): kSingleProcess check is a temporary workaround for
   // in-process Android WebView. crbug.com/503724 tracks proper fix.
-  if (!parsed_command_line_->HasSwitch(switches::kSingleProcess)) {
+  // Also check to see if a discardable memory manager was set (e.g. unit tests)
+  if (!parsed_command_line_->HasSwitch(switches::kSingleProcess) &&
+      !base::DiscardableMemoryAllocator::HasInstance()) {
     base::DiscardableMemoryAllocator::SetInstance(
         discardable_memory::DiscardableSharedMemoryManager::Get());
   }
@@ -722,6 +726,8 @@ void BrowserMainLoop::PostCreateMainMessageLoop() {
     if (UsingInProcessGpu()) {
       gpu::ScopedSurfaceRequestConduit::SetInstance(
           ScopedSurfaceRequestManager::GetInstance());
+      input::InputTokenForwarder::SetInstance(
+          InputTokenForwarderManager::GetInstance());
     }
   }
 
@@ -762,7 +768,6 @@ void BrowserMainLoop::PostCreateMainMessageLoop() {
     TRACE_EVENT0("startup",
                  "BrowserMainLoop::Subsystem:BrowserAccessibilityStateImpl");
     browser_accessibility_state_ = BrowserAccessibilityStateImpl::Create();
-    browser_accessibility_state_->InitBackgroundTasks();
   }
 }
 

@@ -58,7 +58,7 @@
 #endif
 
 #if BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
-#include "media/mojo/mojom/stable/stable_video_decoder.mojom-forward.h"
+#include "media/mojo/mojom/video_decoder.mojom-forward.h"
 #endif  // BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
 
 #if BUILDFLAG(IS_FUCHSIA)
@@ -400,6 +400,16 @@ class CONTENT_EXPORT RenderProcessHost : public IPC::Sender,
   virtual void ClearPriorityOverride() = 0;
 #endif
 
+  // Sets whether to consider the process as a spare renderer when
+  // calculating the priority. Note that this is not exactly the same
+  // as IsSpare(). The value will be kept true after the spare renderer
+  // is taken in navigation. It will not be reset until the navigation
+  // correctly sets the priority.
+  // The function is exported only for supporting MockRenderProcessHost
+  // and should not be called outside of content/.
+  virtual void SetHasSpareRendererPriority(
+      bool has_spare_renderer_priority) = 0;
+
 #if BUILDFLAG(IS_ANDROID)
   // Return the highest importance of all widgets in this process.
   virtual ChildProcessImportance GetEffectiveImportance() = 0;
@@ -710,9 +720,8 @@ class CONTENT_EXPORT RenderProcessHost : public IPC::Sender,
       mojo::PendingReceiver<blink::mojom::WebSocketConnector> receiver) = 0;
 
 #if BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
-  virtual void CreateStableVideoDecoder(
-      mojo::PendingReceiver<media::stable::mojom::StableVideoDecoder>
-          receiver) = 0;
+  virtual void CreateOOPVideoDecoder(
+      mojo::PendingReceiver<media::mojom::VideoDecoder> receiver) = 0;
 #endif  // BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
 
   // Returns the current number of active views in this process.  Excludes

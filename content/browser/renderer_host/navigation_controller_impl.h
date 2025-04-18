@@ -108,6 +108,7 @@ class CONTENT_EXPORT NavigationControllerImpl : public NavigationController {
   NavigationEntryImpl* GetVisibleEntry() override;
   int GetCurrentEntryIndex() override;
   NavigationEntryImpl* GetLastCommittedEntry() override;
+  const NavigationEntryImpl* GetLastCommittedEntry() const override;
   int GetLastCommittedEntryIndex() override;
   bool CanViewSource() override;
   int GetEntryCount() override;

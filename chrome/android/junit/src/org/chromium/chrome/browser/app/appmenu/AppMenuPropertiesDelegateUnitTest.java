@@ -39,11 +39,13 @@ import org.hamcrest.Matchers;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
 import org.robolectric.annotation.LooperMode;
@@ -60,6 +62,7 @@ import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.build.BuildConfig;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ActivityTabProvider;
+import org.chromium.chrome.browser.ai.AiAssistantService;
 import org.chromium.chrome.browser.app.appmenu.AppMenuPropertiesDelegateImpl.MenuGroup;
 import org.chromium.chrome.browser.bookmarks.BookmarkModel;
 import org.chromium.chrome.browser.bookmarks.PowerBookmarkUtils;
@@ -134,6 +137,7 @@ import java.util.Optional;
 @DisableFeatures(ChromeFeatureList.ADAPTIVE_BUTTON_IN_TOP_TOOLBAR_PAGE_SUMMARY)
 public class AppMenuPropertiesDelegateUnitTest {
 
+    @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
     @Mock private ActivityTabProvider mActivityTabProvider;
     @Mock private Tab mTab;
     @Mock private WebContents mWebContents;
@@ -182,7 +186,6 @@ public class AppMenuPropertiesDelegateUnitTest {
 
     @Before
     public void setUp() {
-        MockitoAnnotations.initMocks(this);
         setupFeatureDefaults();
 
         Context context =
@@ -719,7 +722,10 @@ public class AppMenuPropertiesDelegateUnitTest {
         assertMenuItemsHaveIcons(menu, expectedItems);
     }
 
-    private void checkOverviewMenuItemsPhone(int tabSelectionEditorMenuItemId) {
+    @Test
+    @Config(qualifiers = "sw320dp")
+    @DisableFeatures(ChromeFeatureList.TAB_GROUP_ENTRY_POINTS_ANDROID)
+    public void testOverviewMenuItems_Phone_SelectTabs() {
         setUpMocksForOverviewMenu(LayoutType.TAB_SWITCHER);
         when(mIncognitoTabModel.getCount()).thenReturn(0);
         Assert.assertFalse(mAppMenuPropertiesDelegate.shouldShowPageMenu());
@@ -733,7 +739,7 @@ public class AppMenuPropertiesDelegateUnitTest {
             R.id.new_tab_menu_id,
             R.id.new_incognito_tab_menu_id,
             R.id.close_all_tabs_menu_id,
-            tabSelectionEditorMenuItemId,
+            R.id.menu_select_tabs,
             R.id.quick_delete_menu_id,
             R.id.preferences_id
         };
@@ -742,8 +748,27 @@ public class AppMenuPropertiesDelegateUnitTest {
 
     @Test
     @Config(qualifiers = "sw320dp")
-    public void testOverviewMenuItems_Phone_SelectTabs() {
-        checkOverviewMenuItemsPhone(R.id.menu_select_tabs);
+    @EnableFeatures(ChromeFeatureList.TAB_GROUP_ENTRY_POINTS_ANDROID)
+    public void testOverviewMenuItems_Phone_SelectTabs_tabGroupEntryPointsFeatureEnabled() {
+        setUpMocksForOverviewMenu(LayoutType.TAB_SWITCHER);
+        when(mIncognitoTabModel.getCount()).thenReturn(0);
+        Assert.assertFalse(mAppMenuPropertiesDelegate.shouldShowPageMenu());
+        Assert.assertEquals(
+                MenuGroup.OVERVIEW_MODE_MENU, mAppMenuPropertiesDelegate.getMenuGroup());
+
+        Menu menu = createTestMenu();
+        mAppMenuPropertiesDelegate.prepareMenu(menu, null);
+
+        Integer[] expectedItems = {
+            R.id.new_tab_menu_id,
+            R.id.new_incognito_tab_menu_id,
+            R.id.new_tab_group_menu_id,
+            R.id.close_all_tabs_menu_id,
+            R.id.menu_select_tabs,
+            R.id.quick_delete_menu_id,
+            R.id.preferences_id
+        };
+        assertMenuItemsAreEqual(menu, expectedItems);
     }
 
     @Test
@@ -1143,8 +1168,6 @@ public class AppMenuPropertiesDelegateUnitTest {
     public void testSelectTabsOption_IsEnabledOneTab_InRegularMode_IndependentOfIncognitoReauth() {
         setUpMocksForOverviewMenu(LayoutType.TAB_SWITCHER);
         when(mTabModelSelector.getCurrentModel()).thenReturn(mTabModel);
-        when(mTabGroupModelFilter.getTabModel()).thenReturn(mTabModel);
-        when(mTabGroupModelFilter.getCount()).thenReturn(1);
         when(mTabModel.getCount()).thenReturn(1);
         Tab mockTab1 = mock(Tab.class);
         when(mTabModel.getTabAt(0)).thenReturn(mockTab1);
@@ -1451,24 +1474,10 @@ public class AppMenuPropertiesDelegateUnitTest {
 
     @Test
     @EnableFeatures(ChromeFeatureList.ADAPTIVE_BUTTON_IN_TOP_TOOLBAR_PAGE_SUMMARY)
-    public void testAiWebMenuItem() {
-        when(mTab.getUrl()).thenReturn(JUnitTestGURLs.URL_1);
-        setUpMocksForPageMenu();
-
-        Menu menu = createTestMenu();
-        mAppMenuPropertiesDelegate.prepareMenu(menu, null);
-
-        assertTrue(
-                "AI Web menu item should be visible",
-                menu.findItem(R.id.ai_web_menu_id).isVisible());
-        assertFalse(
-                "AI PDF menu item should not be visible",
-                menu.findItem(R.id.ai_pdf_menu_id).isVisible());
-    }
-
-    @Test
-    @EnableFeatures(ChromeFeatureList.ADAPTIVE_BUTTON_IN_TOP_TOOLBAR_PAGE_SUMMARY)
     public void testAiWebMenuItem_shouldAppearOnWebPages() {
+        var aiAssistantService = mock(AiAssistantService.class);
+        AiAssistantService.setInstanceForTesting(aiAssistantService);
+        when(aiAssistantService.canShowAiForTab(any(), eq(mTab))).thenReturn(true);
         when(mTab.getUrl()).thenReturn(JUnitTestGURLs.URL_1);
         setUpMocksForPageMenu();
 
@@ -1486,6 +1495,9 @@ public class AppMenuPropertiesDelegateUnitTest {
     @Test
     @EnableFeatures(ChromeFeatureList.ADAPTIVE_BUTTON_IN_TOP_TOOLBAR_PAGE_SUMMARY)
     public void testAiPdfMenuItem_shouldAppearOnPdfPages() {
+        var aiAssistantService = mock(AiAssistantService.class);
+        AiAssistantService.setInstanceForTesting(aiAssistantService);
+        when(aiAssistantService.canShowAiForTab(any(), eq(mTab))).thenReturn(true);
         when(mTab.getUrl()).thenReturn(JUnitTestGURLs.URL_1_WITH_PDF_PATH);
         var pdfNativePage = mock(PdfPage.class);
         when(mTab.getNativePage()).thenReturn(pdfNativePage);
@@ -1868,7 +1880,6 @@ public class AppMenuPropertiesDelegateUnitTest {
      */
     private void prepareMocksForGroupTabsOnTabModel(@NonNull TabModel tabmodel) {
         when(mTabGroupModelFilter.getTabModel()).thenReturn(tabmodel);
-        when(mTabGroupModelFilter.getCount()).thenReturn(2);
         when(tabmodel.getCount()).thenReturn(2);
         Tab mockTab1 = mock(Tab.class);
         Tab mockTab2 = mock(Tab.class);

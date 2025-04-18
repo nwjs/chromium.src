@@ -6,6 +6,8 @@
 // that callbacks are correctly invoked, expected parameters are correct,
 // and failures are detected.
 
+const AttributeTypeDataType = chrome.autofillPrivate.AttributeTypeDataType;
+
 // Constants for the tests.
 var FIRST_NAME = 'Firstname';
 var LAST_NAME = 'Lastname';
@@ -35,19 +37,41 @@ var INVALID_IBAN_VALUE = 'AD14000800010012345678900';
 var ENTITY_INSTANCE = {
   type: {
     typeName: 1,
-    typeNameAsString: 'Car',
-    addEntityString: 'Add car',
-    editEntityString: 'Edit car',
+    typeNameAsString: 'Driver\'s license',
+    addEntityTypeString: 'Add driver\'s license',
+    editEntityTypeString: 'Edit driver\'s license',
   },
-  attributes: [
-    {type: {typeName: 6, typeNameAsString: 'License plate'}, value: 'ABCDE'},
-    {type: {typeName: 8, typeNameAsString: 'Make'}, value: 'Toyota'},
+  attributeInstances: [
+    {
+      type: {
+        typeName: 5,
+        typeNameAsString: 'Name',
+        dataType: AttributeTypeDataType.STRING,
+      },
+      value: 'John Dolan',
+    },
+    {
+      type: {
+        typeName: 8,
+        typeNameAsString: 'Issue date',
+        dataType: AttributeTypeDataType.DATE,
+      },
+      value: {
+        month: '5',
+        day: '20',
+        year: '2015',
+      }
+    },
   ],
   guid: GUID,
-  nickname: 'Personal car'
+  nickname: 'Personal car',
 };
 
-var UPDATED_ENTITY_INSTANCE = {...ENTITY_INSTANCE, nickname: 'Work car'};
+var UPDATED_ENTITY_INSTANCE = structuredClone(ENTITY_INSTANCE);
+UPDATED_ENTITY_INSTANCE.attributeInstances[0].value = 'Mark Hanks';
+
+var ENTITY_INSTANCE_WITH_INCOMPLETE_DATE = structuredClone(ENTITY_INSTANCE);
+ENTITY_INSTANCE_WITH_INCOMPLETE_DATE.attributeInstances[1].value.month = '';
 
 var failOnceCalled = function() {
   chrome.test.fail();
@@ -183,11 +207,11 @@ function updateCreditCardForCvc(updatedCvcValue) {
       }));
 };
 
-function entityInstaceToEntityInstanceWithLabels(entityInstance) {
+function entityInstaceToEntityInstanceWithLabels(entityInstance, sublabel) {
   return ({
     guid: entityInstance.guid,
-    entityLabel: entityInstance.attributes[0].value,
-    entitySubLabel: entityInstance.type.typeNameAsString,
+    entityInstanceLabel: entityInstance.type.typeNameAsString,
+    entityInstanceSubLabel: sublabel,
   });
 };
 
@@ -227,7 +251,7 @@ var availableTests = [
     };
 
     chrome.autofillPrivate.getCountryList(
-        /*forAccountAddressProfile=*/ false, handler);
+        /*forAccountStorage=*/ false, handler);
   },
 
   function getAddressComponents() {
@@ -832,28 +856,6 @@ var availableTests = [
     chrome.test.succeed();
   },
 
-  function isUserEligibleForAutofillImprovements() {
-    chrome.autofillPrivate.isUserEligibleForAutofillImprovements(function(
-        isEligible) {
-      // TODO(crbug.com/373609897): Override account info status in the test
-      // setup to verify this properly.
-      chrome.test.assertFalse(isEligible, "Expected not eligible");
-      chrome.test.succeed();
-    });
-  },
-
-  function predictionImprovementsIphFeatureUsed() {
-    chrome.autofillPrivate.predictionImprovementsIphFeatureUsed();
-    chrome.test.assertNoLastError();
-    chrome.test.succeed();
-  },
-
-  function migrateCreditCards() {
-    chrome.autofillPrivate.migrateCreditCards();
-    chrome.test.assertNoLastError();
-    chrome.test.succeed();
-  },
-
   function logServerCardLinkClicked() {
     chrome.autofillPrivate.logServerCardLinkClicked();
     chrome.test.assertNoLastError();
@@ -885,19 +887,344 @@ var availableTests = [
   },
 
   async function addEntityInstance() {
-    await chrome.autofillPrivate.addOrUpdateEntityInstance(ENTITY_INSTANCE);
-    chrome.test.succeed();
+    chrome.test.listenOnce(
+        chrome.autofillPrivate.onEntityInstancesChanged,
+        chrome.test.callbackPass(function(entityInstancesWithLabelsList) {
+          chrome.test.assertEq(
+              [ENTITY_INSTANCE.guid],
+              entityInstancesWithLabelsList.map((instance) => instance.guid));
+        }));
+    chrome.autofillPrivate.addOrUpdateEntityInstance(ENTITY_INSTANCE);
+  },
+
+  async function testExpectedLabelsAreGenerated() {
+    // Since there is only one driver's license, its label should be:
+    //
+    // Driver's License
+    // John Dolan
+    //
+    // This is because since there is no need to disambiguation, only one label
+    // is required.
+    var entityInstancesWithExpectedLabels = [
+      {
+        entity: {
+          type: {
+            typeName: 1,
+            typeNameAsString: 'Driver\'s license',
+            addEntityTypeString: 'Add driver\'s license',
+            editEntityTypeString: 'Edit driver\'s license',
+          },
+          attributeInstances: [
+            {
+              type: {
+                typeName: 5,
+                typeNameAsString: 'Name',
+                dataType: AttributeTypeDataType.STRING,
+              },
+              value: 'John Dolan',
+            },
+            {
+              type: {
+                typeName: 8,
+                typeNameAsString: 'Issue date',
+                dataType: AttributeTypeDataType.DATE,
+              },
+              value: {
+                month: '5',
+                day: '20',
+                year: '2015',
+              }
+            },
+          ],
+          guid: 'e4bbe384-ee63-45a4-8df3-713a58fdc181',
+          nickname: 'Personal car',
+        },
+        expectedLabel: 'John Dolan'
+      },
+      // Now we add 3 passports, their labels should be:
+      //
+      // Passport
+      // John Dolan · Germany
+      //
+      // Passport
+      // Sansa · Italy
+      //
+      // Passport
+      // John Dolan · Germany
+      //
+      // Note that in this case we need the country to disambiguate because "Jon
+      // Dolan" has the same name in two passports.
+      {
+        entity: {
+          type: {
+            typeName: 0,
+            typeNameAsString: 'Passport',
+            addEntityTypeString: 'Add passport',
+            editEntityTypeString: 'Edit passport',
+          },
+          attributeInstances: [
+            {
+              type: {
+                typeName: 0,
+                typeNameAsString: 'Name',
+                dataType: AttributeTypeDataType.STRING,
+              },
+              value: 'John Dolan',
+            },
+            {
+              type: {
+                typeName: 1,
+                typeNameAsString: 'Country',
+                dataType: AttributeTypeDataType.COUNTRY,
+              },
+              value: 'DE'
+            },
+            {
+              type: {
+                typeName: 2,
+                typeNameAsString: 'Number',
+                dataType: AttributeTypeDataType.STRING,
+              },
+              value: 'RO23512'
+            }
+          ],
+          guid: 'e4bbe384-ee63-45a4-8df3-713a58fdc182',
+          nickname: 'Personal passport 1',
+        },
+        expectedLabel: 'John Dolan · Germany'
+      },
+      {
+        entity: {
+          type: {
+            typeName: 0,
+            typeNameAsString: 'Passport',
+            addEntityTypeString: 'Add passport',
+            editEntityTypeString: 'Edit passport',
+          },
+          attributeInstances: [
+            {
+              type: {
+                typeName: 0,
+                typeNameAsString: 'Name',
+                dataType: AttributeTypeDataType.STRING,
+              },
+              value: 'Sansa',
+            },
+            {
+              type: {
+                typeName: 1,
+                typeNameAsString: 'Country',
+                dataType: AttributeTypeDataType.COUNTRY,
+              },
+              value: 'IT'
+            },
+            {
+              type: {
+                typeName: 2,
+                typeNameAsString: 'Number',
+                dataType: AttributeTypeDataType.STRING,
+              },
+              value: 'CHT23512'
+            }
+          ],
+          guid: 'e4bbe384-ee63-45a4-8df3-713a58fdc183',
+          nickname: 'Personal passport 1',
+        },
+        expectedLabel: 'Sansa · Italy'
+      },
+      {
+        entity: {
+          type: {
+            typeName: 0,
+            typeNameAsString: 'Passport',
+            addEntityTypeString: 'Add passport',
+            editEntityTypeString: 'Edit passport',
+          },
+          attributeInstances: [
+            {
+              type: {
+                typeName: 0,
+                typeNameAsString: 'Name',
+                dataType: AttributeTypeDataType.STRING,
+              },
+              value: 'John Dolan',
+            },
+            {
+              type: {
+                typeName: 1,
+                typeNameAsString: 'Country',
+                dataType: AttributeTypeDataType.COUNTRY,
+              },
+              value: 'BR'
+            },
+            {
+              type: {
+                typeName: 2,
+                typeNameAsString: 'Number',
+                dataType: AttributeTypeDataType.STRING,
+              },
+              value: 'CHT23512'
+            }
+          ],
+          guid: 'e4bbe384-ee63-45a4-8df3-713a58fdc185',
+          nickname: 'Personal passport 1',
+        },
+        expectedLabel: 'John Dolan · Brazil'
+      },
+      // Now we add 2 Vehicles, their labels should be:
+      //
+      // Vehicle
+      // Uno
+      //
+      // Vehicle
+      // Linea
+      //
+      // Note that in this case we need do not mention the maker "fiat" because
+      // it repeats in both vehicles.
+      {
+        entity: {
+          type: {
+            typeName: 2,
+            typeNameAsString: 'Vehicle',
+            addEntityTypeString: 'Add vehicle',
+            editEntityTypeString: 'Edit vehicle',
+          },
+          attributeInstances: [
+            {
+              type: {
+                typeName: 10,
+                typeNameAsString: 'Make',
+                dataType: AttributeTypeDataType.STRING,
+              },
+              value: 'Fiat',
+            },
+            {
+              type: {
+                typeName: 11,
+                typeNameAsString: 'Model',
+                dataType: AttributeTypeDataType.STRING,
+              },
+              value: 'Uno'
+            },
+          ],
+          guid: 'e4bbe384-ee63-45a4-8df3-713a58fdc187',
+          nickname: 'Vehicle 1',
+        },
+        expectedLabel: 'Uno'
+      },
+      {
+        entity: {
+          type: {
+            typeName: 2,
+            typeNameAsString: 'Vehicle',
+            addEntityTypeString: 'Add vehicle',
+            editEntityTypeString: 'Edit vehicle',
+          },
+          attributeInstances: [
+            {
+              type: {
+                typeName: 10,
+                typeNameAsString: 'Make',
+                dataType: AttributeTypeDataType.STRING,
+              },
+              value: 'Fiat',
+            },
+            {
+              type: {
+                typeName: 11,
+                typeNameAsString: 'Model',
+                dataType: AttributeTypeDataType.STRING,
+              },
+              value: 'Linea'
+            },
+          ],
+          guid: 'e4bbe384-ee63-45a4-8df3-713a58fdc186',
+          nickname: 'Vehicle 2',
+        },
+        expectedLabel: 'Linea'
+      },
+    ];
+    const assertExpectedLabelsAreCorrect =
+        (entityInstancesWithLabelsList) => {
+          const sortByGuid = (instances) => {
+            return instances.sort((a, b) => {
+              if (a.guid < b.guid) {
+                return -1;
+              }
+              if (a.guid > b.guid) {
+                return 1;
+              }
+              return 0;
+            });
+          };
+          var expectedInstances = entityInstancesWithExpectedLabels.map(
+              (entityWithExpectedLabels) =>
+                  entityInstaceToEntityInstanceWithLabels(
+                      entityWithExpectedLabels.entity,
+                      entityWithExpectedLabels.expectedLabel));
+          chrome.test.assertEq(
+              sortByGuid(expectedInstances),
+              sortByGuid(entityInstancesWithLabelsList));
+        }
+
+    var done = chrome.test.listenForever(
+        chrome.autofillPrivate.onEntityInstancesChanged,
+        function(entityInstancesWithLabelsList) {
+          // The test callback should only run when all expected entities were
+          // added.
+          if (entityInstancesWithLabelsList.length ==
+              entityInstancesWithExpectedLabels.length) {
+            chrome.test.callbackPass(function(entityInstancesWithLabelsList) {
+              assertExpectedLabelsAreCorrect(entityInstancesWithLabelsList);
+              done();
+            })(entityInstancesWithLabelsList);
+          }
+        });
+    entityInstancesWithExpectedLabels.forEach(
+        async (entityWithExpectedLabel) =>
+            chrome.autofillPrivate.addOrUpdateEntityInstance(
+                entityWithExpectedLabel.entity));
+  },
+
+
+  async function addEntityInstanceWithIncompleteDate() {
+    chrome.autofillPrivate.addOrUpdateEntityInstance(
+        ENTITY_INSTANCE_WITH_INCOMPLETE_DATE, () => {
+          chrome.test.assertLastError(
+              'The provided Autofill AI entity/attribute is invalid.');
+          chrome.test.succeed();
+        });
   },
 
   async function updateEntityInstance() {
-    await chrome.autofillPrivate.addOrUpdateEntityInstance(
-        UPDATED_ENTITY_INSTANCE);
-    chrome.test.succeed();
+    chrome.test.listenOnce(
+        chrome.autofillPrivate.onEntityInstancesChanged,
+        chrome.test.callbackPass(function(entityInstancesWithLabelsList) {
+          chrome.test.assertEq(
+              [UPDATED_ENTITY_INSTANCE.guid],
+              entityInstancesWithLabelsList.map(entity => entity.guid));
+        }));
+    chrome.autofillPrivate.addOrUpdateEntityInstance(UPDATED_ENTITY_INSTANCE);
+  },
+
+  async function entitiesHaveCorrectLabels() {
+    chrome.test.listenOnce(
+        chrome.autofillPrivate.onEntityInstancesChanged,
+        chrome.test.callbackPass(function(entityInstancesWithLabelsList) {
+          chrome.test.assertEq(
+              [UPDATED_ENTITY_INSTANCE.guid],
+              entityInstancesWithLabelsList.map(entity => entity.guid));
+        }));
+    chrome.autofillPrivate.addOrUpdateEntityInstance(UPDATED_ENTITY_INSTANCE);
   },
 
   async function removeEntityInstance() {
-    await chrome.autofillPrivate.removeEntityInstance(GUID);
-    chrome.test.succeed();
+    chrome.test.listenOnce(
+        chrome.autofillPrivate.onEntityInstancesChanged,
+        chrome.test.callbackPass(function(entityInstancesWithLabelsList) {
+          chrome.test.assertEq([], entityInstancesWithLabelsList);
+        }));
+    chrome.autofillPrivate.removeEntityInstance(GUID);
   },
 
   async function loadEmptyEntityInstancesList() {
@@ -911,8 +1238,8 @@ var availableTests = [
     const entityInstancesWithLabelsList =
         await chrome.autofillPrivate.loadEntityInstances();
     chrome.test.assertEq(
-        [entityInstaceToEntityInstanceWithLabels(ENTITY_INSTANCE)],
-        entityInstancesWithLabelsList);
+        [ENTITY_INSTANCE.guid],
+        entityInstancesWithLabelsList.map(entity => entity.guid));
     chrome.test.succeed();
   },
 
@@ -920,8 +1247,8 @@ var availableTests = [
     const entityInstancesWithLabelsList =
         await chrome.autofillPrivate.loadEntityInstances();
     chrome.test.assertEq(
-        [entityInstaceToEntityInstanceWithLabels(UPDATED_ENTITY_INSTANCE)],
-        entityInstancesWithLabelsList);
+        [UPDATED_ENTITY_INSTANCE.guid],
+        entityInstancesWithLabelsList.map(entity => entity.guid));
     chrome.test.succeed();
   },
 
@@ -938,20 +1265,20 @@ var availableTests = [
       {
         typeName: 0,
         typeNameAsString: 'Passport',
-        addEntityString: 'Add passport',
-        editEntityString: 'Edit passport'
+        addEntityTypeString: 'Add passport',
+        editEntityTypeString: 'Edit passport'
       },
       {
         typeName: 1,
-        typeNameAsString: 'Car',
-        addEntityString: 'Add car',
-        editEntityString: 'Edit car'
+        typeNameAsString: 'Driver\'s license',
+        addEntityTypeString: 'Add driver\'s license',
+        editEntityTypeString: 'Edit driver\'s license'
       },
       {
         typeName: 2,
-        typeNameAsString: 'Driver\'s license',
-        addEntityString: 'Add driver\'s license',
-        editEntityString: 'Edit driver\'s license'
+        typeNameAsString: 'Vehicle',
+        addEntityTypeString: 'Add vehicle',
+        editEntityTypeString: 'Edit vehicle'
       },
     ];
     for (const index in expectedEntityTypesList) {
@@ -961,16 +1288,36 @@ var availableTests = [
     chrome.test.succeed();
   },
 
-  async function getAllAttributeTypesForEntity() {
+  async function getAllAttributeTypesForEntityTypeName() {
     const attributeTypesList =
-        await chrome.autofillPrivate.getAllAttributeTypesForEntity(
-            /*entityTypeName=*/ 2);
+        await chrome.autofillPrivate.getAllAttributeTypesForEntityTypeName(
+            /*entityTypeName=*/ 1);
     const expectedAttributeTypesList = [
-      {typeName: 10, typeNameAsString: 'Name'},
-      {typeName: 11, typeNameAsString: 'Region'},
-      {typeName: 12, typeNameAsString: 'Number'},
-      {typeName: 13, typeNameAsString: 'Expiration date'},
-      {typeName: 14, typeNameAsString: 'Issue date'},
+      {
+        typeName: 5,
+        typeNameAsString: 'Name',
+        dataType: AttributeTypeDataType.STRING,
+      },
+      {
+        typeName: 6,
+        typeNameAsString: 'State',
+        dataType: AttributeTypeDataType.STRING,
+      },
+      {
+        typeName: 7,
+        typeNameAsString: 'Number',
+        dataType: AttributeTypeDataType.STRING,
+      },
+      {
+        typeName: 8,
+        typeNameAsString: 'Issue date',
+        dataType: AttributeTypeDataType.DATE,
+      },
+      {
+        typeName: 9,
+        typeNameAsString: 'Expiration date',
+        dataType: AttributeTypeDataType.DATE,
+      },
     ];
     chrome.test.assertEq(expectedAttributeTypesList, attributeTypesList);
     chrome.test.succeed();
@@ -980,6 +1327,28 @@ var availableTests = [
     const payOverTimeIssuerList =
         await chrome.autofillPrivate.getPayOverTimeIssuerList();
     chrome.test.assertEq([], payOverTimeIssuerList);
+    chrome.test.succeed();
+  },
+
+  async function optIntoAutofillAi() {
+    await chrome.autofillPrivate.setAutofillAiOptInStatus(true);
+    chrome.test.succeed();
+  },
+
+  async function optOutOfAutofillAi() {
+    await chrome.autofillPrivate.setAutofillAiOptInStatus(false);
+    chrome.test.succeed();
+  },
+
+  async function verifyUserOptedIntoAutofillAi() {
+    chrome.test.assertEq(
+        true, await chrome.autofillPrivate.getAutofillAiOptInStatus());
+    chrome.test.succeed();
+  },
+
+  async function verifyUserOptedOutOfAutofillAi() {
+    chrome.test.assertEq(
+        false, await chrome.autofillPrivate.getAutofillAiOptInStatus());
     chrome.test.succeed();
   },
 ];
@@ -1020,17 +1389,14 @@ var TESTS_FOR_CONFIG = {
       ['authenticateUserAndFlipMandatoryAuthToggle'],
   'getLocalCard': ['addNewCreditCard', 'getLocalCard'],
   'bulkDeleteAllCvcs': ['bulkDeleteAllCvcs'],
-  'isUserEligibleForAutofillImprovements':
-      ['isUserEligibleForAutofillImprovements'],
-  'predictionImprovementsIphFeatureUsed':
-      ['predictionImprovementsIphFeatureUsed'],
-  'migrateCreditCards': ['migrateCreditCards'],
   'logServerCardLinkClicked': ['logServerCardLinkClicked'],
   'addVirtualCard': ['addVirtualCard'],
   'removeVirtualCard': ['removeVirtualCard'],
   'setAutofillSyncToggleEnabled': ['setAutofillSyncToggleEnabled'],
   'logServerIbanLinkClicked': ['logServerIbanLinkClicked'],
   'addEntityInstance': ['addEntityInstance'],
+  'addEntityInstanceWithIncompleteDate':
+      ['addEntityInstanceWithIncompleteDate'],
   'updateEntityInstance': ['updateEntityInstance'],
   'removeEntityInstance': ['removeEntityInstance'],
   'loadEmptyEntityInstancesList': ['loadEmptyEntityInstancesList'],
@@ -1038,8 +1404,14 @@ var TESTS_FOR_CONFIG = {
   'loadUpdatedEntityInstance': ['loadUpdatedEntityInstance'],
   'getEntityInstanceByGuid': ['getEntityInstanceByGuid'],
   'getAllEntityTypes': ['getAllEntityTypes'],
-  'getAllAttributeTypesForEntity': ['getAllAttributeTypesForEntity'],
+  'getAllAttributeTypesForEntityTypeName':
+      ['getAllAttributeTypesForEntityTypeName'],
+  'testExpectedLabelsAreGenerated': ['testExpectedLabelsAreGenerated'],
   'getEmptyPayOverTimeIssuerList': ['getEmptyPayOverTimeIssuerList'],
+  'optIntoAutofillAi': ['optIntoAutofillAi'],
+  'optOutOfAutofillAi': ['optOutOfAutofillAi'],
+  'verifyUserOptedIntoAutofillAi': ['verifyUserOptedIntoAutofillAi'],
+  'verifyUserOptedOutOfAutofillAi': ['verifyUserOptedOutOfAutofillAi'],
 };
 
 var testConfig = window.location.search.substring(1);

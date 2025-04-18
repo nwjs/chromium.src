@@ -78,23 +78,27 @@ bool CollaborationServiceAndroid::IsEmptyService(
 void CollaborationServiceAndroid::StartJoinFlow(
     JNIEnv* env,
     jlong delegateNativePtr,
-    const JavaParamRef<jobject>& j_url) {
+    const JavaParamRef<jobject>& j_url,
+    jint entry) {
   collaboration_service_->StartJoinFlow(
       conversion::GetDelegateUniquePtrFromJava(delegateNativePtr),
-      url::GURLAndroid::ToNativeGURL(env, j_url));
+      url::GURLAndroid::ToNativeGURL(env, j_url),
+      static_cast<CollaborationServiceJoinEntryPoint>(entry));
 }
 
 void CollaborationServiceAndroid::StartShareOrManageFlow(
     JNIEnv* env,
     jlong delegateNativePtr,
-    const JavaParamRef<jstring>& j_sync_group_id) {
+    const JavaParamRef<jstring>& j_sync_group_id,
+    jint entry) {
   std::string sync_group_id_str =
       base::android::ConvertJavaStringToUTF8(env, j_sync_group_id);
   tab_groups::EitherGroupID either_id =
       base::Uuid::ParseLowercase(sync_group_id_str);
 
   collaboration_service_->StartShareOrManageFlow(
-      conversion::GetDelegateUniquePtrFromJava(delegateNativePtr), either_id);
+      conversion::GetDelegateUniquePtrFromJava(delegateNativePtr), either_id,
+      static_cast<CollaborationServiceShareOrManageEntryPoint>(entry));
 }
 
 ScopedJavaLocalRef<jobject> CollaborationServiceAndroid::GetServiceStatus(

@@ -24,10 +24,14 @@ import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 
 import static org.chromium.ui.test.util.ViewUtils.onViewWaiting;
 
+import android.os.SystemClock;
+import android.view.KeyEvent;
 import android.view.View;
+import android.view.ViewStub;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -39,7 +43,6 @@ import androidx.test.filters.MediumTest;
 import org.hamcrest.Matcher;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -57,8 +60,8 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
-import org.chromium.chrome.test.transit.BlankCTATabInitialStatePublicTransitRule;
+import org.chromium.chrome.test.transit.AutoResetCtaTransitTestRule;
+import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.util.BookmarkTestUtil;
 import org.chromium.components.bookmarks.BookmarkId;
 import org.chromium.content_public.browser.test.util.TouchCommon;
@@ -80,14 +83,9 @@ import java.util.stream.IntStream;
 @Restriction({DeviceFormFactor.TABLET, DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
 @RunWith(ChromeJUnit4ClassRunner.class)
 public class BookmarkBarTest {
-
-    @ClassRule
-    public static final ChromeTabbedActivityTestRule sActivityTestRule =
-            new ChromeTabbedActivityTestRule();
-
     @Rule
-    public final BlankCTATabInitialStatePublicTransitRule mInitialStateRule =
-            new BlankCTATabInitialStatePublicTransitRule(sActivityTestRule);
+    public AutoResetCtaTransitTestRule mCtaTestRule =
+            ChromeTransitTestRules.autoResetCtaActivityRule();
 
     private BookmarkModel mModel;
     private BookmarkId mDesktopFolderId;
@@ -95,11 +93,13 @@ public class BookmarkBarTest {
 
     @Before
     public void setUp() {
-        mInitialStateRule.startOnBlankPage();
+        mCtaTestRule.startOnBlankPage();
+        ThreadUtils.runOnUiThreadBlocking(() -> setBookmarkBarSetting(/* enabled= */ true));
+        waitForBookmarkBarVisibility(/* visible= */ true);
         BookmarkTestUtil.waitForBookmarkModelLoaded();
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    mModel = sActivityTestRule.getActivity().getBookmarkModelForTesting();
+                    mModel = mCtaTestRule.getActivity().getBookmarkModelForTesting();
                     mModel.removeAllUserBookmarks();
                     mDesktopFolderId = mModel.getDesktopFolderId();
                 });
@@ -113,122 +113,40 @@ public class BookmarkBarTest {
         }
     }
 
-    private @Nullable BookmarkId addBookmark(int index, @NonNull String title, @NonNull GURL url)
-            throws ExecutionException {
-        return BookmarkTestUtil.addBookmark(
-                sActivityTestRule, mModel, index, title, url, /* parent= */ mDesktopFolderId);
-    }
-
-    private @Nullable BookmarkId addFolder(@NonNull String title) throws ExecutionException {
-        return BookmarkTestUtil.addFolder(
-                sActivityTestRule, mModel, title, /* parent= */ mDesktopFolderId);
-    }
-
-    private @NonNull Matcher<View> bookmarkBarItemWithText(@NonNull String text) {
-        return allOf(
-                isDescendantOfA(withClassName(endsWith("BookmarkBar"))),
-                withClassName(endsWith("BookmarkBarButton")),
-                hasDescendant(withText(text)));
-    }
-
-    private @NonNull Matcher<View> bookmarkBarOverflowButton() {
-        return allOf(
-                isDescendantOfA(withClassName(endsWith("BookmarkBar"))),
-                withId(R.id.bookmark_bar_overflow_button));
-    }
-
-    private @NonNull Matcher<View> bookmarkManagerToolbarWithText(@NonNull String text) {
-        return allOf(isDescendantOfA(withClassName(endsWith("BookmarkToolbar"))), withText(text));
-    }
-
-    private @NonNull ViewAction clickWith(int metaState) {
-        return new ViewAction() {
-            @Override
-            public Matcher<View> getConstraints() {
-                return isDisplayed();
-            }
-
-            @Override
-            public String getDescription() {
-                return String.format("clickWith(metaState=%d)", metaState);
-            }
-
-            @Override
-            public void perform(@NonNull UiController uiController, @NonNull View view) {
-                TouchCommon.singleClickView(view, metaState);
-            }
-        };
-    }
-
-    private @NonNull ViewAction focus() {
-        return new ViewAction() {
-            @Override
-            public Matcher<View> getConstraints() {
-                return allOf(isDisplayed(), isFocusable());
-            }
-
-            @Override
-            public String getDescription() {
-                return "focus";
-            }
-
-            @Override
-            public void perform(@NonNull UiController uiController, @NonNull View view) {
-                // NOTE: Focus doesn't exist in touch mode except under special circumstances.
-                // Temporarily enable focusability to ensure the focus request can succeed.
-                // See https://android-developers.googleblog.com/2008/12/touch-mode.html.
-                final boolean isFocusableInTouchMode = view.isFocusableInTouchMode();
-                view.setFocusableInTouchMode(true);
-                view.requestFocus();
-                CriteriaHelper.pollUiThreadNested(view::isFocused);
-                view.setFocusableInTouchMode(isFocusableInTouchMode);
-            }
-        };
-    }
-
-    private @Nullable Tab getCurrentTab() {
-        return sActivityTestRule.getActivity().getActivityTab();
-    }
-
-    private @Nullable Tab getLastTab() {
-        final var tabModel = sActivityTestRule.getActivity().getCurrentTabModel();
-        return tabModel.getTabAt(tabModel.getCount() - 1);
-    }
-
-    private @NonNull GURL getTestServerUrl(@NonNull String relativeUrl) {
-        return new GURL(sActivityTestRule.getTestServer().getURL(relativeUrl));
-    }
-
-    private <T> @NonNull Optional<T> optionalOfThrowable(@NonNull Callable<T> callable) {
-        try {
-            return Optional.of(callable.call());
-        } catch (@NonNull Throwable e) {
-            return Optional.empty();
-        }
-    }
-
-    private @NonNull ViewAction pressKey(int keyCode) {
-        return pressKey(keyCode, /* metaState= */ 0);
-    }
-
-    private @NonNull ViewAction pressKey(int keyCode, int metaState) {
-        final var isAltPressed = (metaState & META_ALT_ON) != 0;
-        final var isCtrlPressed = (metaState & META_CTRL_ON) != 0;
-        final var isShiftPressed = (metaState & META_SHIFT_ON) != 0;
-        return androidx.test.espresso.action.ViewActions.pressKey(
-                new EspressoKey.Builder()
-                        .withAltPressed(isAltPressed)
-                        .withCtrlPressed(isCtrlPressed)
-                        .withKeyCode(keyCode)
-                        .withShiftPressed(isShiftPressed)
-                        .build());
-    }
-
     @Test
     @MediumTest
     public void testOnAllBookmarksButtonClick() {
         onViewWaiting(bookmarkBarItemWithText("All Bookmarks")).perform(click());
         onViewWaiting(bookmarkManagerToolbarWithText("Bookmarks")).check(matches(isDisplayed()));
+    }
+
+    @Test
+    @MediumTest
+    public void testOnBookmarkBarToggledViaKeyboard() {
+        final var activity = mCtaTestRule.getActivity();
+        final var evt =
+                new KeyEvent(
+                        /* downTime= */ SystemClock.uptimeMillis(),
+                        /* eventTime= */ SystemClock.uptimeMillis(),
+                        KeyEvent.ACTION_DOWN,
+                        KeyEvent.KEYCODE_B,
+                        /* repeat= */ 0,
+                        KeyEvent.META_CTRL_ON | KeyEvent.META_SHIFT_ON);
+
+        // Set up.
+        ThreadUtils.runOnUiThreadBlocking(() -> setBookmarkBarSetting(/* enabled= */ false));
+        waitForBookmarkBarVisibility(/* visible= */ false);
+
+        // Case: Toggle w/ feature enabled.
+        ThreadUtils.runOnUiThreadBlocking(() -> activity.onKeyDown(evt.getKeyCode(), evt));
+        waitForBookmarkBarVisibility(/* visible= */ true);
+        ThreadUtils.runOnUiThreadBlocking(() -> activity.onKeyDown(evt.getKeyCode(), evt));
+        waitForBookmarkBarVisibility(/* visible= */ false);
+
+        // Case: Toggle w/ feature disabled.
+        BookmarkBarUtils.setFeatureEnabledForTesting(false);
+        ThreadUtils.runOnUiThreadBlocking(() -> activity.onKeyDown(evt.getKeyCode(), evt));
+        waitForBookmarkBarVisibility(/* visible= */ false);
     }
 
     @Test
@@ -314,5 +232,145 @@ public class BookmarkBarTest {
         onViewWaiting(bookmarkBarOverflowButton()).check(matches(isDisplayed())).perform(click());
         onViewWaiting(bookmarkManagerToolbarWithText("Bookmarks bar"))
                 .check(matches(isDisplayed()));
+    }
+
+    private @Nullable BookmarkId addBookmark(int index, @NonNull String title, @NonNull GURL url)
+            throws ExecutionException {
+        return BookmarkTestUtil.addBookmark(
+                mCtaTestRule.getActivityTestRule(),
+                mModel,
+                index,
+                title,
+                url,
+                /* parent= */ mDesktopFolderId);
+    }
+
+    private @Nullable BookmarkId addFolder(@NonNull String title) throws ExecutionException {
+        return BookmarkTestUtil.addFolder(
+                mCtaTestRule.getActivityTestRule(), mModel, title, /* parent= */ mDesktopFolderId);
+    }
+
+    private @NonNull Matcher<View> bookmarkBarItemWithText(@NonNull String text) {
+        return allOf(
+                isDescendantOfA(withClassName(endsWith("BookmarkBar"))),
+                withClassName(endsWith("BookmarkBarButton")),
+                hasDescendant(withText(text)));
+    }
+
+    private @NonNull Matcher<View> bookmarkBarOverflowButton() {
+        return allOf(
+                isDescendantOfA(withClassName(endsWith("BookmarkBar"))),
+                withId(R.id.bookmark_bar_overflow_button));
+    }
+
+    private @NonNull Matcher<View> bookmarkManagerToolbarWithText(@NonNull String text) {
+        return allOf(isDescendantOfA(withClassName(endsWith("BookmarkToolbar"))), withText(text));
+    }
+
+    private @NonNull ViewAction clickWith(int metaState) {
+        return new ViewAction() {
+            @Override
+            public Matcher<View> getConstraints() {
+                return isDisplayed();
+            }
+
+            @Override
+            public String getDescription() {
+                return String.format("clickWith(metaState=%d)", metaState);
+            }
+
+            @Override
+            public void perform(@NonNull UiController uiController, @NonNull View view) {
+                TouchCommon.singleClickView(view, metaState);
+            }
+        };
+    }
+
+    private @NonNull ViewAction focus() {
+        return new ViewAction() {
+            @Override
+            public Matcher<View> getConstraints() {
+                return allOf(isDisplayed(), isFocusable());
+            }
+
+            @Override
+            public String getDescription() {
+                return "focus";
+            }
+
+            @Override
+            public void perform(@NonNull UiController uiController, @NonNull View view) {
+                // NOTE: Focus doesn't exist in touch mode except under special circumstances.
+                // Temporarily enable focusability to ensure the focus request can succeed.
+                // See https://android-developers.googleblog.com/2008/12/touch-mode.html.
+                final boolean isFocusableInTouchMode = view.isFocusableInTouchMode();
+                view.setFocusableInTouchMode(true);
+                view.requestFocus();
+                CriteriaHelper.pollUiThreadNested(view::isFocused);
+                view.setFocusableInTouchMode(isFocusableInTouchMode);
+            }
+        };
+    }
+
+    private @Nullable Tab getCurrentTab() {
+        return mCtaTestRule.getActivity().getActivityTab();
+    }
+
+    private @Nullable Tab getLastTab() {
+        final var tabModel = mCtaTestRule.getActivity().getCurrentTabModel();
+        return tabModel.getTabAt(tabModel.getCount() - 1);
+    }
+
+    private @NonNull GURL getTestServerUrl(@NonNull String relativeUrl) {
+        return new GURL(mCtaTestRule.getTestServer().getURL(relativeUrl));
+    }
+
+    private <T> @NonNull Optional<T> optionalOfThrowable(@NonNull Callable<T> callable) {
+        try {
+            return Optional.of(callable.call());
+        } catch (@NonNull Throwable e) {
+            return Optional.empty();
+        }
+    }
+
+    private @NonNull ViewAction pressKey(int keyCode) {
+        return pressKey(keyCode, /* metaState= */ 0);
+    }
+
+    private @NonNull ViewAction pressKey(int keyCode, int metaState) {
+        final var isAltPressed = (metaState & META_ALT_ON) != 0;
+        final var isCtrlPressed = (metaState & META_CTRL_ON) != 0;
+        final var isShiftPressed = (metaState & META_SHIFT_ON) != 0;
+        return androidx.test.espresso.action.ViewActions.pressKey(
+                new EspressoKey.Builder()
+                        .withAltPressed(isAltPressed)
+                        .withCtrlPressed(isCtrlPressed)
+                        .withKeyCode(keyCode)
+                        .withShiftPressed(isShiftPressed)
+                        .build());
+    }
+
+    private void setBookmarkBarSetting(boolean enabled) {
+        final var activity = mCtaTestRule.getActivity();
+        final var profile = activity.getProfileProviderSupplier().get().getOriginalProfile();
+        BookmarkBarUtils.setSettingEnabled(profile, enabled);
+    }
+
+    private void waitForBookmarkBarVisibility(boolean visible) {
+        CriteriaHelper.pollUiThread(
+                () -> {
+                    final var activity = mCtaTestRule.getActivity();
+                    final var view = activity.<BookmarkBar>findViewById(R.id.bookmark_bar);
+                    final var viewStub = activity.<ViewStub>findViewById(R.id.bookmark_bar_stub);
+                    if (visible) {
+                        Criteria.checkThat(view, is(notNullValue()));
+                        Criteria.checkThat(view.getVisibility(), is(View.VISIBLE));
+                        Criteria.checkThat(view.isLaidOut(), is(true));
+                        Criteria.checkThat(viewStub, is(nullValue()));
+                    } else {
+                        Criteria.checkThat(view, is(nullValue()));
+                        Criteria.checkThat(viewStub, is(notNullValue()));
+                    }
+                });
     }
 }

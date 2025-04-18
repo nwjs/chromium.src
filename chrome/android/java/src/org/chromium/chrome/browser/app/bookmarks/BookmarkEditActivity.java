@@ -17,13 +17,14 @@ import org.chromium.base.Log;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.SnackbarActivity;
 import org.chromium.chrome.browser.bookmarks.BookmarkImageFetcher;
+import org.chromium.chrome.browser.bookmarks.BookmarkManagerOpenerImpl;
 import org.chromium.chrome.browser.bookmarks.BookmarkModel;
 import org.chromium.chrome.browser.bookmarks.BookmarkModelObserver;
 import org.chromium.chrome.browser.bookmarks.BookmarkMoveSnackbarManager;
 import org.chromium.chrome.browser.bookmarks.BookmarkTextInputLayout;
 import org.chromium.chrome.browser.bookmarks.BookmarkUiPrefs;
 import org.chromium.chrome.browser.bookmarks.BookmarkUiPrefs.BookmarkRowDisplayPref;
-import org.chromium.chrome.browser.bookmarks.BookmarkUtils;
+import org.chromium.chrome.browser.bookmarks.BookmarkViewUtils;
 import org.chromium.chrome.browser.bookmarks.ImprovedBookmarkRow;
 import org.chromium.chrome.browser.bookmarks.ImprovedBookmarkRowCoordinator;
 import org.chromium.chrome.browser.bookmarks.ImprovedBookmarkRowProperties;
@@ -148,7 +149,7 @@ public class BookmarkEditActivity extends SnackbarActivity {
                                 ImageFetcherFactory.createImageFetcher(
                                         ImageFetcherConfig.DISK_CACHE_ONLY,
                                         profile.getProfileKey()),
-                                BookmarkUtils.getRoundedIconGenerator(
+                                BookmarkViewUtils.getRoundedIconGenerator(
                                         this, BookmarkRowDisplayPref.VISUAL)),
                         mModel,
                         mBookmarkUiPrefs,
@@ -262,7 +263,9 @@ public class BookmarkEditActivity extends SnackbarActivity {
                 ImprovedBookmarkRowProperties.END_IMAGE_VISIBILITY, ImageVisibility.DRAWABLE);
         mFolderSelectRowModel.set(
                 ImprovedBookmarkRowProperties.ROW_CLICK_LISTENER,
-                () -> mBookmarkMoveSnackbarManager.startFolderPickerAndObserveResult(mBookmarkId));
+                () ->
+                        mBookmarkMoveSnackbarManager.startFolderPickerAndObserveResult(
+                                new BookmarkManagerOpenerImpl(), mBookmarkId));
 
         mFolderSelectRow =
                 ImprovedBookmarkRow.buildView(this, displayPref == BookmarkRowDisplayPref.VISUAL);

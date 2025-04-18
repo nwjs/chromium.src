@@ -10,15 +10,17 @@
 #include <limits>
 #include <optional>
 #include <utility>
+#include <variant>
 
+#include "base/functional/callback_helpers.h"
 #include "base/i18n/rtl.h"
 #include "base/memory/raw_ptr.h"
 #include "base/strings/string_util.h"
-#include "third_party/abseil-cpp/absl/types/variant.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/color/color_id.h"
 #include "ui/color/color_provider.h"
+#include "ui/events/event.h"
 #include "ui/gfx/font_list.h"
 #include "ui/gfx/text_constants.h"
 #include "ui/gfx/text_elider.h"
@@ -46,9 +48,7 @@ StyledLabel::RangeStyleInfo::~RangeStyleInfo() = default;
 StyledLabel::RangeStyleInfo StyledLabel::RangeStyleInfo::CreateForLink(
     base::RepeatingClosure callback) {
   // Adapt this closure to a Link::ClickedCallback by discarding the extra arg.
-  return CreateForLink(base::BindRepeating(
-      [](base::RepeatingClosure closure, const ui::Event&) { closure.Run(); },
-      std::move(callback)));
+  return CreateForLink(base::IgnoreArgs<const ui::Event&>(std::move(callback)));
 }
 
 // static
@@ -561,6 +561,7 @@ std::unique_ptr<Label> StyledLabel::CreateLabel(
     LinkFragment** previous_link_fragment) const {
   std::unique_ptr<Label> result;
   if (style_info.text_style == style::STYLE_LINK ||
+      style_info.text_style == style::STYLE_LINK_2 ||
       style_info.text_style == style::STYLE_LINK_3 ||
       style_info.text_style == style::STYLE_LINK_4 ||
       style_info.text_style == style::STYLE_LINK_5) {

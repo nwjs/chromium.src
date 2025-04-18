@@ -273,27 +273,9 @@ void AddressDataManager::UpdateProfile(const AutofillProfile& profile) {
   UpdateProfileInDB(profile);
 }
 
-void AddressDataManager::RemoveProfile(const std::string& guid) {
-  if (!webdata_service_) {
-    return;
-  }
-
-  // Find the profile to remove.
-  // TODO(crbug.com/40258814): This shouldn't be necessary. Providing a `guid`
-  // to the `AutofillProfileChange()` should suffice for removals.
-  const AutofillProfile* profile =
-      ProfileChangesAreOngoing(guid)
-          ? &ongoing_profile_changes_[guid].back().first.data_model()
-          : GetProfileByGUID(guid);
-  if (!profile) {
-    NotifyObservers();
-    return;
-  }
-
-  ongoing_profile_changes_[guid].emplace_back(
-      AutofillProfileChange(AutofillProfileChange::REMOVE, guid, *profile),
-      /*is_ongoing=*/false);
-  HandleNextProfileChange(guid);
+void AddressDataManager::RemoveProfile(const std::string& guid,
+                                       bool is_deduplication_initiated) {
+  RemoveProfileImpl(guid, is_deduplication_initiated);
 }
 
 void AddressDataManager::RemoveLocalProfilesModifiedBetween(base::Time begin,
@@ -367,10 +349,8 @@ void AddressDataManager::RecordUseOf(const AutofillProfile& profile) {
 
 AddressCountryCode AddressDataManager::GetDefaultCountryCodeForNewAddress()
     const {
-  std::string country = variation_country_code_->empty()
-                            ? AutofillCountry::CountryCodeForLocale(app_locale_)
-                            : variation_country_code_.value();
-  return AddressCountryCode(country);
+  return AutofillCountry::GetDefaultCountryCodeForNewAddress(
+      variation_country_code_, app_locale_);
 }
 
 bool AddressDataManager::IsProfileMigrationBlocked(
@@ -685,6 +665,7 @@ void AddressDataManager::OnAutofillProfileChanged(
         profiles_.push_back(profile);
       }
       break;
+    case AutofillProfileChange::HIDE_IN_AUTOFILL:
     case AutofillProfileChange::REMOVE:
       if (existing_profile) {
         profiles_.erase(std::ranges::find(profiles_, existing_profile->guid(),
@@ -728,14 +709,16 @@ void AddressDataManager::HandleNextProfileChange(const std::string& guid) {
   DCHECK(guid == profile.guid());
 
   switch (change.type()) {
+    case AutofillProfileChange::HIDE_IN_AUTOFILL:
     case AutofillProfileChange::REMOVE: {
       if (!existing_profile) {
         OnProfileChangeDone(guid);
         return;
       }
       webdata_service_->RemoveAutofillProfile(
-          guid, base::BindOnce(&AddressDataManager::OnAutofillProfileChanged,
-                               weak_ptr_factory_.GetWeakPtr()));
+          guid, change.type(),
+          base::BindOnce(&AddressDataManager::OnAutofillProfileChanged,
+                         weak_ptr_factory_.GetWeakPtr()));
       break;
     }
     case AutofillProfileChange::ADD: {
@@ -808,6 +791,34 @@ void AddressDataManager::LogStoredDataMetrics() const {
   autofill_metrics::LogStoredProfileCountWithAlternativeName(profile_pointers);
   autofill_metrics::LogLocalProfileSupersetMetrics(std::move(profile_pointers),
                                                    app_locale_);
+}
+
+void AddressDataManager::RemoveProfileImpl(const std::string& guid,
+                                           bool is_deduplication_initiated) {
+  if (!webdata_service_) {
+    return;
+  }
+
+  // Find the profile to remove.
+  // TODO(crbug.com/40258814): This shouldn't be necessary. Providing a `guid`
+  // to the `AutofillProfileChange()` should suffice for removals.
+  const AutofillProfile* profile =
+      ProfileChangesAreOngoing(guid)
+          ? &ongoing_profile_changes_[guid].back().first.data_model()
+          : GetProfileByGUID(guid);
+  if (!profile) {
+    NotifyObservers();
+    return;
+  }
+
+  ongoing_profile_changes_[guid].emplace_back(
+      AutofillProfileChange(
+          profile->IsAccountProfile() && is_deduplication_initiated
+              ? AutofillProfileChange::HIDE_IN_AUTOFILL
+              : AutofillProfileChange::REMOVE,
+          guid, *profile),
+      /*is_ongoing=*/false);
+  HandleNextProfileChange(guid);
 }
 
 }  // namespace autofill

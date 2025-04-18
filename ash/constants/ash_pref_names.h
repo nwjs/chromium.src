@@ -2469,14 +2469,22 @@ inline constexpr char kCaptureModeEducationLastShown[] =
 inline constexpr char kCaptureModePolicySavePath[] =
     "ash.capture_mode.policy_save_path";
 
-// A boolean pref that records whether the Sunfish feature has been enabled or
-// not.
-inline constexpr char kSunfishEnabled[] = "ash.capture_mode.sunfish_enabled";
-
-// The name of a boolean pref that records whether the sunfish consent
-// disclaimer has been accepted.
-inline constexpr char kSunfishConsentDisclaimerAccepted[] =
+// The name of a boolean pref that records whether the Scanner consent
+// disclaimer has been accepted (despite the pref path being for Sunfish).
+inline constexpr char kScannerConsentDisclaimerAccepted[] =
     "ash.capture_mode.sunfish_consent_disclaimer_accepted";
+
+// A boolean pref that records whether the Scanner consent disclaimer has been
+// acknowledged from the smart actions button entry point.
+// If this is true, then `kScannerConsentDisclaimerAccepted` must also be true.
+inline constexpr char kScannerEntryPointDisclaimerAckSmartActionsButton[] =
+    "ash.scanner.entry_point_disclaimer_ack.smart_actions_button";
+
+// A boolean pref that records whether the Scanner consent disclaimer has been
+// acknowledged from the dedicated Sunfish capture mode session.
+// If this is true, then `kScannerConsentDisclaimerAccepted` must also be true.
+inline constexpr char kScannerEntryPointDisclaimerAckSunfishSession[] =
+    "ash.scanner.entry_point_disclaimer_ack.sunfish_session";
 
 // A boolean pref that records whether the Scanner feature is enabled by the
 // user, and *will NEVER be enforced by an administrator*. This is true by
@@ -2623,6 +2631,36 @@ inline constexpr char kClassManagementToolsNavRuleSetting[] =
 // management tools.
 inline constexpr char kClassManagementToolsCaptionEnablementSetting[] =
     "ash.class_management_tools.caption_enablement_setting";
+
+// A boolean pref indicating user's eligibility to sending content feature in
+// class management tools.
+inline constexpr char kClassManagementToolsSendingContentEligibilitySetting[] =
+    "ash.class_management_tools.sending_content_setting";
+
+// A boolean pref indicating user's eligibility to caption feature in class
+// management tools.
+inline constexpr char kClassManagementToolsCaptionEligibilitySetting[] =
+    "ash.class_management_tools.caption_eligibility_setting";
+
+// A boolean pref indicating user's eligibility to Classroom integration in
+// class management tools.
+inline constexpr char kClassManagementToolsClassroomEligibilitySetting[] =
+    "ash.class_management_tools.classroom_eligibility_setting";
+
+// A boolean pref indicating user's network restriction setting in class
+// management tools.
+inline constexpr char kClassManagementToolsNetworkRestrictionSetting[] =
+    "ash.class_management_tools.network_restriction_setting";
+
+// A boolean pref indicating user's eligibility to view screen feature in class
+// management tools.
+inline constexpr char kClassManagementToolsViewScreenEligibilitySetting[] =
+    "ash.class_management_tools.view_screen_setting";
+
+// A integer pref indicating how many times user have accessed class management
+// tools OOBE page.
+inline constexpr char kClassManagementToolsOOBEAccessCountSetting[] =
+    "ash.class_management_tools.oobe_access_count_setting";
 
 // A boolean pref indicating whether age requirement met for GenAI access for
 // Coral.

@@ -92,7 +92,7 @@ class PLATFORM_EXPORT CanvasResourceProvider
   enum ResourceProviderType {
     kTexture [[deprecated]] = 0,
     kBitmap = 1,
-    kSharedBitmap = 2,
+    kSharedBitmap [[deprecated]] = 2,
     kTextureGpuMemoryBuffer [[deprecated]] = 3,
     kBitmapGpuMemoryBuffer [[deprecated]] = 4,
     kSharedImage = 5,
@@ -117,7 +117,7 @@ class PLATFORM_EXPORT CanvasResourceProvider
       CanvasResourceHost* resource_host = nullptr);
 
   static std::unique_ptr<CanvasResourceProvider>
-  CreateSoftwareSharedImageProvider(
+  CreateSharedImageProviderForSoftwareCompositor(
       gfx::Size size,
       viz::SharedImageFormat format,
       SkAlphaType alpha_type,
@@ -198,7 +198,6 @@ class PLATFORM_EXPORT CanvasResourceProvider
   virtual bool IsAccelerated() const = 0;
   // Returns true if the resource can be used by the display compositor.
   virtual bool SupportsDirectCompositing() const = 0;
-  virtual bool SupportsSingleBuffering() const { return false; }
   uint32_t ContentUniqueID() const;
 
   // Indicates that the compositing path is single buffered, meaning that
@@ -208,27 +207,27 @@ class PLATFORM_EXPORT CanvasResourceProvider
   // queue, thus reducing latency, but with the possible side effects of tearing
   // (in cases where the resource is scanned out directly) and irregular frame
   // rate.
-  bool IsSingleBuffered() const { return is_single_buffered_; }
+  virtual bool IsSingleBuffered() const = 0;
 
-  // Attempt to enable single buffering mode on this resource provider.  May
-  // fail if the CanvasResourcePRovider subclass does not support this mode of
-  // operation.
-  void TryEnableSingleBuffering();
+  // Subclasses implementing import of external canvas resources must override
+  // this method.
+  virtual void ImportResource(scoped_refptr<ExternalCanvasResource>&&) {
+    NOTREACHED();
+  }
 
-  // Only works in single buffering mode.
-  bool ImportResource(scoped_refptr<CanvasResource>&&);
-
-  void RecycleResource(scoped_refptr<CanvasResource>&&);
-  void SetResourceRecyclingEnabled(bool);
-  void ClearRecycledResources();
-  scoped_refptr<CanvasResource> NewOrRecycledResource();
+  // CanvasResourceProviderSharedImage overrides these methods as part of
+  // implementing resource recycling.
+  virtual void OnResourceReturnedFromCompositor(
+      scoped_refptr<CanvasResource>&&) {}
+  virtual void SetResourceRecyclingEnabled(bool) {}
+  virtual void ClearUnusedResources() {}
 
   SkSurface* GetSkSurface() const;
   bool IsGpuContextLost() const;
 
   // Returns true iff the resource provider is (a) using a GPU channel for
   // software SharedImages and (b) that channel has been lost.
-  virtual bool IsSharedBitmapGpuChannelLost() const;
+  virtual bool IsSoftwareSharedImageGpuChannelLost() const;
   virtual bool WritePixels(const SkImageInfo& orig_info,
                            const void* pixels,
                            size_t row_bytes,
@@ -291,10 +290,6 @@ class PLATFORM_EXPORT CanvasResourceProvider
   // are modified externally from the provider's SkSurface.
   virtual void NotifyTexParamsModified(const CanvasResource* resource) {}
 
-  size_t cached_resources_count_for_testing() const {
-    return canvas_resources_.size();
-  }
-
   FlushReason printing_fallback_reason() { return printing_fallback_reason_; }
 
   void RestoreBackBuffer(const cc::PaintImage&);
@@ -347,10 +342,7 @@ class PLATFORM_EXPORT CanvasResourceProvider
     scoped_refptr<CanvasResource> resource;
   };
 
-  // Visible for testing; should be protected.
-  const WTF::Vector<UnusedResource>& CanvasResources() const {
-    return canvas_resources_;
-  }
+  virtual bool HasUnusedResourcesForTesting() const { return false; }
   bool unused_resources_reclaim_timer_is_running_for_testing() const {
     return unused_resources_reclaim_timer_.IsRunning();
   }
@@ -370,7 +362,6 @@ class PLATFORM_EXPORT CanvasResourceProvider
 
   scoped_refptr<StaticBitmapImage> SnapshotInternal(ImageOrientation,
                                                     FlushReason);
-  scoped_refptr<CanvasResource> GetImportedResource() const;
 
   CanvasResourceProvider(const ResourceProviderType&,
                          gfx::Size size,
@@ -414,10 +405,19 @@ class PLATFORM_EXPORT CanvasResourceProvider
   // the cache.
   virtual bool IsResourceUsable(CanvasResource* resource) { return true; }
 
+  // IsResourceUsable() must be true for `resource`.
+  void RegisterUnusedResource(scoped_refptr<CanvasResource>&& resource);
+
+  // TODO(crbug.com/352263194): Move these fields inside of
+  // CanvasResourceProviderSharedImage.
+  int num_inflight_resources_ = 0;
+  int max_inflight_resources_ = 0;
+  base::OneShotTimer unused_resources_reclaim_timer_;
+
  private:
   friend class FlushForImageListener;
+
   virtual sk_sp<SkSurface> CreateSkSurface() const = 0;
-  virtual scoped_refptr<CanvasResource> CreateResource();
   virtual bool UseOopRasterization() { return false; }
   bool UseHardwareDecodeCache() const {
     return IsAccelerated() && context_provider_wrapper_;
@@ -437,11 +437,6 @@ class PLATFORM_EXPORT CanvasResourceProvider
 
   // Called after the recording was cleared from any draw ops it might have had.
   void RecordingCleared() override;
-
-  // IsResourceUsable() must be true for `resource`.
-  void RegisterUnusedResource(scoped_refptr<CanvasResource>&& resource);
-  void MaybePostUnusedResourcesReclaimTask();
-  void ClearOldUnusedResources();
 
   // Disables lines drawing as paths if necessary. Drawing lines as paths is
   // only needed for ganesh.
@@ -469,26 +464,14 @@ class PLATFORM_EXPORT CanvasResourceProvider
       cc::PaintImage::kInvalidContentId;
   uint32_t snapshot_sk_image_id_ = 0u;
 
-  // When and if |resource_recycling_enabled_| is false, |canvas_resources_|
-  // will only hold one CanvasResource at most.
-  WTF::Vector<UnusedResource> canvas_resources_;
-  base::OneShotTimer unused_resources_reclaim_timer_;
-  bool resource_recycling_enabled_ = true;
-  bool is_single_buffered_ = false;
   bool oopr_uses_dmsaa_ = false;
   bool always_enable_raster_timers_for_testing_ = false;
 
-  // The maximum number of in-flight resources waiting to be used for
-  // recycling.
-  static constexpr int kMaxRecycledCanvasResources = 3;
   // The maximum number of draw ops executed on the canvas, after which the
   // underlying GrContext is flushed.
   // Note: This parameter does not affect the flushing of recorded PaintOps.
   // See kMaxRecordedOpBytes above.
   static constexpr int kMaxDrawsBeforeContextFlush = 50;
-
-  int num_inflight_resources_ = 0;
-  int max_inflight_resources_ = 0;
 
   // Parameters for the auto-flushing heuristic.
   size_t max_recorded_op_bytes_;

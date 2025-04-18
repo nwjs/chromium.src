@@ -63,10 +63,37 @@ export class ResponseExtras {
   }
 }
 
+class MessageLogger {
+  loggingEnabled = false;
+  loggingPrefix: string;
+  constructor(senderId: string, protected prefix: string) {
+    this.loggingPrefix = `${prefix}(${senderId.substring(0, 6)})`;
+  }
+
+  setLoggingEnabled(v: boolean): void {
+    this.loggingEnabled = v;
+  }
+
+  shouldLogMessage(requestType: string): boolean {
+    return this.loggingEnabled &&
+        requestType !== 'glicWebClientCheckResponsive';
+  }
+
+  maybeLogMessage(requestType: string, message: string, payload: any) {
+    if (!this.shouldLogMessage(requestType)) {
+      return;
+    }
+    console.info(
+        `${this.loggingPrefix} [${requestType}] ${message}: ${
+            toDebugJson(payload)}`,
+        payload);
+  }
+}
+
 // Sends requests over postMessage. Ideally this type would be parameterized by
 // only one of HostRequestTypes or WebClientRequestTypes, but typescript
 // cannot represent this. Instead, this class can send messages of any type.
-export class PostMessageRequestSender {
+export class PostMessageRequestSender extends MessageLogger {
   requestId = 1;
   responseHandlers: Map<number, (response: ResponseMessage) => void> =
       new Map();
@@ -74,7 +101,8 @@ export class PostMessageRequestSender {
 
   constructor(
       private messageSender: PostMessageSender, private remoteOrigin: string,
-      private senderId: string) {
+      private senderId: string, logPrefix: string) {
+    super(senderId, logPrefix);
     const handler = this.onMessage.bind(this);
     window.addEventListener('message', handler);
     this.onDestroy = () => {
@@ -114,12 +142,16 @@ export class PostMessageRequestSender {
     const requestId = this.requestId++;
     this.responseHandlers.set(requestId, (response: ResponseMessage) => {
       if (response.exception !== undefined) {
+        this.maybeLogMessage(
+            requestType, 'received with exception', response.exception);
         reject(exceptionFromTransferable(response.exception));
       } else {
+        this.maybeLogMessage(requestType, 'received', response.responsePayload);
         resolve(response.responsePayload as RequestResponseType<T>);
       }
     });
 
+    this.maybeLogMessage(requestType, 'sending', request);
     const message: RequestMessage = {
       senderId: this.senderId,
       glicRequest: true,
@@ -142,6 +174,7 @@ export class PostMessageRequestSender {
       type: requestType,
       requestPayload: request,
     };
+    this.maybeLogMessage(requestType, 'sending', request);
     this.messageSender.postMessage(message, this.remoteOrigin, transfer);
   }
 }
@@ -162,16 +195,27 @@ export interface PostMessageRequestHandler {
         /** The payload of the response. */
         payload: any,
       }|undefined>;
+
+  /** Called when each request is received. */
+  onRequestReceived(type: string): void;
+  /** Called when a request handler throws an exception. */
+  onRequestHandlerException(type: string): void;
+  /**
+   * Called when a request response is sent (will not be called if
+   * `onRequestHandlerException()` is called.).
+   */
+  onRequestCompleted(type: string): void;
 }
 
 // Receives requests over postMessage and forward them to a
 // `PostMessageRequestHandler`.
-export class PostMessageRequestReceiver {
+export class PostMessageRequestReceiver extends MessageLogger {
   private onDestroy: () => void;
   constructor(
-      private embeddedOrigin: string,
+      private embeddedOrigin: string, senderId: string,
       private postMessageSender: PostMessageSender,
-      private handler: PostMessageRequestHandler) {
+      private handler: PostMessageRequestHandler, logPrefix: string) {
+    super(senderId, logPrefix);
     const handlerFunction = this.onMessage.bind(this);
     window.addEventListener('message', handlerFunction);
     this.onDestroy = () => {
@@ -195,10 +239,13 @@ export class PostMessageRequestReceiver {
     let response;
     let exception: TransferableException|undefined;
     const extras = new ResponseExtras();
+    this.handler.onRequestReceived(type);
+    this.maybeLogMessage(type, 'processing request', requestPayload);
     try {
       response =
           await this.handler.handleRawRequest(type, requestPayload, extras);
     } catch (error) {
+      this.handler.onRequestHandlerException(type);
       console.warn('Unexpected error', error);
       if (error instanceof Error) {
         exception = newTransferableException(error);
@@ -208,10 +255,15 @@ export class PostMessageRequestReceiver {
       }
     }
 
+    if (!exception) {
+      this.handler.onRequestCompleted(type);
+    }
+
     // If the message contains no `requestId`, a response is not requested.
     if (!requestId) {
       return;
     }
+    this.maybeLogMessage(type, 'sending response', response?.payload);
     const responseMessage: ResponseMessage = {
       type,
       responseId: requestId,
@@ -227,4 +279,15 @@ export class PostMessageRequestReceiver {
         extras.transfers,
     );
   }
+}
+
+// Converts a value to JSON for debug logging.
+function toDebugJson(v: any): string {
+  return JSON.stringify(v, (_key, value) => {
+    // stringify throws on bigint, so convert it.
+    if (typeof value === 'bigint') {
+      return value.toString();
+    }
+    return value;
+  });
 }

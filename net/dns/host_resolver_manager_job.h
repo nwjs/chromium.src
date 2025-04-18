@@ -9,6 +9,7 @@
 #include <deque>
 #include <memory>
 #include <optional>
+#include <variant>
 #include <vector>
 
 #include "base/containers/linked_list.h"
@@ -28,7 +29,6 @@
 #include "net/dns/public/dns_query_type.h"
 #include "net/dns/public/secure_dns_mode.h"
 #include "net/log/net_log_with_source.h"
-#include "third_party/abseil-cpp/absl/types/variant.h"
 
 namespace net {
 
@@ -245,6 +245,7 @@ class HostResolverManager::Job : public PrioritizedDispatcher::Job,
   void OnIntermediateTransactionsComplete(
       std::optional<HostResolverDnsTask::SingleTransactionResults>
           single_transaction_results) override;
+  bool IsHappyEyeballsV3Enabled() const override;
   void AddTransactionTimeQueued(base::TimeDelta time_queued) override;
 
   // DnsTaskResultsManager::Delegate implementation:

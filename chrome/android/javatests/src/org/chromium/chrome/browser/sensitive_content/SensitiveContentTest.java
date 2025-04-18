@@ -25,6 +25,7 @@ import android.content.Context;
 import android.os.Build;
 import android.view.ContextThemeWrapper;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
 import androidx.test.core.app.ApplicationProvider;
@@ -73,10 +74,11 @@ import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.browser.tabmodel.TabWindowManager;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper;
 import org.chromium.chrome.browser.theme.TopUiThemeColorProvider;
+import org.chromium.chrome.browser.toolbar.ToolbarManager;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.chrome.test.R;
-import org.chromium.chrome.test.transit.ChromeTabbedActivityPublicTransitEntryPoints;
+import org.chromium.chrome.test.transit.ChromeTransitTestRules;
+import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
 import org.chromium.chrome.test.transit.hub.IncognitoTabSwitcherStation;
 import org.chromium.chrome.test.transit.hub.RegularTabSwitcherStation;
 import org.chromium.chrome.test.transit.ntp.IncognitoNewTabPageStation;
@@ -129,16 +131,16 @@ public class SensitiveContentTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Rule
-    public final ChromeTabbedActivityTestRule mActivityTestRule =
-            new ChromeTabbedActivityTestRule();
-
-    private final ChromeTabbedActivityPublicTransitEntryPoints mEntryPoints =
-            new ChromeTabbedActivityPublicTransitEntryPoints(mActivityTestRule);
+    public final FreshCtaTransitTestRule mCtaTestRule =
+            ChromeTransitTestRules.freshChromeTabbedActivityRule();
 
     @Mock private HubLayoutDependencyHolder mHubLayoutDependencyHolder;
     @Mock private TopUiThemeColorProvider mTopUiThemeColorProvider;
     @Mock private TabWindowManager mTabWindowManager;
     @Mock private ObservableSupplier<CompositorViewHolder> mCompositorViewHolderSupplier;
+    @Mock private ObservableSupplier<Boolean> mScrimVisibilitySupplier;
+    @Mock private ToolbarManager mToolbarManager;
+    @Mock private ViewGroup mContentView;
 
     private WebPageStation mPage;
     private EmbeddedTestServer mTestServer;
@@ -147,8 +149,8 @@ public class SensitiveContentTest {
 
     @Before
     public void setUp() throws Exception {
-        mPage = mEntryPoints.startOnBlankPageNonBatched();
-        mTestServer = mActivityTestRule.getTestServer();
+        mPage = mCtaTestRule.startOnBlankPage();
+        mTestServer = mCtaTestRule.getTestServer();
     }
 
     @Test
@@ -172,7 +174,7 @@ public class SensitiveContentTest {
                 ThreadUtils.runOnUiThreadBlocking(
                         () ->
                                 SensitiveContentClient.fromWebContents(
-                                        mActivityTestRule.getWebContents()));
+                                        mCtaTestRule.getActivityTestRule().getWebContents()));
         final TestSensitiveContentClientObserver observer =
                 new TestSensitiveContentClientObserver();
         ThreadUtils.runOnUiThreadBlocking(() -> client.addObserver(observer));
@@ -200,10 +202,9 @@ public class SensitiveContentTest {
 
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    WebContents webContents = mActivityTestRule.getWebContents();
+                    WebContents webContents = mCtaTestRule.getActivityTestRule().getWebContents();
                     ContentView newContainerView =
-                            ContentView.createContentView(
-                                    mActivityTestRule.getActivity(), webContents);
+                            ContentView.createContentView(mCtaTestRule.getActivity(), webContents);
                     ViewAndroidDelegate newViewAndroidDelegate =
                             ViewAndroidDelegate.createBasicDelegate(newContainerView);
                     assertEquals(
@@ -228,7 +229,7 @@ public class SensitiveContentTest {
     @MediumTest
     @EnableFeatures(SensitiveContentFeatures.SENSITIVE_CONTENT_WHILE_SWITCHING_TABS)
     public void testTabHasSensitiveContentAttributeIsUpdated() {
-        final Tab tab = mActivityTestRule.getActivity().getActivityTab();
+        final Tab tab = mCtaTestRule.getActivity().getActivityTab();
         assertFalse(tab.getTabHasSensitiveContent());
 
         PageStation page = mPage.loadWebPageProgrammatically(mTestServer.getURL(SENSITIVE_FILE));
@@ -334,7 +335,7 @@ public class SensitiveContentTest {
         pollUiThread(() -> secondTab.getTabHasSensitiveContent());
         // Group the tabs.
         TabUiTestHelper.createTabGroup(
-                mActivityTestRule.getActivity(), false, List.of(firstTab, secondTab));
+                mCtaTestRule.getActivity(), false, List.of(firstTab, secondTab));
         // Open the tab switcher.
         final RegularTabSwitcherStation regularTabSwitcher = page.openRegularTabSwitcher();
         // Check that the tab switcher is sensitive.
@@ -361,9 +362,7 @@ public class SensitiveContentTest {
         pollUiThread(() -> secondIncognitoTab.getTabHasSensitiveContent());
         // Group the incognito tabs.
         TabUiTestHelper.createTabGroup(
-                mActivityTestRule.getActivity(),
-                true,
-                List.of(firstIncognitoTab, secondIncognitoTab));
+                mCtaTestRule.getActivity(), true, List.of(firstIncognitoTab, secondIncognitoTab));
         // Open the incognito tab switcher.
         final IncognitoTabSwitcherStation incognitoTabSwitcher = page.openIncognitoTabSwitcher();
         // Check that the incognito tab switcher is sensitive.
@@ -393,7 +392,7 @@ public class SensitiveContentTest {
         final Tab secondTab = page.getLoadedTab();
         // Group the tabs.
         TabUiTestHelper.createTabGroup(
-                mActivityTestRule.getActivity(), false, List.of(firstTab, secondTab));
+                mCtaTestRule.getActivity(), false, List.of(firstTab, secondTab));
 
         // Click on the "arrow button" from the bottom toolbar to display the tab group UI.
         onView(allOf(withId(R.id.toolbar_show_group_dialog_button))).perform(click());
@@ -605,7 +604,7 @@ public class SensitiveContentTest {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     final TabModel tabModel =
-                            mActivityTestRule.getActivity().getTabModelSelector().getModel(false);
+                            mCtaTestRule.getActivity().getTabModelSelector().getModel(false);
                     // Close the second tab.
                     tabModel.getTabRemover()
                             .closeTabs(
@@ -654,7 +653,7 @@ public class SensitiveContentTest {
     }
 
     private View getContentViewOfCurrentTab() {
-        return mActivityTestRule.getActivity().getActivityTab().getContentView();
+        return mCtaTestRule.getActivity().getActivityTab().getContentView();
     }
 
     private void initializeLayoutManagerPhone(
@@ -707,7 +706,10 @@ public class SensitiveContentTest {
                         tabContentManagerSupplier,
                         () -> mTopUiThemeColorProvider,
                         mHubLayoutDependencyHolder,
-                        mCompositorViewHolderSupplier);
+                        mCompositorViewHolderSupplier,
+                        mContentView,
+                        mToolbarManager,
+                        mScrimVisibilitySupplier);
 
         tabContentManagerSupplier.set(tabContentManager);
         CompositorAnimationHandler.setTestingMode(true);

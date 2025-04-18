@@ -30,11 +30,12 @@
 #include "third_party/blink/renderer/core/css/resolver/style_resolver.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/element.h"
+#include "third_party/blink/renderer/core/html/canvas/unique_font_selector.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
 #include "third_party/blink/renderer/core/paint/filter_effect_builder.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/core/style/filter_operations.h"
-#include "third_party/blink/renderer/modules/canvas/canvas2d/base_rendering_context_2d.h"
+#include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_2d_recorder_context.h"
 #include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_filter.h"
 #include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_rendering_context_2d.h"
 #include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_style.h"
@@ -44,7 +45,6 @@
 #include "third_party/blink/renderer/platform/graphics/draw_looper_builder.h"
 #include "third_party/blink/renderer/platform/graphics/filters/filter_effect.h"
 #include "third_party/blink/renderer/platform/graphics/filters/paint_filter_builder.h"
-#include "third_party/blink/renderer/platform/graphics/graphics_types.h"
 #include "third_party/blink/renderer/platform/graphics/interpolation_space.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_filter.h"
 #include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
@@ -359,7 +359,7 @@ void CanvasRenderingContext2DState::SetLang(const String& lang) {
 
 void CanvasRenderingContext2DState::SetFont(
     const FontDescription& passed_font_description,
-    FontSelector* selector) {
+    UniqueFontSelector* selector) {
   FontDescription font_description = passed_font_description;
   font_description.SetSubpixelAscentDescent(true);
 
@@ -413,11 +413,12 @@ void CanvasRenderingContext2DState::SetFont(
 
 void CanvasRenderingContext2DState::SetFontInternal(
     const FontDescription& passed_font_description,
-    FontSelector* selector) {
+    UniqueFontSelector* selector) {
   FontDescription font_description = passed_font_description;
   font_description.SetSubpixelAscentDescent(true);
 
-  font_ = MakeGarbageCollected<Font>(font_description, selector);
+  font_ = selector ? selector->FindOrCreateFont(font_description)
+                   : MakeGarbageCollected<Font>(font_description, nullptr);
   realized_font_ = true;
   lang_is_dirty_ = false;  // The font has been created with the current lang.
   if (selector)
@@ -443,7 +444,7 @@ const FontDescription& CanvasRenderingContext2DState::GetFontDescription()
 
 void CanvasRenderingContext2DState::SetFontKerning(
     FontDescription::Kerning font_kerning,
-    FontSelector* selector) {
+    UniqueFontSelector* selector) {
   DCHECK(realized_font_);
   FontDescription font_description(GetFontDescription());
   font_description.SetKerning(font_kerning);
@@ -453,7 +454,7 @@ void CanvasRenderingContext2DState::SetFontKerning(
 
 void CanvasRenderingContext2DState::SetFontStretch(
     V8CanvasFontStretch font_stretch,
-    FontSelector* selector) {
+    UniqueFontSelector* selector) {
   DCHECK(realized_font_);
   FontSelectionValue stretch_value =
       CanvasFontStretchToSelectionValue(font_stretch);
@@ -465,7 +466,7 @@ void CanvasRenderingContext2DState::SetFontStretch(
 
 void CanvasRenderingContext2DState::SetFontVariantCaps(
     FontDescription::FontVariantCaps font_variant_caps,
-    FontSelector* selector) {
+    UniqueFontSelector* selector) {
   DCHECK(realized_font_);
   FontDescription font_description(GetFontDescription());
   font_description.SetVariantCaps(font_variant_caps);
@@ -509,7 +510,7 @@ void CanvasRenderingContext2DState::ValidateFilterState() const {
 
 sk_sp<PaintFilter> CanvasRenderingContext2DState::GetFilterForOffscreenCanvas(
     gfx::Size canvas_size,
-    BaseRenderingContext2D* context) {
+    Canvas2DRecorderContext* context) {
   ValidateFilterState();
   if (filter_state_ != FilterState::kUnresolved)
     return resolved_filter_;
@@ -859,7 +860,8 @@ const cc::PaintFlags* CanvasRenderingContext2DState::GetFlags(
 }
 
 void CanvasRenderingContext2DState::SetLetterSpacing(
-    const String& letter_spacing) {
+    const String& letter_spacing,
+    UniqueFontSelector* selector) {
   DCHECK(realized_font_);
   letter_spacing_is_set_ = true;
   if (parsed_letter_spacing_ == letter_spacing)
@@ -890,12 +892,14 @@ void CanvasRenderingContext2DState::SetLetterSpacing(
       conversion_data.ZoomedComputedPixels(num_spacing, unit);
 
   font_description.SetLetterSpacing(letter_spacing_in_pixel);
-  if (font_->GetFontSelector()) {
-    SetFontInternal(font_description, font_->GetFontSelector());
+  if (selector) {
+    SetFontInternal(font_description, selector);
   }
 }
 
-void CanvasRenderingContext2DState::SetWordSpacing(const String& word_spacing) {
+void CanvasRenderingContext2DState::SetWordSpacing(
+    const String& word_spacing,
+    UniqueFontSelector* selector) {
   DCHECK(realized_font_);
   word_spacing_is_set_ = true;
   if (parsed_word_spacing_ == word_spacing)
@@ -926,14 +930,14 @@ void CanvasRenderingContext2DState::SetWordSpacing(const String& word_spacing) {
       conversion_data.ZoomedComputedPixels(num_spacing, unit);
 
   font_description.SetWordSpacing(word_spacing_in_pixel);
-  if (font_->GetFontSelector()) {
-    SetFontInternal(font_description, font_->GetFontSelector());
+  if (selector) {
+    SetFontInternal(font_description, selector);
   }
 }
 
 void CanvasRenderingContext2DState::SetTextRendering(
     V8CanvasTextRendering text_rendering,
-    FontSelector* selector) {
+    UniqueFontSelector* selector) {
   DCHECK(realized_font_);
   TextRenderingMode text_rendering_mode =
       CanvasTextRenderingToTextRenderingMode(text_rendering);

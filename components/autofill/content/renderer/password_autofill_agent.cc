@@ -30,6 +30,7 @@
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
+#include "base/strings/to_string.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "build/build_config.h"
@@ -57,6 +58,8 @@
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "components/password_manager/core/common/password_manager_util.h"
 #include "components/safe_browsing/buildflags.h"
+#include "components/signin/public/base/signin_buildflags.h"
+#include "components/signin/public/base/signin_switches.h"
 #include "content/public/renderer/render_frame.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
@@ -113,6 +116,9 @@ constexpr auto kInputPassword = blink::mojom::FormControlType::kInputPassword;
 
 // The size above which we stop triggering autocomplete.
 const size_t kMaximumTextSizeForAutocomplete = 1000;
+
+constexpr char kSubmissionSourceHistogram[] =
+    "Autofill.SubmissionDetectionSource.PasswordAutofillAgent";
 
 // Names of HTML attributes to show form and field signatures for debugging.
 const char kDebugAttributeForFormSignature[] = "form_signature";
@@ -337,7 +343,7 @@ void AnnotateFieldsWithSignatures(
                       kDebugAttributeForAlternativeFormSignature,
                       alternative_form_signature);
     SetAttributeAsync(control_element, kDebugAttributeForVisibility,
-                      control_element.IsFocusable() ? "true" : "false");
+                      base::ToString(control_element.IsFocusable()));
   }
 }
 
@@ -1584,8 +1590,13 @@ void PasswordAutofillAgent::AnnotateFieldsWithParsingResult(
                                  "confirmation_password_element");
 }
 
-void PasswordAutofillAgent::InformNoSavedCredentials() {
+void PasswordAutofillAgent::InformNoSavedCredentials(
+    bool should_show_popup_without_passwords) {
   autofilled_elements_cache_.clear();
+
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+  should_show_popup_without_passwords_ = should_show_popup_without_passwords;
+#endif
 
   // Clear the actual field values.
   std::vector<WebFormControlElement> elements;
@@ -1632,7 +1643,7 @@ std::optional<FormData> PasswordAutofillAgent::GetFormDataFromWebForm(
     const SynchronousFormCache& form_cache) {
   return CreateFormDataFromWebForm(
       web_form, field_data_manager(), &username_detector_cache_,
-      &button_titles_cache_,
+      autofill_agent_->button_titles_cache(),
       autofill_agent_->GetCallTimerState(
           CallTimerState::CallSite::kGetFormDataFromWebForm),
       form_cache);
@@ -1655,7 +1666,7 @@ PasswordAutofillAgent::GetFormDataFromUnownedInputElements(
       *web_frame, field_data_manager(), &username_detector_cache_,
       autofill_agent_->GetCallTimerState(
           CallTimerState::CallSite::kGetFormDataFromUnownedInputElements),
-      form_cache);
+      autofill_agent_->button_titles_cache(), form_cache);
 }
 
 void PasswordAutofillAgent::InformAboutFormClearing(
@@ -1716,7 +1727,9 @@ bool PasswordAutofillAgent::ShowSuggestionsForDomain(
 
   if (!password_info) {
     MaybeCheckSafeBrowsingReputation(element);
-    return false;
+    if (!CanShowPopupWithoutPasswords(password_element)) {
+      return false;
+    }
   }
 
   if (!element.IsTextField() || !IsElementEditable(element)) {
@@ -1815,6 +1828,7 @@ void PasswordAutofillAgent::ShowSuggestionPopup(
               user_input, field_data_manager(),
               autofill_agent_->GetCallTimerState(
                   CallTimerState::CallSite::kShowSuggestionPopup),
+              autofill_agent_->button_titles_cache(),
               /*extract_options=*/{}, form_cache)) {
     form = std::move(form_and_field->first);
     field = *form_and_field->second;
@@ -1830,12 +1844,13 @@ void PasswordAutofillAgent::ShowSuggestionPopup(
   const bool show_webauthn_credentials =
       field.parsed_autocomplete() && field.parsed_autocomplete()->webauthn;
   GetPasswordManagerDriver().ShowPasswordSuggestions(PasswordSuggestionRequest(
-      field.renderer_id(), form, trigger_source,
-      GetIndexOfElement(form, username_element),
-      GetIndexOfElement(form, password_element), field.text_direction(),
-      typed_username, show_webauthn_credentials,
-      gfx::RectF(render_frame()->ConvertViewportToWindow(
-          user_input.BoundsInWidget()))));
+      TriggeringField(field.renderer_id(), trigger_source,
+                      field.text_direction(), typed_username,
+                      show_webauthn_credentials,
+                      gfx::RectF(render_frame()->ConvertViewportToWindow(
+                          user_input.BoundsInWidget()))),
+      form, GetIndexOfElement(form, username_element),
+      GetIndexOfElement(form, password_element)));
 }
 
 void PasswordAutofillAgent::CleanupOnDocumentShutdown() {
@@ -2049,6 +2064,7 @@ void PasswordAutofillAgent::FireHostSubmitEvent(
     case mojom::SubmissionSource::FRAME_DETACHED:
     case mojom::SubmissionSource::DOM_MUTATION_AFTER_AUTOFILL:
       if (FrameCanAccessPasswordManager()) {
+        base::UmaHistogramEnumeration(kSubmissionSourceHistogram, source);
         GetPasswordManagerDriver().DynamicFormSubmission(
             ToSubmissionIndicatorEvent(source));
       }
@@ -2076,8 +2092,7 @@ void PasswordAutofillAgent::OnFormSubmitted(FormData submitted_form) {
   // TODO(crbug.com/40947729): Replace with `GetFormDataFromWebForm` with
   // `SynchronousFormCache` when `AutofillOptimizeFormExtraction` launches.
   ProcessFormDataAfterCreation(submitted_form, form_element,
-                               &username_detector_cache_,
-                               &button_titles_cache_);
+                               &username_detector_cache_);
 
   if (!HasTextInputs(submitted_form)) {
     return;
@@ -2089,6 +2104,8 @@ void PasswordAutofillAgent::OnFormSubmitted(FormData submitted_form) {
   submitted_form.set_fields(FillNonTypedOrFilledPropertiesMasks(
       submitted_form.ExtractFields(), field_data_manager()));
 
+  base::UmaHistogramEnumeration(kSubmissionSourceHistogram,
+                                mojom::SubmissionSource::FORM_SUBMISSION);
   GetPasswordManagerDriver().PasswordFormSubmitted(submitted_form);
 }
 
@@ -2096,6 +2113,18 @@ void PasswordAutofillAgent::HidePopup() {
   if (autofill_agent_->unsafe_autofill_driver()) {
     autofill_agent_->unsafe_autofill_driver()->HidePopup();
   }
+}
+
+bool PasswordAutofillAgent::CanShowPopupWithoutPasswords(
+    const WebInputElement& password_element) const {
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+  return password_element && IsElementEditable(password_element) &&
+         should_show_popup_without_passwords_ &&
+         base::FeatureList::IsEnabled(
+             switches::kEnablePendingModePasswordsPromo);
+#else
+  return false;
+#endif
 }
 
 mojom::PasswordManagerDriver&
@@ -2320,8 +2349,8 @@ void PasswordAutofillAgent::NotifyPasswordManagerAboutClearedForm(
   if (std::optional<FormData> form_data = form_util::ExtractFormData(
           document, cleared_form, field_data_manager(),
           autofill_agent_->GetCallTimerState(
-              CallTimerState::CallSite::
-                  kNotifyPasswordManagerAboutClearedForm))) {
+              CallTimerState::CallSite::kNotifyPasswordManagerAboutClearedForm),
+          autofill_agent_->button_titles_cache())) {
     GetPasswordManagerDriver().PasswordFormCleared(*form_data);
   }
 }

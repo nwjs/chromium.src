@@ -23,6 +23,7 @@ namespace {
 
 constexpr int kFakeBaseGenerationSeed = 10;
 constexpr char kQueryRewriterTag[] = "use_query_rewrite";
+constexpr char kLobsterI18nFlag[] = "use_i18n";
 
 const std::string_view GetTestJpgBytes(const SkBitmap& bitmap) {
   static const base::NoDestructor<std::string> jpg_bytes([&] {
@@ -52,7 +53,8 @@ manta::proto::Request CreateTestMantaRequest(std::string_view query,
                                              std::optional<uint32_t> seed,
                                              const gfx::Size& size,
                                              int num_outputs,
-                                             bool use_query_rewriter) {
+                                             bool use_query_rewriter,
+                                             bool use_i18n) {
   manta::proto::Request request;
   manta::proto::RequestConfig& request_config =
       *request.mutable_request_config();
@@ -74,6 +76,11 @@ manta::proto::Request CreateTestMantaRequest(std::string_view query,
       *request.add_input_data();
   query_rewritten_input_data.set_tag(kQueryRewriterTag);
   query_rewritten_input_data.set_text(use_query_rewriter ? "true" : "false");
+
+  manta::proto::InputData& query_i18n_flag_input_data =
+      *request.add_input_data();
+  query_i18n_flag_input_data.set_tag(kLobsterI18nFlag);
+  query_i18n_flag_input_data.set_text(use_i18n ? "true" : "false");
 
   return request;
 }
@@ -97,12 +104,16 @@ testing::Matcher<ash::LobsterImageCandidate> EqLobsterImageCandidate(
     int expected_id,
     const SkBitmap& expected_bitmap,
     uint32_t expected_generation_seed,
-    std::string_view expected_query) {
+    std::string_view expected_user_query,
+    std::string_view expected_rewritten_query) {
   return testing::AllOf(
       testing::Field(&ash::LobsterImageCandidate::id, expected_id),
       testing::Field(&ash::LobsterImageCandidate::image_bytes,
                      AreJpgBytesClose(expected_bitmap)),
       testing::Field(&ash::LobsterImageCandidate::seed,
                      expected_generation_seed),
-      testing::Field(&ash::LobsterImageCandidate::query, expected_query));
+      testing::Field(&ash::LobsterImageCandidate::user_query,
+                     expected_user_query),
+      testing::Field(&ash::LobsterImageCandidate::rewritten_query,
+                     expected_rewritten_query));
 }

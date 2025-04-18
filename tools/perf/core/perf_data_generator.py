@@ -111,18 +111,25 @@ LIGHTWEIGHT_TESTERS = [
 ]
 
 UPLOAD_SKIA_JSON_BUILDERS = frozenset([
+    'android_arm64-builder-perf',
+    'android-builder-perf',
     'android-go-wembley-perf',
     'android-go-wembley_webview-perf',
     'android-pixel-fold-perf',
     'android-pixel-tangor-perf',
+    'android-pixel4-perf',
     'android-pixel4_webview-perf',  # One of the mobile testers.
     'android-pixel4_webview-perf-pgo',
     'android-pixel6-perf',
     'android-pixel6-perf-pgo',
     'android-pixel6-pro-perf',
+    'linux-builder-perf',
+    'linux-perf-fyi',
     'linux-perf-rel',
     'linux-processor-perf',
     'linux-r350-perf',
+    'mac-arm-builder-perf',
+    'mac-builder-perf',
     'mac-intel-perf',
     'mac-m1-pro-perf',
     'mac-m1_mini_2020-no-brp-perf',
@@ -132,8 +139,10 @@ UPLOAD_SKIA_JSON_BUILDERS = frozenset([
     'win-10-processor-perf',
     'win-10_amd_laptop-perf',
     'win-10_laptop_low_end-processor-perf',
+    'win-10_laptop_low_end-perf_HP-Candidate',
     'win-11_laptop_low_end-perf',  # One of the non-lightweight testers.
     'win-11-processor-perf',  # One of the lightweight processors.
+    'win64-builder-perf',
 ])
 
 PUBLIC_PERF_BUILDERS = [

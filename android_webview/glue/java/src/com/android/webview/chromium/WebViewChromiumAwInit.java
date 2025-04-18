@@ -71,6 +71,8 @@ import org.chromium.net.NetworkChangeNotifier;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.ResourceBundle;
 
+import java.util.ArrayDeque;
+import java.util.Locale;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -84,6 +86,9 @@ public class WebViewChromiumAwInit {
     private static final String TAG = "WebViewChromiumAwInit";
 
     private static final String HTTP_AUTH_DATABASE_FILE = "http_auth.db";
+
+    private static final String ASSET_PATH_WORKAROUND_HISTOGRAM_NAME =
+            "Android.WebView.AssetPathWorkaroundUsed.StartChromiumLocked";
 
     public static class WebViewStartUpDiagnostics {
         private final Object mLock = new Object();
@@ -210,6 +215,14 @@ public class WebViewChromiumAwInit {
     private final WebViewChromiumRunQueue mWebViewStartUpCallbackRunQueue =
             new WebViewChromiumRunQueue();
 
+    private final AtomicInteger mChromiumFirstStartupRequestMode =
+            new AtomicInteger(StartupTasksRunner.UNSET);
+    // Only accessed from the UI thread
+    private StartupTasksRunner mStartupTasksRunner;
+    private boolean mIsStartupTaskExperimentEnabled;
+    private RuntimeException mStartupException;
+    private Error mStartupError;
+
     // This enum must be kept in sync with WebViewStartup.CallSite in chrome_track_event.proto and
     // WebViewStartupCallSite in enums.xml.
     @IntDef({
@@ -271,167 +284,276 @@ public class WebViewChromiumAwInit {
 
     // TODO(crbug.com/389871700): Rename to startChromium because it doesn't need the lock.
     private void startChromiumLocked(@CallSite int callSite, boolean triggeredFromUIThread) {
-        long startTime = SystemClock.uptimeMillis();
-        try (ScopedSysTraceEvent event =
-                ScopedSysTraceEvent.scoped("WebViewChromiumAwInit.startChromiumLocked")) {
-            assert ThreadUtils.runningOnUiThread();
+        assert ThreadUtils.runningOnUiThread();
 
-            if (mInitState.get() == INIT_FINISHED) {
-                return;
-            }
-
-            if (callSite == CallSite.GET_STATICS) {
-                SharedStatics.setStartupTriggered();
-            }
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                TrackExitReasons.startTrackingStartup();
-            }
-
-            final Context context = ContextUtils.getApplicationContext();
-
-            ResourceBundle.setAvailablePakLocales(AwLocaleConfig.getWebViewSupportedPakLocales());
-
-            try (ScopedSysTraceEvent e =
-                    ScopedSysTraceEvent.scoped("WebViewChromiumAwInit.LibraryLoader")) {
-                LibraryLoader.getInstance().ensureInitialized();
-            }
-
-            PathService.override(PathService.DIR_MODULE, "/system/lib/");
-            PathService.override(DIR_RESOURCE_PAKS_ANDROID, "/system/framework/webview/paks");
-
-            initPlatSupportLibrary();
-            AwContentsStatics.setCheckClearTextPermitted(
-                    context.getApplicationInfo().targetSdkVersion >= Build.VERSION_CODES.O);
-
-            // NOTE: We are rewriting Java resources in the background. Any
-            // reference to Java resources before this point will cause a crash.
-            waitUntilSetUpResources();
-
-            // Try to work around the resources problem.
-            //
-            // WebViewFactory adds WebView's asset path to the host app before any of the code in
-            // the APK starts running, but it adds it using an old mechanism that doesn't persist if
-            // the app's resource configuration changes for any other reason.
-            //
-            // By the time we get here, it's possible it's gone missing due to something on the UI
-            // thread having triggered a resource update. This can happen either because WebView
-            // initialization was triggered by a background thread (and thus this code is running
-            // inside a posted task on the UI thread which may have taken any amount of time to
-            // actually run), or because the app used CookieManager first, which triggers the code
-            // being loaded and WebViewFactory doing the initial resources add, but does not call
-            // startChromiumLocked until the app uses some other API, an arbitrary amount of time
-            // later. So, we can try to add them again using the "better" method in WebViewDelegate.
-            //
-            // However, we only want to try this if the resources are actually missing, because
-            // in the past we've seen this cause apps that were working to *start* crashing.
-            // The first resource that gets accessed in startup happens during the
-            // AwBrowserProcess.start() call when trying to determine if the device is a tablet,
-            // and that's the most common place for us to crash. So, try calling that same
-            // method and see if it throws - if so then we're unlikely to make the situation
-            // any worse by trying to fix the path.
-            //
-            // This cannot fix the problem in all cases - if the app is using a weird ContextWrapper
-            // or doing other unusual things with resources/assets then even adding it with this
-            // mechanism might not help.
-            try {
-                DeviceFormFactor.isTablet();
-            } catch (Resources.NotFoundException e) {
-                mFactory.addWebViewAssetPath(context);
-            }
-
-            AwBrowserProcess.configureChildProcessLauncher();
-
-            // finishVariationsInitLocked() must precede native initialization so the seed is
-            // available when AwFeatureListCreator::SetUpFieldTrials() runs.
-            if (!FastVariationsSeedSafeModeAction.hasRun()) {
-                finishVariationsInitLocked();
-            }
-
-            AwBrowserProcess.start();
-
-            // TODO(crbug.com/332706093): See if this can be moved before loading native.
-            AwClassPreloader.preloadClasses();
-
-            AwBrowserProcess.handleMinidumpsAndSetMetricsConsent(/* updateMetricsConsent= */ true);
-            doNetworkInitializations(context);
-
-            // This has to be done after variations are initialized, so components could be
-            // registered or not depending on the variations flags.
-            AwBrowserProcess.loadComponents();
-            AwBrowserProcess.initializeMetricsLogUploader();
-
-            RecordHistogram.recordSparseHistogram(
-                    "Android.WebView.TargetSdkVersion",
-                    context.getApplicationInfo().targetSdkVersion);
-
-            try (ScopedSysTraceEvent e =
-                    ScopedSysTraceEvent.scoped(
-                            "WebViewChromiumAwInit.initThreadUnsafeSingletons")) {
-                mChromiumStartedGlobals = new ChromiumStartedGlobals(mFactory);
-            }
-
-            if (BuildInfo.isDebugAndroidOrApp()) {
-                mChromiumStartedGlobals.mSharedStatics
-                        .setWebContentsDebuggingEnabledUnconditionally(true);
-            }
-
-            if ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
-                    ? CompatChanges.isChangeEnabled(WebSettings.ENABLE_SIMPLIFIED_DARK_MODE)
-                    : BuildInfo.targetsAtLeastT()) {
-                AwDarkMode.enableSimplifiedDarkMode();
-            }
-
-            if (CommandLine.getInstance().hasSwitch(AwSwitches.WEBVIEW_VERBOSE_LOGGING)) {
-                logCommandLineAndActiveTrials();
-            }
-
-            PostTask.postTask(
-                    TaskTraits.BEST_EFFORT,
-                    () -> {
-                        mFactory.setWebViewContextExperimentValue(
-                                AwFeatureMap.isEnabled(
-                                        AwFeatures.WEBVIEW_SEPARATE_RESOURCE_CONTEXT));
-                        mFactory.setWebViewDisableCHIPSExperimentValue(
-                                AwFeatureMap.isEnabled(AwFeatures.WEBVIEW_DISABLE_CHIPS));
-                    });
-
-            if (AwFeatureMap.isEnabled(AwFeatures.WEBVIEW_PREFETCH_NATIVE_LIBRARY)
-                    && !AwFeatureMap.getInstance()
-                            .getFieldTrialParamByFeatureAsBoolean(
-                                    AwFeatures.WEBVIEW_PREFETCH_NATIVE_LIBRARY,
-                                    "WebViewPrefetchFromRenderer",
-                                    false)) {
-                PostTask.postTask(
-                        TaskTraits.BEST_EFFORT,
-                        () -> {
-                            LibraryPrefetcher.prefetchNativeLibraryForWebView();
-                        });
-            }
-
-            AwCrashyClassUtils.maybeCrashIfEnabled();
-            // Must happen right after Chromium initialization is complete.
-            mInitState.set(INIT_FINISHED);
-            mStartupFinished.countDown();
-            // This runs all the pending tasks queued for after Chromium init is finished,
-            // so should run after `mInitState` is `INIT_FINISHED`.
-            mFactory.getRunQueue().notifyChromiumStarted();
+        if (mInitState.get() == INIT_FINISHED) {
+            return;
         }
-        long totalTimeTaken = SystemClock.uptimeMillis() - startTime;
-        mWebViewStartUpDiagnostics.setTotalTimeUiThreadChromiumInitMillis(totalTimeTaken);
-        // Currently `startUpChromium` is not split into multiple tasks, therefore we consider
-        // `startUpChromium` as a single task.
-        mWebViewStartUpDiagnostics.setMaxTimePerTaskUiThreadChromiumInitMillis(totalTimeTaken);
+
+        if (mIsStartupTaskExperimentEnabled) {
+            if (mStartupException != null) {
+                throw mStartupException;
+            } else if (mStartupError != null) {
+                throw mStartupError;
+            }
+
+            // This can be non-null for async-then-sync or multiple-async calls.
+            if (mStartupTasksRunner == null) {
+                mStartupTasksRunner = initializeStartupTasksRunner();
+            }
+        } else {
+            // Makes sure we run all of the startup tasks.
+            mStartupTasksRunner = initializeStartupTasksRunner();
+        }
+
+        mStartupTasksRunner.run(callSite, triggeredFromUIThread);
+    }
+
+    // Called once during the WebViewChromiumFactoryProvider initialization
+    void setStartupTaskExperimentEnabled(boolean enabled) {
+        assert mInitState.get() == INIT_NOT_STARTED;
+        mIsStartupTaskExperimentEnabled = enabled;
+    }
+
+    // Initializes a new StartupTaskRunner with a list of tasks to run for chromium startup.
+    // Postcondition of calling `.run` on the returned StartupTasksRunner is that Chromium startup
+    // is finished.
+    private StartupTasksRunner initializeStartupTasksRunner() {
+        ArrayDeque<Runnable> tasks = new ArrayDeque<>();
+        tasks.addLast(
+                () -> {
+                    if (mIsStartupTaskExperimentEnabled) {
+                        // Disable java-side PostTask scheduling. The native-side task runners are
+                        // also disabled in the native code. The unscheduled prenative tasks are
+                        // migrated to the native task runner. The native task runner is enabled
+                        // when we are done with startup.
+                        PostTask.disablePreNativeUiTasks(true);
+                    }
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        TrackExitReasons.startTrackingStartup();
+                    }
+
+                    final Context context = ContextUtils.getApplicationContext();
+
+                    ResourceBundle.setAvailablePakLocales(
+                            AwLocaleConfig.getWebViewSupportedPakLocales());
+
+                    try (ScopedSysTraceEvent e =
+                            ScopedSysTraceEvent.scoped("WebViewChromiumAwInit.LibraryLoader")) {
+                        LibraryLoader.getInstance().ensureInitialized();
+                    }
+
+                    // TODO(crbug.com/400414092): These should be obsolete now.
+                    PathService.override(PathService.DIR_MODULE, "/system/lib/");
+                    PathService.override(
+                            DIR_RESOURCE_PAKS_ANDROID, "/system/framework/webview/paks");
+
+                    initPlatSupportLibrary();
+                    AwContentsStatics.setCheckClearTextPermitted(
+                            context.getApplicationInfo().targetSdkVersion >= Build.VERSION_CODES.O);
+
+                    waitUntilSetUpResources();
+                    // NOTE: Finished writing Java resources. From this point on, it's safe
+                    // to use them.
+
+                    // TODO(crbug.com/400413041) : Remove this workaround.
+                    // Try to work around the resources problem.
+                    //
+                    // WebViewFactory adds WebView's asset path to the host app before any
+                    // of the code in the APK starts running, but it adds it using an old
+                    // mechanism that doesn't persist if the app's resource configuration
+                    // changes for any other reason.
+                    //
+                    // By the time we get here, it's possible it's gone missing due to
+                    // something on the UI thread having triggered a resource update. This
+                    // can happen either because WebView initialization was triggered by a
+                    // background thread (and thus this code is running inside a posted task
+                    // on the UI thread which may have taken any amount of time to actually
+                    // run), or because the app used CookieManager first, which triggers the
+                    // code being loaded and WebViewFactory doing the initial resources add,
+                    // but does not call startChromiumLocked until the app uses some other
+                    // API, an arbitrary amount of time later. So, we can try to add them
+                    // again using the "better" method in WebViewDelegate.
+                    //
+                    // However, we only want to try this if the resources are actually
+                    // missing, because in the past we've seen this cause apps that were
+                    // working to *start* crashing. The first resource that gets accessed in
+                    // startup happens during the AwBrowserProcess.start() call when trying
+                    // to determine if the device is a tablet, and that's the most common
+                    // place for us to crash. So, try calling that same method and see if it
+                    // throws - if so then we're unlikely to make the situation any worse by
+                    // trying to fix the path.
+                    //
+                    // This cannot fix the problem in all cases - if the app is using a
+                    // weird ContextWrapper or doing other unusual things with
+                    // resources/assets then even adding it with this mechanism might not
+                    // help.
+                    try {
+                        DeviceFormFactor.isTablet();
+                        RecordHistogram.recordBooleanHistogram(
+                                ASSET_PATH_WORKAROUND_HISTOGRAM_NAME, false);
+                    } catch (Resources.NotFoundException e) {
+                        RecordHistogram.recordBooleanHistogram(
+                                ASSET_PATH_WORKAROUND_HISTOGRAM_NAME, true);
+                        mFactory.addWebViewAssetPath(context);
+                    }
+
+                    AwBrowserProcess.configureChildProcessLauncher();
+
+                    // finishVariationsInitLocked() must precede native initialization so
+                    // the seed is available when AwFeatureListCreator::SetUpFieldTrials()
+                    // runs.
+                    if (!FastVariationsSeedSafeModeAction.hasRun()) {
+                        finishVariationsInitLocked();
+                    }
+                });
+        tasks.addLast(AwBrowserProcess::start);
+        tasks.addLast(
+                () -> {
+                    // TODO(crbug.com/332706093): See if this can be moved before loading
+                    // native.
+                    AwClassPreloader.preloadClasses();
+
+                    AwBrowserProcess.handleMinidumpsAndSetMetricsConsent(
+                            /* updateMetricsConsent= */ true);
+                    doNetworkInitializations(ContextUtils.getApplicationContext());
+                });
+
+        // This has to be done after variations are initialized, so components could
+        // be registered or not depending on the variations flags.
+        tasks.addLast(AwBrowserProcess::loadComponents);
+        tasks.addLast(
+                () -> {
+                    AwBrowserProcess.initializeMetricsLogUploader();
+
+                    RecordHistogram.recordSparseHistogram(
+                            "Android.WebView.TargetSdkVersion",
+                            ContextUtils.getApplicationContext()
+                                    .getApplicationInfo()
+                                    .targetSdkVersion);
+
+                    try (ScopedSysTraceEvent e =
+                            ScopedSysTraceEvent.scoped(
+                                    "WebViewChromiumAwInit.initThreadUnsafeSingletons")) {
+                        mChromiumStartedGlobals = new ChromiumStartedGlobals(mFactory);
+                    }
+
+                    if (BuildInfo.isDebugAndroidOrApp()) {
+                        mChromiumStartedGlobals.mSharedStatics
+                                .setWebContentsDebuggingEnabledUnconditionally(true);
+                    }
+
+                    if ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+                            ? CompatChanges.isChangeEnabled(WebSettings.ENABLE_SIMPLIFIED_DARK_MODE)
+                            : BuildInfo.targetsAtLeastT()) {
+                        AwDarkMode.enableSimplifiedDarkMode();
+                    }
+
+                    if (CommandLine.getInstance().hasSwitch(AwSwitches.WEBVIEW_VERBOSE_LOGGING)) {
+                        logCommandLineAndActiveTrials();
+                    }
+
+                    PostTask.postTask(
+                            TaskTraits.BEST_EFFORT,
+                            () -> {
+                                mFactory.setWebViewContextExperimentValue(
+                                        AwFeatureMap.isEnabled(
+                                                AwFeatures.WEBVIEW_SEPARATE_RESOURCE_CONTEXT));
+                                mFactory.setWebViewDisableCHIPSExperimentValue(
+                                        AwFeatureMap.isEnabled(AwFeatures.WEBVIEW_DISABLE_CHIPS));
+                                mFactory.setWebViewUseStartupTasksExperimentValue(
+                                        AwFeatureMap.isEnabled(
+                                                AwFeatures.WEBVIEW_USE_STARTUP_TASKS_LOGIC));
+                            });
+
+                    if (AwFeatureMap.isEnabled(AwFeatures.WEBVIEW_PREFETCH_NATIVE_LIBRARY)
+                            && !AwFeatureMap.getInstance()
+                                    .getFieldTrialParamByFeatureAsBoolean(
+                                            AwFeatures.WEBVIEW_PREFETCH_NATIVE_LIBRARY,
+                                            "WebViewPrefetchFromRenderer",
+                                            false)) {
+                        PostTask.postTask(
+                                TaskTraits.BEST_EFFORT,
+                                () -> {
+                                    LibraryPrefetcher.prefetchNativeLibraryForWebView();
+                                });
+                    }
+
+                    AwCrashyClassUtils.maybeCrashIfEnabled();
+                    // Must happen right after Chromium initialization is complete.
+                    mInitState.set(INIT_FINISHED);
+                    mStartupFinished.countDown();
+                    // This runs all the pending tasks queued for after Chromium init is
+                    // finished, so should run after `mInitState` is `INIT_FINISHED`.
+                    mFactory.getRunQueue().notifyChromiumStarted();
+                    if (mIsStartupTaskExperimentEnabled) {
+                        // Re-enables the taskrunners
+                        PostTask.disablePreNativeUiTasks(false);
+                        AwBrowserProcess.onStartupComplete();
+                    }
+                });
+
+        return new StartupTasksRunner(tasks);
+    }
+
+    private void recordStartupMetrics(
+            @CallSite int startCallSite,
+            @CallSite int finishCallSite,
+            long startTimeMs,
+            long totalTimeTakenMs,
+            long longestUiBlockingTaskTimeMs,
+            @StartupTasksRunner.StartupMode int startupMode) {
+        // Record asyncStartup API metrics
+        mWebViewStartUpDiagnostics.setTotalTimeUiThreadChromiumInitMillis(totalTimeTakenMs);
+        mWebViewStartUpDiagnostics.setMaxTimePerTaskUiThreadChromiumInitMillis(
+                longestUiBlockingTaskTimeMs);
         mWebViewStartUpCallbackRunQueue.notifyChromiumStarted();
-        RecordHistogram.recordEnumeratedHistogram(
-                "Android.WebView.Startup.CreationTime.InitReason", callSite, CallSite.COUNT);
+
+        // Record histograms
+        String startupModeString =
+                switch (startupMode) {
+                    case StartupTasksRunner.StartupMode.FULLY_SYNC -> ".FullySync";
+                    case StartupTasksRunner.StartupMode.FULLY_ASYNC -> ".FullyAsync";
+                    case StartupTasksRunner.StartupMode
+                            .ASYNC_BUT_FULLY_SYNC -> ".AsyncButFullySync";
+                    case StartupTasksRunner.StartupMode
+                            .PARTIAL_ASYNC_THEN_SYNC -> ".PartialAsyncThenSync";
+                    default -> ".Unknown";
+                };
         RecordHistogram.recordTimesHistogram(
-                "Android.WebView.Startup.CreationTime.StartChromiumLocked", totalTimeTaken);
+                "Android.WebView.Startup.CreationTime.StartChromiumLocked", totalTimeTakenMs);
+        RecordHistogram.recordTimesHistogram(
+                "Android.WebView.Startup.CreationTime.StartChromiumLocked" + startupModeString,
+                totalTimeTakenMs);
+        RecordHistogram.recordTimesHistogram(
+                "Android.WebView.Startup.ChromiumInitTime.LongestUiBlockingTaskTime",
+                longestUiBlockingTaskTimeMs);
+        RecordHistogram.recordTimesHistogram(
+                "Android.WebView.Startup.ChromiumInitTime.LongestUiBlockingTaskTime"
+                        + startupModeString,
+                longestUiBlockingTaskTimeMs);
+        RecordHistogram.recordEnumeratedHistogram(
+                "Android.WebView.Startup.ChromiumInitTime.StartupMode",
+                startupMode,
+                StartupTasksRunner.StartupMode.COUNT);
+        RecordHistogram.recordEnumeratedHistogram(
+                "Android.WebView.Startup.CreationTime.InitReason", startCallSite, CallSite.COUNT);
+        if (startupMode == StartupTasksRunner.StartupMode.ASYNC_BUT_FULLY_SYNC
+                || startupMode == StartupTasksRunner.StartupMode.PARTIAL_ASYNC_THEN_SYNC) {
+            RecordHistogram.recordEnumeratedHistogram(
+                    "Android.WebView.Startup.ChromiumInitTime.AsyncToSyncSwitchReason",
+                    finishCallSite,
+                    CallSite.COUNT);
+        }
+
+        // Record traces
         TraceEvent.webViewStartupStartChromiumLocked(
-                startTime,
-                totalTimeTaken,
-                /* callSite= */ callSite,
-                /* fromUIThread= */ triggeredFromUIThread);
+                startTimeMs,
+                totalTimeTakenMs,
+                /* startCallSite= */ startCallSite,
+                /* finishCallSite= */ finishCallSite,
+                /* startupMode= */ startupMode);
         // Also create the trace events for the earlier WebViewChromiumFactoryProvider init, which
         // happens before tracing is ready.
         TraceEvent.webViewStartupTotalFactoryInit(
@@ -552,6 +674,11 @@ public class WebViewChromiumAwInit {
 
         maybeSetChromiumUiThread(fromThreadSafeFunction);
 
+        mChromiumFirstStartupRequestMode.compareAndSet(
+                StartupTasksRunner.UNSET,
+                ThreadUtils.runningOnUiThread()
+                        ? StartupTasksRunner.SYNC
+                        : StartupTasksRunner.ASYNC);
         if (ThreadUtils.runningOnUiThread()) {
             mWebViewStartUpDiagnostics.setSynchronousChromiumInitLocation(
                     new Throwable(
@@ -566,6 +693,8 @@ public class WebViewChromiumAwInit {
 
         // If we're not running on the UI thread (because init was triggered by a thread-safe
         // function), post init to the UI thread, since init is *not* thread-safe.
+        // TODO(crbug.com/397372092): Consider checking if async startup is in progress so as not to
+        // bother posting.
         AwThreadUtils.postToUiThreadLooper(
                 () -> startChromiumLocked(callSite, /* triggeredFromUIThread= */ false));
         return false;
@@ -787,6 +916,176 @@ public class WebViewChromiumAwInit {
             mAwTracingController = new AwTracingController();
             mDefaultServiceWorkerController = mDefaultBrowserContext.getServiceWorkerController();
             mAwProxyController = new AwProxyController();
+        }
+    }
+
+    // This class is responsible for running chromium startup tasks asynchronously or synchronously
+    // depending on if startup is triggered from the background or UI thread.
+    private final class StartupTasksRunner {
+        private final ArrayDeque<Runnable> mQueue;
+        private final int mNumTasks;
+        private boolean mAsyncHasBeenTriggered;
+        private long mLongestUiBlockingTaskTimeMs;
+        private long mTotalTimeTakenMs;
+        private boolean mStartupStarted;
+        private @CallSite int mStartCallSite = CallSite.COUNT;
+        private @CallSite int mFinishCallSite = CallSite.COUNT;
+        private boolean mFirstTaskFromSynchronousCall;
+
+        private static final int UNSET = 0;
+        private static final int SYNC = 1;
+        private static final int ASYNC = 2;
+
+        // LINT.IfChange(WebViewChromiumStartupMode)
+        @IntDef({
+            StartupMode.FULLY_SYNC,
+            StartupMode.FULLY_ASYNC,
+            StartupMode.PARTIAL_ASYNC_THEN_SYNC,
+            StartupMode.ASYNC_BUT_FULLY_SYNC,
+            StartupMode.COUNT,
+        })
+        @interface StartupMode {
+            // Startup was triggered on the UI thread and completed synchronously
+            int FULLY_SYNC = 0;
+            // Startup was triggered on a background thread and completed asynchronously
+            int FULLY_ASYNC = 1;
+            // Startup was triggered on a background thread, some tasks ran asynchronously. Then
+            // another init call on the UI thread preempted the async run and startup completed
+            // synchronously
+            int PARTIAL_ASYNC_THEN_SYNC = 2;
+            // Startup was triggered on a background thread, the posted task was not run yet. Then
+            // another init call on the UI thread was started before the posted task and startup
+            // fully completed synchronously
+            int ASYNC_BUT_FULLY_SYNC = 3;
+            // Remember to update WebViewStartupMode in enums.xml when adding new values here.
+            int COUNT = 4;
+        };
+
+        // LINT.ThenChange(//base/tracing/protos/chrome_track_event.proto:WebViewChromiumStartupMode)
+
+        StartupTasksRunner(ArrayDeque<Runnable> tasks) {
+            mQueue = tasks;
+            mNumTasks = tasks.size();
+        }
+
+        void run(@CallSite int callSite, boolean triggeredFromUIThread) {
+            assert ThreadUtils.runningOnUiThread();
+
+            if (!mStartupStarted) {
+                mStartupStarted = true;
+                mFirstTaskFromSynchronousCall = triggeredFromUIThread;
+                mStartCallSite = callSite;
+                if (mStartCallSite == CallSite.GET_STATICS) {
+                    SharedStatics.setStartupTriggered();
+                }
+                mFinishCallSite = callSite;
+            }
+
+            // Early return to avoid repeating the return call within sync and async blocks
+            if (mQueue.isEmpty()) {
+                assert mInitState.get() == INIT_FINISHED;
+                return;
+            }
+
+            if (mIsStartupTaskExperimentEnabled && !triggeredFromUIThread) {
+                // Prevents triggering async run multiple times and thus reduce the interval between
+                // tasks.
+                if (mAsyncHasBeenTriggered) {
+                    return;
+                }
+                mAsyncHasBeenTriggered = true;
+                runAsyncStartupTaskAndPostNext(/* taskNum= */ 1);
+            } else {
+                // This lets us track the reason for a sync finish, especially relevant if we
+                // started off asynchronously.
+                mFinishCallSite = callSite;
+                try (ScopedSysTraceEvent event =
+                        ScopedSysTraceEvent.scoped(
+                                "WebViewChromiumAwInit.startChromiumLockedSync")) {
+                    timedRunWithExceptionHandling(
+                            () -> {
+                                while (!mQueue.isEmpty()) {
+                                    mQueue.poll().run();
+                                }
+                            },
+                            SYNC);
+                }
+            }
+        }
+
+        private void runAsyncStartupTaskAndPostNext(int taskNum) {
+            assert ThreadUtils.runningOnUiThread();
+
+            if (mQueue.isEmpty()) {
+                return;
+            }
+
+            try (ScopedSysTraceEvent event =
+                    ScopedSysTraceEvent.scoped(
+                            String.format(
+                                    Locale.US,
+                                    "WebViewChromiumAwInit.startChromiumLockedAsync_task%d/%d",
+                                    taskNum,
+                                    mNumTasks))) {
+                timedRunWithExceptionHandling(mQueue.poll(), ASYNC);
+            }
+
+            if (!mQueue.isEmpty()) { // Avoids unnecessarily posting to the UI thread
+                AwThreadUtils.postToUiThreadLooper(
+                        () -> runAsyncStartupTaskAndPostNext(taskNum + 1));
+            }
+        }
+
+        // Runs the startup task while keeping track of metrics and dealing with exceptions
+        private void timedRunWithExceptionHandling(Runnable task, int runMode) {
+            assert ThreadUtils.runningOnUiThread();
+
+            try {
+                long startTimeMs = SystemClock.uptimeMillis();
+                task.run();
+                long durationMs = SystemClock.uptimeMillis() - startTimeMs;
+
+                mLongestUiBlockingTaskTimeMs = Math.max(mLongestUiBlockingTaskTimeMs, durationMs);
+                mTotalTimeTakenMs += durationMs;
+                if (mQueue.isEmpty()) {
+                    // We are done running all the tasks, so record the metrics.
+                    recordStartupMetrics(
+                            mStartCallSite,
+                            mFinishCallSite,
+                            /* startTimeMs= */ startTimeMs,
+                            /* totalTimeTakenMs= */ mTotalTimeTakenMs,
+                            /* longestUiBlockingTaskTimeMs= */ mLongestUiBlockingTaskTimeMs,
+                            calculateStartupMode(runMode));
+                }
+            } catch (RuntimeException | Error e) {
+                Log.e(TAG, "WebView chromium startup failed", e);
+                if (e instanceof RuntimeException re) {
+                    mStartupException = re;
+                } else {
+                    mStartupError = (Error) e;
+                }
+                throw e;
+            }
+        }
+
+        // To determine the startup mode, we track:
+        // 1. Whether the initial startup request was synchronous or asynchronous.
+        // 2. Whether the first task ran synchronously or asynchronously.
+        // 3. Whether the last task ran synchronously or asynchronously.
+        private @StartupMode int calculateStartupMode(int lastTaskRunMode) {
+            // The control arm of our experiment runs fully synchronously.
+            if (!mIsStartupTaskExperimentEnabled) {
+                return StartupMode.FULLY_SYNC;
+            }
+
+            if (mFirstTaskFromSynchronousCall) {
+                return mChromiumFirstStartupRequestMode.get() == SYNC
+                        ? StartupMode.FULLY_SYNC
+                        : StartupMode.ASYNC_BUT_FULLY_SYNC;
+            }
+            return lastTaskRunMode == SYNC
+                    ? StartupMode.PARTIAL_ASYNC_THEN_SYNC
+                    : StartupMode.FULLY_ASYNC;
         }
     }
 }

@@ -5,36 +5,49 @@
 #include "chrome/browser/ui/views/frame/multi_contents_view.h"
 
 #include "base/feature_list.h"
+#include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/contents_web_view.h"
 #include "chrome/browser/ui/views/frame/multi_contents_resize_area.h"
+#include "chrome/browser/ui/views/frame/top_container_background.h"
+#include "chrome/browser/ui/views/status_bubble_views.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/compositor/layer.h"
 #include "ui/events/types/event_type.h"
+#include "ui/gfx/scoped_canvas.h"
 #include "ui/views/layout/flex_layout.h"
 #include "ui/views/layout/flex_layout_types.h"
 #include "ui/views/view_class_properties.h"
 
 namespace {
-const int kMinWebContentsWidth = 20;
+constexpr int kMinWebContentsWidth = 20;
+constexpr int kContentCornerRadius = 6;
+constexpr int kContentOutlineCornerRadius = 8;
+constexpr int kContentOutlineThickness = 1;
+constexpr int kSplitViewContentInset = 8;
+constexpr int kSplitViewContentPadding = 4;
 }  // namespace
 
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(MultiContentsView,
                                       kMultiContentsViewElementId);
 
 MultiContentsView::MultiContentsView(
-    content::BrowserContext* browser_context,
+    BrowserView* browser_view,
     WebContentsPressedCallback inactive_view_pressed_callback)
-    : inactive_view_pressed_callback_(inactive_view_pressed_callback) {
-  start_contents_view_ =
-      AddChildView(std::make_unique<ContentsWebView>(browser_context, false));
+    : browser_view_(browser_view),
+      inactive_view_pressed_callback_(inactive_view_pressed_callback) {
+  start_contents_view_ = AddChildView(
+      std::make_unique<ContentsWebView>(browser_view_->GetProfile(), false));
   start_contents_view_->set_is_primary_web_contents_for_window(true);
 
   resize_area_ = AddChildView(std::make_unique<MultiContentsResizeArea>(this));
   resize_area_->SetVisible(false);
 
-  end_contents_view_ =
-      AddChildView(std::make_unique<ContentsWebView>(browser_context, false));
+  end_contents_view_ = AddChildView(
+      std::make_unique<ContentsWebView>(browser_view_->GetProfile(), false));
   end_contents_view_->SetVisible(false);
 
   SetProperty(views::kElementIdentifierKey, kMultiContentsViewElementId);
@@ -50,6 +63,10 @@ ContentsWebView* MultiContentsView::GetActiveContentsView() {
 
 ContentsWebView* MultiContentsView::GetInactiveContentsView() {
   return active_position_ == 0 ? end_contents_view_ : start_contents_view_;
+}
+
+bool MultiContentsView::IsInSplitView() {
+  return resize_area_->GetVisible();
 }
 
 void MultiContentsView::SetWebContents(content::WebContents* web_contents,
@@ -73,6 +90,9 @@ void MultiContentsView::SetActivePosition(int position) {
   active_position_ = position;
   GetActiveContentsView()->set_is_primary_web_contents_for_window(true);
   GetInactiveContentsView()->set_is_primary_web_contents_for_window(false);
+  // Schedule paint to be sure that the active/inactive outline is correctly
+  // painted after the active contents changes.
+  SchedulePaint();
 }
 
 bool MultiContentsView::PreHandleMouseEvent(const blink::WebMouseEvent& event) {
@@ -93,6 +113,17 @@ bool MultiContentsView::PreHandleMouseEvent(const blink::WebMouseEvent& event) {
   return false;
 }
 
+void MultiContentsView::ExecuteOnEachVisibleContentsView(
+    base::RepeatingCallback<void(ContentsWebView*)> callback) {
+  ContentsWebView* active_contents_view = GetActiveContentsView();
+  ContentsWebView* inactive_contents_view = GetInactiveContentsView();
+  CHECK(active_contents_view->GetVisible());
+  callback.Run(active_contents_view);
+  if (inactive_contents_view->GetVisible()) {
+    callback.Run(inactive_contents_view);
+  }
+}
+
 void MultiContentsView::OnResize(int resize_amount, bool done_resizing) {
   if (!initial_start_width_on_resize_.has_value()) {
     initial_start_width_on_resize_ =
@@ -108,29 +139,67 @@ void MultiContentsView::OnResize(int resize_amount, bool done_resizing) {
   InvalidateLayout();
 }
 
-// TODO(crbug.com/397777917): Consider using FlexSpecification weights instead
-// of overriding layout once this bug is resolved.
+// TODO(crbug.com/397777917): Consider using FlexSpecification weights and
+// interior margins instead of overriding layout once this bug is resolved.
 void MultiContentsView::Layout(PassKey) {
   const gfx::Rect available_space(GetContentsBounds());
   ViewWidths widths = GetViewWidths(available_space);
-  const gfx::Rect start_rect(
-      available_space.origin(),
-      gfx::Size(widths.start_width, available_space.height()));
+  gfx::Rect start_rect(available_space.origin(),
+                       gfx::Size(widths.start_width, available_space.height()));
   const gfx::Rect resize_rect(
       start_rect.top_right(),
       gfx::Size(widths.resize_width, available_space.height()));
-  const gfx::Rect end_rect(
-      resize_rect.top_right(),
-      gfx::Size(widths.end_width, available_space.height()));
+  gfx::Rect end_rect(resize_rect.top_right(),
+                     gfx::Size(widths.end_width, available_space.height()));
+  if (IsInSplitView()) {
+    start_rect.Inset(gfx::Insets(kSplitViewContentInset).set_right(0));
+    end_rect.Inset(gfx::Insets(kSplitViewContentInset).set_left(0));
+    start_contents_view_->layer()->SetRoundedCornerRadius(
+        gfx::RoundedCornersF{kContentCornerRadius});
+    end_contents_view_->layer()->SetRoundedCornerRadius(
+        gfx::RoundedCornersF{kContentCornerRadius});
+  }
   start_contents_view_->SetBoundsRect(start_rect);
   resize_area_->SetBoundsRect(resize_rect);
   end_contents_view_->SetBoundsRect(end_rect);
 }
 
+void MultiContentsView::OnPaint(gfx::Canvas* canvas) {
+  if (!IsInSplitView()) {
+    return;
+  }
+
+  // Paint the multi contents area background to match the toolbar.
+  TopContainerBackground::PaintBackground(canvas, this, browser_view_);
+
+  // Draw active/inactive outlines around the contents areas.
+  const auto draw_contents_outline = [this, canvas](views::View* content_view) {
+    const bool is_active = content_view == GetActiveContentsView();
+    cc::PaintFlags flags;
+    flags.setStyle(cc::PaintFlags::kStroke_Style);
+    flags.setStrokeWidth(kContentOutlineThickness);
+    const SkColor color =
+        is_active ? GetColorProvider()->GetColor(
+                        kColorMulitContentsViewActiveContentOutline)
+                  : GetColorProvider()->GetColor(
+                        kColorMulitContentsViewInactiveContentOutline);
+    flags.setColor(color);
+    flags.setAntiAlias(true);
+    gfx::RectF main_content_border_rect = gfx::RectF(content_view->bounds());
+    const float outset =
+        kSplitViewContentPadding + (kContentOutlineThickness / 2.0f);
+    main_content_border_rect.Outset(outset);
+    canvas->DrawRoundRect(main_content_border_rect, kContentOutlineCornerRadius,
+                          flags);
+  };
+  draw_contents_outline(start_contents_view_);
+  draw_contents_outline(end_contents_view_);
+}
+
 MultiContentsView::ViewWidths MultiContentsView::GetViewWidths(
     gfx::Rect available_space) {
   ViewWidths widths;
-  if (resize_area_->GetVisible()) {
+  if (IsInSplitView()) {
     CHECK(start_contents_view_->GetVisible() &&
           end_contents_view_->GetVisible());
     widths.resize_width = resize_area_->GetPreferredSize().width();
@@ -150,7 +219,7 @@ MultiContentsView::ViewWidths MultiContentsView::GetViewWidths(
 
 MultiContentsView::ViewWidths MultiContentsView::ClampToMinWidth(
     ViewWidths widths) {
-  if (!resize_area_->GetVisible()) {
+  if (!IsInSplitView()) {
     // Don't clamp if in a single-view state, where other views should be 0
     // width.
     return widths;

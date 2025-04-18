@@ -221,6 +221,9 @@
 // Matcher for the back button on the Bookmarks navigation bar.
 + (id<GREYMatcher>)bookmarksNavigationBarBackButton;
 
+// Matcher for the back button on the Managed profile creation navigation bar.
++ (id<GREYMatcher>)managedProfileCreationNavigationBarBackButton;
+
 // Returns matcher for the add account accounts button.
 + (id<GREYMatcher>)addAccountButton;
 
@@ -597,6 +600,9 @@
 // Returns the GREYMatcher for the incognito tab grid.
 + (id<GREYMatcher>)incognitoTabGrid;
 
+// Returns the GREYMatcher for the inactive tab grid.
++ (id<GREYMatcher>)inactiveTabGrid;
+
 // Returns the GREYMatcher for the button to close the cell at `index` in the
 // tab grid.
 + (id<GREYMatcher>)tabGridCloseButtonForCellAtIndex:(unsigned int)index;
@@ -702,11 +708,8 @@
 
 #pragma mark - Promo style view controller
 
-// Returns matcher for the primary action button.
-+ (id<GREYMatcher>)promoStylePrimaryActionButtonMatcher;
-
 // Returns matcher for the secondary action button.
-+ (id<GREYMatcher>)promoStyleSecondaryActionButtonMatcher;
++ (id<GREYMatcher>)promoScreenSecondaryButtonMatcher;
 
 #pragma mark - Incognito Interstitial
 

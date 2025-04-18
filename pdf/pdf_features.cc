@@ -18,7 +18,7 @@ BASE_FEATURE(kAccessiblePDFForm,
              "AccessiblePDFForm",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kPdfCr23, "PdfCr23", base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kPdfCr23, "PdfCr23", base::FEATURE_ENABLED_BY_DEFAULT);
 
 // "Incremental loading" refers to loading the PDF as it arrives.
 // TODO(crbug.com/40123601): Remove this once incremental loading is fixed.
@@ -74,6 +74,10 @@ BASE_FEATURE(kPdfXfaSupport,
 
 #if BUILDFLAG(ENABLE_PDF_INK2)
 BASE_FEATURE(kPdfInk2, "PdfInk2", base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables text annotations.
+const base::FeatureParam<bool> kPdfInk2TextAnnotations{
+    &kPdfInk2, "text-annotations", false};
 
 // Enables text highlighting with the Ink highlighter brush.
 const base::FeatureParam<bool> kPdfInk2TextHighlighting{

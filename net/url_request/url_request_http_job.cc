@@ -1452,6 +1452,12 @@ bool URLRequestHttpJob::GetCharset(std::string* charset) {
   return GetResponseHeaders()->GetCharset(charset);
 }
 
+void URLRequestHttpJob::GetClientSideContentDecodingTypes(
+    std::vector<net::SourceStreamType>* types) const {
+  CHECK(types);
+  *types = client_side_content_decoding_types_;
+}
+
 void URLRequestHttpJob::GetResponseInfo(HttpResponseInfo* info) {
   if (override_response_info_) {
     DCHECK(!transaction_.get());
@@ -1476,6 +1482,13 @@ void URLRequestHttpJob::GetLoadTimingInfo(
     return;
   if (transaction_->GetLoadTimingInfo(load_timing_info))
     load_timing_info->receive_headers_end = receive_headers_end_;
+}
+
+void URLRequestHttpJob::PopulateLoadTimingInternalInfo(
+    LoadTimingInternalInfo* load_timing_internal_info) const {
+  if (transaction_) {
+    transaction_->PopulateLoadTimingInternalInfo(load_timing_internal_info);
+  }
 }
 
 bool URLRequestHttpJob::GetTransactionRemoteEndpoint(
@@ -1508,10 +1521,18 @@ std::unique_ptr<SourceStream> URLRequestHttpJob::SetUpSourceStream() {
     return nullptr;
 
   std::unique_ptr<SourceStream> upstream = URLRequestJob::SetUpSourceStream();
+
   HttpResponseHeaders* headers = GetResponseHeaders();
-  const std::vector<SourceStreamType> types =
+  std::vector<SourceStreamType> types =
       FilterSourceStream::GetContentEncodingTypes(
           request_->accepted_stream_types(), *headers);
+
+  if (request()->client_side_content_decoding_enabled()) {
+    // When client side content encoding is enabled, the client will decode the
+    // body. So returns the original stream.
+    client_side_content_decoding_types_ = std::move(types);
+    return upstream;
+  }
   // Note: If multiple encoding types were specified, this only records the last
   // encoding type.
   UMA_HISTOGRAM_ENUMERATION(

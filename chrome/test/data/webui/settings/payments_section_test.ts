@@ -55,7 +55,8 @@ suite('PaymentsSection', function() {
 
   test('verifyNoCreditCards', async function() {
     const section = await createPaymentsSection(
-        /*creditCards=*/[], /*ibans=*/[], {credit_card_enabled: {value: true}});
+        /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[],
+        {credit_card_enabled: {value: true}});
 
     const creditCardList = section.$.paymentsList;
     assertTrue(!!creditCardList);
@@ -81,7 +82,7 @@ suite('PaymentsSection', function() {
       showIbansSettings: false,
     });
     const section = await createPaymentsSection(
-        /*creditCards=*/[], /*ibans=*/[],
+        /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[],
         {credit_card_enabled: {value: false}});
 
     assertFalse(section.$.autofillCreditCardToggle.disabled);
@@ -102,7 +103,8 @@ suite('PaymentsSection', function() {
     ];
 
     const section = await createPaymentsSection(
-        creditCards, /*ibans=*/[], {credit_card_enabled: {value: true}});
+        creditCards, /*ibans=*/[], /*payOverTimeIssuers=*/[],
+        {credit_card_enabled: {value: true}});
     const creditCardList = section.$.paymentsList;
     assertTrue(!!creditCardList);
     assertEquals(
@@ -123,57 +125,13 @@ suite('PaymentsSection', function() {
     assertFalse(addPaymentMethodsButton.disabled);
   });
 
-  test('verifyMigrationButtonNotShownIfMigrationNotEnabled', async function() {
-    // Mock prerequisites are not met.
-    loadTimeData.overrideValues({migrationEnabled: false});
-
-    // Add one migratable credit card.
-    const creditCard = createCreditCardEntry();
-    creditCard.metadata!.isMigratable = true;
-    const section = await createPaymentsSection(
-        [creditCard], /*ibans=*/[], {credit_card_enabled: {value: true}});
-
-    assertTrue(section.$.migrateCreditCards.hidden);
-  });
-
-  test('verifyMigrationButtonNotShownIfCreditCardDisabled', async function() {
-    // Add one migratable credit card.
-    const creditCard = createCreditCardEntry();
-    creditCard.metadata!.isMigratable = true;
-    // Mock credit card save toggle is turned off by users.
-    const section = await createPaymentsSection(
-        [creditCard], /*ibans=*/[], {credit_card_enabled: {value: false}});
-
-    assertTrue(section.$.migrateCreditCards.hidden);
-  });
-
-  test('verifyMigrationButtonNotShownIfNoCardIsMigratable', async function() {
-    // Add one migratable credit card.
-    const creditCard = createCreditCardEntry();
-    // Mock credit card is not valid.
-    creditCard.metadata!.isMigratable = false;
-    const section = await createPaymentsSection(
-        [creditCard], /*ibans=*/[], {credit_card_enabled: {value: true}});
-
-    assertTrue(section.$.migrateCreditCards.hidden);
-  });
-
-  test('verifyMigrationButtonShown', async function() {
-    // Add one migratable credit card.
-    const creditCard = createCreditCardEntry();
-    creditCard.metadata!.isMigratable = true;
-    const section = await createPaymentsSection(
-        [creditCard], /*ibans=*/[], {credit_card_enabled: {value: true}});
-
-    assertFalse(section.$.migrateCreditCards.hidden);
-  });
-
   test('CanMakePaymentToggle_RecordsMetrics', async function() {
     const testMetricsBrowserProxy = new TestMetricsBrowserProxy();
     MetricsBrowserProxyImpl.setInstance(testMetricsBrowserProxy);
 
     const section = await createPaymentsSection(
-        /*creditCards=*/[], /*ibans=*/[], /*prefValues=*/ {});
+        /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[],
+        /*prefValues=*/ {});
 
     section.$.canMakePaymentToggle.click();
     const result =
@@ -185,7 +143,7 @@ suite('PaymentsSection', function() {
   test(
       'verifyNoAddPaymentMethodsButtonIfPaymentPrefDisabled', async function() {
         const section = await createPaymentsSection(
-            /*creditCards=*/[], /*ibans=*/[],
+            /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[],
             {credit_card_enabled: {value: false}});
 
         const addPaymentMethodsButton =
@@ -213,7 +171,7 @@ suite('PaymentsSection', function() {
         loadTimeData.overrideValues({deviceAuthAvailable: true});
 
         const section = await createPaymentsSection(
-            /*creditCards=*/[], /*ibans=*/[], {
+            /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[], {
               credit_card_enabled: {value: true},
               payment_methods_mandatory_reauth: {value: false},
             });
@@ -237,7 +195,7 @@ suite('PaymentsSection', function() {
         loadTimeData.overrideValues({deviceAuthAvailable: true});
 
         const section = await createPaymentsSection(
-            /*creditCards=*/[], /*ibans=*/[], {
+            /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[], {
               credit_card_enabled: {value: true},
               payment_methods_mandatory_reauth: {value: true},
             });
@@ -260,7 +218,7 @@ suite('PaymentsSection', function() {
         loadTimeData.overrideValues({deviceAuthAvailable: false});
 
         const section = await createPaymentsSection(
-            /*creditCards=*/[], /*ibans=*/[], {
+            /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[], {
               credit_card_enabled: {value: true},
               payment_methods_mandatory_reauth: {value: true},
             });
@@ -285,7 +243,7 @@ suite('PaymentsSection', function() {
         loadTimeData.overrideValues({deviceAuthAvailable: false});
 
         const section = await createPaymentsSection(
-            /*creditCards=*/[], /*ibans=*/[], {
+            /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[], {
               credit_card_enabled: {value: true},
               payment_methods_mandatory_reauth: {value: false},
             });
@@ -310,7 +268,7 @@ suite('PaymentsSection', function() {
         loadTimeData.overrideValues({deviceAuthAvailable: true});
 
         const section = await createPaymentsSection(
-            /*creditCards=*/[], /*ibans=*/[], {
+            /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[], {
               credit_card_enabled: {value: false},
               payment_methods_mandatory_reauth: {value: true},
             });
@@ -334,7 +292,7 @@ suite('PaymentsSection', function() {
         loadTimeData.overrideValues({deviceAuthAvailable: true});
 
         const section = await createPaymentsSection(
-            /*creditCards=*/[], /*ibans=*/[], {
+            /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[], {
               credit_card_enabled: {value: false},
               payment_methods_mandatory_reauth: {value: false},
             });
@@ -358,7 +316,7 @@ suite('PaymentsSection', function() {
         loadTimeData.overrideValues({deviceAuthAvailable: true});
 
         const section = await createPaymentsSection(
-            /*creditCards=*/[], /*ibans=*/[], {
+            /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[], {
               credit_card_enabled: {value: true},
               payment_methods_mandatory_reauth: {value: false},
             });
@@ -385,7 +343,7 @@ suite('PaymentsSection', function() {
         loadTimeData.overrideValues({deviceAuthAvailable: true});
 
         const section = await createPaymentsSection(
-            /*creditCards=*/[], /*ibans=*/[], {
+            /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[], {
               credit_card_enabled: {value: true},
               payment_methods_mandatory_reauth: {value: false},
             });
@@ -409,8 +367,8 @@ suite('PaymentsSection', function() {
   test('verifyEditLocalCardTriggersUserAuth', async function() {
     loadTimeData.overrideValues({deviceAuthAvailable: true});
 
-    const section =
-        await createPaymentsSection([createCreditCardEntry()], /*ibans=*/[], {
+    const section = await createPaymentsSection(
+        [createCreditCardEntry()], /*ibans=*/[], /*payOverTimeIssuers=*/[], {
           credit_card_enabled: {value: true},
           payment_methods_mandatory_reauth: {value: true},
         });
@@ -446,7 +404,7 @@ suite('PaymentsSection', function() {
     });
 
     const section = await createPaymentsSection(
-        /*creditCards=*/[], /*ibans=*/[], {
+        /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[], {
           credit_card_enabled: {value: true},
         });
     const cvcStorageToggle =
@@ -470,7 +428,7 @@ suite('PaymentsSection', function() {
     const creditCard = createCreditCardEntry();
     creditCard.cvc = '•••';
     const section = await createPaymentsSection(
-        /*creditCards=*/[creditCard], /*ibans=*/[], {
+        /*creditCards=*/[creditCard], /*ibans=*/[], /*payOverTimeIssuers=*/[], {
           credit_card_enabled: {value: true},
         });
     const cvcStorageToggle =
@@ -494,7 +452,8 @@ suite('PaymentsSection', function() {
 
         const creditCard = createCreditCardEntry();
         const section = await createPaymentsSection(
-            /*creditCards=*/[creditCard], /*ibans=*/[], {
+            /*creditCards=*/[creditCard], /*ibans=*/[],
+            /*payOverTimeIssuers=*/[], {
               credit_card_enabled: {value: true},
             });
         const cvcStorageToggle =
@@ -522,7 +481,8 @@ suite('PaymentsSection', function() {
           const creditCard = createCreditCardEntry();
           creditCard.cvc = '•••';
           const section = await createPaymentsSection(
-              /*creditCards=*/[creditCard], /*ibans=*/[], {
+              /*creditCards=*/[creditCard], /*ibans=*/[],
+              /*payOverTimeIssuers=*/[], {
                 credit_card_enabled: {value: true},
               });
 
@@ -587,7 +547,7 @@ suite('PaymentsSection', function() {
     });
 
     const section = await createPaymentsSection(
-        /*creditCards=*/[], /*ibans=*/[], {
+        /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[], {
           credit_card_enabled: {value: true},
         });
     const cardBenefitsToggle =
@@ -611,7 +571,7 @@ suite('PaymentsSection', function() {
         });
 
         const section = await createPaymentsSection(
-            /*creditCards=*/[], /*ibans=*/[], {
+            /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[], {
               credit_card_enabled: {value: true},
             });
 
@@ -626,7 +586,7 @@ suite('PaymentsSection', function() {
         });
 
         const section = await createPaymentsSection(
-            /*creditCards=*/[], /*ibans=*/[], {
+            /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[], {
               credit_card_enabled: {value: false},
             });
         const cardBenefitsToggle =
@@ -643,7 +603,7 @@ suite('PaymentsSection', function() {
     });
 
     const section = await createPaymentsSection(
-        /*creditCards=*/[], /*ibans=*/[], {
+        /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[], {
           credit_card_enabled: {value: true},
         });
     const cardBenefitsToggle =
@@ -665,7 +625,7 @@ suite('PaymentsSection', function() {
     });
 
     const section = await createPaymentsSection(
-        /*creditCards=*/[], /*ibans=*/[], {
+        /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[], {
           credit_card_enabled: {value: true},
           payment_card_benefits: {value: true},
         });
@@ -679,106 +639,5 @@ suite('PaymentsSection', function() {
 
     assertFalse(cardBenefitsToggle.checked);
     assertFalse(cardBenefitsToggle.pref!.value);
-  });
-
-  test('verifyPayOverTimeToggleIsShown', async function() {
-    loadTimeData.overrideValues({
-      shouldShowPayOverTimeSettings: true,
-    });
-
-    const section = await createPaymentsSection(
-        /*creditCards=*/[], /*ibans=*/[], {
-          credit_card_enabled: {value: true},
-        });
-    const payOverTimeToggle =
-        section.shadowRoot!.querySelector<SettingsToggleButtonElement>(
-            '#payOverTimeToggle');
-
-    assertTrue(!!payOverTimeToggle);
-    assertEquals(
-        loadTimeData.getString('autofillPayOverTimeSettingsLabel'),
-        payOverTimeToggle.label.toString());
-    assertEquals(
-        loadTimeData.getString('autofillPayOverTimeSettingsSublabel'),
-        payOverTimeToggle.subLabelWithLink.toString());
-  });
-
-  test(
-      'verifyPayOverTimeToggleIsNotShownWhenShouldShowPayOverTimeSettingsIsFalse',
-      async function() {
-        loadTimeData.overrideValues({
-          shouldShowPayOverTimeSettings: false,
-        });
-
-        const section = await createPaymentsSection(
-            /*creditCards=*/[], /*ibans=*/[], {
-              credit_card_enabled: {value: true},
-            });
-
-        assertFalse(!!section.shadowRoot!.querySelector('#payOverTimeToggle'));
-      });
-
-  test(
-      'verifyPayOverTimeToggleIsDisabledWhenCreditCardEnabledIsOff',
-      async function() {
-        loadTimeData.overrideValues({
-          shouldShowPayOverTimeSettings: true,
-        });
-
-        const section = await createPaymentsSection(
-            /*creditCards=*/[], /*ibans=*/[], {
-              credit_card_enabled: {value: false},
-            });
-        const payOverTimeToggle =
-            section.shadowRoot!.querySelector<SettingsToggleButtonElement>(
-                '#payOverTimeToggle');
-
-        assertTrue(!!payOverTimeToggle);
-        assertTrue(payOverTimeToggle.disabled);
-      });
-
-  test('verifyPayOverTimeToggleSublabelLinkClickOpensUrl', async function() {
-    loadTimeData.overrideValues({
-      shouldShowPayOverTimeSettings: true,
-    });
-
-    const section = await createPaymentsSection(
-        /*creditCards=*/[], /*ibans=*/[], {
-          credit_card_enabled: {value: true},
-        });
-    const payOverTimeToggle =
-        section.shadowRoot!.querySelector<SettingsToggleButtonElement>(
-            '#payOverTimeToggle');
-    assertTrue(!!payOverTimeToggle);
-
-    const link = payOverTimeToggle.shadowRoot!.querySelector('a');
-    assertTrue(!!link);
-    link.click();
-
-    const url = await openWindowProxy.whenCalled('openUrl');
-    assertEquals(
-        loadTimeData.getString('autofillPayOverTimeSettingsLearnMoreUrl'), url);
-  });
-
-  test('verifyPayOverTimePrefIsFalseWhenToggleIsOff', async function() {
-    loadTimeData.overrideValues({
-      shouldShowPayOverTimeSettings: true,
-    });
-
-    const section = await createPaymentsSection(
-        /*creditCards=*/[], /*ibans=*/[], {
-          credit_card_enabled: {value: true},
-          bnpl_enabled: {value: true},
-        });
-    const payOverTimeToggle =
-        section.shadowRoot!.querySelector<SettingsToggleButtonElement>(
-            '#payOverTimeToggle');
-    assertTrue(!!payOverTimeToggle);
-    assertTrue(payOverTimeToggle.checked);
-
-    payOverTimeToggle.click();
-
-    assertFalse(payOverTimeToggle.checked);
-    assertFalse(payOverTimeToggle.pref!.value);
   });
 });

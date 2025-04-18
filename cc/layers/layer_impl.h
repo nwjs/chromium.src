@@ -214,11 +214,8 @@ class CC_EXPORT LayerImpl {
   gfx::Transform ScreenSpaceTransform() const;
 
   // Setter for draw_properties_.
-  void set_visible_layer_rect(const gfx::Rect& visible_rect) {
+  void SetVisibleLayerRectForTesting(const gfx::Rect& visible_rect) {
     draw_properties_.visible_layer_rect = visible_rect;
-  }
-  void set_clip_rect(const gfx::Rect& clip_rect) {
-    draw_properties_.clip_rect = clip_rect;
   }
 
   // The following are shortcut accessors to get various information from
@@ -352,10 +349,16 @@ class CC_EXPORT LayerImpl {
   virtual gfx::Rect GetDamageRect() const;
 
   // Damage tracker will consider layer damaged if `LayerPropertyChanged` is
-  // true, or update_rect() or GetDamageRect() are non-empty. This method
+  // true, or `update_rect()` or `GetDamageRect()` are non-empty. This method
   // returns damage reasons for any and all of these cases. The default
-  // implementation adds kUntracked for all of these cases.
+  // implementation uses `GetDamageReasonsFromLayerPropertyChange` for
+  // `LayerPropertyChanged` and kUntracked for non-empty `update_rect()` or
+  // `GetDamageRect()`.
   virtual DamageReasonSet GetDamageReasons() const;
+
+  // Get damage reasons for `LayerPropertyChanged`. Returns empty set if
+  // `LayerPropertyChanged` is false.
+  DamageReasonSet GetDamageReasonsFromLayerPropertyChange() const;
 
   // This includes |layer_property_changed_not_from_property_trees_| and
   // property_trees changes.

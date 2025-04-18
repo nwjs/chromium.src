@@ -5,6 +5,7 @@
 #ifndef CHROME_BROWSER_UI_VIEWS_FRAME_MULTI_CONTENTS_VIEW_H_
 #define CHROME_BROWSER_UI_VIEWS_FRAME_MULTI_CONTENTS_VIEW_H_
 
+#include <memory>
 #include <optional>
 
 #include "base/functional/callback_forward.h"
@@ -13,6 +14,7 @@
 #include "ui/views/controls/resize_area_delegate.h"
 #include "ui/views/view.h"
 
+class BrowserView;
 class ContentsWebView;
 class MultiContentsResizeArea;
 
@@ -21,9 +23,11 @@ class WebMouseEvent;
 }  // namespace blink
 
 namespace content {
-class BrowserContext;
 class WebContents;
 }  // namespace content
+namespace gfx {
+class Canvas;
+}  // namespace gfx
 
 // MultiContentsView shows up to two contents web views side by side, and
 // manages their layout relative to each other.
@@ -42,7 +46,7 @@ class MultiContentsView : public views::View, public views::ResizeAreaDelegate {
     double end_width = 0;
   };
 
-  MultiContentsView(content::BrowserContext* browser_context,
+  MultiContentsView(BrowserView* browser_view,
                     WebContentsPressedCallback inactive_view_pressed_callback);
   MultiContentsView(const MultiContentsView&) = delete;
   MultiContentsView& operator=(const MultiContentsView&) = delete;
@@ -53,6 +57,9 @@ class MultiContentsView : public views::View, public views::ResizeAreaDelegate {
 
   // Returns the currently inactive ContentsWebView.
   ContentsWebView* GetInactiveContentsView();
+
+  // Returns true if more than one WebContents is displayed.
+  bool IsInSplitView();
 
   // Assigns the given |web_contents| to a ContentsWebView. If |active| it will
   // be assigned to the active contents view, else it will be assigned to
@@ -66,11 +73,17 @@ class MultiContentsView : public views::View, public views::ResizeAreaDelegate {
   // Handles a mouse event prior to it being passed along to the WebContents.
   bool PreHandleMouseEvent(const blink::WebMouseEvent& event);
 
+  // Helper method to execute an arbitrary callback on each visible contents
+  // view. Will execute the callback on the active contents view first.
+  void ExecuteOnEachVisibleContentsView(
+      base::RepeatingCallback<void(ContentsWebView*)> callback);
+
   // views::ResizeAreaDelegate:
   void OnResize(int resize_amount, bool done_resizing) override;
 
   // views::View:
   void Layout(PassKey) override;
+  void OnPaint(gfx::Canvas* canvas) override;
 
   ContentsWebView* start_contents_view_for_testing() const {
     return start_contents_view_;
@@ -89,10 +102,12 @@ class MultiContentsView : public views::View, public views::ResizeAreaDelegate {
 
   ViewWidths ClampToMinWidth(ViewWidths widths);
 
-  // The left contents view, in LTR.
+  raw_ptr<BrowserView> browser_view_;
+
+  // The left contents, in LTR.
   raw_ptr<ContentsWebView> start_contents_view_ = nullptr;
 
-  // The right contents view, in LTR.
+  // The right contents, in LTR.
   raw_ptr<ContentsWebView> end_contents_view_ = nullptr;
 
   // The handle responsible for resizing the two contents views as relative to
@@ -100,7 +115,7 @@ class MultiContentsView : public views::View, public views::ResizeAreaDelegate {
   raw_ptr<MultiContentsResizeArea> resize_area_ = nullptr;
 
   // The index of the active context view. A value of 0 corresponds to
-  // start_contents_view_.
+  // start_contents_.
   int active_position_ = 0;
 
   // Callback to be executed when the user clicks anywhere within the bounds of
@@ -111,8 +126,8 @@ class MultiContentsView : public views::View, public views::ResizeAreaDelegate {
   // width.
   double start_ratio_ = 0.5;
 
-  // Width of `start_contents_view_` when a resize action began. Nullopt if not
-  // currently resizing.
+  // Width of `start_contents_.contents_view_` when a resize action began.
+  // Nullopt if not currently resizing.
   std::optional<double> initial_start_width_on_resize_;
 };
 

@@ -29,6 +29,8 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_PLATFORM_GEOMETRY_PATH_H_
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_GEOMETRY_PATH_H_
 
+#include <optional>
+
 #include "base/memory/raw_span.h"
 #include "third_party/blink/renderer/platform/geometry/float_rounded_rect.h"
 #include "third_party/blink/renderer/platform/geometry/path_types.h"
@@ -50,6 +52,7 @@ class Vector2dF;
 namespace blink {
 
 class AffineTransform;
+class ContouredRect;
 class StrokeData;
 
 enum PathElementType {
@@ -149,11 +152,10 @@ class PLATFORM_EXPORT Path {
   // Gets the current point of the current path, which is conceptually the final
   // point reached by the path so far. Note the Path can be empty
   // (isEmpty() == true) and still have a current point.
-  bool HasCurrentPoint() const;
-  gfx::PointF CurrentPoint() const;
+  std::optional<gfx::PointF> CurrentPoint() const;
 
-  void SetWindRule(const WindRule);
-
+  // TODO(crbug.com/378688986): convert clients to PathBuilder and remove all
+  // editing (non-const) methods.
   void MoveTo(const gfx::PointF&);
   void AddLineTo(const gfx::PointF&);
   void AddQuadCurveTo(const gfx::PointF& control_point,
@@ -162,49 +164,37 @@ class PLATFORM_EXPORT Path {
                         const gfx::PointF& control_point2,
                         const gfx::PointF& end_point);
   void AddArcTo(const gfx::PointF&, const gfx::PointF&, float radius);
-  void AddArcTo(const gfx::PointF&,
-                float radius_x,
-                float radius_y,
-                float x_rotate,
-                bool large_arc,
-                bool sweep);
   void CloseSubpath();
 
   void AddArc(const gfx::PointF&,
               float radius,
               float start_angle,
               float end_angle);
-
-  void AddRect(const gfx::RectF&);
-  // Use this form if the rect is defined by locations of a pair of opposite
-  // corners, where |origin| may not be the top-left corner.
-  void AddRect(const gfx::PointF& origin, const gfx::PointF& opposite_point);
-
   void AddEllipse(const gfx::PointF&,
                   float radius_x,
                   float radius_y,
                   float rotation,
                   float start_angle,
                   float end_angle);
-  void AddEllipse(const gfx::PointF& center, float radius_x, float radius_y);
-
-  void AddRoundedRect(const FloatRoundedRect&, bool clockwise = true);
-
   void AddPath(const Path&, const AffineTransform&);
 
   void Translate(const gfx::Vector2dF&);
-
   const SkPath& GetSkPath() const { return path_; }
 
   void Apply(void* info, PathApplierFunction) const;
   Path& Transform(const AffineTransform&);
-  Path& Transform(const gfx::Transform&);
 
-  bool SubtractPath(const Path&);
-
-  // Updates the path to the union (inclusive-or) of itself with the given
-  // argument.
-  bool UnionPath(const Path& other);
+  // Utility factories for simple shapes.
+  static Path MakeRect(const gfx::RectF&);
+  // Use this form if the rect is defined by locations of a pair of opposite
+  // corners, where |origin| may not be the top-left corner.
+  static Path MakeRect(const gfx::PointF& origin,
+                       const gfx::PointF& opposite_point);
+  static Path MakeRoundedRect(const FloatRoundedRect&);
+  static Path MakeContouredRect(const ContouredRect&);
+  static Path MakeEllipse(const gfx::PointF& center,
+                          float radius_x,
+                          float radius_y);
 
  private:
   void AddEllipse(const gfx::PointF&,

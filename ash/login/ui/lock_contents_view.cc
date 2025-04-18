@@ -269,8 +269,8 @@ class UserAddingScreenIndicator : public views::View {
     layer()->SetBackgroundBlur(ColorProvider::kBackgroundBlurSigma);
     layer()->SetBackdropFilterQuality(ColorProvider::kBackgroundBlurQuality);
 
-    SetBackground(views::CreateThemedRoundedRectBackground(
-        kColorAshShieldAndBase80, kBubbleBorderRadius));
+    SetBackground(views::CreateRoundedRectBackground(kColorAshShieldAndBase80,
+                                                     kBubbleBorderRadius));
   }
 
   UserAddingScreenIndicator(const UserAddingScreenIndicator&) = delete;
@@ -1585,9 +1585,6 @@ bool LockContentsView::AreMediaControlsEnabled() const {
          !expanded_view_->GetVisible() &&
          Shell::Get()->media_controller()->AreLockScreenMediaKeysEnabled();
 }
-
-void LockContentsView::OnWillChangeFocus(View* focused_before,
-                                         View* focused_now) {}
 
 void LockContentsView::OnDidChangeFocus(View* focused_before,
                                         View* focused_now) {

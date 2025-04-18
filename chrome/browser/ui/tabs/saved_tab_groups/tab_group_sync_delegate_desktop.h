@@ -34,7 +34,7 @@ class TabGroupSyncDelegateDesktop : public TabGroupSyncDelegate {
   ~TabGroupSyncDelegateDesktop() override;
 
   // TabGroupSyncDelegate implementation.
-  void HandleOpenTabGroupRequest(
+  std::optional<LocalTabGroupID> HandleOpenTabGroupRequest(
       const base::Uuid& sync_tab_group_id,
       std::unique_ptr<TabGroupActionContext> context) override;
   void CreateLocalTabGroup(const SavedTabGroup& tab_group) override;
@@ -65,6 +65,9 @@ class TabGroupSyncDelegateDesktop : public TabGroupSyncDelegate {
       const std::map<tabs::TabInterface*, base::Uuid>&
           opened_web_contents_to_uuid,
       const SavedTabGroup& saved_group);
+
+  // The profile used to create this delegate.
+  raw_ptr<Profile> profile_ = nullptr;
 
   // The service used to query and manage SavedTabGroups.
   raw_ptr<TabGroupSyncService> service_ = nullptr;

@@ -18,7 +18,6 @@ import "url/mojom/url.mojom";
 // Note: The proto representation needs to remain backwards compatible with
 // older client versions but there's no such limitation on the mojom
 // representation.
-
 enum AIPageContentAttributeType {
   kRoot,
   kIframe,
@@ -54,6 +53,7 @@ enum AIPageContentAnnotatedRole {
   kAside,
   kFooter,
   kContentHidden,
+  kPaidContent,
 };
 
 struct AIPageContentGeometry {
@@ -70,19 +70,19 @@ struct AIPageContentGeometry {
 
 // Represents a selection in the page. This is a frame-level concept.
 struct AIPageContentSelection {
-  // The content node ID of the start node. Note that this could be the same as
+  // The DOMNodeId of the start node. Note that this could be the same as
   // the end node ID. Consumers are responsible for checking that the start node
   // comes before (or is the same as) the end node.
-  int32 start_node_id;
+  int32 start_dom_node_id;
 
   // The character offset of the start of the selection from the start of the
   // text contained in start node.
   int32 start_offset;
 
-  // The content node ID of the end node. Note that this could be the same as
+  // The DOMNodeId of the end node. Note that this could be the same as
   // the start node ID. Consumers are responsible for checking that the end node
   // comes after (or is the same as) the start node.
-  int32 end_node_id;
+  int32 end_dom_node_id;
 
   // The character offset of the start of the selection from the start of the
   // text contained in end node.
@@ -97,12 +97,12 @@ struct AIPageContentSelection {
 // there can only be one unique value. Includes interaction information for
 // the main frame and embedded iframes.
 struct AIPageContentPageInteractionInfo {
-  // The content node ID of the content node that is currently focused.
-  int32? focused_node_id;
+  // The DOMNodeId of the content node that is currently focused.
+  int32? focused_dom_node_id;
 
-  // The content node ID of the content node that is currently focused by a
+  // The DOMNodeId of the content node that is currently focused by a
   // screen reader or other accessibility tool.
-  int32? accessibility_focused_node_id;
+  int32? accessibility_focused_dom_node_id;
 
   // The last known mouse position, in the page coordinate system.
   gfx.mojom.Point? mouse_position;
@@ -194,6 +194,29 @@ struct AIPageContentImageInfo {
   url.mojom.Origin? source_origin;
 };
 
+// Represents meta tags on the page.
+struct AIPageContentMeta {
+  string name;
+  string content;
+};
+
+// Data common to frames (main and embedded).
+struct AIPageContentFrameData {
+  // Interaction information for the frame.
+  AIPageContentFrameInteractionInfo frame_interaction_info;
+
+  // Meta elements which are direct children of the head element. Limited to
+  // max_meta_elements in AIPageContentOptions, default is 0.
+  array<AIPageContentMeta> meta_data;
+
+  // The title of the document.
+  string? title;
+
+  // Whether the frame contains paid content. The value exists
+  // if the document was checked.
+  bool? contains_paid_content;
+};
+
 // Provides metadata for frames (local and remote) accessible from the
 // LocalFrameRoot of the corresponding AIPageContentAgent.
 struct AIPageContentIframeData {
@@ -203,8 +226,10 @@ struct AIPageContentIframeData {
   // both the root ad frame and its descendants.
   bool likely_ad_frame;
 
-  // Interaction information for the iframe.
-  AIPageContentFrameInteractionInfo? frame_interaction_info;
+  // Data common to all local frames (main and embedded). If this is a remote
+  // frame, this metadata will be part of the AIPageContent pulled from the
+  // local frame's renderer process.
+  AIPageContentFrameData? local_frame_data;
 };
 
 struct AIPageContentTableData {
@@ -266,17 +291,9 @@ struct AIPageContentFormControlData {
 };
 
 struct AIPageContentAttributes {
-  // An ID for this content node, unique across all frames in the page.
-  // The value may change across calls to GetAIPageContent for the same DOM
-  // node; it is not guaranteed to be stable.
-  int32 content_node_id;
-
-  // The IDs of the DOM nodes whose content is represented by this ContentNode.
-  array<int32> dom_node_ids;
-
-  // If this content node represents an entire subtree, this is the ID of the
-  // common ancestor of all the nodes in the subtree.
-  int32? common_ancestor_dom_node_id;
+  // If this content node maps to a DOM node, this is the ID for that node. This
+  // can be used to route events to the corresponding DOM node.
+  int32? dom_node_id;
 
   AIPageContentAttributeType attribute_type;
 
@@ -331,8 +348,9 @@ struct AIPageContent {
   // and embedded iframes.
   AIPageContentPageInteractionInfo? page_interaction_info;
 
-  // The interaction information for the main frame.
-  AIPageContentFrameInteractionInfo? main_frame_interaction_info;
+  // The frame-level information which is common to both main and embedded
+  // frames.
+  AIPageContentFrameData frame_data;
 };
 
 struct AIPageContentOptions {
@@ -350,6 +368,13 @@ struct AIPageContentOptions {
   // up-to-date as an optimization. Including it will force the renderer to
   // update it's style and layout.
   bool include_hidden_searchable_content = true;
+
+  // The maximum number of meta elements to include in the content.
+  int32 max_meta_elements = 0;
+
+  // Include node-level data for actionable elements captured in
+  // AIPageContentNodeInteractionInfo.
+  bool enable_experimental_actionable_data = false;
 };
 
 // Used to obtain the AIPageContent representation for Documents. Lives in the
@@ -359,5 +384,6 @@ struct AIPageContentOptions {
 interface AIPageContentAgent {
   // Provides the AIPageContent representation for this LocalFrame and all
   // LocalFrames accessible from the LocalFrameRoot.
-  GetAIPageContent(AIPageContentOptions request) => (AIPageContent? page_content);
+  GetAIPageContent(AIPageContentOptions request)
+      => (AIPageContent? page_content);
 };

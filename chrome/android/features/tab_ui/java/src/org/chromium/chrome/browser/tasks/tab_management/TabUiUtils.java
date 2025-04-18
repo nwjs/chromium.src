@@ -37,6 +37,7 @@ import org.chromium.chrome.browser.tasks.tab_management.ActionConfirmationManage
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.browser_ui.widget.ActionConfirmationResult;
 import org.chromium.components.collaboration.CollaborationService;
+import org.chromium.components.collaboration.CollaborationServiceShareOrManageEntryPoint;
 import org.chromium.components.data_sharing.GroupData;
 import org.chromium.components.data_sharing.member_role.MemberRole;
 import org.chromium.components.signin.base.CoreAccountInfo;
@@ -73,9 +74,8 @@ public class TabUiUtils {
             Callback.runNullSafe(didCloseCallback, false);
             return;
         }
-        int rootId = tab.getRootId();
         TabClosureParams closureParams =
-                TabClosureParams.forCloseTabGroup(filter, rootId)
+                TabClosureParams.forCloseTabGroup(filter, tab.getTabGroupId())
                         .hideTabGroups(hideTabGroups)
                         .allowUndo(true)
                         .build();
@@ -116,14 +116,13 @@ public class TabUiUtils {
      * Ungroups a tab group and maybe shows a confirmation dialog.
      *
      * @param filter The {@link TabGroupModelFilter} to act on.
-     * @param tabId The ID of one of the tabs in the tab group.
+     * @param tabGroupId The id of the tab group.
      */
-    public static void ungroupTabGroup(TabGroupModelFilter filter, int tabId) {
-        TabModel tabModel = filter.getTabModel();
-        int rootId = tabModel.getTabById(tabId).getRootId();
-        if (rootId == Tab.INVALID_TAB_ID) return;
+    public static void ungroupTabGroup(TabGroupModelFilter filter, Token tabGroupId) {
+        if (!filter.tabGroupExists(tabGroupId)) return;
 
-        filter.getTabUngrouper().ungroupTabs(rootId, /* trailing= */ true, /* allowDialog= */ true);
+        filter.getTabUngrouper()
+                .ungroupTabs(tabGroupId, /* trailing= */ true, /* allowDialog= */ true);
     }
 
     /**
@@ -178,7 +177,7 @@ public class TabUiUtils {
             ActionConfirmationManager actionConfirmationManager,
             ModalDialogManager modalDialogManager,
             int tabId) {
-        assert ChromeFeatureList.isEnabled(ChromeFeatureList.DATA_SHARING);
+        assert isDataSharingFunctionalityEnabled();
         assert actionConfirmationManager != null;
 
         TabModel tabModel = filter.getTabModel();
@@ -234,8 +233,7 @@ public class TabUiUtils {
         String title = savedTabGroup.title;
         @Nullable Tab tab = tabModel.getTabById(tabId);
         if (tab != null) {
-            int rootId = tab.getRootId();
-            title = TabGroupTitleUtils.getDisplayableTitle(context, filter, rootId);
+            title = TabGroupTitleUtils.getDisplayableTitle(context, filter, tab.getTabGroupId());
         }
 
         if (memberRole == MemberRole.OWNER) {
@@ -314,12 +312,13 @@ public class TabUiUtils {
             TabGroupModelFilter filter,
             DataSharingTabManager dataSharingTabManager,
             int tabId,
-            String tabGroupDisplayName) {
+            String tabGroupDisplayName,
+            @CollaborationServiceShareOrManageEntryPoint int entry) {
         Tab tab = filter.getTabModel().getTabById(tabId);
         LocalTabGroupId localTabGroupId = TabGroupSyncUtils.getLocalTabGroupId(tab);
 
         dataSharingTabManager.createOrManageFlow(
-                activity, /* syncId= */ null, localTabGroupId, (ignored) -> {});
+                activity, /* syncId= */ null, localTabGroupId, entry, (ignored) -> {});
     }
 
     /**
@@ -444,5 +443,14 @@ public class TabUiUtils {
         boolean isSensitive = anySensitiveContent(tabList);
         contentSensitivitySetter.onResult(isSensitive);
         RecordHistogram.recordBooleanHistogram(histogram, isSensitive);
+    }
+
+    /**
+     * Returns whether the data sharing feature is allowed to be used. Returns true if the data
+     * sharing or join only flag is enabled.
+     */
+    public static boolean isDataSharingFunctionalityEnabled() {
+        return ChromeFeatureList.isEnabled(ChromeFeatureList.DATA_SHARING)
+                || ChromeFeatureList.isEnabled(ChromeFeatureList.DATA_SHARING_JOIN_ONLY);
     }
 }

@@ -171,6 +171,7 @@ component("gfx") {
       "android/android_surface_control_compat.h",
       "android/java_bitmap.cc",
       "android/java_bitmap.h",
+      "android/surface_control_frame_rate.h",
       "android/view_configuration.cc",
       "android/view_configuration.h",
     ]
@@ -533,6 +534,8 @@ source_set("native_widget_types_sources") {
   public_deps = [ "//base" ]
 
   configs += [ ":gfx_impl_define" ]
+
+  deps = [ "//build:blink_buildflags" ]
 
   if (is_mac) {
     sources = [ "native_widget_types_mac.mm" ]

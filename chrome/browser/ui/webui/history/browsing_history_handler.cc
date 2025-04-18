@@ -34,6 +34,7 @@
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/url_identity.h"
 #include "chrome/browser/ui/webui/favicon_source.h"
+#include "chrome/browser/ui/webui/top_chrome/top_chrome_web_ui_controller.h"
 #include "chrome/common/buildflags.h"
 #include "chrome/common/pref_names.h"
 #include "components/bookmarks/browser/bookmark_model.h"
@@ -311,7 +312,7 @@ history::mojom::HistoryEntryPtr HistoryEntryToMojom(
     debug_mojom->is_url_in_local_database = IsUrlInLocalDatabase(entry);
     debug_mojom->visit_count = entry.visit_count;
     debug_mojom->typed_count = entry.typed_count;
-    result_mojom->debug_info = std::move(debug_mojom);
+    result_mojom->debug = std::move(debug_mojom);
   }
 
   return result_mojom;
@@ -331,6 +332,11 @@ BrowsingHistoryHandler::BrowsingHistoryHandler(
 
 BrowsingHistoryHandler::~BrowsingHistoryHandler() = default;
 
+void BrowsingHistoryHandler::SetSidePanelUIEmbedder(
+    base::WeakPtr<TopChromeWebUIController::Embedder> side_panel_embedder) {
+  side_panel_embedder_ = side_panel_embedder;
+}
+
 void BrowsingHistoryHandler::SetPage(
     mojo::PendingRemote<history::mojom::Page> pending_page) {
   page_.Bind(std::move(pending_page));
@@ -339,6 +345,12 @@ void BrowsingHistoryHandler::SetPage(
     std::move(deferred_callback).Run();
   }
   deferred_callbacks_.clear();
+}
+
+void BrowsingHistoryHandler::ShowSidePanelUI() {
+  if (side_panel_embedder_) {
+    side_panel_embedder_->ShowUI();
+  }
 }
 
 void BrowsingHistoryHandler::StartQueryHistory() {

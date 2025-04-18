@@ -13,6 +13,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 
 #include "base/json/json_writer.h"
 #include "base/pickle.h"
@@ -59,7 +60,7 @@ ScopedClipboardWriter::~ScopedClipboardWriter() {
         base::VariantIndexOfType<Clipboard::Data, Clipboard::TextData>());
     if (text_iter != objects_.end()) {
       const auto& text_data =
-          absl::get<Clipboard::TextData>(text_iter->second.data);
+          std::get<Clipboard::TextData>(text_iter->second.data);
       Clipboard::GetForCurrentThread()->NotifyCopyWithUrl(
           text_data.data, frame_url_, main_frame_url_);
     }
@@ -67,8 +68,14 @@ ScopedClipboardWriter::~ScopedClipboardWriter() {
 
   if (!objects_.empty() || !raw_objects_.empty() ||
       !platform_representations_.empty()) {
+    std::vector<Clipboard::RawData> raw_objects;
+    raw_objects.reserve(raw_objects_.size());
+    for (auto& raw_object : raw_objects_) {
+      raw_objects.emplace_back(std::move(raw_object.second));
+    }
+
     Clipboard::GetForCurrentThread()->WritePortableAndPlatformRepresentations(
-        buffer_, objects_, std::move(raw_objects_),
+        buffer_, objects_, std::move(raw_objects),
         std::move(platform_representations_), std::move(data_src_),
         privacy_types_);
   }
@@ -199,7 +206,7 @@ void ScopedClipboardWriter::WritePickledData(
   raw_data.data = std::vector<uint8_t>(
       reinterpret_cast<const uint8_t*>(pickle.data()),
       reinterpret_cast<const uint8_t*>(pickle.data()) + pickle.size());
-  raw_objects_.emplace_back(std::move(raw_data));
+  raw_objects_.insert({format, std::move(raw_data)});
 }
 
 void ScopedClipboardWriter::WriteData(std::u16string_view format,

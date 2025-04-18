@@ -6,13 +6,15 @@
 #define CHROME_BROWSER_UI_VIEWS_TABS_GLIC_BUTTON_H_
 
 #include "base/memory/raw_ptr.h"
-#include "chrome/browser/glic/glic_button_controller_delegate.h"
+#include "chrome/browser/glic/browser_ui/glic_button_controller_delegate.h"
+#include "chrome/browser/ui/views/tabs/tab_strip_controller.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_nudge_button.h"
 #include "chrome/common/buildflags.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/gfx/vector_icon_types.h"
+#include "ui/views/controls/menu/menu_model_adapter.h"
 
-class TabStripController;
+class PrefService;
 
 namespace glic {
 
@@ -20,13 +22,16 @@ namespace glic {
 // TabSearchButton for sizing and appropriate theming.
 
 class GlicButton : public TabStripNudgeButton,
-                   public GlicButtonControllerDelegate {
+                   public GlicButtonControllerDelegate,
+                   public views::ContextMenuController,
+                   public ui::SimpleMenuModel::Delegate {
   METADATA_HEADER(GlicButton, TabStripNudgeButton)
 
  public:
   explicit GlicButton(TabStripController* tab_strip_controller,
                       PressedCallback pressed_callback,
                       PressedCallback close_pressed_callback,
+                      base::RepeatingClosure hovered_callback,
                       const gfx::VectorIcon& icon,
                       const std::u16string& tooltip);
   GlicButton(const GlicButton&) = delete;
@@ -37,7 +42,9 @@ class GlicButton : public TabStripNudgeButton,
   void SetShowState(bool show) override;
   void SetIcon(const gfx::VectorIcon& icon) override;
 
-  void SetIsShowingNudge(bool is_showing);
+  // TabStripNudgeButton:
+  void SetIsShowingNudge(bool is_showing) override;
+
   void SetDropToAttachIndicator(bool indicate);
 
   // GetBoundsInScreen() gives a rect with some padding that extends beyond the
@@ -48,8 +55,42 @@ class GlicButton : public TabStripNudgeButton,
   // TabStripControlButton:
   gfx::Size CalculatePreferredSize(
       const views::SizeBounds& available_size) const override;
+  void StateChanged(ButtonState old_state) override;
+
+  // views::ContextMenuController:
+  void ShowContextMenuForViewImpl(
+      View* source,
+      const gfx::Point& point,
+      ui::mojom::MenuSourceType source_type) override;
+
+  // ui::SimpleMenuModel::Delegate:
+  void ExecuteCommand(int command_id, int event_flags) override;
+
+  bool IsContextMenuShowingForTest();
 
  private:
+  // Creates the model for the context menu.
+  std::unique_ptr<ui::SimpleMenuModel> CreateMenuModel();
+
+  // Callback when the context menu closes.
+  void OnMenuClosed();
+
+  PrefService* profile_prefs() {
+    return tab_strip_controller_->GetProfile()->GetPrefs();
+  }
+
+  // The model adapter for the context menu.
+  std::unique_ptr<views::MenuModelAdapter> menu_model_adapter_;
+
+  // Model for the context menu.
+  std::unique_ptr<ui::MenuModel> menu_model_;
+
+  // Used to ensure the button remains highlighted while the menu is active.
+  std::optional<Button::ScopedAnchorHighlight> menu_anchor_higlight_;
+
+  // Menu runner for the context menu.
+  std::unique_ptr<views::MenuRunner> menu_runner_;
+
   // Tab strip that contains this button.
   raw_ptr<TabStripController> tab_strip_controller_;
 
@@ -57,9 +98,9 @@ class GlicButton : public TabStripNudgeButton,
   // is reflected by the show state except when the nudge is showing.
   bool show_state_ = true;
 
-  // Represents if a nudge is currently showing. The button is not visible
-  // while the nudge is showing.
-  bool is_showing_nudge_ = false;
+  // Callback which is invoked when the button is hovered (i.e., the user is
+  // more likely to interact with it soon).
+  base::RepeatingClosure hovered_callback_;
 };
 
 }  // namespace glic

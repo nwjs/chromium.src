@@ -141,8 +141,7 @@ class WebsitePreference extends ChromeImageViewPreference {
     }
 
     protected @Nullable String buildSummary() {
-        if (mSiteSettingsDelegate.isPrivacySandboxFirstPartySetsUiFeatureEnabled()
-                && mSiteSettingsDelegate.isRelatedWebsiteSetsDataAccessEnabled()
+        if (mSiteSettingsDelegate.isRelatedWebsiteSetsDataAccessEnabled()
                 && mSite.getRwsCookieInfo() != null) {
             var rwsInfo = mSite.getRwsCookieInfo();
             return getContext()
@@ -277,7 +276,6 @@ class WebsitePreference extends ChromeImageViewPreference {
     public void onBindViewHolder(PreferenceViewHolder holder) {
         super.onBindViewHolder(holder);
         TextView usageText = (TextView) holder.findViewById(R.id.usage_text);
-        assumeNonNull(usageText);
         usageText.setVisibility(View.GONE);
         if (mCategory.getType() == SiteSettingsCategory.Type.USE_STORAGE) {
             long totalUsage = mSite.getTotalUsage();
@@ -288,7 +286,6 @@ class WebsitePreference extends ChromeImageViewPreference {
         }
         if (mCategory.getType() == SiteSettingsCategory.Type.ZOOM) {
             TextView summaryText = (TextView) holder.findViewById(android.R.id.summary);
-            assumeNonNull(summaryText);
             long readableZoomLevel =
                     Math.round(
                             100
@@ -302,7 +299,6 @@ class WebsitePreference extends ChromeImageViewPreference {
 
         // Manually apply ListItemStartIcon style to draw the outer circle in the right size.
         ImageView icon = (ImageView) holder.findViewById(android.R.id.icon);
-        assumeNonNull(icon);
         FaviconViewUtils.formatIconForFavicon(getContext().getResources(), icon);
 
         if (!mFaviconFetched && faviconUrl().isValid()) {

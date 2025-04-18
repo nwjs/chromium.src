@@ -8,6 +8,7 @@
 #include <functional>
 #include <iterator>
 #include <optional>
+#include <ostream>
 #include <sstream>
 #include <string>
 #include <unordered_set>
@@ -29,6 +30,7 @@
 #include "base/trace_event/memory_usage_estimator.h"
 #include "base/trace_event/typed_macros.h"
 #include "build/build_config.h"
+#include "components/omnibox/browser/actions/contextual_search_action.h"
 #include "components/omnibox/browser/actions/omnibox_action_concepts.h"
 #include "components/omnibox/browser/actions/omnibox_pedal.h"
 #include "components/omnibox/browser/actions/omnibox_pedal_provider.h"
@@ -397,11 +399,19 @@ void AutocompleteResult::SortAndCull(
   CompareWithDemoteByType<AutocompleteMatch> comparing_object(
       page_classification);
 
-  const bool is_zero_suggest = input.IsZeroSuggest();
+  bool is_zero_suggest = input.IsZeroSuggest();
   const bool use_grouping_for_non_zps =
       base::FeatureList::IsEnabled(omnibox::kGroupingFrameworkForNonZPS) &&
       !is_zero_suggest;
-  const bool use_grouping = is_zero_suggest || use_grouping_for_non_zps;
+  bool use_grouping = is_zero_suggest || use_grouping_for_non_zps;
+
+  if (is_zero_suggest && OmniboxFieldTrial::IsStarterPackPageEnabled()) {
+    // Keep the the '@page' featured search suggestion showing in zero suggest.
+    // TODO(crbug.com/400812940): Replace this with a more permanent solution if
+    //  we decide to surface such a dedicated suggestion as an entry-point.
+    is_zero_suggest = false;
+    use_grouping = false;
+  }
 
   MergeSuggestionGroupsMap(omnibox::BuildDefaultGroupsForInput(input));
   // Grouping requires all matches have a group ID. To keep providers 'dumb',
@@ -421,6 +431,20 @@ void AutocompleteResult::SortAndCull(
     // but shouldn't be shown otherwise. Filter them out.
     std::erase_if(matches_,
                   [&](const auto& match) { return match.relevance == 0; });
+  }
+
+  // Used to determine how many search / url suggestions should appear in zps
+  // if kOmniboxUrlSuggestionsOnFocus is enabled.
+  auto url_suggestions_on_focus_config =
+      omnibox_feature_configs::OmniboxUrlSuggestionsOnFocus::Get();
+  size_t max_search_suggestions = 8u;
+  size_t max_url_suggestions = 0u;
+  size_t max_suggestions = 8u;
+  if (url_suggestions_on_focus_config.enabled) {
+    max_search_suggestions =
+        url_suggestions_on_focus_config.max_search_suggestions;
+    max_url_suggestions = url_suggestions_on_focus_config.max_url_suggestions;
+    max_suggestions = url_suggestions_on_focus_config.max_suggestions;
   }
 
   // If at zero suggest or `kGroupingFrameworkForNonZPS` is enabled and the
@@ -502,8 +526,9 @@ void AutocompleteResult::SortAndCull(
           }
         }
       } else if (omnibox::IsSearchResultsPage(page_classification)) {
-        sections.push_back(
-            std::make_unique<DesktopSRPZpsSection>(suggestion_groups_map_));
+        sections.push_back(std::make_unique<DesktopSRPZpsSection>(
+            suggestion_groups_map_, max_suggestions, max_search_suggestions,
+            max_url_suggestions));
 #if BUILDFLAG(ENABLE_EXTENSIONS)
         if (base::FeatureList::IsEnabled(
                 extensions_features::kExperimentalOmniboxLabs)) {
@@ -513,8 +538,9 @@ void AutocompleteResult::SortAndCull(
         }
 #endif
       } else {
-        sections.push_back(
-            std::make_unique<DesktopWebZpsSection>(suggestion_groups_map_));
+        sections.push_back(std::make_unique<DesktopWebZpsSection>(
+            suggestion_groups_map_, max_suggestions, max_search_suggestions,
+            max_url_suggestions));
 #if BUILDFLAG(ENABLE_EXTENSIONS)
         if (base::FeatureList::IsEnabled(
                 extensions_features::kExperimentalOmniboxLabs)) {
@@ -862,6 +888,17 @@ void AutocompleteResult::AttachPedalsToMatches(
   }
 }
 
+void AutocompleteResult::AttachContextualSearchFulfillmentActionToMatches() {
+  for (AutocompleteMatch& match : matches_) {
+    if (match.subtypes.contains(omnibox::SUBTYPE_CONTEXTUAL_SEARCH)) {
+      match.takeover_action =
+          base::MakeRefCounted<ContextualSearchFulfillmentAction>(
+              match.destination_url, match.type,
+              match.subtypes.contains(omnibox::SUBTYPE_ZERO_PREFIX));
+    }
+  }
+}
+
 void AutocompleteResult::ConvertOpenTabMatches(
     AutocompleteProviderClient* client,
     const AutocompleteInput* input) {
@@ -1184,6 +1221,10 @@ AutocompleteResult::SessionData::~SessionData() = default;
 void AutocompleteResult::SessionData::Reset() {
   zero_prefix_enabled_ = false;
   num_zero_prefix_suggestions_shown_ = 0u;
+  zero_prefix_search_suggestions_shown_in_session_ = false;
+  zero_prefix_url_suggestions_shown_in_session_ = false;
+  typed_search_suggestions_shown_in_session_ = false;
+  typed_url_suggestions_shown_in_session_ = false;
   gws_event_id_hashes_.clear();
 }
 
@@ -1615,4 +1656,15 @@ void AutocompleteResult::GroupSuggestionsBySearchVsURL(iterator begin,
 
   std::ranges::stable_sort(begin, end, {},
                            [](const auto& m) { return m.GetSortingOrder(); });
+}
+
+std::ostream& operator<<(std::ostream& os, const AutocompleteResult& result) {
+  os << "AutocompleteResult {" << std::endl;
+  for (size_t i = 0; i < result.matches_.size(); i++) {
+    const AutocompleteMatch& match = result.matches_[i];
+    os << "  - " << i << ": `" << match.contents << "`"
+       << (match.allowed_to_be_default_match ? '*' : ' ') << std::endl;
+  }
+  os << "}" << std::endl;
+  return os;
 }

@@ -71,6 +71,7 @@
 #include "media/media_buildflags.h"
 #include "media/mojo/clients/mojo_video_decoder.h"
 #include "media/mojo/mojom/video_encode_accelerator.mojom.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/base/ui_base_switches.h"
 #include "ui/display/screen.h"
 #include "ui/gfx/switches.h"
@@ -391,12 +392,12 @@ void RequestVideoMemoryUsageStats(
       base::BindOnce(&OnVideoMemoryUsageStats, std::move(callback)));
 }
 
-// Determines if SwiftShader is available as a fallback for WebGL.
-bool SwiftShaderAllowed() {
+// Determines if software GL is available as a fallback for WebGL.
+bool SoftwareGLAllowed() {
   const base::CommandLine* command_line =
       base::CommandLine::ForCurrentProcess();
   return !command_line->HasSwitch(switches::kDisableSoftwareRasterizer) &&
-         features::IsSwiftShaderAllowed(command_line);
+         features::IsAnySoftwareGLAllowed(command_line);
 }
 
 // These values are logged to UMA. Entries should not be renumbered and numeric
@@ -506,8 +507,9 @@ void GpuDataManagerImplPrivate::InitializeGpuModes() {
   // browser process to reset everything.
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS)
   fallback_modes_.push_back(gpu::GpuMode::DISPLAY_COMPOSITOR);
-  if (SwiftShaderAllowed())
-    fallback_modes_.push_back(gpu::GpuMode::SWIFTSHADER);
+  if (SoftwareGLAllowed()) {
+    fallback_modes_.push_back(gpu::GpuMode::SOFTWARE_GL);
+  }
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS)
 
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
@@ -592,18 +594,18 @@ bool GpuDataManagerImplPrivate::GpuAccessAllowed(std::string* reason) const {
     case gpu::GpuMode::HARDWARE_GRAPHITE:
     case gpu::GpuMode::HARDWARE_VULKAN:
       return true;
-    case gpu::GpuMode::SWIFTSHADER:
-      DCHECK(SwiftShaderAllowed());
+    case gpu::GpuMode::SOFTWARE_GL:
+      DCHECK(SoftwareGLAllowed());
       return true;
     default:
       if (reason) {
         // If SwiftShader is allowed, then we are here because it was blocked.
-        if (SwiftShaderAllowed()) {
-          *reason = "GPU process crashed too many times with SwiftShader.";
+        if (SoftwareGLAllowed()) {
+          *reason = "GPU process crashed too many times with software GL.";
         } else {
           *reason = "GPU access is disabled ";
           // just running with --disable-gpu only will go to
-          // GpuMode::SWIFTSHADER instead. Adding --disable-gpu and
+          // GpuMode::SOFTWARE_GL instead. Adding --disable-gpu and
           // --disable-software-rasterizer makes GpuAccessAllowed false and it
           // comes here.
           if (base::CommandLine::ForCurrentProcess()->HasSwitch(
@@ -1233,6 +1235,12 @@ void GpuDataManagerImplPrivate::UpdateGpuFeatureInfo(
     RecordCanvasAcceleratedOopRasterHistogram(gpu_feature_info_,
                                               IsGpuCompositingDisabled());
   }
+
+  is_gpu_rasterization_for_ui_enabled_ =
+      features::IsUiGpuRasterizationEnabled() &&
+      gpu_feature_info_
+              .status_values[gpu::GPU_FEATURE_TYPE_GPU_TILE_RASTERIZATION] ==
+          gpu::kGpuFeatureStatusEnabled;
 }
 
 void GpuDataManagerImplPrivate::UpdateGpuExtraInfo(
@@ -1306,7 +1314,7 @@ void GpuDataManagerImplPrivate::AppendGpuCommandLine(
     case gpu::GpuMode::HARDWARE_VULKAN:
       use_gl = browser_command_line->GetSwitchValueASCII(switches::kUseGL);
       break;
-    case gpu::GpuMode::SWIFTSHADER:
+    case gpu::GpuMode::SOFTWARE_GL:
       gl::SetSoftwareWebGLCommandLineSwitches(command_line);
       break;
     default:
@@ -1382,6 +1390,10 @@ bool GpuDataManagerImplPrivate::HardwareAccelerationEnabled() const {
     default:
       return false;
   }
+}
+
+bool GpuDataManagerImplPrivate::IsGpuRasterizationForUIEnabled() const {
+  return is_gpu_rasterization_for_ui_enabled_;
 }
 
 void GpuDataManagerImplPrivate::OnGpuBlocked() {
@@ -1653,6 +1665,19 @@ void GpuDataManagerImplPrivate::FallBackToNextGpuMode() {
   DCHECK_NE(gpu_mode_, gpu::GpuMode::UNKNOWN);
   if (gpu_mode_ == gpu::GpuMode::DISPLAY_COMPOSITOR)
     OnGpuBlocked();
+}
+
+void GpuDataManagerImplPrivate::FallBackToNextGpuModeDueToCrash() {
+  FallBackToNextGpuMode();
+
+  // If we fell back to sofware GL due to crashes and it is disabled with a
+  // feature. Fall back again.
+  if (gpu_mode_ == gpu::GpuMode::SOFTWARE_GL &&
+      !features::IsSoftwareGLFallbackDueToCrashesAllowed(
+          base::CommandLine::ForCurrentProcess())) {
+    FallBackToNextGpuMode();
+    DCHECK_NE(gpu_mode_, gpu::GpuMode::SOFTWARE_GL);
+  }
 }
 
 void GpuDataManagerImplPrivate::RecordCompositingMode() {

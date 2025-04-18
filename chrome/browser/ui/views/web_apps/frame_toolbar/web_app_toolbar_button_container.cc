@@ -157,6 +157,8 @@ WebAppToolbarButtonContainer::WebAppToolbarButtonContainer(
         // The toolbar button container already sets spacing between child
         // views.
         .should_bridge_containers = false,
+        // On space constraint, the page action should get hidden.
+        .hide_icon_on_space_constraint = true,
     };
     page_action_container_ =
         AddChildView(std::make_unique<page_actions::PageActionContainerView>(
@@ -230,14 +232,6 @@ WebAppToolbarButtonContainer::WebAppToolbarButtonContainer(
       std::make_unique<PinnedToolbarActionsContainer>(browser_view_));
   views::SetHitTestComponent(pinned_toolbar_actions_container_,
                              static_cast<int>(HTCLIENT));
-
-  if (download::IsDownloadBubbleEnabled() &&
-      !base::FeatureList::IsEnabled(features::kPinnableDownloadsButton)) {
-    download_button_ = AddChildView(
-        std::make_unique<DownloadToolbarButtonView>(browser_view_));
-    views::SetHitTestComponent(download_button_, static_cast<int>(HTCLIENT));
-    ConfigureWebAppToolbarButton(download_button_, toolbar_button_provider_);
-  }
 
 #if !BUILDFLAG(IS_CHROMEOS)
   if (app_controller->HasProfileMenuButton()) {
@@ -324,11 +318,8 @@ views::FlexRule WebAppToolbarButtonContainer::GetFlexRule() const {
 }
 
 ToolbarButton* WebAppToolbarButtonContainer::GetDownloadButton() {
-  if (base::FeatureList::IsEnabled(features::kPinnableDownloadsButton)) {
     return pinned_toolbar_actions_container_->GetButtonFor(
         kActionShowDownloads);
-  }
-  return download_button_.get();
 }
 
 void WebAppToolbarButtonContainer::DisableAnimationForTesting(bool disable) {

@@ -791,7 +791,7 @@ Status LaunchDesktopChrome(network::mojom::URLLoaderFactory* factory,
           capabilities.page_load_strategy, std::move(process), command,
           &user_data_dir_temp_dir, &extension_dir,
           capabilities.network_emulation_enabled, !capabilities.web_socket_url,
-          capabilities.enable_extension_targets);
+          capabilities.enable_extension_targets, capabilities.quit_gracefully);
   if (capabilities.enable_extension_targets &&
       !capabilities.extension_load_timeout.is_zero()) {
     for (const std::string& url : extension_bg_pages) {
@@ -1242,7 +1242,7 @@ Status WritePrefsFile(const std::string& template_string,
   std::string prefs_str;
   base::JSONWriter::Write(*prefs, &prefs_str);
   VLOG(0) << "Populating " << path.BaseName().value()
-          << " file: " << PrettyPrintValue(base::Value(prefs->Clone()));
+          << " file: " << PrettyPrintValue(*prefs);
   return base::WriteFile(path, prefs_str)
              ? Status(kOk)
              : Status(kUnknownError, "failed to write prefs file");

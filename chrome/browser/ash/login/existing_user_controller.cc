@@ -65,6 +65,7 @@
 #include "chrome/browser/ash/system/device_disabling_manager.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
+#include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/lifetime/application_lifetime_chromeos.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/net/system_network_context_manager.h"
@@ -364,7 +365,7 @@ ExistingUserController::ExistingUserController()
       pin_salt_storage_(std::make_unique<quick_unlock::PinSaltStorage>()) {
   HttpAuthDialog::AddObserver(this);
 
-  enable_ash_httpauth_ = HttpAuthDialog::Enable();
+  enable_system_httpauth_ = HttpAuthDialog::Enable();
   show_user_names_subscription_ = cros_settings_->AddSettingsObserver(
       kAccountsPrefShowUserNamesOnSignIn,
       base::BindRepeating(&ExistingUserController::DeviceSettingsChanged,
@@ -510,6 +511,8 @@ void ExistingUserController::CompleteLogin(const UserContext& user_context) {
 
   is_login_in_progress_ = true;
 
+  user_has_empty_password_.reset();
+
   ContinueLoginIfDeviceNotDisabled(
       base::BindOnce(&ExistingUserController::DoCompleteLogin,
                      weak_factory_.GetWeakPtr(), user_context));
@@ -529,6 +532,7 @@ void ExistingUserController::Login(const UserContext& user_context,
   }
 
   is_login_in_progress_ = true;
+  user_has_empty_password_.reset();
 
   if (user_context.GetUserType() != user_manager::UserType::kRegular &&
       user_manager::UserManager::Get()->IsUserLoggedIn()) {
@@ -570,6 +574,8 @@ void ExistingUserController::PerformLogin(
         user_context.GetAccountId().GetUserEmail(), password,
         auth_mode == LoginPerformer::AuthorizationMode::kExternal));
   }
+
+  user_has_empty_password_ = new_user_context.GetKey()->GetSecret().empty();
 
   if (new_user_context.IsUsingPin()) {
     std::optional<Key> key =
@@ -893,6 +899,21 @@ void ExistingUserController::OnProfilePrepared(Profile* profile,
     }
   }
 
+  if (is_enterprise_managed &&
+      user_context.GetUserType() == user_manager::UserType::kRegular &&
+      user_has_empty_password_.value_or(false)) {
+    // ERROR: Enterprise-managed regular user lacks an online password.
+    // This scenario is unsupported.
+    SYSLOG(ERROR) << "Authentication failed: Enterprise-managed user lacks an "
+                     "online password.";
+    for (auto& auth_status_consumer : auth_status_consumers_) {
+      auth_status_consumer.OnAuthFailure(
+          AuthFailure(AuthFailure::AUTH_DISABLED));
+    }
+    chrome::AttemptUserExit();
+    return;
+  }
+
   if (user_context.GetUserType() == user_manager::UserType::kPublicAccount) {
     SYSLOG(INFO) << "MGS: Session started, the profile is ready";
   }
@@ -905,7 +926,9 @@ void ExistingUserController::OnProfilePrepared(Profile* profile,
 
   // Initialize `AuthHub` in `kInSession` mode, see documentation in
   // `AuthHub` for more details.
-  AuthHub::Get()->InitializeForMode(AuthHubMode::kInSession);
+  if (ash::features::IsAuthPanelUsingAuthHub()) {
+    AuthHub::Get()->InitializeForMode(AuthHubMode::kInSession);
+  }
 }
 
 base::WeakPtr<UserSessionManagerDelegate> ExistingUserController::AsWeakPtr() {

@@ -18,6 +18,7 @@
 #include <tuple>
 #include <unordered_set>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "base/check_op.h"
@@ -117,7 +118,6 @@
 #include "net/log/net_log_with_source.h"
 #include "net/socket/client_socket_factory.h"
 #include "net/url_request/url_request_context.h"
-#include "third_party/abseil-cpp/absl/types/variant.h"
 #include "url/scheme_host_port.h"
 #include "url/url_constants.h"
 
@@ -437,6 +437,8 @@ HostResolverManager::HostResolverManager(
       check_ipv6_on_wifi_(options.check_ipv6_on_wifi),
       ipv6_reachability_override_(base::FeatureList::IsEnabled(
           features::kEnableIPv6ReachabilityOverride)),
+      is_happy_eyeballs_v3_enabled_(
+          base::FeatureList::IsEnabled(features::kHappyEyeballsV3)),
       tick_clock_(base::DefaultTickClock::GetInstance()),
       https_svcb_options_(
           options.https_svcb_options
@@ -518,7 +520,7 @@ HostResolverManager::CreateNetworkBoundHostResolverManager(
 
 std::unique_ptr<HostResolver::ResolveHostRequest>
 HostResolverManager::CreateRequest(
-    absl::variant<url::SchemeHostPort, HostPortPair> host,
+    std::variant<url::SchemeHostPort, HostPortPair> host,
     NetworkAnonymizationKey network_anonymization_key,
     NetLogWithSource net_log,
     std::optional<ResolveHostParameters> optional_parameters,
@@ -683,6 +685,14 @@ void HostResolverManager::SetTickClockForTesting(
 void HostResolverManager::SetIPv6ReachabilityOverride(
     bool reachability_override) {
   ipv6_reachability_override_ = reachability_override;
+}
+
+void HostResolverManager::SetIsHappyEyeballsV3Enabled(bool enabled) {
+  is_happy_eyeballs_v3_enabled_ = enabled;
+}
+
+bool HostResolverManager::IsHappyEyeballsV3Enabled() const {
+  return is_happy_eyeballs_v3_enabled_;
 }
 
 void HostResolverManager::SetMaxQueuedJobsForTesting(size_t value) {

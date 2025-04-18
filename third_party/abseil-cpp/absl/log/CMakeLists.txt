@@ -747,6 +747,7 @@ absl_cc_library(
     absl::log_internal_fnmatch
     absl::memory
     absl::no_destructor
+    absl::nullability
     absl::strings
     absl::synchronization
     absl::optional
@@ -1005,6 +1006,7 @@ absl_cc_test(
     ${ABSL_DEFAULT_LINKOPTS}
   DEPS
     absl::check
+    absl::config
     absl::log
     absl::log_internal_test_matchers
     absl::optional

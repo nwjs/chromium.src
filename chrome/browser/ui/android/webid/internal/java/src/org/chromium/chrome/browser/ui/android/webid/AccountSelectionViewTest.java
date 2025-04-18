@@ -188,47 +188,116 @@ public class AccountSelectionViewTest extends AccountSelectionJUnitTestBase {
     public void testAccountsChangedByModel() {
         mSheetAccountItems.addAll(
                 asList(
-                        buildAccountItem(mAnaAccount),
-                        buildAccountItem(mNoOneAccount),
-                        buildAccountItem(mBobAccount),
-                        buildAccountItem(mNicolasAccount)));
+                        buildAccountItem(mAnaAccount, /* showIdp= */ false),
+                        buildAccountItem(mNoOneAccount, /* showIdp= */ false),
+                        buildAccountItem(mBobAccount, /* showIdp= */ false),
+                        buildAccountItem(mNicolasAccount, /* showIdp= */ false)));
         ShadowLooper.shadowMainLooper().idle();
 
         assertEquals(View.VISIBLE, mContentView.getVisibility());
         assertEquals("Incorrect account count", 4, getAccounts().getChildCount());
-        assertEquals("Incorrect name", mAnaAccount.getName(), getAccountNameAt(0).getText());
-        assertEquals("Incorrect email", mAnaAccount.getEmail(), getAccountEmailAt(0).getText());
+        assertEquals(
+                "Incorrect display name",
+                mAnaAccount.getDisplayName(),
+                getAccountNameAt(0).getText());
+        assertEquals(
+                "Incorrect display identifier",
+                mAnaAccount.getDisplayIdentifier(),
+                getAccountDescriptionAt(0).getText());
         assertEquals(
                 "Should not have secondary description",
                 "",
                 getAccountSecondaryDescriptionAt(0).getText());
         assertEquals(View.GONE, getAccountSecondaryDescriptionAt(0).getVisibility());
-        assertEquals("Incorrect name", mNoOneAccount.getName(), getAccountNameAt(1).getText());
-        assertEquals("Incorrect email", mNoOneAccount.getEmail(), getAccountEmailAt(1).getText());
+        assertEquals(
+                "Incorrect display name",
+                mNoOneAccount.getDisplayName(),
+                getAccountNameAt(1).getText());
+        assertEquals(
+                "Incorrect display identifier",
+                mNoOneAccount.getDisplayIdentifier(),
+                getAccountDescriptionAt(1).getText());
         assertEquals(
                 "Should not have secondary description",
                 "",
                 getAccountSecondaryDescriptionAt(1).getText());
         assertEquals(View.GONE, getAccountSecondaryDescriptionAt(1).getVisibility());
-        assertEquals("Incorrect name", mBobAccount.getName(), getAccountNameAt(2).getText());
-        assertEquals("Incorrect email", mBobAccount.getEmail(), getAccountEmailAt(2).getText());
+        assertEquals(
+                "Incorrect display name",
+                mBobAccount.getDisplayName(),
+                getAccountNameAt(2).getText());
+        assertEquals(
+                "Incorrect display identifier",
+                mBobAccount.getDisplayIdentifier(),
+                getAccountDescriptionAt(2).getText());
         assertEquals(
                 "Should not have secondary description",
                 "",
                 getAccountSecondaryDescriptionAt(2).getText());
         assertEquals(View.GONE, getAccountSecondaryDescriptionAt(2).getVisibility());
-        assertEquals("Incorrect name", mNicolasAccount.getName(), getAccountNameAt(3).getText());
-        assertEquals("Incorrect email", mNicolasAccount.getEmail(), getAccountEmailAt(3).getText());
+        assertEquals(
+                "Incorrect display name",
+                mNicolasAccount.getDisplayName(),
+                getAccountNameAt(3).getText());
+        assertEquals(
+                "Incorrect display identifier",
+                mNicolasAccount.getDisplayIdentifier(),
+                getAccountDescriptionAt(3).getText());
+
+        // Even though mNicolasAccount has secondary description, it should not be shown when UI is
+        // not in multi IDP mode.
         assertEquals(
                 "Should not have secondary description",
-                mNicolasAccount.getSecondaryDescription(),
+                "",
                 getAccountSecondaryDescriptionAt(3).getText());
-        assertEquals(View.VISIBLE, getAccountSecondaryDescriptionAt(3).getVisibility());
+        assertEquals(View.GONE, getAccountSecondaryDescriptionAt(3).getVisibility());
+    }
+
+    @Test
+    public void testSecondaryDescriptionsWithMultipleIdpAccounts() {
+        mSheetAccountItems.addAll(
+                asList(
+                        buildAccountItem(mAnaAccount, /* showIdp= */ true),
+                        buildAccountItem(mAnaAccountWithoutBrandIcons, /* showIdp= */ true),
+                        buildAccountItem(mNewUserAccount, /* showIdp= */ true)));
+        ShadowLooper.shadowMainLooper().idle();
+
+        assertEquals(View.VISIBLE, mContentView.getVisibility());
+        assertEquals("Incorrect account count", 3, getAccounts().getChildCount());
+
+        TextView secondaryDescription = getAccountSecondaryDescriptionAt(0);
+        assertEquals(
+                "Secondary description not visible",
+                View.VISIBLE,
+                secondaryDescription.getVisibility());
+        assertEquals(
+                mAnaAccount.getSecondaryDescription() + " • You used on this site",
+                secondaryDescription.getText().toString());
+
+        secondaryDescription = getAccountSecondaryDescriptionAt(1);
+        assertEquals(
+                "Secondary description not visible",
+                View.VISIBLE,
+                secondaryDescription.getVisibility());
+        assertEquals(
+                mAnaAccountWithoutBrandIcons.getSecondaryDescription() + " • You used on this site",
+                secondaryDescription.getText().toString());
+
+        secondaryDescription = getAccountSecondaryDescriptionAt(2);
+        assertEquals(
+                "Secondary description not visible",
+                View.VISIBLE,
+                secondaryDescription.getVisibility());
+        // This is a new account, so should not include "You used on this site".
+        assertEquals(
+                mNewUserAccount.getSecondaryDescription(),
+                secondaryDescription.getText().toString());
     }
 
     @Test
     public void testAccountsAreClickable() {
-        mSheetAccountItems.addAll(Collections.singletonList(buildAccountItem(mAnaAccount)));
+        mSheetAccountItems.addAll(
+                Collections.singletonList(buildAccountItem(mAnaAccount, /* showIdp= */ false)));
         ShadowLooper.shadowMainLooper().idle();
 
         assertEquals(View.VISIBLE, mContentView.getVisibility());
@@ -490,7 +559,7 @@ public class AccountSelectionViewTest extends AccountSelectionJUnitTestBase {
         return getAccounts().getChildAt(index).findViewById(R.id.title);
     }
 
-    private TextView getAccountEmailAt(int index) {
+    private TextView getAccountDescriptionAt(int index) {
         return getAccounts().getChildAt(index).findViewById(R.id.description);
     }
 

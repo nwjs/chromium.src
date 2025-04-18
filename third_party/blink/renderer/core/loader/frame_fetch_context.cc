@@ -34,6 +34,7 @@
 #include <memory>
 #include <optional>
 
+#include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_functions.h"
@@ -51,6 +52,7 @@
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/client_hints/client_hints.h"
 #include "third_party/blink/public/common/device_memory/approximated_device_memory.h"
+#include "third_party/blink/public/common/switches.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-blink.h"
 #include "third_party/blink/public/mojom/loader/request_context_frame_type.mojom-blink.h"
 #include "third_party/blink/public/platform/modules/service_worker/web_service_worker_network_provider.h"
@@ -797,6 +799,12 @@ void FrameFetchContext::AddReducedAcceptLanguageIfNecessary(
     return;
   }
 
+  // Skip if enterprise policy disabled the feature.
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          blink::switches::kDisableReduceAcceptLanguage)) {
+    return;
+  }
+
   if (!request.Url().ProtocolIsInHTTPFamily()) {
     return;
   }
@@ -828,12 +836,15 @@ void FrameFetchContext::WillSendRequest(ResourceRequest& resource_request) {
 
 void FrameFetchContext::PopulateResourceRequestBeforeCacheAccess(
     const ResourceLoaderOptions& options,
-    ResourceRequest& request) {
+    ResourceRequest& request,
+    FetchParameters::HasPreloadedResponseCandidate
+        has_preloaded_response_candidate) {
   if (!GetResourceFetcherProperties().IsDetached()) {
     probe::SetDevToolsIds(Probe(), request, options.initiator_info);
   }
 
   if (!RuntimeEnabledFeatures::PreloadLinkRelDataUrlsEnabled()) {
+    CHECK(!has_preloaded_response_candidate);
     // CSP may change the url, if Upgrade-Insecure-Request is enforced for
     // mixed content.
     ModifyRequestForMixedContentUpgrade(request);
@@ -841,9 +852,13 @@ void FrameFetchContext::PopulateResourceRequestBeforeCacheAccess(
       return;
     }
   }
-  SetFirstPartyCookie(request);
-  if (CoreProbeSink::HasAgentsGlobal(CoreProbeSink::kInspectorEmulationAgent |
-                                     CoreProbeSink::kInspectorNetworkAgent)) {
+  const bool has_inspector_agents =
+      CoreProbeSink::HasAgentsGlobal(CoreProbeSink::kInspectorEmulationAgent |
+                                     CoreProbeSink::kInspectorNetworkAgent);
+  if (!has_preloaded_response_candidate || has_inspector_agents) {
+    SetFirstPartyCookie(request);
+  }
+  if (has_inspector_agents) {
     request.SetRequiresUpgradeForLoader();
   }
   if (document_loader_->ForceFetchCacheMode()) {
@@ -1304,8 +1319,9 @@ std::optional<ResourceRequestBlockedReason> FrameFetchContext::CanRequest(
     const KURL& url,
     const ResourceLoaderOptions& options,
     ReportingDisposition reporting_disposition,
-    base::optional_ref<const ResourceRequest::RedirectInfo> redirect_info)
-    const {
+    base::optional_ref<const ResourceRequest::RedirectInfo> redirect_info,
+    FetchParameters::HasPreloadedResponseCandidate
+        has_preloaded_response_candidate) const {
   const bool detached = GetResourceFetcherProperties().IsDetached();
   if (!detached && document_->IsFreezingInProgress() &&
       !resource_request.GetKeepalive()) {
@@ -1319,7 +1335,8 @@ std::optional<ResourceRequestBlockedReason> FrameFetchContext::CanRequest(
   }
   std::optional<ResourceRequestBlockedReason> blocked_reason =
       BaseFetchContext::CanRequest(type, resource_request, url, options,
-                                   reporting_disposition, redirect_info);
+                                   reporting_disposition, redirect_info,
+                                   has_preloaded_response_candidate);
   if (blocked_reason) {
     return blocked_reason;
   }

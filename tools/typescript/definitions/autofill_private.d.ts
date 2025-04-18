@@ -129,6 +129,12 @@ declare global {
         ACCOUNT = 'ACCOUNT',
       }
 
+      export enum AttributeTypeDataType {
+        COUNTRY = 'COUNTRY',
+        DATE = 'DATE',
+        STRING = 'STRING',
+      }
+
       export interface AutofillMetadata {
         summaryLabel: string;
         summarySublabel?: string;
@@ -201,31 +207,38 @@ declare global {
       export interface AttributeType {
         typeName: number;
         typeNameAsString: string;
+        dataType: AttributeTypeDataType;
       }
 
       export interface EntityType {
         typeName: number;
         typeNameAsString: string;
-        addEntityString: string;
-        editEntityString: string;
+        addEntityTypeString: string;
+        editEntityTypeString: string;
+      }
+
+      export interface DateValue {
+        year: string;
+        month: string;
+        day: string;
       }
 
       export interface AttributeInstance {
         type: AttributeType;
-        value: string;
+        value: string|DateValue;
       }
 
       export interface EntityInstance {
         type: EntityType;
-        attributes: AttributeInstance[];
+        attributeInstances: AttributeInstance[];
         guid: string;
         nickname: string;
       }
 
       export interface EntityInstanceWithLabels {
         guid: string;
-        entityLabel: string;
-        entitySubLabel: string;
+        entityInstanceLabel: string;
+        entityInstanceSubLabel: string;
       }
 
       export interface PayOverTimeIssuerEntry {
@@ -238,7 +251,7 @@ declare global {
       export function getAccountInfo(): Promise<AccountInfo|undefined>;
       export function saveAddress(address: AddressEntry): void;
       export function removeAddress(guid: string): void;
-      export function getCountryList(forAccountAddressProfile: boolean):
+      export function getCountryList(forAccountStorage: boolean):
           Promise<CountryEntry[]>;
       export function getAddressComponents(
           countryCode: string): Promise<AddressComponents>;
@@ -249,7 +262,6 @@ declare global {
       export function getCreditCardList(): Promise<CreditCardEntry[]>;
       export function getIbanList(): Promise<IbanEntry[]>;
       export function isValidIban(ibanValue: string): Promise<boolean>;
-      export function migrateCreditCards(): void;
       export function logServerCardLinkClicked(): void;
       export function logServerIbanLinkClicked(): void;
       export function addVirtualCard(cardId: string): void;
@@ -261,8 +273,6 @@ declare global {
       export function checkIfDeviceAuthAvailable(): Promise<boolean>;
       export function bulkDeleteAllCvcs(): void;
       export function setAutofillSyncToggleEnabled(enabled: boolean): void;
-      export function isUserEligibleForAutofillImprovements(): Promise<boolean>;
-      export function predictionImprovementsIphFeatureUsed(): void;
       export function addOrUpdateEntityInstance(entityInstance: EntityInstance):
           void;
       export function removeEntityInstance(guid: string): void;
@@ -271,12 +281,17 @@ declare global {
       export function getEntityInstanceByGuid(guid: string):
           Promise<EntityInstance>;
       export function getAllEntityTypes(): Promise<EntityType[]>;
-      export function getAllAttributeTypesForEntity(entityTypeName: number):
-          Promise<AttributeType[]>;
+      export function getAllAttributeTypesForEntityTypeName(
+          entityTypeName: number): Promise<AttributeType[]>;
+      export function getAutofillAiOptInStatus(): Promise<boolean>;
+      export function setAutofillAiOptInStatus(optedIn: boolean):
+          Promise<boolean>;
       export const onPersonalDataChanged: ChromeEvent<
           (addresses: AddressEntry[], creditCards: CreditCardEntry[],
            ibans: IbanEntry[], payOverTimeIssuers: PayOverTimeIssuerEntry[],
            accountInfo?: AccountInfo) => void>;
+      export const onEntityInstancesChanged: ChromeEvent<
+          (entityInstancesWithLabels: EntityInstanceWithLabels[]) => void>;
     }
   }
 }

@@ -146,9 +146,8 @@ test
 <div>test</div><p>bla
 #config
 { "removeElements": ["div"], "elements": ["div"] }
-#document
-| <p>
-|   "bla"
+#error
+TypeError
 
 #data
 <p id='test'>Click.</p>
@@ -220,9 +219,8 @@ test
 <div id='div' title='div'>DIV</div>
 #config
 { "elements": [{ "name": "div", "attributes": ["id"], "removeAttributes": ["id"] }]}
-#document
-| <div>
-|   "DIV"
+#error
+TypeError
 
 #data
 <div id='div' title='div'>DIV</div>
@@ -272,9 +270,8 @@ test
 <p style='color: black'>Click.</p>
 #config
 { "removeAttributes": ["style"], "attributes": ["style"] }
-#document
-| <p>
-|   "Click."
+#error
+TypeError
 
 #data
 <template><script>test</script><div>hello</div></template>
@@ -307,34 +304,46 @@ test
 
 #data
 <area href='javascript:evil.com'>
+#config
+{}
 #document
 | <area>
 
 #data
 <area href=' javascript:evil.com'>
+#config
+{}
 #document
 | <area>
 
 #data
 <area href='http:evil.com'>
+#config
+{}
 #document
 | <area>
 |   href="http:evil.com"
 
 #data
 <form action='javascript:evil.com'>Click.</form>
+#config
+{}
 #document
 | <form>
 |   "Click."
 
 #data
 <form action=' javascript:evil.com'>Click.</form>
+#config
+{}
 #document
 | <form>
 |   "Click."
 
 #data
 <form action='http:evil.com'>Click.</form>
+#config
+{}
 #document
 | <form>
 |   action="http:evil.com"
@@ -342,34 +351,46 @@ test
 
 #data
 <input formaction='javascript:evil.com'>
+#config
+{}
 #document
 | <input>
 
 #data
 <input formaction=' javascript:evil.com'>
+#config
+{}
 #document
 | <input>
 
 #data
 <input formaction='http:evil.com'>
+#config
+{}
 #document
 | <input>
 |   formaction="http:evil.com"
 
 #data
 <button formaction='javascript:evil.com'>Click.</button>
+#config
+{}
 #document
 | <button>
 |   "Click."
 
 #data
 <button formaction=' javascript:evil.com'>Click.</button>
+#config
+{}
 #document
 | <button>
 |   "Click."
 
 #data
 <button formaction='http:evil.com'>Click.</button>
+#config
+{}
 #document
 | <button>
 |   formaction="http:evil.com"

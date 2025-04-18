@@ -16,6 +16,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/grit/theme_resources.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
 #include "components/autofill/core/browser/integrators/autofill_ai_delegate.h"
@@ -31,16 +32,15 @@ namespace {
 using autofill::AutofillAiDelegate;
 using enum SaveOrUpdateAutofillAiDataController::EntityAttributeUpdateType;
 
-// Returns whether user interacted with the bubble, based on its closed reason.
-bool GetUserInteractionFromAutofillAiBubbleClosedReason(
+bool DidUserDeclineExplicitly(
     SaveOrUpdateAutofillAiDataController::AutofillAiBubbleClosedReason
         closed_reason) {
   using enum SaveOrUpdateAutofillAiDataController::AutofillAiBubbleClosedReason;
   switch (closed_reason) {
-    case kAccepted:
     case kCancelled:
     case kClosed:
       return true;
+    case kAccepted:
     case kUnknown:
     case kNotInteracted:
     case kLostFocus:
@@ -101,9 +101,7 @@ bool SaveOrUpdateAutofillAiDataControllerImpl::IsSavePrompt() const {
 
 std::vector<SaveOrUpdateAutofillAiDataController::EntityAttributeUpdateDetails>
 SaveOrUpdateAutofillAiDataControllerImpl::GetUpdatedAttributesDetails() const {
-  std::vector<
-      SaveOrUpdateAutofillAiDataController::EntityAttributeUpdateDetails>
-      details;
+  std::vector<EntityAttributeUpdateDetails> details;
 
   auto get_attribute_update_type = [&](const autofill::AttributeInstance&
                                            new_entity_attribute_instance) {
@@ -120,9 +118,11 @@ SaveOrUpdateAutofillAiDataControllerImpl::GetUpdatedAttributesDetails() const {
     return std::ranges::all_of(
                new_entity_attribute_instance.GetSupportedTypes(),
                [&](autofill::FieldType type) {
-                 return old_entity_attribute->GetInfo(type, app_locale_) ==
-                        new_entity_attribute_instance.GetInfo(type,
-                                                              app_locale_);
+                 return old_entity_attribute->GetInfo(
+                            type, app_locale_,
+                            /*format_string=*/std::nullopt) ==
+                        new_entity_attribute_instance.GetInfo(
+                            type, app_locale_, /*format_string=*/std::nullopt);
                })
                ? kNewEntityAttributeUnchanged
                : kNewEntityAttributeUpdated;
@@ -132,55 +132,32 @@ SaveOrUpdateAutofillAiDataControllerImpl::GetUpdatedAttributesDetails() const {
        new_entity_->attributes()) {
     EntityAttributeUpdateType update_type =
         get_attribute_update_type(attribute_instance);
-    details.emplace_back(attribute_instance.type().GetNameForI18n(),
-                         attribute_instance.GetInfo(
-                             attribute_instance.GetTopLevelType(), app_locale_),
-                         update_type);
-
-    // Also add the old value when an attribute is updated to display
-    // before/after to the user.
-    if (update_type == kNewEntityAttributeUpdated) {
-      CHECK(old_entity_);
-      base::optional_ref<const autofill::AttributeInstance>
-          old_entity_attribute =
-              old_entity_->attribute(attribute_instance.type());
-      CHECK(old_entity_attribute);
-      details.emplace_back(
-          old_entity_attribute->type().GetNameForI18n(),
-          // TODO(crbug.com/389629676): Passing the full value here is incorrect
-          // for updates in the structure of two equivalent full names. This
-          // would show the user the same full name twice, which seems like
-          // nothing has changed. Consider adding a detail for every supported
-          // type that actually does change.
-          old_entity_attribute->GetInfo(old_entity_attribute->GetTopLevelType(),
-                                        app_locale_),
-          kOldEntityAttributeUpdated);
+    std::u16string attribute_value =
+        attribute_instance.GetCompleteInfo(app_locale_);
+    if (!attribute_value.empty()) {
+      details.emplace_back(attribute_instance.type().GetNameForI18n(),
+                           std::move(attribute_value), update_type);
     }
   }
 
   // Move new entity values that were either added or updated to the top.
-  std::ranges::stable_sort(
-      details, [](const SaveOrUpdateAutofillAiDataController::
-                      EntityAttributeUpdateDetails& a,
-                  const SaveOrUpdateAutofillAiDataController::
-                      EntityAttributeUpdateDetails& b) {
-        // Returns true if `attribute` is a new entity attribute that was either
-        // added or updated.
-        auto added_or_updated =
-            [](const SaveOrUpdateAutofillAiDataController::
-                   EntityAttributeUpdateDetails& attribute) {
-              return attribute.update_type == kNewEntityAttributeAdded ||
-                     attribute.update_type == kNewEntityAttributeUpdated;
-            };
-        if (added_or_updated(a) && !added_or_updated(b)) {
-          return true;
-        }
+  std::ranges::stable_sort(details, [](const EntityAttributeUpdateDetails& a,
+                                       const EntityAttributeUpdateDetails& b) {
+    // Returns true if `attribute` is a new entity attribute that was either
+    // added or updated.
+    auto added_or_updated = [](const EntityAttributeUpdateDetails& attribute) {
+      return attribute.update_type == kNewEntityAttributeAdded ||
+             attribute.update_type == kNewEntityAttributeUpdated;
+    };
+    if (added_or_updated(a) && !added_or_updated(b)) {
+      return true;
+    }
 
-        if (!added_or_updated(a) && added_or_updated(b)) {
-          return false;
-        }
-        return false;
-      });
+    if (!added_or_updated(a) && added_or_updated(b)) {
+      return false;
+    }
+    return false;
+  });
   return details;
 }
 
@@ -222,8 +199,7 @@ void SaveOrUpdateAutofillAiDataControllerImpl::OnBubbleClosed(
   if (!save_prompt_acceptance_callback_.is_null()) {
     std::move(save_prompt_acceptance_callback_)
         .Run(
-            {/*did_user_interact=*/
-             GetUserInteractionFromAutofillAiBubbleClosedReason(closed_reason),
+            {DidUserDeclineExplicitly(closed_reason),
              /*entity=*/closed_reason == AutofillAiBubbleClosedReason::kAccepted
                  ? std::exchange(new_entity_, std::nullopt)
                  : std::nullopt});
@@ -247,6 +223,20 @@ void SaveOrUpdateAutofillAiDataControllerImpl::DoShowBubble() {
 base::WeakPtr<SaveOrUpdateAutofillAiDataController>
 SaveOrUpdateAutofillAiDataControllerImpl::GetWeakPtr() {
   return weak_ptr_factory_.GetWeakPtr();
+}
+
+// TODO(389629676): Return proper resources once we have them.
+std::pair<int, int>
+SaveOrUpdateAutofillAiDataControllerImpl::GetTitleImagesResourceId() const {
+  switch (new_entity_->type().name()) {
+    case autofill::EntityTypeName::kVehicle:
+      return {IDR_SAVE_VEHICLE, IDR_SAVE_VEHICLE_DARK};
+    case autofill::EntityTypeName::kPassport:
+      return {IDR_SAVE_PASSPORT, IDR_SAVE_PASSPORT_DARK};
+    case autofill::EntityTypeName::kDriversLicense:
+      return {IDR_SAVE_DRIVERS_LICENSE, IDR_SAVE_DRIVERS_LICENSE_DARK};
+  }
+  NOTREACHED();
 }
 
 base::optional_ref<const autofill::EntityInstance>

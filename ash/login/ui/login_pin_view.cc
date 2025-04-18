@@ -238,9 +238,9 @@ class LoginPinView::DigitPinButton : public BasePinButton {
                       base::BindRepeating(on_key, value)) {
     SetID(GetViewIdForPinNumber(value));
     const gfx::FontList& base_font_list = views::Label::GetDefaultFontList();
-    label_ = AddChildView(new views::Label(GetButtonLabelForNumber(value),
-                                           views::style::CONTEXT_BUTTON,
-                                           views::style::STYLE_PRIMARY));
+    label_ = AddChildViewRaw(new views::Label(GetButtonLabelForNumber(value),
+                                              views::style::CONTEXT_BUTTON,
+                                              views::style::STYLE_PRIMARY));
     label_->SetAutoColorReadabilityEnabled(false);
     label_->SetSubpixelRenderingEnabled(false);
     label_->SetFontList(base_font_list.Derive(8 /*size_delta*/,
@@ -249,7 +249,7 @@ class LoginPinView::DigitPinButton : public BasePinButton {
     label_->SetEnabledColor(kColorAshIconColorPrimary);
 
     if (show_sub_label) {
-      sub_label_ = AddChildView(new views::Label(
+      sub_label_ = AddChildViewRaw(new views::Label(
           GetButtonSubLabelForNumber(value), views::style::CONTEXT_BUTTON,
           views::style::STYLE_SECONDARY));
       sub_label_->SetAutoColorReadabilityEnabled(false);
@@ -285,7 +285,7 @@ class LoginPinView::BackspacePinButton : public BasePinButton {
                       l10n_util::GetStringUTF16(
                           IDS_ASH_PIN_KEYBOARD_DELETE_ACCESSIBLE_NAME),
                       on_press) {
-    image_ = AddChildView(new views::ImageView());
+    image_ = AddChildViewRaw(new views::ImageView());
     SetEnabled(false);
   }
 
@@ -503,7 +503,7 @@ LoginPinView::LoginPinView(Style keyboard_style,
   bool show_letters = keyboard_style == Style::kAlphanumeric;
 
   auto add_digit_button = [&](View* row, int value) {
-    digit_buttons_.push_back(row->AddChildView(
+    digit_buttons_.push_back(row->AddChildViewRaw(
         new DigitPinButton(value, show_letters, kButtonSize, on_key)));
   };
 

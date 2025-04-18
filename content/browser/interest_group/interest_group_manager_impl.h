@@ -137,13 +137,16 @@ class CONTENT_EXPORT InterestGroupManagerImpl : public InterestGroupManager {
   // InterestGroupManager overrides:
   void GetAllInterestGroupJoiningOrigins(
       base::OnceCallback<void(std::vector<url::Origin>)> callback) override;
-
   void GetAllInterestGroupDataKeys(
       base::OnceCallback<void(std::vector<InterestGroupDataKey>)> callback)
       override;
-
   void RemoveInterestGroupsByDataKey(InterestGroupDataKey data_key,
                                      base::OnceClosure callback) override;
+  void AddTrustedServerKeysDebugOverride(
+      TrustedServerAPIType api,
+      const url::Origin& coordinator,
+      std::string serialized_keys,
+      base::OnceCallback<void(std::optional<std::string>)> callback) override;
 
   /******** Proxy function calls to InterestGroupsStorage **********/
 
@@ -280,6 +283,10 @@ class CONTENT_EXPORT InterestGroupManagerImpl : public InterestGroupManager {
                                  base::Time cooldown_start,
                                  DebugReportCooldownType cooldown_type);
 
+  // Records a view or a click event. Aggregate time bucketed view and click
+  // information is provided to bidder's browsing signals in generateBid().
+  void RecordViewClick(network::AdAuctionEventRecord event_record);
+
   // Reports the ad keys to the k-anonymity service. Should be called when
   // FLEDGE selects an ad.
   void RegisterAdKeysAsJoined(base::flat_set<std::string> hashed_keys);
@@ -344,11 +351,6 @@ class CONTENT_EXPORT InterestGroupManagerImpl : public InterestGroupManager {
   // Get the last maintenance time from the underlying InterestGroupStorage.
   void GetLastMaintenanceTimeForTesting(
       base::RepeatingCallback<void(base::Time)> callback) const;
-
-  // Returns a user agent override string for the given frame tree node,
-  // if one is available and the feature is enabled.
-  std::optional<std::string> MaybeGetUserAgentOverride(
-      const FrameTreeNodeId& frame_tree_node_id);
 
   // Enqueues reports for the specified URLs. Virtual for testing.
   virtual void EnqueueReports(
@@ -486,9 +488,15 @@ class CONTENT_EXPORT InterestGroupManagerImpl : public InterestGroupManager {
                         const base::Time update_time,
                         bool initial_update);
 
-  // Gets lockout and cooldown for sending forDebuggingOnly reports.
+  // Gets lockout and cooldowns of `origins` for sending forDebuggingOnly
+  // reports.
   void GetDebugReportLockoutAndCooldowns(
       base::flat_set<url::Origin> origins,
+      base::OnceCallback<void(std::optional<DebugReportLockoutAndCooldowns>)>
+          callback);
+
+  // Gets lockout and all cooldowns for sending forDebuggingOnly reports.
+  void GetDebugReportLockoutAndAllCooldowns(
       base::OnceCallback<void(std::optional<DebugReportLockoutAndCooldowns>)>
           callback);
 
@@ -504,12 +512,14 @@ class CONTENT_EXPORT InterestGroupManagerImpl : public InterestGroupManager {
       base::Uuid generation_id,
       base::Time timestamp,
       blink::mojom::AuctionDataConfigPtr config,
+      std::vector<url::Origin> sellers,
       base::OnceCallback<void(BiddingAndAuctionData)> callback);
 
   // Get the public key to use for the auction data. The `callback` may be
   // called synchronously if the key is already available or the coordinator is
   // not recognized.
-  void GetBiddingAndAuctionServerKey(
+  void GetTrustedServerKey(
+      TrustedServerAPIType api,
       const url::Origin& seller,
       const std::optional<url::Origin>& coordinator,
       base::OnceCallback<void(
@@ -589,6 +599,7 @@ class CONTENT_EXPORT InterestGroupManagerImpl : public InterestGroupManager {
     ~AdAuctionDataLoaderState();
     AdAuctionDataLoaderState(AdAuctionDataLoaderState&& state);
     BiddingAndAuctionSerializer serializer;
+    std::vector<url::Origin> sellers;
     base::OnceCallback<void(BiddingAndAuctionData)> callback;
     base::TimeTicks start_time;
   };
@@ -708,10 +719,11 @@ class CONTENT_EXPORT InterestGroupManagerImpl : public InterestGroupManager {
   // `OnAdAuctionDataLoadComplete()` directly.
   void OnInterestGroupAdAuctionDataLoadComplete(AdAuctionDataLoaderState state);
 
-  // Constructs the AuctionAdata when the load is complete and calls the
+  // Constructs the AdAuctionData when the load is complete and calls the
   // provided callback.
-  void OnAdAuctionDataLoadComplete(AdAuctionDataLoaderState state,
-                                   std::optional<DebugReportLockout> lockout);
+  void OnAdAuctionDataLoadComplete(
+      AdAuctionDataLoaderState state,
+      std::optional<DebugReportLockoutAndCooldowns> lockout);
 
   // Helper to that returns bound NotifyInterestGroupAccessed() callbacks to
   // allow notifications to be sent after a database update.

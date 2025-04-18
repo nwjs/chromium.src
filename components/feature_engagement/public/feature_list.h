@@ -52,6 +52,9 @@ DEFINE_VARIATION_PARAM(kIPHAccountSettingsHistorySync,
 DEFINE_VARIATION_PARAM(kIPHAndroidTabDeclutter, "IPH_AndroidTabDeclutter");
 DEFINE_VARIATION_PARAM(kIPHAdaptiveButtonInTopToolbarCustomizationNewTabFeature,
                        "IPH_AdaptiveButtonInTopToolbarCustomization_NewTab");
+DEFINE_VARIATION_PARAM(
+    kIPHAdaptiveButtonInTopToolbarCustomizationOpenInBrowserFeature,
+    "IPH_AdaptiveButtonInTopToolbarCustomization_OpenInBrowser");
 DEFINE_VARIATION_PARAM(kIPHAdaptiveButtonInTopToolbarCustomizationShareFeature,
                        "IPH_AdaptiveButtonInTopToolbarCustomization_Share");
 DEFINE_VARIATION_PARAM(
@@ -127,6 +130,7 @@ DEFINE_VARIATION_PARAM(kIPHMicToolbarFeature, "IPH_MicToolbar");
 DEFINE_VARIATION_PARAM(kIPHPageInfoFeature, "IPH_PageInfo");
 DEFINE_VARIATION_PARAM(kIPHPageInfoStoreInfoFeature, "IPH_PageInfoStoreInfo");
 DEFINE_VARIATION_PARAM(kIPHPageZoomFeature, "IPH_PageZoom");
+DEFINE_VARIATION_PARAM(kIPHPdfPageDownloadFeature, "IPH_PdfPageDownload");
 DEFINE_VARIATION_PARAM(kIPHPreviewsOmniboxUIFeature, "IPH_PreviewsOmniboxUI");
 DEFINE_VARIATION_PARAM(kIPHReadAloudAppMenuFeature,
                        "IPH_ReadAloudAppMenuFeature");
@@ -232,6 +236,10 @@ DEFINE_VARIATION_PARAM(kIPHPriceNotificationsWhileBrowsingFeature,
                        "IPH_PriceNotificationsWhileBrowsing");
 DEFINE_VARIATION_PARAM(kIPHiOSDefaultBrowserOverflowMenuBadgeFeature,
                        "IPH_iOSDefaultBrowserOverflowMenuBadge");
+DEFINE_VARIATION_PARAM(kIPHiOSFeedSwipeAnimatedFeature,
+                       "IPH_iOSFeedSwipeAnimatedFeature");
+DEFINE_VARIATION_PARAM(kIPHiOSFeedSwipeStaticFeature,
+                       "IPH_iOSFeedSwipeStaticFeature");
 DEFINE_VARIATION_PARAM(kIPHiOSPromoAppStoreFeature, "IPH_iOSPromoAppStore");
 DEFINE_VARIATION_PARAM(kIPHiOSLensKeyboardFeature, "IPH_iOSLensKeyboard");
 DEFINE_VARIATION_PARAM(kIPHiOSPromoWhatsNewFeature, "IPH_iOSPromoWhatsNew");
@@ -299,6 +307,8 @@ DEFINE_VARIATION_PARAM(
     "IPH_iOSReminderNotificationsOverflowMenuNewBadgeFeature");
 DEFINE_VARIATION_PARAM(kIPHiOSDownloadAutoDeletionFeature,
                        "IPH_iOSDownloadAutoDeletion");
+DEFINE_VARIATION_PARAM(kIPHiOSSettingsInOverflowMenuBubbleFeature,
+                       "IPH_iOSSettingsInOverflowMenuBubbleFeature");
 #endif  // BUILDFLAG(IS_IOS)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
@@ -393,6 +403,8 @@ DEFINE_VARIATION_PARAM(kIPHTabAudioMutingFeature, "IPH_TabAudioMuting");
 DEFINE_VARIATION_PARAM(kIPHTabOrganizationSuccessFeature,
                        "IPH_TabOrganizationSuccess");
 DEFINE_VARIATION_PARAM(kIPHTabSearchFeature, "IPH_TabSearch");
+DEFINE_VARIATION_PARAM(kIPHTabSearchToolbarButtonFeature,
+                       "IPH_TabSearchToolbarButton");
 DEFINE_VARIATION_PARAM(kIPHWebUITabStripFeature, "IPH_WebUITabStrip");
 DEFINE_VARIATION_PARAM(kIPHDesktopPwaInstallFeature, "IPH_DesktopPwaInstall");
 DEFINE_VARIATION_PARAM(kIPHProfileSwitchFeature, "IPH_ProfileSwitch");
@@ -416,17 +428,19 @@ DEFINE_VARIATION_PARAM(kIPHTabGroupsSharedTabFeedbackFeature,
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_FUCHSIA)
+DEFINE_VARIATION_PARAM(kIPHAutofillAiOptInFeature, "IPH_AutofillAiOptIn");
+DEFINE_VARIATION_PARAM(kIPHAutofillBnplAffirmOrZipSuggestionFeature,
+                       "IPH_AutofillBnplAffirmOrZipSuggestion");
 DEFINE_VARIATION_PARAM(kIPHAutofillCreditCardBenefitFeature,
                        "IPH_AutofillCreditCardBenefit");
-
 DEFINE_VARIATION_PARAM(kIPHAutofillCardInfoRetrievalSuggestionFeature,
                        "IPH_AutofillCardInfoRetrievalSuggestion");
 DEFINE_VARIATION_PARAM(kIPHAutofillDisabledVirtualCardSuggestionFeature,
                        "IPH_AutofillDisabledVirtualCardSuggestion");
 DEFINE_VARIATION_PARAM(kIPHAutofillExternalAccountProfileSuggestionFeature,
                        "IPH_AutofillExternalAccountProfileSuggestion");
-DEFINE_VARIATION_PARAM(kIPHAutofillPredictionImprovementsFeature,
-                       "IPH_AutofillPredictionImprovements");
+DEFINE_VARIATION_PARAM(kIPHAutofillHomeWorkProfileSuggestionFeature,
+                       "IPH_AutofillHomeWorkProfileSuggestion");
 DEFINE_VARIATION_PARAM(kIPHAutofillVirtualCardCVCSuggestionFeature,
                        "IPH_AutofillVirtualCardCVCSuggestion");
 DEFINE_VARIATION_PARAM(kIPHAutofillVirtualCardSuggestionFeature,
@@ -586,6 +600,7 @@ inline constexpr flags_ui::FeatureEntry::FeatureVariation
         VARIATION_ENTRY(kIPHPageInfoFeature),
         VARIATION_ENTRY(kIPHPageInfoStoreInfoFeature),
         VARIATION_ENTRY(kIPHPageZoomFeature),
+        VARIATION_ENTRY(kIPHPdfPageDownloadFeature),
         VARIATION_ENTRY(kIPHPreviewsOmniboxUIFeature),
         VARIATION_ENTRY(kIPHReadAloudAppMenuFeature),
         VARIATION_ENTRY(kIPHReadAloudExpandedPlayerFeature),
@@ -729,6 +744,7 @@ inline constexpr flags_ui::FeatureEntry::FeatureVariation
         VARIATION_ENTRY(kIPHSignoutWebInterceptFeature),
         VARIATION_ENTRY(kIPHTabAudioMutingFeature),
         VARIATION_ENTRY(kIPHTabSearchFeature),
+        VARIATION_ENTRY(kIPHTabSearchToolbarButtonFeature),
         VARIATION_ENTRY(kIPHTabGroupsSharedTabChangedFeature),
         VARIATION_ENTRY(kIPHTabGroupsSharedTabFeedbackFeature),
         VARIATION_ENTRY(kIPHTabOrganizationSuccessFeature),
@@ -744,11 +760,12 @@ inline constexpr flags_ui::FeatureEntry::FeatureVariation
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_FUCHSIA)
+        VARIATION_ENTRY(kIPHAutofillAiOptInFeature),
         VARIATION_ENTRY(kIPHAutofillCreditCardBenefitFeature),
         VARIATION_ENTRY(kIPHAutofillCardInfoRetrievalSuggestionFeature),
         VARIATION_ENTRY(kIPHAutofillDisabledVirtualCardSuggestionFeature),
         VARIATION_ENTRY(kIPHAutofillExternalAccountProfileSuggestionFeature),
-        VARIATION_ENTRY(kIPHAutofillPredictionImprovementsFeature),
+        VARIATION_ENTRY(kIPHAutofillHomeWorkProfileSuggestionFeature),
         VARIATION_ENTRY(kIPHAutofillVirtualCardCVCSuggestionFeature),
         VARIATION_ENTRY(kIPHAutofillVirtualCardSuggestionFeature),
         VARIATION_ENTRY(kIPHPlusAddressCreateSuggestionFeature),

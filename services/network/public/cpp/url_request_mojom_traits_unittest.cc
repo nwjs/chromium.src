@@ -21,6 +21,7 @@
 #include "services/network/public/cpp/http_request_headers_mojom_traits.h"
 #include "services/network/public/cpp/network_ipc_param_traits.h"
 #include "services/network/public/cpp/optional_trust_token_params.h"
+#include "services/network/public/cpp/permissions_policy/permissions_policy.h"
 #include "services/network/public/mojom/chunked_data_pipe_getter.mojom.h"
 #include "services/network/public/mojom/cookie_access_observer.mojom.h"
 #include "services/network/public/mojom/data_pipe_getter.mojom.h"
@@ -85,7 +86,7 @@ TEST(URLRequestMojomTraitsTest, Roundtrips_ResourceRequest) {
   original.credentials_mode = mojom::CredentialsMode::kInclude;
   original.redirect_mode = mojom::RedirectMode::kFollow;
   original.fetch_integrity = "dummy_fetch_integrity";
-  original.expected_signatures = {};
+  original.expected_public_keys = {};
   original.keepalive = true;
   original.browsing_topics = true;
   original.ad_auction_headers = true;
@@ -140,6 +141,30 @@ TEST(URLRequestMojomTraitsTest, Roundtrips_ResourceRequest) {
 #else
   original.socket_tag = net::SocketTag();
 #endif
+
+  network::ParsedPermissionsPolicy empty_container_policy;
+  std::unique_ptr<network::PermissionsPolicy> permissions_policy =
+      PermissionsPolicy::CreateFromParentPolicy(
+          /*parent_policy=*/nullptr,
+          /*header_policy=*/
+          {{{network::mojom::PermissionsPolicyFeature::
+                 kBrowsingTopics, /*allowed_origins=*/
+             {*network::OriginWithPossibleWildcards::FromOrigin(
+                 url::Origin::Create(original.url))},
+             /*self_if_matches=*/std::nullopt,
+             /*matches_all_origins=*/false,
+             /*matches_opaque_src=*/false},
+            {network::mojom::PermissionsPolicyFeature::
+                 kSharedStorage, /*allowed_origins=*/
+             {*network::OriginWithPossibleWildcards::FromOrigin(
+                 url::Origin::Create(original.url))},
+             /*self_if_matches=*/std::nullopt,
+             /*matches_all_origins=*/false,
+             /*matches_opaque_src=*/false}}},
+          /*container_policy=*/empty_container_policy,
+          url::Origin::Create(original.url));
+  original.permissions_policy = *permissions_policy.get();
+
   network::ResourceRequest copied;
   EXPECT_TRUE(
       mojo::test::SerializeAndDeserialize<mojom::URLRequest>(original, copied));

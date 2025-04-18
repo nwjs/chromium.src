@@ -8,7 +8,10 @@
 #include "base/logging.h"
 #include "base/no_destructor.h"
 #include "base/task/thread_pool.h"
+#include "media/base/encoder_status.h"
+#include "media/base/video_util.h"
 #include "media/gpu/macros.h"
+#include "media/gpu/windows/d3d12_video_encode_av1_delegate.h"
 #include "media/gpu/windows/d3d12_video_encode_delegate.h"
 #include "media/gpu/windows/d3d12_video_encode_h264_delegate.h"
 #include "media/gpu/windows/format_utils.h"
@@ -43,6 +46,8 @@ class VideoEncodeDelegateFactory
       case VideoCodec::kHEVC:
         return std::make_unique<D3D12VideoEncodeH265Delegate>(video_device);
 #endif  // BUILDFLAG(ENABLE_HEVC_PARSER_AND_HW_DECODER)
+      case VideoCodec::kAV1:
+        return std::make_unique<D3D12VideoEncodeAV1Delegate>(video_device);
       default:
         return nullptr;
     }
@@ -108,7 +113,7 @@ D3D12VideoEncodeAccelerator::GetSupportedProfiles() {
   return *supported_profiles.get();
 }
 
-bool D3D12VideoEncodeAccelerator::Initialize(
+EncoderStatus D3D12VideoEncodeAccelerator::Initialize(
     const Config& config,
     Client* client,
     std::unique_ptr<MediaLog> media_log) {
@@ -128,19 +133,19 @@ bool D3D12VideoEncodeAccelerator::Initialize(
 
   if (!video_device_) {
     MEDIA_LOG(ERROR, media_log_) << "Failed to get D3D12 video device";
-    return false;
+    return {EncoderStatus::Codes::kEncoderInitializationError};
   }
 
   if (config.HasSpatialLayer()) {
     MEDIA_LOG(ERROR, media_log_) << "Only L1T{1,2,3} mode is supported";
-    return false;
+    return {EncoderStatus::Codes::kEncoderInitializationError};
   }
 
   error_occurred_ = false;
   encoder_task_runner_->PostTask(
       FROM_HERE, BindOnce(&D3D12VideoEncodeAccelerator::InitializeTask,
                           encoder_weak_this_, config));
-  return true;
+  return {EncoderStatus::Codes::kOk};
 }
 
 void D3D12VideoEncodeAccelerator::Encode(scoped_refptr<VideoFrame> frame,
@@ -323,7 +328,11 @@ Microsoft::WRL::ComPtr<ID3D12Resource>
 D3D12VideoEncodeAccelerator::CreateResourceForSharedMemoryVideoFrame(
     const VideoFrame& frame) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(encoder_sequence_checker_);
-  DCHECK_EQ(frame.storage_type(), VideoFrame::STORAGE_SHMEM);
+  if (frame.storage_type() != VideoFrame::STORAGE_SHMEM &&
+      frame.storage_type() != VideoFrame::STORAGE_UNOWNED_MEMORY) {
+    LOG(ERROR) << "Unsupported frame storage type for mapping";
+    return nullptr;
+  }
   CHECK(frame.IsMappable());
 
   D3D12_RESOURCE_DESC input_texture_desc = CD3DX12_RESOURCE_DESC::Tex2D(
@@ -407,7 +416,17 @@ void D3D12VideoEncodeAccelerator::DoEncodeTask(
   DCHECK_CALLED_ON_VALID_SEQUENCE(encoder_sequence_checker_);
   Microsoft::WRL::ComPtr<ID3D12Resource> input_texture;
   if (frame->storage_type() == VideoFrame::STORAGE_GPU_MEMORY_BUFFER) {
-    input_texture = CreateResourceForGpuMemoryBufferVideoFrame(*frame);
+    if (frame->HasNativeGpuMemoryBuffer()) {
+      input_texture = CreateResourceForGpuMemoryBufferVideoFrame(*frame);
+    } else {
+      frame = ConvertToMemoryMappedFrame(std::move(frame));
+      if (!frame) {
+        return NotifyError(
+            {EncoderStatus::Codes::kInvalidInputFrame,
+             "Failed to convert shared memory GMB for encoding"});
+      }
+      input_texture = CreateResourceForSharedMemoryVideoFrame(*frame);
+    }
   } else if (frame->storage_type() == VideoFrame::STORAGE_SHMEM) {
     input_texture = CreateResourceForSharedMemoryVideoFrame(*frame);
   } else {

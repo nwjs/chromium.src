@@ -38,6 +38,7 @@
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
+#include "base/strings/to_string.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
@@ -179,7 +180,7 @@
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/transform.h"
 #include "ui/latency/latency_info.h"
-#include "ui/native_theme/native_theme_features.h"
+#include "ui/native_theme/features/native_theme_features.h"
 
 #if defined(USE_AURA)
 #include "content/browser/renderer_host/render_widget_host_view_aura.h"
@@ -463,18 +464,10 @@ SitePerProcessBrowserTestBase::SitePerProcessBrowserTestBase() {
   // FrameOwnerPropertiesPropagationScrolling. crbug.com/662196.
   // Overlay scrollbar will be turned off with both conditions satisfied:
   // 1) feature flag `kOverlayScrollbar` is off
-  // 2) always show scrollbar os settings on :
-  //  2.1)`kOverlayScrollbarsOSSetting` off or
-  //  2.2)`kOverlayScrollbarsOSSetting` on and always show scrollbar preference
-  //  setting on.
+  // 2) always show scrollbar preference setting on.
   feature_list_.InitWithFeatures(
       /*enabled_features=*/{},
-      /*disabled_features=*/{features::kOverlayScrollbar
-#if BUILDFLAG(IS_CHROMEOS)
-                             ,
-                             features::kOverlayScrollbarsOSSetting
-#endif
-      });
+      /*disabled_features=*/{features::kOverlayScrollbar});
 #endif
 }
 
@@ -6311,6 +6304,13 @@ class NewWindowCreatedObserver : public WebContentsObserver {
 // used to be keyed only by routing_id.
 IN_PROC_BROWSER_TEST_P(SitePerProcessBrowserTest,
                        TwoSubframesCreatePopupsSimultaneously) {
+  // This test covers a scenario which can only happen when creating and showing
+  // a new window is split between to IPC's and some conflicting update happens
+  // between them. kCombineNewWindowIPCs eliminates this possibility by
+  // combining the function of the two IPC's into one.
+  if (base::FeatureList::IsEnabled(blink::features::kCombineNewWindowIPCs)) {
+    return;
+  }
   GURL main_url(embedded_test_server()->GetURL(
       "a.com", "/cross_site_iframe_factory.html?a(b,c)"));
   EXPECT_TRUE(NavigateToURL(shell(), main_url));
@@ -14089,7 +14089,7 @@ class SitePerProcessWithMainFrameThresholdLocalhostTest
         {{"ProcessPerSiteMainFrameThreshold",
           base::StringPrintf("%zu", kDefaultThreshold)},
          {"ProcessPerSiteMainFrameAllowIPAndLocalhost",
-          IsLocalhostAllowed() ? "true" : "false"}});
+          base::ToString(IsLocalhostAllowed())}});
   }
   ~SitePerProcessWithMainFrameThresholdLocalhostTest() override = default;
 

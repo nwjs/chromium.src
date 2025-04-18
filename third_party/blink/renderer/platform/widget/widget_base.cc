@@ -8,12 +8,14 @@
 
 #include "base/command_line.h"
 #include "base/debug/dump_without_crashing.h"
+#include "base/feature_list.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/task/single_thread_task_runner.h"
 #include "build/build_config.h"
 #include "cc/animation/animation_host.h"
 #include "cc/animation/animation_id_provider.h"
+#include "cc/base/features.h"
 #include "cc/mojo_embedder/async_layer_tree_frame_sink.h"
 #include "cc/raster/categorized_worker_pool.h"
 #include "cc/trees/layer_tree_host.h"
@@ -184,7 +186,7 @@ void WidgetBase::InitializeCompositing(
     WidgetBase* previous_widget) {
   DCHECK(!initialized_);
 
-  widget_scheduler_ = page_scheduler.CreateWidgetScheduler();
+  widget_scheduler_ = page_scheduler.CreateWidgetScheduler(this);
   widget_scheduler_->SetHidden(is_hidden_);
 
   main_thread_compositor_task_runner_ =
@@ -302,6 +304,8 @@ void WidgetBase::Shutdown(bool delay_release) {
   // `LayerTreeHost` destruction is synchronous and will join with the
   // compositor thread
   if (widget_scheduler_) {
+    widget_scheduler_->WillShutdown();
+
     scoped_refptr<base::SingleThreadTaskRunner> cleanup_runner =
         base::SingleThreadTaskRunner::GetCurrentDefault();
     base::TimeDelta task_delay(base::Seconds(0));
@@ -375,8 +379,7 @@ void WidgetBase::DisconnectLayerTreeView(WidgetBase* new_widget,
 }
 
 cc::LayerTreeHost* WidgetBase::LayerTreeHost() const {
-  CHECK(layer_tree_view_);
-  return layer_tree_view_->layer_tree_host();
+  return layer_tree_view_ ? layer_tree_view_->layer_tree_host() : nullptr;
 }
 
 cc::AnimationHost* WidgetBase::AnimationHost() const {
@@ -754,6 +757,24 @@ void WidgetBase::RequestNewLayerTreeFrameSink(
     params->synthetic_begin_frame_source = CreateSyntheticBeginFrameSource();
   }
 
+  // Don't enable the cc side internal begin frame source if using headless,
+  // since cc won't receive ExternalBeginFrame issued by headless tests when
+  // internal begin frame source is started.
+  const base::CommandLine& command_line =
+      *base::CommandLine::ForCurrentProcess();
+  if (base::FeatureList::IsEnabled(
+          ::features::kInternalBeginFrameSourceOnManyDidNotProduceFrame) &&
+      !params->synthetic_begin_frame_source &&
+      !settings.single_thread_proxy_scheduler &&
+      !settings.using_synchronous_renderer_compositor &&
+      !command_line.HasSwitch(switches::kAllowPreCommitInput)) {
+    static const uint64_t num_did_not_produce_frame = static_cast<uint64_t>(
+        ::features::kNumDidNotProduceFrameBeforeInternalBeginFrameSource.Get());
+    params->num_did_not_produce_frame_before_internal_begin_frame_source =
+        num_did_not_produce_frame;
+    params->auto_needs_begin_frame = true;
+  }
+
   mojo::PendingReceiver<viz::mojom::blink::CompositorFrameSink>
       compositor_frame_sink_receiver = CrossVariantMojoReceiver<
           viz::mojom::blink::CompositorFrameSinkInterfaceBase>(
@@ -862,7 +883,7 @@ void WidgetBase::FinishRequestNewLayerTreeFrameSink(
   attributes.enable_gles2_interface = false;
   attributes.enable_grcontext = false;
   attributes.enable_raster_interface = true;
-  attributes.enable_oop_rasterization = false;
+  attributes.enable_gpu_rasterization = false;
 
   constexpr bool automatic_flushes = false;
   constexpr bool support_locking = false;
@@ -1332,7 +1353,7 @@ void WidgetBase::UpdateCompositionInfo(bool immediate_request) {
   // If the new pipeline for CursorAnchorInfo data is available, send data from
   // the frame widget instead.
   if (frame_widget->HasImeRenderWidgetHost()) {
-    frame_widget->UpdateCursorAnchorInfo();
+    frame_widget->UpdateCursorAnchorInfo(/*update_requested=*/true);
     return;
   }
   if (mojom::blink::WidgetInputHandlerHost* host =
@@ -1629,9 +1650,16 @@ void WidgetBase::OnImeEventGuardFinish(ImeEventGuard* guard) {
 #endif
 }
 
-void WidgetBase::RequestAnimationAfterDelay(const base::TimeDelta& delay) {
+void WidgetBase::RequestAnimationAfterDelay(const base::TimeDelta& delay,
+                                            bool urgent) {
   if (delay.is_zero()) {
-    client_->ScheduleAnimation();
+    // See the comment in MainThreadEventQueue::QueueEvent() explaining why we
+    // use "IsEligibleForThrottleMainFrameTo60Hz()".
+    bool urgent_for_input =
+        input_handler_.handling_input_event() &&
+        ::features::IsEligibleForThrottleMainFrameTo60Hz() &&
+        base::FeatureList::IsEnabled(features::kUrgentMainFrameForInput);
+    client_->ScheduleAnimation(urgent || urgent_for_input);
     return;
   }
 
@@ -1647,7 +1675,10 @@ void WidgetBase::RequestAnimationAfterDelay(const base::TimeDelta& delay) {
 }
 
 void WidgetBase::RequestAnimationAfterDelayTimerFired(TimerBase*) {
-  client_->ScheduleAnimation();
+  bool urgent_for_input =
+      input_handler_.handling_input_event() &&
+      base::FeatureList::IsEnabled(features::kUrgentMainFrameForInput);
+  client_->ScheduleAnimation(/*urgent=*/urgent_for_input);
 }
 
 float WidgetBase::GetOriginalDeviceScaleFactor() const {
@@ -1877,6 +1908,10 @@ void WidgetBase::OnDevToolsSessionConnectionChanged(bool attached) {
   if (widget_input_handler_manager_) {
     widget_input_handler_manager_->OnDevToolsSessionConnectionChanged(attached);
   }
+}
+
+void WidgetBase::RequestBeginMainFrameNotExpected(bool requested) {
+  LayerTreeHost()->RequestBeginMainFrameNotExpected(requested);
 }
 
 }  // namespace blink

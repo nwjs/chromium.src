@@ -35,6 +35,8 @@ import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.Acces
 import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_SET_SELECTION;
 import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_SET_TEXT;
 import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_SHOW_ON_SCREEN;
+import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.CollectionInfoCompat.SELECTION_MODE_MULTIPLE;
+import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.CollectionInfoCompat.SELECTION_MODE_NONE;
 
 import static org.chromium.content.browser.accessibility.AccessibilityNodeInfoBuilder.EXTRAS_KEY_CSS_DISPLAY;
 import static org.chromium.content.browser.accessibility.AccessibilityNodeInfoBuilder.EXTRAS_KEY_OFFSCREEN;
@@ -114,6 +116,9 @@ public class AccessibilityNodeInfoUtils {
         if (node.getStateDescription() != null
                 && !node.getStateDescription().toString().isEmpty()) {
             builder.append(" stateDescription:\"").append(node.getStateDescription()).append("\"");
+        }
+        if (node.getContainerTitle() != null && !node.getContainerTitle().toString().isEmpty()) {
+            builder.append(" containerTitle:\"").append(node.getContainerTitle()).append("\"");
         }
 
         // Boolean properties - Only print when set to true except for enabled and visibleToUser,
@@ -241,6 +246,12 @@ public class AccessibilityNodeInfoUtils {
         String prefix = "[";
         if (info.isHierarchical()) {
             prefix += "hierarchical, ";
+        }
+        if (info.getSelectionMode() != SELECTION_MODE_NONE) {
+            prefix +=
+                    (info.getSelectionMode() == SELECTION_MODE_MULTIPLE
+                            ? "selection_mode_multiple, "
+                            : "selection_mode_single, ");
         }
         return String.format(
                 "%srows=%s, cols=%s]", prefix, info.getRowCount(), info.getColumnCount());
@@ -377,6 +388,12 @@ public class AccessibilityNodeInfoUtils {
             return "SET_PROGRESS";
         } else if (action == ACTION_LONG_CLICK.getId()) {
             return "LONG_CLICK";
+        } else if (action == ACTION_NEXT_HTML_ELEMENT.getId()) {
+            return "NEXT_HTML_ELEMENT";
+        } else if (action == ACTION_PREVIOUS_HTML_ELEMENT.getId()) {
+            return "PREVIOUS_HTML_ELEMENT";
+        } else if (action == ACTION_SHOW_ON_SCREEN.getId()) {
+            return "SHOW_ON_SCREEN";
         } else {
             return "NOT_IMPLEMENTED";
         }

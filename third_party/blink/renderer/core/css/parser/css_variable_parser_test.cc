@@ -61,7 +61,7 @@ const char* valid_attr_values[] = {
     "attr(p type(<number>+))",
     "attr(p type(<color>#), red)",
     "attr(p px)",
-    "attr(p string)",
+    "attr(p raw-string)",
     "attr(p type(<color>))",
     "attr(p type(<color> ))",
     "attr(p type( <color>))",
@@ -83,6 +83,7 @@ const char* invalid_attr_values[] = {
     "attr(p <string>)",
     "attr(p type(<color>) red)",
     "attr(p type(<url>))",
+    "attr(p string)",
     // clang-format on
 };
 
@@ -151,6 +152,8 @@ const char* valid_if_values[] = {
     "if(supports(not (transform-origin: 10em 10em 10em)): true_val; else: false_val;)",
     "if(supports((display: table-cell) and (display: list-item)): true_val; else: false_val;)",
     "if(media(screen) and (supports(display: table-cell) or style(--x)): true_val; else: false_val;)",
+    "if(media(min-width : 500px): true_val; else: false_val;)",
+    "if(media((min-color: 1) and (height <= 999999px)): true_value)",
     // clang-format on
 };
 
@@ -167,7 +170,6 @@ const char* invalid_if_values[] = {
     "if(invalid and supports(invalid): true_val')",
     "if(style(--prop: abc) abc; else: cba)",
     "if(style(--prop: abc): abc; else cba)",
-    "if(media(min-width : 500px): true_val; else: false_val;)",
     "if(style(--prop1: abc): abc; style(--prop2: def) cba)",
     "if(style(--prop: abc): if(style(--prop1: def): x); else: if(style(--prop2: ghi) y))",
     // clang-format on
@@ -270,6 +272,7 @@ INSTANTIATE_TEST_SUITE_P(All,
 
 TEST_P(ValidAttrTest, ContainsValidAttr) {
   ScopedCSSAdvancedAttrFunctionForTest scoped_feature(true);
+  ScopedCSSAttrRawStringForTest scoped_feature_attr_raw_string(true);
   SCOPED_TRACE(GetParam());
   CSSParserTokenStream stream{GetParam()};
   auto* context = MakeGarbageCollected<CSSParserContext>(
@@ -289,8 +292,9 @@ INSTANTIATE_TEST_SUITE_P(All,
                          InvalidAttrTest,
                          testing::ValuesIn(invalid_attr_values));
 
-TEST_P(InvalidAttrTest, ContainsValidAttr) {
+TEST_P(InvalidAttrTest, ContainsInvalidAttr) {
   ScopedCSSAdvancedAttrFunctionForTest scoped_feature(true);
+  ScopedCSSAttrRawStringForTest scoped_feature_attr_raw_string(true);
 
   SCOPED_TRACE(GetParam());
   CSSParserTokenStream stream{GetParam()};

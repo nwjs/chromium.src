@@ -87,10 +87,7 @@ void LayoutSVGShape::StyleDidChange(StyleDifference diff,
   const ComputedStyle& style = StyleRef();
 
   TransformHelper::UpdateOffsetPath(*GetElement(), old_style);
-  transform_uses_reference_box_ =
-      RuntimeEnabledFeatures::SvgViewportOptimizationEnabled()
-          ? TransformHelper::DependsOnReferenceBox(style)
-          : TransformHelper::UpdateReferenceBoxDependency(*this);
+  transform_uses_reference_box_ = TransformHelper::DependsOnReferenceBox(style);
   SVGResources::UpdatePaints(*this, old_style, style);
 
   if (old_style) {
@@ -333,6 +330,10 @@ bool LayoutSVGShape::StrokeContains(const HitTestLocation& location,
 SVGLayoutResult LayoutSVGShape::UpdateSVGLayout(
     const SVGLayoutInfo& layout_info) {
   NOT_DESTROYED();
+  if (layout_info.viewport_changed && HasViewportDependence()) {
+    // TODO: Only invalidate the shape if it depends on the viewport.
+    SetNeedsShapeUpdate();
+  }
 
   // The cached stroke may be affected by the ancestor transform, and so needs
   // to be cleared regardless of whether the shape or bounds have changed.

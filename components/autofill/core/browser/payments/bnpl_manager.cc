@@ -7,18 +7,23 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <tuple>
+#include <utility>
 #include <variant>
 
 #include "base/barrier_callback.h"
 #include "base/check_deref.h"
 #include "base/containers/contains.h"
 #include "base/functional/bind.h"
+#include "base/strings/utf_string_conversions.h"
 #include "components/autofill/core/browser/data_model/payments/bnpl_issuer.h"
+#include "components/autofill/core/browser/data_model/payments/credit_card.h"
 #include "components/autofill/core/browser/payments/constants.h"
 #include "components/autofill/core/browser/payments/payments_network_interface.h"
 #include "components/autofill/core/browser/payments/payments_request_details.h"
 #include "components/autofill/core/browser/payments/payments_util.h"
 #include "components/autofill/core/browser/suggestions/payments/payments_suggestion_generator.h"
+#include "components/autofill/core/browser/ui/payments/bnpl_tos_controller.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
 
 namespace autofill::payments {
@@ -127,15 +132,30 @@ bool BnplManager::ShouldShowBnplSettings() const {
         // BUILDFLAG(IS_CHROMEOS)
 }
 
-void BnplManager::FetchVcnDetails() {
+void BnplManager::FetchVcnDetails(GURL url) {
   GetBnplPaymentInstrumentForFetchingVcnRequestDetails request_details;
   request_details.billing_customer_number =
       ongoing_flow_state_->billing_customer_number;
   request_details.instrument_id = ongoing_flow_state_->instrument_id;
   request_details.risk_data = ongoing_flow_state_->risk_data;
   request_details.context_token = ongoing_flow_state_->context_token;
-  request_details.redirect_url = ongoing_flow_state_->redirect_url;
-  request_details.issuer_id = ongoing_flow_state_->issuer_id;
+  request_details.redirect_url = std::move(url);
+  request_details.issuer_id = ongoing_flow_state_->issuer.issuer_id();
+
+  payments_autofill_client().ShowAutofillProgressDialog(
+      AutofillProgressDialogType::kBnplFetchVcnProgressDialog,
+      /*cancel_callback=*/base::BindOnce(
+          [](base::WeakPtr<BnplManager> manager) {
+            if (manager) {
+              // TODO(crbug.com/400528473): Log cancel metrics.
+
+              // Note: Does not call
+              // `PaymentsAutofillClient::CloseAutofillProgressDialog()` as this
+              // is expected to be handled by dialog UI code.
+              manager->Reset();
+            }
+          },
+          weak_factory_.GetWeakPtr()));
 
   payments_autofill_client()
       .GetPaymentsNetworkInterface()
@@ -145,13 +165,201 @@ void BnplManager::FetchVcnDetails() {
                          weak_factory_.GetWeakPtr()));
 }
 
+void BnplManager::Reset() {
+  payments_autofill_client().GetPaymentsNetworkInterface()->CancelRequest();
+  ongoing_flow_state_.reset();
+  weak_factory_.InvalidateWeakPtrs();
+}
+
 void BnplManager::OnVcnDetailsFetched(
     PaymentsAutofillClient::PaymentsRpcResult result,
     const BnplFetchVcnResponseDetails& response_details) {
-  // TODO(crbug.com/378518604): Implement OnVcnDetailsFetched() to fill the form
-  // from the VCN details that were fetched.
+  bool successful =
+      result == PaymentsAutofillClient::PaymentsRpcResult::kSuccess;
 
-  ongoing_flow_state_.reset();
+  payments_autofill_client().CloseAutofillProgressDialog(
+      /*show_confirmation_before_closing=*/successful,
+      /*no_interactive_authentication_callback=*/base::OnceClosure());
+
+  if (successful) {
+    CHECK(ongoing_flow_state_);
+    CreditCard credit_card;
+    credit_card.SetRawInfo(autofill::CREDIT_CARD_NUMBER,
+                           base::UTF8ToUTF16(response_details.pan));
+    credit_card.set_record_type(CreditCard::RecordType::kVirtualCard);
+    credit_card.SetRawInfo(autofill::CREDIT_CARD_NAME_FULL,
+                           base::UTF8ToUTF16(response_details.cardholder_name));
+    credit_card.SetRawInfo(
+        autofill::CREDIT_CARD_EXP_MONTH,
+        base::UTF8ToUTF16(response_details.expiration_month));
+    credit_card.SetRawInfo(autofill::CREDIT_CARD_EXP_4_DIGIT_YEAR,
+                           base::UTF8ToUTF16(response_details.expiration_year));
+    credit_card.set_cvc(base::UTF8ToUTF16(response_details.cvv));
+    credit_card.set_issuer_id(ongoing_flow_state_->issuer.issuer_id());
+    credit_card.set_is_bnpl_card(true);
+    credit_card.SetNickname(ongoing_flow_state_->issuer.GetDisplayName());
+    std::move(ongoing_flow_state_->on_bnpl_vcn_fetched_callback)
+        .Run(credit_card);
+  } else {
+    payments_autofill_client().ShowAutofillErrorDialog(
+        AutofillErrorDialogContext::WithBnplPermanentOrTemporaryError(
+            /*is_permanent_error=*/result ==
+            PaymentsAutofillClient::PaymentsRpcResult::
+                kVcnRetrievalPermanentFailure));
+  }
+  Reset();
+}
+
+void BnplManager::OnIssuerSelected(const BnplIssuer& selected_issuer) {
+  ongoing_flow_state_->issuer = selected_issuer;
+
+  if (selected_issuer.payment_instrument().has_value()) {
+    ongoing_flow_state_->instrument_id = base::NumberToString(
+        selected_issuer.payment_instrument()->instrument_id());
+
+    LoadRiskDataForFetchingRedirectUrl();
+  } else {
+    GetDetailsForCreateBnplPaymentInstrument();
+  }
+}
+
+void BnplManager::GetDetailsForCreateBnplPaymentInstrument() {
+  GetDetailsForCreateBnplPaymentInstrumentRequestDetails request_details;
+  request_details.app_locale = ongoing_flow_state_->app_locale;
+  request_details.billing_customer_number =
+      ongoing_flow_state_->billing_customer_number;
+  request_details.issuer_id = ongoing_flow_state_->issuer.issuer_id();
+
+  autofill_client_->GetPaymentsAutofillClient()
+      ->GetPaymentsNetworkInterface()
+      ->GetDetailsForCreateBnplPaymentInstrument(
+          std::move(request_details),
+          base::BindOnce(
+              &BnplManager::OnDidGetDetailsForCreateBnplPaymentInstrument,
+              weak_factory_.GetWeakPtr()));
+}
+
+void BnplManager::OnDidGetDetailsForCreateBnplPaymentInstrument(
+    PaymentsAutofillClient::PaymentsRpcResult result,
+    std::string context_token,
+    std::unique_ptr<base::Value::Dict> legal_message) {
+  if (result == payments::PaymentsAutofillClient::PaymentsRpcResult::kSuccess) {
+    ongoing_flow_state_->context_token = std::move(context_token);
+
+    // BNPL TOS should only be shown if legal messages are parsed successfully.
+    CHECK(legal_message);
+    LegalMessageLines parsed_legal_message_lines;
+    if (LegalMessageLine::Parse(*legal_message, &parsed_legal_message_lines,
+                                /*escape_apostrophes=*/true)) {
+      if (!parsed_legal_message_lines.empty()) {
+        BnplTosModel bnpl_tos_model;
+        bnpl_tos_model.legal_message_lines =
+            std::move(parsed_legal_message_lines);
+        bnpl_tos_model.issuer = ongoing_flow_state_->issuer;
+
+        payments_autofill_client().ShowBnplTos(
+            std::move(bnpl_tos_model),
+            base::BindOnce(&BnplManager::OnTosDialogAccepted,
+                           weak_factory_.GetWeakPtr()),
+            base::BindOnce(&BnplManager::Reset, weak_factory_.GetWeakPtr()));
+        return;
+      }
+    }
+  }
+
+  payments_autofill_client().ShowAutofillErrorDialog(
+      AutofillErrorDialogContext::WithBnplPermanentOrTemporaryError(
+          /*is_permanent_error=*/result ==
+          PaymentsAutofillClient::PaymentsRpcResult::kPermanentFailure));
+
+  Reset();
+}
+
+void BnplManager::LoadRiskDataForFetchingRedirectUrl() {
+  if (ongoing_flow_state_->risk_data.empty()) {
+    payments_autofill_client().LoadRiskData(base::BindOnce(
+        &BnplManager::OnRiskDataLoadedAfterIssuerSelectionDialogAcceptance,
+        weak_factory_.GetWeakPtr()));
+    return;
+  }
+
+  FetchRedirectUrl();
+}
+
+void BnplManager::OnRiskDataLoadedAfterIssuerSelectionDialogAcceptance(
+    const std::string& risk_data) {
+  ongoing_flow_state_->risk_data = risk_data;
+  FetchRedirectUrl();
+}
+
+void BnplManager::FetchRedirectUrl() {
+  GetBnplPaymentInstrumentForFetchingUrlRequestDetails request_details;
+  request_details.billing_customer_number =
+      ongoing_flow_state_->billing_customer_number;
+  request_details.instrument_id = ongoing_flow_state_->instrument_id;
+  request_details.risk_data = ongoing_flow_state_->risk_data;
+  request_details.merchant_domain =
+      autofill_client_->GetLastCommittedPrimaryMainFrameOrigin().GetURL();
+  request_details.total_amount = ongoing_flow_state_->final_checkout_amount;
+  // Only `USD` is supported for MVP.
+  request_details.currency = "USD";
+
+  payments_autofill_client()
+      .GetPaymentsNetworkInterface()
+      ->GetBnplPaymentInstrumentForFetchingUrl(
+          std::move(request_details),
+          base::BindOnce(&BnplManager::OnRedirectUrlFetched,
+                         weak_factory_.GetWeakPtr()));
+}
+
+void BnplManager::OnRedirectUrlFetched(
+    PaymentsAutofillClient::PaymentsRpcResult result,
+    const BnplFetchUrlResponseDetails& response) {
+  // If the BNPL issuer selected is not linked, the ToS dialog must be showing,
+  // so close it.
+  if (!ongoing_flow_state_->issuer.payment_instrument().has_value()) {
+    payments_autofill_client().CloseBnplTos();
+  }
+
+  if (result == payments::PaymentsAutofillClient::PaymentsRpcResult::kSuccess) {
+    ongoing_flow_state_->redirect_url = std::move(response.redirect_url);
+    ongoing_flow_state_->context_token = std::move(response.context_token);
+
+    PaymentsWindowManager::BnplContext bnpl_context;
+    bnpl_context.initial_url = ongoing_flow_state_->redirect_url;
+    bnpl_context.success_url_prefix = std::move(response.success_url_prefix);
+    bnpl_context.failure_url_prefix = std::move(response.failure_url_prefix);
+    bnpl_context.completion_callback = base::BindOnce(
+        &BnplManager::OnPopupWindowCompleted, weak_factory_.GetWeakPtr());
+
+    payments_autofill_client().GetPaymentsWindowManager()->InitBnplFlow(
+        std::move(bnpl_context));
+  } else {
+    payments_autofill_client().ShowAutofillErrorDialog(
+        AutofillErrorDialogContext::WithBnplPermanentOrTemporaryError(
+            /*is_permanent_error=*/result ==
+            PaymentsAutofillClient::PaymentsRpcResult::kPermanentFailure));
+    Reset();
+  }
+}
+
+void BnplManager::OnPopupWindowCompleted(
+    PaymentsWindowManager::BnplFlowResult result,
+    GURL url) {
+  switch (result) {
+    case PaymentsWindowManager::BnplFlowResult::kUserClosed:
+      Reset();
+      break;
+    case PaymentsWindowManager::BnplFlowResult::kSuccess:
+      FetchVcnDetails(std::move(url));
+      break;
+    case PaymentsWindowManager::BnplFlowResult::kFailure:
+      payments_autofill_client().ShowAutofillErrorDialog(
+          AutofillErrorDialogContext::WithBnplPermanentOrTemporaryError(
+              /*is_permanent_error=*/false));
+      Reset();
+      break;
+  }
 }
 
 void BnplManager::MaybeUpdateSuggestionsWithBnpl(
@@ -210,7 +418,7 @@ void BnplManager::MaybeUpdateSuggestionsWithBnpl(
   BnplSuggestionUpdateResult update_suggestions_result =
       ::autofill::MaybeUpdateSuggestionsWithBnpl(
           /*current_suggestions=*/std::get<0>(*suggestions_shown_response),
-          bnpl_issuers);
+          bnpl_issuers, extracted_amount->value());
 
   if (!update_suggestions_result.is_bnpl_suggestion_added) {
     // No need to update the pop up, if no BNPL suggestion is added.
@@ -256,15 +464,30 @@ void BnplManager::CreateBnplPaymentInstrument() {
   request_details.billing_customer_number =
       ongoing_flow_state_->billing_customer_number;
   request_details.context_token = ongoing_flow_state_->context_token;
-  request_details.issuer_id = ongoing_flow_state_->issuer_id;
+  request_details.issuer_id = ongoing_flow_state_->issuer.issuer_id();
   request_details.risk_data = ongoing_flow_state_->risk_data;
   payments_autofill_client()
       .GetPaymentsNetworkInterface()
       ->CreateBnplPaymentInstrument(
           std::move(request_details),
-          // TODO(crbug.com/378518488): Integrate with the future
-          // GetBnplPaymentInstrumentForFetchingUrlRequest.
-          base::DoNothing());
+          base::BindOnce(&BnplManager::OnBnplPaymentInstrumentCreated,
+                         weak_factory_.GetWeakPtr()));
+}
+
+void BnplManager::OnBnplPaymentInstrumentCreated(
+    PaymentsAutofillClient::PaymentsRpcResult result,
+    std::string instrument_id) {
+  if (result == payments::PaymentsAutofillClient::PaymentsRpcResult::kSuccess) {
+    ongoing_flow_state_->instrument_id = std::move(instrument_id);
+    FetchRedirectUrl();
+  } else {
+    payments_autofill_client().ShowAutofillErrorDialog(
+        AutofillErrorDialogContext::WithBnplPermanentOrTemporaryError(
+            /*is_permanent_error=*/result ==
+            PaymentsAutofillClient::PaymentsRpcResult::kPermanentFailure));
+
+    Reset();
+  }
 }
 
 }  // namespace autofill::payments

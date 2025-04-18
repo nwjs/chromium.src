@@ -18,7 +18,6 @@
 #include "base/auto_reset.h"
 #include "base/command_line.h"
 #include "base/containers/contains.h"
-#include "base/feature_list.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/no_destructor.h"
@@ -68,16 +67,6 @@ void DefaultErrorHandler(const Error* error, const char* request_name) {
 void DefaultIOErrorHandler() {
   LOG(ERROR) << "X connection error received.";
 }
-
-// Kill switch for XSyncCounter extension, which may be responsible for reports
-// of blank windows after restore.
-// TODO(crbug.com/381224161): Remove this after verifying whether it fixes the
-// issue.
-#if !BUILDFLAG(IS_CHROMEOS)
-BASE_FEATURE(kUseX11SyncCounter,
-             "UseX11SyncCounter",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
 
 class UnknownError : public Error {
  public:
@@ -412,6 +401,17 @@ int Connection::GetFd() {
   return Ready() ? xcb_get_file_descriptor(XcbConnection()) : -1;
 }
 
+bool Connection::CanSyncWithWm() const {
+  // For some WMs, we don't need to experimentally sync with them to determine
+  // sync support, so we can use WmSync right away. For now, only check for
+  // Openbox since that's what is used in tests. The list may be expanded as
+  // nearly all WMs should work with WmSync.
+  if (GetWmName() == "Openbox") {
+    return true;
+  }
+  return synced_with_wm_;
+}
+
 const std::string& Connection::DisplayString() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return display_string_;
@@ -530,7 +530,7 @@ bool Connection::Dispatch() {
     // All events have the sequence number of the last processed request
     // included in them.  So if a reply and an event have the same sequence,
     // the reply must have been received first.
-    if (CompareSequenceIds(next_event_sequence, next_response_sequence) <= 0) {
+    if (CompareSequenceIds(next_event_sequence, next_response_sequence) >= 0) {
       ProcessNextResponse();
     } else {
       ProcessNextEvent();
@@ -637,17 +637,9 @@ void Connection::InitializeExtensions() {
   if (auto response = shm_future.Sync()) {
     shm_version_ = {response->major_version, response->minor_version};
   }
-#if !BUILDFLAG(IS_CHROMEOS)
-  // Chrome for ChromeOS can be run with X11 on a Linux desktop. In this case,
-  // NotifySwapAfterResize is never called as the compositor does not notify
-  // about swaps after resize. Thus, simply disable usage of XSyncCounter on
-  // ChromeOS builds.
-  if (base::FeatureList::IsEnabled(kUseX11SyncCounter)) {
-    if (auto response = sync_future.Sync()) {
-      sync_version_ = {response->major_version, response->minor_version};
-    }
+  if (auto response = sync_future.Sync()) {
+    sync_version_ = {response->major_version, response->minor_version};
   }
-#endif
   if (auto response = xinput_future.Sync()) {
     xinput_version_ = {response->major_version, response->minor_version};
   }

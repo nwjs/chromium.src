@@ -2,12 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import type {FocusedTabData, GlicBrowserHost, GlicWebClient, Observable, OpenPanelInfo, PanelState, TabData, WebClientInitializeError} from '/glic/glic_api/glic_api.js';
-import {WebClientInitializeErrorReason, WebClientMode} from '/glic/glic_api/glic_api.js';
+import type {FocusedTabData, GlicBrowserHost, GlicWebClient, Observable, OpenPanelInfo, OpenSettingsOptions, PanelOpeningData, PanelState, TabData, WebClientInitializeError} from '/glic/glic_api/glic_api.js';
+import {SettingsPageField, WebClientInitializeErrorReason, WebClientMode} from '/glic/glic_api/glic_api.js';
 
 import {createGlicHostRegistryOnLoad} from '../api_boot.js';
 
 interface PageElementTypes {
+  content: HTMLElement;
   status: HTMLElement;
   pageHeader: HTMLElement;
   focusedFavicon: HTMLImageElement;
@@ -27,16 +28,19 @@ interface PageElementTypes {
   getUserProfileInfoImg: HTMLImageElement;
   changeProfileBn: HTMLButtonElement;
   testPermissionSwitch: HTMLButtonElement;
-  openSettings: HTMLButtonElement;
+  openGlicSettings: HTMLButtonElement;
+  openGlicSettingsHighlight: HTMLSelectElement;
   microphoneSwitch: HTMLInputElement;
   geolocationSwitch: HTMLInputElement;
   tabContextSwitch: HTMLInputElement;
   newtabbn: HTMLButtonElement;
   reloadpage: HTMLButtonElement;
   getpagecontext: HTMLButtonElement;
+  getPageContextResult: HTMLSpanElement;
   getPageContextStatus: HTMLSpanElement;
   URL: HTMLInputElement;
   innerTextCheckbox: HTMLInputElement;
+  innerTextBytesLimit: HTMLInputElement;
   viewportScreenshotCheckbox: HTMLInputElement;
   pdfDataCheckbox: HTMLInputElement;
   annotatedPageContentCheckbox: HTMLInputElement;
@@ -44,6 +48,13 @@ interface PageElementTypes {
   faviconImg: HTMLImageElement;
   getlocation: HTMLButtonElement;
   location: HTMLElement;
+  locationStatus: HTMLDivElement;
+  locationOsErrorUI: HTMLDivElement;
+  locationGlicErrorUI: HTMLDivElement;
+  openOsLocationSettingsButton: HTMLButtonElement;
+  openOsMicrophoneSettings: HTMLButtonElement;
+  openOsLocationSettings: HTMLButtonElement;
+  openGlicLocationSettingsButton: HTMLButtonElement;
   permissionSelect: HTMLSelectElement;
   enabledSelect: HTMLSelectElement;
   closebn: HTMLButtonElement;
@@ -70,6 +81,39 @@ interface PageElementTypes {
   fileDropList: HTMLDivElement;
   showDirectoryPicker: HTMLButtonElement;
   failInitializationCheckbox: HTMLInputElement;
+  setExperiment: HTMLButtonElement;
+  trialName: HTMLInputElement;
+  groupName: HTMLInputElement;
+  setExperimentStatus: HTMLSpanElement;
+  testClipboardSave: HTMLButtonElement;
+  busyWork3s: HTMLButtonElement;
+  busyWork8s: HTMLButtonElement;
+  contentSizingTest: HTMLElement;
+  enableTestSizingMode: HTMLButtonElement;
+  disableTestSizingMode: HTMLButtonElement;
+  enableDragResizeCheckbox: HTMLInputElement;
+  growHeight: HTMLButtonElement;
+  resetHeight: HTMLButtonElement;
+  dump: HTMLElement;
+  fitWindow: HTMLInputElement;
+  naturalSizing: HTMLInputElement;
+  startMic: HTMLButtonElement;
+  successUI: HTMLDivElement;
+  localDenialUI: HTMLDivElement;
+  osDenialUI: HTMLDivElement;
+  openLocalSettingsButton: HTMLButtonElement;
+  openOsSettingsButton: HTMLButtonElement;
+  osGeolocationPermissionSwitch: HTMLInputElement;
+  getOsMicrophonePermissionButton: HTMLButtonElement;
+  osMicrophonePermissionResult: HTMLSpanElement;
+  osGlicHotkey: HTMLInputElement;
+  executeAction: HTMLButtonElement;
+  actionProtoEncodedText: HTMLInputElement;
+  actionStatus: HTMLSpanElement;
+  actionUpdatedContextResult: HTMLSpanElement;
+  actionUpdatedScreenshotImg: HTMLImageElement;
+  macOsPermissionsFieldset: HTMLFieldSetElement;
+  attachmentControlsFieldset: HTMLFieldSetElement;
 }
 
 const $: PageElementTypes = new Proxy({}, {
@@ -79,7 +123,14 @@ const $: PageElementTypes = new Proxy({}, {
 });
 
 function logMessage(message: string) {
-  $.status.append(message.slice(0, 100000), document.createElement('br'));
+  const d = new Date();
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  const ms = String(d.getMilliseconds()).padStart(3, '0');
+  const timeStamp = `${hh}:${mm}:${ss}.${ms}: `;
+  $.status.append(
+      timeStamp, message.slice(0, 100000), document.createElement('br'));
 }
 
 class TestInitFailure extends Error implements WebClientInitializeError {
@@ -103,6 +154,16 @@ class WebClient implements GlicWebClient {
     logMessage('initialize called');
     $.pageHeader!.classList.add('connected');
 
+    // Disable sections with unavailable functionality.
+    if (this.browser.openOsPermissionSettingsMenu === undefined) {
+      logMessage('OS permissions are disabled');
+      $.macOsPermissionsFieldset.disabled = true;
+    }
+    if (this.browser.attachPanel === undefined) {
+      logMessage('Attachment controls are disabled (detached-only mode)');
+      $.attachmentControlsFieldset.disabled = true;
+    }
+
     const ver = await browser.getChromeVersion();
     logMessage(`Chrome version: ${JSON.stringify(ver)}`);
 
@@ -117,6 +178,7 @@ class WebClient implements GlicWebClient {
           microphone: this.browser.getMicrophonePermissionState!(),
           geolocation: this.browser.getLocationPermissionState!(),
           tabContext: this.browser.getTabContextPermissionState!(),
+          osGeolocation: this.browser.getOsLocationPermissionState!(),
         };
     for (const permission of Object.keys(permissionStates) as
          PermissionSwitchName[]) {
@@ -131,11 +193,27 @@ class WebClient implements GlicWebClient {
     browser.panelActive?.().subscribe((active) => {
       $.panelActiveCheckbox.checked = active;
     });
+    browser.isManuallyResizing?.().subscribe((resizing) => {
+      logMessage('Manually resizing state changed: ' + resizing);
+    });
+    if (browser.getOsHotkeyState) {
+      const hotkeyState = await browser.getOsHotkeyState();
+      hotkeyState.subscribe((data: {hotkey: string}) => {
+        $.osGlicHotkey.value = data.hotkey === '' ? 'Not Set' : data.hotkey;
+      });
+    } else {
+      logMessage('getOsHotkeyState not available');
+    }
+    $.enableDragResizeCheckbox.disabled =
+        browser.enableDragResize === undefined;
   }
 
-  async notifyPanelWillOpen(panelState: PanelState):
+  async notifyPanelWillOpen(panelOpeningData: PanelOpeningData&PanelState):
       Promise<void|OpenPanelInfo> {
-    logMessage(`notifyPanelWillOpen(${JSON.stringify(panelState)})`);
+    // Deleting backwards-compatible members coming from PanelState.
+    delete (panelOpeningData as Partial<PanelState>).kind;
+    delete (panelOpeningData as Partial<PanelState>).windowId;
+    logMessage(`notifyPanelWillOpen(${JSON.stringify(panelOpeningData)})`);
     return {
       startingMode: WebClientMode.TEXT,
       resizeParams: {
@@ -149,9 +227,22 @@ class WebClient implements GlicWebClient {
   async notifyPanelClosed() {
     logMessage('notifyPanelClosed called');
   }
+
+  async checkResponsive() {
+    // Nothing need to be checked on the test client.
+  }
 }
 
 const client = new WebClient();
+
+// This allows browser tests using this test client to be able to access and
+// call the glic API directly (using ExecuteJs and similar methods).
+declare global {
+  interface Window {
+    client: WebClient;
+  }
+}
+window.client = client;
 
 function getBrowser(): GlicBrowserHost|undefined {
   return client?.browser;
@@ -182,33 +273,15 @@ async function focusedTabChangedV2(focusedTabData: FocusedTabData|undefined) {
     return;
   }
 
-  if (focusedTabData.noCandidateTabError &&
-      !focusedTabData.focusedTabCandidate?.invalidCandidateError) {
-    $.focusedTabLogsV2.innerText = `No Candidate Tab Error: ${
-        JSON.stringify(focusedTabData.noCandidateTabError)}`;
+  if (focusedTabData.hasNoFocus) {
+    $.focusedTabLogsV2.innerText = `No focus reason: ${
+        focusedTabData.hasNoFocus.noFocusReason} active tab url: ${
+        focusedTabData.hasNoFocus.tabFocusCandidateData?.url}`;
     return;
   }
 
-  if (focusedTabData.focusedTabCandidate?.invalidCandidateError) {
-    $.focusedTabLogsV2.innerText = `Focus Invalid For Extraction Error: ${
-        JSON.stringify(
-            focusedTabData.focusedTabCandidate.invalidCandidateError)}`;
-    const candidateData =
-        focusedTabData.focusedTabCandidate.focusedTabCandidateData;
-    if (candidateData) {
-      $.focusedUrlV2.value = candidateData.url || '';
-      if (candidateData.favicon) {
-        const fav = await candidateData.favicon();
-        if (fav) {
-          $.focusedFaviconV2.src = URL.createObjectURL(fav);
-        }
-      }
-    }
-    return;
-  }
-
-  if (focusedTabData.focusedTab) {
-    const focusedTab = focusedTabData.focusedTab;
+  if (focusedTabData.hasFocus) {
+    const focusedTab = focusedTabData.hasFocus.tabData;
     $.focusedTabLogsV2.innerText =
         'Focused Tab State Changed: TabData available';
     $.focusedUrlV2.value = focusedTab.url || '';
@@ -235,11 +308,86 @@ createGlicHostRegistryOnLoad().then((registry) => {
   }
 });
 
-type PermissionSwitchName = 'microphone'|'geolocation'|'tabContext';
+async function checkMicrophonePermission():
+    Promise<'success'|'localDenial'|'osDenial'|'unknown'> {
+  try {
+    await navigator.mediaDevices.getUserMedia({audio: true});
+    return 'success';
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'NotAllowedError') {
+      // Use the GlicBrowserHost to check the permission state.
+      const micPermissionStatus = permissionSwitches['microphone'].checked;
+      if (!micPermissionStatus) {
+        return 'localDenial';
+      } else {
+        return 'osDenial';
+      }
+    } else {
+      console.error(error);
+    }
+    return 'unknown';
+  }
+}
+
+$.pageHeader.addEventListener('contextmenu', function(event) {
+  event.preventDefault();
+});
+
+// Test Sizing:
+$.enableTestSizingMode.addEventListener('click', () => {
+  $.content.setAttribute('hidden', '');
+  $.contentSizingTest.removeAttribute('hidden');
+  updateSizingMode(true);
+});
+
+$.disableTestSizingMode.addEventListener('click', () => {
+  $.content.removeAttribute('hidden');
+  $.contentSizingTest.setAttribute('hidden', '');
+  updateSizingMode(false);
+});
+
+$.enableDragResizeCheckbox.addEventListener('change', () => {
+  getBrowser()!.enableDragResize!($.enableDragResizeCheckbox.checked);
+});
+
+$.growHeight.addEventListener('click', () => {
+  const divElement = document.createElement('div');
+  divElement.textContent = 'Some Text';
+  for (let i = 0; i < 5; i++) {
+    $.dump.appendChild(divElement.cloneNode(true));
+  }
+});
+
+$.resetHeight.addEventListener('click', () => {
+  $.dump.innerHTML = '';
+});
+
+async function updateSizingMode(inSizingTest: boolean) {
+  if (!inSizingTest) {
+    document.documentElement.classList.remove('fitWindow');
+    return;
+  }
+
+  if (await getBrowser()!.shouldFitWindow!()) {
+    $.fitWindow.checked = true;
+    $.naturalSizing.checked = false;
+    document.documentElement.classList.add('fitWindow');
+  } else {
+    $.fitWindow.checked = false;
+    $.naturalSizing.checked = true;
+    document.documentElement.classList.remove('fitWindow');
+  }
+}
+
+// Permissions:
+
+type PermissionSwitchName =
+    'microphone'|'geolocation'|'tabContext'|'osGeolocation';
 const permissionSwitches: Record<PermissionSwitchName, HTMLInputElement> = {
   microphone: $.microphoneSwitch,
   geolocation: $.geolocationSwitch,
   tabContext: $.tabContextSwitch,
+  osGeolocation: $.osGeolocationPermissionSwitch,
 };
 
 // Update a permission switch display state.
@@ -275,8 +423,16 @@ $.testPermissionSwitch.addEventListener('click', () => {
   );
 });
 
-$.openSettings.addEventListener('click', () => {
-  getBrowser()!.openGlicSettingsPage!();
+$.openGlicSettings.addEventListener('click', () => {
+  const selectedHighlight = $.openGlicSettingsHighlight.value;
+  logMessage(`Opening settings. Will highlight field: ${selectedHighlight}`);
+  const options: OpenSettingsOptions = {};
+  if (selectedHighlight === 'osHotkey') {
+    options.highlightField = SettingsPageField.OS_HOTKEY;
+  } else if (selectedHighlight === 'osEntrypointToggle') {
+    options.highlightField = SettingsPageField.OS_ENTRYPOINT_TOGGLE;
+  }
+  getBrowser()!.openGlicSettingsPage!(options);
 });
 
 $.syncCookiesBn.addEventListener('click', async () => {
@@ -299,6 +455,10 @@ $.testLogsBn.addEventListener('click', () => {
   getBrowser()?.getMetrics?.().onResponseStopped?.();
   getBrowser()?.getMetrics?.().onResponseRated?.(false);
   getBrowser()?.getMetrics?.().onSessionTerminated?.();
+});
+
+$.testClipboardSave.addEventListener('click', () => {
+  navigator.clipboard.writeText('This is some junk!');
 });
 
 $.getUserProfileInfoBn.addEventListener('click', async () => {
@@ -345,8 +505,12 @@ $.getpagecontext.addEventListener('click', async () => {
   if ($.innerTextCheckbox.checked) {
     options.innerText = true;
   }
+  const textLimit = Number.parseInt($.innerTextBytesLimit.value);
+  if (!Number.isNaN(textLimit)) {
+    options.innerTextBytesLimit = textLimit;
+  }
   if ($.viewportScreenshotCheckbox.checked) {
-    options.viewportScreenshot = {};
+    options.viewportScreenshot = true;
   }
   if ($.pdfDataCheckbox.checked) {
     options.pdfData = true;
@@ -379,7 +543,7 @@ $.getpagecontext.addEventListener('click', async () => {
         pdfDataSize =
             (await readStream(pageContent.pdfDocumentData.pdfData!)).length;
       }
-      $.getPageContextStatus.innerText =
+      $.getPageContextResult.innerText =
           `Got ${pdfDataSize} bytes of PDF data(origin = ${
               pdfOrigin}, sizeLimitExceeded = ${pdfSizeLimitExceeded})`;
     }
@@ -388,26 +552,70 @@ $.getpagecontext.addEventListener('click', async () => {
       const annotatedPageDataSize =
           (await readStream(pageContent.annotatedPageData.annotatedPageContent))
               .length;
-      $.getPageContextStatus.innerText =
+      $.getPageContextResult.innerText =
           `Annotated page content data length: ${annotatedPageDataSize}`;
     }
-    $.getPageContextStatus.innerText =
-        `Finished Get Page Context. Returned data: ${
-            JSON.stringify(pageContent, null, 2)}`;
+    $.getPageContextStatus.innerText = 'Finished Get Page Context.';
+    $.getPageContextResult.innerText =
+        `Returned data: ${JSON.stringify(pageContent, null, 2)}`;
   } catch (error) {
     $.getPageContextStatus.innerText = `Error getting page context: ${error}`;
   }
 });
-$.getlocation.addEventListener('click', async () => {
-  logMessage('Requesting geolocation...');
 
+$.executeAction.addEventListener('click', async () => {
+  logMessage('Starting Execute Action');
+
+  // The action proto is expected to be a BrowserAction proto, which is binary
+  // serialized and then base64 encoded.
+  const protoByteString = atob($.actionProtoEncodedText.value);
+  const protoBytes = new Uint8Array(protoByteString.length);
+  for (let i = 0; i < protoByteString.length; i++) {
+    protoBytes[i] = protoByteString.charCodeAt(i);
+  }
+
+  const params: any = {
+    actionProto: protoBytes.buffer,
+    tabContextOptions: {annotatedPageContent: true, viewportScreenshot: true},
+  };
+
+  $.actionUpdatedContextResult.innerText = '';
+  $.actionUpdatedScreenshotImg.src = '';
+  try {
+    const actionResult = await client!.browser!.actInFocusedTab!(params);
+    const pageContent = actionResult.tabContextResult;
+    if (pageContent) {
+      if (pageContent.viewportScreenshot) {
+        const blob = new Blob(
+            [pageContent.viewportScreenshot.data], {type: 'image/jpeg'});
+        $.actionUpdatedScreenshotImg.src = URL.createObjectURL(blob);
+      }
+      if (pageContent.annotatedPageData &&
+          pageContent.annotatedPageData.annotatedPageContent) {
+        const annotatedPageDataSize =
+            (await readStream(
+                 pageContent.annotatedPageData.annotatedPageContent))
+                .length;
+        $.actionUpdatedContextResult.innerText =
+            `Annotated page content data length: ${annotatedPageDataSize}`;
+      }
+    }
+    $.actionStatus.innerText = 'Finished Execute Action.';
+    $.actionUpdatedContextResult.innerText +=
+        `Returned data: ${JSON.stringify(pageContent, null, 2)}`;
+  } catch (error) {
+    $.actionStatus.innerText = `Error in Execute Action: ${error}`;
+  }
+});
+
+$.getlocation.addEventListener('click', async () => {
   if (navigator.geolocation) {
     try {
+      $.locationStatus.innerText = 'Requesting geolocation...';
       const position =
           await new Promise<GeolocationPosition>((resolve, reject) => {
             navigator.geolocation.getCurrentPosition(resolve, reject);
           });
-
       const latitude = position.coords.latitude;
       const longitude = position.coords.longitude;
       const accuracy = position.coords.accuracy;
@@ -417,16 +625,22 @@ $.getlocation.addEventListener('click', async () => {
           Longitude: ${longitude}<br>
           Accuracy: ${accuracy} meters
         `;
-      logMessage(
-          `Geolocation obtained: Latitude ${latitude}, Longitude ${longitude}`);
+      $.locationStatus.innerText = `Location Received.`;
     } catch (error) {
-      if (error instanceof Error) {
-        logMessage(`Error getting geolocation: ${error.message}`);
-        $.location.innerHTML = `Error: ${error.message}`;
+      $.locationStatus.innerText = `Error: ${error}`;
+      $.location.innerHTML = ``;
+      if (error instanceof GeolocationPositionError) {
+        if (error.code === 1) {
+          $.locationStatus.innerText = `Permission Denied.`;
+          if (!permissionSwitches['osGeolocation'].checked) {
+            $.locationOsErrorUI.style.display = 'block';
+          } else if (!permissionSwitches['geolocation'].checked) {
+            $.locationGlicErrorUI.style.display = 'block';
+          }
+        }
       }
     }
   } else {
-    logMessage('Geolocation is not supported by this browser.');
     $.location.innerHTML = 'Geolocation is not supported by this browser.';
   }
 });
@@ -571,6 +785,22 @@ $.scrollToBn.addEventListener('click', async () => {
   }
 });
 
+// Hang web client for <workTimeMs> amount of time.
+function busyWork(workTimeMs: number) {
+  const end = performance.now() + workTimeMs;
+  while (performance.now() < end) {
+    // mock busy work to test the web client unresponsive handling.
+  }
+}
+
+$.busyWork3s.addEventListener('click', () => {
+  busyWork(3000);
+});
+
+$.busyWork8s.addEventListener('click', () => {
+  busyWork(8000);
+});
+
 
 class AudioCapture {
   recordedData: Blob[] = [];
@@ -581,26 +811,30 @@ class AudioCapture {
     if (this.recorder) {
       return;
     }
-    const stream = await navigator.mediaDevices.getUserMedia({audio: true});
-
-    $.audioStatus.replaceChildren('Recording...');
-    this.recorder = new MediaRecorder(stream, {mimeType: 'audio/webm'});
-    let stopped = false;
-    window.setInterval(() => {
-      if (!stopped) {
-        this.recorder!.requestData();
-      }
-    }, 100);
-    this.recorder.addEventListener('dataavailable', (event: BlobEvent) => {
-      this.recordedData.push(event.data);
-    });
-    this.recorder.addEventListener('stop', () => {
-      stopped = true;
-      $.audioStatus.replaceChildren('Playback...');
-      const blob = new Blob(this.recordedData, {type: 'audio/webm'});
-      $.mic.src = URL.createObjectURL(blob);
-    });
-    this.recorder.start();
+    try {
+      $.audioStatus.innerText = 'Starting Recording...';
+      const stream = await navigator.mediaDevices.getUserMedia({audio: true});
+      this.recorder = new MediaRecorder(stream, {mimeType: 'audio/webm'});
+      let stopped = false;
+      window.setInterval(() => {
+        if (!stopped) {
+          this.recorder!.requestData();
+        }
+      }, 100);
+      this.recorder.addEventListener('dataavailable', (event: BlobEvent) => {
+        this.recordedData.push(event.data);
+      });
+      this.recorder.addEventListener('stop', () => {
+        stopped = true;
+        $.audioStatus.innerText = 'Recording Stopped';
+        const blob = new Blob(this.recordedData, {type: 'audio/webm'});
+        $.mic.src = URL.createObjectURL(blob);
+      });
+      this.recorder.start();
+      $.audioStatus.innerText = 'Recording...';
+    } catch (error) {
+      $.audioStatus.innerText = `Caught error: ${error}`;
+    }
   }
 
   stop() {
@@ -637,6 +871,51 @@ window.addEventListener('load', () => {
     } catch (error) {
       $.desktopScreenshotErrorReason!.innerText = `Caught error: ${error}`;
     }
+  });
+  $.setExperiment.addEventListener('click', async () => {
+    const trialName = $.trialName.value;
+    const groupName = $.groupName.value;
+    $.setExperimentStatus!.innerText +=
+        `\nSetting experiment: ${trialName} ${groupName}`;
+    await getBrowser()!.setSyntheticExperimentState!(trialName, groupName);
+    $.setExperimentStatus!.innerText += '\nExperiment State Set.';
+  });
+  $.startMic.addEventListener('click', async () => {
+    const permissionResult = await checkMicrophonePermission();
+
+    $.startMic.style.display = 'none';
+
+    if (permissionResult === 'success') {
+      $.successUI.style.display = 'block';
+    } else if (permissionResult === 'localDenial') {
+      $.localDenialUI.style.display = 'block';
+    } else if (permissionResult === 'osDenial') {
+      $.osDenialUI.style.display = 'block';
+    }
+  });
+
+  $.openLocalSettingsButton.addEventListener('click', () => {
+    getBrowser()!.openGlicSettingsPage!();
+  });
+  $.openOsSettingsButton.addEventListener('click', () => {
+    getBrowser()!.openOsPermissionSettingsMenu!('media');
+  });
+  $.openOsLocationSettingsButton.addEventListener('click', () => {
+    getBrowser()!.openOsPermissionSettingsMenu!('geolocation');
+  });
+  $.openOsLocationSettings.addEventListener('click', () => {
+    getBrowser()!.openOsPermissionSettingsMenu!('geolocation');
+  });
+  $.openOsMicrophoneSettings.addEventListener('click', () => {
+    getBrowser()!.openOsPermissionSettingsMenu!('media');
+  });
+  $.openGlicLocationSettingsButton.addEventListener('click', () => {
+    getBrowser()!.openGlicSettingsPage!();
+  });
+  $.getOsMicrophonePermissionButton.addEventListener('click', async () => {
+    const permission = await getBrowser()!.getOsMicrophonePermissionStatus!();
+    $.osMicrophonePermissionResult.textContent =
+        `OS Microphone Permission: ${permission}`;
   });
 });
 

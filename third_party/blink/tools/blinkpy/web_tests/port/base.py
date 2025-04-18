@@ -219,6 +219,8 @@ class Port(object):
         ('linux', 'x86_64'),
         ('fuchsia', 'x86_64'),
         ('ios17-simulator', 'x86_64'),
+        ('android', 'x86_64'),
+        ('webview', 'x86_64'),
     )
 
     CONFIGURATION_SPECIFIER_MACROS = {
@@ -230,6 +232,8 @@ class Port(object):
         'win': ['win10.20h2', 'win11-arm64', 'win11'],
         'linux': ['linux'],
         'fuchsia': ['fuchsia'],
+        'android': ['android'],
+        'webview': ['webview'],
     }
 
     # List of ports open on the host that the tests will connect to. When tests
@@ -1471,10 +1475,9 @@ class Port(object):
         self.set_option('manifest_update', False)
 
     @memoized
-    def wpt_manifest(self,
-                     path: str,
-                     exclude_jsshell: bool = True) -> WPTManifest:
+    def wpt_manifest(self, path: str) -> WPTManifest:
         assert path in self.WPT_DIRS
+        exclude_jsshell = not self.get_option('use_upstream_wpt')
         # Convert '/' to the platform-specific separator.
         path = self._filesystem.normpath(path)
         self._filesystem.maybe_make_directory(
@@ -1494,8 +1497,8 @@ class Port(object):
         contents changed from the last update. The previous hash is cached on
         the filesystem.
         """
-        manifest_path = self._path_finder.path_from_web_tests(
-            path, MANIFEST_NAME)
+        manifest_path = self._filesystem.join(self.web_tests_dir(), path,
+                                              MANIFEST_NAME)
         if not self._filesystem.exists(manifest_path):
             return True
         manifest_update: Optional[bool] = self.get_option('manifest_update')
@@ -1895,6 +1898,11 @@ class Port(object):
 
     @memoized
     def tests_from_file(self, filename: str) -> Set[str]:
+        """Read test patterns (URLs, files, or directories) from the given file.
+
+        The returned patterns are not necessarily valid and need to be resolved
+        to URLs by `Port.tests()` at some point.
+        """
         tests = set()
         file_contents = self._filesystem.read_text_file(filename)
         for line in file_contents.splitlines():
@@ -1903,6 +1911,10 @@ class Port(object):
                 continue
             tests.add(line)
         return tests
+
+    @memoized
+    def _resolved_tests_from_file(self, filename: str) -> List[str]:
+        return self.tests(self.tests_from_file(filename))
 
     def skipped_due_to_manual_test(self, test_name):
         """Checks whether a manual test should be skipped."""
@@ -1926,7 +1938,7 @@ class Port(object):
         smoke_test_filename = self.path_to_smoke_tests_file()
         if not self._filesystem.exists(smoke_test_filename):
             return False
-        smoke_tests = self.tests_from_file(smoke_test_filename)
+        smoke_tests = self._resolved_tests_from_file(smoke_test_filename)
         return test not in smoke_tests
 
     def default_smoke_test_only(self):

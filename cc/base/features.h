@@ -211,6 +211,14 @@ CC_BASE_EXPORT BASE_DECLARE_FEATURE(kDynamicSafeAreaInsetsSupportedByCC);
 // frame production to 60Hz.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kThrottleMainFrameTo60Hz);
 
+// We only want to test the feature value if the client satisfies an eligibility
+// criteria, as testing the value enters the client into an experimental group,
+// and we only want the groups (including control) to only contain eligibilie
+// clients. This is also used for other feature that want to select from the
+// samt pool.
+CC_BASE_EXPORT bool IsEligibleForThrottleMainFrameTo60Hz();
+CC_BASE_EXPORT void SetIsEligibleForThrottleMainFrameTo60Hz(bool is_eligible);
+
 // A mode of ViewTransition capture that does not display unstyled frame,
 // instead displays the properly constructed frame while at the same doing
 // capture.
@@ -229,6 +237,37 @@ CC_BASE_EXPORT BASE_DECLARE_FEATURE(kZeroScrollMetricsUpdate);
 // rounded and we use the render surface pixel snapping to counteract the blurry
 // effect.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kViewTransitionFloorTransform);
+
+// Allow the main thread to throttle the main frame rate.
+// Note that the composited animations will not be affected.
+// Typically the throttle is triggered with the render-blocking API <link
+// rel="expect" blocking="full-frame-rate"/>.
+CC_BASE_EXPORT BASE_DECLARE_FEATURE(kRenderThrottleFrameRate);
+// The throttled frame rate when the main thread requests a throttle.
+CC_BASE_EXPORT extern const base::FeatureParam<int>
+    kRenderThrottledFrameIntervalHz;
+
+// Adds a fast path to avoid waking up the thread pool when there are no raster
+// tasks.
+CC_BASE_EXPORT BASE_DECLARE_FEATURE(kFastPathNoRaster);
+
+// When enabled, moves the layer tree client's metric export call
+// for from beginning of the subsequent frame to the end of the subsequent
+// frame.
+CC_BASE_EXPORT BASE_DECLARE_FEATURE(kExportFrameTimingAfterFrameDone);
+
+// When enabled, internal begin frame source will be used in cc to reduce IPC
+// between cc and viz when there were many "did not produce frame" recently,
+// and SetAutoNeedsBeginFrame will be called on CompositorFrameSink.
+CC_BASE_EXPORT BASE_DECLARE_FEATURE(
+    kInternalBeginFrameSourceOnManyDidNotProduceFrame);
+CC_BASE_EXPORT extern const base::FeatureParam<int>
+    kNumDidNotProduceFrameBeforeInternalBeginFrameSource;
+
+// When enabled, the LayerTreeHost will expect to use layer lists instead of
+// layer trees by default; the caller can explicitly opt into enabled or
+// disabled if need be to override this.
+CC_BASE_EXPORT BASE_DECLARE_FEATURE(kUseLayerListsByDefault);
 
 }  // namespace features
 

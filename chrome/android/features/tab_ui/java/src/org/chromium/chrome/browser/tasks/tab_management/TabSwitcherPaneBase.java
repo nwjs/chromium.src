@@ -23,6 +23,7 @@ import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
+import androidx.core.content.ContextCompat;
 
 import org.chromium.base.Callback;
 import org.chromium.base.Log;
@@ -112,6 +113,10 @@ public abstract class TabSwitcherPaneBase implements Pane, TabSwitcher, TabSwitc
                         coordinator.showTabListEditor();
                         RecordUserAction.record("MobileMenuSelectTabs");
                         return true;
+                    } else if (id == R.id.new_tab_group_menu_id) {
+                        mUiFlow.newTabGroupFlow();
+                        RecordUserAction.record("MobileMenuNewTabGroup");
+                        return true;
                     }
                     return false;
                 }
@@ -127,6 +132,7 @@ public abstract class TabSwitcherPaneBase implements Pane, TabSwitcher, TabSwitc
     private final TabSwitcherPaneCoordinatorFactory mFactory;
     private final boolean mIsIncognito;
     private final DoubleConsumer mOnToolbarAlphaChange;
+    private final TabGroupCreationUiFlow mUiFlow;
     private final HubLayoutAnimationListener mAnimationListener =
             new HubLayoutAnimationListener() {
                 @Override
@@ -161,6 +167,7 @@ public abstract class TabSwitcherPaneBase implements Pane, TabSwitcher, TabSwitc
      * @param userEducationHelper Used for showing IPHs.
      * @param edgeToEdgeSupplier Supplier to the {@link EdgeToEdgeController} instance.
      * @param compositorViewHolderSupplier Supplier to the {@link CompositorViewHolder} instance.
+     * @param tabGroupCreationUiFlow Orchestrates the tab group creation UI flow.
      */
     TabSwitcherPaneBase(
             @NonNull Context context,
@@ -169,7 +176,8 @@ public abstract class TabSwitcherPaneBase implements Pane, TabSwitcher, TabSwitc
             @NonNull DoubleConsumer onToolbarAlphaChange,
             @NonNull UserEducationHelper userEducationHelper,
             @NonNull ObservableSupplier<EdgeToEdgeController> edgeToEdgeSupplier,
-            @NonNull ObservableSupplier<CompositorViewHolder> compositorViewHolderSupplier) {
+            @NonNull ObservableSupplier<CompositorViewHolder> compositorViewHolderSupplier,
+            @NonNull TabGroupCreationUiFlow tabGroupCreationUiFlow) {
         mFactory = factory;
         mIsIncognito = isIncognito;
 
@@ -181,10 +189,12 @@ public abstract class TabSwitcherPaneBase implements Pane, TabSwitcher, TabSwitc
         mUserEducationHelper = userEducationHelper;
         mEdgeToEdgeSupplier = edgeToEdgeSupplier;
         mCompositorViewHolderSupplier = compositorViewHolderSupplier;
+        mUiFlow = tabGroupCreationUiFlow;
     }
 
     @Override
     public void destroy() {
+        removeDelayedCallbacks();
         mIsVisibleSupplier.removeObserver(mVisibilityObserver);
         destroyTabSwitcherPaneCoordinator();
     }
@@ -313,8 +323,8 @@ public abstract class TabSwitcherPaneBase implements Pane, TabSwitcher, TabSwitc
             return ChromeColors.getPrimaryBackgroundColor(mRootView.getContext(), mIsIncognito);
         } else {
             // TODO(crbug.com/40948541): Consider not getting the color from home surface.
-            return ChromeColors.getSurfaceColor(
-                    mRootView.getContext(), R.dimen.home_surface_background_color_elevation);
+            return ContextCompat.getColor(
+                    mRootView.getContext(), R.color.home_surface_background_color);
         }
     }
 
@@ -429,22 +439,6 @@ public abstract class TabSwitcherPaneBase implements Pane, TabSwitcher, TabSwitc
     }
 
     @Override
-    public boolean resetWithTabs(@Nullable List<Tab> tabs, boolean quickMode) {
-        assert false : "Not reached.";
-        return true;
-    }
-
-    @Override
-    public void softCleanup() {
-        assert false : "Not reached.";
-    }
-
-    @Override
-    public void hardCleanup() {
-        assert false : "Not reached.";
-    }
-
-    @Override
     public void initWithNative() {
         if (mNativeInitialized) return;
 
@@ -502,13 +496,6 @@ public abstract class TabSwitcherPaneBase implements Pane, TabSwitcher, TabSwitc
     }
 
     @Override
-    public void openInvitationModal(String invitationId) {
-        TabSwitcherPaneCoordinator coordinator = mTabSwitcherPaneCoordinatorSupplier.get();
-        if (coordinator == null) return;
-        coordinator.openInvitationModal(invitationId);
-    }
-
-    @Override
     public boolean requestOpenTabGroupDialog(int tabId) {
         @Nullable
         TabSwitcherPaneCoordinator coordinator = mTabSwitcherPaneCoordinatorSupplier.get();
@@ -522,7 +509,7 @@ public abstract class TabSwitcherPaneBase implements Pane, TabSwitcher, TabSwitc
 
     /**
      * Request to show all the tabs in the pane. Subclasses should override this method to invoke
-     * {@link TabSwitcherResetHandler#resetWithTabList} with their available tabs.
+     * {@link TabSwitcherResetHandler#resetWithListOfTabs} with their available tabs.
      */
     protected abstract void showAllTabs();
 

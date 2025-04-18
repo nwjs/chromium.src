@@ -8,6 +8,7 @@
 #include <limits>
 #include <memory>
 #include <utility>
+#include <variant>
 
 #include "base/check.h"
 #include "base/functional/overloaded.h"
@@ -18,7 +19,6 @@
 #include "cc/trees/layer_tree_impl.h"
 #include "components/viz/common/quads/solid_color_draw_quad.h"
 #include "components/viz/common/quads/tile_draw_quad.h"
-#include "third_party/abseil-cpp/absl/types/variant.h"
 
 namespace cc {
 
@@ -53,7 +53,7 @@ TileDisplayLayerImpl::Tile::Tile() = default;
 
 TileDisplayLayerImpl::Tile::Tile(const TileContents& contents)
     : contents_(contents) {
-  DCHECK(!absl::holds_alternative<NoContents>(contents_));
+  DCHECK(!std::holds_alternative<NoContents>(contents_));
 }
 
 TileDisplayLayerImpl::Tile::Tile(Tile&&) = default;
@@ -106,7 +106,7 @@ void TileDisplayLayerImpl::Tiling::SetTileContents(
     const TileIndex& key,
     const TileContents& contents) {
   std::unique_ptr<Tile> old_tile;
-  if (absl::holds_alternative<NoContents>(contents)) {
+  if (std::holds_alternative<NoContents>(contents)) {
     auto it = tiles_.find(key);
     if (it != tiles_.end()) {
       old_tile = std::move(it->second);
@@ -117,7 +117,7 @@ void TileDisplayLayerImpl::Tiling::SetTileContents(
   }
 
   if (old_tile) {
-    if (auto* resource = absl::get_if<TileResource>(&old_tile->contents())) {
+    if (auto* resource = std::get_if<TileResource>(&old_tile->contents())) {
       layer_->discarded_resources_.push_back(resource->resource);
     }
   }
@@ -180,6 +180,13 @@ void TileDisplayLayerImpl::AppendQuads(const AppendQuadsContext& context,
 
   const float max_contents_scale =
       tilings_.empty() ? 1.0f : tilings_.back()->contents_scale_key();
+
+  // If this layer is used as a backdrop filter, don't create and append a quad
+  // as that will be done in RenderSurfaceImpl::AppendQuads.
+  if (is_backdrop_filter_mask_) {
+    return;
+  }
+
   viz::SharedQuadState* shared_quad_state =
       render_pass->CreateAndAppendSharedQuadState();
   PopulateScaledSharedQuadState(shared_quad_state, max_contents_scale,
@@ -220,29 +227,12 @@ void TileDisplayLayerImpl::AppendQuads(const AppendQuadsContext& context,
   std::vector<viz::TransferableResource> used_resources;
   const auto ideal_scale = GetIdealContentsScale();
   const float ideal_scale_key = std::max(ideal_scale.x(), ideal_scale.y());
+
+  // Append quads for the tiles in this layer.
   for (auto iter = TilingSetCoverageIterator<Tiling>(
            tilings_, shared_quad_state->visible_quad_layer_rect,
            max_contents_scale, ideal_scale_key);
        iter; ++iter) {
-    if (is_backdrop_filter_mask_) {
-      // Don't create and append a quad as that will be done in
-      // RenderSurfaceImpl::AppendQuads. However, it's necessary to pass the
-      // TransferableResource that will be used for that code to
-      // LayerContextImpl to ensure that it gets added to the CompositorFrame.
-      CHECK_EQ(tilings_.size(), 1u);
-      CHECK(iter->resource());
-      resource_id_ = iter->resource()->resource.id;
-      texture_size_ = iter->resource()->resource.size;
-      gfx::SizeF requested_tile_size =
-          gfx::SizeF(iter.CurrentTiling()->tile_size());
-      uv_size_ =
-          gfx::SizeF(requested_tile_size.width() / texture_size_.width(),
-                     requested_tile_size.height() / texture_size_.height());
-      used_resources.push_back(iter->resource()->resource);
-      client_->DidAppendQuadsWithResources(used_resources);
-      return;
-    }
-
     const gfx::Rect geometry_rect = iter.geometry_rect();
     const gfx::Rect visible_geometry_rect =
         scaled_occlusion.GetUnoccludedContentRect(geometry_rect);
@@ -307,9 +297,29 @@ void TileDisplayLayerImpl::GetContentsResourceId(
     gfx::Size* resource_size,
     gfx::SizeF* resource_uv_size) const {
   CHECK(is_backdrop_filter_mask_);
-  *resource_id = resource_id_;
-  *resource_size = texture_size_;
-  *resource_uv_size = uv_size_;
+  CHECK_EQ(tilings_.size(), 1u);
+
+  const float max_contents_scale =
+      tilings_.empty() ? 1.0f : tilings_.back()->contents_scale_key();
+  gfx::Rect content_rect =
+      gfx::ScaleToEnclosingRect(gfx::Rect(bounds()), max_contents_scale);
+  const auto ideal_scale = GetIdealContentsScale();
+  const float ideal_scale_key = std::max(ideal_scale.x(), ideal_scale.y());
+
+  auto iter = TilingSetCoverageIterator<Tiling>(
+      tilings_, content_rect, max_contents_scale, ideal_scale_key);
+  CHECK(iter->resource());
+  *resource_id = iter->resource()->resource.id;
+  *resource_size = iter->resource()->resource.size;
+  gfx::SizeF requested_tile_size =
+      gfx::SizeF(iter.CurrentTiling()->tile_size());
+  *resource_uv_size =
+      gfx::SizeF(requested_tile_size.width() / resource_size->width(),
+                 requested_tile_size.height() / resource_size->height());
+
+  std::vector<viz::TransferableResource> used_resources;
+  used_resources.push_back(iter->resource()->resource);
+  client_->DidAppendQuadsWithResources(used_resources);
 }
 
 }  // namespace cc

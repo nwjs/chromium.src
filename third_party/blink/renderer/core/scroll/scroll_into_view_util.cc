@@ -13,6 +13,7 @@
 #include "third_party/blink/renderer/core/execution_context/security_context.h"
 #include "third_party/blink/renderer/core/frame/frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
+#include "third_party/blink/renderer/core/frame/root_frame_viewport.h"
 #include "third_party/blink/renderer/core/frame/visual_viewport.h"
 #include "third_party/blink/renderer/core/html/html_frame_owner_element.h"
 #include "third_party/blink/renderer/core/layout/geometry/box_strut.h"
@@ -79,6 +80,11 @@ bool AllowedToPropagateToParent(
 ALWAYS_INLINE ScrollableArea* GetScrollableAreaForLayoutBox(
     const LayoutBox& box,
     const mojom::blink::ScrollIntoViewParamsPtr& params) {
+  // Root element with ::scroll-marker-group pseudo element should use
+  // root frame viewport.
+  if (box.IsDocumentElement() && box.IsScrollContainerWithScrollMarkerGroup()) {
+    return box.GetFrameView()->GetRootFrameViewport();
+  }
   if (box.IsScrollContainer() && !box.IsLayoutView()) {
     return box.GetScrollableArea();
   } else if (!box.ContainingBlock()) {
@@ -689,13 +695,13 @@ ScrollOffset GetScrollOffsetToExpose(
 }
 
 mojom::blink::ScrollAlignment PhysicalAlignmentFromSnapAlignStyle(
-    const LayoutBox& box,
+    const LayoutObject& object,
     ScrollOrientation axis) {
-  cc::ScrollSnapAlign snap = box.Style()->GetScrollSnapAlign();
+  cc::ScrollSnapAlign snap = object.Style()->GetScrollSnapAlign();
   return ResolveToPhysicalAlignment(
       SnapAlignmentToV8ScrollLogicalPosition(snap.alignment_inline),
       SnapAlignmentToV8ScrollLogicalPosition(snap.alignment_block), axis,
-      *box.Style());
+      *object.Style());
 }
 
 }  // namespace scroll_into_view_util

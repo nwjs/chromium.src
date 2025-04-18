@@ -18,6 +18,7 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
+#include "base/task/common/task_annotator.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
 #include "base/trace_event/traced_value.h"
@@ -455,8 +456,8 @@ void WidgetInputHandlerManager::InputEventsDispatched(bool raf_aligned) {
   }
 }
 
-void WidgetInputHandlerManager::SetNeedsMainFrame() {
-  widget_->RequestAnimationAfterDelay(base::TimeDelta());
+void WidgetInputHandlerManager::SetNeedsMainFrame(bool urgent) {
+  widget_->RequestAnimationAfterDelay(base::TimeDelta(), urgent);
 }
 
 bool WidgetInputHandlerManager::RequestedMainFramePending() {

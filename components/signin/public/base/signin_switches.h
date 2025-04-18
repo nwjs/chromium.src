@@ -52,6 +52,11 @@ COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kUseHostedDomainForManagementCheckOnSignin);
 #endif
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kEnableHistorySyncOptin);
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 extern const char kClearTokenService[];
 
@@ -85,6 +90,9 @@ BASE_DECLARE_FEATURE(kEnableChromeRefreshTokenBinding);
 
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 bool IsChromeRefreshTokenBindingEnabled(const PrefService* profile_prefs);
+
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kBoundSessionCredentialsKillSwitch);
 #endif
 
 // Enables a separate account-scoped storage for preferences.
@@ -104,19 +112,9 @@ COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kForceStartupSigninPromo);
 #endif
 
-// Used for the launch of the UNO model on Desktop Phase 0.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kExplicitBrowserSigninUIOnDesktop);
-// Param to control whether the bubbles are dismissible by pressing on the
-// avatar button.
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-extern const base::FeatureParam<bool>
-    kInterceptBubblesDismissibleByAvatarButton;
+BASE_DECLARE_FEATURE(kInterceptBubblesDismissibleByAvatarButton);
 
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-bool IsExplicitBrowserSigninUIOnDesktopEnabled();
-
-// Requires `kExplicitBrowserSigninUIOnDesktop`.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kImprovedSigninUIOnDesktop);
 
@@ -134,6 +132,9 @@ BASE_DECLARE_FEATURE(kEnableSnackbarInSettings);
 
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kEnableImprovedGuestProfileMenu);
+
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kEnablePendingModePasswordsPromo);
 
 #if BUILDFLAG(IS_IOS)
 

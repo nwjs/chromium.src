@@ -153,6 +153,7 @@ public final class TabGroupSyncLocalObserver {
 
             @Override
             public void didSelectTab(Tab tab, @TabSelectionType int type, int lastId) {
+                // Intentionally observing all tab selections regardless of their origin.
                 LocalTabGroupId localTabGroupId =
                         mTabGroupModelFilter.isTabInTabGroup(tab)
                                 ? TabGroupSyncUtils.getLocalTabGroupId(tab)
@@ -248,7 +249,8 @@ public final class TabGroupSyncLocalObserver {
                                 Locale.getDefault(),
                                 "movedTab positionInGroup %d out of %d",
                                 positionInGroup,
-                                mTabGroupModelFilter.getRelatedTabCountForRootId(rootId)));
+                                mTabGroupModelFilter.getTabCountForGroup(
+                                        movedTab.getTabGroupId())));
                 mRemoteTabGroupMutationHelper.moveTab(
                         tabGroupId, movedTab.getId(), positionInGroup);
             }
@@ -259,7 +261,7 @@ public final class TabGroupSyncLocalObserver {
                 LogUtils.log(TAG, "didMoveTabOutOfGroup, prevFilterIndex = " + prevFilterIndex);
 
                 // Remove tab from the synced group.
-                Tab prevRoot = mTabGroupModelFilter.getTabAt(prevFilterIndex);
+                Tab prevRoot = mTabGroupModelFilter.getRepresentativeTabAt(prevFilterIndex);
                 assert prevRoot != null;
                 LocalTabGroupId tabGroupId =
                         TabGroupSyncUtils.getLocalTabGroupId(
@@ -282,6 +284,7 @@ public final class TabGroupSyncLocalObserver {
 
             @Override
             public void willCloseTabGroup(Token tabGroupId, boolean isHiding) {
+                if (!mIsObserving) return;
                 StringBuilder builder =
                         new StringBuilder("willCloseTabGroup, tabGroupId = ")
                                 .append(tabGroupId)
@@ -298,6 +301,7 @@ public final class TabGroupSyncLocalObserver {
                     int oldRootId,
                     @Nullable Token oldTabGroupId,
                     @DidRemoveTabGroupReason int removalReason) {
+                if (!mIsObserving) return;
                 LogUtils.log(TAG, "didRemoveTabGroup, oldRootId " + oldRootId);
                 if (oldTabGroupId == null) return;
 

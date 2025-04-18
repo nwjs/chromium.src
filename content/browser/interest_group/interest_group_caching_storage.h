@@ -225,6 +225,9 @@ class CONTENT_EXPORT InterestGroupCachingStorage {
   void RecordDebugReportCooldown(const url::Origin& origin,
                                  base::Time cooldown_start,
                                  DebugReportCooldownType cooldown_type);
+  // Records a view or a click event. Aggregate time bucketed view and click
+  // information is provided to bidder's browsing signals in generateBid().
+  void RecordViewClick(network::AdAuctionEventRecord event_record);
   // Records a K-anonymity update for an interest group. If
   // `replace_existing_values` is true, this update will store the new
   // `update_time` and `positive_hashed_values`, replacing the interest
@@ -264,13 +267,15 @@ class CONTENT_EXPORT InterestGroupCachingStorage {
       base::OnceCallback<void(std::vector<InterestGroupUpdateParameter>)>
           callback);
 
-  // Gets lockout for sending forDebuggingOnly reports.
-  void GetDebugReportLockout(
-      base::OnceCallback<void(std::optional<DebugReportLockout>)> callback);
-
-  // Gets lockout and cooldown for sending forDebuggingOnly reports.
+  // Gets lockout and cooldowns of `origins` for sending forDebuggingOnly
+  // reports.
   void GetDebugReportLockoutAndCooldowns(
       base::flat_set<url::Origin> origins,
+      base::OnceCallback<void(std::optional<DebugReportLockoutAndCooldowns>)>
+          callback);
+
+  // Gets lockout and all cooldowns for sending forDebuggingOnly reports.
+  void GetDebugReportLockoutAndAllCooldowns(
       base::OnceCallback<void(std::optional<DebugReportLockoutAndCooldowns>)>
           callback);
 
@@ -318,6 +323,24 @@ class CONTENT_EXPORT InterestGroupCachingStorage {
   void GetBiddingAndAuctionServerKeys(
       const url::Origin& coordinator,
       base::OnceCallback<void(std::pair<base::Time, std::string>)> callback);
+
+  // Writes all of these keys to the cache, the first vector with
+  // `is_kanon = true`, and the second vector with `is_kanon = false`.
+  void WriteHashedKAnonymityKeysToCache(
+      const std::vector<std::string>& positive_hashed_keys,
+      const std::vector<std::string>& negative_hashed_keys,
+      base::Time time_fetched);
+
+  // Takes a vector of keys to lookup from the cache. Calls a callback that
+  // provides two vectors of keys: the first a vector that includes those
+  // unexpired keys for which it was found in the cache that that key is
+  // k-anonymous, the second a vector that includes all keys not found in the
+  // cache.
+  void LoadPositiveHashedKAnonymityKeysFromCache(
+      const std::vector<std::string>& keys,
+      base::Time min_valid_time,
+      base::OnceCallback<void(InterestGroupStorage::KAnonymityCacheResponse)>
+          callback);
 
   void GetLastMaintenanceTimeForTesting(
       base::RepeatingCallback<void(base::Time)> callback) const;

@@ -10,7 +10,6 @@
 <translation id="102916930470544692">Llave de acceso</translation>
 <translation id="1030376737535466765">Abrir el Administrador de contraseñas</translation>
 <translation id="1035980983510608210">Si cierras todas las pestañas, también se cerrarán las pestañas fijas.</translation>
-<translation id="1036017604683756002">UPS</translation>
 <translation id="1036348656032585052">Desactivar</translation>
 <translation id="1041322626941363065">Advertirme si mis contraseñas quedan expuestas en una violación de la seguridad de los datos</translation>
 <translation id="1044891598689252897">Los sitios funcionarán normalmente</translation>
@@ -35,13 +34,14 @@
 <translation id="1112015203684611006">Se produjo un error en la impresión.</translation>
 <translation id="1118569444314402022">Te damos la bienvenida nuevamente, <ph name="USER_NAME" /></translation>
 <translation id="1121850836842642159">Imágenes y fotos</translation>
-<translation id="1125564390852150847">Crea una pestaña nueva.</translation>
 <translation id="1126696498560056882">Administrar cuentas en este dispositivo</translation>
 <translation id="1126809382673880764">No te protege contra descargas, extensiones ni sitios web peligrosos. Seguirás teniendo la protección (donde esté disponible) de la Navegación segura en otros servicios de Google, como Gmail y la Búsqueda.</translation>
+<translation id="1136104150802877429">Mostrar opiniones sobre productos</translation>
 <translation id="1142371195993008685">Desactivar las notificaciones para <ph name="FEATURE_NAME" /></translation>
 <translation id="1147031633655575115">Accediste como <ph name="USER" /></translation>
 <translation id="1149401351239820326">Mes de vencimiento</translation>
 <translation id="1150989369772528668">Calendario</translation>
+<translation id="1161663161838091892">Sincroniza las pestañas y el historial para continuar</translation>
 <translation id="1164891049599601209">Se ingresó en un sitio engañoso</translation>
 <translation id="1165039591588034296">Error</translation>
 <translation id="1172898394251786223">Campo siguiente</translation>
@@ -49,7 +49,6 @@
 <translation id="1181037720776840403">Quitar</translation>
 <translation id="1190609913194133056">Centro de notificaciones</translation>
 <translation id="1201402288615127009">Siguiente</translation>
-<translation id="1202892408424955784">Productos con seguimiento</translation>
 <translation id="1204075260022434100">{count,plural, =1{El favorito se guardó en "{title}" en tu cuenta ({email})}other{{count} favoritos se guardaron en "{title}" en tu cuenta ({email})}}</translation>
 <translation id="120431140543679678">Seguir</translation>
 <translation id="1207493287814084192">5:30 p.m.</translation>
@@ -77,7 +76,6 @@
 <translation id="1312168552565502328">Cookies, datos del sitio</translation>
 <translation id="1312721752506309252">Se activó la protección mejorada</translation>
 <translation id="1317821187353201763">Cerrar pestaña</translation>
-<translation id="1320164290882380380">{COUNT,plural, =1{Realizar seguimiento de este paquete}other{Realizar seguimiento de todos los paquetes}}</translation>
 <translation id="1321993286294231467">Se produjo un error al guardar la imagen.</translation>
 <translation id="1322735045095424339">Tu organización requiere que utilices el modo Incógnito</translation>
 <translation id="1323735185997015385">Borrar</translation>
@@ -90,7 +88,6 @@
 <translation id="1358106883354237005">Cuenta administrada</translation>
 <translation id="1358214951266274152">Visita el vínculo que copiaste</translation>
 <translation id="1360432990279830238">¿Salir y desactivar la sincronización?</translation>
-<translation id="1362192716574455663">Los datos de navegación existentes no se transferirán a tu cuenta laboral. Puedes acceder a ella si sales de la cuenta o agregas una cuenta personal.</translation>
 <translation id="1363028406613469049">Seguimiento</translation>
 <translation id="1364367057792633742">Nueva pestaña</translation>
 <translation id="1365106417372288489">Se restableció tu iPhone recientemente y es posible que haya cambiado tu navegador predeterminado</translation>
@@ -100,6 +97,7 @@
 <translation id="1377508275003315939">Contraseñas</translation>
 <translation id="1381022135873211423">{count,plural, =1{{position} de {count} dirección}other{{position} de {count} direcciones}}</translation>
 <translation id="1383876407941801731">Buscar</translation>
+<translation id="1385168997509105202">Perderás de inmediato el acceso al grupo de pestañas "<ph name="GROUP_NAME" />", y <ph name="USER_NAME" /> (<ph name="USER_EMAIL" />) ya no podrá interactuar contigo en los servicios de Google.</translation>
 <translation id="138618066238211776">Continuar como <ph name="USER_NAME" /></translation>
 <translation id="138692594145659985">Opciones para guardar una tarjeta</translation>
 <translation id="1396260204083880024">Accediste como <ph name="USER_NAME" />. <ph name="USER_EMAIL" />. Abre el menú de la cuenta.</translation>
@@ -109,6 +107,7 @@
 <translation id="1411386976162024013">Búsqueda visual de Lens</translation>
 <translation id="1417474386970818917">Salir y borrar</translation>
 <translation id="1426410128494586442">Sí</translation>
+<translation id="1429187656584513419">Abre Contraseñas</translation>
 <translation id="1430915738399379752">Imprimir</translation>
 <translation id="1436671784520050284">Continuar con la configuración</translation>
 <translation id="143681031165817424">La dirección se guardó únicamente en este dispositivo</translation>
@@ -117,7 +116,6 @@
 <translation id="1455660774629812862">No ocultar</translation>
 <translation id="1456545332132818232">Opiniones sobre el producto en <ph name="PRODUCT_NAME" />, <ph name="STARS" /> de <ph name="MAX_STARS" />, <ph name="DOMAIN" /></translation>
 <translation id="1460751212339734034">Ahorra tiempo y escribe menos</translation>
-<translation id="1466035273550360103">No hay pestañas abiertas</translation>
 <translation id="1469381646033328562">Tu madre o padre administra tu cuenta.
 <ph name="BEGIN_LINK" />Más información<ph name="END_LINK" /></translation>
 <translation id="147982357559798527">Se cambió</translation>
@@ -138,6 +136,7 @@
 <translation id="1513858653616922153">Borrar contraseña</translation>
 <translation id="1517166097004694782">Ocultar la opción "Continuar con esta pestaña"</translation>
 <translation id="1520027731907768768">Recibe alertas de reducción de precio para los productos que sigues.</translation>
+<translation id="1521366073263497277">Ve a la cuadrícula de pestañas.</translation>
 <translation id="1521774566618522728">Activo hoy</translation>
 <translation id="1524563461097350801">No, gracias</translation>
 <translation id="1531038290222364269">Mostrar las pestañas</translation>
@@ -159,6 +158,7 @@
 <translation id="1605658421715042784">Copiar imagen</translation>
 <translation id="1612754831519568745">La Navegación segura está desactivada. Obtén protección contra sitios, descargas y extensiones peligrosos.</translation>
 <translation id="1620510694547887537">Cámara</translation>
+<translation id="1622195983844804153">Los datos de navegación existentes no se transferirán a tu cuenta laboral. Puedes acceder a ella si sales de la cuenta o agregas una cuenta personal.</translation>
 <translation id="1622717322707146952">Selecciona "Agregar al Calendario de Google" o "Agregar al Calendario de Apple".</translation>
 <translation id="1629162218487290695">Verificar tu identidad…</translation>
 <translation id="1636234353664774105">Usar la función de navegación para obtener instrucciones paso a paso sobre cómo llegar a tu destino</translation>
@@ -179,12 +179,13 @@
 <translation id="1700629756560807968"><ph name="NUMBER_OF_SELECTED_BOOKMARKS" /> seleccionados</translation>
 <translation id="1709916727352927457">Borra la llave de acceso</translation>
 <translation id="1712341189152602203">Los datos de navegación existentes se vincularán a <ph name="USER_EMAIL" />. Es posible que tu organización pueda ver estos datos.</translation>
-<translation id="1713777106376424209">Empresa de transporte a cargo de la entrega:</translation>
 <translation id="1715515772563243997">Si confías en <ph name="SITE" />, puedes usar una contraseña guardada para acceder.</translation>
+<translation id="1718835860248848330">Última hora</translation>
 <translation id="1728549374069268714">Pegar y acceder</translation>
 <translation id="1732468323901456775">Activar las notificaciones de <ph name="MODULE_NAME" /></translation>
 <translation id="1740468249224277719">Presiona dos veces para instalar.</translation>
 <translation id="1740650426894359238">Cambia a otro perfil</translation>
+<translation id="1741219894094057085">Reloj inteligente</translation>
 <translation id="1743244221910283364">Descartar cambios</translation>
 <translation id="174998178145075354">{count,plural, =1{Hay {count} opción de dirección disponible arriba del teclado.}other{Hay {count} opciones de dirección disponibles arriba del teclado.}}</translation>
 <translation id="1750238553597293878">Sigue usando las contraseñas en tu Cuenta de Google</translation>
@@ -205,7 +206,6 @@
 <translation id="1819374301217551116">Seguimiento de precios y estadísticas</translation>
 <translation id="1820195936249950412">Accede con una cuenta válida</translation>
 <translation id="1820259098641718022">Se agregó a la lista de lectura</translation>
-<translation id="1822994441903263130">FEDEX</translation>
 <translation id="1824490729233982311">Recibe alertas cuando se abran pestañas en tus otros dispositivos.</translation>
 <translation id="1827529786398596735">Mantén presionada la pantalla principal</translation>
 <translation id="1832848789136765277">Para asegurarte de que siempre puedas acceder a tus datos sincronizados, verifica tu identidad.</translation>
@@ -233,7 +233,6 @@
 <translation id="1902277226107477495">La detección de direcciones está desactivada. Vuelve a activarla en Configuración.</translation>
 <translation id="1904580727789512086">Las URL que visitas se guardan en tu Cuenta de Google</translation>
 <translation id="1911619930368729126">Cargar a Google Drive</translation>
-<translation id="1923342640370224680">Última hora</translation>
 <translation id="1941314575388338491">Presiona dos veces para copiar.</translation>
 <translation id="1943478190258551035">Menú → Configuración</translation>
 <translation id="1952728750904661634">Acceder con una cuenta administrada</translation>
@@ -262,12 +261,12 @@
 <translation id="2010008505735295285">Volver a cargar</translation>
 <translation id="2015722694326466240">Para ver las contraseñas, primero debes establecer una en tu dispositivo.</translation>
 <translation id="201759455285471444">Expandir grupo de pestañas.</translation>
+<translation id="202070562065520783">Explícame esto</translation>
 <translation id="2021670401941426298">Consulta las instrucciones de tu motor de búsqueda para borrar el historial de búsqueda (si corresponde).</translation>
 <translation id="2044394949148788042">Abre la cuadrícula de pestañas</translation>
 <translation id="20485545164632846">nuevo elemento</translation>
 <translation id="2049727122989709386"><ph name="COUNT" /> cuentas usan la misma contraseña</translation>
 <translation id="2059166748188874810">Municipalidad</translation>
-<translation id="2060114494785549741">Borrar en 1 mes</translation>
 <translation id="2060638295449304809">Esta dirección solo se guarda en este dispositivo. Para usarla en tus otros dispositivos, guárdala en tu Cuenta de Google, <ph name="USER_EMAIL" />.</translation>
 <translation id="20638360198452347">Selector de tipos de unidad</translation>
 <translation id="2067852168641682340">Guardar siempre en esta cuenta</translation>
@@ -286,10 +285,10 @@
 <translation id="2122754583996902531">Tu navegador está administrado. <ph name="BEGIN_LINK" />Más información<ph name="END_LINK" /></translation>
 <translation id="2139867232736819575">Buscar el texto copiado</translation>
 <translation id="2147127444698817042">Solo disponible en iPhone</translation>
-<translation id="2148716181193084225">Hoy</translation>
 <translation id="2148799636999124959">Accede rápidamente a sitios y apps con tus contraseñas guardadas.</translation>
 <translation id="2149968176347646218">La conexión no es segura</translation>
 <translation id="2149973817440762519">Editar marcador</translation>
+<translation id="2155663190508912427">Borrar dentro de 1 mes</translation>
 <translation id="2161446265348023004">Cambiar a otra ventana abierta</translation>
 <translation id="2164946989711475905">Acceder…</translation>
 <translation id="2175927920773552910">Código QR</translation>
@@ -302,8 +301,8 @@
 <translation id="2202084845446535117">No hay una cuenta de correo electrónico</translation>
 <translation id="2214453882118345682">Compra, identifica y traduce lo que ves con la cámara.</translation>
 <translation id="2215819824168709130">Ocultar la tarjeta Seguir precio</translation>
+<translation id="2216366330550244277">Ir a la página de un producto</translation>
 <translation id="2220529011494928058">Informar un problema</translation>
-<translation id="2220887224562128152">Una vez que se programa la eliminación de un archivo, no se puede recuperar.</translation>
 <translation id="2223461067862937305">Crear un código QR</translation>
 <translation id="2229345671837147090">Cuadrícula de pestañas remotas</translation>
 <translation id="2230173723195178503">Se cargó la página web</translation>
@@ -324,11 +323,9 @@
 <translation id="2268044343513325586">Definir mejor</translation>
 <translation id="2271452184061378400">Tus grupos de pestañas se guardan aquí</translation>
 <translation id="2273327106802955778">Menú Más</translation>
-<translation id="2274800392139890332">Detener el seguimiento de este paquete</translation>
 <translation id="2287614783861766820">{count,plural, =1{Esta dirección se borrará de este dispositivo.}other{Estas direcciones se borrarán de este dispositivo.}}</translation>
 <translation id="2297989278479054870">Después de salir, los favoritos, las contraseñas y otros datos de tu Cuenta de Google se quitarán de este dispositivo.</translation>
 <translation id="2299218006564889602">Las contraseñas se encriptan en tu dispositivo antes de guardarse en el Administrador de contraseñas de Google.</translation>
-<translation id="2299515531293777561"><ph name="CARRIER_NAME" /> • n.º <ph name="PARCEL_IDENTIFIER" /></translation>
 <translation id="2309265394777270359">Cerrar pestaña</translation>
 <translation id="2311077293164383652">Cerrar la pestaña fija</translation>
 <translation id="2316129865977710310">No, gracias</translation>
@@ -338,7 +335,6 @@
 <translation id="2326302612031521902">Selector de unidades</translation>
 <translation id="2330607597130465898">Sin protección</translation>
 <translation id="233375395665273385">Borrar y salir</translation>
-<translation id="2348630484974447747">Paquete</translation>
 <translation id="2351097562818989364">Se restableció la configuración de traducción.</translation>
 <translation id="2353784052777482798">{COUNT,plural, =1{Puedes guardar tu contraseña de {DOMAIN_ONE} en tu Cuenta de Google, {EMAIL}.}=2{Puedes guardar tus contraseñas de {DOMAIN_ONE} y {DOMAIN_TWO} en tu Cuenta de Google, {EMAIL}.}=3{Puedes guardar tus contraseñas de {DOMAIN_ONE}, {DOMAIN_TWO} y {OTHER_DOMAINS_COUNT} más en tu Cuenta de Google, {EMAIL}.}other{Puedes guardar tus contraseñas de .{DOMAIN_ONE}, {DOMAIN_TWO} y {OTHER_DOMAINS_COUNT} más en tu Cuenta de Google, {EMAIL}.}}</translation>
 <translation id="2353953000228441783">Vista predeterminada de sitios</translation>
@@ -449,7 +445,9 @@ Tu motor de búsqueda es <ph name="DSE_NAME" />. Consulta las instrucciones para
 <translation id="2783161812871838616">Solicitar sitio para computadoras</translation>
 <translation id="2789552044937754463">{COUNT,plural, =1{Se guardó la contraseña en tu Cuenta de Google, {EMAIL}}other{Se guardaron las contraseñas en tu Cuenta de Google, {EMAIL}}}</translation>
 <translation id="2791174088547598693">Agregar contraseña…</translation>
+<translation id="2793703503584038325">Selecciona una contraseña y presiona el ícono de "compartir"</translation>
 <translation id="2797302972324086597">Código de país</translation>
+<translation id="2810376924814601526">{COUNT,plural, =1{{COUNT} archivo}other{{COUNT} archivos}}</translation>
 <translation id="2816489851009559785">Menú → Configuración → Navegador predeterminado</translation>
 <translation id="2818821771744632548">Saliste de tu cuenta <ph name="USER_NAME" /> como parte del restablecimiento de tu iPhone. Para volver a acceder, presiona "Continuar".</translation>
 <translation id="2819667972867209401">Si se activa, los datos se guardarán en tu Cuenta de Google. Si se desactiva, los datos se guardan solo en este dispositivo y se borran si sales de tu cuenta.</translation>
@@ -457,6 +455,7 @@ Tu motor de búsqueda es <ph name="DSE_NAME" />. Consulta las instrucciones para
 <translation id="2829172210806130158">Realiza una búsqueda directa en tu pantalla</translation>
 <translation id="2834399722155632105">3. Presiona Opciones de contraseña</translation>
 <translation id="2834956026595107950"><ph name="TITLE" />, <ph name="STATE" />, <ph name="URL" /></translation>
+<translation id="2841013758207633010">Hora</translation>
 <translation id="284581348330507117">Crea contraseñas únicas</translation>
 <translation id="2856883624744451946">Nombra el grupo</translation>
 <translation id="2858204748079866344">Para proteger tu privacidad, Chrome no completará de forma automática tu contraseña en este campo.</translation>
@@ -466,7 +465,6 @@ Tu motor de búsqueda es <ph name="DSE_NAME" />. Consulta las instrucciones para
 <translation id="2883151425485251736">Ver y editar temas que ocultaste en tu cuenta</translation>
 <translation id="288655811176831528">Cerrar pestaña</translation>
 <translation id="2888631381369839306">Se activaron las notificaciones de seguimiento de precios</translation>
-<translation id="288902476966286676">Devolver al remitente</translation>
 <translation id="2893168226686371498">Navegador predeterminado</translation>
 <translation id="2894757982205307093">Nueva pestaña en el grupo</translation>
 <translation id="2902312830803030883">Más acciones</translation>
@@ -484,9 +482,7 @@ Tu motor de búsqueda es <ph name="DSE_NAME" />. Consulta las instrucciones para
 <translation id="2969979262385602596">Error al iniciar la sesión. Inténtalo más tarde.</translation>
 <translation id="2989523299700148168">Visitados recientemente</translation>
 <translation id="2989805286512600854">Abrir en una nueva pestaña</translation>
-<translation id="2990025507101398383">No hay pestañas de incógnito</translation>
 <translation id="2996291259634659425">Crear frase de contraseña</translation>
-<translation id="3000900718786961632">{COUNT,plural, =1{Nuevo seguimiento de paquete}other{Nuevos seguimientos de paquete}}</translation>
 <translation id="3010025794097054078">Protégete de violaciones de la seguridad de los datos, sitios web inseguros y mucho más.</translation>
 <translation id="301080557829842765">Guía sobre privacidad</translation>
 <translation id="3012310354105716927">Aún no se guardaron algunos datos</translation>
@@ -500,7 +496,6 @@ Tu motor de búsqueda es <ph name="DSE_NAME" />. Consulta las instrucciones para
 <translation id="3059270601560379555">Nueva búsqueda</translation>
 <translation id="3064547930554042309">Administra las descargas</translation>
 <translation id="3072279342064724558">La contraseña ya existe</translation>
-<translation id="3074862506644936708">Habilitar la eliminación automática</translation>
 <translation id="3076846064362030967">No saldrás de tu Cuenta de Google. Es posible que se guarden <ph name="BEGIN_LINK" />otras formas de actividad<ph name="END_LINK" /> en tu Cuenta de Google cuando accedes. Podrás borrarlas en cualquier momento.
 
 
@@ -515,8 +510,10 @@ Consulta las instrucciones de tu motor de búsqueda para borrar el historial de 
 <translation id="310900540163454140">¿Quieres borrar la contraseña de <ph name="WEBSITE" />?</translation>
 <translation id="3112556859945124369">Marcar…</translation>
 <translation id="3119874402040566234">Saldrás de tu cuenta y se borrarán los datos de navegación</translation>
+<translation id="3124568093781685165">Comparte tus contraseñas con tu familia</translation>
 <translation id="3130863904455712965">Historial y más</translation>
 <translation id="313283613037595347">Crear una pestaña de incógnito nueva.</translation>
+<translation id="3136739222562075778">En esta tarjeta, se muestran las reducciones de precio de los productos en tus pestañas abiertas</translation>
 <translation id="3138611310073113613">Descartar la selección</translation>
 <translation id="3140825265190223781">Contraseñas y llaves de acceso guardadas</translation>
 <translation id="3143515551205905069">Cancelar sincronización</translation>
@@ -543,6 +540,7 @@ Consulta las instrucciones de tu motor de búsqueda para borrar el historial de 
 <translation id="3245429137663807393">Si también compartes los informes de uso de Chrome, estos incluirán las URLs que visites</translation>
 <translation id="3245744387817103524">No se pudo guardar el cambio.</translation>
 <translation id="3254806613790954367">La última pestaña que abriste en todos tus dispositivos</translation>
+<translation id="325717987950204592">Presiona "Privacidad y seguridad".</translation>
 <translation id="3272527697863656322">Cancelar</translation>
 <translation id="3273510436356991673">Personaliza tu pantalla principal</translation>
 <translation id="3277021493514034324">Se copió la dirección del sitio</translation>
@@ -565,7 +563,6 @@ Consulta las instrucciones de tu motor de búsqueda para borrar el historial de 
 <translation id="3380352560400387991">Este sitio está intentando abrir una aplicación. Saldrás del modo Incógnito.</translation>
 <translation id="3392923070107623576">Crea grupos de pestañas para mantener tu organización</translation>
 <translation id="3404232721752787413">Guardar en Google Fotos</translation>
-<translation id="3404744938087714423">Si sales de tu cuenta, se desactivará la sincronización.</translation>
 <translation id="3406506285180498376">Compartir página…</translation>
 <translation id="340669334496430859">Última modificación</translation>
 <translation id="3409785640040772790">Maps</translation>
@@ -576,6 +573,7 @@ Consulta las instrucciones de tu motor de búsqueda para borrar el historial de 
 <translation id="3445288400492335833"><ph name="MINUTES" /> min</translation>
 <translation id="344589138074534176">Más información sobre Google Lens</translation>
 <translation id="3447332786336558089">Cuando salgas, se cerrarán las pestañas y se borrarán los datos de la cuenta no guardados de este dispositivo. Esto puede incluir contraseñas, historial y más.</translation>
+<translation id="3449029510150690417">Crea tu nuevo grupo de pestañas dándole un nombre y un color.</translation>
 <translation id="345348365500626747">Se encontró una dirección</translation>
 <translation id="3464194322481586217">No se pudo realizar el seguimiento del precio.</translation>
 <translation id="3469117812148449995">Opciones para guardar contraseñas</translation>
@@ -588,7 +586,7 @@ Consulta las instrucciones de tu motor de búsqueda para borrar el historial de 
 <translation id="35083190962747987">Abrir ${url}</translation>
 <translation id="3511519535430890904">Agrega protección para la navegación</translation>
 <translation id="3517216995152707259">Si borras los datos de navegación, no saldrás de tu Cuenta de Google. Para ello, debes <ph name="BEGIN_LINK" />salir de Chrome<ph name="END_LINK" />.</translation>
-<translation id="3519193562722059437">Abre una pestaña para navegar por la Web.</translation>
+<translation id="3519792890877853853">En esta tarjeta, se muestran las opiniones sobre los productos en tus pestañas abiertas</translation>
 <translation id="3519905498307021260">{count,plural, =1{Abrir la pestaña}other{Abrir {count} pestañas}}</translation>
 <translation id="3523513363815970085">Ocultar "Tus sitios principales"</translation>
 <translation id="3523789730715594198">Puedes detener la sincronización en cualquier momento desde la configuración. Es posible que Google personalice la Búsqueda y otros servicios en función de tu historial.</translation>
@@ -598,8 +596,8 @@ Consulta las instrucciones de tu motor de búsqueda para borrar el historial de 
 <translation id="3530206579861815432">Encuentra rápidamente las pestañas que abriste y cerraste recientemente en tus dispositivos sincronizados.</translation>
 <translation id="3530767473765895035">Administrar cuentas en este dispositivo…</translation>
 <translation id="3533436815740441613">Nueva pestaña</translation>
+<translation id="3533860663366814939">Abre la configuración de Autorrelleno y contraseñas</translation>
 <translation id="3547356470684043247">Leer evaluaciones de los clientes sobre productos, servicios o experiencias para tomar decisiones fundamentadas</translation>
-<translation id="3549391962818677448">Se intentó realizar la entrega. Se volverá a intentar.</translation>
 <translation id="3557336313807607643">Agregar a contactos</translation>
 <translation id="355765753469272474">Deshacer</translation>
 <translation id="3562379378751492229">Selecciona la posición que mejor se adapte a tus necesidades.</translation>
@@ -652,7 +650,6 @@ Consulta las instrucciones de tu motor de búsqueda para borrar el historial de 
 <translation id="3812308602011798782">Opiniones</translation>
 <translation id="3813175908845379029">Sugerencias útiles que mejoran y facilitan la navegación</translation>
 <translation id="3815668647912194650">Conserva este grupo para agregar pestañas más tarde, o abandónalo si ya no quieres acceder a él.</translation>
-<translation id="3818045793209708987">Se detuvo el seguimiento de este paquete</translation>
 <translation id="3819183753496523827">No tienes conexión. Revisa tu conexión a Internet y vuelve a intentarlo.</translation>
 <translation id="3828924571679282172">{COUNT,plural, =1{1 forma de pago}other{# formas de pago}}</translation>
 <translation id="3831560640878483188">¿Quieres descartar la advertencia?</translation>
@@ -660,11 +657,11 @@ Consulta las instrucciones de tu motor de búsqueda para borrar el historial de 
 <translation id="3838691874161539578">Para protegerte mejor en línea y mejorar tu seguridad, revisa las contraseñas que guardaste.</translation>
 <translation id="3838985624086228724">Reducción de precio en el producto con seguimiento, de <ph name="PREVIOUS_PRICE" /> a <ph name="PRICE" />, <ph name="PRODUCT_NAME" />, <ph name="DOMAIN" /></translation>
 <translation id="385051799172605136">Atrás</translation>
+<translation id="3850952228519377137">Ocultar "Sigue los precios de tus pestañas"</translation>
 <translation id="3851938967634752633">Se borrarán las contraseñas de <ph name="WEBSITE" />, <ph name="SECOND_WEBSITE" /> y <ph name="NUMBER_OF_ACCOUNTS" /> más. No se borrarán tus cuentas.</translation>
 <translation id="3858860766373142691">Nombre</translation>
 <translation id="3868495844258915202">Mostrar URL completa</translation>
 <translation id="3875783148670536197">Cómo hacerlo</translation>
-<translation id="3876833929577368454">Preguntarme siempre</translation>
 <translation id="3885587018298784481">Únete a un grupo familiar</translation>
 <translation id="3888863481921783344">Se utilizará para mostrarte posibles invitados para tu evento.</translation>
 <translation id="3891414008432200754">Precio</translation>
@@ -674,6 +671,7 @@ Consulta las instrucciones de tu motor de búsqueda para borrar el historial de 
 <translation id="3909222758573607742">Guardar contraseñas y otros elementos en la cuenta</translation>
 <translation id="3913463964270756493">Ocultar la pantalla de búsqueda con Google Lens</translation>
 <translation id="3914640181019354363">Detectar direcciones</translation>
+<translation id="391904960191284041">Opiniones sobre productos</translation>
 <translation id="3921585859122905677">Posición de la barra de direcciones</translation>
 <translation id="3922185497376658606">Precargar páginas web</translation>
 <translation id="3922395466317605522">Personalizar menú</translation>
@@ -712,6 +710,7 @@ Consulta las instrucciones de tu motor de búsqueda para borrar el historial de 
 <translation id="4038354071007134711">Ninguna aplicación puede abrir el archivo.</translation>
 <translation id="4042870976416480368">Buscar en la página</translation>
 <translation id="4045648459118332842">Obtén tus contraseñas guardadas en cualquier app con solo presionar una vez</translation>
+<translation id="4047337302138771011">Comparte tus contraseñas</translation>
 <translation id="4049419681095579435">Ya se hizo un seguimiento del paquete</translation>
 <translation id="4049507953662678203">Asegúrate de tener una conexión de red y vuelve a intentarlo.</translation>
 <translation id="4054572406751135230">Mantente al tanto de las noticias, los deportes y mucho más.</translation>
@@ -735,6 +734,7 @@ Consulta las instrucciones de tu motor de búsqueda para borrar el historial de 
 <translation id="4152011295694446843">Aquí encontrarás tus favoritos</translation>
 <translation id="4154753961803534698">Buscar con la cámara</translation>
 <translation id="4158491215857439601">Administrador de contraseñas</translation>
+<translation id="4159430626587776301">Consulta las opiniones sobre los productos que viste recientemente</translation>
 <translation id="4161488339191275792">Crea grupos de pestañas para organizar las pestañas abiertas</translation>
 <translation id="4163699139741158298">{count,plural, =1{El favorito se guardó en "{title}". Se guarda solo en este dispositivo.}other{{count} favoritos se guardaron en "{title}". Se guardan solo en este dispositivo.}}</translation>
 <translation id="4164514562270305824">Descargas con eliminación automática</translation>
@@ -786,7 +786,6 @@ Consulta las instrucciones de tu motor de búsqueda para borrar el historial de 
 <translation id="4334428914252001502">1 artículo sin leer.</translation>
 <translation id="4338258232580025606">No se puede acceder</translation>
 <translation id="4338650699862464074">Envía a Google las URLs de las páginas que visitas.</translation>
-<translation id="4342054591427973606">{count,plural, =1{Esta dirección se borrará de este y otros dispositivos en los que accediste a tu cuenta.}other{Estas direcciones se borrarán de este y otros dispositivos en los que accediste a tu cuenta.}}</translation>
 <translation id="4342946437867096381">Ya guardaste una contraseña para este sitio en tu Cuenta de Google. Google puede elegir la contraseña más reciente por ti.</translation>
 <translation id="4365121137632832185">Grupo de pestañas. Expandido.</translation>
 <translation id="4367971618859387374">Nombre visible</translation>
@@ -795,9 +794,11 @@ Consulta las instrucciones de tu motor de búsqueda para borrar el historial de 
 <translation id="4389019817280890563">Presiona aquí para cambiar el idioma.</translation>
 <translation id="4393294364304621138">{COUNT,plural, =1{Después de 1 día}other{Después de {COUNT} días}}</translation>
 <translation id="4402672425188312225">{COUNT,plural, =1{1 pestaña}other{# pestañas}}</translation>
+<translation id="4404790787924017676">Recibe alertas de reducción de precio para los productos que sigues</translation>
 <translation id="4405320213589929829">Usa direcciones en páginas web para obtener información local además de instrucciones sobre cómo llegar</translation>
 <translation id="441218095371040430">Usar teclado</translation>
 <translation id="4415276339145661267">Administrar tu Cuenta de Google</translation>
+<translation id="4425365312778464779">Esta cuenta está administrada</translation>
 <translation id="4430277756566635951">Selección actual: <ph name="EMAIL" />. Elige una cuenta.</translation>
 <translation id="4430505936695785931">Obtén las contraseñas guardadas en otras apps</translation>
 <translation id="4431224949908513835">Selecciona una forma de pago para completarla.</translation>
@@ -807,7 +808,6 @@ Consulta las instrucciones de tu motor de búsqueda para borrar el historial de 
 <translation id="4460014764210899310">Desagrupar</translation>
 <translation id="446314443268698477">Compra, identifica y traduce lo que ves con tu cámara o tus fotos.</translation>
 <translation id="4469324811108161144">Las notas pueden ahorrar hasta <ph name="CHARACTER_LIMIT" /> caracteres.</translation>
-<translation id="4469834037720363704">Número de paquete</translation>
 <translation id="4471472356135655769">No se pueden exportar las contraseñas</translation>
 <translation id="4473608001744970767">Ocultar la opción Seguir precio</translation>
 <translation id="4474142134969976028">No hay resultados que coincidan</translation>
@@ -831,6 +831,7 @@ Consulta las instrucciones de tu motor de búsqueda para borrar el historial de 
 <translation id="4565377596337484307">Ocultar contraseña</translation>
 <translation id="4568230126482344545">Ocultar la opción Pestañas recientes</translation>
 <translation id="4578835633387306383">Activar…</translation>
+<translation id="4580716718466706433">Ve al "Administrador de contraseñas"</translation>
 <translation id="4587589328781138893">Sitios</translation>
 <translation id="4592672037257622855">{count,plural, =1{Se agregó la página a tu lista de lectura}other{Se agregaron {count} páginas a tu lista de lectura}}</translation>
 <translation id="459644946100970322">¿Quieres activar las alertas de precios?</translation>
@@ -870,6 +871,7 @@ Consulta las instrucciones de tu motor de búsqueda para borrar el historial de 
 <translation id="4717844083556844785">La página web está en modo Incógnito</translation>
 <translation id="4719927025381752090">Ofrecer la traducción</translation>
 <translation id="4720530280568305198">Tu selección se abrió en una pestaña nueva</translation>
+<translation id="472259426228234149">Precio USD 100-180</translation>
 <translation id="473775607612524610">Actualizar</translation>
 <translation id="474209246745757965">Compra y traduce con la cámara</translation>
 <translation id="4742407542027196863">Administrar contraseñas…</translation>
@@ -890,7 +892,6 @@ Consulta las instrucciones de tu motor de búsqueda para borrar el historial de 
 <translation id="4803185665210547709">Administrado por tu organización.
 <ph name="BEGIN_LINK" />Más información<ph name="END_LINK" /></translation>
 <translation id="4807098396393229769">Nombre en la tarjeta</translation>
-<translation id="4808646838864186379">Se canceló la entrega</translation>
 <translation id="4808744395915275922">Actualizaciones</translation>
 <translation id="4813345808229079766">Conexión</translation>
 <translation id="4821595350501541683">Se cerraron las pestañas y se borraron los datos de navegación</translation>
@@ -919,9 +920,10 @@ Consulta las instrucciones de tu motor de búsqueda para borrar el historial de 
 <translation id="4894963374040315706">Te permite realizar búsquedas con tu voz</translation>
 <translation id="4895540042460820904">Abierto por última vez</translation>
 <translation id="4896467949657706481">Se cerraron las pestañas; saliste de tu cuenta</translation>
-<translation id="490709372351071121">Obteniendo el estado del paquete</translation>
 <translation id="4913626501929406101">Puedes compartir de forma segura una copia de tu contraseña con un miembro de tu grupo familiar. <ph name="BEGIN_LINK" />Más información<ph name="END_LINK" /></translation>
 <translation id="4918086044614829423">Aceptar</translation>
+<translation id="4930714375720679147">Activar</translation>
+<translation id="4932733599132424254">Fecha</translation>
 <translation id="4936354130727646074">No mover nunca</translation>
 <translation id="4937410517508563815">Guardar contraseñas en la cuenta</translation>
 <translation id="4938338714234463591">Podrás usar tu voz con ciertas funciones en sitios web.</translation>
@@ -935,6 +937,7 @@ Consulta las instrucciones de tu motor de búsqueda para borrar el historial de 
 <translation id="496392417432935267">Se abrió en otra ventana</translation>
 <translation id="4971735654804503942">Protección más rápida y proactiva contra descargas, extensiones y sitios web peligrosos. Te advierte sobre violaciones de la seguridad de las contraseñas. Requiere que se envíen datos de navegación a Google.</translation>
 <translation id="4979397965658815378">Accede con tu cuenta de Google para obtener tus favoritos, contraseñas, historial y otras opciones de configuración en todos tus dispositivos</translation>
+<translation id="4985921635659180565">Una vez que se programa la eliminación de un archivo, no se puede cancelar.</translation>
 <translation id="498624032394115435">Cualquier persona que tenga el vínculo puede editar todas las pestañas.</translation>
 <translation id="4989065233040279145">Elige dónde guardar <ph name="FILENAME" /></translation>
 <translation id="4992255726304765516">Color <ph name="COLOR" /> del grupo de pestañas</translation>
@@ -964,6 +967,7 @@ Consulta las instrucciones de tu motor de búsqueda para borrar el historial de 
 <translation id="5118462200606189584">Agregar cuenta…</translation>
 <translation id="5118713593561876160">Intereses</translation>
 <translation id="5118764316110575523">No</translation>
+<translation id="5119329531859909472">Para hacer un seguimiento del producto, presiona Realizar seguimiento</translation>
 <translation id="5121618895923301719">Ya estás realizando un seguimiento de este producto. Se guardó esta página en <ph name="BEGIN_LINK" />Favoritos del celular<ph name="END_LINK" />.</translation>
 <translation id="512533434554095351">Tienes varios problemas con las contraseñas.</translation>
 <translation id="5127538504377457572">Activo hace <ph name="DAYS" /> días</translation>
@@ -986,6 +990,7 @@ Consulta las instrucciones de tu motor de búsqueda para borrar el historial de 
 <translation id="5197255632782567636">Internet</translation>
 <translation id="5200894869889836319">Opciones para establecer permisos</translation>
 <translation id="5203051773066903947">Ingresar</translation>
+<translation id="5205750905107419335"><ph name="USER_NAME" /> (<ph name="USER_EMAIL" />) perderá de inmediato el acceso al grupo de pestañas "<ph name="GROUP_NAME" />" y ya no podrá interactuar contigo en los servicios de Google.</translation>
 <translation id="5206453674369664567">Salir y borrar datos</translation>
 <translation id="5210365745912300556">Cerrar pestaña</translation>
 <translation id="5211488077761630279">¿Quieres permitir que "<ph name="SITE_NAME" />" use tu <ph name="PERMISSION" />?</translation>
@@ -993,7 +998,6 @@ Consulta las instrucciones de tu motor de búsqueda para borrar el historial de 
 <translation id="5217329997012062137">Cuando usas Google Lens, se envía una captura de pantalla de la página a Google.</translation>
 <translation id="5220945116117011963">Crea eventos de calendario a partir de fechas</translation>
 <translation id="5222676887888702881">Salir</translation>
-<translation id="5228579091201413441">Habilitar sincronización</translation>
 <translation id="5233638681132016545">Nueva pestaña</translation>
 <translation id="5234094073825090254">{count,plural, =1{Se guardó el favorito en tu Cuenta de Google, {email}.}other{Se guardaron los favoritos en tu Cuenta de Google, {email}.}}</translation>
 <translation id="5234764350956374838">Descartar</translation>
@@ -1021,11 +1025,13 @@ Consulta las instrucciones de tu motor de búsqueda para borrar el historial de 
 <translation id="5352128922772839949">Guardar archivo</translation>
 <translation id="5355191726083956201">Se activó la protección mejorada</translation>
 <translation id="537853552771686272">Administrar los temas y los sitios que te interesan</translation>
+<translation id="5390458669633674385">{count,plural, =1{{count} cerrada}other{{count} cerradas}}</translation>
 <translation id="5394975111793637642">Ocultar la tarjeta Opiniones sobre productos para ti</translation>
 <translation id="5395707839134961196">Ocultar detalles del motor de búsqueda</translation>
 <translation id="5414763847370083940">Recibirás una alerta si el precio disminuye en algún sitio.</translation>
 <translation id="5415289094036440596">No se pueden compartir las llaves de acceso</translation>
 <translation id="5416455648658732408">Mover al grupo de pestañas</translation>
+<translation id="5423269318075950257">Seguimiento de precios</translation>
 <translation id="542659109038405424">A</translation>
 <translation id="5429624150850059322">Cuando regreses, las pestañas se difuminarán hasta que presiones para continuar</translation>
 <translation id="5431239785743546285">Páginas que leíste</translation>
@@ -1066,6 +1072,7 @@ Handoff también debe estar habilitado en la sección General de la configuraci�
 <translation id="5567439033041178034">MÁS INFORMACIÓN</translation>
 <translation id="5572648434713976849">Recibirás mejores sugerencias en la barra de direcciones</translation>
 <translation id="5576885723883013398">Nueva ventana</translation>
+<translation id="5578543325423650885"><ph name="USER_NAME" /> (<ph name="USER_EMAIL" />) perderá de inmediato el acceso al grupo de pestañas "<ph name="GROUP_NAME" />".</translation>
 <translation id="5578795271662203820">Buscar esta imagen en <ph name="SEARCH_ENGINE" /></translation>
 <translation id="5579012242779565775">Ocultar la opción Lista de lectura</translation>
 <translation id="5585019845078534178">Tarjetas</translation>
@@ -1087,7 +1094,6 @@ Handoff también debe estar habilitado en la sección General de la configuraci�
 <translation id="5633237939819267663">{count,plural, =1{Se guardó el favorito en "{title}"}other{Se guardaron {count} favoritos en "{title}"}}</translation>
 <translation id="564170563478022912">¿Quieres salir? Se borrarán los datos no guardados de la cuenta.</translation>
 <translation id="5642707040609478753">Marcar como no leídas</translation>
-<translation id="5646284034397250191">Se creó la etiqueta. Fecha pendiente</translation>
 <translation id="5647096944343801045">Punto de entrada grande</translation>
 <translation id="5647193778876139879">Mantén presionada una dirección.</translation>
 <translation id="5647702255748985085">¿Quieres abandonar el grupo?</translation>
@@ -1117,10 +1123,10 @@ Handoff también debe estar habilitado en la sección General de la configuraci�
 <translation id="5737974891429562743">Los detalles de acceso de la cuenta están desactualizados. Actualízalos para comenzar la sincronización.</translation>
 <translation id="5738385766833540397">Administra cómo recibes alertas de descuentos para los productos que sigues.</translation>
 <translation id="5738887413654608789">Esta capacidad te permite descubrir páginas web relevantes en función de tu entorno.</translation>
+<translation id="573974402615125334">Para compartir grupos de pestañas, unirte a ellos y colaborar, sincroniza tu historial y tus pestañas</translation>
 <translation id="5740123193752401435">Buscar pestañas…</translation>
 <translation id="5744274077973758795">Se activaron las notificaciones de <ph name="FEATURE_NAME" /></translation>
 <translation id="574762237186762643">Eventos</translation>
-<translation id="5748177854685749242">Llega <ph name="DATE" /></translation>
 <translation id="5749158352074143502">Continuar con esta pestaña</translation>
 <translation id="5753021559215751319">Guardar contraseña</translation>
 <translation id="5756525336488841345">Ocultar la opción Favoritos</translation>
@@ -1145,6 +1151,7 @@ Handoff también debe estar habilitado en la sección General de la configuraci�
 <translation id="5860491529813859533">Activar</translation>
 <translation id="5868644772996939262">Autocompletar contraseñas y llaves de acceso</translation>
 <translation id="5869522115854928033">Contraseñas almacenadas</translation>
+<translation id="5873179562631407582">Mantén presionadas las pestañas abiertas.</translation>
 <translation id="5878899964490256268"><ph name="EMAIL" />. Administrado por tu organización.</translation>
 <translation id="5888889603768021126">Accediste con</translation>
 <translation id="5889333064153755823">Borrar datos de navegación</translation>
@@ -1152,8 +1159,8 @@ Handoff también debe estar habilitado en la sección General de la configuraci�
 <translation id="5897749768294722429">Para volver rápidamente a los sitios que visitaste, sincroniza las pestañas y el historial.</translation>
 <translation id="5898848375214731122">Masa</translation>
 <translation id="5899314093904173337">Para habilitar el uso compartido con personas cercanas, permíteles que escaneen este código QR con la cámara o una app de lectura de código QR</translation>
+<translation id="5902752768726620872">{count,plural, =1{{count} pestaña nueva}other{{count} pestañas nuevas}}</translation>
 <translation id="5911030830365207728">Google Traductor</translation>
-<translation id="5917913282764181683">Borra automáticamente tus descargas</translation>
 <translation id="5922999516621365983">Arrastra la pestaña aquí para fijarla.</translation>
 <translation id="5936006948844852401">Administrar almacenamiento</translation>
 <translation id="5936065461722368675">Traducir la página completa</translation>
@@ -1173,7 +1180,6 @@ Handoff también debe estar habilitado en la sección General de la configuraci�
 <translation id="598634819525651074">Área</translation>
 <translation id="5988097621740394599">Visualiza los descuentos en las pestañas.</translation>
 <translation id="5988851877894965432">Abrir URL en Chrome</translation>
-<translation id="5996189683621529225">Listo para retirar</translation>
 <translation id="6001839398155993679">Comenzar</translation>
 <translation id="6011308810877101166">Mejorar las sugerencias de búsqueda</translation>
 <translation id="6012140227487808125">Encriptando...</translation>
@@ -1209,6 +1215,7 @@ Handoff también debe estar habilitado en la sección General de la configuraci�
 <translation id="6140600850356225166">Solicitar abrir vínculos en otras apps con el modo Incógnito</translation>
 <translation id="6140948187512243695">Mostrar detalles</translation>
 <translation id="6144589619057374135">Abrir ${url} en modo Incógnito</translation>
+<translation id="6147279996212084542">Explicar</translation>
 <translation id="6151006591088192882">Desbloquear pestañas de incógnito con <ph name="BIOMETRIC_AUTHENITCATION_TYPE" /></translation>
 <translation id="6152340033632117531">Inactivas</translation>
 <translation id="6152406514676263192">Activa la sincronización para acceder al contenido más relevante según tus intereses.</translation>
@@ -1222,6 +1229,7 @@ Handoff también debe estar habilitado en la sección General de la configuraci�
 <translation id="6187302354554850004">Última sincronización: <ph name="LAST_USED_TIME" /></translation>
 <translation id="6188737759358894319">Se creó el <ph name="DATE" /></translation>
 <translation id="6189413832092199491">No leídas</translation>
+<translation id="6192388920090306326">Viaje a Tokio</translation>
 <translation id="6193448654517602979">Seleccionar pestañas</translation>
 <translation id="6196207969502475924">Búsqueda por voz</translation>
 <translation id="6196640612572343990">Bloquear cookies de terceros</translation>
@@ -1240,7 +1248,6 @@ Handoff también debe estar habilitado en la sección General de la configuraci�
 <translation id="6247557882553405851">Administrador de contraseñas de Google</translation>
 <translation id="6251835855431997163">Autocompletar <ph name="VALUE" /></translation>
 <translation id="6254066287920239840">Abre vínculos en la app en lugar de hacerlo en el navegador.</translation>
-<translation id="6266039999629596120">Requiere atención</translation>
 <translation id="6268773951964630964">Busca el texto copiado</translation>
 <translation id="6271462272606946663">Ocultar la opción Solicitar sitio para dispositivos móviles</translation>
 <translation id="6271824294945464304">Compartiendo contraseña</translation>
@@ -1254,6 +1261,7 @@ Handoff también debe estar habilitado en la sección General de la configuraci�
 <translation id="6316141353357700666">Elige la contraseña que quieras usar de la lista que aparece.</translation>
 <translation id="6321526113093607004">Agregar a Favoritos</translation>
 <translation id="6331836477476466332">Un navegador más seguro y potente para ti</translation>
+<translation id="6335744088476213315">En esta tarjeta, se muestran los productos que viste recientemente y que podrían interesarte para que recibas alertas de descuentos</translation>
 <translation id="6337234675334993532">Encriptación</translation>
 <translation id="633809752005859102">Se produjo un error. Trabajaremos para solucionarlo.</translation>
 <translation id="6339793034470834130">Para usar el Inspector web, conéctate a Safari en tu computadora con un cable y accede a tu iPhone desde el menú Desarrollo. Puedes habilitar el menú Desarrollo en Avanzado en la configuración de Safari con la computadora.</translation>
@@ -1272,6 +1280,7 @@ Handoff también debe estar habilitado en la sección General de la configuraci�
 <translation id="6368102751067608420">Para borrar todos los datos del administrador de contraseñas</translation>
 <translation id="6374469231428023295">Volver a intentar</translation>
 <translation id="6387994324662817823">Las contraseñas se guardan en el Administrador de contraseñas de Google solo en este dispositivo.</translation>
+<translation id="6393156038355142111">Sugerir contraseña segura</translation>
 <translation id="6404422529625928907">Abrir en Google Drive</translation>
 <translation id="6404511346730675251">Editar marcador</translation>
 <translation id="6406506848690869874">Sincronización</translation>
@@ -1292,7 +1301,6 @@ Handoff también debe estar habilitado en la sección General de la configuraci�
 <translation id="6447842834002726250">Cookies</translation>
 <translation id="6449554712554071184">Esta acción borrará el grupo de tu dispositivo de forma permanente.</translation>
 <translation id="6452534462676960500">Actividad nueva</translation>
-<translation id="6459307836338400162">Para ver más opciones de configuración relacionadas con la privacidad, seguridad y recopilación de datos, visita <ph name="BEGIN_LINK" />Sincronización<ph name="END_LINK" /> y <ph name="BEGIN_LINK" />Servicios de Google<ph name="END_LINK" />.</translation>
 <translation id="6459411599807878608">Se ocultaron los detalles</translation>
 <translation id="646394917185284261">Archivos</translation>
 <translation id="6464397691496239022">Los sitios pueden usar cookies para mejorar la experiencia de navegación, por ejemplo, para mantener el acceso a ellos o recordar artículos en el carrito de compras.
@@ -1304,7 +1312,6 @@ Sin embargo, no pueden usar cookies para ver la actividad de navegación en dife
 <translation id="647867789226964031">Cambia tus contraseñas</translation>
 <translation id="6494931198667773526">Finaliza</translation>
 <translation id="6495521251906266731">Elige qué hacer con los datos de navegación existentes en este dispositivo, como las contraseñas, el historial y mucho más.</translation>
-<translation id="6502142762807385617">{COUNT,plural, =1{Detener el seguimiento de este paquete}other{Detener el seguimiento de todos los paquetes}}</translation>
 <translation id="6503077044568424649">Más visitados</translation>
 <translation id="6503763061813913607">Notificaciones de la Verificación de seguridad</translation>
 <translation id="6505334220040167806">Contraer grupo de pestañas.</translation>
@@ -1330,6 +1337,7 @@ Sin embargo, no pueden usar cookies para ver la actividad de navegación en dife
 <translation id="6583087784430677195">Para desactivar esta función, abre <ph name="BEGIN_LINK" />Configuración<ph name="END_LINK" /> y ve a Autocompletar contraseñas.</translation>
 <translation id="6585048665672348661">Borrar datos de navegación…</translation>
 <translation id="6585618849026997638">Agrega un favorito para poder regresar a una página que consideres importante</translation>
+<translation id="659407965921887085">En esta tarjeta, se muestran las reducciones de precios en la Web de los productos que sigues actualmente</translation>
 <translation id="6596481460663245319">Buscar imagen con Google</translation>
 <translation id="6598432073497341323">{COUNT,plural, =1{1 contraseña}other{# contraseñas}}</translation>
 <translation id="6601302169302852717">Se guardó la imagen en Google Fotos para <ph name="USER_EMAIL" /></translation>
@@ -1367,6 +1375,8 @@ Cuando está activado el modo Incógnito, los sitios no pueden usar cookies para
 <translation id="6680416467695217368">Personalizar menú</translation>
 <translation id="6681586159478273915">Búsqueda por voz</translation>
 <translation id="6681791404926413601">{count,plural, =1{Hay {count} opción de forma de pago disponible arriba del teclado.}other{Hay {count} opciones de forma de pago disponibles arriba del teclado.}}</translation>
+<translation id="6682680306647339111">Se quitó el recordatorio</translation>
+<translation id="6684262542644248484">Accede a un sitio web.</translation>
 <translation id="6685259053455152195">Accesos directos para modificar rápidamente la configuración y usar funciones de la barra de direcciones</translation>
 <translation id="6689685206615181381">Solo está disponible el modo Incógnito</translation>
 <translation id="6708501134077648845">Opciones de contraseña</translation>
@@ -1382,10 +1392,13 @@ Cuando está activado el modo Incógnito, los sitios no pueden usar cookies para
 <translation id="6746338529702829275">Revisa los datos de tu cuenta</translation>
 <translation id="6755200887046212842">Administrar cuentas</translation>
 <translation id="6755733078693946548">Accede a las contraseñas y llaves de acceso desde cualquier app</translation>
+<translation id="6759709389246683070">Puedes mantener presionada esta pestaña para establecer un recordatorio para volver a verla más tarde</translation>
 <translation id="6761393919622941301">Audio</translation>
 <translation id="6779455296366983087">Se borrarán tus datos de navegación</translation>
 <translation id="6790502149545262384">Pronto, cuando abras una nueva pestaña, verás historias de <ph name="CHANNEL_NAME" />.</translation>
+<translation id="6791425686608802741">Presiona "Agregar pestaña a un grupo nuevo".</translation>
 <translation id="6794476726485507147">Elige una fecha y hora para recibir una notificación de recordatorio para volver a visitar esta página</translation>
+<translation id="6807287147325542056">Contraseñas en otras apps</translation>
 <translation id="681368974849482173">Elemento creado</translation>
 <translation id="6825078212112407882">{count,plural, =1{Se guardó el favorito en tu Cuenta de Google ({email})}other{Se guardaron {count} favoritos en tu Cuenta de Google ({email})}}</translation>
 <translation id="6830728435402077660">No seguro</translation>
@@ -1451,6 +1464,7 @@ Cuando está activado el modo Incógnito, los sitios no pueden usar cookies para
 <translation id="7080806333218412752">Envía las URL a la Navegación segura para revisarlas. También envía una pequeña muestra de páginas, descargas, información del sistema y actividad de extensiones para ayudar a descubrir nuevas amenazas. Vincula estos datos de manera temporal con tu Cuenta de Google cuando accedes a ella para protegerte en todas las apps de Google.</translation>
 <translation id="7082853213442715471">Cuando lo actives, se bloquearán ciertas tecnologías web, lo que puede provocar que algunos sitios web se carguen más lento o no funcionen correctamente.</translation>
 <translation id="7095110968493193530">En el Administrador de contraseñas de Google de <ph name="EMAIL" /></translation>
+<translation id="7097046145876891318">En la barra de direcciones, presiona el historial de precios para ver los cambios de precio a lo largo del tiempo</translation>
 <translation id="7101580180124131336">Ahora verás lo que publica <ph name="CHANNEL_NAME" />, así como contenido sobre ese canal en Siguiendo.</translation>
 <translation id="7102005569666697658">Descargando… <ph name="FILE_SIZE" /></translation>
 <translation id="7104701424653979232">Menú → Configuración → Formas de pago</translation>
@@ -1491,7 +1505,6 @@ Cuando está activado el modo Incógnito, los sitios no pueden usar cookies para
 <translation id="7336264872878993241"><ph name="PERCENT" /> % descargado</translation>
 <translation id="7346909386216857016">Entendido</translation>
 <translation id="7352651011704765696">Se produjo un error</translation>
-<translation id="7359341089141286329">Realizar un seguimiento automático de todos los paquetes detectados</translation>
 <translation id="7363349185727752629">Una guía de las opciones de privacidad</translation>
 <translation id="736564850024123010">Cambia la posición de la barra de direcciones para obtener una experiencia personalizada.</translation>
 <translation id="7366909168761621528">Datos de navegación</translation>
@@ -1510,13 +1523,13 @@ Cuando está activado el modo Incógnito, los sitios no pueden usar cookies para
 <translation id="741204030948306876">Sí, acepto</translation>
 <translation id="7417689656810783109">Cambiar el nombre del grupo</translation>
 <translation id="7419565702166471774">Usar siempre conexiones seguras</translation>
-<translation id="742001653298797675">Programa que se borren todas tus descargas después de un mes para ahorrar espacio en el teléfono y proteger tu privacidad.</translation>
 <translation id="7425053386765766120">Agregar forma de pago…</translation>
 <translation id="7425346204213733349">Los cambios de tus favoritos, historial, contraseñas y otras opciones de configuración ya no se sincronizarán con tu cuenta de Google. Sin embargo, los datos existentes permanecerán almacenados en tu cuenta de Google.</translation>
 <translation id="742664698522525515">¿Quieres conservar el grupo?</translation>
 <translation id="7431851541687113774">Desactivar la detección de direcciones</translation>
 <translation id="7431991332293347422">Controla cómo se usa tu historial de navegación para personalizar la Búsqueda y mucho más</translation>
 <translation id="7435356471928173109">El administrador desactivó la función</translation>
+<translation id="7437712592381799950">Puedes deslizar el dedo hacia arriba para ver más contenido personalizado para ti.</translation>
 <translation id="7438481509621345350">Ahora, cuando abras una nueva pestaña, verás historias de <ph name="CHANNEL_NAME" />.</translation>
 <translation id="7451023311965289370">{count,plural, =1{Se guardó el favorito en "{title}"}other{Se guardaron los favoritos en "{title}"}}</translation>
 <translation id="7451404862887877229">Presiona "Privacidad y seguridad" y, luego, "Navegación segura"</translation>
@@ -1530,10 +1543,8 @@ Cuando está activado el modo Incógnito, los sitios no pueden usar cookies para
 <translation id="7471557245617580330">Crear una pestaña nueva</translation>
 <translation id="7473891865547856676">No, gracias</translation>
 <translation id="7476548258282096076">Esta tarjeta muestra tus sitios más visitados.</translation>
-<translation id="747956641630879526">Si ocultas esta tarjeta, se desactivará el seguimiento de paquetes y se quitarán todos tus datos</translation>
 <translation id="7484645889979462775">Jamás para este sitio</translation>
 <translation id="7486006552035434095">Mantén tus dispositivos sincronizados</translation>
-<translation id="7488874549363591659">Entregados</translation>
 <translation id="7491131399623468277">Ir a Configuración…</translation>
 <translation id="7498234416455752244">Seguir editando</translation>
 <translation id="7500244509706269886">Autocompletar formulario</translation>
@@ -1543,6 +1554,7 @@ Cuando está activado el modo Incógnito, los sitios no pueden usar cookies para
 <translation id="7512075701202892785">El navegador que te encanta, ahora en iPad</translation>
 <translation id="7512909159512473473">Ingresar la frase de contraseña…</translation>
 <translation id="7514365320538308">Descargar</translation>
+<translation id="7522948500476882302">Cuando descargues un archivo, elige que se borre automáticamente dentro de 1 mes</translation>
 <translation id="7524055474074101597">Accede a tus contraseñas y más en diferentes apps.</translation>
 <translation id="75362970626182391">Nuevo grupo de pestañas</translation>
 <translation id="7537586195939242955">Tu pase no se puede instalar en Passbook en este momento.</translation>
@@ -1574,6 +1586,7 @@ Cuando está activado el modo Incógnito, los sitios no pueden usar cookies para
 <translation id="7646772052135772216">No funciona la sincronización de contraseñas</translation>
 <translation id="764827086632467055">Presiona la app de navegador predeterminada.</translation>
 <translation id="7649070708921625228">Ayuda</translation>
+<translation id="765631330137769217">Presiona "Guardar" para acceder fácilmente a esta contraseña la próxima vez que accedas.</translation>
 <translation id="7658239707568436148">Cancelar</translation>
 <translation id="7662316065255305764">Información del sitio</translation>
 <translation id="7665369617277396874">Agregar cuenta</translation>
@@ -1581,7 +1594,6 @@ Cuando está activado el modo Incógnito, los sitios no pueden usar cookies para
 <translation id="7669493687462784703">¿Quieres seguir descargando un perfil de configuración de <ph name="WEBSITE" />?</translation>
 <translation id="7673346542062368520">Puedes deslizar el dedo hacia la izquierda para navegar en modo Incógnito.</translation>
 <translation id="7679915578945954324">Se copiaron las direcciones de los sitios</translation>
-<translation id="769134787192530091">Sincronizando las pestañas…</translation>
 <translation id="7696316012653762532">Opciones para traducir la página</translation>
 <translation id="7700527812567437847">Buscar en pantalla con Google Lens</translation>
 <translation id="7701040980221191251">No hay</translation>
@@ -1621,6 +1633,7 @@ Cuando está activado el modo Incógnito, los sitios no pueden usar cookies para
 <translation id="784934925303690534">Intervalo de tiempo</translation>
 <translation id="7851858861565204677">Otros dispositivos</translation>
 <translation id="7853202427316060426">Actividad</translation>
+<translation id="7854006015462979438">Abre General</translation>
 <translation id="7859988229622350291">Nunca traducir</translation>
 <translation id="7863211248337747225">Obtener la app</translation>
 <translation id="7865127013871431856">Opciones de traducción</translation>
@@ -1641,7 +1654,6 @@ Cuando está activado el modo Incógnito, los sitios no pueden usar cookies para
 <translation id="7933880123415105005">Buscar en <ph name="SEARCH_PROVIDER" /></translation>
 <translation id="7938254975914653459">FaceTime</translation>
 <translation id="7941578031639087549">{count,plural, =1{Se agregó la página a la lista de lectura de tu cuenta ({email})}other{Se agregaron {count} páginas a la lista de lectura de tu cuenta ({email})}}</translation>
-<translation id="7947953824732555851">Aceptar y acceder</translation>
 <translation id="7952670906562503188">Estás a punto de borrar {passkey_count} llaves de acceso y la lista de sitios y apps para las que elegiste no guardar información de acceso. No se borrarán las cuentas que hayas creado para sitios y apps.</translation>
 <translation id="7958575506592576831">Información de seguridad de la página</translation>
 <translation id="7961015016161918242">Nunca</translation>
@@ -1689,6 +1701,7 @@ También pueden usar cookies para ver la actividad de navegación en diferentes 
 <translation id="8084285576995584326">Controla los datos de tu Cuenta de Google.</translation>
 <translation id="809543534949702122">Historial de búsqueda</translation>
 <translation id="8095985449280932182">{COUNT,plural, =1{Las pestañas que no usas se mueven aquí después de {COUNT} día}other{Las pestañas que no usas se mueven aquí después de {COUNT} días}}</translation>
+<translation id="8096559642098770318">Puedes establecer un recordatorio de pestaña para volver a consultar este sitio en el futuro</translation>
 <translation id="8101409298456377967">Crea, guarda y administra tus contraseñas para acceder fácilmente a sitios y apps. <ph name="BEGIN_LINK" />Más información<ph name="END_LINK" /></translation>
 <translation id="8102130909719902723">N</translation>
 <translation id="8114753159095730575">El archivo ya se puede descargar. Las opciones disponibles se muestran junto a la parte inferior de la pantalla.</translation>
@@ -1698,6 +1711,7 @@ También pueden usar cookies para ver la actividad de navegación en diferentes 
 <translation id="8131740175452115882">Confirmar</translation>
 <translation id="8132598642024322408">El precio actual es <ph name="PRICE" />; antes costaba <ph name="PREVIOUS_PRICE" />.</translation>
 <translation id="813370552429173916">Usa una contraseña única para cada sitio o app. Si otra persona descubre una contraseña reutilizada, podrá usarla para acceder a otras cuentas. Haz clic para abrir el sitio web y cambiarlas ahora.</translation>
+<translation id="8135556271852808840">{count,plural, =1{{count} pestaña cerrada}other{{count} pestañas cerradas}}</translation>
 <translation id="8135643032449715400">{COUNT,plural, =1{1 más}other{# más}}</translation>
 <translation id="8150167929304790980">Nombre completo</translation>
 <translation id="8152331954420209374">Ir a Lens</translation>
@@ -1740,11 +1754,14 @@ También pueden usar cookies para ver la actividad de navegación en diferentes 
 <translation id="8289930144142009940">Se desactivaron las notificaciones de <ph name="FEATURE_NAME" /></translation>
 <translation id="8290077367744012649">Sigue los precios de tus pestañas</translation>
 <translation id="8299417921174340354">Para usar contraseñas, primero debes establecer una en tu dispositivo.</translation>
-<translation id="8299613349954694191">Abre una pestaña de incógnito para navegar por la Web de forma privada.</translation>
 <translation id="8307481894409578819">No se pudo subir este archivo</translation>
 <translation id="8319076807703933069">Nueva búsqueda</translation>
+<translation id="8319282042900445670">Se estableció el recordatorio para las <ph name="TIME" />, <ph name="DATE" /></translation>
+<translation id="8320212361750431956">Actividad reciente</translation>
+<translation id="8325455175867928593">Ocultar "Opiniones basadas en tus intereses"</translation>
 <translation id="833647236762414178">Crea, guarda y administra tus contraseñas y llaves de acceso para acceder fácilmente a sitios y apps. <ph name="BEGIN_LINK" />Más información<ph name="END_LINK" /></translation>
 <translation id="8343993175958086504">Crea una copia de seguridad de tus datos y úsalos en cualquier dispositivo.</translation>
+<translation id="8348530355586151720">Presiona el menú de tres puntos.</translation>
 <translation id="8349305172487531364">Barra de favoritos</translation>
 <translation id="8364563001733875155">Para cambiar el PIN, primero establece una contraseña en tu dispositivo.</translation>
 <translation id="8366466717204352506">Nunca se ejecutó la verificación</translation>
@@ -1772,15 +1789,14 @@ También pueden usar cookies para ver la actividad de navegación en diferentes 
 <translation id="8438566539970814960">Mejorar las búsquedas y la navegación</translation>
 <translation id="8439758443371991593">Ocultar la opción Agregar a la Lista de lectura</translation>
 <translation id="8449869326050867919">Se compartió la contraseña</translation>
-<translation id="8453847087068411809">Nunca detectar paquetes automáticamente</translation>
 <translation id="8473863474539038330">Direcciones y más</translation>
 <translation id="8474378002946546633">Permitir notificaciones</translation>
 <translation id="8477178913400731244">Borrar datos</translation>
 <translation id="8481184073299279701">Presiona el botón "Iniciar registro" para recopilar todos los futuros registros de la Consola de JavaScript y errores de todas las pestañas. Se recopilarán los registros (y se almacenarán solo en memoria) hasta que se cierre esta página o se presione el botón "Detener registro".</translation>
 <translation id="8487667956631253959">Encendida</translation>
 <translation id="8487700953926739672">Disponible sin conexión</translation>
-<translation id="8487894141648868716">USPS</translation>
 <translation id="8490629238792920282">No se puede crear el vínculo</translation>
+<translation id="8501469528283376592">Elimina las descargas automáticamente</translation>
 <translation id="8503813439785031346">Nombre de usuario</translation>
 <translation id="8505361906966222822">Guardar en…</translation>
 <translation id="850600235656508448">Abrir en incógnito</translation>
@@ -1848,6 +1864,7 @@ También pueden usar cookies para ver la actividad de navegación en diferentes 
 <translation id="8723088494871522141">Ocultar "Opiniones sobre productos para ti"</translation>
 <translation id="872371143724482722">{COUNT,plural, =1{{COUNT} pestaña}other{{COUNT} pestañas}}</translation>
 <translation id="8725066075913043281">Intentar nuevamente</translation>
+<translation id="8726523474917941818">Recordar</translation>
 <translation id="8728922029615312208">Cerrar todas</translation>
 <translation id="8730621377337864115">Listo</translation>
 <translation id="87371078663613140">Explora las opciones en la barra de menú.</translation>
@@ -1869,6 +1886,7 @@ También pueden usar cookies para ver la actividad de navegación en diferentes 
 <ph name="BEGIN_LINK" />Más información<ph name="END_LINK" /></translation>
 <translation id="8813277370772331957">Recordarme más tarde</translation>
 <translation id="8814719628147284151">Continuar</translation>
+<translation id="8819155700324279105">Agrega una capa adicional de protección contra las amenazas en línea</translation>
 <translation id="8820817407110198400">Favoritos</translation>
 <translation id="8822421075653507124">Para garantizar que este dispositivo se pueda usar de forma segura, es posible que tu organización deba consultar información sobre el sistema operativo, el navegador, la configuración y el software instalado en el dispositivo.</translation>
 <translation id="8825562130641217944">Accede a tus favoritos, contraseñas y más.</translation>
@@ -1891,6 +1909,7 @@ También pueden usar cookies para ver la actividad de navegación en diferentes 
 <translation id="8879604564928138696">Presionar dos veces para probar</translation>
 <translation id="8879952635974818770">Contenido personalizado</translation>
 <translation id="8887595428614802520">Cerrar todos los grupos y las pestañas</translation>
+<translation id="8888595487174963247">Quitar recordatorio</translation>
 <translation id="8891031436559779793">Recibirás una notificación si el precio disminuye en algún sitio.</translation>
 <translation id="8893208530912252670">Videos</translation>
 <translation id="8898822736010347272">Envía a Google las URLs de algunas páginas que visitas, información limitada del sistema y parte del contenido de las páginas para ayudar a detectar nuevas amenazas y proteger a todos los usuarios en la Web.</translation>
@@ -1901,7 +1920,6 @@ También pueden usar cookies para ver la actividad de navegación en diferentes 
 <translation id="891282356902782456">Esta contraseña solo se guarda en este dispositivo. Para usarla en otros dispositivos, guárdala en tu Cuenta de Google, <ph name="EMAIL" />.</translation>
 <translation id="8915916167043355778">Cerrar</translation>
 <translation id="892185197271200809">Todos los usuarios perderán de inmediato el acceso al grupo de pestañas “<ph name="GROUP_NAME" />” y se borrará de todos los dispositivos</translation>
-<translation id="8921902386312975525">Opciones para realizar el seguimiento de paquetes</translation>
 <translation id="8923178205567790913">Contraseñas</translation>
 <translation id="892776311701544612">Más información…</translation>
 <translation id="8928133177108699615">Escritorio</translation>
@@ -1929,7 +1947,6 @@ También pueden usar cookies para ver la actividad de navegación en diferentes 
 <translation id="9013605037177245304">Activar las notificaciones</translation>
 <translation id="9029650858822697271">Saliste de tu cuenta</translation>
 <translation id="9032405509996909363">Confirmar que quieres borrar los datos de navegación</translation>
-<translation id="9034759925968272072">No saldrás de tu cuenta de Google. Es posible que tu cuenta de Google tenga otros formularios del historial de navegación en <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" />.</translation>
 <translation id="9039373489628511875">Ancho de banda</translation>
 <translation id="9042893549633094279">Privacidad y seguridad</translation>
 <translation id="9055580485132823283">Estás a punto de borrar {password_count} contraseñas, {passkey_count} llaves de acceso y la lista de sitios y apps para los que elegiste no guardar información de acceso. No se borrarán las cuentas que hayas creado para sitios y apps.</translation>
@@ -1954,9 +1971,11 @@ También pueden usar cookies para ver la actividad de navegación en diferentes 
 <translation id="9106655997975673326">De "<ph name="SOURCE_DEVICE" />"</translation>
 <translation id="9107664647686727385">Verifica si hay contraseñas hackeadas</translation>
 <translation id="9124387962554796433">Es posible que Google use tu historial para personalizar la Búsqueda y otros servicios de Google.</translation>
+<translation id="9124978074365039456">Compra, identifica y traduce lo que ves con la cámara y la galería de fotos</translation>
 <translation id="9130317582644834675">Ocultar la opción Hacer zoom en el texto</translation>
 <translation id="913036870884277353">Abre vínculos en otras apps fácilmente.</translation>
 <translation id="9137013805542155359">Mostrar original</translation>
+<translation id="9144230693397287797">Recibe actualizaciones de los recordatorios que configuraste y de las pestañas de otros dispositivos</translation>
 <translation id="914781932147356857">Marcar todas…</translation>
 <translation id="9148126808321036104">Accede nuevamente</translation>
 <translation id="9159628751968616911">Envía la página web</translation>

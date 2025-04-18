@@ -122,6 +122,24 @@ source_set("system_features_disable_list") {
   }
 }
 
+source_set("policy_util") {
+  sources = [
+    "policy_util.cc",
+    "policy_util.h",
+  ]
+
+  public_deps = [ "//base" ]
+
+  deps = [
+    "//components/content_settings/core/common",
+    "//components/invalidation",
+    "//components/policy/core/common",
+    "//components/policy/core/common:common_constants",
+    "//components/prefs",
+    "//url",
+  ]
+}
+
 source_set("test_support") {
   testonly = true
 
@@ -271,6 +289,7 @@ source_set("policy_specific_browser_tests") {
       "test/data_url_policy_browsertest.cc",
       "test/developer_tools_policy_browsertest.cc",
       "test/download_directory_browsertest.cc",
+      "test/happy_eyeballs_v3_enabled_policy_browsertest.cc",
       "test/ipv6_reachability_override_policy_browsertest.cc",
       "test/local_fonts_policy_browsertest.cc",
       "test/media_stream_policy_browsertest.cc",
@@ -345,6 +364,7 @@ source_set("browser_tests") {
     "//chrome/browser",
     "//chrome/browser:main_extra_parts",
     "//chrome/browser/background:background",
+    "//chrome/browser/policy:policy_util",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/search",
     "//chrome/browser/ui:ui_features",

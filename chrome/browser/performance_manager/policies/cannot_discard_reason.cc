@@ -13,6 +13,8 @@ const char* CannotDiscardReasonToString(CannotDiscardReason reason) {
   switch (reason) {
     case CannotDiscardReason::kNotATab:
       return "The Page is not a tab";
+    case CannotDiscardReason::kAlreadyDiscarded:
+      return "Tab is already discarded";
     case CannotDiscardReason::kDiscardAttempted:
       return "Tab discarding has already been attempted";
     case CannotDiscardReason::kNoMainFrame:
@@ -61,8 +63,6 @@ const char* CannotDiscardReasonToString(CannotDiscardReason reason) {
       return "Tab is currently using DevTools";
     case CannotDiscardReason::kBackgroundActivity:
       return "Tab is updating favicon or title in the background";
-    case CannotDiscardReason::kWasDiscarded:
-      return "Tab was discarded";
     case CannotDiscardReason::kFormInteractions:
       return "Tab has form interactions";
     case CannotDiscardReason::kUserEdits:

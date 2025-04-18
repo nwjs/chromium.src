@@ -37,12 +37,14 @@ void BlobUrlRegistry::AddReceiver(
     base::RepeatingCallback<
         void(const GURL&, std::optional<blink::mojom::PartitioningBlobURLInfo>)>
         partitioning_blob_url_closure,
+    base::RepeatingCallback<bool()> storage_access_check_callback,
     bool partitioning_disabled_by_policy) {
   mojo::ReceiverId receiver_id = frame_receivers_.Add(
       std::make_unique<storage::BlobURLStoreImpl>(
           storage_key, renderer_origin, render_process_host_id, AsWeakPtr(),
           storage::BlobURLValidityCheckBehavior::DEFAULT,
           std::move(partitioning_blob_url_closure),
+          std::move(storage_access_check_callback),
           partitioning_disabled_by_policy),
       std::move(receiver));
 
@@ -62,6 +64,7 @@ void BlobUrlRegistry::AddReceiver(
       std::make_unique<storage::BlobURLStoreImpl>(
           storage_key, renderer_origin, render_process_host_id, AsWeakPtr(),
           validity_check_behavior, base::DoNothing(),
+          base::BindRepeating([]() -> bool { return false; }),
           partitioning_disabled_by_policy),
       std::move(receiver));
 }

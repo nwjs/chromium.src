@@ -5,7 +5,9 @@
 #ifndef COMPONENTS_COLLABORATION_INTERNAL_METRICS_H_
 #define COMPONENTS_COLLABORATION_INTERNAL_METRICS_H_
 
+#include "components/collaboration/public/collaboration_flow_entry_point.h"
 #include "components/collaboration/public/collaboration_flow_type.h"
+#include "ui/base/page_transition_types.h"
 
 namespace data_sharing {
 class Logger;
@@ -51,7 +53,8 @@ enum class CollaborationServiceJoinEvent {
   kDevicePolicyDisableSignin = 30,
   kManagedAccountSignin = 31,
   kAccountInfoNotReadyOnSignin = 32,
-  kMaxValue = kAccountInfoNotReadyOnSignin,
+  kReadNewGroupUserIsAlreadyMember = 33,
+  kMaxValue = kReadNewGroupUserIsAlreadyMember,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/collaboration_service/enums.xml:CollaborationServiceJoinEvent)
 
@@ -99,6 +102,13 @@ void RecordJoinOrShareOrManageEvent(
     FlowType type,
     CollaborationServiceJoinEvent join_event,
     CollaborationServiceShareOrManageEvent share_or_manage_event);
+void RecordJoinEntryPoint(data_sharing::Logger* logger,
+                          CollaborationServiceJoinEntryPoint entry);
+void RecordJoinPageTransitionType(data_sharing::Logger* logger,
+                                  ui::PageTransition transition);
+void RecordShareOrManageEntryPoint(
+    data_sharing::Logger* logger,
+    CollaborationServiceShareOrManageEntryPoint entry);
 }  // namespace collaboration::metrics
 
 #endif  // COMPONENTS_COLLABORATION_INTERNAL_METRICS_H_

@@ -46,7 +46,6 @@ struct GlWorkarounds {
   bool disable_metal = false;
   bool disable_es3gl_context = false;
   bool disable_es3gl_context_for_testing = false;
-  bool disable_direct_composition = false;
   bool disable_direct_composition_video_overlays = false;
   bool disable_vp_auto_hdr = false;
 };
@@ -59,9 +58,6 @@ GL_EXPORT const GlWorkarounds& GetGlWorkarounds();
 GL_EXPORT void SetGlWorkarounds(const GlWorkarounds& workarounds);
 
 #if BUILDFLAG(IS_WIN)
-// Calculates present during in 100 ns from number of frames per second.
-GL_EXPORT unsigned int FrameRateToPresentDuration(float frame_rate);
-
 // BufferCount for the root surface swap chain.
 GL_EXPORT unsigned int DirectCompositionRootSurfaceBufferCount();
 
@@ -84,6 +80,9 @@ GL_EXPORT void LabelSwapChainBuffers(IDXGISwapChain* swap_chain,
 // Add an entry <preference, system_device_id> to GLDisplayManagerEGL.
 GL_EXPORT void SetGpuPreferenceEGL(GpuPreference preference,
                                    uint64_t system_device_id);
+
+// Return the value for the entry at <preference> from GLDisplayManagerEGL.
+GL_EXPORT uint64_t GetSystemDeviceIdEGLForTesting(GpuPreference preference);
 
 // Remove the entry at <preference> from GLDisplayManagerEGL.
 GL_EXPORT void RemoveGpuPreferenceEGL(GpuPreference preference);

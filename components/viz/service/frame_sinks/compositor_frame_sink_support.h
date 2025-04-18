@@ -45,7 +45,6 @@ namespace viz {
 class FrameSinkManagerImpl;
 class LatestLocalSurfaceIdLookupDelegate;
 class LayerContextImpl;
-class RendererSettings;
 class Surface;
 class SurfaceManager;
 
@@ -208,15 +207,6 @@ class VIZ_SERVICE_EXPORT CompositorFrameSinkSupport
   // doesn't have to exist at the time of calling.
   void EvictSurface(const LocalSurfaceId& id);
 
-  void GarbageCollectSurfaces() { surface_manager_->GarbageCollectSurfaces(); }
-
-  // Submits a compositor frame not from the client but from viz itself. For
-  // example, this is used to submit empty compositor frames to unref
-  // resources on root surface eviction.
-  void SubmitCompositorFrameLocally(const SurfaceId& surface_id,
-                                    CompositorFrame frame,
-                                    const RendererSettings& settings);
-
   // Attempts to submit a new CompositorFrame to |local_surface_id| and returns
   // whether the frame was accepted or the reason why it was rejected. If
   // |local_surface_id| hasn't been submitted before then a new Surface will be
@@ -333,7 +323,8 @@ class VIZ_SERVICE_EXPORT CompositorFrameSinkSupport
 
   void MaybeEvictSurfaces();
   void EvictLastActiveSurface();
-  bool ShouldSendBeginFrame(base::TimeTicks timestamp,
+  bool ShouldSendBeginFrame(BeginFrameId frame_id,
+                            base::TimeTicks timestamp,
                             base::TimeDelta vsync_interval);
 
   // Checks if any of the pending surfaces should activate now because their

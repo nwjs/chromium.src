@@ -201,7 +201,9 @@ class CORE_EXPORT InspectorPageAgent final
                                          const protocol::Binary& data) override;
   protocol::Response clearCompilationCache() override;
   protocol::Response waitForDebugger() override;
-  protocol::Response setInterceptFileChooserDialog(bool enabled) override;
+  protocol::Response setInterceptFileChooserDialog(
+      bool enabled,
+      std::optional<bool> cancel) override;
 
   // InspectorInstrumentation API
   void DidCreateMainWorldContext(LocalFrame*);
@@ -252,7 +254,8 @@ class CORE_EXPORT InspectorPageAgent final
   void FileChooserOpened(LocalFrame* frame,
                          HTMLInputElement* element,
                          bool multiple,
-                         bool* intercepted);
+                         bool* suppressed,
+                         bool* canceled);
 
   // Inspector Controller API
   void Restore() override;
@@ -319,7 +322,7 @@ class CORE_EXPORT InspectorPageAgent final
 
   HeapHashMap<WeakMember<LocalFrame>, Vector<IsolatedWorldRequest>>
       pending_isolated_worlds_;
-  using FrameIsolatedWorlds = HeapHashMap<String, Member<DOMWrapperWorld>>;
+  using FrameIsolatedWorlds = GCedHeapHashMap<String, Member<DOMWrapperWorld>>;
   HeapHashMap<WeakMember<LocalFrame>, Member<FrameIsolatedWorlds>>
       isolated_worlds_;
   HashMap<String, std::unique_ptr<blink::AdScriptIdentifier>>
@@ -328,7 +331,8 @@ class CORE_EXPORT InspectorPageAgent final
   Client* client_;
   Member<InspectorResourceContentLoader> inspector_resource_content_loader_;
   int resource_content_loader_client_id_;
-  InspectorAgentState::Boolean intercept_file_chooser_;
+  InspectorAgentState::Boolean suppress_file_chooser_;
+  InspectorAgentState::Boolean cancel_file_chooser_;
   InspectorAgentState::Boolean enabled_;
   InspectorAgentState::Boolean enable_file_chooser_opened_event_;
   InspectorAgentState::Boolean screencast_enabled_;

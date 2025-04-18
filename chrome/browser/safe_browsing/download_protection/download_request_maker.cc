@@ -9,6 +9,7 @@
 #include "base/feature_list.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/strings/strcat.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/download/download_item_warning_data.h"
@@ -206,11 +207,18 @@ void DownloadRequestMaker::Start(DownloadRequestMaker::Callback callback) {
 
   *request_->mutable_population() =
       GetUserPopulationForProfileWithCookieTheftExperiments(profile);
-  if (profile && IsEnhancedProtectionEnabled(*profile->GetPrefs()) &&
-      base::FeatureList::IsEnabled(kDeepScanningCriteria)) {
+
+#if BUILDFLAG(IS_ANDROID)
+  if (base::FeatureList::IsEnabled(kMaliciousApkDownloadCheck)) {
+    std::string malicious_apk_check = "MaliciousApkDownloadCheck";
+    if (kMaliciousApkDownloadCheckTelemetryOnly.Get()) {
+      base::StrAppend(&malicious_apk_check, {".TelemetryOnly"});
+    }
     request_->mutable_population()->add_finch_active_groups(
-        "SafeBrowsingDeepScanningCriteria-Enabled");
+        std::move(malicious_apk_check));
   }
+#endif
+
   request_->set_request_ap_verdicts(is_under_advanced_protection);
   request_->set_locale(g_browser_process->GetApplicationLocale());
   request_->set_file_basename(target_file_name_.BaseName().AsUTF8Unsafe());

@@ -51,7 +51,7 @@ class BocaAppHandler : public mojom::PageHandler,
 
   ~BocaAppHandler() override;
   // Static
-  static void SetFloatModeAndBoundsForWindow(bool isFloatMode,
+  static void SetFloatModeAndBoundsForWindow(bool is_float_mode,
                                              aura::Window* window,
                                              SetFloatModeCallback callback);
 
@@ -71,6 +71,8 @@ class BocaAppHandler : public mojom::PageHandler,
                              ExtendSessionDurationCallback callback) override;
   void RemoveStudent(const std::string& id,
                      RemoveStudentCallback callback) override;
+  void AddStudents(const std::vector<std::string>& ids,
+                   AddStudentsCallback callback) override;
   void UpdateOnTaskConfig(mojom::OnTaskConfigPtr config,
                           UpdateOnTaskConfigCallback callback) override;
   void UpdateCaptionConfig(mojom::CaptionConfigPtr config,
@@ -99,6 +101,7 @@ class BocaAppHandler : public mojom::PageHandler,
   void CloseTab(const SessionID::id_type tab_id,
                 CloseTabCallback callback) override;
   void OpenFeedbackDialog(OpenFeedbackDialogCallback callback) override;
+  void RefreshWorkbook(RefreshWorkbookCallback callback) override;
 
   // mojom::Page:
   void OnStudentActivityUpdated(
@@ -122,6 +125,7 @@ class BocaAppHandler : public mojom::PageHandler,
       const ::boca::CaptionsConfig& config,
       const std::string& tachyon_group_id) override;
   void OnSessionRosterUpdated(const ::boca::Roster& roster) override;
+  void OnLocalCaptionClosed() override;
 
   void NotifyLocalCaptionConfigUpdate(mojom::CaptionConfigPtr config);
 
@@ -149,9 +153,17 @@ class BocaAppHandler : public mojom::PageHandler,
                         std::string id,
                         base::expected<bool, google_apis::ApiErrorCode> result);
 
+  void OnStudentsAdded(AddStudentsCallback callback,
+                       ::boca::Session* current_session,
+                       base::expected<bool, google_apis::ApiErrorCode> result);
+
   void OnAccessCodeSubmitted(SubmitAccessCodeCallback callback,
                              base::expected<std::unique_ptr<::boca::Session>,
                                             google_apis::ApiErrorCode> result);
+
+  void UpdateCaptionConfigInternal(mojom::CaptionConfigPtr config,
+                                   UpdateCaptionConfigCallback callback,
+                                   bool can_proceed);
 
   SEQUENCE_CHECKER(sequence_checker_);
   const bool is_producer_;

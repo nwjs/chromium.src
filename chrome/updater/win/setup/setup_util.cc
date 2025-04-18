@@ -20,6 +20,7 @@
 
 #include "base/check.h"
 #include "base/command_line.h"
+#include "base/compiler_specific.h"
 #include "base/containers/flat_map.h"
 #include "base/files/file_path.h"
 #include "base/logging.h"
@@ -448,7 +449,7 @@ void AddComServiceWorkItems(const base::FilePath& com_service_path,
 
 std::wstring GetProgIdForClsid(REFCLSID clsid) {
   auto clsid_comparator = [](REFCLSID a, REFCLSID b) {
-    return std::memcmp(&a, &b, sizeof(a)) < 0;
+    return UNSAFE_TODO(std::memcmp(&a, &b, sizeof(a))) < 0;
   };
 
   const base::flat_map<CLSID, std::wstring, decltype(clsid_comparator)>
@@ -507,7 +508,7 @@ HRESULT RegisterTypeLibs(UpdaterScope scope, bool is_internal) {
          return {TYPELIB_UPDATER_IDL_USER, TYPELIB_UPDATER_LEGACY_IDL_USER};
        }()) {
     const base::FilePath typelib_path =
-        exe_path.AppendASCII(base::NumberToString(typelib_resource_index));
+        exe_path.AppendUTF8(base::NumberToString(typelib_resource_index));
 
     Microsoft::WRL::ComPtr<ITypeLib> type_lib;
     if (HRESULT hr = ::LoadTypeLib(typelib_path.value().c_str(), &type_lib);

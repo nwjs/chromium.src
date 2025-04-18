@@ -227,7 +227,7 @@ class CORE_EXPORT WebFrameWidgetImpl
   cc::AnimationTimeline* ScrollAnimationTimeline() const final;
   void SetOverscrollBehavior(
       const cc::OverscrollBehavior& overscroll_behavior) final;
-  void RequestAnimationAfterDelay(const base::TimeDelta&) final;
+  void RequestAnimationAfterDelay(const base::TimeDelta&, bool urgent) final;
   void SetRootLayer(scoped_refptr<cc::Layer>) override;
   void RequestDecode(const cc::DrawImage&,
                      base::OnceCallback<void(bool)>) override;
@@ -257,13 +257,12 @@ class CORE_EXPORT WebFrameWidgetImpl
   void DidChangeCursor(const ui::Cursor&) override;
   void GetCompositionCharacterBoundsInWindow(
       Vector<gfx::Rect>* bounds_in_dips) override;
-  // Return the last calculated line bounds.
-  Vector<gfx::Rect>& GetVisibleLineBoundsOnScreenForTesting();
+  // Return the last calculated cursor anchor info.
+  mojom::blink::InputCursorAnchorInfoPtr& GetLastCursorAnchorInfoForTesting();
   bool HasImeRenderWidgetHost() const override {
     return !!ime_render_widget_host_;
   }
-  void UpdateLineBounds() override;
-  void UpdateCursorAnchorInfo() override;
+  void UpdateCursorAnchorInfo(bool update_requested) override;
   gfx::Range CompositionRange() override;
   WebTextInputInfo TextInputInfo() override;
   ui::mojom::VirtualKeyboardVisibilityRequest
@@ -556,6 +555,8 @@ class CORE_EXPORT WebFrameWidgetImpl
   // Immediately stop deferring commits.
   void StopDeferringCommits(cc::PaintHoldingCommitTrigger);
 
+  void SetShouldThrottleFrameRate(bool flag);
+
   // Pause all rendering (main and compositor thread) in the compositor.
   [[nodiscard]] std::unique_ptr<cc::ScopedPauseRendering> PauseRendering();
 
@@ -749,7 +750,7 @@ class CORE_EXPORT WebFrameWidgetImpl
 
  protected:
   // WidgetBaseClient overrides:
-  void ScheduleAnimation() override;
+  void ScheduleAnimation(bool urgent) override;
   void DidBeginMainFrame() override;
   std::unique_ptr<cc::LayerTreeFrameSink> AllocateNewLayerTreeFrameSink()
       override;
@@ -916,6 +917,16 @@ class CORE_EXPORT WebFrameWidgetImpl
   void WaitForPageScaleAnimationForTesting(
       WaitForPageScaleAnimationForTestingCallback callback) override;
   void MoveCaret(const gfx::Point& point_in_dips) override;
+
+#if BUILDFLAG(IS_IOS)
+  void StartAutoscrollForSelectionToPoint(
+      const gfx::PointF& point_in_dips) override;
+  void StopAutoscroll() override;
+
+  void RectForEditFieldChars(const gfx::Range& range,
+                             RectForEditFieldCharsCallback callback) override;
+#endif  // BUILDFLAG(IS_IOS)
+
   void SelectAroundCaret(mojom::blink::SelectionGranularity granularity,
                          bool should_show_handle,
                          bool should_show_context_menu,
@@ -1059,10 +1070,9 @@ class CORE_EXPORT WebFrameWidgetImpl
       const PositionWithAffinity& pivot_position) const;
 #endif  // BUILDFLAG(IS_WIN)
 
-  // Stores the current composition line bounds. These bounds are rectangles
-  // which surround each line of text in a currently focused input or textarea
-  // element.
-  Vector<gfx::Rect> input_visible_line_bounds_;
+  // Stores the last cursor anchor info calculated for the currently focused
+  // editable element.
+  mojom::blink::InputCursorAnchorInfoPtr last_cursor_anchor_info_;
 
   // A copy of the web drop data object we received from the browser.
   Member<DataObject> current_drag_data_;
@@ -1272,6 +1282,8 @@ class CORE_EXPORT WebFrameWidgetImpl
 
   double zoom_level_ = 0;
   double css_zoom_factor_ = 1;
+
+  bool throttling_frame_rate_ = false;
 };
 
 }  // namespace blink

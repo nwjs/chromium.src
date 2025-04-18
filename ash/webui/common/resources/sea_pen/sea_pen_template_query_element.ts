@@ -25,7 +25,7 @@ import type {SeaPenOption, SeaPenTemplate} from './constants.js';
 import {getSeaPenTemplates} from './constants.js';
 import {isSeaPenTextInputEnabled, isSeaPenUseExptTemplateEnabled} from './load_time_booleans.js';
 import type {SeaPenQuery, SeaPenThumbnail, SeaPenUserVisibleQuery} from './sea_pen.mojom-webui.js';
-import {getSeaPenThumbnails} from './sea_pen_controller.js';
+import {clearSeaPenThumbnails, getSeaPenThumbnails} from './sea_pen_controller.js';
 import type {SeaPenTemplateChip, SeaPenTemplateId, SeaPenTemplateOption} from './sea_pen_generated.mojom-webui.js';
 import {getSeaPenProvider} from './sea_pen_interface_provider.js';
 import {logGenerateSeaPenWallpaper} from './sea_pen_metrics_logger.js';
@@ -140,11 +140,17 @@ export class SeaPenTemplateQueryElement extends WithSeaPenStore {
           return isSeaPenUseExptTemplateEnabled();
         },
       },
+
+      autoplay_: {
+        type: Boolean,
+        value: false,
+      }
     };
   }
 
   // TODO(b/319719709) this should be SeaPenTemplateId.
   templateId: string|null;
+  private autoplay_: boolean;
   private seaPenTemplate_: SeaPenTemplate;
   private seaPenQuery_: SeaPenQuery|null;
   private selectedOptions_: Map<SeaPenTemplateChip, SeaPenOption>;
@@ -181,11 +187,6 @@ export class SeaPenTemplateQueryElement extends WithSeaPenStore {
         new ResizeObserver(() => this.animateContainerHeight());
 
     beforeNextRender(this, () => {
-      const inspireMeAnimation = this.getInspireMeAnimationElement_();
-      if (inspireMeAnimation) {
-        inspireMeAnimation.autoplay = false;
-      }
-
       this.containerOriginalHeight_ = this.$.container.scrollHeight;
       this.$.container.style.height = `${this.containerOriginalHeight_}px`;
     });
@@ -193,6 +194,7 @@ export class SeaPenTemplateQueryElement extends WithSeaPenStore {
 
   override disconnectedCallback() {
     super.disconnectedCallback();
+    clearSeaPenThumbnails(this.getStore());
     this.resizeObserver_.disconnect();
     this.removeEventListener('click', this.onClick_);
   }

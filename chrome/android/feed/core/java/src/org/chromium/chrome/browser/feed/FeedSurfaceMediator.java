@@ -326,6 +326,7 @@ public class FeedSurfaceMediator
     private boolean mIsNewTabSearchEngineUrlAndroidEnabled;
     private boolean mIsPropertiesInitializedForStream;
     private @ClosedReason int mClosedReason = ClosedReason.SUSPEND_APP;
+    private final boolean mIsNewTabPageCustomizationEnabled;
 
     /**
      * @param coordinator The {@link FeedSurfaceCoordinator} that interacts with this class.
@@ -359,6 +360,7 @@ public class FeedSurfaceMediator
         mOptionsCoordinator.setOptionsListener(this);
         mIsNewTabSearchEngineUrlAndroidEnabled =
                 DseNewTabUrlManager.isNewTabSearchEngineUrlAndroidEnabled();
+        mIsNewTabPageCustomizationEnabled = ChromeFeatureList.sNewTabPageCustomization.isEnabled();
         mUiConfig = uiConfig;
 
         /*
@@ -613,14 +615,17 @@ public class FeedSurfaceMediator
                 mCoordinator.createFeedStream(StreamKind.FOR_YOU, new StreamsMediatorImpl()));
         setHeaderIndicatorState(suggestionsVisible);
 
-        // Build menu after section enabled key is set.
-        mFeedMenuModel = buildMenuItems();
-
         mCoordinator.initializeBubbleTriggering();
         mSigninManager.getIdentityManager().addObserver(this);
 
-        mSectionHeaderModel.set(SectionHeaderListProperties.MENU_MODEL_LIST_KEY, mFeedMenuModel);
-        mSectionHeaderModel.set(SectionHeaderListProperties.MENU_DELEGATE_KEY, this);
+        if (!mIsNewTabPageCustomizationEnabled) {
+            // Build menu after section enabled key is set.
+            mFeedMenuModel = buildMenuItems();
+
+            mSectionHeaderModel.set(
+                    SectionHeaderListProperties.MENU_MODEL_LIST_KEY, mFeedMenuModel);
+            mSectionHeaderModel.set(SectionHeaderListProperties.MENU_DELEGATE_KEY, this);
+        }
 
         setUpWebFeedTab();
 
@@ -929,7 +934,7 @@ public class FeedSurfaceMediator
      * @return Whether the SignPromo should be visible.
      */
     private boolean shouldShowSigninPromo() {
-        // TODO(crbug.com/327387704): Move SignInPromo.shouldCreatePromo inside FeedSigninPromo
+        // TODO(crbug.com/352735671): Move SignInPromo.shouldCreatePromo inside FeedSigninPromo
         //  after phase 2 follow-up launch.
         boolean shouldCreatePromo = SignInPromo.shouldCreatePromo();
         if (ChromeFeatureList.isEnabled(ChromeFeatureList.UNO_PHASE_2_FOLLOW_UP)) {
@@ -1076,8 +1081,11 @@ public class FeedSurfaceMediator
 
         setHeaderIndicatorState(suggestionsVisible);
 
-        // Update toggleswitch item, which is last item in list.
-        mSectionHeaderModel.set(SectionHeaderListProperties.MENU_MODEL_LIST_KEY, buildMenuItems());
+        if (!mIsNewTabPageCustomizationEnabled) {
+            // Update toggleswitch item, which is last item in list.
+            mSectionHeaderModel.set(
+                    SectionHeaderListProperties.MENU_MODEL_LIST_KEY, buildMenuItems());
+        }
 
         if (mLegacySignInPromo != null) {
             mLegacySignInPromo.setCanShowPersonalizedSuggestions(suggestionsVisible);
@@ -1130,7 +1138,6 @@ public class FeedSurfaceMediator
         // Model and stream visibility set in {@link #updateSectionHeader}
         // which is called by the prefService observer.
         getPrefService().setBoolean(Pref.ARTICLES_LIST_VISIBLE, isExpanded);
-        FeedUma.recordFeedControlsAction(FeedUma.CONTROLS_ACTION_TOGGLED_FEED);
         SuggestionsMetrics.recordArticlesListVisible(mProfile);
 
         int streamType =
@@ -1350,7 +1357,6 @@ public class FeedSurfaceMediator
             Intent intent = new Intent(mContext, FeedManagementActivity.class);
             intent.putExtra(FeedManagementActivity.INITIATING_STREAM_TYPE_EXTRA, feedType);
             FeedServiceBridge.reportOtherUserAction(feedType, FeedUserActionType.TAPPED_MANAGE);
-            FeedUma.recordFeedControlsAction(FeedUma.CONTROLS_ACTION_CLICKED_MANAGE);
             mContext.startActivity(intent);
         } else if (itemId == R.id.ntp_feed_header_menu_item_activity) {
             mActionDelegate.openUrl(
@@ -1358,25 +1364,21 @@ public class FeedSurfaceMediator
                     new LoadUrlParams("https://myactivity.google.com/myactivity?product=50"));
             FeedServiceBridge.reportOtherUserAction(
                     feedType, FeedUserActionType.TAPPED_MANAGE_ACTIVITY);
-            FeedUma.recordFeedControlsAction(FeedUma.CONTROLS_ACTION_CLICKED_MY_ACTIVITY);
         } else if (itemId == R.id.ntp_feed_header_menu_item_interest) {
             mActionDelegate.openUrl(
                     WindowOpenDisposition.CURRENT_TAB,
                     new LoadUrlParams("https://www.google.com/preferences/interests"));
             FeedServiceBridge.reportOtherUserAction(
                     feedType, FeedUserActionType.TAPPED_MANAGE_INTERESTS);
-            FeedUma.recordFeedControlsAction(FeedUma.CONTROLS_ACTION_CLICKED_MANAGE_INTERESTS);
         } else if (itemId == R.id.ntp_feed_header_menu_item_reactions) {
             mActionDelegate.openUrl(
                     WindowOpenDisposition.CURRENT_TAB,
                     new LoadUrlParams("https://www.google.com/search/contributions/reactions"));
             FeedServiceBridge.reportOtherUserAction(
                     feedType, FeedUserActionType.TAPPED_MANAGE_REACTIONS);
-            FeedUma.recordFeedControlsAction(FeedUma.CONTROLS_ACTION_CLICKED_MANAGE_INTERESTS);
         } else if (itemId == R.id.ntp_feed_header_menu_item_learn) {
             mActionDelegate.openHelpPage();
             FeedServiceBridge.reportOtherUserAction(feedType, FeedUserActionType.TAPPED_LEARN_MORE);
-            FeedUma.recordFeedControlsAction(FeedUma.CONTROLS_ACTION_CLICKED_LEARN_MORE);
         } else if (itemId == R.id.ntp_feed_header_menu_item_toggle_switch) {
             onSectionHeaderToggled();
         } else {

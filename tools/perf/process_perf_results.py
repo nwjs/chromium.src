@@ -86,7 +86,7 @@ def _GetMachineGroup(build_properties):
     raise ValueError(
         'Must set perf_dashboard_machine_group or have a valid '
         'mapping in '
-        'src/tools/perf/core/perf_dashboard_machine_group_mapping.json'
+        'src/tools/perf/core/perf_dashboard_machine_group_mapping.json. '
         'See bit.ly/perf-dashboard-machine-group for more details')
   return machine_group
 
@@ -542,12 +542,14 @@ def _upload_individual(benchmark_name, directories, configuration_name,
 
 def _process_skia_json(
     results_filename: str,
-    builder_details: json_util.PerfBuilderDetails) -> Optional[Dict[Any, Any]]:
+    builder_details: json_util.PerfBuilderDetails,
+    benchmark_name: str) -> Optional[Dict[Any, Any]]:
   """Converts result2 json to skia json.
 
   Args:
     results_filename: The filename of the results.
     builder_details: The perf builder details.
+    benchmark_name: The name of the benchmark.
 
   Returns:
     The skia json data if successful, None otherwise.
@@ -557,7 +559,8 @@ def _process_skia_json(
   with open(results_filename) as pf:
     util.add(json.load(pf))
   try:
-    skia_json_data = util.process(builder_details=builder_details)
+    skia_json_data = util.process(builder_details=builder_details,
+                                  benchmark_name=benchmark_name)
     process_end_time = time.time()
     print_duration(('%s skia json processing time' % (builder_details.bot)),
                    process_begin_time, process_end_time)
@@ -589,10 +592,11 @@ def _upload_skia_json(benchmark_name: str,
       properties=build_properties,
       configuration_name=configuration_name,
       machine_group=_GetMachineGroup(build_properties))
-  skia_json_data = _process_skia_json(results_filename, builder_details)
-  if not skia_json_data:
-    logdog_benchmark_dict['skia_json_conversion_failed'] = 'True'
-    logdog_benchmark_dict['skia_json_upload_failed'] = 'True'  # skip upload.
+  skia_json_data = _process_skia_json(
+      results_filename, builder_details, benchmark_name)
+  if json_util.is_empty(skia_json_data):
+    logdog_benchmark_dict['skia_json_empty'] = 'True'  # skip upload.
+    logdog_benchmark_dict['skia_json_upload_skipped'] = 'True'
     return 1
   skia_results_filename = os.path.join(tmpfile_dir, 'skia_results.json')
   with open(skia_results_filename, 'w') as f:
@@ -603,7 +607,7 @@ def _upload_skia_json(benchmark_name: str,
   bucket_names = json_util.gcs_buckets_from_builder_name(
       builder_name=build_properties['buildername'],
       master_name=_GetMachineGroup(build_properties),
-      experiment_only=True)
+      public_copy_to_experiment=True)
   logging.info('Uploading skia json to buckets: %s', bucket_names)
   for bucket_name in bucket_names:
     dest = google_storage_helper.unique_name(

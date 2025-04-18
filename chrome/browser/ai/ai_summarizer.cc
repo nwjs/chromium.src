@@ -55,11 +55,11 @@ optimization_guide::proto::SummarizerOutputLength ToProtoLength(
 AISummarizer::AISummarizer(
     AIContextBoundObjectSet& context_bound_object_set,
     std::unique_ptr<optimization_guide::OptimizationGuideModelExecutor::Session>
-        summarize_session,
+        session,
     blink::mojom::AISummarizerCreateOptionsPtr options,
     mojo::PendingReceiver<blink::mojom::AISummarizer> receiver)
     : AIContextBoundObject(context_bound_object_set),
-      summarize_session_(std::move(summarize_session)),
+      session_(std::move(session)),
       receiver_(this, std::move(receiver)),
       options_(std::move(options)) {
   receiver_.set_disconnect_handler(base::BindOnce(
@@ -87,19 +87,78 @@ AISummarizer::ToProtoOptions(
 
 // static
 std::string AISummarizer::CombineContexts(const std::string& shared_context,
-                                          const std::string& context) {
+                                          const std::string& input_context) {
   std::string final_context = shared_context;
-  if (!context.empty()) {
+  if (!input_context.empty()) {
     if (!final_context.empty()) {
-      final_context = final_context + " " + context;
+      final_context = final_context + " " + input_context;
     } else {
-      final_context = context;
+      final_context = input_context;
     }
   }
   if (!final_context.empty()) {
     final_context += "\n";
   }
   return final_context;
+}
+
+void AISummarizer::Summarize(
+    const std::string& input,
+    const std::string& context,
+    mojo::PendingRemote<blink::mojom::ModelStreamingResponder>
+        pending_responder) {
+  if (!session_) {
+    mojo::Remote<blink::mojom::ModelStreamingResponder> responder(
+        std::move(pending_responder));
+    responder->OnError(
+        blink::mojom::ModelStreamingResponseStatus::kErrorSessionDestroyed);
+    return;
+  }
+
+  mojo::RemoteSetElementId responder_id =
+      responder_set_.Add(std::move(pending_responder));
+  auto request = BuildRequest(input, context);
+
+  session_->GetExecutionInputSizeInTokens(
+      optimization_guide::MultimodalMessageReadView(request),
+      base::BindOnce(&AISummarizer::DidGetExecutionInputSizeForSummarize,
+                     weak_ptr_factory_.GetWeakPtr(), responder_id, request));
+}
+
+void AISummarizer::DidGetExecutionInputSizeForSummarize(
+    mojo::RemoteSetElementId responder_id,
+    optimization_guide::proto::SummarizeRequest request,
+    std::optional<uint32_t> result) {
+  blink::mojom::ModelStreamingResponder* responder =
+      responder_set_.Get(responder_id);
+  if (!responder) {
+    // It might be possible for the responder mojo connection to be closed
+    // before this callback is invoked, in this case, we can't do anything.
+    return;
+  }
+
+  if (!session_) {
+    responder->OnError(
+        blink::mojom::ModelStreamingResponseStatus::kErrorSessionDestroyed);
+    return;
+  }
+
+  if (!result.has_value()) {
+    responder->OnError(
+        blink::mojom::ModelStreamingResponseStatus::kErrorGenericFailure);
+    return;
+  }
+
+  if (result.value() > blink::mojom::kWritingAssistanceMaxInputTokenSize) {
+    responder->OnError(
+        blink::mojom::ModelStreamingResponseStatus::kErrorInputTooLarge);
+    return;
+  }
+
+  session_->ExecuteModel(
+      request,
+      base::BindRepeating(&AISummarizer::ModelExecutionCallback,
+                          weak_ptr_factory_.GetWeakPtr(), responder_id));
 }
 
 void AISummarizer::ModelExecutionCallback(
@@ -120,37 +179,46 @@ void AISummarizer::ModelExecutionCallback(
   auto response = optimization_guide::ParsedAnyMetadata<
       optimization_guide::proto::StringValue>(result.response->response);
   if (response->has_value()) {
-    responder->OnStreaming(
-        response->value(),
-        blink::mojom::ModelStreamingResponderAction::kReplace);
+    responder->OnStreaming(response->value());
   }
   if (result.response->is_complete) {
     responder->OnCompletion(/*context_info=*/nullptr);
   }
 }
 
-void AISummarizer::Summarize(
-    const std::string& input,
-    const std::string& context,
-    mojo::PendingRemote<blink::mojom::ModelStreamingResponder>
-        pending_responder) {
-  if (!summarize_session_) {
-    mojo::Remote<blink::mojom::ModelStreamingResponder> responder(
-        std::move(pending_responder));
-    responder->OnError(
-        blink::mojom::ModelStreamingResponseStatus::kErrorSessionDestroyed);
+void AISummarizer::MeasureUsage(const std::string& input,
+                                const std::string& context,
+                                MeasureUsageCallback callback) {
+  if (!session_) {
+    std::move(callback).Run(std::nullopt);
     return;
   }
 
-  mojo::RemoteSetElementId responder_id =
-      responder_set_.Add(std::move(pending_responder));
+  auto request = BuildRequest(input, context);
+  session_->GetExecutionInputSizeInTokens(
+      optimization_guide::MultimodalMessageReadView(request),
+      base::BindOnce(&AISummarizer::DidGetExecutionInputSizeInTokensForMeasure,
+                     weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+}
+
+void AISummarizer::DidGetExecutionInputSizeInTokensForMeasure(
+    MeasureUsageCallback callback,
+    std::optional<uint32_t> result) {
+  if (!result.has_value()) {
+    std::move(callback).Run(std::nullopt);
+    return;
+  }
+  std::move(callback).Run(result.value());
+}
+
+optimization_guide::proto::SummarizeRequest AISummarizer::BuildRequest(
+    const std::string& input,
+    const std::string& context) {
   optimization_guide::proto::SummarizeRequest request;
   request.set_article(input);
-  request.set_allocated_options(ToProtoOptions(options_).release());
-  request.set_context(
-      CombineContexts(options_->shared_context.value_or(""), context));
-  summarize_session_->ExecuteModel(
-      request,
-      base::BindRepeating(&AISummarizer::ModelExecutionCallback,
-                          weak_ptr_factory_.GetWeakPtr(), responder_id));
+  request.set_allocated_options(
+      AISummarizer::ToProtoOptions(options_).release());
+  request.set_context(AISummarizer::CombineContexts(
+      options_->shared_context.value_or(""), context));
+  return request;
 }

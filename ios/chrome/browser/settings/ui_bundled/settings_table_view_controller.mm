@@ -67,7 +67,6 @@
 #import "ios/chrome/browser/search_engines/model/search_engine_observer_bridge.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/settings/model/sync/utils/identity_error_util.h"
-#import "ios/chrome/browser/settings/model/sync/utils/sync_state.h"
 #import "ios/chrome/browser/settings/model/sync/utils/sync_util.h"
 #import "ios/chrome/browser/settings/ui_bundled/about_chrome_table_view_controller.h"
 #import "ios/chrome/browser/settings/ui_bundled/address_bar_preference/address_bar_preference_coordinator.h"
@@ -141,7 +140,6 @@
 #import "ios/chrome/browser/sync/model/enterprise_utils.h"
 #import "ios/chrome/browser/sync/model/sync_observer_bridge.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
-#import "ios/chrome/browser/tabs/model/inactive_tabs/features.h"
 #import "ios/chrome/browser/upgrade/model/upgrade_utils.h"
 #import "ios/chrome/browser/voice/model/speech_input_locale_config.h"
 #import "ios/chrome/browser/voice/model/voice_search_prefs.h"
@@ -553,37 +551,21 @@ struct EnhancedSafeBrowsingActivePromoData
   bool shouldShowDownloadsSettings =
       (photosService && photosService->IsSupported()) ||
       IsDownloadAutoDeletionFeatureEnabled();
-  if (IsInactiveTabsAvailable()) {
-    [model addItem:[self tabsSettingsDetailItem]
-        toSectionWithIdentifier:SettingsSectionIdentifierAdvanced];
+  [model addItem:[self tabsSettingsDetailItem]
+      toSectionWithIdentifier:SettingsSectionIdentifierAdvanced];
 
-    // Info Section
-    [model addSectionWithIdentifier:SettingsSectionIdentifierInfo];
-    [model addItem:[self languageSettingsDetailItem]
+  // Info Section
+  [model addSectionWithIdentifier:SettingsSectionIdentifierInfo];
+  [model addItem:[self languageSettingsDetailItem]
+      toSectionWithIdentifier:SettingsSectionIdentifierInfo];
+  [model addItem:[self contentSettingsDetailItem]
+      toSectionWithIdentifier:SettingsSectionIdentifierInfo];
+  if (shouldShowDownloadsSettings) {
+    [model addItem:[self downloadsSettingsDetailItem]
         toSectionWithIdentifier:SettingsSectionIdentifierInfo];
-    [model addItem:[self contentSettingsDetailItem]
-        toSectionWithIdentifier:SettingsSectionIdentifierInfo];
-    if (shouldShowDownloadsSettings) {
-      [model addItem:[self downloadsSettingsDetailItem]
-          toSectionWithIdentifier:SettingsSectionIdentifierInfo];
-    }
-    [model addItem:[self bandwidthManagementDetailItem]
-        toSectionWithIdentifier:SettingsSectionIdentifierInfo];
-  } else {
-    [model addItem:[self languageSettingsDetailItem]
-        toSectionWithIdentifier:SettingsSectionIdentifierAdvanced];
-    [model addItem:[self contentSettingsDetailItem]
-        toSectionWithIdentifier:SettingsSectionIdentifierAdvanced];
-    if (shouldShowDownloadsSettings) {
-      [model addItem:[self downloadsSettingsDetailItem]
-          toSectionWithIdentifier:SettingsSectionIdentifierAdvanced];
-    }
-    [model addItem:[self bandwidthManagementDetailItem]
-        toSectionWithIdentifier:SettingsSectionIdentifierAdvanced];
-
-    // Info Section
-    [model addSectionWithIdentifier:SettingsSectionIdentifierInfo];
   }
+  [model addItem:[self bandwidthManagementDetailItem]
+      toSectionWithIdentifier:SettingsSectionIdentifierInfo];
   [model addItem:[self aboutChromeDetailItem]
       toSectionWithIdentifier:SettingsSectionIdentifierInfo];
 
@@ -657,8 +639,7 @@ struct EnhancedSafeBrowsingActivePromoData
       _hasRecordedSigninImpression = YES;
     }
 
-    // The user is signed-in and syncing, exit early since the promo is not
-    // required.
+    // The user is signed-in, exit early since the promo is not required.
     return;
   }
 
@@ -1742,8 +1723,7 @@ struct EnhancedSafeBrowsingActivePromoData
 
   __weak __typeof(self) weakSelf = self;
   CallbackWithIPHDismissalReasonType dismissalCallback =
-      ^(IPHDismissalReasonType dismissReason,
-        feature_engagement::Tracker::SnoozeAction snoozeAction) {
+      ^(IPHDismissalReasonType dismissReason) {
         [weakSelf signinIPHDismissed];
       };
   _bubblePresenter = [[BubbleViewControllerPresenter alloc]
@@ -1964,7 +1944,7 @@ struct EnhancedSafeBrowsingActivePromoData
   //   5.) Not have their Safe Browsing preferences enterprise-managed.
   AuthenticationService* authService =
       AuthenticationServiceFactory::GetForProfile(_profile);
-  bool isSignedInAndSynced =
+  bool isSignedIn =
       authService->HasPrimaryIdentity(signin::ConsentLevel::kSignin);
   bool isDefaultBrowser = IsChromeLikelyDefaultBrowser();
   bool isStandardProtectionEnabled =
@@ -1975,9 +1955,8 @@ struct EnhancedSafeBrowsingActivePromoData
   bool isEnterpriseManaged =
       safe_browsing::IsSafeBrowsingPolicyManaged(*_profile->GetPrefs());
 
-  if (!isSignedInAndSynced || !isDefaultBrowser ||
-      !isStandardProtectionEnabled || !triggerCriteriaMet ||
-      isEnterpriseManaged) {
+  if (!isSignedIn || !isDefaultBrowser || !isStandardProtectionEnabled ||
+      !triggerCriteriaMet || isEnterpriseManaged) {
     return NO;
   }
 

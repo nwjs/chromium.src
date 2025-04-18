@@ -49,7 +49,10 @@ source_set("unit_tests") {
 
 # Constants only target without dependencies to allow embedders to only include relevant code.
 android_library("constants_java") {
-  sources = [ "java/src/org/chromium/components/browser_ui/site_settings/SingleCategorySettingsConstants.java" ]
+  sources = [
+    "java/src/org/chromium/components/browser_ui/site_settings/SingleCategorySettingsConstants.java",
+    "java/src/org/chromium/components/browser_ui/site_settings/WebsiteSettingsConstants.java",
+  ]
 }
 
 android_library("java") {
@@ -58,6 +61,7 @@ android_library("java") {
     "java/src/org/chromium/components/browser_ui/site_settings/AllSiteSettings.java",
     "java/src/org/chromium/components/browser_ui/site_settings/AutoDarkMetrics.java",
     "java/src/org/chromium/components/browser_ui/site_settings/BaseSiteSettingsFragment.java",
+    "java/src/org/chromium/components/browser_ui/site_settings/BinaryStatePermissionPreference.java",
     "java/src/org/chromium/components/browser_ui/site_settings/ChosenObjectInfo.java",
     "java/src/org/chromium/components/browser_ui/site_settings/ChosenObjectSettings.java",
     "java/src/org/chromium/components/browser_ui/site_settings/ClearWebsiteStorage.java",
@@ -77,7 +81,6 @@ android_library("java") {
     "java/src/org/chromium/components/browser_ui/site_settings/PermissionInfo.java",
     "java/src/org/chromium/components/browser_ui/site_settings/RwsCookieInfo.java",
     "java/src/org/chromium/components/browser_ui/site_settings/RwsCookieSettings.java",
-    "java/src/org/chromium/components/browser_ui/site_settings/RwsRowPreference.java",
     "java/src/org/chromium/components/browser_ui/site_settings/SharedDictionaryInfo.java",
     "java/src/org/chromium/components/browser_ui/site_settings/SingleCategorySettings.java",
     "java/src/org/chromium/components/browser_ui/site_settings/SingleWebsiteSettings.java",
@@ -153,7 +156,6 @@ android_library("java") {
 android_library("javatests") {
   testonly = true
   sources = [
-    "javatests/src/org/chromium/components/browser_ui/site_settings/RwsRowPreferenceTest.java",
     "javatests/src/org/chromium/components/browser_ui/site_settings/WebsiteAddressTest.java",
     "javatests/src/org/chromium/components/browser_ui/site_settings/WebsiteGroupTest.java",
     "javatests/src/org/chromium/components/browser_ui/site_settings/WebsiteRowPreferenceTest.java",
@@ -164,6 +166,8 @@ android_library("javatests") {
     "//base:base_java_test_support",
     "//components/browser_ui/settings/android:test_support_java",
     "//content/public/android:content_java",
+    "//third_party/android_deps:espresso_java",
+    "//third_party/androidx:androidx_preference_preference_java",
     "//third_party/androidx:androidx_test_runner_java",
     "//third_party/hamcrest:hamcrest_core_java",
     "//third_party/jni_zero:jni_zero_java",
@@ -199,35 +203,30 @@ android_resources("java_resources") {
   sources = [
     "java/res/drawable-hdpi/ic_volume_up_grey600_24dp.png",
     "java/res/drawable-hdpi/permission_background_sync.png",
-    "java/res/drawable-hdpi/permission_javascript.png",
     "java/res/drawable-hdpi/permission_popups.png",
     "java/res/drawable-hdpi/permission_protected_media.png",
     "java/res/drawable-hdpi/settings_sensors.png",
     "java/res/drawable-hdpi/web_asset.png",
     "java/res/drawable-mdpi/ic_volume_up_grey600_24dp.png",
     "java/res/drawable-mdpi/permission_background_sync.png",
-    "java/res/drawable-mdpi/permission_javascript.png",
     "java/res/drawable-mdpi/permission_popups.png",
     "java/res/drawable-mdpi/permission_protected_media.png",
     "java/res/drawable-mdpi/settings_sensors.png",
     "java/res/drawable-mdpi/web_asset.png",
     "java/res/drawable-xhdpi/ic_volume_up_grey600_24dp.png",
     "java/res/drawable-xhdpi/permission_background_sync.png",
-    "java/res/drawable-xhdpi/permission_javascript.png",
     "java/res/drawable-xhdpi/permission_popups.png",
     "java/res/drawable-xhdpi/permission_protected_media.png",
     "java/res/drawable-xhdpi/settings_sensors.png",
     "java/res/drawable-xhdpi/web_asset.png",
     "java/res/drawable-xxhdpi/ic_volume_up_grey600_24dp.png",
     "java/res/drawable-xxhdpi/permission_background_sync.png",
-    "java/res/drawable-xxhdpi/permission_javascript.png",
     "java/res/drawable-xxhdpi/permission_popups.png",
     "java/res/drawable-xxhdpi/permission_protected_media.png",
     "java/res/drawable-xxhdpi/settings_sensors.png",
     "java/res/drawable-xxhdpi/web_asset.png",
     "java/res/drawable-xxxhdpi/ic_volume_up_grey600_24dp.png",
     "java/res/drawable-xxxhdpi/permission_background_sync.png",
-    "java/res/drawable-xxxhdpi/permission_javascript.png",
     "java/res/drawable-xxxhdpi/permission_popups.png",
     "java/res/drawable-xxxhdpi/permission_protected_media.png",
     "java/res/drawable-xxxhdpi/settings_sensors.png",
@@ -248,6 +247,7 @@ android_resources("java_resources") {
     "java/res/drawable/settings_v8.xml",
     "java/res/drawable/web_24.xml",
     "java/res/layout/add_site_dialog.xml",
+    "java/res/layout/binary_state_permission_preference.xml",
     "java/res/layout/clear_data_dialog.xml",
     "java/res/layout/clear_reset_dialog.xml",
     "java/res/layout/clear_storage.xml",

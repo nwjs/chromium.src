@@ -15,6 +15,10 @@
 #include "components/facilitated_payments/core/utils/facilitated_payments_ui_utils.h"
 #include "components/signin/public/identity_manager/account_info.h"
 
+namespace optimization_guide {
+class OptimizationGuideDecider;
+}  // namespace optimization_guide
+
 namespace autofill {
 class BankAccount;
 class PaymentsDataManager;
@@ -24,6 +28,7 @@ class StrikeDatabase;
 namespace payments::facilitated {
 
 class FacilitatedPaymentsNetworkInterface;
+class MultipleRequestFacilitatedPaymentsNetworkInterface;
 
 // TODO: b/350661525 - Make all methods pure virtual.
 // A cross-platform client interface for showing UI for non-form based FOPs.
@@ -37,9 +42,23 @@ class FacilitatedPaymentsClient : public autofill::RiskDataLoader {
 
   // Gets the `FacilitatedPaymentsNetworkInterface` instance owned by the client
   // used for making payment requests. It can be null if the browser context
-  // associated with the WebContents is null.
+  // associated with the WebContents is null. See comment for below function
+  // too.
   virtual FacilitatedPaymentsNetworkInterface*
   GetFacilitatedPaymentsNetworkInterface() = 0;
+
+  // Same as above. However this network interface can support multiple active
+  // requests at a time. Sending a request will not affect other ongoing
+  // requests. This is a complete upgrade of the
+  // `FacilitatedPaymentsNetworkInterface` so all new flows should use this
+  // function. All existing flows should be migrated to this. Note that since
+  // each flow should migrate in its own effort, we would need to keep these
+  // functions separate, instead of updating the logic inside
+  // GetFacilitatedPaymentsNetworkInterface. When all migrations are finished,
+  // above function and the FacilitatedPaymentsNetworkInterface class should be
+  // cleaned up.
+  virtual MultipleRequestFacilitatedPaymentsNetworkInterface*
+  GetMultipleRequestFacilitatedPaymentsNetworkInterface() = 0;
 
   // Provides access to the core information of the user's primary account.
   virtual std::optional<CoreAccountInfo> GetCoreAccountInfo() = 0;
@@ -49,6 +68,12 @@ class FacilitatedPaymentsClient : public autofill::RiskDataLoader {
 
   // Returns true if the device is a foldable device.
   virtual bool IsFoldable() = 0;
+
+  // Returns an instance of the OptimizationGuideDecider associated with the
+  // Chrome profile. It is used to determine whether a render frame host URL is
+  // part of a feature allowlist.
+  virtual optimization_guide::OptimizationGuideDecider*
+  GetOptimizationGuideDecider() = 0;
 
   // Shows the user's PIX accounts from their Google Wallet, and prompts to pay.
   // `bank_account_suggestions` is the list of PIX accounts to be shown to the

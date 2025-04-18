@@ -241,7 +241,7 @@ ModelExecutionManager::StartSession(
       execution_mode != SessionConfigParams::ExecutionMode::kServerOnly) {
     auto session = on_device_model_service_controller_->CreateSession(
         feature, execute_fn, optimization_guide_logger_->GetWeakPtr(),
-        model_quality_uploader_service_, config_params);
+        config_params);
     if (session) {
       RecordSessionUsedRemoteExecutionHistogram(feature, /*is_remote=*/false);
       return session;
@@ -255,6 +255,13 @@ ModelExecutionManager::StartSession(
   RecordSessionUsedRemoteExecutionHistogram(feature, /*is_remote=*/true);
   return std::make_unique<SessionImpl>(feature, std::nullopt,
                                        std::move(execute_fn), config_params);
+}
+
+on_device_model::Capabilities ModelExecutionManager::GetOnDeviceCapabilities() {
+  if (!on_device_model_service_controller_) {
+    return {};
+  }
+  return on_device_model_service_controller_->GetCapabilities();
 }
 
 void ModelExecutionManager::OnModelExecuteResponse(

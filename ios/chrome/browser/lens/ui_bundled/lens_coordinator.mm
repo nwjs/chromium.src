@@ -13,7 +13,7 @@
 #import "components/search_engines/template_url_service.h"
 #import "components/segmentation_platform/embedder/home_modules/tips_manager/signal_constants.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
-#import "ios/chrome/browser/intents/intents_donation_helper.h"
+#import "ios/chrome/browser/intents/model/intents_donation_helper.h"
 #import "ios/chrome/browser/lens/ui_bundled/features.h"
 #import "ios/chrome/browser/lens/ui_bundled/lens_availability.h"
 #import "ios/chrome/browser/lens/ui_bundled/lens_entrypoint.h"
@@ -194,7 +194,7 @@ const base::TimeDelta kCloseLensViewTimeout = base::Seconds(10);
 
 - (void)searchImageWithLens:(SearchImageWithLensCommand*)command {
   if (lens_availability::IsLensContextMenuUnifiedExperienceEnabled(
-          self.browser->GetProfile()->GetPrefs())) {
+          self.profile->GetPrefs())) {
     id<LensOverlayCommands> handler = HandlerForProtocol(
         self.browser->GetCommandDispatcher(), LensOverlayCommands);
     [handler searchImageWithLens:command.image
@@ -203,7 +203,7 @@ const base::TimeDelta kCloseLensViewTimeout = base::Seconds(10);
     return;
   }
 
-  const bool isIncognito = self.browser->GetProfile()->IsOffTheRecord();
+  const bool isIncognito = self.profile->IsOffTheRecord();
   __weak LensCoordinator* weakSelf = self;
 
   LensQuery* lensQuery = [LensQuery alloc];
@@ -497,7 +497,7 @@ const base::TimeDelta kCloseLensViewTimeout = base::Seconds(10);
   }
 
   TipsManagerIOS* tipsManager =
-      TipsManagerIOSFactory::GetForProfile(self.browser->GetProfile());
+      TipsManagerIOSFactory::GetForProfile(self.profile);
 
   tipsManager->NotifySignal(
       segmentation_platform::tips_manager::signals::kLensUsed);
@@ -520,7 +520,7 @@ const base::TimeDelta kCloseLensViewTimeout = base::Seconds(10);
     loadParams.append_to = OpenPosition::kCurrentTab;
     loadParams.SetInBackground(NO);
   }
-  loadParams.in_incognito = self.browser->GetProfile()->IsOffTheRecord();
+  loadParams.in_incognito = self.profile->IsOffTheRecord();
   UrlLoadingBrowserAgent::FromBrowser(self.browser)->Load(loadParams);
 }
 

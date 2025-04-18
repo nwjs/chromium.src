@@ -11,22 +11,19 @@
 
 #include "base/component_export.h"
 #include "base/memory/raw_ref.h"
+#include "mojo/public/cpp/bindings/default_construct_tag.h"
 #include "services/network/public/cpp/permissions_policy/origin_with_possible_wildcards.h"
 #include "services/network/public/cpp/permissions_policy/permissions_policy_declaration.h"
 #include "services/network/public/cpp/permissions_policy/permissions_policy_features.h"
+#include "services/network/public/cpp/permissions_policy/permissions_policy_features_bitset.h"
+#include "services/network/public/mojom/permissions_policy/permissions_policy.mojom-shared.h"
 #include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom-shared.h"
 #include "services/network/public/mojom/web_sandbox_flags.mojom-shared.h"
 #include "url/origin.h"
 
 class GURL;
 
-namespace blink {
-class ResourceRequest;
-}  // namespace blink
-
 namespace network {
-
-struct ResourceRequest;
 
 // Permissions Policy is a mechanism for controlling the availability of web
 // platform features in a frame, including all embedded frames. It can be used
@@ -100,17 +97,23 @@ struct ResourceRequest;
 // |PermissionsPolicyFeatureDefault| in permissions_policy_features.h for
 // details)
 
-class COMPONENT_EXPORT(NETWORK_CPP) PermissionsPolicy {
+class COMPONENT_EXPORT(NETWORK_CPP_WEB_PLATFORM) PermissionsPolicy {
  public:
   // Represents a collection of origins which make up an allowlist in a
   // permissions policy. This collection may be set to match every origin
   // (corresponding to the "*" syntax in the policy string, in which case the
   // Contains() method will always return true.
-  class COMPONENT_EXPORT(NETWORK_CPP) Allowlist final {
+  class COMPONENT_EXPORT(NETWORK_CPP_WEB_PLATFORM) Allowlist final {
    public:
     Allowlist();
     Allowlist(const Allowlist& rhs);
     ~Allowlist();
+
+    Allowlist(Allowlist&&) noexcept;
+    Allowlist& operator=(Allowlist&&) noexcept;
+    Allowlist& operator=(const Allowlist& other) = default;
+
+    friend bool operator==(const Allowlist&, const Allowlist&) = default;
 
     // Extracts an Allowlist from a network::ParsedPermissionsPolicyDeclaration.
     static Allowlist FromDeclaration(
@@ -168,9 +171,18 @@ class COMPONENT_EXPORT(NETWORK_CPP) PermissionsPolicy {
     bool matches_opaque_src_{false};
   };
 
-  PermissionsPolicy(const PermissionsPolicy&) = delete;
-  PermissionsPolicy& operator=(const PermissionsPolicy&) = delete;
+  // Only used by mojo traits.
+  explicit PermissionsPolicy(mojo::DefaultConstruct::Tag);
+
+  PermissionsPolicy(const PermissionsPolicy&);
+  PermissionsPolicy& operator=(const PermissionsPolicy&);
   ~PermissionsPolicy();
+
+  PermissionsPolicy(PermissionsPolicy&&) noexcept;
+  PermissionsPolicy& operator=(PermissionsPolicy&&) noexcept;
+
+  friend bool operator==(const PermissionsPolicy&,
+                         const PermissionsPolicy&) = default;
 
   static std::unique_ptr<PermissionsPolicy> CreateFromParentPolicy(
       const PermissionsPolicy* parent_policy,
@@ -226,17 +238,17 @@ class COMPONENT_EXPORT(NETWORK_CPP) PermissionsPolicy {
   bool IsFeatureEnabled(network::mojom::PermissionsPolicyFeature feature) const;
 
   // Returns whether or not the given feature is enabled by this policy for a
-  // specific origin.
+  // specific origin. If `override_default_policy_to_all` is true (rare), then
+  // replace the default policy with '*' in the query. This should only be
+  // used by a handful of features that access x-origin data that said origin
+  // has expressly opted into. In this scenario, the caller could have just as
+  // easily created an x-origin iframe with allow=feature, and since the
+  // recipient origin has opted in, they would have called the feature in said
+  // iframe. If true, the feature must be defined in `kDefinedOptInFeatures`.
   bool IsFeatureEnabledForOrigin(
       network::mojom::PermissionsPolicyFeature feature,
-      const url::Origin& origin) const;
-
-  // Returns whether or not the given feature is enabled by this policy for a
-  // subresource request, given the ongoing request/redirect origin.
-  bool IsFeatureEnabledForSubresourceRequest(
-      network::mojom::PermissionsPolicyFeature feature,
       const url::Origin& origin,
-      const network::ResourceRequest& request) const;
+      bool override_default_policy_to_all = false) const;
 
   const Allowlist GetAllowlistForDevTools(
       network::mojom::PermissionsPolicyFeature feature) const;
@@ -253,7 +265,8 @@ class COMPONENT_EXPORT(NETWORK_CPP) PermissionsPolicy {
   std::optional<const Allowlist> GetAllowlistForFeatureIfExists(
       network::mojom::PermissionsPolicyFeature feature) const;
 
-  std::optional<std::string> GetEndpointForFeature(
+  // Returns empty string when there is no reporting endpoint.
+  std::string GetEndpointForFeature(
       network::mojom::PermissionsPolicyFeature feature) const;
 
   // Returns a new permissions policy, based on this policy and a client hint
@@ -277,12 +290,9 @@ class COMPONENT_EXPORT(NETWORK_CPP) PermissionsPolicy {
       network::mojom::PermissionsPolicyFeature feature) const;
 
  private:
-  friend class blink::ResourceRequest;
   friend class PermissionsPolicyTest;
-
-  // List of features that have an explicit opt-in mechanism.
-  static const network::mojom::PermissionsPolicyFeature
-      defined_opt_in_features_[];
+  friend struct mojo::StructTraits<network::mojom::PermissionsPolicyDataView,
+                                   network::PermissionsPolicy>;
 
   struct AllowlistsAndReportingEndpoints {
     std::map<network::mojom::PermissionsPolicyFeature, Allowlist> allowlists_;
@@ -320,7 +330,7 @@ class COMPONENT_EXPORT(NETWORK_CPP) PermissionsPolicy {
   PermissionsPolicy(
       url::Origin origin,
       AllowlistsAndReportingEndpoints allow_lists_and_reporting_endpoints,
-      network::PermissionsPolicyFeatureState inherited_policies,
+      network::PermissionsPolicyFeaturesBitset inherited_policies,
       const network::PermissionsPolicyFeatureList& feature_list,
       bool headerless = false);
   static std::unique_ptr<PermissionsPolicy> CreateFromParentPolicy(
@@ -352,22 +362,6 @@ class COMPONENT_EXPORT(NETWORK_CPP) PermissionsPolicy {
       base::span<const network::mojom::PermissionsPolicyFeature>
           effective_enabled_permissions);
 
-  // Returns whether or not the given feature is enabled by this policy for a
-  // specific origin given a set of opt-in features. The opt-in features cannot
-  // override an explicit policy but can override the default policy.
-  bool IsFeatureEnabledForOriginImpl(
-      network::mojom::PermissionsPolicyFeature feature,
-      const url::Origin& origin,
-      const std::set<network::mojom::PermissionsPolicyFeature>& opt_in_features)
-      const;
-
-  // Returns whether or not the given feature is enabled by this policy for a
-  // specific origin, given that the feature is an opt-in feature, and the
-  // subresource request for which we are querying has opted-into this feature.
-  bool IsFeatureEnabledForSubresourceRequestAssumingOptIn(
-      network::mojom::PermissionsPolicyFeature feature,
-      const url::Origin& origin) const;
-
   // If the feature is in the declared policy, returns whether the given origin
   // exists in its declared allowlist; otherwise, returns the value from
   // inherited policy.
@@ -376,7 +370,7 @@ class COMPONENT_EXPORT(NETWORK_CPP) PermissionsPolicy {
       const url::Origin& origin) const;
 
   // The origin of the document with which this policy is associated.
-  const url::Origin origin_;
+  url::Origin origin_;
 
   // If `true` this is a document that cannot have a Permissions-Policy header,
   // e.g. a srcdoc. Docs like this need special treatment for default-off
@@ -385,20 +379,19 @@ class COMPONENT_EXPORT(NETWORK_CPP) PermissionsPolicy {
 
   // Map of feature names to declared allowlists. Any feature which is missing
   // from this map should use the inherited policy.
-  const std::map<network::mojom::PermissionsPolicyFeature, Allowlist>
-      allowlists_;
+  std::map<network::mojom::PermissionsPolicyFeature, Allowlist> allowlists_;
 
   // Map of feature names to reporting endpoints. Any feature which is missing
   // from this map should report to the default endpoint, if it is set.
-  const std::map<network::mojom::PermissionsPolicyFeature, std::string>
+  std::map<network::mojom::PermissionsPolicyFeature, std::string>
       reporting_endpoints_;
 
   // Records whether or not each feature was enabled for this frame by its
   // parent frame.
-  const network::PermissionsPolicyFeatureState inherited_policies_;
+  network::PermissionsPolicyFeaturesBitset inherited_policies_;
 
   // The map of features to their default enable state.
-  const raw_ref<const network::PermissionsPolicyFeatureList> feature_list_;
+  raw_ref<const network::PermissionsPolicyFeatureList> feature_list_;
 };
 
 }  // namespace network

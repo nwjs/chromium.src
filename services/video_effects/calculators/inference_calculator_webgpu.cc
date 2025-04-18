@@ -11,6 +11,7 @@
 #include "base/notreached.h"
 #include "services/on_device_model/ml/chrome_ml_api.h"
 #include "services/on_device_model/ml/chrome_ml_holder.h"
+#include "services/video_effects/calculators/mediapipe_webgpu_utils.h"
 #include "services/video_effects/calculators/video_effects_graph_config.h"
 #include "third_party/abseil-cpp/absl/status/status.h"
 #include "third_party/abseil-cpp/absl/strings/str_format.h"
@@ -27,11 +28,11 @@
 
 namespace {
 
-// The ML model we use expects 256x144 input buffer.
-constexpr uint32_t kBufferWidth = 256;
-constexpr uint32_t kBufferHeight = 144;
+constexpr uint32_t kBufferWidth = video_effects::kInferenceInputBufferWidth;
+constexpr uint32_t kBufferHeight = video_effects::kInferenceInputBufferHeight;
 constexpr mediapipe::GpuBufferFormat kBufferFormat =
-    mediapipe::GpuBufferFormat::kRGBAFloat128;
+    video_effects::WebGpuTextureFormatToGpuBufferFormat(
+        video_effects::kInferenceInputBufferFormat);
 
 const ChromeMLAPI* GetChromeMlApi() {
   static base::NoDestructor<std::unique_ptr<ml::ChromeMLHolder>> holder{
@@ -119,34 +120,32 @@ DISABLE_CFI_DLSYM absl::Status InferenceCalculatorWebGpu::Process(
     return absl::InternalError("Runtime configuration not present!");
   }
 
+  if (config_packet.Get<RuntimeConfig>().blur_state != BlurState::kEnabled) {
+    return absl::InternalError(
+        "Blur is disabled, the calculator should not even run!");
+  }
+
   mediapipe::Packet& input_frame =
       cc->Inputs().Tag(kInputTextureStreamTag).Value();
   mediapipe::GpuBuffer input_buffer = input_frame.Get<mediapipe::GpuBuffer>();
   auto input_buffer_view =
       input_buffer.GetReadView<mediapipe::WebGpuTextureView>();
 
-  if (config_packet.Get<RuntimeConfig>().blur_state == BlurState::kEnabled) {
-    mediapipe::GpuBuffer output_buffer(kBufferWidth, kBufferHeight,
-                                       kBufferFormat);
-    auto output_buffer_view =
-        output_buffer.GetWriteView<mediapipe::WebGpuTextureView>();
+  mediapipe::GpuBuffer output_buffer(kBufferWidth, kBufferHeight,
+                                     kBufferFormat);
+  auto output_buffer_view =
+      output_buffer.GetWriteView<mediapipe::WebGpuTextureView>();
 
-    if (!ml_api->RunInference(inference_engine_,
-                              input_buffer_view.texture().Get(),
-                              output_buffer_view.texture().Get())) {
-      return absl::InternalError("Processing failed");
-    }
-    cc->Outputs()
-        .Tag(kOutputTextureStreamTag)
-        .AddPacket(mediapipe::MakePacket<mediapipe::GpuBuffer>(
-                       std::move(output_buffer))
-                       .At(input_frame.Timestamp()));
-  } else {
-    cc->Outputs()
-        .Tag(kOutputTextureStreamTag)
-        .AddPacket(mediapipe::MakePacket<mediapipe::GpuBuffer>().At(
-            input_frame.Timestamp()));
+  if (!ml_api->RunInference(inference_engine_,
+                            input_buffer_view.texture().Get(),
+                            output_buffer_view.texture().Get())) {
+    return absl::InternalError("Processing failed");
   }
+  cc->Outputs()
+      .Tag(kOutputTextureStreamTag)
+      .AddPacket(
+          mediapipe::MakePacket<mediapipe::GpuBuffer>(std::move(output_buffer))
+              .At(input_frame.Timestamp()));
 
   return absl::OkStatus();
 }

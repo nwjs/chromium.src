@@ -23,6 +23,7 @@
 #include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/extensions/launch_util.h"
 #include "chrome/browser/extensions/pending_extension_manager.h"
+#include "chrome/browser/extensions/permissions/permissions_updater.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sync/glue/sync_start_util.h"
 #include "chrome/common/extensions/extension_constants.h"
@@ -34,6 +35,7 @@
 #include "extensions/browser/extension_registrar.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/extension_util.h"
+#include "extensions/browser/launch_util.h"
 #include "extensions/browser/uninstall_reason.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_set.h"
@@ -489,8 +491,10 @@ void ExtensionSyncService::ApplySyncData(
       // matches our local one.
       bool grant_permissions = extension_sync_data.supports_disable_reasons() &&
                                (state == INSTALLED_MATCHING);
-      if (grant_permissions)
-        extension_service()->GrantPermissions(extension);
+      if (grant_permissions) {
+        extensions::PermissionsUpdater(profile_).GrantActivePermissions(
+            extension);
+      }
 
       // Only enable if the extension has all required permissions.
       // (Even if the version doesn't match - if the new version needs more
@@ -561,12 +565,9 @@ void ExtensionSyncService::ApplySyncData(
         PendingUpdate(extension_sync_data.version(), reenable_after_update);
     check_for_updates = true;
   } else if (state == NOT_INSTALLED) {
-    if (!extension_service()->pending_extension_manager()->AddFromSync(
-            id,
-            extension_sync_data.update_url(),
-            extension_sync_data.version(),
-            ShouldAllowInstall,
-            extension_sync_data.remote_install())) {
+    if (!extensions::PendingExtensionManager::Get(profile_)->AddFromSync(
+            id, extension_sync_data.update_url(), extension_sync_data.version(),
+            ShouldAllowInstall, extension_sync_data.remote_install())) {
       LOG(WARNING) << "Could not add pending extension for " << id;
       // This means that the extension is already pending installation, with a
       // non-INTERNAL location.  Add to pending_sync_data, even though it will
@@ -660,18 +661,6 @@ void ExtensionSyncService::OnExtensionUninstalled(
   }
 
   pending_updates_.erase(extension->id());
-}
-
-void ExtensionSyncService::OnExtensionStateChanged(
-    const std::string& extension_id,
-    bool state) {
-  ExtensionRegistry* registry = ExtensionRegistry::Get(profile_);
-  const Extension* extension = registry->GetInstalledExtension(extension_id);
-  // We can get pref change notifications for extensions that aren't installed
-  // (yet). In that case, we'll pick up the change later via ExtensionRegistry
-  // observation (in OnExtensionInstalled).
-  if (extension)
-    SyncExtensionChangeIfNeeded(*extension);
 }
 
 void ExtensionSyncService::OnExtensionDisableReasonsChanged(

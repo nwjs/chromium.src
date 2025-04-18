@@ -102,34 +102,13 @@ absl_cc_library(
 
 absl_cc_library(
   NAME
-    bad_variant_access
-  HDRS
-    "bad_variant_access.h"
-  SRCS
-    "bad_variant_access.cc"
-  COPTS
-    ${ABSL_DEFAULT_COPTS}
-  DEPS
-    absl::config
-    absl::raw_logging_internal
-  PUBLIC
-)
-
-absl_cc_library(
-  NAME
     variant
   HDRS
     "variant.h"
-  SRCS
-    "internal/variant.h"
   COPTS
     ${ABSL_DEFAULT_COPTS}
   DEPS
-    absl::bad_variant_access
-    absl::base_internal
     absl::config
-    absl::core_headers
-    absl::type_traits
     absl::utility
   PUBLIC
 )
@@ -143,11 +122,6 @@ absl_cc_test(
     ${ABSL_TEST_COPTS}
   DEPS
     absl::variant
-    absl::config
-    absl::core_headers
-    absl::memory
-    absl::type_traits
-    absl::strings
     GTest::gmock_main
 )
 
@@ -178,17 +152,26 @@ absl_cc_test(
     GTest::gmock_main
 )
 
-absl_cc_test(
+# Deprecated empty library.
+# Clients should remove this dependency.
+absl_cc_library(
   NAME
-    variant_exception_safety_test
-  SRCS
-    "variant_exception_safety_test.cc"
-  COPTS
-    ${ABSL_TEST_COPTS}
-  DEPS
-    absl::variant
-    absl::config
-    absl::exception_safety_testing
-    absl::memory
-    GTest::gmock_main
+    bad_any_cast
+  PUBLIC
+)
+
+# Deprecated empty library.
+# Clients should remove this dependency.
+absl_cc_library(
+  NAME
+    bad_optional_access
+  PUBLIC
+)
+
+# Deprecated empty library.
+# Clients should remove this dependency.
+absl_cc_library(
+  NAME
+    bad_variant_access
+  PUBLIC
 )

@@ -18,6 +18,7 @@
 #include "third_party/blink/renderer/platform/graphics/test/mock_paint_canvas.h"
 #include "third_party/blink/renderer/platform/language.h"
 #include "third_party/blink/renderer/platform/testing/font_test_helpers.h"
+#include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 #include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
 #include "third_party/blink/renderer/platform/text/text_direction.h"
 
@@ -29,6 +30,8 @@ using blink::test::CreateTestFont;
 namespace blink {
 
 TSAN_TEST(TextRendererThreadedTest, MeasureText) {
+  ScopedNoFontAntialiasingForTest disable_no_font_antialiasing_for_test(false);
+
   RunOnThreads([]() {
     String text = "measure this";
 
@@ -46,17 +49,17 @@ TSAN_TEST(TextRendererThreadedTest, MeasureText) {
     TextRun text_run(text, TextDirection::kLtr,
                      /* directional_override */ false,
                      /* normalize_space */ true);
-    gfx::RectF text_bounds = font->SelectionRectForText(
+    gfx::RectF text_bounds = font->DeprecatedSelectionRectForText(
         text_run, gfx::PointF(), font->GetFontDescription().ComputedSize(), 0,
         -1);
 
     // X direction.
-    if (RuntimeEnabledFeatures::CanvasTextNgEnabled()) {
+    if (RuntimeEnabledFeatures::CanvasTextNgEnabled(nullptr)) {
       EXPECT_EQ(
           78, MakeGarbageCollected<PlainTextPainter>(PlainTextPainter::kCanvas)
                   ->ComputeInlineSize(text_run, *font));
     } else {
-      EXPECT_EQ(78, font->Width(text_run));
+      EXPECT_EQ(78, font->DeprecatedWidth(text_run));
     }
     EXPECT_EQ(0, text_bounds.x());
     EXPECT_EQ(78, text_bounds.right());
@@ -95,16 +98,16 @@ TSAN_TEST(TextRendererThreadedTest, DrawText) {
     EXPECT_CALL(mpc, drawTextBlob(_, 0, 0, _)).Times(1);
     EXPECT_CALL(mpc, restoreToCount(17)).WillOnce(Return());
 
-    if (RuntimeEnabledFeatures::CanvasTextNgEnabled()) {
+    if (RuntimeEnabledFeatures::CanvasTextNgEnabled(nullptr)) {
       MakeGarbageCollected<PlainTextPainter>(PlainTextPainter::kCanvas)
           ->DrawWithBidiReorder(text_run, 0, text_run.length(), *font,
                                 Font::kUseFallbackIfFontNotReady, mpc, location,
                                 flags, Font::DrawType::kGlyphsAndClusters);
     } else {
       TextRunPaintInfo text_run_paint_info(text_run);
-      font->DrawBidiText(&mpc, text_run_paint_info, location,
-                         Font::kUseFallbackIfFontNotReady, flags,
-                         Font::DrawType::kGlyphsAndClusters);
+      font->DeprecatedDrawBidiText(&mpc, text_run_paint_info, location,
+                                   Font::kUseFallbackIfFontNotReady, flags,
+                                   Font::DrawType::kGlyphsAndClusters);
     }
   });
 }

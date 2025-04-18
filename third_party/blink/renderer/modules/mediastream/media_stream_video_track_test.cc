@@ -25,6 +25,7 @@
 #include "third_party/blink/public/platform/scheduler/test/renderer_scheduler_test_support.h"
 #include "third_party/blink/public/web/web_heap.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_testing.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_media_track_settings.h"
 #include "third_party/blink/renderer/modules/mediastream/media_stream_track_impl.h"
 #include "third_party/blink/renderer/modules/mediastream/mock_encoded_video_frame.h"
 #include "third_party/blink/renderer/modules/mediastream/mock_media_stream_video_sink.h"
@@ -139,6 +140,18 @@ class MediaStreamVideoTrackTest
     source_ = MakeGarbageCollected<MediaStreamSource>(
         "dummy_source_id", MediaStreamSource::kTypeVideo, "dummy_source_name",
         false /* remote */, std::move(mock_source));
+  }
+
+  void InitializeDisplayCaptureSource() {
+    InitializeSource();
+    MediaStreamDevice device = mock_source_->device();
+    device.type = mojom::blink::MediaStreamType::DISPLAY_VIDEO_CAPTURE;
+    device.display_media_info = media::mojom::DisplayMediaInformation::New(
+        media::mojom::DisplayCaptureSurfaceType::BROWSER,
+        /*logical_surface=*/true, media::mojom::CursorCaptureType::NEVER,
+        /*capture_handle=*/nullptr,
+        /*zoom_level=*/100);
+    mock_source_->SetDevice(device);
   }
 
   // Create a track that's associated with |mock_source_|.
@@ -456,10 +469,44 @@ TEST_F(MediaStreamVideoTrackTest, DeliverFramesAndGetSettings) {
   sink.DisconnectFromTrack();
 }
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+TEST_F(MediaStreamVideoTrackTest, ScreenPixelRatioDoesNotIncludePageZoom) {
+  V8TestingScope v8_scope;
+  InitializeDisplayCaptureSource();
+  MockMediaStreamVideoSink sink;
+  WebMediaStreamTrack track = CreateTrack();
+  sink.ConnectToTrack(track);
+  Persistent<MediaStreamComponent> media_stream_component = *track;
+  MediaStreamTrackImpl* mst = MakeGarbageCollected<MediaStreamTrackImpl>(
+      v8_scope.GetExecutionContext(), media_stream_component);
+
+  auto frame1 = media::VideoFrame::CreateBlackFrame(gfx::Size(600, 400));
+  media::VideoFrameMetadata metadata = frame1->metadata();
+  metadata.source_size = gfx::Size(600, 400);
+  metadata.device_scale_factor = 2.0f;
+  frame1->set_metadata(metadata);
+  DeliverVideoFrameAndWaitForRenderer(frame1, &sink);
+  MediaTrackSettings* settings = mst->getSettings();
+  ASSERT_TRUE(settings->hasScreenPixelRatio());
+  EXPECT_EQ(mst->GetZoomLevelForTesting(), 100);
+  EXPECT_EQ(settings->screenPixelRatio(), 2.0f);
+
+  // Changing zoom size should not change pixel ratio
+  media_stream_component->Source()->OnZoomLevelChange(*mst->device(), 150);
+  DeliverVideoFrameAndWaitForRenderer(frame1, &sink);
+  settings = mst->getSettings();
+  ASSERT_TRUE(settings->hasScreenPixelRatio());
+  EXPECT_EQ(mst->GetZoomLevelForTesting(), 150);
+  EXPECT_EQ(settings->screenPixelRatio(), 2.0f);
+
+  sink.DisconnectFromTrack();
+}
+#endif
+
 TEST_F(MediaStreamVideoTrackTest,
        ChangingFrameMetadataTriggersConfigurationChangeEvent) {
   V8TestingScope v8_scope;
-  InitializeSource();
+  InitializeDisplayCaptureSource();
   MockMediaStreamVideoSink sink;
   WebMediaStreamTrack track = CreateTrack();
   sink.ConnectToTrack(track);

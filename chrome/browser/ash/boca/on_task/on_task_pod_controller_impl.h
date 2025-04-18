@@ -8,6 +8,8 @@
 #include <memory>
 
 #include "ash/boca/on_task/on_task_pod_controller.h"
+#include "ash/boca/on_task/on_task_pod_view.h"
+#include "ash/style/icon_button.h"
 #include "base/memory/weak_ptr.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_observer.h"
@@ -16,6 +18,7 @@
 #include "ui/views/widget/widget.h"
 
 class Browser;
+class ImmersiveRevealedLock;
 
 namespace ash {
 
@@ -30,17 +33,27 @@ class OnTaskPodControllerImpl : public OnTaskPodController,
   ~OnTaskPodControllerImpl() override;
 
   // OnTaskPodController:
+  void MaybeNavigateToPreviousPage() override;
+  void MaybeNavigateToNextPage() override;
   void ReloadCurrentPage() override;
+  void ToggleTabStripVisibility(bool show) override;
   void SetSnapLocation(OnTaskPodSnapLocation snap_location) override;
+  void OnPauseModeChanged() override;
+  void OnPageNavigationContextChanged() override;
+  bool CanNavigateToPreviousPage() override;
+  bool CanNavigateToNextPage() override;
+  bool CanToggleTabStripVisibility() override;
 
   // aura::WindowObserver:
   void OnWindowBoundsChanged(aura::Window* window,
                              const gfx::Rect& old_bounds,
                              const gfx::Rect& new_bounds,
                              ui::PropertyChangeReason reason) override;
+  void OnWindowVisibilityChanged(aura::Window* window, bool visible) override;
 
   // Component accessors used for testing purposes.
   views::Widget* GetPodWidgetForTesting();
+  ImmersiveRevealedLock* GetTabStripRevealLockForTesting();
   OnTaskPodSnapLocation GetSnapLocationForTesting() const;
 
  private:
@@ -53,6 +66,16 @@ class OnTaskPodControllerImpl : public OnTaskPodController,
 
   // Pod widget that contains the `OnTaskPodView`.
   std::unique_ptr<views::Widget> pod_widget_;
+
+  // Prevents the tab strip from hiding while in immersive fullscreen.
+  std::unique_ptr<ImmersiveRevealedLock> tab_strip_reveal_lock_;
+
+  // Height of the window frame header. This is used to track the frame header
+  // height when in unlocked mode for consistent positioning in locked mode.
+  int frame_header_height_;
+
+  // Whether the window is pinned or not.
+  bool is_window_pinned_;
 
   // Snap location for the OnTask pod. Top left by default.
   OnTaskPodSnapLocation pod_snap_location_ = OnTaskPodSnapLocation::kTopLeft;

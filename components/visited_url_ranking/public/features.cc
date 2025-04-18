@@ -142,4 +142,23 @@ constexpr base::FeatureParam<double> kVisitedURLRankingScoreThresholdCCTVisit{
     /*name=*/"cct_visit_score_threshold",
     /*default_value=*/0};
 
+BASE_FEATURE(kGroupSuggestionService,
+             "GroupSuggestionService",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+constexpr base::FeatureParam<bool> kGroupSuggestionEnableRecentlyOpened{
+    &kGroupSuggestionService,
+    /*name=*/"group_suggestion_enable_recently_opened",
+    /*default_value=*/true};
+
+constexpr base::FeatureParam<bool> kGroupSuggestionEnableSwitchBetween{
+    &kGroupSuggestionService,
+    /*name=*/"group_suggestion_enable_switch_between",
+    /*default_value=*/true};
+
+constexpr base::FeatureParam<bool> kGroupSuggestionEnableSimilarSource{
+    &kGroupSuggestionService,
+    /*name=*/"group_suggestion_enable_similar_source",
+    /*default_value=*/true};
+
 }  // namespace visited_url_ranking::features

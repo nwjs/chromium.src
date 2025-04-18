@@ -6,7 +6,6 @@
 #define THIRD_PARTY_BLINK_RENDERER_BINDINGS_CORE_V8_SERIALIZATION_SERIALIZED_PARAMS_H_
 
 #include "third_party/blink/renderer/core/html/canvas/image_data.h"
-#include "third_party/blink/renderer/platform/graphics/graphics_types.h"
 #include "third_party/blink/renderer/platform/graphics/image_orientation.h"
 #include "third_party/blink/renderer/platform/text/text_direction.h"
 
@@ -24,9 +23,9 @@ enum class ImageSerializationTag : uint32_t {
   kPredefinedColorSpaceTag = 1,
   // followed by a SerializedPixelFormat enum, used only for ImageBitmap.
   kCanvasPixelFormatTag = 2,
-  // followed by a SerializedImageDataStorageFormat enum, used only for
+  // followed by a SerializedImageDataPixelFormat enum, used only for
   // ImageData.
-  kImageDataStorageFormatTag = 3,
+  kImageDataPixelFormatTag = 3,
   // followed by 1 if the image is origin clean and zero otherwise.
   kOriginCleanTag = 4,
   // followed by 1 if the image is premultiplied and zero otherwise.
@@ -79,12 +78,12 @@ enum class SerializedPixelFormat : uint32_t {
 };
 
 // This enumeration specifies the values used to serialize
-// ImageDataStorageFormat.
-enum class SerializedImageDataStorageFormat : uint32_t {
-  kUint8Clamped = 0,
-  kUint16 = 1,
-  kFloat32 = 2,
-  kLast = kFloat32,
+// ImageDataPixelFormat.
+enum class SerializedImageDataPixelFormat : uint32_t {
+  kRgbaUnorm8 = 0,
+  kRgbaFloat16 = 1,
+  kRgbaFloat32 = 2,
+  kLast = kRgbaFloat32,
 };
 
 enum class SerializedOpacityMode : uint32_t {
@@ -113,24 +112,24 @@ enum class SerializedTextDirection : uint32_t {
 
 class SerializedImageDataSettings {
  public:
-  SerializedImageDataSettings(PredefinedColorSpace, V8ImageDataStorageFormat);
+  SerializedImageDataSettings(PredefinedColorSpace, V8ImageDataPixelFormat);
   SerializedImageDataSettings(SerializedPredefinedColorSpace,
-                              SerializedImageDataStorageFormat);
+                              SerializedImageDataPixelFormat);
 
   ImageDataSettings* GetImageDataSettings() const;
 
   SerializedPredefinedColorSpace GetSerializedPredefinedColorSpace() const {
     return color_space_;
   }
-  SerializedImageDataStorageFormat GetSerializedImageDataStorageFormat() const {
-    return storage_format_;
+  SerializedImageDataPixelFormat GetSerializedImageDataPixelFormat() const {
+    return pixel_format_;
   }
 
  private:
   SerializedPredefinedColorSpace color_space_ =
       SerializedPredefinedColorSpace::kSRGB;
-  SerializedImageDataStorageFormat storage_format_ =
-      SerializedImageDataStorageFormat::kUint8Clamped;
+  SerializedImageDataPixelFormat pixel_format_ =
+      SerializedImageDataPixelFormat::kRgbaUnorm8;
 };
 
 inline constexpr uint32_t kSerializedParametricColorSpaceLength = 16;

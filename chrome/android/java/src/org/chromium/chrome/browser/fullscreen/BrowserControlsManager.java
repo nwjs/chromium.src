@@ -39,7 +39,6 @@ import org.chromium.chrome.browser.tab.TabBrowserControlsOffsetHelper;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabObserver;
 import org.chromium.chrome.browser.toolbar.ControlContainer;
-import org.chromium.chrome.browser.toolbar.ToolbarFeatures;
 import org.chromium.components.browser_ui.util.BrowserControlsVisibilityDelegate;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.BrowserControlsOffsetTagConstraints;
@@ -80,6 +79,7 @@ public class BrowserControlsManager implements ActivityStateListener, BrowserCon
     private int mTopControlsMinHeight;
     private int mBottomControlsHeight;
     private int mBottomControlsMinHeight;
+    private int mBottomControlsAdditionalHeight;
     private boolean mAnimateBrowserControlsHeightChanges;
 
     private int mRendererTopControlOffset;
@@ -133,7 +133,6 @@ public class BrowserControlsManager implements ActivityStateListener, BrowserCon
                         return;
                     } else if (visibility == View.VISIBLE
                             && mContentViewScrolling
-                            && ToolbarFeatures.shouldSuppressCaptures()
                             && mBrowserVisibilityDelegate.get() == BrowserControlsState.BOTH) {
                         // Don't make the controls visible until scrolling has stopped to avoid
                         // doing it more often than we need to. onContentViewScrollingStateChanged
@@ -148,9 +147,7 @@ public class BrowserControlsManager implements ActivityStateListener, BrowserCon
                         for (BrowserControlsStateProvider.Observer obs : mControlsObservers) {
                             obs.onAndroidControlsVisibilityChanged(visibility);
                         }
-                        if (!ToolbarFeatures.shouldSuppressCaptures()
-                                || (mForceRelayoutOnVisibilityChange
-                                        && shouldShowAndroidControls())) {
+                        if (mForceRelayoutOnVisibilityChange && shouldShowAndroidControls()) {
                             // requestLayout is required to trigger a new gatherTransparentRegion(),
                             // which only occurs together with a layout and let's SurfaceFlinger
                             // trim overlays.
@@ -316,7 +313,6 @@ public class BrowserControlsManager implements ActivityStateListener, BrowserCon
                     public void onContentViewScrollingStateChanged(boolean scrolling) {
                         mContentViewScrolling = scrolling;
                         if (!scrolling
-                                && ToolbarFeatures.shouldSuppressCaptures()
                                 && shouldShowAndroidControls()
                                 && mControlContainer.getView().getVisibility() != View.VISIBLE) {
                             scheduleVisibilityUpdate();
@@ -477,6 +473,11 @@ public class BrowserControlsManager implements ActivityStateListener, BrowserCon
                 obs.onBottomControlsHeightChanged(mBottomControlsHeight, mBottomControlsMinHeight);
             }
         }
+    }
+
+    @Override
+    public void setBottomControlsAdditionalHeight(int height) {
+        mBottomControlsAdditionalHeight = height;
     }
 
     private void topControlsAnimationMaybeStarted(
@@ -1269,14 +1270,8 @@ public class BrowserControlsManager implements ActivityStateListener, BrowserCon
             }
         }
 
-        OffsetTagConstraints currentBottomConstraints =
-                mOffsetTagDefinitions.getConstraints().getBottomControlsConstraints();
-        int additionalHeight = 0;
-        if (currentBottomConstraints != null) {
-            additionalHeight = (int) currentBottomConstraints.maxY() - (oldHeight - oldMinHeight);
-        }
         OffsetTagConstraints newBottomConstraints =
-                new OffsetTagConstraints(0, 0, minY, maxY + additionalHeight);
+                new OffsetTagConstraints(0, 0, minY, maxY + mBottomControlsAdditionalHeight);
         BrowserControlsOffsetTagConstraints constraints =
                 new BrowserControlsOffsetTagConstraints(
                         mOffsetTagDefinitions.getConstraints().getTopControlsConstraints(),

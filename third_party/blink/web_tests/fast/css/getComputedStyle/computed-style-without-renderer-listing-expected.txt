@@ -25,7 +25,6 @@ On success, you will see a series of "PASS" messages, followed by "TEST COMPLETE
 -webkit-mask-box-image-width: auto
 -webkit-mask-position-x: 0%
 -webkit-mask-position-y: 0%
--webkit-print-color-adjust: economy
 -webkit-rtl-ordering: logical
 -webkit-text-combine: none
 -webkit-text-decorations-in-effect: none
@@ -140,11 +139,13 @@ color-interpolation-filters: linearrgb
 color-rendering: auto
 column-count: auto
 column-gap: normal
+column-height: auto
 column-rule-color: rgb(0, 0, 0)
 column-rule-style: none
 column-rule-width: 0px
 column-span: none
 column-width: auto
+column-wrap: nowrap
 contain-intrinsic-block-size: none
 contain-intrinsic-height: none
 contain-intrinsic-inline-size: none
@@ -168,7 +169,7 @@ d: none
 direction: ltr
 display: none
 dominant-baseline: auto
-dynamic-range-limit: high
+dynamic-range-limit: no-limit
 empty-cells: show
 field-sizing: fixed
 fill: rgb(0, 0, 0)
@@ -324,6 +325,7 @@ position-area: none
 position-try-fallbacks: none
 position-try-order: normal
 position-visibility: always
+print-color-adjust: economy
 r: 0px
 reading-flow: normal
 reading-order: 0

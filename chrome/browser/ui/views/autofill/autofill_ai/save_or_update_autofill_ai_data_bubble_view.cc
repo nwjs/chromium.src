@@ -9,15 +9,16 @@
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/ui/autofill/autofill_ai/save_or_update_autofill_ai_data_controller.h"
 #include "chrome/browser/ui/views/accessibility/theme_tracking_non_accessible_image_view.h"
-#include "chrome/browser/ui/views/autofill/popup/autofill_ai/autofill_ai_icon_image_view.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/grit/theme_resources.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/optimization_guide/proto/features/common_quality_data.pb.h"
 #include "components/strings/grit/components_strings.h"
+#include "ui/accessibility/ax_enums.mojom-shared.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/ui_base_types.h"
+#include "ui/color/color_id.h"
 #include "ui/gfx/font.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/views/accessibility/view_accessibility.h"
@@ -26,9 +27,11 @@
 #include "ui/views/controls/button/image_button_factory.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/controls/styled_label.h"
+#include "ui/views/layout/box_layout.h"
 #include "ui/views/layout/box_layout_view.h"
 #include "ui/views/layout/flex_layout_view.h"
 #include "ui/views/style/typography.h"
+#include "ui/views/view_class_properties.h"
 
 namespace autofill_ai {
 
@@ -36,66 +39,43 @@ namespace {
 
 // The padding between the header (image and title) and the elements around it.
 constexpr int kHeaderPadding = 20;
-
 constexpr int kBubbleWidth = 320;
+constexpr int kNewOrUpdatedAttributeDotSize = 4;
+constexpr int kNewOrUpdatedAttributeDotRightSpacing = 4;
+constexpr int kNewOrUpdatedAttributeDotTopSpacing = 8;
 
-// Creates a view for the label attribute value.
-// - When the attribute value is a new or updated value from the new entity,
-//   the displayed text is bold.
-// - When the value is previous, to be updated value of the old entity, the
-//   text has a strike-through
-// This is intended to give users feedback about which entity value will be
-// changed.
-std::unique_ptr<views::Label> GetAttributeValueView(
-    const SaveOrUpdateAutofillAiDataController::EntityAttributeUpdateDetails&
-        detail) {
-  std::unique_ptr<views::Label> label =
-      std::make_unique<views::Label>(detail.attribute_value);
-  label->SetHorizontalAlignment(gfx::HorizontalAlignment::ALIGN_RIGHT);
-
-  const bool should_add_strike_through =
-      detail.update_type ==
-      SaveOrUpdateAutofillAiDataController::EntityAttributeUpdateType::
-          kOldEntityAttributeUpdated;
-  if (!should_add_strike_through) {
-    const bool is_new_or_updated_attribute_from_new_entity =
-        detail.update_type !=
-        SaveOrUpdateAutofillAiDataController::EntityAttributeUpdateType::
-            kNewEntityAttributeUnchanged;
-    label->SetTextStyle(is_new_or_updated_attribute_from_new_entity
-                            ? views::style::STYLE_BODY_3_MEDIUM
-                            : views::style::STYLE_BODY_4);
-  } else {
-    label->SetTextStyle(views::style::STYLE_BODY_3_MEDIUM);
-    label->SetFontList(
-        label->font_list().DeriveWithStyle(gfx::Font::STRIKE_THROUGH));
-  }
-
-  return label;
+int GetVerticaSpaceBetweenDialogSections() {
+  return ChromeLayoutProvider::Get()->GetDistanceMetric(
+             DISTANCE_CONTROL_LIST_VERTICAL) *
+         2;
 }
 
-// Helper to create a row displayed in the dialog. This row contains information
-// about the entity to be saved and possibly information about the old entity
-// value that was updated.
-std::unique_ptr<views::View> BuildEntityAttributeRow(
-    const SaveOrUpdateAutofillAiDataController::EntityAttributeUpdateDetails&
-        detail) {
-  auto row = views::Builder<views::BoxLayoutView>()
-                 .SetOrientation(views::BoxLayout::Orientation::kHorizontal)
-                 .SetMainAxisAlignment(views::LayoutAlignment::kCenter)
-                 .Build();
-  row->AddChildView(
-      views::Builder<views::Label>()
-          .SetText(detail.attribute_name)
-          .SetTextStyle(views::style::STYLE_BODY_4)
-          .SetHorizontalAlignment(gfx::HorizontalAlignment::ALIGN_LEFT)
-          .Build());
-  row->AddChildView(GetAttributeValueView(detail));
+gfx::Insets GetBubbleInnerMargins() {
+  return ChromeLayoutProvider::Get()->GetDialogInsetsForContentType(
+      views::DialogContentType::kControl, views::DialogContentType::kControl);
+}
 
-  // Set every child to expand with the same ratio.
-  for (auto child : row->children()) {
-    row->SetFlexForView(child, 1);
-  }
+int GetEntityAttributeAndValueLabelMaxWidth() {
+  // The maximum width is the bubble size minus its margin divided by two.
+  // One half is for the entity attribute name and the other for the value.
+  return (kBubbleWidth - GetBubbleInnerMargins().width() -
+          ChromeLayoutProvider::Get()->GetDistanceMetric(
+              DISTANCE_RELATED_CONTROL_HORIZONTAL_SMALL)) /
+         2;
+}
+
+std::unique_ptr<views::BoxLayoutView> GetEntityAttributeAndValueLayout(
+    views::BoxLayout::CrossAxisAlignment aligment) {
+  auto row =
+      views::Builder<views::BoxLayoutView>()
+          .SetOrientation(views::BoxLayout::Orientation::kVertical)
+          .SetCrossAxisAlignment(aligment)
+          .SetMainAxisAlignment(views::LayoutAlignment::kStart)
+          // The minimum width is also set because we want to always reserve the
+          // same size for both the attribute name and its value, meaning no
+          // resizing/stretching.
+          .SetMinimumCrossAxisSize(GetEntityAttributeAndValueLabelMaxWidth())
+          .Build();
   return row;
 }
 
@@ -138,66 +118,45 @@ SaveOrUpdateAutofillAiDataBubbleView::SaveOrUpdateAutofillAiDataBubbleView(
   set_fixed_width(kBubbleWidth);
   SetLayoutManager(std::make_unique<views::BoxLayout>(
       views::BoxLayout::Orientation::kVertical));
-  set_margins(ChromeLayoutProvider::Get()->GetDialogInsetsForContentType(
-      views::DialogContentType::kControl, views::DialogContentType::kControl));
+  set_margins(GetBubbleInnerMargins());
   SetAccessibleTitle(controller_->GetDialogTitle());
-  const int kVerficalSpacingBetweenAttributes =
-      ChromeLayoutProvider::Get()->GetDistanceMetric(
-          DISTANCE_CONTROL_LIST_VERTICAL);
 
-  auto* entity_attributes_wrapper = AddChildView(
+  auto* main_content_wrapper = AddChildView(
       views::Builder<views::BoxLayoutView>()
           .SetOrientation(views::BoxLayout::Orientation::kVertical)
-          .SetBetweenChildSpacing(kVerficalSpacingBetweenAttributes * 2)
+          .SetBetweenChildSpacing(GetVerticaSpaceBetweenDialogSections())
           .SetCrossAxisAlignment(views::LayoutAlignment::kStart)
           .Build());
 
-  auto* new_entity_added_or_updated_attributes_container =
-      entity_attributes_wrapper->AddChildView(
-          views::Builder<views::BoxLayoutView>()
-              .SetOrientation(views::BoxLayout::Orientation::kVertical)
-              .SetBetweenChildSpacing(kVerficalSpacingBetweenAttributes)
-              .SetCrossAxisAlignment(views::LayoutAlignment::kStart)
-              .Build());
-  new_entity_added_or_updated_attributes_container->SetID(
-      kNewEntityAddedOrUpdatedAttributesContainer);
-
-  // Only present in the update case.
-  views::View* new_entity_unchanged_or_old_entity_updated_attributes_container =
-      nullptr;
   const bool is_save_prompt = controller_->IsSavePrompt();
-  if (!is_save_prompt) {
-    new_entity_unchanged_or_old_entity_updated_attributes_container =
-        entity_attributes_wrapper->AddChildView(
-            views::Builder<views::BoxLayoutView>()
-                .SetOrientation(views::BoxLayout::Orientation::kVertical)
-                .SetBetweenChildSpacing(kVerficalSpacingBetweenAttributes)
-                .SetCrossAxisAlignment(views::LayoutAlignment::kStart)
-                .Build());
-    new_entity_unchanged_or_old_entity_updated_attributes_container->SetID(
-        kNewEntityUnchagedOrOldEntityUpdatedAttributesContainer);
+  if (is_save_prompt) {
+    main_content_wrapper->AddChildView(
+        views::Builder<views::Label>()
+            .SetText(l10n_util::GetStringUTF16(
+                IDS_AUTOFILL_AI_SAVE_ENTITY_DIALOG_SUBTITLE))
+            .SetTextStyle(views::style::STYLE_BODY_4)
+            .SetAccessibleRole(ax::mojom::Role::kDetails)
+            .SetMultiLine(true)
+            .SetHorizontalAlignment(gfx::HorizontalAlignment::ALIGN_LEFT)
+            .Build());
   }
+
+  auto* attributes_wrapper = main_content_wrapper->AddChildView(
+      views::Builder<views::BoxLayoutView>()
+          .SetOrientation(views::BoxLayout::Orientation::kVertical)
+          .SetBetweenChildSpacing(
+              ChromeLayoutProvider::Get()->GetDistanceMetric(
+                  DISTANCE_CONTROL_LIST_VERTICAL))
+          .SetCrossAxisAlignment(views::LayoutAlignment::kStart)
+          .SetAccessibleRole(ax::mojom::Role::kDescriptionList)
+          .Build());
 
   const std::vector<
       SaveOrUpdateAutofillAiDataController::EntityAttributeUpdateDetails>
       attributes_details = controller_->GetUpdatedAttributesDetails();
   for (const SaveOrUpdateAutofillAiDataController::EntityAttributeUpdateDetails&
            detail : attributes_details) {
-    const bool new_entity_added_or_updated_attibute =
-        (detail.update_type ==
-         SaveOrUpdateAutofillAiDataController::EntityAttributeUpdateType::
-             kNewEntityAttributeUpdated) ||
-        (detail.update_type ==
-         SaveOrUpdateAutofillAiDataController::EntityAttributeUpdateType::
-             kNewEntityAttributeAdded);
-    if (new_entity_added_or_updated_attibute) {
-      new_entity_added_or_updated_attributes_container->AddChildView(
-          BuildEntityAttributeRow(detail));
-    } else {
-      CHECK(!is_save_prompt);
-      new_entity_unchanged_or_old_entity_updated_attributes_container
-          ->AddChildView(BuildEntityAttributeRow(detail));
-    }
+    attributes_wrapper->AddChildView(BuildEntityAttributeRow(detail));
   }
 
   DialogDelegate::SetButtonLabel(
@@ -217,6 +176,110 @@ SaveOrUpdateAutofillAiDataBubbleView::SaveOrUpdateAutofillAiDataBubbleView(
 SaveOrUpdateAutofillAiDataBubbleView::~SaveOrUpdateAutofillAiDataBubbleView() =
     default;
 
+std::unique_ptr<views::View>
+SaveOrUpdateAutofillAiDataBubbleView::GetAttributeValueView(
+    const SaveOrUpdateAutofillAiDataController::EntityAttributeUpdateDetails&
+        detail) {
+  std::unique_ptr<views::BoxLayoutView> atribute_value_row_wrapper =
+      GetEntityAttributeAndValueLayout(
+          views::BoxLayout::CrossAxisAlignment::kEnd);
+  std::unique_ptr<views::Label> label =
+      views::Builder<views::Label>()
+          .SetText(detail.attribute_value)
+          .SetHorizontalAlignment(gfx::HorizontalAlignment::ALIGN_RIGHT)
+          .SetTextStyle(views::style::STYLE_BODY_3_MEDIUM)
+          .SetAccessibleRole(ax::mojom::Role::kDefinition)
+          .SetMultiLine(true)
+          .SetAllowCharacterBreak(true)
+          .SetMaximumWidth(GetEntityAttributeAndValueLabelMaxWidth())
+          .Build();
+  attribute_values_observation_.AddObservation(label.get());
+
+  // Only update dialogs have a dot circle in front of added or updated values.
+  const bool existing_entity_added_or_updated_attribute =
+      !controller_->IsSavePrompt() &&
+      detail.update_type !=
+          SaveOrUpdateAutofillAiDataController::EntityAttributeUpdateType::
+              kNewEntityAttributeUnchanged;
+  if (!existing_entity_added_or_updated_attribute) {
+    atribute_value_row_wrapper->AddChildView(std::move(label));
+    return atribute_value_row_wrapper;
+  }
+
+  views::View* updated_entity_dot_and_value_wrapper =
+      atribute_value_row_wrapper->AddChildView(
+          views::Builder<views::BoxLayoutView>()
+              .SetOrientation(views::BoxLayout::Orientation::kHorizontal)
+              .SetCrossAxisAlignment(
+                  views::BoxLayout::CrossAxisAlignment::kStart)
+              .SetMainAxisAlignment(views::LayoutAlignment::kEnd)
+              .Build());
+  views::BoxLayoutView* updated_entity_dot_wrapper =
+      updated_entity_dot_and_value_wrapper->AddChildView(
+          views::Builder<views::BoxLayoutView>()
+              .SetOrientation(views::BoxLayout::Orientation::kHorizontal)
+              .SetCrossAxisAlignment(
+                  views::BoxLayout::CrossAxisAlignment::kCenter)
+              .Build());
+
+  views::BoxLayoutView* updated_entity_dot =
+      updated_entity_dot_wrapper->AddChildView(
+          views::Builder<views::BoxLayoutView>()
+              .SetProperty(
+                  views::kMarginsKey,
+                  gfx::Insets::TLBR(kNewOrUpdatedAttributeDotTopSpacing, 0, 0,
+                                    kNewOrUpdatedAttributeDotRightSpacing))
+              .SetCrossAxisAlignment(
+                  views::BoxLayout::CrossAxisAlignment::kCenter)
+              .SetMainAxisAlignment(
+                  views::BoxLayout::MainAxisAlignment::kCenter)
+              .Build());
+  updated_entity_dot->SetPreferredSize(
+      gfx::Size(kNewOrUpdatedAttributeDotSize, kNewOrUpdatedAttributeDotSize));
+  updated_entity_dot->SizeToPreferredSize();
+  updated_entity_dot->SetBackground(views::CreateRoundedRectBackground(
+      ui::kColorButtonBackgroundProminent, kNewOrUpdatedAttributeDotSize / 2));
+  label->GetViewAccessibility().SetName(l10n_util::GetStringFUTF16(
+      detail.update_type ==
+              SaveOrUpdateAutofillAiDataController::EntityAttributeUpdateType::
+                  kNewEntityAttributeAdded
+          ? IDS_AUTOFILL_AI_UPDATE_ENTITY_DIALOG_NEW_ATTRIBUTE_ACCESSIBLE_NAME
+          : IDS_AUTOFILL_AI_UPDATE_ENTITY_DIALOG_UPDATED_ATTRIBUTE_ACCESSIBLE_NAME,
+      detail.attribute_value));
+  updated_entity_dot_and_value_wrapper->AddChildView(std::move(label));
+
+  return atribute_value_row_wrapper;
+}
+
+std::unique_ptr<views::View>
+SaveOrUpdateAutofillAiDataBubbleView::BuildEntityAttributeRow(
+    const SaveOrUpdateAutofillAiDataController::EntityAttributeUpdateDetails&
+        detail) {
+  auto row = views::Builder<views::BoxLayoutView>()
+                 .SetOrientation(views::BoxLayout::Orientation::kHorizontal)
+                 .SetMainAxisAlignment(views::LayoutAlignment::kCenter)
+                 .Build();
+
+  views::BoxLayoutView* entity_attribute_wrapper =
+      row->AddChildView(GetEntityAttributeAndValueLayout(
+          views::BoxLayout::CrossAxisAlignment::kStart));
+  entity_attribute_wrapper->AddChildView(
+      views::Builder<views::Label>()
+          .SetText(detail.attribute_name)
+          .SetTextStyle(views::style::STYLE_BODY_4)
+          .SetHorizontalAlignment(gfx::HorizontalAlignment::ALIGN_LEFT)
+          .SetAccessibleRole(ax::mojom::Role::kTerm)
+          .SetElideBehavior(gfx::ELIDE_TAIL)
+          .SetMaximumWidthSingleLine(GetEntityAttributeAndValueLabelMaxWidth())
+          .Build());
+  row->AddChildView(GetAttributeValueView(detail));
+  // Set every child to expand with the same ratio.
+  for (auto child : row->children()) {
+    row->SetFlexForView(child, 1);
+  }
+  return row;
+}
+
 void SaveOrUpdateAutofillAiDataBubbleView::Hide() {
   CloseBubble();
   if (controller_) {
@@ -226,15 +289,26 @@ void SaveOrUpdateAutofillAiDataBubbleView::Hide() {
   controller_ = nullptr;
 }
 
+void SaveOrUpdateAutofillAiDataBubbleView::OnViewBoundsChanged(
+    views::View* observed_view) {
+  views::Label* attribute_value_view =
+      views::AsViewClass<views::Label>(observed_view);
+  if (!attribute_value_view) {
+    return;
+  }
+
+  // If the value leads to more than a single line, align the text to the left.
+  if (attribute_value_view->GetRequiredLines() > 1) {
+    attribute_value_view->SetHorizontalAlignment(
+        gfx::HorizontalAlignment::ALIGN_LEFT);
+  }
+}
+
 void SaveOrUpdateAutofillAiDataBubbleView::AddedToWidget() {
-  const int kHorizontalSpacing = ChromeLayoutProvider::Get()->GetDistanceMetric(
-      DISTANCE_RELATED_LABEL_HORIZONTAL_LIST);
   auto header_container =
       views::Builder<views::BoxLayoutView>()
-          .SetOrientation(views::BoxLayout::Orientation::kHorizontal)
-          .SetBetweenChildSpacing(kHorizontalSpacing)
-          .SetMainAxisAlignment(views::LayoutAlignment::kStart)
-          .SetCrossAxisAlignment(views::LayoutAlignment::kCenter)
+          .SetOrientation(views::BoxLayout::Orientation::kVertical)
+          .SetBetweenChildSpacing(GetVerticaSpaceBetweenDialogSections())
           // The bottom padding has to be subtracted by the distance between the
           // information that will be saved, so to avoid double padding.
           .SetInsideBorderInsets(gfx::Insets::TLBR(
@@ -244,13 +318,21 @@ void SaveOrUpdateAutofillAiDataBubbleView::AddedToWidget() {
                                   DISTANCE_CONTROL_LIST_VERTICAL)),
               kHeaderPadding))
           .Build();
-  header_container->AddChildView(
-      autofill_ai::CreateLargeAutofillAiIconImageView());
+  if (controller_->IsSavePrompt()) {
+    std::pair<int, int> images = controller_->GetTitleImagesResourceId();
+    header_container->AddChildView(
+        std::make_unique<ThemeTrackingNonAccessibleImageView>(
+            ui::ImageModel::FromResourceId(images.first),
+            ui::ImageModel::FromResourceId(images.second),
+            base::BindRepeating(&views::BubbleDialogDelegate::background_color,
+                                base::Unretained(this))));
+  }
   header_container->AddChildView(
       views::Builder<views::Label>()
           .SetText(controller_->GetDialogTitle())
           .SetTextStyle(views::style::STYLE_HEADLINE_4)
           .SetHorizontalAlignment(gfx::HorizontalAlignment::ALIGN_LEFT)
+          .SetAccessibleRole(ax::mojom::Role::kHeading)
           .Build());
   GetBubbleFrameView()->SetHeaderView(std::move(header_container));
 }

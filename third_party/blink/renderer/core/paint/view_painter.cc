@@ -154,7 +154,7 @@ void ViewPainter::PaintBoxDecorationBackground(const PaintInfo& paint_info) {
   bool painted_separate_effect = false;
 
   bool should_apply_root_background_behavior =
-      document.IsHTMLDocument() || document.IsXHTMLDocument();
+      ShouldApplyRootBackgroundBehavior(document);
 
   bool should_paint_background = !paint_info.ShouldSkipBackground() &&
                                  (layout_view.HasBoxDecorationBackground() ||
@@ -327,11 +327,11 @@ void ViewPainter::PaintRootElementGroup(
   if (!root_object || !root_object->IsBox()) {
     background_renderable = false;
   } else {
-    const auto& view_contents_state =
-        layout_view.FirstFragment().ContentsProperties();
-    if (view_contents_state != background_paint_state) {
+    const auto& view_contents_transform =
+        layout_view.FirstFragment().ContentsTransform();
+    if (&view_contents_transform != &background_paint_state.Transform()) {
       GeometryMapper::SourceToDestinationRect(
-          view_contents_state.Transform(), background_paint_state.Transform(),
+          view_contents_transform, background_paint_state.Transform(),
           paint_rect);
       if (paint_rect.IsEmpty())
         background_renderable = false;
@@ -341,6 +341,7 @@ void ViewPainter::PaintRootElementGroup(
       background_image_offset = PhysicalOffset(paint_rect.origin());
     } else {
       background_image_offset = -root_object->FirstFragment().PaintOffset();
+      background_image_offset += PhysicalOffset(paint_rect.origin());
     }
 
     if (box_fragment_.GetBoxType() == PhysicalFragment::kPageContainer) {
@@ -451,6 +452,10 @@ PhysicalRect ViewPainter::BackgroundRect() const {
     return box_fragment_.LocalRect();
   }
   return GetLayoutView().BackgroundRect();
+}
+
+bool ViewPainter::ShouldApplyRootBackgroundBehavior(const Document& document) {
+  return document.IsHTMLDocument() || document.IsXHTMLDocument();
 }
 
 }  // namespace blink

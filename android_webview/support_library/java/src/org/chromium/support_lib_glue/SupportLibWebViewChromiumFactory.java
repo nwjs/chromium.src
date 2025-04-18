@@ -112,6 +112,7 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
                 Features.WEB_VIEW_NAVIGATION_CLIENT_BASIC_USAGE,
                 Features.ASYNC_SHOULD_INTERCEPT_REQUEST + Features.DEV_SUFFIX,
                 Features.PROVIDER_WEAKLY_REF_WEBVIEW,
+                Features.PAYMENT_REQUEST,
                 // Add new features above. New features must include `+ Features.DEV_SUFFIX`
                 // when they're initially added (this can be removed in a future CL). The final
                 // feature should have a trailing comma for cleaner diffs.
@@ -261,6 +262,10 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
         ApiCall.WEB_RESPONSE_CALLBACK_DO_NOT_INTERCEPT,
         ApiCall.WEB_RESPONSE_CALLBACK_INTERCEPT,
         ApiCall.NAVIGATION_GET_PAGE,
+        ApiCall.SET_PAYMENT_REQUEST_ENABLED,
+        ApiCall.GET_PAYMENT_REQUEST_ENABLED,
+        ApiCall.SET_HAS_ENROLLED_INSTRUMENT_ENABLED,
+        ApiCall.GET_HAS_ENROLLED_INSTRUMENT_ENABLED,
         // Add new constants above. The final constant should have a trailing comma for cleaner
         // diffs.
         ApiCall.COUNT, // Added to suppress WrongConstant in #recordApiCall
@@ -408,9 +413,13 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
         int WEB_RESPONSE_CALLBACK_DO_NOT_INTERCEPT = 138;
         int WEB_RESPONSE_CALLBACK_INTERCEPT = 139;
         int NAVIGATION_GET_PAGE = 140;
+        int SET_PAYMENT_REQUEST_ENABLED = 141;
+        int GET_PAYMENT_REQUEST_ENABLED = 142;
+        int SET_HAS_ENROLLED_INSTRUMENT_ENABLED = 143;
+        int GET_HAS_ENROLLED_INSTRUMENT_ENABLED = 144;
 
         // Remember to update AndroidXWebkitApiCall in enums.xml when adding new values here
-        int COUNT = 141;
+        int COUNT = 145;
     }
 
     // LINT.ThenChange(/tools/metrics/histograms/metadata/android/enums.xml:AndroidXWebkitApiCall)

@@ -4,6 +4,7 @@
 <translation id="1000436330784933699">您可以在此处打开智能镜头。</translation>
 <translation id="1042296835509784301">在 Chromium 中打开密码管理工具。</translation>
 <translation id="1047130070405668746">选择“Chromium”</translation>
+<translation id="1086486568852410168">使用 Google 智能镜头搜索</translation>
 <translation id="1091252999271033193">这意味着 Chromium 每次都会对移动网站发出请求。</translation>
 <translation id="1115463765356382667">完成这些建议的操作，充分利用 Chromium。</translation>
 <translation id="1140315115515116765">默认使用 Chromium 轻松获取价格分析</translation>
@@ -90,14 +91,15 @@
 <translation id="3054480780637153380">在 iOS 中打开 Chromium 设置，然后点按“默认浏览器应用”并选择“Chromium”。</translation>
 <translation id="3102849287235003384">若要在所有网站上退出您的 Google 账号，请<ph name="BEGIN_LINK" />退出 Chromium<ph name="END_LINK" />。</translation>
 <translation id="3115956258722352278">将 Chromium 设为默认浏览器？</translation>
+<translation id="3180939591219927904">开启“在您关闭 Chromium 时锁定无痕式标签页”</translation>
 <translation id="3242612358525156339">从设备的设置中打开“<ph name="TEXT_OF_THE_SETTINGS_MENU_ITEM" />”，然后选择“Chromium”</translation>
 <translation id="328933489847748230">{count,plural, =1{目前显示了 1 个 Chromium 窗口}other{目前显示了 {count} 个 Chromium 窗口}}</translation>
 <translation id="3344973607274501920">Chromium 无法检查您的密码。请尝试检查您的互联网连接。</translation>
 <translation id="3366305173356742781">您账号中的 Chromium 数据</translation>
-<translation id="33788334537425157">开启“在您关闭 Chromium 时锁定无痕式标签页”</translation>
 <translation id="3387107508582892610">{THRESHOLD,plural, =1{当 Chromium 闲置 {THRESHOLD} 分钟后，就会发生这种情况。清除的数据可能包括历史记录和自动填充数据。}other{当 Chromium 闲置 {THRESHOLD} 分钟后，就会发生这种情况。清除的数据可能包括历史记录和自动填充数据。}}</translation>
 <translation id="3410395242749598859">部分 Chromium 数据尚未保存到 <ph name="EMAIL" />。
 建议等待几分钟，然后再尝试切换账号。如果现在就切换账号，这些数据将被删除。</translation>
+<translation id="3440830787838130530">在 Google 密码管理工具中，您可以轻松安全地与家人群组分享密码</translation>
 <translation id="3472200483164753384">在 Chromium Canary 版中不受支持</translation>
 <translation id="347967311580159871">如需更多使用数据来提升 Chromium 体验的设置，请前往 <ph name="BEGIN_LINK" />Google 服务<ph name="END_LINK" />。</translation>
 <translation id="3512168799938877162">未能分享密码。请检查互联网连接，确保您已登录 Chromium。然后，再试一次。</translation>
@@ -185,6 +187,7 @@
 1. 打开“设置”
 2. 点按“默认浏览器应用”
 3. 选择“Chromium”</translation>
+<translation id="5482686278086727777">若要接收来自 Chromium 的标签页提醒，请在 iOS 设置中开启通知。</translation>
 <translation id="5521125884468363740">要查看您在其他设备上用 Chromium 打开的标签页，请登录账号并开启同步功能</translation>
 <translation id="5534584691915394889">这是为了在 Apple 日历中通过 Chromium 和 Google 智能镜头创建活动。</translation>
 <translation id="5571094606370987472">打开最近使用 Chromium 打开的标签页。</translation>
@@ -206,7 +209,6 @@
   • 如果您将历史记录同步到 Google 账号，相关指标可能会包含与您访问的网址有关的信息。<ph name="END_INDENT" /></translation>
 <translation id="5932787118589620366">删除 Chromium 中的浏览数据。</translation>
 <translation id="593808800391107017">接收有关 Chromium 为您自动检测到的任何隐私或安全问题的提醒。</translation>
-<translation id="5945387852661427312">您正要登录由 <ph name="DOMAIN" /> 管理的账号，并要授权其管理员控制您的 Chromium 数据。您的数据将与此账号永久关联。退出 Chromium 后，您的数据将从这台设备上删除，但仍会保留在您的 Google 账号中。</translation>
 <translation id="5951593919357934226">最大限度利用 Chromium。</translation>
 <translation id="5985254578475526217">若要接收来自 Chromium 的通知，请在 iOS 设置中开启通知。</translation>
 <translation id="6104024151682120539">在 Chromium 中打开</translation>
@@ -216,7 +218,6 @@
 <translation id="6154098560469640583">每次点按消息、文档和其他应用中的链接时，都使用 Chromium 打开。</translation>
 <translation id="6157162508956739031">自动填充 Chromium 中的密码和通行密钥，快速登录应用和网站</translation>
 <translation id="6170619162539716595">允许 Chromium 使用 Google 地图针对检测到的地址为您提供路线和当地信息。</translation>
-<translation id="6197255575340902638">如果您隐藏“<ph name="MODULE_NAME" />”，Chromium 将不再自动跟踪您的未来包裹，而是会删除您的所有过往包裹跟踪数据。</translation>
 <translation id="6247557882553405851">Google 密码管理工具</translation>
 <translation id="6268381023930128611">退出 Chromium？</translation>
 <translation id="6301717043141881464">若要轻松获取其他应用中已保存的密码，请选择 Chromium 的自动填充功能</translation>
@@ -261,6 +262,7 @@
 <translation id="7337881442233988129">Chromium</translation>
 <translation id="7357211569052832586">所选数据已从 Chromium 和同步的设备中移除。不过，您的 Google 账号在 history.google.com 上可能有其他形式的浏览记录（例如，在其他 Google 服务中的搜索记录和活动记录）。</translation>
 <translation id="7395825497086981028">系统会将您的密码保存到 <ph name="EMAIL" /> 的密码管理工具中。</translation>
+<translation id="7504829997542308412">打开 Chromium</translation>
 <translation id="7531461704633548377">来自 Chromium</translation>
 <translation id="7554983317097061001">Chromium 提示：将 Chromium 移至程序坞</translation>
 <translation id="7576863740961052505">管理 Chromium 设置</translation>
@@ -273,11 +275,11 @@
 <translation id="7784950022329154821">在您关闭 Chromium 时锁定无痕式标签页</translation>
 <translation id="78025249032851484">您的 Chromium 版本过旧。</translation>
 <translation id="7859018312476869945">当您在地址栏或搜索框中输入内容时，Chromium 会将您输入的内容发送给默认搜索引擎，以便为您提供更好的建议。在无痕模式下，此设置处于关闭状态。</translation>
-<translation id="7859432380288435856">Chromium 将检测您所访问的网站上的包裹跟踪编号，并在新标签页中向您显示包裹动态。您的数据将分享给 Google，以便系统提供此功能和改进 Google 购物，让所有人都受益。</translation>
 <translation id="7890287942691234100">开始使用 Chromium 扫描器</translation>
 <translation id="7905064834449738336">当您使用某个密码时，如果 Chromium 发现它已被在线发布，就会向您发出警告。当 Chromium 进行这项检查时，您的密码和用户名都会被加密，所以绝不会被任何人员/任何一方（包括 Google）读取。</translation>
 <translation id="7928628054454574139">每当您点按其他应用中的链接时，系统都会使用 Chromium 打开相应链接</translation>
 <translation id="7934404985878918282">查看 Chromium 阅读清单</translation>
+<translation id="7935734571048689933">Chromium 处于受管理状态</translation>
 <translation id="7951793218148208717">在 Chromium 中打开新标签页。</translation>
 <translation id="7980860476903281594">Chromium 会将您的位置信息分享给您允许的网站。</translation>
 <translation id="7994322153108931467">如需获取实用 Chromium 提示，请在 iOS 设置中开启通知。</translation>
@@ -308,6 +310,7 @@
 <translation id="8754966941001340678">Chromium 建议使用增强型保护</translation>
 <translation id="8759037115129007407">您的家庭成员目前无法接收密码。请让他们更新 Chromium 并同步其密码。<ph name="BEGIN_LINK" />了解详情<ph name="END_LINK" /></translation>
 <translation id="8776843108004031667">系统会从 Chromium 中移除此账号以及所有未保存的数据。</translation>
+<translation id="8793333988063379360">您可以在此处找到 Chromium 设置和其他内容</translation>
 <translation id="8805148242934787134">将 Chromium 设为默认浏览器</translation>
 <translation id="8826789549860004832">继续设置浏览器，即可充分利用 Chromium 的各项功能。</translation>
 <translation id="88376265765385899">打开 Chromium 书签。</translation>

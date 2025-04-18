@@ -10,6 +10,7 @@ import groovy.transform.SourceURI
 import org.gradle.api.DefaultTask
 import org.gradle.api.Project
 import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.TaskAction
 
 import java.nio.file.Path
@@ -24,7 +25,7 @@ import java.util.regex.Pattern
  * Used by declaring a new task in a {@code build.gradle} file:
  * <pre>
  * task myTaskName(type: BuildConfigGenerator) {
- *   repositoryPath 'build_files_and_repository_location/'
+ *   pathToBuildGradle 'build_files_and_repository_location/'
  * }
  * </pre>
  */
@@ -40,8 +41,13 @@ class BuildConfigGenerator extends DefaultTask {
     private static final String DEPS_TOKEN_END = '# === ANDROID_DEPS Generated Code End ==='
     private static final Pattern DEPS_GEN_PATTERN = Pattern.compile(
             "${DEPS_TOKEN_START}(.*)${DEPS_TOKEN_END}", Pattern.DOTALL)
-    private static final String DOWNLOAD_ROOT_DIRECTORY = 'cipd'
     private static final String LIBS_DIRECTORY = 'libs'
+
+    private static final String ANDROIDX_PROJECT_PATH = 'third_party/androidx'
+    private static final String AUTOROLLED_PROJECT_PATH = 'third_party/android_deps/autorolled'
+    private static final String MAIN_PROJECT_PATH = 'third_party/android_deps'
+    private static final List<String> ALLOWED_PROJECT_PATHS = [ANDROIDX_PROJECT_PATH, AUTOROLLED_PROJECT_PATH, MAIN_PROJECT_PATH]
+
     // The 3pp bot now adds an epoch to the version tag, this needs to be kept in sync with 3pp epoch at:
     /* groovylint-disable-next-line LineLength */
     // https://source.chromium.org/chromium/infra/infra/+/master:recipes/recipe_modules/support_3pp/resolved_spec.py?q=symbol:PACKAGE_EPOCH&ss=chromium
@@ -49,7 +55,7 @@ class BuildConfigGenerator extends DefaultTask {
 
     // Used to disable breaking changes while the migration to autorolling
     // portions of android_deps is complete. See http://crbug.com/40774645
-    private static final boolean AUTOROLL_MIGRATION_IN_PROGRESS = true
+    private static final boolean AUTOROLL_MIGRATION_IN_PROGRESS = false
 
     // Use this to exclude a dep from being depended upon but keep the target.
     private static final List<String> DISALLOW_DEPS = [
@@ -112,11 +118,6 @@ class BuildConfigGenerator extends DefaultTask {
             // Logic for google_play_services_package added below.
     ]
 
-    // Prefixes of autorolled libraries in //third_party/android_deps_autorolled.
-    static final List<String> AUTOROLLED_LIB_PREFIXES = []
-
-    static final String AUTOROLLED_REPO_PATH = 'third_party/android_deps_autorolled'
-
     static final String COPYRIGHT_HEADER = '''\
         # Copyright 2021 The Chromium Authors
         # Use of this source code is governed by a BSD-style license that can be
@@ -127,25 +128,32 @@ class BuildConfigGenerator extends DefaultTask {
     static final ConcurrentMap<String, String> URL_TO_STRING_CACHE = new ConcurrentHashMap<>()
 
     /**
-     * Directory where the artifacts will be downloaded and where files will be generated.
-     * Note: this path is specified as relative to the chromium source root, and must be normalised
-     * to an absolute path before being used, as Groovy would base relative path where the script
-     * is being executed.
+     * Directory where the build.gradle and BUILD.gn files live, relative to //.
      */
     @Input
-    String repositoryPath
+    String pathToBuildGradle
 
-    /** Relative path to the Chromium source root from the build.gradle file. */
-    @Input
-    String chromiumSourceRoot
+    /**
+     * Directory where autorolled dep binary files will live (.aar/.jar)
+     * when rolled. This is used to inform filepaths in BUILD.gn and the
+     * like.
+     */
+    @Optional @Input
+    String artifactSubdir
 
-    /** Name of the cipd root package. */
-    @Input
-    String cipdBucket
+    /**
+     * Directory where autorolled dep text files will live when rolled
+     * (and extracted from to_commit.zip). This is used to inform
+     * filepaths in additional_readme_paths and the like.
+     */
+    @Optional @Input
+    String committedSubdir
 
-    /** Skips license file import. */
-    @Input
-    boolean skipLicenses
+    /**
+     * cipd package prefix where artifacts are uploaded.
+     */
+    @Optional @Input
+    String cipdPackagePrefix
 
     /** Array with visibility for targets which are not listed in build.gradle */
     @Input
@@ -154,10 +162,6 @@ class BuildConfigGenerator extends DefaultTask {
     /** Whether to ignore DEPS file. */
     @Input
     boolean ignoreDEPS
-
-    /** Whether .info files and BUILD.gn are in a cipd/ subdirectory. */
-    @Input
-    boolean allFilesInCipd
 
     /** Whether to write a bill_of_materials.json file. */
     @Input
@@ -181,7 +185,25 @@ class BuildConfigGenerator extends DefaultTask {
         return Pattern.matches('.*google.*(play_services|firebase|datatransport).*', dependencyId)
     }
 
-    static String makeOwners() {
+    static String makeRootOwners() {
+        return """\
+# This restriction is in place so that new third-party libraries go through
+# full third-party review:
+# https://chromium.googlesource.com/chromium/src.git/+/master/docs/adding_to_third_party.md#Get-a-review
+set noparent
+
+file://third_party/OWNERS
+
+# The following OWNERS are only for adding / removing / renaming directories
+# that are conceptually the same as existing ones (which would have already gone
+# through third_party review). E.g. robolectric is partiationed into multiple
+# directories, but they are all conceptually the same dependency.
+agrieve@chromium.org
+wnwen@chromium.org
+"""
+    }
+
+    static String makeLibraryOwners() {
         // Make it easier to upgrade existing dependencies without full third_party review.
         return 'file://third_party/android_deps/OWNERS\n'
     }
@@ -236,11 +258,9 @@ No modifications.
 """
     }
 
-    static String makeCipdYaml(ChromiumDepGraph.DependencyDescription dependency, String cipdBucket, String repoPath) {
+    static String makeCipdYaml(ChromiumDepGraph.DependencyDescription dependency, String cipdPackagePrefix) {
         String cipdVersion = "${THREEPP_EPOCH}@${dependency.version}.${dependency.cipdSuffix}"
-        String cipdPath = "${cipdBucket}/${repoPath}"
-        // CIPD does not allow uppercase in names.
-        cipdPath += "/${LIBS_DIRECTORY}/$dependency.directoryName"
+        String cipdPath = "${cipdPackagePrefix}/$dependency.directoryPath"
 
         // NOTE: The fetch_all.py script relies on the format of this file! See fetch_all.py:GetCipdPackageInfo().
         // NOTE: Keep the copyright year 2018 until this generated code is updated, avoiding annual churn of all
@@ -271,16 +291,14 @@ No modifications.
         }
     }
 
-    static void downloadLicenses(ChromiumDepGraph.DependencyDescription dependency,
-                                 String normalisedRepoPath,
+    void downloadLicenses(ChromiumDepGraph.DependencyDescription dependency,
                                  ExecutorService downloadExecutor,
                                  List<Future> downloadTasks) {
-        String depDir = "$normalisedRepoPath/${computeDepDir(dependency)}"
         for (int i = 0; i < dependency.licenses.size(); ++i) {
             ChromiumDepGraph.LicenseSpec license = dependency.licenses[i]
             if (!license.path?.trim() && license.url?.trim()) {
                 String destFileSuffix = (dependency.licenses.size() > 1) ? "${i + 1}.tmp" : ''
-                File destFile = new File("${depDir}/LICENSE${destFileSuffix}")
+                File destFile = project.file("${dependency.directoryPath}/LICENSE${destFileSuffix}")
                 downloadTasks.add(downloadExecutor.submit {
                     downloadFile(dependency.id, license.url, destFile)
                     if (destFile.text.contains('<html')) {
@@ -292,14 +310,13 @@ No modifications.
         }
     }
 
-    static void mergeLicenses(ChromiumDepGraph.DependencyDescription dependency, String normalisedRepoPath) {
-        String depDir = computeDepDir(dependency)
-        File outFile = new File("${normalisedRepoPath}/${depDir}/LICENSE")
+    void mergeLicenses(ChromiumDepGraph.DependencyDescription dependency) {
+        File outFile = project.file("${dependency.directoryPath}/LICENSE")
 
         if (dependency.licenses.size() == 1) {
             String licensePath0 = dependency.licenses.get(0).path?.trim()
             if (licensePath0) {
-                outFile.write(new File("${normalisedRepoPath}/${licensePath0}").text)
+                outFile.write(project.file(licensePath0).text)
             }
             return
         }
@@ -308,13 +325,13 @@ No modifications.
         for (int i = 0; i < dependency.licenses.size(); ++i) {
             ChromiumDepGraph.LicenseSpec licenseSpec = dependency.licenses[i]
             outFile.append("\n${i + 1}. ${licenseSpec.name}\n\n")
-            String licensePath = licenseSpec.path ? licenseSpec.path.trim() : "${depDir}/LICENSE${i + 1}.tmp"
-            outFile.append(new File("${normalisedRepoPath}/${licensePath}").text)
+            String licensePath = licenseSpec.path ? licenseSpec.path.trim() : "${dependency.directoryPath}/LICENSE${i + 1}.tmp"
+            outFile.append(project.file(licensePath).text)
         }
     }
 
-    static String make3ppPb(String cipdBucket, String repoPath) {
-        String pkgPrefix = "${cipdBucket}/${repoPath}/${LIBS_DIRECTORY}"
+    static String make3ppPb(String cipdPackagePrefix) {
+        String pkgPrefix = "${cipdPackagePrefix}/${LIBS_DIRECTORY}"
 
         return COPYRIGHT_HEADER + '\n' + GEN_REMINDER + """
             create {
@@ -395,7 +412,9 @@ No modifications.
             return
         }
 
-        skipLicenses = skipLicenses ?: project.hasProperty('skipLicenses')
+        assert pathToBuildGradle in ALLOWED_PROJECT_PATHS
+
+        boolean skipLicenses = project.hasProperty('skipLicenses')
 
         Path fetchTemplatePath = Paths.get(sourceUri).resolveSibling('3ppFetch.template')
         Template fetchTemplate = new SimpleTemplateEngine().createTemplate(fetchTemplatePath.toFile())
@@ -403,9 +422,16 @@ No modifications.
         Set<Project> allProjects = [] as Set
         allProjects.add(project)
         allProjects.addAll(project.subprojects)
+
+        // During the migration, when processing the main project, do not tag
+        // autorolled deps as such since they should be treated normally until
+        // the migration is complete.
+        boolean tagTargetsAsAutorolled = !AUTOROLL_MIGRATION_IN_PROGRESS || pathToBuildGradle == AUTOROLLED_PROJECT_PATH
+
         ChromiumDepGraph graph = new ChromiumDepGraph(
-                projects: allProjects, logger: project.logger, skipLicenses: skipLicenses)
-        String normalisedRepoPath = normalisePath(repositoryPath)
+                projects: allProjects, logger: project.logger, skipLicenses: skipLicenses,
+                warnOnStaleDeps: pathToBuildGradle == MAIN_PROJECT_PATH,
+                tagTargetsAsAutorolled: tagTargetsAsAutorolled)
 
         // 1. Parse the dependency data
         graph.timeIt("** Collecting all dependencies info") {
@@ -418,53 +444,46 @@ No modifications.
         List<Future> downloadTasks = []
         List<ChromiumDepGraph.DependencyDescription> mergeLicensesDeps = []
         graph.dependencies.values().each { dependency ->
-            if (excludeDependency(dependency) || computeJavaGroupForwardingTargets(dependency)) {
+            if (ignoreForCurrentProject(dependency) || dependency.extension == 'group') {
                 return
             }
 
             ChromiumDepGraph.DependencyDescription dependencyForLogging = dependency.clone()
             // jsonDump() throws StackOverflowError for ResolvedArtifact.
             dependencyForLogging.artifact = null
-
             logger.debug "Processing ${dependency.id}: \n${jsonDump(dependencyForLogging)}"
-            String depDir = BuildConfigGenerator.computeDepDir(dependency)
-            String absoluteDepDir = "${normalisedRepoPath}/${depDir}"
+
+            File depDir = project.file(dependency.directoryPath)
+            depDir.mkdirs()
 
             if (!dependency.artifact) {
                 logger.debug("${dependency.id} has no artifact, skipping.")
                 return
             }
 
-            if (project.hasProperty('readmePrefix')) {
-                dependencyDirectories.add(project.readmePrefix + depDir)
-            } else {
-                dependencyDirectories.add(depDir)
-            }
+            dependencyDirectories.add(dependency.committedDirectoryPath)
 
-            if (new File("${absoluteDepDir}/${dependency.fileName}").exists()) {
+            if (project.file("${dependency.directoryPath}/${dependency.fileName}").exists()) {
                 logger.quiet("${dependency.id} exists, skipping.")
                 return
             }
             project.copy {
                 from dependency.artifact.file
-                into absoluteDepDir
+                into depDir
             }
-            new File("${absoluteDepDir}/README.chromium").write(makeReadme(dependency))
+            new File(depDir, 'README.chromium').write(makeReadme(dependency))
             // fetch_all.py parses cipd.yaml to get information about each dep, even if cipd.yaml isn't needed (e.g. androidx).
-            new File("${absoluteDepDir}/cipd.yaml").write(makeCipdYaml(dependency, cipdBucket, repositoryPath))
-            if (!allFilesInCipd) {
-                // When all the files are in CIPD there is no need for individual OWNERS files.
-                new File("${absoluteDepDir}/OWNERS").write(makeOwners())
-            }
+            new File(depDir, 'cipd.yaml').write(makeCipdYaml(dependency, cipdPackagePrefix))
+            new File(depDir, 'OWNERS').write(makeLibraryOwners())
 
             // Enable 3pp flow for //third_party/android_deps only.
             // TODO(crbug.com/1132368): Enable 3pp flow for subprojects as well.
-            if (repositoryPath == 'third_party/android_deps') {
+            if (pathToBuildGradle == MAIN_PROJECT_PATH) {
                 if (dependency.fileUrl) {
-                    String absoluteDep3ppDir = "${absoluteDepDir}/3pp"
-                    new File(absoluteDep3ppDir).mkdirs()
-                    new File("${absoluteDep3ppDir}/3pp.pb").write(make3ppPb(cipdBucket, repositoryPath))
-                    File fetchFile = new File("${absoluteDep3ppDir}/fetch.py")
+                    File dependency3ppDir = new File(depDir, '3pp')
+                    dependency3ppDir.mkdirs()
+                    new File(dependency3ppDir, "3pp.pb").write(make3ppPb(cipdPackagePrefix))
+                    File fetchFile = new File(dependency3ppDir, 'fetch.py')
                     fetchFile.write(make3ppFetch(fetchTemplate, dependency))
                     fetchFile.setExecutable(true, false)
                 } else {
@@ -474,7 +493,7 @@ No modifications.
 
             if (!skipLicenses) {
                 validateLicenses(dependency)
-                downloadLicenses(dependency, normalisedRepoPath, downloadExecutor, downloadTasks)
+                downloadLicenses(dependency, downloadExecutor, downloadTasks)
                 mergeLicensesDeps.add(dependency)
             }
         }
@@ -485,21 +504,20 @@ No modifications.
         }
 
         mergeLicensesDeps.each { dependency ->
-            mergeLicenses(dependency, normalisedRepoPath)
+            mergeLicenses(dependency)
         }
 
         // 3. Generate the root level build files
-        updateBuildTargetDeclaration(graph, normalisedRepoPath)
+        updateBuildTargetDeclaration(graph)
         if (!ignoreDEPS) {
-            updateDepsDeclaration(graph, cipdBucket, repositoryPath,
-                    "${normalisedRepoPath}/../../DEPS")
+            updateDepsDeclaration(graph, cipdPackagePrefix, fromSourceRoot("DEPS"))
         }
         dependencyDirectories.sort { path1, path2 -> return path1 <=> path2 }
-        updateReadmeReferenceFile(dependencyDirectories,
-                "${normalisedRepoPath}/additional_readme_paths.json")
+        updateReadmeReferenceFile(dependencyDirectories, project.file("additional_readme_paths.json"))
 
+        project.file("${LIBS_DIRECTORY}/OWNERS").write(makeRootOwners())
         if (writeBoM) {
-            new File("${normalisedRepoPath}/bill_of_materials.json").write(makeBillOfMaterials(graph.dependencies.values()))
+            project.file("bill_of_materials.json").write(makeBillOfMaterials(graph.dependencies.values()))
         }
     }
 
@@ -520,12 +538,12 @@ No modifications.
     void appendBuildTarget(ChromiumDepGraph.DependencyDescription dependency,
                            Map<String, ChromiumDepGraph.DependencyDescription> allDependencies,
                            StringBuilder sb) {
-        if (excludeDependency(dependency) || !dependency.generateTarget) {
+        if (ignoreForCurrentProject(dependency)) {
             return
         }
 
         String targetName = translateTargetName(dependency.id) + '_java'
-        List<String> javaDeps = computeJavaGroupForwardingTargets(dependency) ?: dependency.children
+        List<String> javaDeps = dependency.children
         Set<String> addedDeps = new HashSet<String>();
 
         String depsStr = ''
@@ -554,9 +572,12 @@ No modifications.
                 gnTarget = aliasedLib
             } else if (depTargetName.startsWith('google_play_services_') || depTargetName.startsWith('google_firebase_')) {
                 gnTarget = '$google_play_services_package:' + depTargetName
-            } else if (isInDifferentRepo(dep)) {
-                String thirdPartyDir = (dep.id.startsWith('androidx')) ? 'androidx' : 'android_deps'
-                gnTarget = "//third_party/${thirdPartyDir}:${depTargetName}"
+            } else if (dep.buildGnPath != pathToBuildGradle) {
+                if (dep.isAndroidx) {
+                    gnTarget = "//${ANDROIDX_PROJECT_PATH}:${depTargetName}"
+                } else {
+                    gnTarget = "//${MAIN_PROJECT_PATH}:${depTargetName}"
+                }
             } else {
                 gnTarget = ":${depTargetName}"
             }
@@ -579,32 +600,44 @@ No modifications.
             condition = 'google_play_services_package == "//third_party/android_deps"'
         }
 
-        String libPath = "${LIBS_DIRECTORY}/${dependency.directoryName}"
+        String artifactPathPrefix = dependency.artifactDirectoryPath
+        if (dependency.isAutorolled) {
+            artifactPathPrefix = dependency.getRebasedArtifactDirectoryPath(MAIN_PROJECT_PATH)
+        }
         sb.append(GEN_REMINDER)
         if (condition != null) {
             sb.append("if ($condition) {\n")
         }
-        boolean isAndroidX = targetName.startsWith('androidx')
         if (dependency.extension == 'jar') {
-            String targetType = isAndroidX ? 'androidx_java_prebuilt' : 'java_prebuilt'
+            String targetType = dependency.isAndroidx ? 'androidx_java_prebuilt' : 'java_prebuilt'
             sb.append("""\
                 ${targetType}("${targetName}") {
-                  jar_path = "${DOWNLOAD_ROOT_DIRECTORY}/${libPath}/${dependency.fileName}"
+                  jar_path = "${artifactPathPrefix}/${dependency.fileName}"
                   output_name = "${dependency.id}"
                 """.stripIndent(/* forceGroovyBehavior */ true))
-            if (dependency.supportsAndroid) {
+            if (dependency.isRobolectric) {
+                sb.append('  is_robolectric = true\n')
+            } else {
+              if (dependency.supportsAndroid) {
                 sb.append('  supports_android = true\n')
+              }
+              if (dependency.requiresAndroid) {
+                  sb.append('  requires_android = true\n')
+              }
             }
         } else if (dependency.extension == 'aar') {
-            String targetType = isAndroidX ? 'androidx_android_aar_prebuilt' : 'android_aar_prebuilt'
-            String maybeSubdir = allFilesInCipd ? "${DOWNLOAD_ROOT_DIRECTORY}/" : ""
+            String targetType = dependency.isAndroidx ? 'androidx_android_aar_prebuilt' : 'android_aar_prebuilt'
+            String infoPathPrefix = dependency.committedDirectoryPath
+            if (dependency.isAutorolled) {
+                infoPathPrefix = dependency.getRebasedCommittedDirectoryPath(MAIN_PROJECT_PATH)
+            }
             sb.append("""\
                 ${targetType}("${targetName}") {
-                  aar_path = "${DOWNLOAD_ROOT_DIRECTORY}/${libPath}/${dependency.fileName}"
-                  info_path = "${maybeSubdir}${libPath}/${BuildConfigGenerator.reducedDepencencyId(dependency.id)}.info"
+                  aar_path = "${artifactPathPrefix}/${dependency.fileName}"
+                  info_path = "$infoPathPrefix/${BuildConfigGenerator.reducedDependencyId(dependency.id)}.info"
             """.stripIndent(/* forceGroovyBehavior */ true))
         } else if (dependency.extension == 'group') {
-            String targetType = isAndroidX ? 'androidx_java_group' : 'java_group'
+            String targetType = dependency.isAndroidx ? 'androidx_java_group' : 'java_group'
             sb.append("""\
                 ${targetType}("${targetName}") {
             """.stripIndent(/* forceGroovyBehavior */ true))
@@ -650,47 +683,32 @@ No modifications.
             sb.append("  visibility = [ \"$visibilityLabel\" ]\n")
         } else if (!dependency.visible) {
             sb.append('  # To remove visibility constraint, add this dependency to\n')
-            sb.append("  # //${repositoryPath}/build.gradle.\n")
+            sb.append("  # //${pathToBuildGradle}/build.gradle.\n")
             sb.append("visibility = ${makeGnArray(internalTargetVisibility)}\n")
         }
         return sb.toString()
     }
 
-    boolean excludeDependency(ChromiumDepGraph.DependencyDescription dependency) {
-        if (dependency.exclude || EXISTING_LIBS.get(dependency.id)) {
+    boolean ignoreForCurrentProject(ChromiumDepGraph.DependencyDescription dependency) {
+        if (dependency.exclude || EXISTING_LIBS.containsKey(dependency.id)) {
             return true
         }
-        return isInDifferentRepo(dependency)
+        return !partOfCurrentProject(dependency)
     }
 
-    boolean isInDifferentRepo(ChromiumDepGraph.DependencyDescription dependency) {
-        boolean isAndroidxRepository = repositoryPath.startsWith('third_party/androidx')
-        boolean isAutorolledRepository = repositoryPath.startsWith('third_party/android_deps/autorolled')
-        boolean isAndroidxDependency = dependency.id.startsWith('androidx')
-        if (isAndroidxDependency) {
-            // Androidx targets always go to the androidx project regardless of
-            // dep.isAutorolled
-            return isAndroidxRepository != isAndroidxDependency
-        } else {
-            if (AUTOROLL_MIGRATION_IN_PROGRESS) {
+    boolean partOfCurrentProject(ChromiumDepGraph.DependencyDescription dependency) {
+        if (AUTOROLL_MIGRATION_IN_PROGRESS) {
+            if (pathToBuildGradle == MAIN_PROJECT_PATH
+                && dependency.projectPath == AUTOROLLED_PROJECT_PATH) {
                 // During the migration, keep the autorolled targets in the main
                 // BUILD.gn until the migration is complete.
-                return isAutorolledRepository && !dependency.isAutorolled
+                return true
             }
-            return dependency.isAutorolled != isAutorolledRepository
         }
+        return dependency.projectPath == pathToBuildGradle
     }
 
-    /** If |dependency| should be a java_group(), returns target to forward to. Returns null otherwise. */
-    List<String> computeJavaGroupForwardingTargets(ChromiumDepGraph.DependencyDescription dependency) {
-        String targetName = translateTargetName(dependency.id) + '_java'
-        if (dependency.extension == 'group') {
-            return dependency.children
-        }
-        return []
-    }
-
-    private static String reducedDepencencyId(String dependencyId) {
+    private static String reducedDependencyId(String dependencyId) {
         return REDUCED_ID_LENGTH_MAP.get(dependencyId) ?: dependencyId
     }
 
@@ -706,27 +724,13 @@ No modifications.
         return sb.toString()
     }
 
-    private static String computeDepDir(ChromiumDepGraph.DependencyDescription dependency) {
-        return "${LIBS_DIRECTORY}/${dependency.directoryName}"
-    }
-
     private static void addSpecialTreatment(StringBuilder sb, String dependencyId, String dependencyExtension) {
         addPreconditionsOverrideTreatment(sb, dependencyId)
 
-        if (dependencyId.startsWith('org_robolectric')) {
-            sb.append('  is_robolectric = true\n')
-        }
         if (dependencyExtension == 'aar' && dependencyId.startsWith('com_android_support')) {
             // The androidx and com_android_support libraries have duplicate resources such as
             // 'primary_text_default_material_dark'.
             sb.append('  resource_overlay = true\n')
-        }
-        if (dependencyExtension == 'jar' && (
-                dependencyId.startsWith('io_grpc_') ||
-                        dependencyId == 'com_google_firebase_firebase_encoders' ||
-                        dependencyId == 'com_google_guava_guava_android')) {
-            sb.append('  # https://crbug.com/1412551\n')
-            sb.append('  requires_android = true\n')
         }
 
         switch (dependencyId) {
@@ -861,14 +865,6 @@ No modifications.
                 sb.append('  # Target needs to exclude *xmlpull* files as already included in Android SDK.\n')
                 sb.append('  jar_excluded_patterns = [ "*xmlpull*" ]\n')
                 break
-            case 'org_jetbrains_kotlinx_kotlinx_coroutines_android':
-            case 'org_jetbrains_kotlinx_kotlinx_coroutines_guava':
-                sb.append('requires_android = true')
-                break
-            case 'org_mockito_mockito_android':
-                sb.append('  # Depends on third_party/byte_buddy:byte_buddy_android_java\n')
-                sb.append('  requires_android = true\n')
-                break
             case 'org_mockito_mockito_core':
                 sb.append('  # Uses java.time which does not exist until API 26.\n')
                 sb.append('  # Modifications are added in third_party/mockito.\n')
@@ -931,13 +927,12 @@ No modifications.
         return null
     }
 
-    private static void updateReadmeReferenceFile(List<String> directories, String readmePath) {
-        File refFile = new File(readmePath)
+    private static void updateReadmeReferenceFile(List<String> directories, File refFile) {
         refFile.write(JsonOutput.prettyPrint(JsonOutput.toJson(directories)) + '\n')
     }
 
-    private void updateBuildTargetDeclaration(ChromiumDepGraph depGraph, String normalisedRepoPath) {
-        File buildFile = new File("${normalisedRepoPath}/BUILD.gn")
+    private void updateBuildTargetDeclaration(ChromiumDepGraph depGraph) {
+        File buildFile = project.file("BUILD.gn")
         StringBuilder sb = new StringBuilder()
 
         // Comparator to sort the dependency in alphabetical order, with the visible ones coming
@@ -977,9 +972,8 @@ No modifications.
         buildFile.write(matcher.replaceFirst(Matcher.quoteReplacement(out)))
     }
 
-    private void updateDepsDeclaration(ChromiumDepGraph depGraph, String cipdBucket,
-                                       String repoPath, String depsFilePath) {
-        File depsFile = new File(depsFilePath)
+    private void updateDepsDeclaration(ChromiumDepGraph depGraph, String cipdPackagePrefix,
+                                       File depsFile) {
         StringBuilder sb = new StringBuilder()
         // Note: The string we're inserting is nested 1 level, hence the 2 leading spaces. Same
         // applies to the multiline package declaration string below.
@@ -991,18 +985,17 @@ No modifications.
         }
 
         depGraph.dependencies.values().sort(dependencyComparator).each { dependency ->
-            if (excludeDependency(dependency) || computeJavaGroupForwardingTargets(dependency)) {
+            if (ignoreForCurrentProject(dependency) || dependency.extension == 'group') {
                 return
             }
             if (!dependency.artifact) {
                 logger.debug("Skipping ${dependency.id} because it has no artifact")
                 return
             }
-            String depPath = "${LIBS_DIRECTORY}/${dependency.directoryName}"
-            String cipdPath = "${cipdBucket}/${repoPath}/${depPath}"
+            String cipdPath = "${cipdPackagePrefix}/${dependency.directoryPath}"
             sb.append("""\
             |
-            |  'src/${repoPath}/${DOWNLOAD_ROOT_DIRECTORY}/${depPath}': {
+            |  'src/${pathToBuildGradle}/${dependency.artifactDirectoryPath}': {
             |      'packages': [
             |          {
             |              'package': '${cipdPath}',
@@ -1022,8 +1015,14 @@ No modifications.
         depsFile.write(matcher.replaceFirst("${DEPS_TOKEN_START}\n${sb}\n  ${DEPS_TOKEN_END}"))
     }
 
-    private String normalisePath(String pathRelativeToChromiumRoot) {
-        return project.file("${chromiumSourceRoot}/${pathRelativeToChromiumRoot}").absolutePath
+    private int countPathSegments(String path) {
+        // third_party/android_deps/autorolled -> 3
+        return path.split('/').length
+    }
+
+    private File fromSourceRoot(String pathRelativeToChromiumRoot) {
+        File sourceRoot = project.file('../'.multiply(countPathSegments(pathToBuildGradle)))
+        return new File(sourceRoot, pathRelativeToChromiumRoot)
     }
 
 }

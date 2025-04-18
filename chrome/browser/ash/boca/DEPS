@@ -14,6 +14,7 @@ include_rules = [
   # Files residing in certain directories (e.g., //chrome/browser) are listed
   # individually. Other dependencies within //chrome are listed on a per-
   # directory basis. See //tools/chromeos/gen_deps.sh for details.
+  "+chrome/app/chrome_command_ids.h",
   "+chrome/browser/apps/app_service/launch_result_type.h",
   "+chrome/browser/ash/system_web_apps/system_web_app_manager.h",
   "+chrome/browser/enterprise/util/affiliation.h",
@@ -43,6 +44,7 @@ include_rules = [
   "+chrome/browser/ui/tabs/tab_enums.h",
   "+chrome/browser/ui/tabs/tab_strip_model_delegate.h",
   "+chrome/browser/ui/tabs/tab_strip_model_observer.h",
+  "+chrome/browser/ui/views/frame/immersive_mode_controller.h",
   "+chrome/test/base/in_process_browser_test.h",
   "+chrome/test/base/testing_profile.h",
   "+chrome/test/base/testing_profile_manager.h",
@@ -52,7 +54,7 @@ include_rules = [
   "+chrome/browser/ash/accessibility/live_caption/system_live_caption_service.h",
   "+chrome/browser/browser_process.h",
   # Files needed by spotlight/
-  "+chrome/browser/ash/policy/remote_commands/crd",
+  "+chrome/browser/ash/policy/remote_commands/crd/public",
 ]
 
 specific_include_rules = {
@@ -72,7 +74,8 @@ specific_include_rules = {
       "+chrome/test/base/ui_test_utils.h"
   ],
   "on_task_pod_controller_impl_browsertest.cc": [
-    "+chrome/browser/ui/tabs/tab_strip_model.h",
+      "+chrome/browser/ui/tabs/tab_strip_model.h",
+      "+chrome/test/base/ui_test_utils.h",
   ],
   "on_task_session_manager_browsertest.cc": [
       "+chrome/browser/ui/browser_commands.h",

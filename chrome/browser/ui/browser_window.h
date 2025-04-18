@@ -29,8 +29,6 @@
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/translate/partial_translate_bubble_model.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_entry_id.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_enums.h"
 #include "chrome/browser/ui/webui/tab_search/tab_search.mojom.h"
 #include "chrome/common/buildflags.h"
 #include "components/content_settings/core/common/content_settings_types.h"
@@ -243,8 +241,10 @@ class BrowserWindow : public ui::BaseWindow,
   // Propagates to the browser that gesture scrolling has changed state.
   virtual void SetTopControlsGestureScrollInProgress(bool in_progress) = 0;
 
-  // Return the status bubble associated with the frame
-  virtual StatusBubble* GetStatusBubble() = 0;
+  // Return the status bubble(s) associated with the frame. In a split view,
+  // there will be multiple status bubbles with the active one listed first.
+  // It is possible for this to be empty.
+  virtual std::vector<StatusBubble*> GetStatusBubbles() = 0;
 
   // Inform the frame that the selected tab favicon or title has changed. Some
   // frames may need to refresh their title bar.
@@ -505,6 +505,9 @@ class BrowserWindow : public ui::BaseWindow,
 
   // Returns the TopContainerView.
   virtual views::View* GetTopContainer() = 0;
+
+  // Returns the LensOverlayView.
+  virtual views::View* GetLensOverlayView() = 0;
 
   // Returns the DownloadBubbleUIController. Returns null if Download Bubble
   // UI is not enabled, or if the download toolbar button does not exist.

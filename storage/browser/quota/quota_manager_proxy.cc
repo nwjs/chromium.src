@@ -30,7 +30,6 @@
 #include "storage/browser/quota/quota_override_handle.h"
 #include "storage/browser/quota/storage_directory_util.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
-#include "third_party/blink/public/mojom/quota/quota_types.mojom.h"
 
 using ::blink::StorageKey;
 
@@ -82,20 +81,17 @@ base::FilePath QuotaManagerProxy::GetClientBucketPath(
 
 void QuotaManagerProxy::RegisterClient(
     mojo::PendingRemote<mojom::QuotaClient> client,
-    QuotaClientType client_type,
-    const base::flat_set<blink::mojom::StorageType>& storage_types) {
+    QuotaClientType client_type) {
   if (!quota_manager_impl_task_runner_->RunsTasksInCurrentSequence()) {
     quota_manager_impl_task_runner_->PostTask(
-        FROM_HERE,
-        base::BindOnce(&QuotaManagerProxy::RegisterClient, this,
-                       std::move(client), client_type, storage_types));
+        FROM_HERE, base::BindOnce(&QuotaManagerProxy::RegisterClient, this,
+                                  std::move(client), client_type));
     return;
   }
 
   DCHECK_CALLED_ON_VALID_SEQUENCE(quota_manager_impl_sequence_checker_);
   if (quota_manager_impl_) {
-    quota_manager_impl_->RegisterClient(std::move(client), client_type,
-                                        storage_types);
+    quota_manager_impl_->RegisterClient(std::move(client), client_type);
   }
 }
 
@@ -208,8 +204,7 @@ void QuotaManagerProxy::CreateBucketForTesting(
   }
 
   quota_manager_impl_->CreateBucketForTesting(  // IN-TEST
-      storage_key, bucket_name, blink::mojom::StorageType::kTemporary,
-      std::move(respond));
+      storage_key, bucket_name, std::move(respond));
 }
 
 void QuotaManagerProxy::GetBucketByNameUnsafe(
@@ -239,8 +234,7 @@ void QuotaManagerProxy::GetBucketByNameUnsafe(
   }
 
   quota_manager_impl_->GetBucketByNameUnsafe(  // IN-TEST
-      storage_key, bucket_name, blink::mojom::StorageType::kTemporary,
-      std::move(respond));
+      storage_key, bucket_name, std::move(respond));
 }
 
 void QuotaManagerProxy::GetBucketsForStorageKey(
@@ -269,9 +263,8 @@ void QuotaManagerProxy::GetBucketsForStorageKey(
     return;
   }
 
-  quota_manager_impl_->GetBucketsForStorageKey(
-      storage_key, blink::mojom::StorageType::kTemporary, std::move(respond),
-      delete_expired);
+  quota_manager_impl_->GetBucketsForStorageKey(storage_key, std::move(respond),
+                                               delete_expired);
 }
 
 void QuotaManagerProxy::GetBucketById(
@@ -464,8 +457,7 @@ void QuotaManagerProxy::SetUsageCacheEnabled(QuotaClientType client_id,
 
   DCHECK_CALLED_ON_VALID_SEQUENCE(quota_manager_impl_sequence_checker_);
   if (quota_manager_impl_) {
-    quota_manager_impl_->SetUsageCacheEnabled(
-        client_id, storage_key, blink::mojom::StorageType::kTemporary, enabled);
+    quota_manager_impl_->SetUsageCacheEnabled(client_id, storage_key, enabled);
   }
 }
 
@@ -493,8 +485,7 @@ void QuotaManagerProxy::GetUsageAndQuota(
     return;
   }
 
-  quota_manager_impl_->GetUsageAndQuota(
-      storage_key, blink::mojom::StorageType::kTemporary, std::move(respond));
+  quota_manager_impl_->GetUsageAndQuota(storage_key, std::move(respond));
 }
 
 void QuotaManagerProxy::GetBucketUsageAndReportedQuota(
@@ -571,10 +562,8 @@ void QuotaManagerProxy::IsStorageUnlimited(
 
   DCHECK_CALLED_ON_VALID_SEQUENCE(quota_manager_impl_sequence_checker_);
   bool is_storage_unlimited =
-      quota_manager_impl_
-          ? quota_manager_impl_->IsStorageUnlimited(
-                storage_key, blink::mojom::StorageType::kTemporary)
-          : false;
+      quota_manager_impl_ ? quota_manager_impl_->IsStorageUnlimited(storage_key)
+                          : false;
 
   auto respond =
       base::BindPostTask(std::move(callback_task_runner), std::move(callback));
@@ -606,8 +595,8 @@ void QuotaManagerProxy::GetStorageKeyUsageWithBreakdown(
     return;
   }
 
-  quota_manager_impl_->GetStorageKeyUsageWithBreakdown(
-      storage_key, blink::mojom::StorageType::kTemporary, std::move(respond));
+  quota_manager_impl_->GetStorageKeyUsageWithBreakdown(storage_key,
+                                                       std::move(respond));
 }
 
 std::unique_ptr<QuotaOverrideHandle>

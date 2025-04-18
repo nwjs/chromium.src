@@ -60,18 +60,6 @@ public class SigninMetricsUtils {
     }
 
     /**
-     * Logs Signin.SigninStartedAccessPoint histogram (used to record that the sync consent screen
-     * was shown). Sign-in completion histogram is recorded by {@link
-     * SigninManager#signinAndEnableSync}.
-     *
-     * @param accessPoint {@link SigninAccessPoint} that initiated the sign-in flow.
-     */
-    public static void logSyncConsentStarted(@SigninAccessPoint int accessPoint) {
-        RecordHistogram.recordEnumeratedHistogram(
-                "Signin.SigninStartedAccessPoint", accessPoint, SigninAccessPoint.MAX_VALUE);
-    }
-
-    /**
      * Logs Signin.SignIn.Started histogram (used to record that a signin UI was displayed). Sign-in
      * completion histogram is recorded by {@link SigninManager#signin}.
      *
@@ -91,15 +79,6 @@ public class SigninMetricsUtils {
     public static void logSigninOffered(
             @SigninPromoAction int promoAction, @SigninAccessPoint int accessPoint) {
         SigninMetricsUtilsJni.get().logSigninOffered(promoAction, accessPoint);
-    }
-
-    /** Logs signin user action for a given {@link SigninAccessPoint}. */
-    public static void logSigninUserActionForAccessPoint(@SigninAccessPoint int accessPoint) {
-        // TODO(crbug.com/40233859): Remove this check when user action checks are removed
-        // from native code.
-        if (accessPoint != SigninAccessPoint.SETTINGS_SYNC_OFF_ROW) {
-            SigninMetricsUtilsJni.get().logSigninUserActionForAccessPoint(accessPoint);
-        }
     }
 
     /** Logs Signin.AddAccountState histogram. */

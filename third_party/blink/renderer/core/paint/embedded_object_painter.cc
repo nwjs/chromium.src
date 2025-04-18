@@ -17,6 +17,7 @@
 #include "third_party/blink/renderer/platform/fonts/text_run_paint_info.h"
 #include "third_party/blink/renderer/platform/geometry/path.h"
 #include "third_party/blink/renderer/platform/graphics/paint/drawing_recorder.h"
+#include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
 #include "third_party/blink/renderer/platform/text/text_run.h"
 
 namespace blink {
@@ -73,7 +74,7 @@ void EmbeddedObjectPainter::PaintReplaced(const PaintInfo& paint_info,
   gfx::SizeF text_geometry(
       RuntimeEnabledFeatures::PlainTextPainterEnabled()
           ? PlainTextPainter::Shared().ComputeInlineSize(text_run, *font)
-          : font->Width(text_run),
+          : font->DeprecatedWidth(text_run),
       font_data->GetFontMetrics().Height());
 
   PhysicalRect background_rect(

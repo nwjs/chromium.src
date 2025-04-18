@@ -37,6 +37,31 @@ BASE_FEATURE(kKillSpareRenderOnMemoryPressure,
              "KillSpareRenderOnMemoryPressure",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// If enabled, MEMORY_PRESSURE_LEVEL_CRITICAL is used as the threshold that
+// determines when a spare RPH can be created or killed. By default,
+// MEMORY_PRESSURE_LEVEL_MODERATE is used.
+BASE_FEATURE(kSpareRPHUseCriticalMemoryPressure,
+             "SpareRPHUseCriticalMemoryPressure",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// If enabled, only the extra RPHs (controlled by the MultipleSpareRPHs
+// experiment) are killed on memory pressure. Does nothing if
+// kKillSpareRenderOnMemoryPressure is disabled.
+BASE_FEATURE(kSpareRPHKeepOneAliveOnMemoryPressure,
+             "kSpareRPHKeepOneAliveOnMemoryPressure",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, boosts the priority of spare renderer processes by adding a
+// non-perceptible binding on Android, to decrease the chance of the spare
+// process getting killed before it is taken.
+BASE_FEATURE(kSpareRendererProcessPriority,
+             "SpareRendererProcessPriority",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+constexpr char kSpareRendererTakenTimeSinceCreation[] =
+    "BrowserRenderProcessHost.SpareRendererTaken.TimeSinceCreation";
+constexpr char kSpareRendererTakenIsReady[] =
+    "BrowserRenderProcessHost.SpareRendererTaken.IsReady";
 constexpr char kSpareRendererDispatchResultUmaName[] =
     "BrowserRenderProcessHost.SpareRendererDispatchResult";
 constexpr char kPreviouslyTakenSourceUmaName[] =
@@ -239,6 +264,7 @@ void LogNoSparePresentUmas(
 }
 
 void LogSpareProcessTakeActionUMAs(
+    RenderProcessHost* host,
     SpareProcessMaybeTakeAction action,
     NoSpareRendererReason no_spare_renderer_reason,
     const ProcessAllocationContext& allocation_context,
@@ -248,7 +274,25 @@ void LogSpareProcessTakeActionUMAs(
   if (action == SpareProcessMaybeTakeAction::kNoSparePresent) {
     LogNoSparePresentUmas(no_spare_renderer_reason, allocation_context,
                           previous_taken_context);
+  } else if (action == SpareProcessMaybeTakeAction::kSpareTaken) {
+    CHECK(host);
+    base::UmaHistogramBoolean(kSpareRendererTakenIsReady, host->IsReady());
+    base::UmaHistogramLongTimes(
+        kSpareRendererTakenTimeSinceCreation,
+        base::TimeTicks::Now() - host->GetLastInitTime());
   }
+}
+
+// Returns the MemoryPressureLevel threshold that determines when a spare RPH
+// can be created or killed.
+base::MemoryPressureListener::MemoryPressureLevel
+GetMemoryPressureLevelThreshold() {
+  if (base::FeatureList::IsEnabled(kSpareRPHUseCriticalMemoryPressure)) {
+    return base::MemoryPressureListener::MemoryPressureLevel::
+        MEMORY_PRESSURE_LEVEL_CRITICAL;
+  }
+  return base::MemoryPressureListener::MemoryPressureLevel::
+      MEMORY_PRESSURE_LEVEL_MODERATE;
 }
 
 }  // namespace
@@ -271,6 +315,8 @@ SpareRenderProcessHostManagerImpl::SpareRenderProcessHostManagerImpl()
           base::BindRepeating(
               &SpareRenderProcessHostManagerImpl::OnMetricsHeartbeatTimerFired,
               base::Unretained(this))) {
+  metrics_heartbeat_timer_.Reset();
+
   // Immediately start the timer if the system is already under memory pressure.
   if (IsCurrentlyUnderMemoryPressure()) {
     check_memory_pressure_timer_.Reset();
@@ -424,9 +470,8 @@ void SpareRenderProcessHostManagerImpl::WarmupSpare(
   // currently approximated by only looking at the memory pressure.  See also
   // https://crbug.com/852905.
   auto* memory_monitor = base::MemoryPressureMonitor::Get();
-  if (memory_monitor &&
-      memory_monitor->GetCurrentPressureLevel() >=
-          base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_MODERATE) {
+  if (memory_monitor && memory_monitor->GetCurrentPressureLevel() >=
+                            GetMemoryPressureLevelThreshold()) {
     no_spare_renderer_reason_ = NoSpareRendererReason::kMemoryPressure;
     return;
   }
@@ -579,8 +624,9 @@ RenderProcessHost* SpareRenderProcessHostManagerImpl::MaybeTakeSpare(
   } else {
     action = SpareProcessMaybeTakeAction::kSpareTaken;
   }
-  LogSpareProcessTakeActionUMAs(action, no_spare_renderer_reason_,
-                                allocation_context, previous_taken_context_);
+  LogSpareProcessTakeActionUMAs(next_spare_rph, action,
+                                no_spare_renderer_reason_, allocation_context,
+                                previous_taken_context_);
   if (spare_renderer_maybe_take_timer_) {
     auto maybe_take_time = spare_renderer_maybe_take_timer_->Elapsed();
     base::UmaHistogramLongTimes(
@@ -619,6 +665,13 @@ RenderProcessHost* SpareRenderProcessHostManagerImpl::MaybeTakeSpare(
     // that is over the limit.
     CleanupSpares(SpareRendererDispatchResult::kDestroyedProcessLimit);
     CHECK(no_spare_renderer_reason_ == NoSpareRendererReason::kProcessLimit);
+  }
+
+  // SetHasSpareRendererPriority(false) will cause the priority to drop until
+  // further updates are made. For navigation requests we will keep the priority
+  // until the RenderFrameHostImpl constructor sets the priority.
+  if (returned_process && !allocation_context.IsForNavigation()) {
+    returned_process->SetHasSpareRendererPriority(false);
   }
 
   return returned_process;
@@ -696,6 +749,27 @@ void SpareRenderProcessHostManagerImpl::CleanupSpares(
   }
 }
 
+void SpareRenderProcessHostManagerImpl::CleanupExtraSpares(
+    std::optional<SpareRendererDispatchResult> dispatch_result) {
+  if (spare_rphs_.size() <= 1u) {
+    // There is either zero or one spare. Nothing to do.
+    return;
+  }
+
+  // Pop the front element, as we want to preserve it.
+  RenderProcessHost* first_spare = spare_rphs_.front();
+
+  // Swap the front and back to efficient removal.
+  std::swap(spare_rphs_.front(), spare_rphs_.back());
+  spare_rphs_.pop_back();
+
+  // Cleanup all remaining spares in the vector.
+  CleanupSpares(dispatch_result);
+
+  // Re-add the spare to the vector.
+  spare_rphs_.push_back(first_spare);
+}
+
 void SpareRenderProcessHostManagerImpl::SetDeferTimerTaskRunnerForTesting(
     scoped_refptr<base::SequencedTaskRunner> task_runner) {
   deferred_warmup_timer_.SetTaskRunner(task_runner);
@@ -736,6 +810,11 @@ void SpareRenderProcessHostManagerImpl::RenderProcessReady(
   CHECK(process_startup_timer_);
   UMA_HISTOGRAM_TIMES("BrowserRenderProcessHost.SpareProcessStartupTime",
                       process_startup_timer_->Elapsed());
+
+  if (base::FeatureList::IsEnabled(kSpareRendererProcessPriority)) {
+    host->SetHasSpareRendererPriority(true);
+  }
+
   process_startup_timer_.reset();
 
   for (auto& observer : observer_list_) {
@@ -787,6 +866,10 @@ void SpareRenderProcessHostManagerImpl::SetIsBrowserIdle(bool is_browser_idle) {
 
 void SpareRenderProcessHostManagerImpl::OnMemoryPressure(
     base::MemoryPressureListener::MemoryPressureLevel memory_pressure_level) {
+  if (memory_pressure_level < GetMemoryPressureLevelThreshold()) {
+    return;
+  }
+
   CHECK_NE(memory_pressure_level,
            base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_NONE);
   if (check_memory_pressure_timer_.IsRunning() ||
@@ -794,8 +877,13 @@ void SpareRenderProcessHostManagerImpl::OnMemoryPressure(
     return;
   }
 
-  CleanupSpares(SpareRendererDispatchResult::kMemoryPressure);
-  CHECK(no_spare_renderer_reason_ == NoSpareRendererReason::kMemoryPressure);
+  if (base::FeatureList::IsEnabled(kSpareRPHKeepOneAliveOnMemoryPressure)) {
+    CleanupExtraSpares(SpareRendererDispatchResult::kMemoryPressure);
+  } else {
+    CleanupSpares(SpareRendererDispatchResult::kMemoryPressure);
+    CHECK(no_spare_renderer_reason_ == NoSpareRendererReason::kMemoryPressure);
+  }
+
   // `reset()` will start the timer.
   check_memory_pressure_timer_.Reset();
 }

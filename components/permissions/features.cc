@@ -45,10 +45,6 @@ BASE_FEATURE(kPermissionPredictionsV2,
              "PermissionPredictionsV2",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kPermissionPredictionsV3,
-             "PermissionPredictionsV3",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kPermissionsAIv1,
              "PermissionsAIv1",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -169,18 +165,6 @@ const base::FeatureParam<PermissionElementPromptPosition>
         "PermissionElementPromptPositioningParam",
         PermissionElementPromptPosition::kWindowMiddle,
         &kPromptPositioningOptions};
-
-const base::FeatureParam<double>
-    kPermissionOnDeviceGeolocationPredictionsHoldbackChance(
-        &features::kPermissionOnDeviceGeolocationPredictions,
-        "holdback_chance",
-        0.3);
-
-const base::FeatureParam<double>
-    kPermissionOnDeviceNotificationPredictionsHoldbackChance(
-        &features::kPermissionOnDeviceNotificationPredictions,
-        "holdback_chance",
-        0.2);
 
 const base::FeatureParam<double> kPermissionPredictionsV2HoldbackChance(
     &features::kPermissionPredictionsV2,

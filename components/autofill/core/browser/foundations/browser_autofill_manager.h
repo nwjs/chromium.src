@@ -61,7 +61,6 @@
 #include "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
 #include "components/autofill/core/common/signatures.h"
 #include "components/autofill/core/common/unique_ids.h"
-#include "third_party/abseil-cpp/absl/types/variant.h"
 
 namespace autofill {
 
@@ -122,18 +121,6 @@ class BrowserAutofillManager : public AutofillManager {
   virtual bool ShouldShowScanCreditCard(const FormData& form,
                                         const FormFieldData& field);
 
-  // Handlers for the "Show Cards From Account" row. This row should be shown to
-  // users who have cards in their account and can use Sync Transport. Clicking
-  // the row records the user's consent to see these cards on this device, and
-  // refreshes the popup.
-  virtual bool ShouldShowCardsFromAccountOption(
-      const FormData& form,
-      const FieldGlobalId& field_id,
-      AutofillSuggestionTriggerSource trigger_source) const;
-  virtual void OnUserAcceptedCardsFromAccountOption();
-  virtual void RefetchCardsAndUpdatePopup(const FormData& form,
-                                          const FormFieldData& field);
-
   // Fills or previews `form` with the information in `credit_card`. `field_id`
   // is the ID of the field that triggered the filling operation.
   // `trigger_source` is the reason for triggering the filling operation.
@@ -183,9 +170,11 @@ class BrowserAutofillManager : public AutofillManager {
                             const FormFieldData& trigger_field);
   // Virtual for testing
   virtual void DidShowSuggestions(
-      DenseSet<SuggestionType> shown_suggestion_types,
+      base::span<const Suggestion> suggestions,
       const FormData& form,
-      const FieldGlobalId& field_id);
+      const FieldGlobalId& field_id,
+      AutofillExternalDelegate::UpdateSuggestionsCallback
+          update_suggestions_callback);
 
   // Fills or previews the profile form.
   // Assumes the form and field are valid.
@@ -258,6 +247,9 @@ class BrowserAutofillManager : public AutofillManager {
       const FormData& form,
       const FieldGlobalId& field_id,
       const std::u16string& old_value) override;
+  void OnLoadedServerPredictionsImpl(
+      base::span<const raw_ptr<FormStructure, VectorExperimental>> forms)
+      override;
   void Reset() override;
 
   // Retrieves the four digit combinations from the DOM of the current web page
@@ -522,7 +514,8 @@ class BrowserAutofillManager : public AutofillManager {
       const FormFieldData& field,
       bool should_offer_single_field_form_fill,
       OnGenerateSuggestionsCallback callback,
-      std::vector<std::vector<Suggestion>> suggestion_lists);
+      std::vector<Suggestion> plus_address_suggestions,
+      std::vector<Suggestion> single_field_suggestions);
 
   // Triggered when the user undoes the filling of an address profile using an
   // email override.

@@ -19,6 +19,7 @@
 #include "components/ukm/test_ukm_recorder.h"
 #include "content/browser/btm/btm_service_impl.h"
 #include "content/browser/btm/btm_utils.h"
+#include "content/browser/renderer_host/cookie_access_observers.h"
 #include "content/public/browser/btm_redirect_info.h"
 #include "content/public/browser/btm_service.h"
 #include "content/public/browser/cookie_access_details.h"
@@ -113,15 +114,46 @@ base::expected<WebContents*, std::string> OpenInNewTab(
 // Helper function for performing client side cookie access via JS.
 void AccessCookieViaJSIn(WebContents* web_contents, RenderFrameHost* frame);
 
+// Redirect `frame` in `web_contents` to `target_url` via an HTML `<meta>` tag.
+// If `expected_commit_url` is non-null, asserts a final commit URL of
+// `expected_commit_url`; otherwise, asserts a final commit URL of `target_url`.
 [[nodiscard]] testing::AssertionResult ClientSideRedirectViaMetaTag(
     WebContents* web_contents,
     RenderFrameHost* frame,
-    const GURL& target_url);
+    const GURL& target_url,
+    const std::optional<const GURL>& expected_commit_url = std::nullopt);
 
+// Redirect `frame` in `web_contents` to `target_url` via a JavaScript call to
+// `window.location.replace()`. If `expected_commit_url` is non-null, asserts a
+// final commit URL of `expected_commit_url`; otherwise, asserts a final commit
+// URL of `target_url`.
 [[nodiscard]] testing::AssertionResult ClientSideRedirectViaJS(
     WebContents* web_contents,
     RenderFrameHost* frame,
-    const GURL& target_url);
+    const GURL& target_url,
+    const std::optional<const GURL>& expected_commit_url = std::nullopt);
+
+enum class BtmClientRedirectMethod : int {
+  kMetaTag = 0,
+  kJsWindowLocationReplace = 1,
+  kRedirectLikeNavigation = 2,
+};
+
+const auto kAllBtmClientRedirectMethods =
+    testing::Values(BtmClientRedirectMethod::kMetaTag,
+                    BtmClientRedirectMethod::kJsWindowLocationReplace,
+                    BtmClientRedirectMethod::kRedirectLikeNavigation);
+
+std::string StringifyBtmClientRedirectMethod(BtmClientRedirectMethod method);
+
+// Redirect `web_contents` to `redirect_url` using the client redirect method
+// `redirect_method`. Expects the final commit URL to be `expected_commit_url`
+// if non-null, or else `redirect_url`.
+[[nodiscard]] testing::AssertionResult PerformClientRedirect(
+    BtmClientRedirectMethod redirect_method,
+    WebContents* web_contents,
+    const GURL& redirect_url,
+    const std::optional<const GURL>& expected_commit_url = std::nullopt);
 
 // Helper function to navigate to /set-cookie on `host` and wait for
 // OnCookiesAccessed() to be called.
@@ -352,6 +384,38 @@ class TpcBlockingBrowserClient : public ContentBrowserClient,
  private:
   bool block_3pcs_ = false;
   content_settings::HostIndexedContentSettings tpc_content_settings_;
+};
+
+// Class used to pause cookie access notifications. The class works by unbinding
+// existing CookieAccessObserver receivers and storing new ones without binding
+// them.
+class PausedCookieAccessObservers : public CookieAccessObservers {
+ public:
+  explicit PausedCookieAccessObservers(NotifyCookiesAccessedCallback callback);
+  ~PausedCookieAccessObservers() override;
+
+  // CookieAccessObservers
+  void Add(mojo::PendingReceiver<network::mojom::CookieAccessObserver> receiver,
+           CookieAccessDetails::Source source) override;
+  std::vector<mojo::PendingReceiver<network::mojom::CookieAccessObserver>>
+  TakeReceivers() override;
+
+ private:
+  // Holds existing and new receivers.
+  std::vector<
+      std::pair<mojo::PendingReceiver<network::mojom::CookieAccessObserver>,
+                CookieAccessDetails::Source>>
+      pending_receivers_;
+};
+
+// Class used to pause all cookie access notifications in a WebContents.
+class CookieAccessInterceptor : public WebContentsObserver {
+ public:
+  explicit CookieAccessInterceptor(WebContents& web_contents);
+  ~CookieAccessInterceptor() override;
+
+  // WebContentsObserver
+  void DidStartNavigation(NavigationHandle* navigation_handle) override;
 };
 
 }  // namespace content

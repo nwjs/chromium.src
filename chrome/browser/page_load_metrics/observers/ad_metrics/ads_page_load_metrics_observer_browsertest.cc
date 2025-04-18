@@ -19,6 +19,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/subresource_filter/subresource_filter_browser_test_harness.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/heavy_ad_intervention/heavy_ad_features.h"
@@ -60,6 +61,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom.h"
 #include "ui/gfx/geometry/size.h"
+#include "ui/views/test/widget_activation_waiter.h"
 #include "url/gurl.h"
 #include "url/url_constants.h"
 
@@ -1655,6 +1657,7 @@ IN_PROC_BROWSER_TEST_P(AdsPageLoadMetricsObserverResourceBrowserTest,
   SetRulesetWithRules(
       {subresource_filter::testing::CreateSuffixRule("ad_script.js")});
   base::HistogramTester histogram_tester;
+  ukm::TestAutoSetUkmRecorder ukm_recorder;
 
   auto main_html_response =
       std::make_unique<net::test_server::ControllableHttpResponse>(
@@ -1683,6 +1686,15 @@ IN_PROC_BROWSER_TEST_P(AdsPageLoadMetricsObserverResourceBrowserTest,
   main_html_response->Send(std::string(1024, ' '));
   main_html_response->Done();
 
+  // Clipboard apis require that the calling context is focused.
+#if BUILDFLAG(IS_MAC)
+  content::HandleMissingKeyWindow();
+#endif
+  browser()->tab_strip_model()->GetActiveWebContents()->Focus();
+  views::test::WaitForWidgetActive(
+      BrowserView::GetBrowserViewForBrowser(browser())->GetWidget(),
+      /*active=*/true);
+
   ad_script_response->WaitForRequest();
   ad_script_response->Send(page_load_metrics::kHttpOkResponseHeader);
   // Get ad script to use a bunch of privacy sensitive features.
@@ -1701,8 +1713,26 @@ IN_PROC_BROWSER_TEST_P(AdsPageLoadMetricsObserverResourceBrowserTest,
   ad_script_response->Done();
 
   waiter->AddMinimumNetworkBytesExpectation(5000);
-  waiter->Wait();
 
+  std::array<network::mojom::PermissionsPolicyFeature, 9> features = {
+      network::mojom::PermissionsPolicyFeature::kBluetooth,
+      network::mojom::PermissionsPolicyFeature::kCamera,
+      network::mojom::PermissionsPolicyFeature::kClipboardRead,
+      network::mojom::PermissionsPolicyFeature::kClipboardWrite,
+      network::mojom::PermissionsPolicyFeature::kDisplayCapture,
+      network::mojom::PermissionsPolicyFeature::kGeolocation,
+      network::mojom::PermissionsPolicyFeature::kMicrophone,
+      network::mojom::PermissionsPolicyFeature::kSerial,
+      network::mojom::PermissionsPolicyFeature::kUsb};
+
+  for (auto feature : features) {
+    waiter->AddUseCounterFeatureExpectation(
+        {blink::mojom::UseCounterFeatureType::
+             kPermissionsPolicyEnabledPrivacySensitive,
+         static_cast<blink::UseCounterFeature::EnumValue>(feature)});
+  }
+
+  waiter->Wait();
   // Close all tabs instead of navigating as the embedded_test_server will
   // hang waiting for loads to finish when we have an unfinished
   // ControllableHttpResponse.
@@ -1710,33 +1740,10 @@ IN_PROC_BROWSER_TEST_P(AdsPageLoadMetricsObserverResourceBrowserTest,
 
   histogram_tester.ExpectTotalCount(
       "Blink.UseCounter.PermissionsPolicy.PrivacySensitive.Enabled", 9);
-  histogram_tester.ExpectBucketCount(
-      "Blink.UseCounter.PermissionsPolicy.PrivacySensitive.Enabled",
-      network::mojom::PermissionsPolicyFeature::kBluetooth, 1);
-  histogram_tester.ExpectBucketCount(
-      "Blink.UseCounter.PermissionsPolicy.PrivacySensitive.Enabled",
-      network::mojom::PermissionsPolicyFeature::kCamera, 1);
-  histogram_tester.ExpectBucketCount(
-      "Blink.UseCounter.PermissionsPolicy.PrivacySensitive.Enabled",
-      network::mojom::PermissionsPolicyFeature::kClipboardRead, 1);
-  histogram_tester.ExpectBucketCount(
-      "Blink.UseCounter.PermissionsPolicy.PrivacySensitive.Enabled",
-      network::mojom::PermissionsPolicyFeature::kClipboardWrite, 1);
-  histogram_tester.ExpectBucketCount(
-      "Blink.UseCounter.PermissionsPolicy.PrivacySensitive.Enabled",
-      network::mojom::PermissionsPolicyFeature::kDisplayCapture, 1);
-  histogram_tester.ExpectBucketCount(
-      "Blink.UseCounter.PermissionsPolicy.PrivacySensitive.Enabled",
-      network::mojom::PermissionsPolicyFeature::kGeolocation, 1);
-  histogram_tester.ExpectBucketCount(
-      "Blink.UseCounter.PermissionsPolicy.PrivacySensitive.Enabled",
-      network::mojom::PermissionsPolicyFeature::kMicrophone, 1);
-  histogram_tester.ExpectBucketCount(
-      "Blink.UseCounter.PermissionsPolicy.PrivacySensitive.Enabled",
-      network::mojom::PermissionsPolicyFeature::kSerial, 1);
-  histogram_tester.ExpectBucketCount(
-      "Blink.UseCounter.PermissionsPolicy.PrivacySensitive.Enabled",
-      network::mojom::PermissionsPolicyFeature::kUsb, 1);
+
+  auto entries = ukm_recorder.GetEntriesByName(
+      ukm::builders::Permissions_PrivacySensitive_UseCounter::kEntryName);
+  EXPECT_EQ(9u, entries.size());
 }
 
 // Verify that per-resource metrics are recorded correctly.
@@ -2565,25 +2572,6 @@ IN_PROC_BROWSER_TEST_F(AdsPageLoadMetricsObserverBrowserTest,
       "PageLoad.Clients.Ads.FrameCounts.AdFrames.Total", 0);
 }
 
-// DummyMemoryObserver is a subclass of V8DetailedMemoryObserverAnySeq so
-// that we can spin up a request in the AdsMemoryMeasurementBrowserTest with
-// MeasurementMode::kEagerForTesting, which will make measurements available
-// to the PageLoadMetricsMemoryTracker much more quickly than they would be
-// otherwise.
-class DummyMemoryObserver
-    : public performance_manager::v8_memory::V8DetailedMemoryObserverAnySeq {
- public:
-  DummyMemoryObserver() = default;
-  ~DummyMemoryObserver() override = default;
-
-  void OnV8MemoryMeasurementAvailable(
-      performance_manager::RenderProcessHostId process_id,
-      const performance_manager::v8_memory::V8DetailedMemoryProcessData&
-          process_data,
-      const performance_manager::v8_memory::V8DetailedMemoryObserverAnySeq::
-          FrameDataMap& frame_data) override {}
-};
-
 class AdsMemoryMeasurementBrowserTest
     : public subresource_filter::SubresourceFilterBrowserTest {
  public:
@@ -2642,15 +2630,14 @@ IN_PROC_BROWSER_TEST_F(AdsMemoryMeasurementBrowserTest,
   base::HistogramTester histogram_tester;
 
   // Instantiate a memory request and observer to set memory measurement
-  // polling parameters.
-  std::unique_ptr<performance_manager::v8_memory::V8DetailedMemoryRequestAnySeq>
-      memory_request = std::make_unique<
-          performance_manager::v8_memory::V8DetailedMemoryRequestAnySeq>(
-          base::Seconds(1),
-          performance_manager::v8_memory::V8DetailedMemoryRequest::
-              MeasurementMode::kEagerForTesting);
-  auto memory_observer = std::make_unique<DummyMemoryObserver>();
-  memory_request->AddObserver(memory_observer.get());
+  // polling parameters. PageLoadMetricsMemoryTracker will get results as soon
+  // as they're available for this request, which is able to use
+  // kEagerForTesting mode.
+  using performance_manager::v8_memory::V8DetailedMemoryRequest;
+  auto memory_request = std::make_unique<V8DetailedMemoryRequest>(
+      base::Seconds(1),
+      V8DetailedMemoryRequest::MeasurementMode::kEagerForTesting);
+  memory_request->StartMeasurement();
 
   // cross_site_iframe_factory loads URLs like:
   // http://b.com:40919/cross_site_iframe_factory.html?b()
@@ -2688,8 +2675,6 @@ IN_PROC_BROWSER_TEST_F(AdsMemoryMeasurementBrowserTest,
   histogram_tester.ExpectTotalCount(kMemoryUpdateCountHistogramId, 1);
   EXPECT_GE(
       histogram_tester.GetAllSamples(kMemoryUpdateCountHistogramId)[0].min, 1);
-
-  memory_request->RemoveObserver(memory_observer.get());
 }
 
 class AdsPageLoadMetricsObserverPrerenderingBrowserTest

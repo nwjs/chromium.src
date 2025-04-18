@@ -2,7 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import("//build/config/chromeos/ui_mode.gni")
 import("//components/enterprise/buildflags/buildflags.gni")
 import("//components/safe_browsing/buildflags.gni")
 import("//extensions/buildflags/buildflags.gni")
@@ -49,7 +48,6 @@ static_library("safe_browsing") {
     "//components/resources:components_resources_grit",
     "//components/safe_browsing:buildflags",
     "//components/safe_browsing/content/browser",
-    "//components/safe_browsing/content/browser:client_side_detection_service",
     "//components/safe_browsing/content/browser/notification_content_detection:notification_content_detection",
     "//components/safe_browsing/content/browser/triggers:suspicious_site_trigger",
     "//components/safe_browsing/content/browser/web_ui",
@@ -76,6 +74,9 @@ static_library("safe_browsing") {
     "//services/preferences/public/cpp",
   ]
 
+  # Note: is_android is not equivalent to safe_browsing_mode == 2.
+  # Sources and dependencies added to this block must not depend on anything
+  # requiring safe_browsing_mode != 0.
   if (is_android) {
     deps += [
       "//chrome/browser/password_manager/android:utils",
@@ -84,7 +85,7 @@ static_library("safe_browsing") {
     ]
   }
 
-  if (is_chromeos_ash) {
+  if (is_chromeos) {
     deps += [ "//chrome/browser/ash/file_manager" ]
 
     allow_circular_includes_from += [ "//chrome/browser/ash/file_manager" ]
@@ -108,8 +109,6 @@ static_library("safe_browsing") {
       "chrome_client_side_detection_host_delegate.h",
       "chrome_client_side_detection_service_delegate.cc",
       "chrome_client_side_detection_service_delegate.h",
-      "chrome_enterprise_url_lookup_service.cc",
-      "chrome_enterprise_url_lookup_service.h",
       "chrome_enterprise_url_lookup_service_factory.cc",
       "chrome_enterprise_url_lookup_service_factory.h",
       "chrome_password_protection_service.cc",
@@ -142,13 +141,12 @@ static_library("safe_browsing") {
       "download_protection/check_client_download_request_base.h",
       "download_protection/check_file_system_access_write_request.cc",
       "download_protection/check_file_system_access_write_request.h",
+      "download_protection/deep_scanning_metadata.cc",
       "download_protection/deep_scanning_metadata.h",
       "download_protection/download_item_metadata.cc",
       "download_protection/download_item_metadata.h",
       "download_protection/download_protection_delegate.cc",
       "download_protection/download_protection_delegate.h",
-      "download_protection/download_protection_delegate_desktop.cc",
-      "download_protection/download_protection_delegate_desktop.h",
       "download_protection/download_protection_observer.cc",
       "download_protection/download_protection_observer.h",
       "download_protection/download_protection_service.cc",
@@ -171,8 +169,8 @@ static_library("safe_browsing") {
       "network_context_service.h",
       "network_context_service_factory.cc",
       "network_context_service_factory.h",
-      "notification_content_detection_service_factory.cc",
-      "notification_content_detection_service_factory.h",
+      "notification_content_detection/notification_content_detection_service_factory.cc",
+      "notification_content_detection/notification_content_detection_service_factory.h",
       "phishy_interaction_tracker.cc",
       "phishy_interaction_tracker.h",
       "safe_browsing_navigation_observer_manager_factory.cc",
@@ -221,7 +219,6 @@ static_library("safe_browsing") {
       "//chrome/common/safe_browsing:proto",
       "//components/autofill/core/browser",
       "//components/content_settings/core/browser",
-      "//components/enterprise/common/proto:connectors_proto",
       "//components/enterprise/connectors/core",
       "//components/no_state_prefetch/browser",
       "//components/omnibox/browser",
@@ -247,9 +244,9 @@ static_library("safe_browsing") {
       "//components/safe_browsing/core/browser/db:allowlist_checker_client",
       "//components/safe_browsing/core/browser/password_protection",
       "//components/safe_browsing/core/browser/password_protection:password_reuse_detection_manager_client",
+      "//components/safe_browsing/core/browser/realtime:enterprise_url_lookup_service",
       "//components/safe_browsing/core/browser/realtime:policy_engine",
       "//components/safe_browsing/core/browser/realtime:url_lookup_service",
-      "//components/safe_browsing/core/browser/realtime:url_lookup_service_base",
       "//components/safe_browsing/core/browser/sync",
       "//components/safe_browsing/core/browser/tailored_security_service",
       "//components/safe_browsing/core/common",
@@ -275,8 +272,6 @@ static_library("safe_browsing") {
       sources += [
         "chrome_safe_browsing_hats_delegate.cc",
         "chrome_safe_browsing_hats_delegate.h",
-        "cloud_content_scanning/binary_fcm_service.cc",
-        "cloud_content_scanning/binary_fcm_service.h",
         "cloud_content_scanning/binary_upload_service.cc",
         "cloud_content_scanning/binary_upload_service.h",
         "cloud_content_scanning/cloud_binary_upload_service.cc",
@@ -303,6 +298,8 @@ static_library("safe_browsing") {
         "download_protection/download_feedback.h",
         "download_protection/download_feedback_service.cc",
         "download_protection/download_feedback_service.h",
+        "download_protection/download_protection_delegate_desktop.cc",
+        "download_protection/download_protection_delegate_desktop.h",
         "download_protection/path_sanitizer.cc",
         "download_protection/path_sanitizer.h",
         "extension_telemetry/cookies_get_all_signal.cc",
@@ -465,22 +462,24 @@ static_library("safe_browsing") {
           "//chrome/common:version_header",
         ]
       }
-      if (is_chromeos_ash) {
+      if (is_chromeos) {
         deps += [
           "//ash/constants:constants",
           "//chromeos/ash/components/browser_context_helper:browser_context_helper",
+          "//chromeos/components/mgs:mgs",
         ]
-      }
-      if (is_chromeos) {
-        deps += [ "//chromeos/components/mgs:mgs" ]
       }
       if (!is_android) {
         deps += [ "//chrome/browser/ui:browser_list" ]
       }
     } else if (safe_browsing_mode == 2) {
       sources += [
+        "android/download_protection_metrics_data.cc",
+        "android/download_protection_metrics_data.h",
         "android/services_delegate_android.cc",
         "android/services_delegate_android.h",
+        "download_protection/download_protection_delegate_android.cc",
+        "download_protection/download_protection_delegate_android.h",
         "tailored_security/consented_message_android.cc",
         "tailored_security/consented_message_android.h",
         "tailored_security/unconsented_message_android.cc",
@@ -495,6 +494,7 @@ static_library("safe_browsing") {
         "//components/safe_browsing:buildflags",
         "//components/safe_browsing/android:remote_database_manager",
         "//components/safe_browsing/android:safe_browsing_mobile",
+        "//google_apis/common:request_util",
         "//ui/android:android",
 
         # TODO(crbug.com/41437292): Use //chrome/browser after fixing cyclic
@@ -532,11 +532,22 @@ source_set("verdict_cache_manager_factory") {
 
 static_library("advanced_protection") {
   sources = [
-    "advanced_protection_status_manager.cc",
     "advanced_protection_status_manager.h",
     "advanced_protection_status_manager_factory.cc",
     "advanced_protection_status_manager_factory.h",
   ]
+
+  if (is_android) {
+    sources += [
+      "advanced_protection_status_manager_android.cc",
+      "advanced_protection_status_manager_android.h",
+    ]
+  } else {
+    sources += [
+      "advanced_protection_status_manager_desktop.cc",
+      "advanced_protection_status_manager_desktop.h",
+    ]
+  }
 
   configs += [ "//build/config/compiler:wexit_time_destructors" ]
 

@@ -41,7 +41,7 @@
   "experimentalAiData": {
     "contexts": ["privileged_extension"],
     "dependencies": ["permission:experimentalAiData"],
-    "channel": "dev"
+    "channel": "beta"
   },
   "app": {
     "blocklist": [
@@ -418,6 +418,9 @@
   },
   "enterprise.reportingPrivate.getHotfixes": {
     "platforms": ["win"]
+  },
+  "enterprise.reportingPrivate.onDataMaskingRulesTriggered": {
+    "feature_flag": "ApiEnterpriseReportingPrivateOnDataMaskingRulesTriggered"
   },
   "experimental.devtools.audits": {
     "nocompile": true,

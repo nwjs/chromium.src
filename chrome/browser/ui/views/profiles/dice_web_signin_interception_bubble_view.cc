@@ -12,6 +12,7 @@
 #include "base/functional/callback_helpers.h"
 #include "base/memory/ptr_util.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/not_fatal_until.h"
 #include "base/notreached.h"
 #include "base/strings/strcat.h"
 #include "base/time/time.h"
@@ -91,7 +92,8 @@ std::optional<std::u16string> InteractionTypeToIdentityPillAccessibilityLabel(
     WebSigninInterceptor::SigninInterceptionType interception_type) {
   switch (interception_type) {
     case WebSigninInterceptor::SigninInterceptionType::kChromeSignin:
-      if (switches::kInterceptBubblesDismissibleByAvatarButton.Get()) {
+      if (base::FeatureList::IsEnabled(
+              switches::kInterceptBubblesDismissibleByAvatarButton)) {
         return l10n_util::GetStringUTF16(
             IDS_AVATAR_BUTTON_INTERCEPT_BUBBLE_CHROME_SIGNIN_ACCESSIBILITY_LABEL);
       } else {
@@ -290,7 +292,7 @@ DiceWebSigninInterceptionBubbleView::DiceWebSigninInterceptionBubbleView(
       bubble_parameters_(bubble_parameters),
       callback_(std::move(callback)) {
   DCHECK(browser_);
-  DCHECK(callback_);
+  CHECK(callback_, base::NotFatalUntil::M138);
   set_close_on_deactivate(false);
 
   // Create the web view in the native bubble.
@@ -350,6 +352,14 @@ DiceWebSigninInterceptionBubbleView::GetHandle() {
 
 void DiceWebSigninInterceptionBubbleView::OnWebUIUserChoice(
     SigninInterceptionUserChoice user_choice) {
+  if (!callback_) {
+    // This may be called multiple times, or after some other user action.
+    // See https://crbug.com/401528621
+    // Ignore repeated calls, as the callback has already been called and the
+    // bubble is closing.
+    return;
+  }
+
   SigninInterceptionResult result;
   switch (user_choice) {
     case SigninInterceptionUserChoice::kAccept:
@@ -401,6 +411,14 @@ bool DiceWebSigninInterceptionBubbleView::HandleKeyboardEvent(
 
 void DiceWebSigninInterceptionBubbleView::Dismiss(
     SigninInterceptionDismissReason reason) {
+  if (!callback_) {
+    // The bubble may be dismissed multiple times, or dismissed after some other
+    // user action. See https://crbug.com/401528621
+    // Ignore repeated calls, as the callback has already been called and the
+    // bubble is closing.
+    return;
+  }
+
   RecordDismissReason(bubble_parameters_.interception_type, reason);
   OnInterceptionResult(SigninInterceptionResult::kDismissed);
 }
@@ -436,7 +454,8 @@ void DiceWebSigninInterceptionBubbleView::ApplyAvatarButtonEffects() {
           bubble_parameters_.interception_type));
 
   // Avatar Button action behavior
-  if (switches::kInterceptBubblesDismissibleByAvatarButton.Get()) {
+  if (base::FeatureList::IsEnabled(
+          switches::kInterceptBubblesDismissibleByAvatarButton)) {
     reset_avatar_button_action_callback_ =
         button->SetExplicitButtonAction(base::BindRepeating(
             &DiceWebSigninInterceptionBubbleView::Dismiss,

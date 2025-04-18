@@ -1230,7 +1230,7 @@ class TabImpl implements Tab {
             int themeColor = 0;
             if (tabState != null) {
                 appId = tabState.openerAppId;
-                themeColor = tabState.getThemeColor();
+                themeColor = tabState.themeColor;
                 hasThemeColor = tabState.hasThemeColor();
             }
             if (hasThemeColor != null) {
@@ -1884,7 +1884,7 @@ class TabImpl implements Tab {
             mContentView.addOnAttachStateChangeListener(mAttachStateChangeListener);
             updateInteractableState();
 
-            mWebContentsDelegate = createWebContentsDelegate();
+            updateWebContentsDelegate();
 
             // TODO(crbug.com/40942165): Find a better way of indicating this is a background tab
             // (or
@@ -1929,9 +1929,12 @@ class TabImpl implements Tab {
         }
     }
 
-    private TabWebContentsDelegateAndroidImpl createWebContentsDelegate() {
+    private void updateWebContentsDelegate() {
+        if (mWebContentsDelegate != null) {
+            mWebContentsDelegate.destroy();
+        }
         TabWebContentsDelegateAndroid delegate = mDelegateFactory.createWebContentsDelegate(this);
-        return new TabWebContentsDelegateAndroidImpl(this, delegate);
+        mWebContentsDelegate = new TabWebContentsDelegateAndroidImpl(this, delegate);
     }
 
     /**
@@ -2002,7 +2005,7 @@ class TabImpl implements Tab {
         // Update the delegate factory, then recreate and propagate all delegates.
         mDelegateFactory = factory;
 
-        mWebContentsDelegate = createWebContentsDelegate();
+        updateWebContentsDelegate();
 
         WebContents webContents = getWebContents();
         if (webContents != null) {
@@ -2233,6 +2236,7 @@ class TabImpl implements Tab {
      * @return parent identifier for the {@link Tab}
      */
     @Override
+    @CalledByNative
     public int getParentId() {
         return mParentId;
     }
@@ -2257,6 +2261,7 @@ class TabImpl implements Tab {
     }
 
     @Override
+    @CalledByNative
     public @Nullable Token getTabGroupId() {
         return mTabGroupId;
     }
@@ -2328,6 +2333,7 @@ class TabImpl implements Tab {
     }
 
     @Override
+    @CalledByNative
     public @TabLaunchType int getTabLaunchTypeAtCreation() {
         return mTabLaunchTypeAtCreation;
     }
@@ -2368,9 +2374,10 @@ class TabImpl implements Tab {
 
     /**
      * Destroys the current {@link WebContents}.
+     *
      * @param deleteNativeWebContents Whether or not to delete the native WebContents pointer.
      */
-    private final void destroyWebContents(boolean deleteNativeWebContents) {
+    private void destroyWebContents(boolean deleteNativeWebContents) {
         if (mWebContents == null) return;
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM
@@ -2396,7 +2403,10 @@ class TabImpl implements Tab {
             ((TabViewAndroidDelegate) contentsToDestroy.getViewAndroidDelegate()).destroy();
         }
         mWebContents = null;
-        mWebContentsDelegate = null;
+        if (mWebContentsDelegate != null) {
+            mWebContentsDelegate.destroy();
+            mWebContentsDelegate = null;
+        }
 
         assert mNativeTabAndroid != 0;
         if (deleteNativeWebContents) {

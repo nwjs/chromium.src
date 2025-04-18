@@ -169,6 +169,8 @@ bool BrowserFrame::InitBrowserFrame() {
 #if BUILDFLAG(IS_OZONE)
   params.inhibit_keyboard_shortcuts =
       browser->is_type_app() || browser->is_type_app_popup();
+
+  params.session_data = browser->platform_session_data();
 #endif
 
   if (native_browser_frame_->ShouldRestorePreviousBrowserWidgetState()) {

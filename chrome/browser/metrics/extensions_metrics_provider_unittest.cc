@@ -151,8 +151,7 @@ class ExtensionsMetricsProviderTest : public testing::Test {
   void TearDown() override { profile_manager_.DeleteAllTestingProfiles(); }
 
   Profile* CreateTestingProfile(const std::string& test_email) {
-    Profile* profile = profile_manager_.CreateTestingProfile(
-        test_email, /* is_main_profile= */ true);
+    Profile* profile = profile_manager_.CreateTestingProfile(test_email);
     profiles::SetLastUsedProfile(profile->GetBaseName());
     return profile;
   }
@@ -250,7 +249,7 @@ class ExtensionMetricsProviderInstallsTest
 // extension installation.
 TEST_F(ExtensionMetricsProviderInstallsTest, TestProtoConstruction) {
   auto add_extension = [this](const Extension* extension) {
-    prefs()->OnExtensionInstalled(extension, Extension::ENABLED,
+    prefs()->OnExtensionInstalled(extension, /*disable_reasons=*/{},
                                   syncer::StringOrdinal(), std::string());
   };
 
@@ -384,8 +383,8 @@ TEST_F(ExtensionMetricsProviderInstallsTest, TestProtoConstruction) {
             .SetLocation(ManifestLocation::kInternal)
             .Build();
     add_extension(extension.get());
-    prefs()->SetExtensionDisabled(
-        extension->id(), {extensions::disable_reason::DISABLE_USER_ACTION});
+    prefs()->AddDisableReason(extension->id(),
+                              extensions::disable_reason::DISABLE_USER_ACTION);
     {
       ExtensionInstallProto install = ConstructProto(*extension);
       ASSERT_EQ(1, install.disable_reasons_size());

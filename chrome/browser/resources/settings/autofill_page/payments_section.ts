@@ -10,7 +10,6 @@
 import '/shared/settings/prefs/prefs.js';
 import 'chrome://resources/cr_elements/cr_action_menu/cr_action_menu.js';
 import 'chrome://resources/cr_elements/cr_button/cr_button.js';
-import 'chrome://resources/cr_elements/cr_link_row/cr_link_row.js';
 import 'chrome://resources/cr_elements/cr_shared_style.css.js';
 import 'chrome://resources/cr_elements/cr_shared_vars.css.js';
 import '../settings_shared.css.js';
@@ -71,7 +70,6 @@ export interface SettingsPaymentsSectionElement {
     menuRemoveCreditCard: HTMLElement,
     menuAddVirtualCard: HTMLElement,
     menuRemoveVirtualCard: HTMLElement,
-    migrateCreditCards: HTMLElement,
     paymentsList: SettingsPaymentsListElement,
   };
 }
@@ -142,19 +140,7 @@ export class SettingsPaymentsSectionElement extends
       showLocalCreditCardRemoveConfirmationDialog_: Boolean,
       showLocalIbanRemoveConfirmationDialog_: Boolean,
       showVirtualCardUnenrollDialog_: Boolean,
-      migratableCreditCardsInfo_: String,
       showBulkRemoveCvcConfirmationDialog_: Boolean,
-
-      /**
-       * Whether migration local card on settings page is enabled.
-       */
-      migrationEnabled_: {
-        type: Boolean,
-        value() {
-          return loadTimeData.getBoolean('migrationEnabled');
-        },
-        readOnly: true,
-      },
 
       /**
        * Checks if we can use device authentication to authenticate the user.
@@ -235,8 +221,6 @@ export class SettingsPaymentsSectionElement extends
   private showLocalCreditCardRemoveConfirmationDialog_: boolean;
   private showLocalIbanRemoveConfirmationDialog_: boolean;
   private showVirtualCardUnenrollDialog_: boolean;
-  private migratableCreditCardsInfo_: string;
-  private migrationEnabled_: boolean;
   // <if expr="is_win or is_macosx">
   private deviceAuthAvailable_: boolean;
   // </if>
@@ -248,6 +232,7 @@ export class SettingsPaymentsSectionElement extends
   private cardBenefitsFlagEnabled_: boolean;
   private cardBenefitsSublabel_: string;
   private shouldShowPayOverTimeSettings_: boolean;
+  private payOverTimeSublabel_: string;
 
   override connectedCallback() {
     super.connectedCallback();
@@ -262,7 +247,9 @@ export class SettingsPaymentsSectionElement extends
         (_addressList, cardList, ibanList, payOverTimeIssuerList) => {
           this.creditCards = cardList;
           this.ibans = ibanList;
-          this.payOverTimeIssuers = payOverTimeIssuerList;
+          if (this.shouldShowPayOverTimeSettings_) {
+            this.payOverTimeIssuers = payOverTimeIssuerList;
+          }
         };
 
     const setIbansListener = (ibanList: chrome.autofillPrivate.IbanEntry[]) => {
@@ -525,14 +512,6 @@ export class SettingsPaymentsSectionElement extends
   }
 
   /**
-   * Handles clicking on the "Migrate" button for migrate local credit
-   * cards.
-   */
-  private onMigrateCreditCardsClick_() {
-    this.paymentsManager_.migrateCreditCards();
-  }
-
-  /**
    * Records changes made to the "Allow sites to check if you have payment
    * methods saved" setting to a histogram.
    */
@@ -551,38 +530,6 @@ export class SettingsPaymentsSectionElement extends
 
   private onSaveIban_(event: CustomEvent<chrome.autofillPrivate.IbanEntry>) {
     this.paymentsManager_.saveIban(event.detail);
-  }
-
-  /**
-   * @return Whether to show the migration button.
-   */
-  private checkIfMigratable_(
-      creditCards: chrome.autofillPrivate.CreditCardEntry[],
-      creditCardEnabled: boolean): boolean {
-    // If migration prerequisites are not met, return false.
-    if (!this.migrationEnabled_) {
-      return false;
-    }
-
-    // If credit card enabled pref is false, return false.
-    if (!creditCardEnabled) {
-      return false;
-    }
-
-    const numberOfMigratableCreditCard =
-        creditCards.filter(card => card.metadata!.isMigratable).length;
-    // Check whether exist at least one local valid card for migration.
-    if (numberOfMigratableCreditCard === 0) {
-      return false;
-    }
-
-    // Update the display text depends on the number of migratable credit
-    // cards.
-    this.migratableCreditCardsInfo_ = numberOfMigratableCreditCard === 1 ?
-        this.i18n('migratableCardsInfoSingle') :
-        this.i18n('migratableCardsInfoMultiple');
-
-    return true;
   }
 
   private getMenuEditCardText_(isLocalCard: boolean): string {

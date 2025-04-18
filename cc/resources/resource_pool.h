@@ -57,16 +57,66 @@ class CC_EXPORT ResourcePool : public base::trace_event::MemoryDumpProvider {
   // A class to hold ownership of PoolResources.
   class CC_EXPORT Backing {
    public:
-    Backing();
+    Backing(const gfx::Size& size,
+            viz::SharedImageFormat format,
+            const gfx::ColorSpace& color_space);
     virtual ~Backing();
 
-    void set_shared_image(scoped_refptr<gpu::ClientSharedImage> si) {
-      shared_image_ = std::move(si);
-    }
+    // Creates a SharedImage with the given `usage`. After invocation,
+    // `shared_image()` is guaranteed to be non-null.
+    void CreateSharedImage(gpu::SharedImageInterface* sii,
+                           const gpu::SharedImageUsageSet& usage,
+                           std::string_view debug_label);
+
+    // Creates a software SharedImage with the given `usage`. After invocation,
+    // `shared_image()` is guaranteed to be non-null.
+    void CreateSharedImageForSoftwareCompositor(gpu::SharedImageInterface* sii,
+                                                std::string_view debug_label);
+
+    // Creates a mappable SharedImage with the given `usage` and `buffer_usage`.
+    // Returns whether creation succeeded. After invocation, `shared_image()`
+    // will be non-null if creation succeeded.
+    // NOTE: This can be called on worker threads but the client must ensure
+    // that `can_access_shared_image_on_compositor_thread` is false at any time
+    // this this method would be invoked on a worker thread. The standard usage
+    // model for doing so is to check on the compositor thread whether the
+    // backing's SharedImage exists *before* the initiation of the flow that
+    // would cause it to be created on a worker thread, set
+    // `can_access_shared_image_on_compositor_thread` to false if the
+    // SharedImage does not exist at that point, and set
+    // `can_access_shared_image_on_compositor_thread` back to true *after* the
+    // worker thread flow is known to have finished.
+    bool CreateSharedImage(gpu::SharedImageInterface* sii,
+                           const gpu::SharedImageUsageSet& usage,
+                           std::string_view debug_label,
+                           gfx::BufferUsage buffer_usage);
+
+    void CreateSharedImageForTesting();
+    void CreateSharedImageForTesting(uint32_t texture_target);
+
+    // NOTE: This can be called on worker threads but the client must ensure
+    // that `can_access_shared_image_on_compositor_thread` is true at any time
+    // this method would be invoked on a worker thread. As the client can not in
+    // general a prior know when `clear_shared_image()` might need to be called
+    // as part of the worker thread flow (since it generally depends on some
+    // operation on the SharedImage failing), the standard usage model is *not*
+    // to call this on a worker thread but rather to record a boolean on the
+    // worker thread indicating whether the SharedImage needs to be cleared and
+    // to read that boolean on the compositor thread after the worker thread
+    // flow is known to have finished in order to actually clear the
+    // SharedImage.
     void clear_shared_image() { shared_image_.reset(); }
     scoped_refptr<gpu::ClientSharedImage> shared_image() {
       return shared_image_;
     }
+    const gfx::Size& size() const { return size_; }
+    const viz::SharedImageFormat& format() const { return format_; }
+    const gfx::ColorSpace& color_space() const { return color_space_; }
+
+    // If this field is set to false, the backing's SharedImage is in the
+    // process of being created on a worker thread and should not be accessed on
+    // the compositor thread.
+    bool can_access_shared_image_on_compositor_thread = true;
 
     gpu::SyncToken mailbox_sync_token;
 
@@ -87,6 +137,9 @@ class CC_EXPORT ResourcePool : public base::trace_event::MemoryDumpProvider {
 
    private:
     scoped_refptr<gpu::ClientSharedImage> shared_image_;
+    const gfx::Size size_;
+    const viz::SharedImageFormat format_;
+    const gfx::ColorSpace color_space_;
   };
 
   // Scoped move-only object returned when getting a resource from the pool.

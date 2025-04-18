@@ -599,7 +599,6 @@ AXObject::AXObject(AXObjectCacheImpl& ax_object_cache)
     : id_(0),
       parent_(nullptr),
       role_(ax::mojom::blink::Role::kUnknown),
-      explicit_container_id_(0),
       cached_live_region_root_(nullptr),
       ax_object_cache_(&ax_object_cache) {
   ++number_of_live_ax_objects_;
@@ -1300,37 +1299,42 @@ void SerializeAriaNotificationAttributes(const AriaNotifications& notifications,
   }
 
   std::vector<std::string> announcements;
-  std::vector<std::string> notification_ids;
-  std::vector<int32_t> interrupt_properties;
   std::vector<int32_t> priority_properties;
+  std::vector<int32_t> interrupt_properties;
+  std::vector<std::string> notification_types;
 
   announcements.reserve(size);
-  notification_ids.reserve(size);
-  interrupt_properties.reserve(size);
   priority_properties.reserve(size);
+  interrupt_properties.reserve(size);
+  notification_types.reserve(size);
 
   for (const auto& notification : notifications) {
     announcements.emplace_back(TruncateString(notification.Announcement()));
-    notification_ids.emplace_back(
-        TruncateString(notification.NotificationId()));
-    interrupt_properties.emplace_back(
-        static_cast<int32_t>(notification.Interrupt()));
     priority_properties.emplace_back(
         static_cast<int32_t>(notification.Priority()));
+    if (RuntimeEnabledFeatures::AriaNotifyV2Enabled()) {
+      notification_types.emplace_back(TruncateString(notification.Type()));
+      interrupt_properties.emplace_back(
+          static_cast<int32_t>(notification.Interrupt()));
+    } else {
+      notification_types.emplace_back();
+      interrupt_properties.emplace_back(static_cast<int32_t>(
+          ax::mojom::blink::AriaNotificationInterrupt::kNone));
+    }
   }
 
   node_data->AddStringListAttribute(
       ax::mojom::blink::StringListAttribute::kAriaNotificationAnnouncements,
       announcements);
-  node_data->AddStringListAttribute(
-      ax::mojom::blink::StringListAttribute::kAriaNotificationIds,
-      notification_ids);
-  node_data->AddIntListAttribute(
-      ax::mojom::blink::IntListAttribute::kAriaNotificationInterruptProperties,
-      interrupt_properties);
   node_data->AddIntListAttribute(
       ax::mojom::blink::IntListAttribute::kAriaNotificationPriorityProperties,
       priority_properties);
+  node_data->AddIntListAttribute(
+      ax::mojom::blink::IntListAttribute::kAriaNotificationInterruptProperties,
+      interrupt_properties);
+  node_data->AddStringListAttribute(
+      ax::mojom::blink::StringListAttribute::kAriaNotificationTypes,
+      notification_types);
 }
 
 }  // namespace
@@ -1388,7 +1392,7 @@ void AXObject::Serialize(ui::AXNodeData* node_data,
     SerializeBoundingBoxAttributes(*node_data);
   }
 
-  if (accessibility_mode.has_mode(ui::AXMode::kScreenReader)) {
+  if (accessibility_mode.has_mode(ui::AXMode::kExtendedProperties)) {
     // TODO(accessibility) We serialize these even on ignored nodes, in order
     // for the browser side to compute inherited colors for descendants, but we
     // do not ensure that elements that change foreground/background color are
@@ -1398,7 +1402,7 @@ void AXObject::Serialize(ui::AXNodeData* node_data,
     SerializeColorAttributes(node_data);  // Blends using all nodes' values.
   }
 
-  if (accessibility_mode.has_mode(ui::AXMode::kScreenReader) ||
+  if (accessibility_mode.has_mode(ui::AXMode::kExtendedProperties) ||
       accessibility_mode.has_mode(ui::AXMode::kPDFPrinting)) {
     SerializeLangAttribute(node_data);  // Propagates using all nodes' values.
   }
@@ -1423,7 +1427,7 @@ void AXObject::Serialize(ui::AXNodeData* node_data,
 
   SerializeUnignoredAttributes(node_data, accessibility_mode, is_snapshot);
 
-  if (!accessibility_mode.has_mode(ui::AXMode::kScreenReader)) {
+  if (!accessibility_mode.has_mode(ui::AXMode::kExtendedProperties)) {
     // Return early. None of the following attributes are needed outside of
     // screen reader mode.
     return;
@@ -1519,8 +1523,9 @@ void AXObject::SerializeChildTreeID(ui::AXNodeData* node_data) const {
   // If a child tree has explicitly been stitched at this object via the
   // `ax::mojom::blink::Action::kStitchChildTree`, then override any child trees
   // coming from HTML.
-  if (child_tree_id_) {
-    node_data->AddChildTreeId(*child_tree_id_);
+  if (auto child_tree_id =
+          AXObjectCache().GetAXObjectChildAXTreeID(AXObjectID())) {
+    node_data->AddChildTreeId(*child_tree_id);
     return;
   }
 
@@ -1936,8 +1941,9 @@ void AXObject::SerializeNameAndDescriptionAttributes(
   TruncateAndAddStringAttribute(
       node_data, ax::mojom::blink::StringAttribute::kTooltip, title);
 
-  if (!accessibility_mode.has_mode(ui::AXMode::kScreenReader))
+  if (!accessibility_mode.has_mode(ui::AXMode::kExtendedProperties)) {
     return;
+  }
 
   String placeholder = Placeholder(name_from);
   TruncateAndAddStringAttribute(
@@ -2371,7 +2377,7 @@ void AXObject::SerializeUnignoredAttributes(ui::AXNodeData* node_data,
                                             bool is_snapshot) const {
   SerializeNameAndDescriptionAttributes(accessibility_mode, node_data);
 
-  if (accessibility_mode.has_mode(ui::AXMode::kScreenReader)) {
+  if (accessibility_mode.has_mode(ui::AXMode::kExtendedProperties)) {
     SerializeMarkerAttributes(node_data);
 #if BUILDFLAG(IS_ANDROID)
     // On Android, style attributes are only serialized for snapshots, or, when
@@ -2458,7 +2464,7 @@ void AXObject::SerializeUnignoredAttributes(ui::AXNodeData* node_data,
   else if (Orientation() == blink::kAccessibilityOrientationHorizontal)
     node_data->AddState(ax::mojom::blink::State::kHorizontal);
 
-  if (accessibility_mode.has_mode(ui::AXMode::kScreenReader) ||
+  if (accessibility_mode.has_mode(ui::AXMode::kExtendedProperties) ||
       accessibility_mode.has_mode(ui::AXMode::kPDFPrinting)) {
     // Heading level.
     if (ui::IsHeading(role) && HeadingLevel()) {
@@ -3510,6 +3516,10 @@ bool AXObject::IsMultiSelectable() const {
   return false;
 }
 
+bool AXObject::ComputeIsOffScreen() const {
+  return false;
+}
+
 bool AXObject::IsRequired() const {
   return false;
 }
@@ -4231,7 +4241,7 @@ bool AXObject::IsExcludedByFormControlsFilter() const {
   const ui::AXMode& mode = cache.GetAXMode();
 
   bool filter_to_form_controls =
-      mode.HasExperimentalFlags(ui::AXMode::kExperimentalFormControls);
+      mode.HasFilterFlags(ui::AXMode::kFormsAndLabelsOnly);
 
   if (!filter_to_form_controls) {
     return false;
@@ -4239,7 +4249,7 @@ bool AXObject::IsExcludedByFormControlsFilter() const {
 
   // Nodes at which another tree has been stitched should always remain in the
   // tree so that browser code can traverse through them to the child tree.
-  if (child_tree_id_) {
+  if (AXObjectCache().GetAXObjectChildAXTreeID(AXObjectID())) {
     return false;
   }
 
@@ -4686,9 +4696,17 @@ bool AXObject::ComputeCanSetFocusAttribute() {
       << "\n* Element: " << elem << "\n* Object: " << this
       << "\n* LayoutObject: " << GetLayoutObject();
 
-  // Focusable: element supports focus.
-  return elem->SupportsFocus(Element::UpdateBehavior::kNoneForAccessibility) !=
-         FocusableState::kNotFocusable;
+  // Focusable: an element is focusable if it is either mouse or keyboard
+  // focusable. An element is only mouse focusable if it has negative tabindex.
+  // An element is only keyboard focusable if it a scroller without tabindex and
+  // no focusable child. In the case of a scroll element without tabindex and
+  // with focusable child, this should return false.
+  // Calling Element::SupportsFocus() is not enough because scroll elements
+  // support focus, but are not always focusable.
+  return elem->IsMouseFocusable(
+             Element::UpdateBehavior::kNoneForAccessibility) ||
+         elem->IsKeyboardFocusableSlow(
+             Element::UpdateBehavior::kNoneForAccessibility);
 }
 
 bool AXObject::CanSetSelectedAttribute() const {
@@ -6085,7 +6103,7 @@ bool AXObject::ContainerLiveRegionBusy() const {
 
 AXObject* AXObject::ElementAccessibilityHitTest(const gfx::Point& point) const {
   PhysicalOffset physical_point(point);
-  if (child_tree_id_ &&
+  if (AXObjectCache().GetAXObjectChildAXTreeID(AXObjectID()) &&
       GetBoundsInFrameCoordinates().Contains(physical_point)) {
     // The children of this object are hidden by a stitched child tree, so
     // return early.
@@ -6730,11 +6748,13 @@ void AXObject::SetChildTree(const ui::AXTreeID& child_tree_id) {
            DocumentLifecycle::kLayoutClean)
       << "Stitching a child tree is an action, and all actions should be "
          "performed when the layout is clean.";
+  const auto current_child_tree_id =
+      AXObjectCache().GetAXObjectChildAXTreeID(AXObjectID());
   if (child_tree_id == ui::AXTreeIDUnknown() ||
-      child_tree_id_ == child_tree_id) {
+      current_child_tree_id == child_tree_id) {
     return;
   }
-  child_tree_id_ = child_tree_id;
+  AXObjectCache().SetAXObjectChildTreeID(AXObjectID(), child_tree_id);
   // A node with a child tree is automatically considered a leaf, and
   // CanHaveChildren() will return false for it.
   AXObjectCache().MarkAXObjectDirtyWithCleanLayout(this);
@@ -7214,10 +7234,11 @@ void AXObject::GetRelativeBounds(AXObject** out_container,
   // to a canvas path. When explicit coordinates are provided, the ID of the
   // explicit container element that the coordinates are relative to must be
   // provided too.
-  if (!explicit_element_rect_.IsEmpty()) {
-    *out_container = AXObjectCache().ObjectFromAXID(explicit_container_id_);
+  if (auto canvas_bounds =
+          AXObjectCache().GetCanvasElementBounds(this->AXObjectID())) {
+    *out_container = AXObjectCache().ObjectFromAXID(canvas_bounds->second);
     if (*out_container) {
-      out_bounds_in_container = gfx::RectF(explicit_element_rect_);
+      out_bounds_in_container = gfx::RectF(canvas_bounds->first);
       return;
     }
   }
@@ -7725,12 +7746,19 @@ bool AXObject::OnNativeScrollToMakeVisibleWithSubFocusAction(
     const gfx::Rect& rect,
     blink::mojom::blink::ScrollAlignment horizontal_scroll_alignment,
     blink::mojom::blink::ScrollAlignment vertical_scroll_alignment) const {
-  LayoutObject* layout_object = GetLayoutObjectForNativeScrollAction();
+  const LayoutObject* layout_object = GetLayoutObjectForNativeScrollAction();
   if (!layout_object)
     return false;
 
   PhysicalRect target_rect =
       layout_object->LocalToAbsoluteRect(PhysicalRect(rect));
+  // To scroll an element into view, we don't scroll the element itself
+  // unless it is the document scrolling element.
+  // TODO(crbug.com/401443093): Consider moving this logic further down
+  // affecting focus and scrollIntoView calls as well.
+  if (const LayoutObject* container = layout_object->Container()) {
+    layout_object = container;
+  }
   scroll_into_view_util::ScrollRectToVisible(
       *layout_object, target_rect,
       scroll_into_view_util::CreateScrollIntoViewParams(

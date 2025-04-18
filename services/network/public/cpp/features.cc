@@ -194,11 +194,6 @@ BASE_FEATURE(kOmitCorsClientCert,
              "OmitCorsClientCert",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Load Pervasive Payloads List for Cache Transparency.
-BASE_FEATURE(kPervasivePayloadsList,
-             "PervasivePayloadsList",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Enables support for the `Variants` response header and reduce
 // accept-language. https://github.com/Tanych/accept-language
 BASE_FEATURE(kReduceAcceptLanguage,
@@ -228,6 +223,26 @@ BASE_FEATURE(kPrivateNetworkAccessPreflightShortTimeout,
 BASE_FEATURE(kPrivateNetworkAccessPermissionPrompt,
              "PrivateNetworkAccessPermissionPrompt",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables Local Network Access checks.
+// Blocks local network requests without user permission to prevent exploitation
+// of vulnerable local devices.
+//
+// This feature is being built as a replacement for Private Network Access
+// (PNA), and if this is on PNA features may stop working.
+//
+// Public explainer:
+// https://github.com/explainers-by-googlers/local-network-access
+BASE_FEATURE(kLocalNetworkAccessChecks,
+             "LocalNetworkAccessChecks",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// If true, local network access checks will only be warnings.
+BASE_FEATURE_PARAM(bool,
+                   kLocalNetworkAccessChecksWarn,
+                   &kLocalNetworkAccessChecks,
+                   /*name=*/"LocalNetworkAccessChecksWarn",
+                   /*default_value=*/true);
 
 // If enabled, then the network service will parse the Cookie-Indices header.
 // This does not currently control changing cache behavior according to the
@@ -295,6 +310,20 @@ BASE_FEATURE(kSharedZstd, "SharedZstd", base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kReduceTransferSizeUpdatedIPC,
              "ReduceTransferSizeUpdatedIPC",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables content decoding in the renderer process.
+// See https://crbug.com/391950057 and this doc for more details.
+// https://docs.google.com/document/d/1LwgPlrtQtUhGz_ilTsRun-7o4TuHo9jbXll6FRq-dKk/edit?usp=sharing
+BASE_FEATURE(kRendererSideContentDecoding,
+             "RendererSideContentDecoding",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+// When non-zero, a Mojo data pipe of this size will be used between the
+// decoding thread and the data receiving thread.
+BASE_FEATURE_PARAM(int,
+                   kRendererSideContentDecodingPipeSize,
+                   &kRendererSideContentDecoding,
+                   /*name=*/"RendererSideContentDecodingPipeSize",
+                   /*default_value=*/0);
 
 // This feature allows skipping TPCD mitigation checks when the cookie access
 // is tagged as being used for advertising purposes. This means that cookies
@@ -368,10 +397,6 @@ BASE_FEATURE(kCloneDevToolsConnectionOnlyIfRequested,
 
 BASE_FEATURE(kStorageAccessHeaders,
              "StorageAccessHeaders",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kStorageAccessHeadersTrial,
-             "StorageAccessHeadersTrial",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSRIMessageSignatureEnforcement,
@@ -512,6 +537,13 @@ BASE_FEATURE_PARAM(bool,
                    "ExposeDebugMessageForSettingsStatus",
                    false);
 
+// Enables transactional behavior for sharedStorage.batchUpdate(). This also
+// disallows the 'withLock' option for methods within batchUpdate().
+// https://wicg.github.io/shared-storage/#batch-update
+BASE_FEATURE(kSharedStorageTransactionalBatchUpdate,
+             "SharedStorageTransactionalBatchUpdate",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Kill switch for the Interest Group API, i.e. if disabled, the
 // API exposure will be disabled regardless of the OT config.
 BASE_FEATURE(kInterestGroupStorage,
@@ -543,5 +575,17 @@ BASE_FEATURE_PARAM(int,
                    &kInterestGroupStorage,
                    "max_ops_before_maintenance",
                    1000);
+
+BASE_FEATURE(kGetCookiesOnSet,
+             "GetCookiesOnSet",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kPopulatePermissionsPolicyOnRequest,
+             "PopulatePermissionsPolicyOnRequest",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kProtectedAudienceCorsSafelistKVv2Signals,
+             "ProtectedAudienceCorsSafelistKVv2Signals",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace network::features

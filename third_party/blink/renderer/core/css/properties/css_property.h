@@ -142,20 +142,32 @@ class CORE_EXPORT CSSProperty : public CSSUnresolvedProperty {
       bool allow_visited_style,
       CSSValuePhase value_phase) const;
 
-  const CSSProperty& ResolveDirectionAwareProperty(
-      WritingDirectionMode writing_direction) const {
+  const CSSProperty& ToPhysical(WritingDirectionMode writing_direction) const {
     if (!IsInLogicalPropertyGroup()) {
       // Avoid the potentially expensive virtual function call.
       return *this;
     } else {
-      return ResolveDirectionAwarePropertyInternal(writing_direction);
+      return ToPhysicalInternal(writing_direction);
     }
   }
 
-  virtual const CSSProperty& ResolveDirectionAwarePropertyInternal(
-      WritingDirectionMode) const {
+  virtual const CSSProperty& ToPhysicalInternal(WritingDirectionMode) const {
     return *this;
   }
+
+  const CSSProperty& ToLogical(WritingDirectionMode writing_direction) const {
+    if (!IsInLogicalPropertyGroup()) {
+      // Avoid the potentially expensive virtual function call.
+      return *this;
+    } else {
+      return ToLogicalInternal(writing_direction);
+    }
+  }
+
+  virtual const CSSProperty& ToLogicalInternal(WritingDirectionMode) const {
+    return *this;
+  }
+
   virtual bool IsInSameLogicalPropertyGroupWithDifferentMappingLogic(
       CSSPropertyID) const {
     return false;
@@ -255,9 +267,7 @@ class CORE_EXPORT CSSProperty : public CSSUnresolvedProperty {
     // See valid_for_permission_element in css_properties.json5
     kValidForPermissionElement = 1ull << 31,
     // See valid_for_limited_page_context in css_properties.json5
-    kValidForLimitedPageContext = 1ull << 32,
-    // See valid_for_page_context in css_properties.json5
-    kValidForPageContext = 1ull << 33,
+    kValidForPageContext = 1ull << 32,
   };
 
   constexpr CSSProperty(CSSPropertyID property_id,

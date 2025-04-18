@@ -119,6 +119,9 @@
           ],
           'merge': {
             'script': '//tools/perf/process_perf_results.py',
+            'args': [
+              '--upload-skia-json',
+            ],
           },
         },
       },
@@ -147,6 +150,9 @@
           ],
           'merge': {
             'script': '//tools/perf/process_perf_results.py',
+            'args': [
+              '--upload-skia-json',
+            ],
           },
         },
       },
@@ -1505,7 +1511,7 @@
             'gpu_force_command_decoder_passthrough',
             'gpu_force_angle_metal',
             'gpu_force_skia_graphite',
-            'gpu_force_high_performance_gpu_for_webgl',
+            'gpu_force_high_performance_gpu_for_webgl_metal',
             'gpu_enable_metal_debug_layers',
             'gpu_integration_test_webgl2_args',
             'gpu_integration_test_common_args',
@@ -1625,7 +1631,7 @@
             'gpu_force_command_decoder_passthrough',
             'gpu_force_angle_metal',
             'gpu_force_skia_ganesh',
-            'gpu_force_high_performance_gpu_for_webgl',
+            'gpu_force_high_performance_gpu_for_webgl_metal',
             'gpu_enable_metal_debug_layers',
             'gpu_integration_test_webgl1_args',
             'gpu_integration_test_common_args',
@@ -1643,7 +1649,7 @@
             'gpu_force_command_decoder_passthrough',
             'gpu_force_angle_metal',
             'gpu_force_skia_graphite',
-            'gpu_force_high_performance_gpu_for_webgl',
+            'gpu_force_high_performance_gpu_for_webgl_metal',
             'gpu_enable_metal_debug_layers',
             'gpu_integration_test_webgl1_args',
             'gpu_integration_test_common_args',
@@ -2046,6 +2052,31 @@
       'optimization_guide_unittests': {
         'linux_args': [
           '--use-xvfb',
+        ],
+      },
+    },
+
+    'translatekit_script_tests': {
+      'chrome_wpt_tests': {
+        'test_common': {
+          'mixins': [
+            'has_native_resultdb_integration',
+          ],
+          'args': [
+            '--test-launcher-filter-file=../../third_party/blink/web_tests/TestLists/chrome.filter',
+          ],
+          'merge': {
+            'script': '//third_party/blink/tools/merge_web_test_results.py',
+            'args': [
+              '--verbose',
+            ],
+          },
+        },
+        'results_handler': 'layout tests',
+        'args': [
+          '-t',
+          'Release',
+          'external/wpt/ai/translator',
         ],
       },
     },

@@ -171,7 +171,6 @@ class ScopedAllowInitGLBindings;
 class VizCompositorThreadRunnerWebView;
 }  // namespace android_webview
 namespace ash {
-class BrowserDataBackMigrator;
 class LoginEventRecorder;
 class StartupCustomizationDocument;
 class StartupUtils;
@@ -345,6 +344,7 @@ template <class WorkerInterface,
 class CodecWorkerImpl;
 class FileVideoCaptureDeviceFactory;
 class GpuMojoMediaClientWin;
+class MailboxVideoFrameConverter;
 class MojoVideoEncodeAccelerator;
 class PaintCanvasVideoRenderer;
 class V4L2DevicePoller;  // TODO(crbug.com/41486289): remove this.
@@ -593,7 +593,6 @@ class BASE_EXPORT ScopedAllowBlocking {
   friend class ::WebEngineBrowserMainParts;
   friend class android_webview::AwBrowserContext;
   friend class android_webview::ScopedAllowInitGLBindings;
-  friend class ash::BrowserDataBackMigrator;
   friend class ash::LoginEventRecorder;
   friend class ash::StartupCustomizationDocument;  // http://crosbug.com/11103
   friend class ash::StartupUtils;
@@ -875,6 +874,7 @@ class BASE_EXPORT
   friend class gpu::GpuMemoryBufferImplDXGI;
   friend class media::AudioInputDevice;
   friend class media::AudioOutputDevice;
+  friend class media::MailboxVideoFrameConverter;
   friend class media::PaintCanvasVideoRenderer;
   friend class media::V4L2DevicePoller;  // TODO(crbug.com/41486289): remove
                                          // this.

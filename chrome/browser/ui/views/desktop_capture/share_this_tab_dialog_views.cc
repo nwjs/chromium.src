@@ -37,6 +37,7 @@
 #include "ui/base/ui_base_features.h"
 #include "ui/color/color_id.h"
 #include "ui/gfx/color_palette.h"
+#include "ui/gfx/native_widget_types.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/background.h"
 #include "ui/views/border.h"
@@ -190,11 +191,11 @@ ShareThisTabDialogView::ShareThisTabDialogView(
     // ModalType::kWindow.
     SetModalType(ui::mojom::ModalType::kWindow);
 #endif
-    CreateDialogWidget(this, params.context, nullptr)->Show();
+    CreateDialogWidget(this, params.context, gfx::NativeView())->Show();
   }
 
-  source_view_->SetBorder(views::CreateThemedRoundedRectBorder(
-      1, 4, ui::kColorSysPrimaryContainer));
+  source_view_->SetBorder(
+      views::CreateRoundedRectBorder(1, 4, ui::kColorSysPrimaryContainer));
 
   SetButtonLabel(ui::mojom::DialogButton::kOk,
                  l10n_util::GetStringUTF16(IDS_SHARE_THIS_TAB_DIALOG_ALLOW));
@@ -290,7 +291,7 @@ void ShareThisTabDialogView::SetupAudioToggle() {
   audio_toggle_container->SetProperty(views::kMarginsKey,
                                       gfx::Insets::TLBR(8, 0, 0, 0));
   audio_toggle_container->SetBackground(
-      views::CreateThemedRoundedRectBackground(ui::kColorSysSurface4, 8));
+      views::CreateRoundedRectBackground(ui::kColorSysSurface4, 8));
 
   views::ImageView* audio_icon_view = audio_toggle_container->AddChildView(
       std::make_unique<views::ImageView>());

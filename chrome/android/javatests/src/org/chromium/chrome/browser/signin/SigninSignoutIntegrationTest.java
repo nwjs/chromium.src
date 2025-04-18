@@ -6,12 +6,8 @@ package org.chromium.chrome.browser.signin;
 
 import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.click;
-import static androidx.test.espresso.action.ViewActions.pressBack;
-import static androidx.test.espresso.assertion.ViewAssertions.doesNotExist;
 import static androidx.test.espresso.contrib.RecyclerViewActions.scrollTo;
-import static androidx.test.espresso.matcher.RootMatchers.isDialog;
 import static androidx.test.espresso.matcher.ViewMatchers.hasDescendant;
-import static androidx.test.espresso.matcher.ViewMatchers.isRoot;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withParent;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
@@ -38,8 +34,8 @@ import org.mockito.quality.Strictness;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
+import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.HistogramWatcher;
-import org.chromium.chrome.browser.bookmarks.BookmarkModel;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.settings.MainSettings;
 import org.chromium.chrome.browser.settings.SettingsActivityTestRule;
@@ -52,14 +48,14 @@ import org.chromium.chrome.browser.ui.signin.history_sync.HistorySyncHelper;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.chrome.test.R;
-import org.chromium.chrome.test.util.BookmarkTestUtil;
 import org.chromium.chrome.test.util.browser.signin.SigninTestRule;
 import org.chromium.components.externalauth.ExternalAuthUtils;
+import org.chromium.components.signin.SigninFeatures;
+import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
 import org.chromium.components.signin.test.util.TestAccounts;
 import org.chromium.ui.test.util.MockitoHelper;
-import org.chromium.url.GURL;
 
 /** Test the lifecycle of sign-in and sign-out. */
 @RunWith(ChromeJUnit4ClassRunner.class)
@@ -97,8 +93,6 @@ public class SigninSignoutIntegrationTest {
     @Mock private HistorySyncHelper mHistorySyncHelper;
 
     private SigninManager mSigninManager;
-
-    private BookmarkModel mBookmarkModel;
 
     @Before
     public void setUp() {
@@ -172,71 +166,11 @@ public class SigninSignoutIntegrationTest {
     @Test
     @LargeTest
     public void testSignOut() {
-        mSigninTestRule.addTestAccountThenSigninAndEnableSync();
+        mSigninTestRule.addAccountThenSignin(TestAccounts.ACCOUNT1);
         mSettingsActivityTestRule.startSettingsActivity();
-        onView(withText(R.string.sign_out_and_turn_off_sync)).perform(click());
-        onView(withText(R.string.continue_button)).inRoot(isDialog()).perform(click());
+        onView(withText(R.string.sign_out)).perform(click());
         assertSignedOut();
         MockitoHelper.waitForEvent(mSignInStateObserverMock).onSignedOut();
-    }
-
-    @Test
-    @LargeTest
-    public void testSignOutDismissedByPressingBack() {
-        mSigninTestRule.addTestAccountThenSigninAndEnableSync();
-        mSettingsActivityTestRule.startSettingsActivity();
-        onView(withText(R.string.sign_out_and_turn_off_sync)).perform(click());
-        onView(isRoot()).perform(pressBack());
-        verify(mSignInStateObserverMock, never()).onSignedOut();
-        assertSignedIn();
-    }
-
-    @Test
-    @LargeTest
-    public void testSignOutCancelled() {
-        mSigninTestRule.addTestAccountThenSigninAndEnableSync();
-        mSettingsActivityTestRule.startSettingsActivity();
-        onView(withText(R.string.sign_out_and_turn_off_sync)).perform(click());
-        onView(withText(R.string.cancel)).inRoot(isDialog()).perform(click());
-        verify(mSignInStateObserverMock, never()).onSignedOut();
-        assertSignedIn();
-    }
-
-    @Test
-    @LargeTest
-    public void testSignOutNonManagedAccountWithDataWiped() {
-        mSigninTestRule.addTestAccountThenSigninAndEnableSync();
-        addOneTestBookmark();
-        mSettingsActivityTestRule.startSettingsActivity();
-        onView(withText(R.string.sign_out_and_turn_off_sync)).perform(click());
-        onView(withId(R.id.remove_local_data)).perform(click());
-        onView(withText(R.string.continue_button)).inRoot(isDialog()).perform(click());
-        assertSignedOut();
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    Assert.assertEquals(
-                            0,
-                            mBookmarkModel.getChildCount(
-                                    mBookmarkModel.getDefaultBookmarkFolder()));
-                });
-    }
-
-    @Test
-    @LargeTest
-    public void testSignOutNonManagedAccountWithoutWipingData() {
-        mSigninTestRule.addTestAccountThenSigninAndEnableSync();
-        addOneTestBookmark();
-        mSettingsActivityTestRule.startSettingsActivity();
-        onView(withText(R.string.sign_out_and_turn_off_sync)).perform(click());
-        onView(withText(R.string.continue_button)).inRoot(isDialog()).perform(click());
-        assertSignedOut();
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    Assert.assertEquals(
-                            1,
-                            mBookmarkModel.getChildCount(
-                                    mBookmarkModel.getDefaultBookmarkFolder()));
-                });
     }
 
     @Test
@@ -248,45 +182,31 @@ public class SigninSignoutIntegrationTest {
 
         verify(mSignInStateObserverMock).onSignedIn();
         verify(mSignInStateObserverMock, never()).onSignedOut();
-        onView(withText(R.string.account_management_sign_out)).check(doesNotExist());
     }
 
-    private void addOneTestBookmark() {
-        Assert.assertNull("This method should be called only once!", mBookmarkModel);
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    mBookmarkModel =
-                            BookmarkModel.getForProfile(
-                                    mActivityTestRule.getActivity().getActivityTab().getProfile());
-                    mBookmarkModel.loadFakePartnerBookmarkShimForTesting();
-                });
-        BookmarkTestUtil.waitForBookmarkModelLoaded();
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    Assert.assertEquals(
-                            0,
-                            mBookmarkModel.getChildCount(
-                                    mBookmarkModel.getDefaultBookmarkFolder()));
-                    mBookmarkModel.addBookmark(
-                            mBookmarkModel.getDefaultBookmarkFolder(),
-                            0,
-                            "Test Bookmark",
-                            new GURL("http://google.com"));
-                    Assert.assertEquals(
-                            1,
-                            mBookmarkModel.getChildCount(
-                                    mBookmarkModel.getDefaultBookmarkFolder()));
-                });
-    }
+    @Test
+    @LargeTest
+    @Features.EnableFeatures(SigninFeatures.FORCE_SUPERVISED_SIGNIN_WITH_CAPABILITIES)
+    public void testSecondaryAccountRemovedOnChildAccountSignIn() {
+        mSigninTestRule.addAccountThenSignin(TestAccounts.ACCOUNT1);
 
-    private void assertSignedIn() {
-        ThreadUtils.runOnUiThreadBlocking(
+        try (var unused = mSigninTestRule.blockGetCoreAccountInfosUpdate(true)) {
+            // Remove TestAccounts.ACCOUNT1 from the device so that its still signed in.
+            mSigninTestRule.removeAccount(TestAccounts.ACCOUNT1.getId());
+
+            // The supervised account must be added as the first account in the account list for
+            // supervision to be enforced
+            mSigninTestRule.addAccount(TestAccounts.CHILD_ACCOUNT);
+            mSigninTestRule.addAccount(TestAccounts.ACCOUNT1);
+        }
+
+        // SigninChecker should kick in and switch the primary account to the supervised account.
+        CriteriaHelper.pollUiThread(
                 () -> {
-                    Assert.assertTrue(
-                            "Account should be signed in!",
-                            mSigninManager
-                                    .getIdentityManager()
-                                    .hasPrimaryAccount(ConsentLevel.SYNC));
+                    CoreAccountInfo account =
+                            mSigninTestRule.getPrimaryAccount(ConsentLevel.SIGNIN);
+                    return account != null
+                            && TestAccounts.CHILD_ACCOUNT.getId().equals(account.getId());
                 });
     }
 

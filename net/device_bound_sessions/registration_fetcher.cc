@@ -125,6 +125,7 @@ void SignChallengeWithKey(
       std::move(optional_header_and_payload.value());
   unexportable_key_service.SignSlowlyAsync(
       key_id, base::as_byte_span(header_and_payload), kTaskPriority,
+      /*max_retries=*/0,
       base::BindOnce(&OnDataSigned, expected_algorithm.value(),
                      std::ref(unexportable_key_service), header_and_payload,
                      key_id, std::move(callback)));
@@ -248,8 +249,8 @@ class RegistrationFetcherImpl : public URLRequest::Delegate {
 
   ~RegistrationFetcherImpl() override { CHECK(!callback_); }
 
-  void Start(std::optional<std::string> challenge,
-             std::optional<std::string> authorization) {
+  void StartFetch(std::optional<std::string> challenge,
+                  std::optional<std::string> authorization) {
     current_challenge_ = std::move(challenge);
     current_authorization_ = std::move(authorization);
 
@@ -343,7 +344,7 @@ class RegistrationFetcherImpl : public URLRequest::Delegate {
     // TODO(kristianm): Log if there is more than one challenge
     // TODO(kristianm): Handle if session identifiers don't match
     const std::string& challenge = (*challenge_params)[0].challenge();
-    Start(challenge, std::nullopt);
+    StartFetch(challenge, std::nullopt);
   }
 
   void OnResponseCompleted(SessionError::ErrorType error_on_no_data) {
@@ -492,8 +493,8 @@ void RegistrationFetcher::StartFetchWithExistingKey(
       key_id.value(), context, isolation_info, net_log_source,
       original_request_initiator, std::move(callback));
 
-  fetcher->Start(request_params.TakeChallenge(),
-                 request_params.TakeAuthorization());
+  fetcher->StartFetch(request_params.TakeChallenge(),
+                      request_params.TakeAuthorization());
 }
 
 void RegistrationFetcher::SetFetcherForTesting(FetcherType* func) {

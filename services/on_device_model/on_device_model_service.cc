@@ -18,6 +18,7 @@
 #include "base/task/thread_pool.h"
 #include "base/timer/elapsed_timer.h"
 #include "base/uuid.h"
+#include "components/optimization_guide/core/optimization_guide_features.h"
 #include "mojo/public/cpp/bindings/receiver_set.h"
 #include "services/on_device_model/fake/on_device_model_fake.h"
 #include "services/on_device_model/ml/gpu_blocklist.h"
@@ -30,6 +31,10 @@
 
 namespace on_device_model {
 namespace {
+
+const base::FeatureParam<bool> kForceFastestInference{
+    &optimization_guide::features::kOptimizationGuideOnDeviceModel,
+    "on_device_model_force_fastest_inference", false};
 
 class ModelWrapper;
 
@@ -127,9 +132,11 @@ class ModelWrapper final : public mojom::OnDeviceModel {
     RunTaskIfPossible();
   }
 
-  void StartSession(mojo::PendingReceiver<mojom::Session> session) override {
+  void StartSession(mojo::PendingReceiver<mojom::Session> session,
+                    mojom::SessionParamsPtr params) override {
     AddSession(std::move(session),
-               model_->CreateSession(receivers_.current_context().get()));
+               model_->CreateSession(receivers_.current_context().get(),
+                                     std::move(params)));
   }
 
   void ClassifyTextSafety(const std::string& text,
@@ -186,21 +193,8 @@ class ModelWrapper final : public mojom::OnDeviceModel {
   void LoadAdaptationInternal(mojom::LoadAdaptationParamsPtr params,
                               mojo::PendingReceiver<mojom::OnDeviceModel> model,
                               LoadAdaptationCallback callback) {
-    auto start = base::TimeTicks::Now();
-    auto result = model_->LoadAdaptation(
-        std::move(params),
-        base::BindOnce(
-            [](base::TimeTicks start) {
-              base::UmaHistogramMediumTimes(
-                  "OnDeviceModel.LoadAdaptationModelDuration",
-                  base::TimeTicks::Now() - start);
-            },
-            start));
-    if (!result.has_value()) {
-      std::move(callback).Run(result.error());
-      return;
-    }
-    receivers_.Add(this, std::move(model), std::move(*result));
+    receivers_.Add(this, std::move(model),
+                   model_->LoadAdaptation(std::move(params)));
     std::move(callback).Run(mojom::LoadModelResult::kSuccess);
   }
 
@@ -261,6 +255,13 @@ void SessionWrapper::Generate(
     mojom::GenerateOptionsPtr options,
     mojo::PendingRemote<mojom::StreamingResponder> response) {
   if (!model_) {
+    return;
+  }
+
+  // TODO(crbug.com/403383823): Remove these deprecated fields.
+  if (options->top_k.has_value() || options->temperature.has_value()) {
+    receiver_.ReportBadMessage(
+        "Passing sampling params per generation is deprecated.");
     return;
   }
 
@@ -353,7 +354,8 @@ std::unique_ptr<mojom::OnDeviceModelService> OnDeviceModelService::Create(
         "Unable to load chrome_ml library.");
     return nullptr;
   }
-  if (ml::IsGpuBlocked(chrome_ml->api())) {
+  if (!optimization_guide::features::ForceCpuBackendForOnDeviceModel() &&
+      ml::IsGpuBlocked(chrome_ml->api())) {
     receiver.ResetWithReason(
         static_cast<uint32_t>(ServiceDisconnectReason::kGpuBlocked),
         "The device's GPU is not supported.");
@@ -368,6 +370,9 @@ void OnDeviceModelService::LoadModel(
     mojom::LoadModelParamsPtr params,
     mojo::PendingReceiver<mojom::OnDeviceModel> model,
     LoadModelCallback callback) {
+  if (kForceFastestInference.Get()) {
+    params->performance_hint = ml::ModelPerformanceHint::kFastestInference;
+  }
   auto start = base::TimeTicks::Now();
   auto model_impl = ml::OnDeviceModelExecutor::CreateWithResult(
       *chrome_ml_, std::move(params),
@@ -386,6 +391,12 @@ void OnDeviceModelService::LoadModel(
       base::BindOnce(&OnDeviceModelService::DeleteModel,
                      base::Unretained(this))));
   std::move(callback).Run(mojom::LoadModelResult::kSuccess);
+}
+
+void OnDeviceModelService::GetCapabilities(ModelAssets assets,
+                                           GetCapabilitiesCallback callback) {
+  std::move(callback).Run(ml::OnDeviceModelExecutor::GetCapabilities(
+      *chrome_ml_, std::move(assets)));
 }
 
 void OnDeviceModelService::GetEstimatedPerformanceClass(

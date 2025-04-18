@@ -4,13 +4,14 @@
 
 package org.chromium.chrome.browser.tasks.tab_management;
 
-import androidx.core.util.Pair;
-
+import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tasks.tab_management.TabGroupFaviconCluster.ClusterData;
+import org.chromium.chrome.browser.tasks.tab_management.TabGroupRowView.TabGroupRowViewTitleData;
 import org.chromium.chrome.browser.tasks.tab_management.TabGroupTimeAgo.TimestampEvent;
 import org.chromium.components.collaboration.CollaborationService;
 import org.chromium.components.data_sharing.DataSharingService;
@@ -62,12 +63,16 @@ class TabGroupListBottomSheetRowMediator {
         builder.with(TabGroupRowProperties.COLOR_INDEX, savedTabGroup.color);
 
         String userTitle = savedTabGroup.title;
-        Pair<String, Integer> titleData = new Pair<>(userTitle, numberOfTabs);
+        TabGroupRowViewTitleData titleData =
+                new TabGroupRowViewTitleData(
+                        userTitle,
+                        numberOfTabs,
+                        R.string.tab_group_bottom_sheet_row_accessibility_text);
         builder.with(TabGroupRowProperties.TITLE_DATA, titleData);
 
         builder.with(
                 TabGroupRowProperties.TIMESTAMP_EVENT,
-                new TabGroupTimeAgo(savedTabGroup.creationTimeMs, TimestampEvent.UPDATED));
+                new TabGroupTimeAgo(savedTabGroup.updateTimeMs, TimestampEvent.UPDATED));
         builder.with(
                 TabGroupRowProperties.ROW_CLICK_RUNNABLE,
                 () -> {
@@ -82,16 +87,28 @@ class TabGroupListBottomSheetRowMediator {
     }
 
     private void addToGroup(List<Tab> tabs) {
+        RecordUserAction.record("TabGroupParity.BottomSheetRowSelection.ExistingGroup");
         String syncId = mSavedTabGroup.syncId;
-        if (syncId == null || mTabGroupSyncService == null) return;
+        if (syncId == null || mTabGroupSyncService == null) {
+            return;
+        }
 
         // Ensure that the group still exists.
         @Nullable SavedTabGroup group = mTabGroupSyncService.getGroup(syncId);
-        if (group == null || group.savedTabs.isEmpty()) return;
+        if (group == null || group.savedTabs.isEmpty()) {
+            return;
+        }
 
         SavedTabGroupTab savedTabGroupTab = group.savedTabs.get(0);
-        Integer localId = savedTabGroupTab.localId;
+        @Nullable Integer localId = savedTabGroupTab.localId;
+        if (localId == null) {
+            return;
+        }
+
         Tab tab = mTabGroupModelFilter.getTabModel().getTabById(localId);
+        if (tab == null) {
+            return;
+        }
 
         mTabGroupModelFilter.mergeListOfTabsToGroup(tabs, tab, true);
     }

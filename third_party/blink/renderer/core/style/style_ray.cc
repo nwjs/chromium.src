@@ -12,17 +12,6 @@
 
 namespace blink {
 
-scoped_refptr<StyleRay> StyleRay::Create(
-    float angle,
-    RaySize size,
-    bool contain,
-    const BasicShapeCenterCoordinate& center_x,
-    const BasicShapeCenterCoordinate& center_y,
-    bool has_explicit_center) {
-  return base::AdoptRef(new StyleRay(angle, size, contain, center_x, center_y,
-                                     has_explicit_center));
-}
-
 StyleRay::StyleRay(float angle,
                    RaySize size,
                    bool contain,
@@ -44,7 +33,7 @@ bool StyleRay::IsEqualAssumingSameType(const BasicShape& o) const {
          has_explicit_center_ == other.has_explicit_center_;
 }
 
-void StyleRay::GetPath(Path&, const gfx::RectF&, float) const {
+Path StyleRay::GetPath(const gfx::RectF&, float) const {
   // ComputedStyle::ApplyMotionPathTransform cannot call GetPath
   // for rays as they may have infinite length.
   NOTREACHED();

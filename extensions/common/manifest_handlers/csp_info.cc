@@ -122,11 +122,13 @@ const base::Value* GetManifestPath(const Extension* extension,
 }
 
 const char* GetDefaultExtensionPagesCSP(Extension* extension) {
-  if (extension->manifest_version() >= 3)
+  if (extension->manifest_version() >= 3) {
     return kDefaultMV3CSP;
+  }
 
-  if (extension->GetType() == Manifest::TYPE_PLATFORM_APP)
+  if (extension->GetType() == Manifest::TYPE_PLATFORM_APP) {
     return kDefaultPlatformAppContentSecurityPolicy;
+  }
 
   return kDefaultContentSecurityPolicy;
 }
@@ -149,8 +151,7 @@ const std::string* GetMinimumMV3CSPForExtension(const Extension& extension) {
 CSPInfo::CSPInfo(std::string extension_pages_csp)
     : extension_pages_csp(std::move(extension_pages_csp)) {}
 
-CSPInfo::~CSPInfo() {
-}
+CSPInfo::~CSPInfo() = default;
 
 // static
 const std::string& CSPInfo::GetExtensionPagesCSP(const Extension* extension) {
@@ -163,17 +164,20 @@ const std::string& CSPInfo::GetExtensionPagesCSP(const Extension* extension) {
 const std::string* CSPInfo::GetMinimumCSPToAppend(
     const Extension& extension,
     const std::string& relative_path) {
-  if (!extension.is_extension())
+  if (!extension.is_extension()) {
     return nullptr;
+  }
 
   // For sandboxed pages and manifest V2 extensions, append the parsed CSP. This
   // helps ensure that extension's can't get around our parsing rules by CSP
   // modifications through, say service workers.
-  if (SandboxedPageInfo::IsSandboxedPage(&extension, relative_path))
+  if (SandboxedPageInfo::IsSandboxedPage(&extension, relative_path)) {
     return &GetSandboxContentSecurityPolicy(&extension);
+  }
 
-  if (extension.manifest_version() <= 2)
+  if (extension.manifest_version() <= 2) {
     return &GetExtensionPagesCSP(&extension);
+  }
 
   // For manifest V3 extensions, append the minimum secure CSP. This
   // additionally helps protect against bugs in our CSP parsing code which may

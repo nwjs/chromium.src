@@ -8,69 +8,45 @@ import("//printing/buildflags/buildflags.gni")
 mojom("mojom") {
   sources = [
     "account_manager.mojom",
-    "arc.mojom",
-    "audio_service.mojom",
-    "cert_database.mojom",
     "cert_provisioning.mojom",
     "chaps_service.mojom",
     "chrome_app_kiosk_service.mojom",
     "clipboard_history.mojom",
-    "content_protection.mojom",
     "cros_display_config.mojom",
     "crosapi.mojom",
-    "debug_interface.mojom",
-    "desk.mojom",
     "desk_profiles.mojom",
     "device_attributes.mojom",
-    "device_local_account_extension_service.mojom",
     "device_oauth2_token_service.mojom",
     "diagnostics_service.mojom",
     "document_scan.mojom",
-    "drive_integration_service.mojom",
     "echo_private.mojom",
-    "embedded_accessibility_helper.mojom",
-    "extension_info_private.mojom",
     "file_change_service_bridge.mojom",
     "file_system_access_cloud_identifier.mojom",
     "file_system_provider.mojom",
-    "force_installed_tracker.mojom",
     "full_restore.mojom",
     "fullscreen_controller.mojom",
     "guest_os_sk_forwarder.mojom",
     "identity_manager.mojom",
-    "idle_service.mojom",
-    "input_methods.mojom",
-    "kerberos_in_browser.mojom",
     "keystore_error.mojom",
     "keystore_service.mojom",
     "kiosk_session_service.mojom",
     "launcher_search.mojom",
     "local_printer.mojom",
     "login.mojom",
-    "login_screen_storage.mojom",
     "login_state.mojom",
     "magic_boost.mojom",
     "mahi.mojom",
     "media_ui.mojom",
     "multi_capture_service.mojom",
-    "native_theme.mojom",
     "network_change.mojom",
     "networking_attributes.mojom",
     "networking_private.mojom",
-    "nonclosable_app_toast_service.mojom",
     "nullable_primitives.mojom",
-    "one_drive_integration_service.mojom",
-    "one_drive_notification_service.mojom",
     "parent_access.mojom",
-    "policy_namespace.mojom",
     "policy_service.mojom",
-    "power.mojom",
     "print_preview_cros.mojom",
-    "printing_metrics.mojom",
     "probe_service.mojom",
     "remoting.mojom",
-    "resource_manager.mojom",
-    "screen_ai_downloader.mojom",
     "synced_session_client.mojom",
     "telemetry_diagnostic_routine_service.mojom",
     "telemetry_event_service.mojom",
@@ -79,10 +55,8 @@ mojom("mojom") {
     "telemetry_management_service.mojom",
     "ui_constants.mojom",
     "video_conference.mojom",
-    "virtual_keyboard.mojom",
     "vpn_service.mojom",
     "web_app_types.mojom",
-    "web_kiosk_service.mojom",
   ]
   disable_variants = true
   enable_js_fuzzing = false
@@ -127,18 +101,6 @@ mojom("mojom") {
         {
           mojom = "crosapi.mojom.App"
           cpp = "::apps::AppPtr"
-          move_only = true
-          nullable_is_same_type = true
-        },
-        {
-          mojom = "crosapi.mojom.PolicyDomain"
-          cpp = "::policy::PolicyDomain"
-          move_only = true
-          nullable_is_same_type = true
-        },
-        {
-          mojom = "crosapi.mojom.PolicyNamespace"
-          cpp = "::policy::PolicyNamespace"
           move_only = true
           nullable_is_same_type = true
         },
@@ -209,10 +171,6 @@ mojom("mojom") {
           cpp = "::webapps::UninstallResultCode"
         },
         {
-          mojom = "crosapi.mojom.CertInfo"
-          cpp = "::chromeos::certificate_provider::CertificateInfo"
-        },
-        {
           mojom = "crosapi.mojom.GUID"
           cpp = "::base::Uuid"
         },
@@ -236,10 +194,6 @@ mojom("mojom") {
         },
       ]
       traits_headers = [
-        "//chromeos/crosapi/mojom/cert_database_mojom_traits.h",
-        "//chromeos/crosapi/mojom/desk_mojom_traits.h",
-        "//chromeos/crosapi/mojom/policy_domain_mojom_traits.h",
-        "//chromeos/crosapi/mojom/policy_namespace_mojom_traits.h",
         "//chromeos/crosapi/mojom/ui_constants_mojom_traits.h",
         "//chromeos/crosapi/mojom/web_app_types_mojom_traits.h",
         "//components/services/app_service/public/cpp/app_launch_util.h",
@@ -252,17 +206,11 @@ mojom("mojom") {
         "//components/services/app_service/public/cpp/preferred_app.h",
       ]
       traits_sources = [
-        "//chromeos/crosapi/mojom/cert_database_mojom_traits.cc",
-        "//chromeos/crosapi/mojom/desk_mojom_traits.cc",
-        "//chromeos/crosapi/mojom/policy_domain_mojom_traits.cc",
-        "//chromeos/crosapi/mojom/policy_namespace_mojom_traits.cc",
         "//chromeos/crosapi/mojom/ui_constants_mojom_traits.cc",
         "//chromeos/crosapi/mojom/web_app_types_mojom_traits.cc",
       ]
       traits_public_deps = [
         "//base",
-        "//chromeos/components/certificate_provider:certificate_provider",
-        "//components/policy/core/common:policy_namespace",
         "//components/services/app_service/public/cpp:app_types",
         "//components/services/app_service/public/cpp/shortcut",
         "//components/tab_groups",

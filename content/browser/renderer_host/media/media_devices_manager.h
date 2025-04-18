@@ -74,8 +74,37 @@ class CONTENT_EXPORT MediaDevicesManager
     BoolDeviceTypes() { fill(false); }
   };
 
-  using DeviceMonitoringMode =
-      base::StrongAlias<class DeviceMonitoringModeTag, bool>;
+  enum class DeviceStartMonitoringMode {
+    kNone,
+    kStartAudio,          // Start audio monitoring, leave video unmodified.
+    kStartVideo,          // Start video monitoring, leave audio unmodified.
+    kStartAudioAndVideo,  // Start audio and video monitoring.
+  };
+
+  enum class DeviceStopMonitoringMode {
+    kNone,
+    kStopAudio,          // Stop audio monitoring, leave video unmodified.
+    kStopVideo,          // Stop video monitoring, leave audio unmodified.
+    kStopAudioAndVideo,  // Stop audio and video monitoring.
+  };
+
+  // These constants are parameters that control how caching works.
+  // A spurious invalidation is one where a subsequent enumeration has the same
+  // result as before the invalidation. If a device class receives
+  // `kMaxSpuriousInvalidations` consecutive invalidations, the cache for that
+  // device class enters a relaxed mode, where the cache becomes less
+  // aggressive in trying to return the latest enumeration value.
+  // This situation has been observed in practice when issuing an enumeration
+  // causes some monitors to always report a new invalidation, even if the set
+  // of devices does not change. See crbug.com/325590346.
+  // In relaxed mode, cache entries have an expiration time
+  // (`kExpireTimeInRelaxedMode`). In this mode, new cached values are assumed
+  // valid until they expire and any invalidations received during this period
+  // are ignored. Effectively, this works as a rate limiter in relaxed
+  // mode and protects against a situation where a buggy device or device
+  // monitor continuously produces repeated invalidations.
+  static constexpr int kMaxSpuriousInvalidations = 5;
+  static constexpr base::TimeDelta kExpireTimeInRelaxedMode = base::Seconds(4);
 
   enum class PermissionDeniedState { kDenied, kNotDenied };
 
@@ -91,6 +120,8 @@ class CONTENT_EXPORT MediaDevicesManager
   using UIInputDeviceChangeCallback = base::RepeatingCallback<void(
       MediaDeviceType stream_type,
       const blink::WebMediaDeviceInfoArray& devices)>;
+
+  static bool IsRelaxedCacheFeatureEnabled();
 
   MediaDevicesManager(
       media::AudioSystem* audio_system,
@@ -161,23 +192,13 @@ class CONTENT_EXPORT MediaDevicesManager
   void StartMonitoring();
 
   // Attempts to start device monitoring for audio and/or video.
-  // Calling `audio_device_monitoring_mode(true)` ensures audio monitoring
-  // starts while leaving the video monitoring state unchanged. Similarly,
-  // `video_device_monitoring_mode(true)` starts video monitoring without
-  // affecting the audio monitoring state.
-  void StartMonitoring(DeviceMonitoringMode audio_device_monitoring_mode,
-                       DeviceMonitoringMode video_device_monitoring_mode);
+  void StartMonitoring(DeviceStartMonitoringMode start_monitoring_mode);
 
   // Stops device monitoring and disables caching for all device types.
   void StopMonitoring();
 
   // Attempts to stop device monitoring for audio and/or video.
-  // Calling `audio_device_monitoring_mode(true)` ensures audio monitoring stops
-  // while leaving the video monitoring state unchanged. Similarly,
-  // `video_device_monitoring_mode(true)` stops video monitoring without
-  // affecting the audio monitoring state.
-  void StopMonitoring(DeviceMonitoringMode audio_device_monitoring_mode,
-                      DeviceMonitoringMode video_device_monitoring_mode);
+  void StopMonitoring(DeviceStopMonitoringMode start_monitoring_mode);
 
   // Implements base::SystemMonitor::DevicesChangedObserver.
   // This function is only called in response to physical audio/video device
@@ -442,8 +463,8 @@ class CONTENT_EXPORT MediaDevicesManager
   BoolDeviceTypes cache_is_populated_;
   std::vector<EnumerationRequest> client_requests_;
   MediaDeviceEnumeration current_snapshot_;
-  DeviceMonitoringMode monitoring_started_for_audio_{false};
-  DeviceMonitoringMode monitoring_started_for_video_{false};
+  bool monitoring_started_for_audio_ = false;
+  bool monitoring_started_for_video_ = false;
 
   bool added_device_changed_observer_ = false;
 

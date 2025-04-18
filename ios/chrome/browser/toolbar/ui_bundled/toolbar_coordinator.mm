@@ -137,7 +137,6 @@
   self.locationBarCoordinator =
       [[LocationBarCoordinator alloc] initWithBrowser:browser];
   self.locationBarCoordinator.delegate = self.omniboxFocusDelegate;
-  self.locationBarCoordinator.bubblePresenter = self.bubblePresenter;
   self.locationBarCoordinator.popupPresenterDelegate =
       self.popupPresenterDelegate;
   [self.locationBarCoordinator start];
@@ -169,8 +168,7 @@
   }
 
   [self updateToolbarsLayout];
-  _prerenderService =
-      PrerenderServiceFactory::GetForProfile(self.browser->GetProfile());
+  _prerenderService = PrerenderServiceFactory::GetForProfile(self.profile);
 
   [super start];
   self.started = YES;
@@ -265,7 +263,7 @@
   // IsActive() value rather than checking -IsVisibleURLNewTabPage.
   NewTabPageTabHelper* NTPHelper = NewTabPageTabHelper::FromWebState(webState);
   BOOL isNTP = NTPHelper && NTPHelper->IsActive();
-  BOOL isOffTheRecord = self.browser->GetProfile()->IsOffTheRecord();
+  BOOL isOffTheRecord = self.profile->IsOffTheRecord();
   BOOL canShowTabStrip = IsRegularXRegularSizeClass(self.traitEnvironment);
 
   // Hide the toolbar when displaying content suggestions without the tab
@@ -613,7 +611,7 @@
 /// an incognito browser, the NTP is displayed, and whether the fakebox was
 /// pinned if it was selected.
 - (OmniboxFocusTrigger)omniboxFocusTrigger {
-  if (self.browser->GetProfile()->IsOffTheRecord() ||
+  if (self.profile->IsOffTheRecord() ||
       !IsSplitToolbarMode(self.traitEnvironment)) {
     return _focusedFromFakebox ? OmniboxFocusTrigger::kUnpinnedFakebox
                                : OmniboxFocusTrigger::kOther;

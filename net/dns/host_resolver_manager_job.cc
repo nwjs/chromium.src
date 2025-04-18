@@ -8,6 +8,7 @@
 #include <memory>
 #include <optional>
 #include <set>
+#include <variant>
 #include <vector>
 
 #include "base/containers/linked_list.h"
@@ -40,7 +41,6 @@
 #include "net/dns/public/dns_query_type.h"
 #include "net/dns/public/secure_dns_mode.h"
 #include "net/log/net_log_with_source.h"
-#include "third_party/abseil-cpp/absl/types/variant.h"
 #include "url/url_constants.h"
 
 namespace net {
@@ -133,7 +133,7 @@ HostCache::Key HostResolverManager::JobKey::ToCacheKey(bool secure) const {
   const DnsQueryType query_type_for_key = query_types.size() == 1
                                               ? *query_types.begin()
                                               : DnsQueryType::UNSPECIFIED;
-  absl::variant<url::SchemeHostPort, std::string> host_for_cache;
+  std::variant<url::SchemeHostPort, std::string> host_for_cache;
   if (host.HasScheme()) {
     host_for_cache = host.AsSchemeHostPort();
   } else {
@@ -177,7 +177,7 @@ HostResolverManager::Job::Job(
     return NetLogJobCreationParams(source_net_log.source());
   });
 
-  if (base::FeatureList::IsEnabled(features::kHappyEyeballsV3)) {
+  if (resolver_->IsHappyEyeballsV3Enabled()) {
     dns_task_results_manager_ = std::make_unique<DnsTaskResultsManager>(
         this, key_.host, key_.query_types, net_log_);
   }
@@ -865,6 +865,10 @@ void HostResolverManager::Job::OnIntermediateTransactionsComplete(
         std::move(single_transaction_results->results));
     // `this` may be deleted. Do not add code below.
   }
+}
+
+bool HostResolverManager::Job::IsHappyEyeballsV3Enabled() const {
+  return resolver_->IsHappyEyeballsV3Enabled();
 }
 
 void HostResolverManager::Job::AddTransactionTimeQueued(

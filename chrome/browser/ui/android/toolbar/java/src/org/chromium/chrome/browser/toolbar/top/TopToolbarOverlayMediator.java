@@ -27,7 +27,6 @@ import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.theme.ThemeUtils;
 import org.chromium.chrome.browser.theme.TopUiThemeColorProvider;
-import org.chromium.chrome.browser.toolbar.ToolbarFeatures;
 import org.chromium.components.browser_ui.widget.ClipDrawableProgressBar;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -201,7 +200,7 @@ public class TopToolbarOverlayMediator {
 
                         // TODO(peilinwang) Clean up this flag and remove the updateVisibility call
                         // when stable experiment is finished.
-                        if (!ChromeFeatureList.sBcivZeroBrowserFrames.isEnabled()) {
+                        if (!ChromeFeatureList.sBrowserControlsInViz.isEnabled()) {
                             updateShadowState();
                             updateVisibility();
                         }
@@ -209,10 +208,8 @@ public class TopToolbarOverlayMediator {
 
                     @Override
                     public void onAndroidControlsVisibilityChanged(int visibility) {
-                        if (ToolbarFeatures.shouldSuppressCaptures()) {
-                            mIsBrowserControlsAndroidViewVisible = visibility == View.VISIBLE;
-                            updateShadowState();
-                        }
+                        mIsBrowserControlsAndroidViewVisible = visibility == View.VISIBLE;
+                        updateShadowState();
                     }
 
                     @Override
@@ -222,11 +219,7 @@ public class TopToolbarOverlayMediator {
                             @BrowserControlsState int constraints,
                             boolean shouldUpdateOffsets) {
                         if (ChromeFeatureList.sBrowserControlsInViz.isEnabled()) {
-                            if (ChromeFeatureList.sBcivZeroBrowserFrames.isEnabled()) {
-                                mTopControlsOffsetTag = offsetTagsInfo.getTopControlsOffsetTag();
-                            } else {
-                                mTopControlsOffsetTag = offsetTagsInfo.getContentOffsetTag();
-                            }
+                            mTopControlsOffsetTag = offsetTagsInfo.getTopControlsOffsetTag();
                             mBottomControlsOffsetTag = offsetTagsInfo.getBottomControlsOffsetTag();
                             updateOffsetTag();
 
@@ -247,10 +240,8 @@ public class TopToolbarOverlayMediator {
                     }
                 };
         mBrowserControlsStateProvider.addObserver(mBrowserControlsObserver);
-        if (ToolbarFeatures.shouldSuppressCaptures()) {
-            mIsBrowserControlsAndroidViewVisible =
-                    mBrowserControlsStateProvider.getAndroidControlsVisibility() == View.VISIBLE;
-        }
+        mIsBrowserControlsAndroidViewVisible =
+                mBrowserControlsStateProvider.getAndroidControlsVisibility() == View.VISIBLE;
     }
 
     private void updateOffsetTag() {
@@ -278,21 +269,14 @@ public class TopToolbarOverlayMediator {
      * android view is not shown.
      */
     private void updateShadowState() {
-        if (ChromeFeatureList.sBrowserControlsInViz.isEnabled()
-                && ChromeFeatureList.sBcivZeroBrowserFrames.isEnabled()) {
+        if (ChromeFeatureList.sBrowserControlsInViz.isEnabled()) {
             // With BCIV enabled, we show the hairline on the composited toolbar by default,
             // and we don't want to update its visibility from the browser, because that incurs a
             // compositor frame.
             return;
         }
 
-        boolean drawControlsAsTexture;
-        if (ToolbarFeatures.shouldSuppressCaptures()) {
-            drawControlsAsTexture = !mIsBrowserControlsAndroidViewVisible;
-        } else {
-            drawControlsAsTexture =
-                    BrowserControlsUtils.drawControlsAsTexture(mBrowserControlsStateProvider);
-        }
+        boolean drawControlsAsTexture = !mIsBrowserControlsAndroidViewVisible;
         boolean showShadow =
                 drawControlsAsTexture
                         || !mIsToolbarAndroidViewVisible
@@ -385,7 +369,7 @@ public class TopToolbarOverlayMediator {
     }
 
     private void updateAnonymize(Tab tab) {
-        if (!mIsVisibilityManuallyControlled && ToolbarFeatures.shouldSuppressCaptures()) {
+        if (!mIsVisibilityManuallyControlled) {
             boolean isNativePage = tab.isNativePage();
             mModel.set(TopToolbarOverlayProperties.ANONYMIZE, isNativePage);
         }

@@ -11,10 +11,12 @@
 #include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/task/sequenced_task_runner.h"
+#include "content/public/browser/browser_context.h"
 #include "extensions/browser/extension_file_task_runner.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registrar.h"
 #include "extensions/browser/extension_registry.h"
+#include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/file_util.h"
 
@@ -64,7 +66,10 @@ ShellExtensionLoader::ShellExtensionLoader(
     : browser_context_(browser_context),
       extension_registrar_(ExtensionRegistrar::Get(browser_context)),
       keep_alive_requester_(browser_context) {
-  extension_registrar_->SetDelegate(this);
+  extension_registrar_->Init(
+      this, /*extensions_enabled=*/true,
+      browser_context_->GetPath().AppendASCII(kInstallDirectoryName),
+      browser_context_->GetPath().AppendASCII(kUnpackedInstallDirectoryName));
 }
 
 ShellExtensionLoader::~ShellExtensionLoader() = default;
@@ -133,16 +138,8 @@ void ShellExtensionLoader::PreAddExtension(const Extension* extension,
   // The extension might be disabled if a previous reload attempt failed. In
   // that case, we want to remove that disable reason.
   ExtensionPrefs* extension_prefs = ExtensionPrefs::Get(browser_context_);
-  if (extension_prefs->IsExtensionDisabled(extension->id()) &&
-      extension_prefs->HasDisableReason(extension->id(),
-                                        disable_reason::DISABLE_RELOAD)) {
-    extension_prefs->RemoveDisableReason(extension->id(),
-                                         disable_reason::DISABLE_RELOAD);
-    // Only re-enable the extension if there are no other disable reasons.
-    if (extension_prefs->GetDisableReasons(extension->id()).empty()) {
-      extension_prefs->SetExtensionEnabled(extension->id());
-    }
-  }
+  extension_prefs->RemoveDisableReason(extension->id(),
+                                       disable_reason::DISABLE_RELOAD);
 }
 
 void ShellExtensionLoader::PostActivateExtension(

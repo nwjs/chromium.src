@@ -124,6 +124,7 @@ class BoxShadowPaintImageGenerator;
 class ClipPathPaintImageGenerator;
 class Color;
 class ContentCaptureManager;
+class ContextMenuInsetsChangedObserver;
 class CoreProbeSink;
 class Document;
 class Editor;
@@ -377,6 +378,13 @@ class CORE_EXPORT LocalFrame final
   // rect has changed.
   void NotifyVirtualKeyboardOverlayRectObservers(const gfx::Rect&) const;
 
+  void RegisterContextMenuInsetsChangedObserver(
+      ContextMenuInsetsChangedObserver*);
+
+  // Notify observers that the context menu insets have changes. If the passed
+  // rect is empty, the insets should be removed.
+  void NotifyContextMenuInsetsObservers(const gfx::Rect&) const;
+
   // Bubbles a logical scroll to the parent frame, if one exists. For a local
   // frame, this will continue the scroll synchronously. For remote frames and
   // frame tree boundaries, this will IPC the scroll via the browser process.
@@ -517,6 +525,7 @@ class CORE_EXPORT LocalFrame final
   FrameWidget* GetWidgetForLocalRoot();
 
   WebContentSettingsClient* GetContentSettingsClient();
+  const mojom::RendererContentSettingsPtr& GetContentSettings() const;
 
   PluginData* GetPluginData() const;
 
@@ -1045,6 +1054,10 @@ class CORE_EXPORT LocalFrame final
   HeapHashSet<WeakMember<VirtualKeyboardOverlayChangedObserver>>
       virtual_keyboard_overlay_changed_observers_;
 
+  // Keeps track of all the registered context menu insets observers.
+  HeapHashSet<WeakMember<ContextMenuInsetsChangedObserver>>
+      context_menu_insets_changed_observers_;
+
   HeapHashSet<WeakMember<WidgetCreationObserver>> widget_creation_observers_;
 
   mutable FrameLoader loader_;
@@ -1141,7 +1154,7 @@ class CORE_EXPORT LocalFrame final
   // reused among sub frames.
   Member<ClipPathPaintImageGenerator> clip_path_paint_image_generator_;
 
-  using SavedScrollOffsets = HeapHashMap<Member<Node>, ScrollOffset>;
+  using SavedScrollOffsets = GCedHeapHashMap<Member<Node>, ScrollOffset>;
   Member<SavedScrollOffsets> saved_scroll_offsets_;
 
   // Created lazily when needed, either via the browser's SharedHighlighting
