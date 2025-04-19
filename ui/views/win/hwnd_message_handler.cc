@@ -1699,7 +1699,8 @@ void HWNDMessageHandler::ResetWindowRegion(bool force, bool redraw) {
     new_region.reset(CreateRectRgnIndirect(&work_rect));
   } else if (content::g_support_transparency && is_translucent_) {
     RECT work_rect = window_rect;
-    OffsetRect(&work_rect, -window_rect.left, -window_rect.top);
+    OffsetRect(&work_rect, static_cast<int>(-window_rect.left),
+               static_cast<int>(-window_rect.top));
     new_region.reset(CreateRectRgnIndirect(&work_rect));
   } else {
     SkPath window_mask;

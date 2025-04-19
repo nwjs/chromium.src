@@ -147,7 +147,6 @@ class REMOTE_COCOA_APP_SHIM_EXPORT NativeWidgetNSWindowBridge
   // being reordered in (or out of) the screen list.
   void OnVisibilityChanged();
 
-  void OnWindowWillStartLiveResize();
   // Called by the NSWindowDelegate when the system colors change.
   void OnSystemColorsChanged();
 
