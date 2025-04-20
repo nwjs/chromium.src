@@ -1874,6 +1874,7 @@ static_library("browser") {
     "//base/allocator:buildflags",
     "//build:branding_buildflags",
     "//build:chromeos_buildflags",
+    "//build:nwjs_buildflags",
     "//build/config/chromebox_for_meetings:buildflags",
     "//build/config/compiler:compiler_buildflags",
     "//build/config/linux/dbus:buildflags",
@@ -8777,9 +8778,9 @@ grit("resources") {
   if (enable_hangout_services_extension) {
     defines += [ "enable_hangout_services_extension" ]
   }
-  if (nwjs_sdk) {
-    defines += [ "nwjs_sdk" ]
-  }
+  #if (nwjs_sdk) {
+  #  defines += [ "nwjs_sdk" ]
+  #}
 
   output_dir = "$root_gen_dir/chrome"
   outputs = [

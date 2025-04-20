@@ -4,6 +4,8 @@
 
 #include "components/media_router/browser/presentation/controller_presentation_service_delegate_impl.h"
 
+#include "build/nwjs_buildflags.h"
+
 #include <algorithm>
 #include <map>
 #include <memory>
@@ -477,7 +479,7 @@ void ControllerPresentationServiceDelegateImpl::StartPresentation(
     const content::PresentationRequest& request,
     content::PresentationConnectionCallback success_cb,
     content::PresentationConnectionErrorCallback error_cb) {
-#if defined(NWJS_SDK)
+#if BUILDFLAG(NWJS_SDK)
   const auto& render_frame_host_id = request.render_frame_host_id;
 #endif
   const auto& presentation_urls = request.presentation_urls;
@@ -493,7 +495,7 @@ void ControllerPresentationServiceDelegateImpl::StartPresentation(
     return;
   }
 
-#if defined(NWJS_SDK)
+#if BUILDFLAG(NWJS_SDK)
   auto presentation_context = std::make_unique<StartPresentationContext>(
       request,
       base::BindOnce(&ControllerPresentationServiceDelegateImpl::

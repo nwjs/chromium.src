@@ -59,6 +59,11 @@ buildflag_header("blink_buildflags") {
   flags = [ "USE_BLINK=$use_blink" ]
 }
 
+buildflag_header("nwjs_buildflags") {
+  header = "nwjs_buildflags.h"
+  flags = [ "NWJS_SDK=$nwjs_sdk" ]
+}
+
 buildflag_header("chromecast_buildflags") {
   header = "chromecast_buildflags.h"
 

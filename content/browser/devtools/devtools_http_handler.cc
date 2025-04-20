@@ -13,6 +13,8 @@
 #include <string_view>
 #include <utility>
 
+#include "build/nwjs_buildflags.h"
+
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
 #include "base/files/file_util.h"
@@ -76,12 +78,12 @@ namespace {
 const base::FilePath::CharType kDevToolsActivePortFileName[] =
     FILE_PATH_LITERAL("DevToolsActivePort");
 
-#if defined(NWJS_SDK)
+#if BUILDFLAG(NWJS_SDK)
 const char kDevToolsHandlerThreadName[] = "Chrome_DevToolsHandlerThread";
 #endif
 
 const char kPageUrlPrefix[] = "/devtools/page/";
-#if defined(NWJS_SDK)
+#if BUILDFLAG(NWJS_SDK)
 const char kBrowserUrlPrefix[] = "/devtools/browser";
 #endif
 
@@ -835,7 +837,7 @@ DevToolsHttpHandler::DevToolsHttpHandler(
     const base::FilePath& output_directory,
     const base::FilePath& debug_frontend_dir)
     : delegate_(delegate) {
-#if defined(NWJS_SDK)
+#if BUILDFLAG(NWJS_SDK)
   browser_guid_ =
       delegate_->IsBrowserTargetDiscoverable()
           ? kBrowserUrlPrefix

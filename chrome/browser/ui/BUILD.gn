@@ -326,6 +326,7 @@ static_library("ui") {
     "//base:i18n",
     "//base/allocator:buildflags",
     "//build:branding_buildflags",
+    "//build:nwjs_buildflags",
     "//build/config/chromebox_for_meetings:buildflags",
     "//build/config/linux/dbus:buildflags",
     "//cc/paint",

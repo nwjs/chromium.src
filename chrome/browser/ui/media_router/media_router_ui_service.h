@@ -6,6 +6,8 @@
 
 #include <memory>
 
+#include "build/nwjs_buildflags.h"
+
 #include "base/memory/raw_ptr.h"
 #include "base/observer_list.h"
 #include "chrome/browser/ui/toolbar/cast/cast_toolbar_button_controller.h"
@@ -53,7 +55,7 @@ class MediaRouterUIService : public KeyedService {
   void DisableService();
 
   raw_ptr<Profile> profile_;
-#if defined(NWJS_SDK)
+#if BUILDFLAG(NWJS_SDK)
   std::unique_ptr<CastToolbarButtonController> action_controller_;
 #endif
   std::unique_ptr<PrefChangeRegistrar> profile_pref_registrar_;

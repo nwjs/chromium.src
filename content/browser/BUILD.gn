@@ -90,6 +90,7 @@ source_set("browser") {
     "//build:android_buildflags",
     "//build:branding_buildflags",
     "//build:chromecast_buildflags",
+    "//build:nwjs_buildflags",
     "//build/config/compiler:compiler_buildflags",
     "//cc",
     "//cc/animation",

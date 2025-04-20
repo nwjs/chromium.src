@@ -37,7 +37,7 @@ _grit_defines = [
 
   "is_desktop_android=${is_desktop_android}",
 
-  "nwjs_sdk=${nwjs_sdk}",
+#  "nwjs_sdk=${nwjs_sdk}",
 ]
 
 # Must match `enable_hidpi` in ui/base/ui_features.gni.
@@ -45,9 +45,9 @@ if (!is_android) {
   _grit_defines += [ "scale_factors=2x" ]
 }
 
-if (nwjs_sdk) {
-  _grit_defines += [ "nwjs_sdk" ]
-}
+#if (nwjs_sdk) {
+#  _grit_defines += [ "nwjs_sdk" ]
+#}
 
 
 # Environment variables to be used by grit and its subproceses.

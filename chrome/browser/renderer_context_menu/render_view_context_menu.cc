@@ -6,6 +6,7 @@
 
 #include <stddef.h>
 
+#include "build/nwjs_buildflags.h"
 #include "content/nw/src/common/shell_switches.h"
 
 #include <algorithm>
@@ -1311,7 +1312,7 @@ void RenderViewContextMenu::InitMenu() {
     added_accessibility_labels_items = AppendAccessibilityLabelsItems();
   }
 
-#if defined(NWJS_SDK)
+#if BUILDFLAG(NWJS_SDK)
   bool enable_devtools = true;
   const base::CommandLine* command_line =
       base::CommandLine::ForCurrentProcess();

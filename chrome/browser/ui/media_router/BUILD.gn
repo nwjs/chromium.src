@@ -27,6 +27,7 @@ source_set("media_router") {
 
   public_deps = [
     "//base",
+    "//build:nwjs_buildflags",
     "//chrome/browser/media/router",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/ui/toolbar/cast",

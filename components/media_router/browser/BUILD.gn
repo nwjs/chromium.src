@@ -46,6 +46,7 @@ source_set("browser") {
 
   deps = [
     "//base",
+    "//build:nwjs_buildflags",
     "//components/keyed_service/content",
     "//components/keyed_service/core",
     "//components/media_router/common/providers/cast/channel",

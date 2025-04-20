@@ -98,10 +98,6 @@ config("feature_flags") {
     defines += [ "OFFICIAL_BUILD" ]
   }
 
-  if (nwjs_sdk) {
-    defines += [ "NWJS_SDK" ]
-  }
-
   # ==============================================
   #   PLEASE DO NOT ADD MORE THINGS TO THIS LIST
   # ==============================================

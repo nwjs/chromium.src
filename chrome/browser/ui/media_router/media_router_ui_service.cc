@@ -4,6 +4,8 @@
 
 #include "chrome/browser/ui/media_router/media_router_ui_service.h"
 
+#include "build/nwjs_buildflags.h"
+
 #include "base/functional/bind.h"
 #include "base/observer_list.h"
 #include "chrome/browser/media/router/media_router_feature.h"
@@ -23,7 +25,7 @@ MediaRouterUIService::MediaRouterUIService(
     Profile* profile,
     std::unique_ptr<CastToolbarButtonController> action_controller)
     : profile_(profile),
-#if defined(NWJS_SDK)
+#if BUILDFLAG(NWJS_SDK)
       action_controller_(std::move(action_controller)),
 #endif
       profile_pref_registrar_(std::make_unique<PrefChangeRegistrar>()) {
@@ -47,7 +49,7 @@ MediaRouterUIService* MediaRouterUIService::Get(Profile* profile) {
 }
 
 CastToolbarButtonController* MediaRouterUIService::action_controller() {
-#if defined(NWJS_SDK)
+#if BUILDFLAG(NWJS_SDK)
   return action_controller_.get();
 #else
   return nullptr;
@@ -64,7 +66,7 @@ void MediaRouterUIService::RemoveObserver(Observer* observer) {
 
 void MediaRouterUIService::ConfigureService() {
   if (MediaRouterEnabled(profile_)) {
-#if defined(NWJS_SDK)
+#if BUILDFLAG(NWJS_SDK)
     if (!action_controller_) {
       action_controller_ =
           std::make_unique<CastToolbarButtonController>(profile_);
@@ -84,7 +86,7 @@ void MediaRouterUIService::DisableService() {
   for (auto& observer : observers_) {
     observer.OnServiceDisabled();
   }
-#if defined(NWJS_SDK)
+#if BUILDFLAG(NWJS_SDK)
   action_controller_.reset();
 #endif
 }

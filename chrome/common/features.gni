@@ -78,7 +78,7 @@ use_brlapi = is_chromeos
 # Every grit target in //chrome should apply these defines so that the
 # proper build flags can be set.
 chrome_grit_defines = [
-  "nwjs_sdk=$nwjs_sdk",
+  #"nwjs_sdk=$nwjs_sdk",
   "enable_arcore=$enable_arcore",
   "enable_cardboard=$enable_cardboard",
   "enable_compose=$enable_compose",

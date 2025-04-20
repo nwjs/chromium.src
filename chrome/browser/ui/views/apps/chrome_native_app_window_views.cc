@@ -9,6 +9,8 @@
 #include <array>
 #include <utility>
 
+#include "build/nwjs_buildflags.h"
+
 #include "base/containers/span.h"
 #include "base/no_destructor.h"
 #include "base/not_fatal_until.h"
@@ -37,7 +39,7 @@
 #include "ui/views/controls/webview/webview.h"
 #include "ui/views/widget/widget.h"
 
-#if defined(NWJS_SDK)
+#if BUILDFLAG(NWJS_SDK)
 #include "base/command_line.h"
 #include "chrome/browser/devtools/devtools_window.h"
 #include "content/nw/src/common/shell_switches.h"
@@ -53,7 +55,7 @@ constexpr auto kAppWindowAcceleratorMap = std::to_array<AcceleratorMapping>({
     //{ui::VKEY_W, ui::EF_CONTROL_DOWN, IDC_CLOSE_WINDOW},
     //{ui::VKEY_W, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN, IDC_CLOSE_WINDOW},
     {ui::VKEY_F4, ui::EF_ALT_DOWN, IDC_CLOSE_WINDOW},
-#if defined(NWJS_SDK)
+#if BUILDFLAG(NWJS_SDK)
     { ui::VKEY_F12, ui::EF_NONE, IDC_DEV_TOOLS_TOGGLE },
 #endif
 });
@@ -354,7 +356,7 @@ bool ChromeNativeAppWindowViews::AcceleratorPressed(
   auto iter = accelerator_table.find(accelerator);
   CHECK(iter != accelerator_table.end(), base::NotFatalUntil::M130);
   int command_id = iter->second;
-#if defined(NWJS_SDK)
+#if BUILDFLAG(NWJS_SDK)
   content::WebContents* web_contents;
   bool enable_devtools = true;
   const base::CommandLine* command_line =
@@ -377,7 +379,7 @@ bool ChromeNativeAppWindowViews::AcceleratorPressed(
     case IDC_ZOOM_PLUS:
       zoom::PageZoom::Zoom(web_view()->GetWebContents(), content::PAGE_ZOOM_IN);
       return true;
-#if defined(NWJS_SDK)
+#if BUILDFLAG(NWJS_SDK)
     case IDC_DEV_TOOLS:
       if (!enable_devtools)
         return true;

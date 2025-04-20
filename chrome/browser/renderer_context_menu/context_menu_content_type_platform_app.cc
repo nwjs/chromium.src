@@ -4,6 +4,8 @@
 
 #include "chrome/browser/renderer_context_menu/context_menu_content_type_platform_app.h"
 
+#include "build/nwjs_buildflags.h"
+
 #include "base/command_line.h"
 #include "chrome/common/chrome_switches.h"
 #include "content/public/browser/web_contents.h"
@@ -40,7 +42,7 @@ bool ContextMenuContentTypePlatformApp::SupportsGroup(int group) {
 
   DCHECK(platform_app->is_platform_app());
 
-#if defined(NWJS_SDK)
+#if BUILDFLAG(NWJS_SDK)
   bool enable_devtools = true;
   const base::CommandLine* command_line =
       base::CommandLine::ForCurrentProcess();
@@ -55,7 +57,7 @@ bool ContextMenuContentTypePlatformApp::SupportsGroup(int group) {
       return ContextMenuContentType::SupportsGroup(group);
     case ITEM_GROUP_CURRENT_EXTENSION:
       return true;
-#if defined(NWJS_SDK)
+#if BUILDFLAG(NWJS_SDK)
     case ITEM_GROUP_DEVTOOLS_UNPACKED_EXT:
       return enable_devtools;
 #endif

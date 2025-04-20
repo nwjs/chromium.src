@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/views/accelerator_table.h"
 
 #include <stddef.h>
+#include "build/nwjs_buildflags.h"
 
 #include <vector>
 
@@ -295,7 +296,7 @@ std::vector<AcceleratorMapping> GetAcceleratorList() {
     accelerators->insert(accelerators->begin(), std::begin(kAcceleratorMap),
                          std::end(kAcceleratorMap));
 
-#if defined(NWJS_SDK)
+#if BUILDFLAG(NWJS_SDK)
     accelerators->insert(accelerators->begin(),
                          std::begin(kDevToolsAcceleratorMap),
                          std::end(kDevToolsAcceleratorMap));
