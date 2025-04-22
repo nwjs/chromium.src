@@ -430,6 +430,7 @@ class Browser : public TabStripModelObserver,
   raw_ptr<nw::Menu> nw_menu_ = nullptr;
 
   std::string extension_id_;
+  bool in_tabstrip_empty_ = false; //NWJS#7808
 
   ~Browser() override;
 

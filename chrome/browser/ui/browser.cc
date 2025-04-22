@@ -880,7 +880,7 @@ Browser::~Browser() {
 
 bool Browser::NWCanClose(bool user_force) {
   const extensions::Extension* extension = GetExtension();
-  if (!extension)
+  if (!extension || in_tabstrip_empty_)
     return true;
   //content::RenderFrameHost* rfh = web_contents->GetMainFrame();
   extensions::EventRouter* event_router = extensions::EventRouter::Get(profile_);
@@ -1845,6 +1845,7 @@ void Browser::UpdateTabGroupSessionDataForTab(
 }
 
 void Browser::TabStripEmpty() {
+  in_tabstrip_empty_ = true;
   // Note: even though the tab strip is empty, the call to Close() may not
   // result in closing this Browser. This can happen in the case of closing
   // the last Browser with ongoing downloads.
@@ -1853,6 +1854,7 @@ void Browser::TabStripEmpty() {
   // Instant may have visible WebContents that need to be detached before the
   // window system closes.
   instant_controller_.reset();
+  in_tabstrip_empty_ = false;
 }
 
 void Browser::SetTopControlsShownRatio(content::WebContents* web_contents,
