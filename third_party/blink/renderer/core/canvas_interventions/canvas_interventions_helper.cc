@@ -8,6 +8,10 @@
 
 #include "base/containers/span.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/metrics/histogram_functions.h"
+#include "base/metrics/histogram_macros.h"
+#include "base/notreached.h"
+#include "base/time/time.h"
 #include "third_party/blink/public/common/fingerprinting_protection/canvas_noise_token.h"
 #include "third_party/blink/public/mojom/devtools/console_message.mojom-shared.h"
 #include "third_party/blink/renderer/core/canvas_interventions/noise_hash.h"
@@ -37,25 +41,45 @@ namespace {
 bool ShouldApplyNoise(CanvasRenderingContext* rendering_context,
                       RasterMode raster_mode,
                       ExecutionContext* execution_context) {
+  CanvasNoiseReason noise_reason = CanvasNoiseReason::kAllConditionsMet;
   if (!rendering_context) {
-    return false;
+    noise_reason |= CanvasNoiseReason::kNoRenderContext;
   }
-  if (!rendering_context->ShouldTriggerIntervention()) {
-    return false;
+  if (rendering_context && !rendering_context->ShouldTriggerIntervention()) {
+    noise_reason |= CanvasNoiseReason::kNoTrigger;
   }
-  if (!rendering_context->IsRenderingContext2D()) {
-    return false;
+  if (rendering_context && !rendering_context->IsRenderingContext2D()) {
+    noise_reason |= CanvasNoiseReason::kNo2d;
   }
   if (!(raster_mode == RasterMode::kGPU ||
         RuntimeEnabledFeatures::CanvasInterventionsOnCpuForTestingEnabled())) {
-    return false;
+    noise_reason |= CanvasNoiseReason::kNoGpu;
   }
-  return execution_context &&
-         execution_context->GetRuntimeFeatureStateOverrideContext()
-             ->IsCanvasInterventionsForceEnabled();
+  if (!execution_context) {
+    noise_reason |= CanvasNoiseReason::kNoExecutionContext;
+  }
+  if (execution_context &&
+      !execution_context->GetRuntimeFeatureStateOverrideContext()
+           ->IsCanvasInterventionsForceEnabled()) {
+    noise_reason |= CanvasNoiseReason::kNotEnabledInMode;
+  }
+
+  // When all conditions are met, none of the other reasons are possible.
+  static constexpr int exclusive_max =
+      static_cast<int>(CanvasNoiseReason::kMaxValue) << 1;
+
+  UMA_HISTOGRAM_EXACT_LINEAR(
+      "FingerprintingProtection.CanvasNoise.InterventionReason",
+      static_cast<int>(noise_reason), exclusive_max);
+
+  return noise_reason == CanvasNoiseReason::kAllConditionsMet;
 }
 
 }  // namespace
+
+// static
+const char CanvasInterventionsHelper::kSupplementName[] =
+    "CanvasInterventionsHelper";
 
 // static
 bool CanvasInterventionsHelper::MaybeNoiseSnapshot(
@@ -63,6 +87,7 @@ bool CanvasInterventionsHelper::MaybeNoiseSnapshot(
     ExecutionContext* execution_context,
     scoped_refptr<StaticBitmapImage>& snapshot,
     RasterMode raster_mode) {
+  base::TimeTicks start_time = base::TimeTicks::Now();
   CHECK(snapshot);
 
   if (!ShouldApplyNoise(rendering_context, raster_mode, execution_context)) {
@@ -113,6 +138,42 @@ bool CanvasInterventionsHelper::MaybeNoiseSnapshot(
       "new?component=1456351&title=Canvas%20noise%20breakage. This "
       "feature can be disabled through chrome://flags/#enable-canvas-noise"));
 
+  base::TimeDelta elapsed_time = base::TimeTicks::Now() - start_time;
+
+  UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES(
+      "FingerprintingProtection.CanvasNoise.NoiseDuration", elapsed_time,
+      base::Microseconds(50), base::Milliseconds(10), 50);
+  UMA_HISTOGRAM_COUNTS_1M(
+      "FingerprintingProtection.CanvasNoise.NoisedCanvasSize",
+      pixmap_to_noise.width() * pixmap_to_noise.height());
+  auto* helper = CanvasInterventionsHelper::From(execution_context);
+  helper->IncrementNoisedCanvasReadbacks();
+
   return true;
 }
+
+// static
+CanvasInterventionsHelper* CanvasInterventionsHelper::From(
+    ExecutionContext* context) {
+  CanvasInterventionsHelper* helper =
+      Supplement<ExecutionContext>::From<CanvasInterventionsHelper>(context);
+  if (!helper) {
+    helper = MakeGarbageCollected<CanvasInterventionsHelper>(*context);
+    Supplement<ExecutionContext>::ProvideTo(*context, helper);
+  }
+  return helper;
+}
+
+CanvasInterventionsHelper::CanvasInterventionsHelper(
+    ExecutionContext& execution_context)
+    : Supplement<ExecutionContext>(execution_context),
+      ExecutionContextLifecycleObserver(&execution_context) {}
+
+void CanvasInterventionsHelper::ContextDestroyed() {
+  CHECK_GT(num_noised_canvas_readbacks_, 0);
+  UMA_HISTOGRAM_COUNTS_100(
+      "FingerprintingProtection.CanvasNoise.NoisedReadbacksPerContext",
+      num_noised_canvas_readbacks_);
+}
+
 }  // namespace blink

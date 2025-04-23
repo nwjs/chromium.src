@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/content_suggestions/ui_bundled/tab_resumption/tab_resumption_mediator.h"
 
+#import <MaterialComponents/MaterialSnackbar.h>
+
 #import "base/apple/foundation_util.h"
 #import "base/command_line.h"
 #import "base/containers/flat_set.h"
@@ -11,10 +13,15 @@
 #import "base/strings/stringprintf.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/strings/utf_string_conversions.h"
+#import "components/bookmarks/browser/bookmark_model.h"
+#import "components/bookmarks/browser/bookmark_node.h"
 #import "components/commerce/core/commerce_constants.h"
 #import "components/commerce/core/commerce_feature_list.h"
 #import "components/commerce/core/commerce_types.h"
+#import "components/commerce/core/commerce_utils.h"
+#import "components/commerce/core/price_tracking_utils.h"
 #import "components/commerce/core/proto/price_tracking.pb.h"
+#import "components/commerce/core/shopping_service.h"
 #import "components/optimization_guide/core/optimization_guide_decision.h"
 #import "components/optimization_guide/proto/common_types.pb.h"
 #import "components/optimization_guide/proto/hints.pb.h"
@@ -48,6 +55,8 @@
 #import "ios/chrome/browser/ntp_tiles/model/tab_resumption/tab_resumption_prefs.h"
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_service.h"
 #import "ios/chrome/browser/page_image/model/page_image_service_factory.h"
+#import "ios/chrome/browser/push_notification/model/push_notification_service.h"
+#import "ios/chrome/browser/push_notification/model/push_notification_util.h"
 #import "ios/chrome/browser/sessions/model/session_util.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
@@ -60,8 +69,13 @@
 #import "ios/chrome/browser/shared/model/utils/observable_boolean.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_opener.h"
+#import "ios/chrome/browser/shared/public/commands/application_commands.h"
+#import "ios/chrome/browser/shared/public/commands/price_tracked_items_commands.h"
+#import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/public/features/system_flags.h"
+#import "ios/chrome/browser/shared/ui/util/snackbar_util.h"
+#import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_tab_helper.h"
 #import "ios/chrome/browser/start_surface/ui_bundled/start_surface_features.h"
 #import "ios/chrome/browser/start_surface/ui_bundled/start_surface_recent_tab_browser_agent.h"
@@ -80,6 +94,8 @@
 #import "ios/chrome/common/ui/favicon/favicon_attributes.h"
 #import "ios/chrome/common/ui/favicon/favicon_constants.h"
 #import "ios/chrome/grit/ios_strings.h"
+#import "ios/web/public/thread/web_task_traits.h"
+#import "ios/web/public/thread/web_thread.h"
 #import "services/network/public/cpp/shared_url_loader_factory.h"
 #import "ui/base/l10n/l10n_util_mac.h"
 
@@ -134,6 +150,20 @@ bool HasPriceDropDataForTabResumption(
          price_tracking_data->buyable_product().has_title();
 }
 
+bool HasCurrentPriceDataForTabResumption(
+    const std::optional<const commerce::PriceTrackingData>&
+        price_tracking_data) {
+  return price_tracking_data.has_value() &&
+         price_tracking_data->has_buyable_product() &&
+         price_tracking_data->buyable_product().has_current_price() &&
+         price_tracking_data->buyable_product()
+             .current_price()
+             .has_currency_code() &&
+         price_tracking_data->buyable_product()
+             .current_price()
+             .has_amount_micros();
+}
+
 // A Product Detail Page is price trackable if it has a cluster ID.
 bool IsPriceTrackable(const std::optional<const commerce::PriceTrackingData>&
                           price_tracking_data) {
@@ -145,6 +175,16 @@ bool IsPriceTrackable(const std::optional<const commerce::PriceTrackingData>&
 std::u16string GetHostnameFromGURL(const GURL& url) {
   return url_formatter::
       FormatUrlForDisplayOmitSchemePathTrivialSubdomainsAndMobilePrefix(url);
+}
+
+void AddProductImageIfApplicable(
+    const commerce::PriceTrackingData& price_tracking_data,
+    TabResumptionItem* item) {
+  if (price_tracking_data.has_buyable_product() &&
+      price_tracking_data.buyable_product().has_image_url()) {
+    item.shopCardData.productImageURL =
+        price_tracking_data.buyable_product().image_url();
+  }
 }
 
 void ConfigureTabResumptionItemForShopCard(
@@ -181,11 +221,7 @@ void ConfigureTabResumptionItemForShopCard(
         formatter.get(),
         price_tracking_data->product_update().new_price().amount_micros(),
         price_tracking_data->product_update().old_price().amount_micros());
-    if (price_tracking_data->has_buyable_product() &&
-        price_tracking_data->buyable_product().has_image_url()) {
-      item.shopCardData.productImageURL =
-          price_tracking_data->buyable_product().image_url();
-    }
+    AddProductImageIfApplicable(price_tracking_data.value(), item);
     item.shopCardData.accessibilityString = l10n_util::GetNSStringF(
         IDS_IOS_CONTENT_SUGGESTIONS_SHOPCARD_PRICE_DROP_OPEN_TABS_ACCESSIBILITY_LABEL,
         base::SysNSStringToUTF16(item.shopCardData.priceDrop->previous_price),
@@ -200,6 +236,31 @@ void ConfigureTabResumptionItemForShopCard(
     item.shopCardData = [[ShopCardData alloc] init];
     item.shopCardData.shopCardItemType =
         ShopCardItemType::kPriceTrackableProductOnTab;
+
+    std::unique_ptr<commerce::ProductInfo> info =
+        commerce::OptGuideResultToProductInfo(decisionWithMetadata.metadata);
+    if (info) {
+      item.shopCardData.productInfo = std::move(*info);
+    }
+
+    if (HasCurrentPriceDataForTabResumption(price_tracking_data)) {
+      std::unique_ptr<payments::CurrencyFormatter> formatter =
+          std::make_unique<payments::CurrencyFormatter>(
+              price_tracking_data->buyable_product()
+                  .current_price()
+                  .currency_code(),
+              GetApplicationContext()->GetApplicationLocale());
+      item.shopCardData.currentPrice = GetFormattedPrice(
+          formatter.get(), price_tracking_data->buyable_product()
+                               .current_price()
+                               .amount_micros());
+    }
+    item.shopCardData.accessibilityString = l10n_util::GetNSStringF(
+        IDS_IOS_CONTENT_SUGGESTIONS_SHOPCARD_TRACK_PRICE_ACCESSIBILITY_LABEL,
+        base::SysNSStringToUTF16(item.tabTitle),
+        base::SysNSStringToUTF16(item.shopCardData.currentPrice),
+        GetHostnameFromGURL(url));
+    AddProductImageIfApplicable(price_tracking_data.value(), item);
   }
 }
 
@@ -307,6 +368,10 @@ class TabResumptionMediatorProxy {
   PrefBackedBoolean* _tabResumptionDisabled;
   raw_ptr<OptimizationGuideService> _optimizationGuideService;
   raw_ptr<ImpressionLimitService> _impressionLimitService;
+  raw_ptr<commerce::ShoppingService> _shoppingService;
+  raw_ptr<bookmarks::BookmarkModel> _bookmarkModel;
+  raw_ptr<PushNotificationService> _pushNotificationService;
+  raw_ptr<AuthenticationService> _authenticationService;
 }
 
 - (instancetype)
@@ -315,7 +380,11 @@ class TabResumptionMediatorProxy {
              identityManager:(signin::IdentityManager*)identityManager
                      browser:(Browser*)browser
     optimizationGuideService:(OptimizationGuideService*)optimizationGuideService
-      impressionLimitService:(ImpressionLimitService*)impressionLimitService {
+      impressionLimitService:(ImpressionLimitService*)impressionLimitService
+             shoppingService:(commerce::ShoppingService*)shoppingService
+               bookmarkModel:(bookmarks::BookmarkModel*)bookmarkModel
+     pushNotificationService:(PushNotificationService*)pushNotificationService
+       authenticationService:(AuthenticationService*)authenticationService {
   self = [super init];
   if (self) {
     CHECK(IsTabResumptionEnabled());
@@ -367,6 +436,10 @@ class TabResumptionMediatorProxy {
           {optimization_guide::proto::PRICE_TRACKING});
     }
     _impressionLimitService = impressionLimitService;
+    _shoppingService = shoppingService;
+    _bookmarkModel = bookmarkModel;
+    _pushNotificationService = pushNotificationService;
+    _authenticationService = authenticationService;
   }
   return self;
 }
@@ -383,6 +456,10 @@ class TabResumptionMediatorProxy {
   [_tabResumptionDisabled stop];
   [_tabResumptionDisabled setObserver:nil];
   _tabResumptionDisabled = nil;
+  _shoppingService = nil;
+  _bookmarkModel = nil;
+  _pushNotificationService = nil;
+  _authenticationService = nil;
 }
 
 #pragma mark - Public methods
@@ -415,6 +492,109 @@ class TabResumptionMediatorProxy {
     }
   }
   [self.delegate removeTabResumptionModule];
+}
+- (void)trackShopCardItem:(TabResumptionItem*)item {
+  __weak TabResumptionMediator* weakSelf = self;
+
+  [PushNotificationUtil requestPushNotificationPermission:^(
+                            BOOL granted, BOOL promptShown, NSError* error) {
+    web::GetUIThreadTaskRunner({})->PostTask(
+        FROM_HERE, base::BindOnce(
+                       [](__typeof(self) strongSelf, TabResumptionItem* item,
+                          BOOL granted, BOOL promptShown, NSError* error) {
+                         if (error || !granted) {
+                           [strongSelf onTracked:NO item:item];
+                           return;
+                         }
+                         [strongSelf
+                             onNotificationPermissionVerifiedOrGranted:item];
+                       },
+                       weakSelf, item, granted, promptShown, error));
+  }];
+  [self.delegate removeTabResumptionModule];
+}
+
+- (void)onNotificationPermissionVerifiedOrGranted:(TabResumptionItem*)item {
+  id<SystemIdentity> identity =
+      _authenticationService->GetPrimaryIdentity(signin::ConsentLevel::kSignin);
+  _pushNotificationService->SetPreference(
+      identity.gaiaID, PushNotificationClientId::kCommerce, true);
+
+  const bookmarks::BookmarkNode* bookmark =
+      _bookmarkModel->GetMostRecentlyAddedUserNodeForURL(item.tabURL);
+  bool isNewBookmark = bookmark == nullptr;
+  __weak TabResumptionMediator* weakSelf = self;
+
+  auto completionHandler =
+      ^(TabResumptionItem* tabResumptionItem, bool success) {
+        [weakSelf onTracked:success item:tabResumptionItem];
+      };
+
+  if (!bookmark) {
+    const bookmarks::BookmarkNode* defaultFolder =
+        _bookmarkModel->account_mobile_node();
+    if (!defaultFolder) {
+      [self onTracked:NO item:item];
+      return;
+    }
+    bookmark = _bookmarkModel->AddURL(
+        defaultFolder, defaultFolder->children().size(),
+        base::SysNSStringToUTF16(item.tabTitle), item.tabURL);
+  }
+
+  commerce::SetPriceTrackingStateForBookmark(
+      _shoppingService, _bookmarkModel, bookmark, true,
+      base::BindOnce(completionHandler, item), isNewBookmark,
+      item.shopCardData.productInfo);
+}
+
+- (void)onTracked:(BOOL)success item:(TabResumptionItem*)item {
+  [self.dispatcher showSnackbarMessage:[self snackbarMessage:success
+                                                        item:item]];
+}
+
+- (MDCSnackbarMessage*)snackbarMessage:(BOOL)success
+                                  item:(TabResumptionItem*)item {
+  MDCSnackbarMessageAction* action = [[MDCSnackbarMessageAction alloc] init];
+
+  if (success) {
+    // Tracking was successful. Give option to go to price tracking menu.
+    action.handler = ^{
+      [self.dispatcher showPriceTrackedItems];
+    };
+  } else {
+    // Failed to track - try again.
+    action.handler = ^{
+      [self onNotificationPermissionVerifiedOrGranted:item];
+    };
+  }
+
+  if (success) {
+    action.title = l10n_util::GetNSString(
+        IDS_IOS_CONTENT_SUGGESTIONS_SHOPCARD_TRACK_PRICE_SUCCESS_SNACKBAR_ACTION);
+    action.accessibilityLabel = l10n_util::GetNSString(
+        IDS_IOS_CONTENT_SUGGESTIONS_SHOPCARD_TRACK_PRICE_SUCCESS_SNACKBAR_ACTION);
+    action.accessibilityIdentifier = kPriceTrackingOnTabSuccessAccessibilityID;
+  } else {
+    action.title = l10n_util::GetNSString(
+        IDS_IOS_CONTENT_SUGGESTIONS_SHOPCARD_TRACK_PRICE_FAILURE_SNACKBAR_ACTION);
+    action.accessibilityLabel = l10n_util::GetNSString(
+        IDS_IOS_CONTENT_SUGGESTIONS_SHOPCARD_TRACK_PRICE_FAILURE_SNACKBAR_ACTION);
+    action.accessibilityIdentifier = kPriceTrackingOnTabFailureAccessibilityID;
+  }
+
+  MDCSnackbarMessage* message;
+  if (success) {
+    message = CreateSnackbarMessage(l10n_util::GetNSString(
+        IDS_IOS_CONTENT_SUGGESTIONS_SHOPCARD_TRACK_PRICE_SUCCESS_SNACKBAR));
+  } else {
+    message = CreateSnackbarMessage(l10n_util::GetNSString(
+        IDS_IOS_CONTENT_SUGGESTIONS_SHOPCARD_TRACK_PRICE_FAILURE_SNACKBAR));
+  }
+
+  message.action = action;
+  message.category = kPriceTrackingOnTabSnackbarCategory;
+  return message;
 }
 
 - (void)openDistantTab:(TabResumptionItem*)item {

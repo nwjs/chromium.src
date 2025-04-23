@@ -87,12 +87,22 @@ const CGFloat kTrackButtonLightVariantAlpha = 0.11f;
           self.titleLabel.intrinsicContentSize.width,
           (_useLightVariant) ? kTrackButtonSidePaddingLightVariant
                              : horizontalPadding);
-  [NSLayoutConstraint activateConstraints:@[
-    [self.widthAnchor
-        constraintLessThanOrEqualToConstant:constraintValues.max_width],
-    [self.widthAnchor
-        constraintGreaterThanOrEqualToConstant:constraintValues.target_width]
-  ]];
+
+  if (_useLightVariant) {
+    float light_button_width = self.titleLabel.intrinsicContentSize.width +
+                               kTrackButtonSidePaddingLightVariant * 2;
+
+    [NSLayoutConstraint activateConstraints:@[
+      [self.widthAnchor constraintEqualToConstant:light_button_width]
+    ]];
+  } else {
+    [NSLayoutConstraint activateConstraints:@[
+      [self.widthAnchor
+          constraintLessThanOrEqualToConstant:constraintValues.max_width],
+      [self.widthAnchor
+          constraintGreaterThanOrEqualToConstant:constraintValues.target_width]
+    ]];
+  }
 }
 
 #pragma mark - Private

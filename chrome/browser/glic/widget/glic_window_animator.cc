@@ -206,11 +206,11 @@ void GlicWindowAnimator::AnimateBounds(const gfx::Rect& target_bounds,
 void GlicWindowAnimator::AnimateSize(const gfx::Size& target_size,
                                      base::TimeDelta duration,
                                      base::OnceClosure callback) {
+
+  last_target_size_ = target_size;
   // Maintain the top-right corner whether there's an ongoing animation or not.
   gfx::Rect target_bounds = GetCurrentTargetBounds();
-  int original_right = target_bounds.right();
   target_bounds.set_size(target_size);
-  target_bounds.set_x(original_right - target_size.width());
   AnimateBounds(target_bounds, duration, std::move(callback));
 }
 
@@ -230,6 +230,20 @@ gfx::Rect GlicWindowAnimator::GetCurrentTargetBounds() {
   } else {
     return window_controller_->GetGlicWidget()->GetWindowBoundsInScreen();
   }
+}
+
+void GlicWindowAnimator::ResetLastTargetSize() {
+  last_target_size_ = gfx::Size();
+}
+
+void GlicWindowAnimator::MaybeAnimateToTargetSize() {
+  if (!last_target_size_.IsEmpty() &&
+      last_target_size_ != window_controller_->GetGlicWidget()
+                               ->GetWindowBoundsInScreen()
+                               .size()) {
+    AnimateSize(last_target_size_, base::Milliseconds(300), base::DoNothing());
+  }
+  ResetLastTargetSize();
 }
 
 void GlicWindowAnimator::SetGlicWebViewVisibility(bool is_visible) {

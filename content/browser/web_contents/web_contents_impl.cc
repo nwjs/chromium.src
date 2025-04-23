@@ -183,6 +183,7 @@
 #include "services/device/public/mojom/wake_lock.mojom.h"
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/request_destination.h"
+#include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/web_sandbox_flags.h"
 #include "services/network/public/mojom/network_context.mojom.h"
 #include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
@@ -2347,6 +2348,11 @@ void WebContentsImpl::OnManifestUrlChanged(PageImpl& page) {
 }
 
 WebUI* WebContentsImpl::GetWebUI() {
+  // There is no frame host if the navigation fails.
+  if (!primary_frame_tree_.root()->current_frame_host()) {
+    return nullptr;
+  }
+
   return primary_frame_tree_.root()->current_frame_host()->web_ui();
 }
 
@@ -7276,6 +7282,13 @@ gfx::NativeWindow WebContentsImpl::GetOwnerNativeWindow() {
 media::PictureInPictureEventsInfo::AutoPipReason
 WebContentsImpl::GetAutoPipReason() const {
   return GetContentClient()->browser()->GetAutoPipReason(*this);
+}
+
+void WebContentsImpl::OnKeepAliveRequestCreated(
+    const network::ResourceRequest& resource_request,
+    RenderFrameHostImpl* initiator_rfh) {
+  observers_.NotifyObservers(&WebContentsObserver::OnKeepAliveRequestCreated,
+                             resource_request, initiator_rfh);
 }
 
 void WebContentsImpl::NotifyChangedNavigationState(

@@ -4735,7 +4735,7 @@ AXPlatformNodeWin::get_selections(IA2TextSelection** selections,
 
   COM_OBJECT_VALIDATE_2_ARGS(selections, nSelections);
 
-  AXSelection unignored_selection = GetDelegate()->GetHypertextSelection();
+  AXSelection unignored_selection = GetDelegate()->GetUnignoredSelection();
 
   AXNodeID anchor_id = unignored_selection.anchor_object_id;
   if (unignored_selection.anchor_offset == ax::mojom::kNoSelectionOffset) {
@@ -5744,6 +5744,15 @@ HRESULT AXPlatformNodeWin::GetPropertyValueImpl(PROPERTYID property_id,
       result->intVal = static_cast<int>(ComputeExpandCollapseState());
       break;
 
+    case UIA_ValueValuePropertyId: {
+      if (HasStringAttribute(ax::mojom::StringAttribute::kValue)) {
+        result->vt = VT_BSTR;
+        GetStringAttributeAsBstr(ax::mojom::StringAttribute::kValue,
+                                 &result->bstrVal);
+      }
+      break;
+    }
+
     // Not currently implemented.
     case UIA_AnnotationTypesPropertyId:
     case UIA_CenterPointPropertyId:
@@ -5971,9 +5980,6 @@ STDMETHODIMP AXPlatformNodeWin::InternalQueryInterface(
       reinterpret_cast<AXPlatformNodeWin*>(this_ptr);
   DCHECK(accessible);
 
-  // Note: Each inherited interface requires a hidden v-table pointer. It's
-  // therefore advantageous to not have objects that inherit from interfaces
-  // they'll never use.
   if (riid == IID_IAccessibleTable || riid == IID_IAccessibleTable2) {
     if (!IsTableLike(accessible->GetRole()))
       return E_NOINTERFACE;
@@ -5982,10 +5988,6 @@ STDMETHODIMP AXPlatformNodeWin::InternalQueryInterface(
       return E_NOINTERFACE;
   } else if (riid == IID_IAccessibleText || riid == IID_IAccessibleHypertext) {
     if (IsImageOrVideo(accessible->GetRole())) {
-      return E_NOINTERFACE;
-    }
-    // Text leaf nodes don't support these interfaces, their containers do.
-    if (ui::IsText(accessible->GetRole())) {
       return E_NOINTERFACE;
     }
   } else if (riid == IID_IAccessibleValue) {
@@ -8088,6 +8090,8 @@ std::optional<EVENTID> AXPlatformNodeWin::MojoEventToUIAEvent(
       return UIA_SelectionItem_ElementRemovedFromSelectionEventId;
     case ax::mojom::Event::kTextSelectionChanged:
       return UIA_Text_TextSelectionChangedEventId;
+    case ax::mojom::Event::kTextChanged:
+      return UIA_Text_TextChangedEventId;
     case ax::mojom::Event::kTooltipClosed:
       return UIA_ToolTipClosedEventId;
     case ax::mojom::Event::kTooltipOpened:
@@ -8115,6 +8119,8 @@ std::optional<PROPERTYID> AXPlatformNodeWin::MojoEventToUIAProperty(
       return UIA_SelectionItemIsSelectedPropertyId;
     case ax::mojom::Event::kTextChanged:
       return UIA_NamePropertyId;
+    case ax::mojom::Event::kValueChanged:
+      return UIA_ValueValuePropertyId;
     default:
       return std::nullopt;
   }

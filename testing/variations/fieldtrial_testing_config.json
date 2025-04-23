@@ -3277,6 +3277,29 @@
             ]
         }
     ],
+    "BeaconLeakageLogging": [
+        {
+            "platforms": [
+                "android",
+                "chromeos",
+                "linux",
+                "mac",
+                "windows"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled_v1",
+                    "params": {
+                        "category_param_name": "category",
+                        "category_prefix": "acrcp_v1_"
+                    },
+                    "enable_features": [
+                        "BeaconLeakageLogging"
+                    ]
+                }
+            ]
+        }
+    ],
     "BiometricAuthPwdFillAndroid": [
         {
             "platforms": [
@@ -8446,6 +8469,21 @@
                     },
                     "enable_features": [
                         "DiscountConsentV2"
+                    ]
+                }
+            ]
+        }
+    ],
+    "DiscountsOnAndroid": [
+        {
+            "platforms": [
+                "android"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "EnableDiscountInfoApi"
                     ]
                 }
             ]
@@ -18261,21 +18299,6 @@
                     "name": "Enabled",
                     "enable_features": [
                         "PreserveDiscardableImageMapQuality"
-                    ]
-                }
-            ]
-        }
-    ],
-    "PriceInsightsAndroid": [
-        {
-            "platforms": [
-                "android"
-            ],
-            "experiments": [
-                {
-                    "name": "Enabled",
-                    "enable_features": [
-                        "PriceInsights"
                     ]
                 }
             ]

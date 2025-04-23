@@ -1380,7 +1380,13 @@ void LensOverlayQueryController::PrepareAndFetchPageContentRequest() {
   // The initial request id should be set by the time we get here. If not, call
   // below will crash.
   CHECK(initial_request_id_);
-  if (lens::features::IsLensOverlayUploadChunkingEnabled()) {
+
+  // Send a chunk request if the upload is a PDF larger than the chunk size.
+  // If not, send a normal page content request.
+  if (lens::features::IsLensOverlayUploadChunkingEnabled() &&
+      primary_content_type_ == lens::MimeType::kPdf &&
+      underlying_page_contents_.front().bytes_.size() >
+          lens::features::GetLensOverlayChunkSizeBytes()) {
     // Post MakeChunks to a task off the main thread so compression does not
     // throttle the main thread.
     compression_task_tracker_->PostTaskAndReplyWithResult(
@@ -1391,7 +1397,7 @@ void LensOverlayQueryController::PrepareAndFetchPageContentRequest() {
             weak_ptr_factory_.GetWeakPtr(),
             is_first_page_contents_request_
                 ? *initial_request_id_
-                : *request_id_generator_->GetNextRequestId(
+                : *GetNextRequestId(
                       lens::RequestIdUpdateMode::kPageContentRequest)));
   } else {
     // Post CreatePageContentPayload to a task off the main thread so
@@ -1405,7 +1411,7 @@ void LensOverlayQueryController::PrepareAndFetchPageContentRequest() {
             weak_ptr_factory_.GetWeakPtr(),
             is_first_page_contents_request_
                 ? *initial_request_id_
-                : *request_id_generator_->GetNextRequestId(
+                : *GetNextRequestId(
                       lens::RequestIdUpdateMode::kPageContentRequest)));
   }
 
@@ -1594,7 +1600,7 @@ void LensOverlayQueryController::PrepareAndFetchPartialPageContentRequest() {
     request_context.mutable_request_id()->CopyFrom(*initial_request_id_);
   } else {
     request_context.mutable_request_id()->CopyFrom(
-        *request_id_generator_->GetNextRequestId(
+        *GetNextRequestId(
             lens::RequestIdUpdateMode::kPartialPageContentRequest));
   }
   request_context.mutable_client_context()->CopyFrom(CreateClientContext());

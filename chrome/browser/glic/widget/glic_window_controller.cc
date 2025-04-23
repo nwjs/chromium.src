@@ -367,6 +367,12 @@ void GlicWindowController::OnWidgetUserResizeEnded() {
   if (GetGlicView()) {
     GetGlicView()->UpdatePrimaryDraggableAreaOnResize();
   }
+
+  if (GetGlicWidget()) {
+    glic_size_ = GetGlicWidget()->GetSize();
+  }
+
+  glic_window_animator_->ResetLastTargetSize();
 }
 
 void GlicWindowController::ShowAfterSignIn() {
@@ -1162,6 +1168,9 @@ void GlicWindowController::HandleWindowDragWithOffset(
         views::Widget::MoveLoopEscapeBehavior::kDontHide);
     in_move_loop_ = false;
     scoped_glic_button_indicator_.reset();
+    // Dragging stops animations. This makes sure we honor the last resize
+    // request.
+    glic_window_animator_->MaybeAnimateToTargetSize();
     if (!AlwaysDetached()) {
       // set glic z-order back to normal after drag is done.
       GetGlicWidget()->SetZOrderLevel(ui::ZOrderLevel::kNormal);

@@ -196,7 +196,7 @@ class TabGroupSyncServiceImpl : public TabGroupSyncService,
   // model UI layer.
   void SetCoordinator(std::unique_ptr<TabGroupSyncCoordinator> coordinator);
 
-  SavedTabGroupModel* GetModelForTesting() { return model_.get(); }
+  SavedTabGroupModel* GetModel() { return model_.get(); }
 
  private:
   struct TabGroupSharingTimeoutInfo {
@@ -412,14 +412,6 @@ class TabGroupSyncServiceImpl : public TabGroupSyncService,
   // after this step. Currently used only for UpdateLocalTabGroupMapping()
   // calls.
   base::circular_deque<base::OnceClosure> pending_actions_;
-
-  // Keeps track of API calls received when not signed in. Unlike most other
-  // methods of this class, these API calls cannot proceed without a signed in
-  // account (e.g. they need user attribution). Currently required
-  // for MakeTabGroupShared() only.
-  // Once the sign-in and initial sync is complete for the account, these
-  // callbacks will be run in the order they were received.
-  base::circular_deque<base::OnceClosure> pending_actions_waiting_sign_in_;
 
   // A handle to optimization guide for information about synced URLs.
   raw_ptr<optimization_guide::OptimizationGuideDecider> opt_guide_ = nullptr;
