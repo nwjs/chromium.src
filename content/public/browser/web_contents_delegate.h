@@ -158,7 +158,7 @@ class CONTENT_EXPORT WebContentsDelegate {
   virtual bool ShouldAllowRendererInitiatedCrossProcessNavigation(
       bool is_outermost_main_frame_navigation);
 
-  virtual bool CanLoadFileSubresource(const GURL& url);
+  virtual bool QueryLoadFileSubresource(const GURL& url, bool* result);
   // Called to inform the delegate that the WebContents's navigation state
   // changed. The |changed_flags| indicates the parts of the navigation state
   // that have been updated.

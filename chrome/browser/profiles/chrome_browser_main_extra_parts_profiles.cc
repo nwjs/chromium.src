@@ -996,7 +996,7 @@ void ChromeBrowserMainExtraPartsProfiles::
   MerchantViewerDataManagerFactory::GetInstance();
 #endif
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
-  //metrics::DesktopProfileSessionDurationsServiceFactory::GetInstance();
+  metrics::DesktopProfileSessionDurationsServiceFactory::GetInstance();
 #endif
 #if !BUILDFLAG(IS_ANDROID)
   MicrosoftAuthServiceFactory::GetInstance();

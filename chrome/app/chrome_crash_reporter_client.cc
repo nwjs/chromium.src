@@ -121,7 +121,7 @@ void ChromeCrashReporterClient::GetProductInfo(ProductInfo* product_info) {
 #if defined(ADDRESS_SANITIZER)
   product_info->product_name = "Chrome_Linux_ASan";
 #else
-  product_info->product_name = "Chrome_Linux";
+  product_info->product_name = product_name_;
 #endif  // defined(ADDRESS_SANITIZER)
 #elif BUILDFLAG(IS_MAC)
   product_info->product_name = "Chrome_Mac";
@@ -131,7 +131,7 @@ void ChromeCrashReporterClient::GetProductInfo(ProductInfo* product_info) {
   NOTREACHED();
 #endif
 
-  product_info->version = PRODUCT_VERSION;
+  product_info->version = product_version_;
   product_info->channel =
       chrome::GetChannelName(chrome::WithExtendedStable(true));
 }

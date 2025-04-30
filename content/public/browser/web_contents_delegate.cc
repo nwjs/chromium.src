@@ -39,7 +39,7 @@ WebContents* WebContentsDelegate::OpenURLFromTab(
   return nullptr;
 }
 
-bool WebContentsDelegate::CanLoadFileSubresource(const GURL& url) {
+bool WebContentsDelegate::QueryLoadFileSubresource(const GURL& url, bool*) {
   return false;
 }
 

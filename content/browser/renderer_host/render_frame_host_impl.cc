@@ -12257,15 +12257,21 @@ void RenderFrameHostImpl::CommitNavigation(
         std::move(pending_default_factory);
 
     bool can_load_file_subresource = false;
+    bool override_flag = false;
     WebContents* web_contents = WebContents::FromRenderFrameHost(this);
     if (web_contents) {
       auto* delegate = web_contents->GetDelegate();
-      if (delegate && delegate->CanLoadFileSubresource(common_params->url))
-        can_load_file_subresource = true;
+      bool ret;
+      if (delegate && delegate->QueryLoadFileSubresource(common_params->url, &ret)) {
+        can_load_file_subresource = ret;
+        override_flag = true;
+      }
     }
 
+    if (!override_flag)
+      can_load_file_subresource = (effective_scheme == url::kFileScheme);
     // Only documents from a file precursor scheme can load file subresoruces.
-    if (can_load_file_subresource || effective_scheme == url::kFileScheme) {
+    if (can_load_file_subresource) {
       // USER_BLOCKING because this scenario is exactly one of the examples
       // given by the doc comment for USER_BLOCKING: Loading and rendering a web
       // page after the user clicks a link.

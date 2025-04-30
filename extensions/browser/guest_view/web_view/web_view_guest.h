@@ -253,7 +253,7 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest> {
       blink::RendererPreferences& preferences) final;
 
   // WebContentsDelegate implementation.
-  bool CanLoadFileSubresource(const GURL& url) final;
+  bool QueryLoadFileSubresource(const GURL& url, bool*) final;
   void CloseContents(content::WebContents* source) final;
   bool HandleContextMenu(content::RenderFrameHost& render_frame_host,
                          const content::ContextMenuParams& params) final;
