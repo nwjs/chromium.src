@@ -10,17 +10,10 @@
 
 namespace shortcuts {
 
-namespace {
-
-constexpr base::FilePath::CharType kChromeProxyExecutable[] =
-    FILE_PATH_LITERAL("nw.exe");
-
-}  // namespace
-
 base::FilePath GetChromeProxyPath() {
   base::FilePath chrome_dir;
-  CHECK(base::PathService::Get(base::DIR_EXE, &chrome_dir));
-  return chrome_dir.Append(kChromeProxyExecutable);
+  CHECK(base::PathService::Get(base::FILE_EXE, &chrome_dir));
+  return chrome_dir;
 }
 
 }  // namespace shortcuts
