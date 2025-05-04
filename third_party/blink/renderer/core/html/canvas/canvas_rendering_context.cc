@@ -100,12 +100,12 @@ void CanvasRenderingContext::DidDraw(
   CanvasRenderingContextHost* const host = Host();
   host->DidDraw(dirty_rect);
 
-  auto& monitor = GetCanvasPerformanceMonitor();
-  monitor.DidDraw(draw_type);
+  //auto& monitor = GetCanvasPerformanceMonitor();
+  //monitor.DidDraw(draw_type);
   if (did_draw_in_current_task_)
     return;
 
-  monitor.CurrentTaskDrawsToContext(this);
+  //monitor.CurrentTaskDrawsToContext(this);
   did_draw_in_current_task_ = true;
   // We need to store whether the document is being printed because the
   // document may exit printing state by the time DidProcessTask is called.
