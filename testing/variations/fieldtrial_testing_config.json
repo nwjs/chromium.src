@@ -13385,6 +13385,21 @@
             ]
         }
     ],
+    "K12AgeClassificationMetricsProvider": [
+        {
+            "platforms": [
+                "chromeos"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "K12AgeClassificationMetricsProvider"
+                    ]
+                }
+            ]
+        }
+    ],
     "KeepAliveInBrowserMigration": [
         {
             "platforms": [

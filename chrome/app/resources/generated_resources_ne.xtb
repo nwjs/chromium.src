@@ -179,7 +179,7 @@
 <translation id="1118738876271697201">प्रणालीले यन्त्रको मोडल वा क्रम सङ्ख्या निर्धारण गर्न सकेन।</translation>
 <translation id="111897705806685148">अर्कै डिभाइसमा भएको पासकी प्रयोग गर्नुहोस्</translation>
 <translation id="1119447706177454957">आन्तरिक त्रुटि</translation>
-<translation id="1122068467107743258">कार्य प्रोफाइल</translation>
+<translation id="1122068467107743258">वर्क प्रोफाइल</translation>
 <translation id="1122198203221319518">&amp;उपकरणहरू</translation>
 <translation id="1122242684574577509">प्रमाणीकरण विफल भयो। तपाईँले प्रयोग गरिरहेको (<ph name="NETWORK_ID" /> ) Wi-Fi नेटवर्कका लागि लगइन पृष्ठमा भ्रमण गर्न क्लिक गर्नुहोस्।</translation>
 <translation id="1122587596907914265">अद्वितीय वालपेपरहरू बनाउनुहोस्</translation>
@@ -1391,7 +1391,7 @@
 <translation id="1949980990364952348">एपको नाम</translation>
 <translation id="1951012854035635156">सहायक</translation>
 <translation id="1951823516285577843">अन्य विकल्प खोज्नुहोस्</translation>
-<translation id="1953796913175502363">आफ्नो कार्य प्रोफाइल सेटअप गर्नुहोस्</translation>
+<translation id="1953796913175502363">आफ्नो वर्क प्रोफाइल सेटअप गर्नुहोस्</translation>
 <translation id="1954597385941141174">साइटहरूले USB मा कनेक्ट हुने अनुमति माग्न सक्छन्</translation>
 <translation id="1954813140452229842">आदान प्रदान माउन्ट गर्ने क्रममा त्रुटि भयो। कृपया आफ्ना प्रमाणहरूको जाँच गरी फेरि प्रयास गर्नुहोस्।</translation>
 <translation id="1955749740583837857">सिफारिस हटाउनुहोस्</translation>
@@ -2899,7 +2899,7 @@
 <translation id="2990375978470734995">यो परिवर्तन लागू गर्न आफ्ना बाह्य सहायक सामग्रीहरू फेरि कनेक्ट गर्नुहोस्।</translation>
 <translation id="2990583317361835189">साइटहरूलाई मोसन सेन्सर प्रयोग गर्ने अनुमति नदिनुहोस्</translation>
 <translation id="2991182900092497283">यो जानकारी पेस्ट गर्नुको कारण बताउनुहोस्:</translation>
-<translation id="2992931425024192067">सूचनाका सबै सामग्री देखाउनुहोस्</translation>
+<translation id="2992931425024192067">नोटिफिकेसनका सबै कन्टेन्ट देखाउनुहोस्</translation>
 <translation id="2993517869960930405">एप जानकारी...</translation>
 <translation id="2995472388018163047">{NUM_GROUPS,plural, =1{ट्याबहरू पछि हाल्न यो समूह राखिराख्नुहोस् वा तपाईं अबदेखि यो समूह एक्सेस गर्न चाहनुहुन्न भने यो समूह छाड्नुहोस्}other{ट्याबहरू पछि हाल्न यी समूहहरू राखिराख्नुहोस् वा तपाईं अबदेखि यी समूहहरू एक्सेस गर्न चाहनुहुन्न भने यी समूहहरू छाड्नुहोस्}}</translation>
 <translation id="2996108796702395498">तपाईंको डिभाइसको सिरियल नम्बर <ph name="SERIAL_NUMBER" /> हो। यो नम्बर सेवा एक्टिभेट गर्ने प्रयोजनका लागि प्रयोग गर्न सकिन्छ।</translation>
@@ -3538,7 +3538,7 @@
 <translation id="3461766685318630278">अतिरिक्त कन्टेनरहरू बनाउनुहोस् र मेटाउनुहोस्।</translation>
 <translation id="3462413494201477527">खाता सेटअप रद्द गर्ने हो?</translation>
 <translation id="346298925039590474">यो डिभाइस चलाउने सबै प्रयोगकर्ताहरू यो मोबाइल नेटवर्क प्रयोग गर्न सक्ने छन्</translation>
-<translation id="3464145797867108663">कार्य प्रोफाइल हाल्नुहोस्</translation>
+<translation id="3464145797867108663">वर्क प्रोफाइल हाल्नुहोस्</translation>
 <translation id="3468298837301810372">लेबल</translation>
 <translation id="3468999815377931311">Android फोन</translation>
 <translation id="3469583217479686109">चयन गर्ने टुल</translation>
@@ -3640,7 +3640,7 @@
 <translation id="3540173484406326944"><ph name="HOST_DEVICE_NAME" /> मार्फत कुनै पनि नेटवर्क कनेक्ट गरिएको छैन</translation>
 <translation id="354060433403403521">AC एड्याप्टर</translation>
 <translation id="354068948465830244">यसले साइटको डेटा पढ्न र परिवर्तन गर्न सक्छ</translation>
-<translation id="3541823293333232175">काम तोकियो</translation>
+<translation id="3541823293333232175">असाइन गरिएको</translation>
 <translation id="3543393733900874979">अद्यावधिक असफल भयो (त्रुटि: <ph name="ERROR_NUMBER" />)</translation>
 <translation id="3543597750097719865">SHA-512 सहितको X9.62 ECDSA हस्ताक्षर</translation>
 <translation id="3544058026430919413">कुनै कम्पनीले तपाईंले यो समूहमा गर्ने गतिविधिसम्बन्धी जानकारी सेयर गर्न कुकीहरू प्रयोग गर्न सक्ने साइटहरूको समूह बनाउन सक्छ। इन्कोग्निटो मोडमा यो सुविधा अफ हुन्छ।</translation>
@@ -4352,7 +4352,7 @@
 <translation id="3994878504415702912">&amp;जूम गर्नुहोस्</translation>
 <translation id="3995138139523574647">USB-C यन्त्र (दायाँ भागको पछाडिको पोर्ट)</translation>
 <translation id="3995963973192100066">प्ले गर्ने बटनको एनिमेसन</translation>
-<translation id="3997537546406230684">नयाँ कार्य प्रोफाइल बनाउनुहोस् र मेरो हालको डेटा छुट्टै राख्नुहोस्</translation>
+<translation id="3997537546406230684">नयाँ वर्क प्रोफाइल बनाउनुहोस् र मेरो हालको डेटा छुट्टै राख्नुहोस्</translation>
 <translation id="399788104667917863">टुलबारमा पिन गर्नुहोस्</translation>
 <translation id="3998780825367526465">ट्याबको प्रिभ्यू फोटोहरू देखाउनुहोस्</translation>
 <translation id="3998976413398910035">प्रिन्टरहरू व्यवस्थापन गर्नुहोस्</translation>
@@ -5537,7 +5537,7 @@
 <translation id="4862642413395066333">OCSP प्रतिक्रियाहरू साइन गर्दै</translation>
 <translation id="4863702650881330715">कम्प्याटिबिलिटी बढाउनुहोस्</translation>
 <translation id="4863769717153320198"><ph name="WIDTH" /> x <ph name="HEIGHT" /> (डिफल्ट) जस्तो देखिन्छ</translation>
-<translation id="4864334716800138793">तपाईंको सङ्गठनले कार्य प्रोफाइल सेटअप गर्ने सुविधा अफ गरेको छ</translation>
+<translation id="4864334716800138793">तपाईंको सङ्गठनले वर्क प्रोफाइल सेटअप गर्ने सुविधा अफ गरेको छ</translation>
 <translation id="4864369630010738180">साइन इन गरिँदै...</translation>
 <translation id="4864805589453749318">विद्यालयको खाता थप्न अनुमति दिन लागिरहनुभएको अभिभावक चयन गर्नुहोस्।</translation>
 <translation id="4864905533117889071"><ph name="SENSOR_NAME" /> (ब्लक गरिएको)</translation>
@@ -5648,7 +5648,7 @@
 <translation id="4931387733184123331">ग्रहण</translation>
 <translation id="4932733599132424254">मिति</translation>
 <translation id="4933484234309072027"><ph name="URL" /> मा सन्निविष्ट गरिएको</translation>
-<translation id="4936042273057045735">कार्य प्रोफाइल भएका फोनमा सूचना सिंक गर्ने सुविधा प्रयोग गर्न मिल्दैन</translation>
+<translation id="4936042273057045735">वर्क प्रोफाइल भएका फोनमा सूचना सिंक गर्ने सुविधा प्रयोग गर्न मिल्दैन</translation>
 <translation id="4937676329899947885">Wi-Fi नेटवर्कको नाम र पासवर्ड प्राप्त गरिँदै छ</translation>
 <translation id="4938052313977274277">गति</translation>
 <translation id="4939805055470675027"><ph name="CARRIER_NAME" /> मा जोड्न सकिएन</translation>
@@ -5703,7 +5703,7 @@
 <translation id="4975771730019223894">एपमा ब्याज देखाउने सुविधा</translation>
 <translation id="4977882548591990850"><ph name="CHARACTER_COUNT" />/<ph name="CHARACTER_LIMIT" /></translation>
 <translation id="4977942889532008999">पहुँच यकिन गर्नुहोस्</translation>
-<translation id="4979263087381759787">विकासकर्ताका विकल्पहरू</translation>
+<translation id="4979263087381759787">विकासकर्ता मोड</translation>
 <translation id="4979510648199782334">Microsoft 365 सेटअप गर्ने कार्य पूरा भएको छ</translation>
 <translation id="4980805016576257426">यस विस्तारमा मालवेयर छ।</translation>
 <translation id="4983159853748980742">तपाईंको पासवर्ड सेयर गरिएको छैन। आफ्नो इन्टरनेट कनेक्सन जाँच गरी आफू Chrome मा साइन इन भएको कुरा सुनिश्चित गर्नुहोस्। त्यसपछि, फेरि प्रयास गर्नुहोस्।</translation>
@@ -7182,7 +7182,7 @@
 <translation id="6065289257230303064">सर्टिफिकेट विषय निर्देशिका गुणहरू</translation>
 <translation id="6066794465984119824">इमेज ह्यास सेट गरिएको छैन</translation>
 <translation id="6069464830445383022">तपाईंको Chromebook मा साइन इन गर्ने विधि भनेको तपाईंको Google खाता नै हो</translation>
-<translation id="6069500411969514374">कार्य प्रोफाइल</translation>
+<translation id="6069500411969514374">वर्क प्रोफाइल</translation>
 <translation id="6071181508177083058">पासवर्ड पुष्टि गर्नुहोस्</translation>
 <translation id="6071576563962215370">प्रणालीले यन्त्रको स्थापना समयका विशेषतासम्बन्धी लक स्थापना गर्न सकेन।</translation>
 <translation id="6071938745001252305"><ph name="MEMORY_VALUE" /> मेमोरी बचत गरियो</translation>
@@ -7738,7 +7738,7 @@
 <translation id="6475294023568239942">डिस्कमा ठाउँ खाली गर्नुहोस् वा सेटिङमा गई Linux डिस्कको आकार बदल्नुहोस्</translation>
 <translation id="6476482583633999078">स्पिचको गति</translation>
 <translation id="6476671549211161535"><ph name="DEVICE_NAME" /> मा भएको लेफ्ट वा राइट माउस बटनबाहेक अन्य बटन थिच्नुहोस्।</translation>
-<translation id="6477822444490674459">कार्य प्रोफाइल भएका फोनमा सूचना सिंक गर्ने सुविधा प्रयोग गर्न मिल्दैन। <ph name="LINK_BEGIN" />थप जान्नुहोस्<ph name="LINK_END" /></translation>
+<translation id="6477822444490674459">वर्क प्रोफाइल भएका फोनमा सूचना सिंक गर्ने सुविधा प्रयोग गर्न मिल्दैन। <ph name="LINK_BEGIN" />थप जान्नुहोस्<ph name="LINK_END" /></translation>
 <translation id="6478849105642611893">क्विक इन्सर्ट की ट्याब कीको तलतिर हुन्छ</translation>
 <translation id="6479881432656947268">Chrome वेब स्टोरमा जानुहोस्</translation>
 <translation id="6480327114083866287"><ph name="MANAGER" /> ले व्यवस्थापन गर्छ</translation>
@@ -8067,7 +8067,7 @@
 <translation id="6710213216561001401">अघिल्लो</translation>
 <translation id="6710394144992407503">मैले वेब पेजहरूमा टेक्स्ट टाइप गर्दा हिज्जेसम्बन्धी त्रुटिहरूको जाँच गर्नुहोस्</translation>
 <translation id="6712943853047024245">तपाईंले <ph name="WEBSITE" /> मा यो युजरनेमको पासवर्ड सेभ गरिसक्नुभएको छ</translation>
-<translation id="6713233729292711163">कार्य प्रोफाइल हाल्नुहोस्</translation>
+<translation id="6713233729292711163">वर्क प्रोफाइल हाल्नुहोस्</translation>
 <translation id="6713441551032149301">लन्चर की थिचिराख्दा फङ्सन की र माथिल्लो लहरका सिस्टम कीका बिचमा अदलबदल हुने पारियोस्</translation>
 <translation id="6713668088933662563">यी भाषाहरूमा अनुवाद गर्ने विकल्प कहिल्यै नदेखाउनुहोस्</translation>
 <translation id="6714871567554212732"><ph name="GROUP_NAME" /> का बारेमा थप विवरणहरू हेर्नुहोस्</translation>
@@ -8293,7 +8293,7 @@
 <translation id="68541483639528434">अन्य ट्याबहरू बन्द गर्नुहोस्</translation>
 <translation id="6855892664589459354">Crostini को ब्याकअप तथा पुनर्स्थापना</translation>
 <translation id="6856348640027512653">भर्चुअल रियालिटी चल्ने यन्त्र वा तिनमा भएका डेटा प्रयोग गर्ने अनुमति नदिइएका साइटहरू</translation>
-<translation id="6856607887871564638">आफ्नो खातामा आफ्ना पासवर्ड र अन्य डेटा सेभ गर्न र ती डेटा प्रयोग गर्न कार्य प्रोफाइल सेटअप गर्नुहोस्</translation>
+<translation id="6856607887871564638">आफ्नो खातामा आफ्ना पासवर्ड र अन्य डेटा सेभ गर्न र ती डेटा प्रयोग गर्न वर्क प्रोफाइल सेटअप गर्नुहोस्</translation>
 <translation id="6856623341093082836">आफ्नो टचस्क्रिनको सटीकता सेटअप र समायोजन गर्नुहोस्</translation>
 <translation id="6857145580237920905">पावरवास गर्नुअघि eSIM प्रोफाइलहरू हटाउनुहोस्</translation>
 <translation id="6857725247182211756"><ph name="SECONDS" /> सेकेन्ड</translation>
@@ -10735,7 +10735,7 @@
 <translation id="8588868914509452556"><ph name="WINDOW_TITLE" /> - VR हेडसेट प्रस्तुत गरिँदै</translation>
 <translation id="8590375307970699841">स्वचालित अपडेटहरू सेटअप गर्नुहोस्</translation>
 <translation id="8591783563402255548">१ सेकेन्ड</translation>
-<translation id="8592141010104017453">कुनै पनि सूचना नदेखाउनुहोस्</translation>
+<translation id="8592141010104017453">कुनै पनि नोटिफिकेसन नदेखाउनुहोस्</translation>
 <translation id="859246725979739260">यो साइटलाई तपाईंको स्थानसम्बन्धी जानकारी प्रयोग गर्न नपाउने गरी ब्लक गरिएको छ।</translation>
 <translation id="8593450223647418235">सेटअप गर्ने कार्य पूरा नभएसम्म तपाईं Microsoft 365 मा फाइलहरू खोल्न सक्नु हुने छैन।</translation>
 <translation id="8593686980889923154"><ph name="APP_NAME" /> तपाईंको <ph name="DEVICE_TYPE" /> मा ब्लक गरिएको छ</translation>

@@ -229,16 +229,13 @@ std::string VitQueryParamValueForMimeType(lens::MimeType mime_type) {
       break;
     case lens::MimeType::kHtml:
     case lens::MimeType::kPlainText:
+    case lens::MimeType::kAnnotatedPageContent:
       if (lens::features::UseWebpageVitParam()) {
         vitValue = kWebpageVisualInputTypeQueryParameterValue;
       }
       break;
     case lens::MimeType::kUnknown:
       break;
-    case lens::MimeType::kAnnotatedPageContent:
-      // APC is not used as a primary content type; the primary content type
-      // should be kHtml when APC is sent. If this path is hit, it's a mistake.
-      NOTREACHED() << "Apc should not be uploaded by itself.";
     case lens::MimeType::kImage:
     case lens::MimeType::kVideo:
     case lens::MimeType::kAudio:
@@ -291,16 +288,13 @@ lens::LensOverlayInteractionRequestMetadata::Type ContentTypeToInteractionType(
       break;
     case lens::MimeType::kHtml:
     case lens::MimeType::kPlainText:
+    case lens::MimeType::kAnnotatedPageContent:
       if (lens::features::UseWebpageInteractionType()) {
         return lens::LensOverlayInteractionRequestMetadata::WEBPAGE_QUERY;
       }
       break;
     case lens::MimeType::kUnknown:
       break;
-    case lens::MimeType::kAnnotatedPageContent:
-      // APC is not used as a primary content type; the primary content type
-      // should be kHtml when APC is sent. If this path is hit, it's a mistake.
-      NOTREACHED() << "Apc should not be uploaded by itself.";
     case lens::MimeType::kImage:
     case lens::MimeType::kVideo:
     case lens::MimeType::kAudio:
@@ -407,7 +401,6 @@ std::vector<std::string> MakeChunks(base::span<const uint8_t> content_bytes) {
 
 // Creates the lens::LensOverlayUploadChunkRequest for the given chunk.
 lens::LensOverlayUploadChunkRequest CreateUploadChunkRequest(
-    lens::LensOverlayRequestId request_id,
     int64_t chunk_id,
     int64_t total_chunks,
     std::string chunk,
@@ -1376,6 +1369,8 @@ void LensOverlayQueryController::PrepareAndFetchPageContentRequest() {
 
   compression_task_tracker_->TryCancelAll();
   page_contents_request_start_time_ = base::TimeTicks::Now();
+  page_content_request_in_progress_ = true;
+  remaining_upload_chunk_responses_ = 0;
 
   // The initial request id should be set by the time we get here. If not, call
   // below will crash.
@@ -1436,10 +1431,11 @@ void LensOverlayQueryController::PrepareAndFetchUploadChunkRequests(
 
   std::vector<lens::LensOverlayUploadChunkRequest> requests;
   for (size_t i = 0; i < chunks.size(); i++) {
-    requests.push_back(CreateUploadChunkRequest(request_id, i, chunks.size(),
-                                                chunks[i], request_context));
+    requests.push_back(
+        CreateUploadChunkRequest(i, chunks.size(), chunks[i], request_context));
   }
   pending_upload_chunk_requests_ = requests;
+  upload_chunk_sequence_id = request_id.sequence_id();
 
   chunk_upload_access_token_fetcher_ =
       CreateOAuthHeadersAndContinue(base::BindOnce(
@@ -1451,6 +1447,7 @@ void LensOverlayQueryController::PrepareAndFetchUploadChunkRequestsPart2(
     std::vector<std::string> headers) {
   chunk_upload_access_token_fetcher_.reset();
   pending_upload_chunk_headers_ = headers;
+  remaining_upload_chunk_responses_ = pending_upload_chunk_requests_.size();
   for (size_t i = 0; i < pending_upload_chunk_requests_.size(); i++) {
     FetchUploadChunkRequest(i);
   }
@@ -1462,14 +1459,6 @@ void LensOverlayQueryController::FetchUploadChunkRequest(
   std::string request_string;
   CHECK(request.SerializeToString(&request_string));
 
-  EndpointFetcherCallback response_received_callback = base::DoNothing();
-  if (chunk_request_index == pending_upload_chunk_requests_.size() - 1) {
-    response_received_callback = base::BindOnce(
-        &LensOverlayQueryController::UploadChunkResponseHandler,
-        weak_ptr_factory_.GetWeakPtr(), request.request_context().request_id(),
-        pending_upload_chunk_requests_.size());
-  }
-
   PerformFetchRequest(
       request_string, &pending_upload_chunk_headers_,
       base::Milliseconds(
@@ -1478,23 +1467,49 @@ void LensOverlayQueryController::FetchUploadChunkRequest(
           &LensOverlayQueryController::OnChunkUploadEndpointFetcherCreated,
           weak_ptr_factory_.GetWeakPtr(),
           request.request_context().request_id()),
-      std::move(response_received_callback), base::NullCallback(),
+      base::BindOnce(&LensOverlayQueryController::UploadChunkResponseHandler,
+                     weak_ptr_factory_.GetWeakPtr(),
+                     request.request_context().request_id(),
+                     pending_upload_chunk_requests_.size(),
+                     /*is_last=*/chunk_request_index ==
+                         pending_upload_chunk_requests_.size() - 1),
+      base::NullCallback(),
       GURL(lens::features::GetLensOverlayUploadChunkEndpointURL()));
 }
 
 void LensOverlayQueryController::UploadChunkResponseHandler(
     lens::LensOverlayRequestId request_id,
     size_t total_chunks,
+    bool is_last,
     std::unique_ptr<EndpointResponse> response) {
-  chunk_upload_endpoint_fetchers_.clear();
-  base::SequencedTaskRunner::GetCurrentDefault()->PostTaskAndReplyWithResult(
-      FROM_HERE,
-      base::BindOnce(&CreatePageContentPayloadForChunks,
-                     underlying_page_contents_, primary_content_type_,
-                     page_url_, page_title_, total_chunks),
-      base::BindOnce(
-          &LensOverlayQueryController::PrepareAndFetchPageContentRequestPart2,
-          weak_ptr_factory_.GetWeakPtr(), request_id));
+  // If there is a newer sequence id, a new request has been initiated before
+  // this one has completed. Do nothing and return.
+  if (request_id.sequence_id() != upload_chunk_sequence_id) {
+    return;
+  }
+
+  remaining_upload_chunk_responses_--;
+
+  // If this is the last chunk in sequence, perform the page content request.
+  // Note: in the case that this is also the last chunk to receive a response,
+  // PrepareAndFetchPageContentRequestPart2() is expected to send the gen204
+  // ping.
+  if (is_last) {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTaskAndReplyWithResult(
+        FROM_HERE,
+        base::BindOnce(&CreatePageContentPayloadForChunks,
+                       underlying_page_contents_, primary_content_type_,
+                       page_url_, page_title_, total_chunks),
+        base::BindOnce(
+            &LensOverlayQueryController::PrepareAndFetchPageContentRequestPart2,
+            weak_ptr_factory_.GetWeakPtr(), request_id));
+    return;
+  }
+
+  // If the page content request has already finished, and this is the last
+  // chunk to receive a response, this will send the gen204 ping and clear the
+  // endpoint fetchers.
+  MaybeSendPageContentUploadLatencyGen204(request_id);
 }
 
 void LensOverlayQueryController::PrepareAndFetchPageContentRequestPart2(
@@ -1521,7 +1536,6 @@ void LensOverlayQueryController::PerformPageContentRequest(
     std::vector<std::string> headers) {
   page_content_access_token_fetcher_.reset();
 
-  page_content_request_in_progress_ = true;
   PerformFetchRequest(
       &request, &headers,
       base::Milliseconds(
@@ -1548,12 +1562,24 @@ void LensOverlayQueryController::PageContentResponseHandler(
   // interaction request to be sent.
   PageContentUploadFinished();
 
-  SendLatencyGen204IfEnabled(
-      LatencyType::kPageContentUploadLatency, page_contents_request_start_time_,
-      VitQueryParamValueForMimeType(primary_content_type_),
-      /*cluster_info_latency=*/std::nullopt,
-      /*encoded_analytics_id=*/std::nullopt,
-      std::make_optional<lens::LensOverlayRequestId>(request_id));
+  // If the chunk uploads have already completed, or if upload chunking was not
+  // done, this will send the gen204 ping and clear the endpoint fetchers.
+  MaybeSendPageContentUploadLatencyGen204(request_id);
+}
+
+void LensOverlayQueryController::MaybeSendPageContentUploadLatencyGen204(
+    lens::LensOverlayRequestId request_id) {
+  if (!page_content_request_in_progress_ &&
+      remaining_upload_chunk_responses_ == 0) {
+    chunk_upload_endpoint_fetchers_.clear();
+    SendLatencyGen204IfEnabled(
+        LatencyType::kPageContentUploadLatency,
+        page_contents_request_start_time_,
+        VitQueryParamValueForMimeType(primary_content_type_),
+        /*cluster_info_latency=*/std::nullopt,
+        /*encoded_analytics_id=*/std::nullopt,
+        std::make_optional<lens::LensOverlayRequestId>(request_id));
+  }
 }
 
 void LensOverlayQueryController::PageContentUploadProgressHandler(

@@ -292,11 +292,11 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling V8
   # and whatever else without interference from each other.
-  'src_internal_revision': '611dfa93c50b6a856bb7a1824b83edeeeb963009',
+  'src_internal_revision': '5b4b6ba7e820e59286f044ec58834e900ddd7413',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling Skia
   # and whatever else without interference from each other.
-  'skia_revision': '8b7f0fd0f95b97d863da34ccfa52a0f931cbd13f',
+  'skia_revision': 'bcce46ca33b67cc302dd53927a63013b8f53bf73',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling V8
   # and whatever else without interference from each other.
@@ -1496,7 +1496,7 @@ deps = {
 
   'src/clank': {
     'url': Var('chrome_git') + '/clank/internal/apps.git' + '@' +
-    'aafe8e014f1a3d4389f79fe7768a2d8046e579c8',
+    '3b127e9c3dff6e766877f2545dab84f74d7e4912',
     'condition': 'checkout_android and checkout_src_internal',
   },
 
@@ -2766,7 +2766,7 @@ deps = {
     Var('chromium_git') + '/external/github.com/google/snappy.git' + '@' + '32ded457c0b1fe78ceb8397632c416568d6714a0',
 
   'src/third_party/sqlite/src':
-    Var('chromium_git') + '/chromium/deps/sqlite.git' + '@' + '567495a62a62dc013888500526e82837d727fe01',
+    Var('chromium_git') + '/chromium/deps/sqlite.git' + '@' + '8a22b25ad7244abaf07e372cc6dc97e041d663a9',
 
   'src/third_party/sqlite4java/cipd': {
       'packages': [

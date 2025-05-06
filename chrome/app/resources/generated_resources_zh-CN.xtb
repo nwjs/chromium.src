@@ -1153,7 +1153,7 @@
 <translation id="1784864038959330497">{NUM_SUB_APPS,plural, =1{卸载“<ph name="APP_NAME" />”也会卸载下面这个应用：}other{卸载“<ph name="APP_NAME" />”也会卸载下面这些应用：}}</translation>
 <translation id="1786290960428378411">请求进行读取和更改</translation>
 <translation id="1787350673646245458">用户图片</translation>
-<translation id="1790976235243700817">移除访问权限</translation>
+<translation id="1790976235243700817">撤消访问权限</translation>
 <translation id="1791662854739702043">安装位置</translation>
 <translation id="1792619191750875668">扩展显示屏</translation>
 <translation id="1794212650797661990">隐藏 <ph name="DOMAIN" /> 的密码</translation>
@@ -1176,7 +1176,7 @@
 <translation id="1806335016774576568">切换到另一个已打开的应用</translation>
 <translation id="1807246157184219062">浅色调</translation>
 <translation id="1808805149659872686">新建条目</translation>
-<translation id="1809201888580326312">您已选择不让系统保存用于登录这些网站和应用的密码</translation>
+<translation id="1809201888580326312">您已选择不保存用于登录这些网站和应用的密码</translation>
 <translation id="1809734401532861917">将我的书签、历史记录、密码和其他设置添加至 <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="1810070166657251157">如需在手机上使用您已保存的密码，请扫描二维码，下载 iOS 版 Chrome 并登录您的 Google 账号。</translation>
 <translation id="1810366086647840386">映像服务器</translation>
@@ -3958,7 +3958,7 @@
 <translation id="3753585830134123417">往左侧调整窗口大小</translation>
 <translation id="3755411799582650620">您的“<ph name="PHONE_NAME" />”现在也可用来为此 <ph name="DEVICE_TYPE" /> 解锁。</translation>
 <translation id="375636864092143889">该网站正在使用您的麦克风</translation>
-<translation id="3756485814916578707">正在投放屏幕</translation>
+<translation id="3756485814916578707">正在投屏</translation>
 <translation id="3756578970075173856">设置 PIN 码</translation>
 <translation id="3756795331760037744">允许 Google 助理使用<ph name="SUPERVISED_USER_NAME" />的屏幕上的信息提供帮助</translation>
 <translation id="3756806135608816820">网站可以请求寻找蓝牙设备</translation>
@@ -8239,7 +8239,7 @@
 <translation id="682871081149631693">Quick Fix</translation>
 <translation id="6828860976882136098">未能按您的要求为所有用户设置自动更新（执行预定流程时出错：<ph name="ERROR_NUMBER" />）</translation>
 <translation id="682971198310367122">Google 隐私权政策</translation>
-<translation id="6830787477693252535">您可通过卡片中的日历轻松找到 Google 日历中的下一个活动。
+<translation id="6830787477693252535">通过卡片中的日历可轻松找到 Google 日历中的下一个活动。
         <ph name="BREAK" />
         <ph name="BREAK" />
         您可在卡片菜单中管理设置，或在“自定义 Chrome”部分查看更多选项。</translation>
@@ -10300,7 +10300,7 @@
 <translation id="8275080796245127762">通过您的设备拨打电话</translation>
 <translation id="8276560076771292512">清空缓存并硬性重新加载</translation>
 <translation id="8276850948802942358">详细了解如何向网站授予对第三方 Cookie 的临时使用权限</translation>
-<translation id="8277907305629781277">您在 <ph name="DATE" />创建了此通行密钥</translation>
+<translation id="8277907305629781277">您创建此通行密钥的日期为 <ph name="DATE" /></translation>
 <translation id="827966378414194229">使用头部动作和面部表情控制 Chromebook。<ph name="LINK_BEGIN" />了解详情<ph name="LINK_END" /></translation>
 <translation id="8280267190418431666">网站使用的语言</translation>
 <translation id="8280848878018088610">图片描绘了一种黑暗氛围，海中巨浪翻滚，背景中有一座奇幻的城市和城堡。</translation>
@@ -10821,7 +10821,7 @@
 <translation id="865936634714975126">在网址中添加查询参数，以便选择网页加载类型。示例：chrome://device-log/?types=Bluetooth,USB</translation>
 <translation id="8659608856364348875">“<ph name="FEATURE_NAME" />”功能联系人</translation>
 <translation id="8659609431223166673">窗口已向下移动</translation>
-<translation id="8660288500924118793">您可通过卡片中的日历轻松找到 Outlook 日历中的下一个活动。
+<translation id="8660288500924118793">通过卡片中的日历可轻松找到 Outlook 日历中的下一个活动。
        <ph name="BREAK" />
        <ph name="BREAK" />
        您可在卡片菜单中管理设置，或在“自定义 Chrome”部分查看更多选项。</translation>

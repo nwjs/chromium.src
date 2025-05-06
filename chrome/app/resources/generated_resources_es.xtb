@@ -1181,7 +1181,7 @@ Los permisos que hayas dado a aplicaciones se pueden aplicar a esta cuenta. Pued
 <translation id="1806335016774576568">Cambiar a otra aplicación abierta</translation>
 <translation id="1807246157184219062">Claro</translation>
 <translation id="1808805149659872686">Nueva entrada</translation>
-<translation id="1809201888580326312">Has elegido no guardar las contraseñas de estos sitios y aplicaciones</translation>
+<translation id="1809201888580326312">Has elegido no guardar las contraseñas de estos sitios y aplicaciones.</translation>
 <translation id="1809734401532861917">Añadir mis marcadores, mi historial, mis contraseñas y otras opciones de configuración a <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="1810070166657251157">Si quieres usar las contraseñas que tienes guardadas en tu teléfono, escanea el código QR, descarga Chrome para iOS e inicia sesión en tu cuenta de Google.</translation>
 <translation id="1810366086647840386">Servidor de imágenes</translation>
@@ -1659,7 +1659,7 @@ Puedes gestionar la configuración de esta cuenta instalando la aplicación Fami
 <translation id="2136476978468204130">La frase de contraseña que has introducido no es correcta</translation>
 <translation id="2137128126782078222">No permitir notificaciones de <ph name="WEBSITE" /></translation>
 <translation id="2139919072249842737">Botón de configuración</translation>
-<translation id="2140788884185208305">Salud de la batería</translation>
+<translation id="2140788884185208305">Estado de la batería</translation>
 <translation id="2142328300403846845">Abrir enlace como</translation>
 <translation id="2142484069755256151">Crea un PIN de recuperación de 6 dígitos para el Gestor de contraseñas de Google (dígito PIN <ph name="NUM_DIGIT" /> de 6)</translation>
 <translation id="2142582065325732898">Activa la función <ph name="LINK1_BEGIN" />Sincronización de Chrome<ph name="LINK1_END" /> para ver pestañas recientes de Chrome. <ph name="LINK2_BEGIN" />Más información<ph name="LINK2_END" /></translation>
@@ -4953,7 +4953,7 @@ Puedes gestionar la configuración de esta cuenta instalando la aplicación Fami
 <translation id="4434611816075088065">No hay nada que requiera tu atención en este momento</translation>
 <translation id="443475966875174318">Actualizar o quitar aplicaciones incompatibles</translation>
 <translation id="443503224864902151">Se cerrará tu sesión en la mayoría de los sitios. Sin embargo, se mantendrá iniciada la sesión en tu cuenta de Google para que se puedan eliminar tus datos sincronizados.</translation>
-<translation id="4437879751057074691">Preguntar si quiero guardar contraseñas y llaves de acceso</translation>
+<translation id="4437879751057074691">Preguntar si quiero guardar contraseñas y llaves de acceso.</translation>
 <translation id="4437947179446780764">Añadir proveedor de servicios de DNS personalizado</translation>
 <translation id="4438043733494739848">Transparente</translation>
 <translation id="4439157218765614426">Prohibido por la política.</translation>
@@ -8253,7 +8253,7 @@ Tienes # contraseñas vulneradas más. El Gestor de contraseñas de Google te re
 <translation id="682871081149631693">Quick Fix</translation>
 <translation id="6828860976882136098">Se ha producido un error al configurar las actualizaciones automáticas para todos los usuarios (error de ejecución preliminar: <ph name="ERROR_NUMBER" />)</translation>
 <translation id="682971198310367122">Política de Privacidad de Google</translation>
-<translation id="6830787477693252535">Se te está mostrando tu calendario para ayudarte a ir fácilmente al siguiente evento de Google Calendar.
+<translation id="6830787477693252535">Se muestra tu calendario para que puedas ir fácilmente al siguiente evento de Google Calendar.
         <ph name="BREAK" />
         <ph name="BREAK" />
         Puedes gestionar la configuración en el menú de la tarjeta o ver más opciones en Personalizar Chrome.</translation>
@@ -10797,7 +10797,7 @@ Guarda tu archivo de clave en un lugar seguro, ya que lo necesitarás para crear
 <translation id="8635399646025169806">¿Mantener grupo de pestañas?</translation>
 <translation id="8635628933471165173">Cargando de nuevo...</translation>
 <translation id="8636284842992792762">Inicializando extensiones...</translation>
-<translation id="8636323803535540285">Para llegar aquí más rápido, añade un acceso directo a <ph name="BRAND" /></translation>
+<translation id="8636323803535540285">Para llegar aquí más rápido, añade un acceso directo a <ph name="BRAND" />.</translation>
 <translation id="8636500887554457830">No permitir que los sitios envíen ventanas emergentes ni utilicen redirecciones</translation>
 <translation id="8636514272606969031">Panel lateral fijado</translation>
 <translation id="8637688295594795546">Hay disponible una actualización del sistema. Preparando para descargar…</translation>
@@ -10835,7 +10835,7 @@ Guarda tu archivo de clave en un lugar seguro, ya que lo necesitarás para crear
 <translation id="865936634714975126">Añade un parámetro de consulta a la URL para seleccionar tipos al cargar la página. Ejemplo: chrome://device-log/?types=Bluetooth,USB</translation>
 <translation id="8659608856364348875">Contactos de <ph name="FEATURE_NAME" /></translation>
 <translation id="8659609431223166673">Ventana movida hacia abajo</translation>
-<translation id="8660288500924118793">Se te está mostrando tu calendario para ayudarte a ir fácilmente al siguiente evento del calendario de Outlook.
+<translation id="8660288500924118793">Se muestra tu calendario para que puedas ir fácilmente al siguiente evento del calendario de Outlook.
        <ph name="BREAK" />
        <ph name="BREAK" />
        Puedes gestionar la configuración en el menú de la tarjeta o ver más opciones en Personalizar Chrome.</translation>

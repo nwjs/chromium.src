@@ -35,7 +35,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -89,7 +89,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -143,7 +143,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -192,7 +192,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -241,7 +241,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -290,7 +290,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -339,7 +339,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -393,7 +393,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -447,7 +447,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -501,7 +501,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -555,7 +555,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -604,7 +604,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -653,7 +653,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -702,7 +702,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -736,114 +736,6 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "crashpad_tests iPhone 14 17.5",
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
-        "swarming": {
-          "cipd_packages": [
-            {
-              "cipd_package": "infra/tools/mac_toolchain/${platform}",
-              "location": ".",
-              "revision": "git_revision:a18b7d95d26f3c6bf9591978b19cf0ca8268ac7d"
-            }
-          ],
-          "dimensions": {
-            "cpu": "arm64",
-            "os": "Mac-14"
-          },
-          "named_caches": [
-            {
-              "name": "runtime_ios_17_5",
-              "path": "Runtime-ios-17.5"
-            },
-            {
-              "name": "xcode_ios_16c5032a",
-              "path": "Xcode.app"
-            }
-          ],
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
-          },
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "crashpad_tests",
-        "test_id_prefix": "ninja://third_party/crashpad/crashpad:crashpad_tests/",
-        "variant_id": "iPhone 14 17.5"
-      },
-      {
-        "args": [
-          "--platform",
-          "iPhone 15",
-          "--version",
-          "18.2",
-          "--out-dir",
-          "${ISOLATED_OUTDIR}",
-          "--xcode-build-version",
-          "16c5032a",
-          "--xctest"
-        ],
-        "isolate_profile_data": true,
-        "merge": {
-          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
-        },
-        "name": "crashpad_tests iPhone 15 18.2",
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
-        "swarming": {
-          "cipd_packages": [
-            {
-              "cipd_package": "infra/tools/mac_toolchain/${platform}",
-              "location": ".",
-              "revision": "git_revision:a18b7d95d26f3c6bf9591978b19cf0ca8268ac7d"
-            }
-          ],
-          "dimensions": {
-            "cpu": "arm64",
-            "os": "Mac-14"
-          },
-          "named_caches": [
-            {
-              "name": "runtime_ios_18_2",
-              "path": "Runtime-ios-18.2"
-            },
-            {
-              "name": "xcode_ios_16c5032a",
-              "path": "Xcode.app"
-            }
-          ],
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
-          },
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "crashpad_tests",
-        "test_id_prefix": "ninja://third_party/crashpad/crashpad:crashpad_tests/",
-        "variant_id": "iPhone 15 18.2"
-      },
-      {
-        "args": [
-          "--platform",
-          "iPhone 14",
-          "--version",
-          "17.5",
-          "--out-dir",
-          "${ISOLATED_OUTDIR}",
-          "--xcode-build-version",
-          "16c5032a",
-          "--xctest"
-        ],
-        "isolate_profile_data": true,
-        "merge": {
-          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
-        },
         "name": "crypto_unittests iPhone 14 17.5",
         "resultdb": {
           "enable": true,
@@ -859,7 +751,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -913,7 +805,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -967,7 +859,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -1016,7 +908,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -1065,7 +957,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -1114,7 +1006,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -1163,7 +1055,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -1217,7 +1109,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -1271,7 +1163,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -1325,7 +1217,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -1382,7 +1274,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -1435,7 +1327,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -1485,7 +1377,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -1534,7 +1426,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -1583,7 +1475,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -1632,7 +1524,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -1681,7 +1573,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -1735,7 +1627,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -1789,7 +1681,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -1844,7 +1736,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -1899,7 +1791,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -1953,7 +1845,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -2007,7 +1899,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -2056,7 +1948,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -2105,7 +1997,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -2154,7 +2046,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -2204,7 +2096,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -2254,7 +2146,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -2303,7 +2195,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -2352,7 +2244,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -2401,7 +2293,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -2450,7 +2342,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -2499,7 +2391,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -2548,7 +2440,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -2597,7 +2489,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -2646,7 +2538,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -2695,7 +2587,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -2744,7 +2636,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -2793,7 +2685,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -2842,7 +2734,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -2891,7 +2783,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -2945,7 +2837,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -2999,7 +2891,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -3053,7 +2945,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -3107,7 +2999,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -3156,7 +3048,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -3205,7 +3097,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -3254,7 +3146,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -3303,7 +3195,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -3357,7 +3249,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -3411,7 +3303,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -3460,7 +3352,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -3509,7 +3401,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -3558,7 +3450,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -3607,7 +3499,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
@@ -3661,7 +3553,7 @@
           ],
           "dimensions": {
             "cpu": "arm64",
-            "os": "Mac-14"
+            "os": "Mac-14|Mac-15"
           },
           "named_caches": [
             {
