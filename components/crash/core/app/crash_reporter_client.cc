@@ -7,6 +7,8 @@
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
 
+#include "components/crash/core/app/crashpad.h"
+
 // On Windows don't use FilePath and logging.h.
 // http://crbug.com/604923
 #if !BUILDFLAG(IS_WIN)
@@ -51,6 +53,7 @@ void CrashReporterClient::SetCrashReporterClientIdFromGUID(
 
 void CrashReporterClient::SetUploadDump(bool upload) {
   enable_upload_ = upload;
+  crash_reporter::SetUploadConsent(upload);
 }
 
 #if BUILDFLAG(IS_WIN)

@@ -685,7 +685,7 @@ version_info::Channel GetChromeChannel() {
   }
 #endif
 
-  return version_info::Channel::UNKNOWN;
+  return version_info::Channel::STABLE;
 }
 
 std::wstring GetChromeChannelName(bool with_extended_stable) {
