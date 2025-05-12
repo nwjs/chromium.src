@@ -53,7 +53,6 @@
 #include "extensions/browser/bad_message.h"
 #include "extensions/browser/extension_host.h"
 #include "extensions/browser/extension_registry.h"
-#include "extensions/browser/extension_system.h"
 #include "extensions/browser/process_manager.h"
 #include "extensions/browser/process_map.h"
 #include "extensions/browser/renderer_startup_helper.h"
@@ -77,13 +76,12 @@
 #include "url/origin.h"
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+#include "chrome/browser/extensions/component_loader.h"
 #include "chrome/browser/extensions/extension_web_ui.h"
 #include "chrome/browser/extensions/extension_webkit_preferences.h"
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
-#include "chrome/browser/extensions/component_loader.h"
-#include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/media_galleries/fileapi/media_file_system_backend.h"
 #endif
 
@@ -728,16 +726,18 @@ void ChromeContentBrowserClientExtensionsPart::OverrideURLLoaderFactoryParams(
     content::BrowserContext* browser_context,
     const url::Origin& origin,
     bool is_for_isolated_world,
+    bool is_for_service_worker,
     network::mojom::URLLoaderFactoryParams* factory_params) {
   URLLoaderFactoryManager::OverrideURLLoaderFactoryParams(
-      browser_context, origin, is_for_isolated_world, factory_params);
+      browser_context, origin, is_for_isolated_world, is_for_service_worker,
+      factory_params);
 }
 
 // static
 bool ChromeContentBrowserClientExtensionsPart::IsBuiltinComponent(
     content::BrowserContext* browser_context,
     const url::Origin& origin) {
-#if !BUILDFLAG(ENABLE_EXTENSIONS)
+#if !BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   return false;
 #else
   if (origin.scheme() != kExtensionScheme) {
@@ -764,11 +764,8 @@ bool ChromeContentBrowserClientExtensionsPart::IsBuiltinComponent(
 #endif
 
   // Check if the component is a loaded component extension.
-  return ExtensionSystem::Get(browser_context)
-      ->extension_service()
-      ->component_loader()
-      ->Exists(extension_id);
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
+  return ComponentLoader::Get(browser_context)->Exists(extension_id);
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 }
 
 // static
@@ -900,7 +897,7 @@ void ChromeContentBrowserClientExtensionsPart::BrowserURLHandlerCreated(
                           BrowserURLHandler::null_handler());
   handler->AddHandlerPair(BrowserURLHandler::null_handler(),
                           &ExtensionWebUI::HandleChromeURLOverrideReverse);
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 }
 
 void ChromeContentBrowserClientExtensionsPart::

@@ -687,11 +687,13 @@ void CaptureModeSessionFocusCycler::AdvanceFocus(bool reverse) {
           views::Widget::InitParams::TYPE_POPUP);
       // Using can maximize and a container with a fill layout means the widget
       // bounds will always match the root window bounds.
-      params.delegate = new views::WidgetDelegate();
-      params.delegate->SetCanMaximize(true);
-      params.delegate->RegisterWindowClosingCallback(
+      auto delegate = std::make_unique<views::WidgetDelegate>();
+      delegate->RegisterWindowClosingCallback(
           base::BindOnce(&CaptureModeSessionFocusCycler::OnAXWidgetClosing,
                          weak_ptr_factory_.GetWeakPtr()));
+      delegate->SetCanMaximize(true);
+      delegate->SetOwnedByWidget(views::WidgetDelegate::OwnedByWidgetPassKey());
+      params.delegate = delegate.release();
       params.layer_type = ui::LAYER_NOT_DRAWN;
       params.parent = Shell::GetContainer(session_->current_root(),
                                           kShellWindowId_WallpaperContainer);
@@ -900,6 +902,15 @@ void CaptureModeSessionFocusCycler::AdvanceFocusAfterSearchResultsPanel(
   current_focus_group_ = FocusGroup::kSearchResultsPanelWebContents;
   focus_index_ = 0u;
   AdvanceFocus(reverse);
+}
+
+void CaptureModeSessionFocusCycler::
+    SetA11yOverrideWindowToSearchResultsPanel() {
+  auto* search_results_panel_widget =
+      CaptureModeController::Get()->search_results_panel_widget();
+  CHECK(search_results_panel_widget);
+  scoped_a11y_overrider_->MaybeUpdateA11yOverrideWindow(
+      search_results_panel_widget->GetNativeWindow());
 }
 
 void CaptureModeSessionFocusCycler::OnWidgetClosing(views::Widget* widget) {

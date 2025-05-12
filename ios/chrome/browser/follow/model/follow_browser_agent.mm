@@ -76,8 +76,6 @@ bool IsFollowSourceFromMenu(FollowSource source) {
 
 }  // namespace
 
-BROWSER_USER_DATA_KEY_IMPL(FollowBrowserAgent)
-
 FollowBrowserAgent::~FollowBrowserAgent() = default;
 
 bool FollowBrowserAgent::IsWebSiteFollowed(WebPageURLs* web_page_urls) {
@@ -242,10 +240,6 @@ void FollowBrowserAgent::OnFollowSuccess(WebPageURLs* web_page_urls,
   PrefService* const pref_service = browser_->GetProfile()->GetPrefs();
   if (!pref_service->GetBoolean(prefs::kArticlesForYouEnabled)) {
     pref_service->SetBoolean(prefs::kArticlesForYouEnabled, true);
-  }
-
-  if (!pref_service->GetBoolean(feed::prefs::kArticlesListVisible)) {
-    pref_service->SetBoolean(feed::prefs::kArticlesListVisible, true);
   }
 
   // Display the First Follow modal UI if needed.

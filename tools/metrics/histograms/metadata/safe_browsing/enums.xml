@@ -197,24 +197,6 @@ chromium-metrics-reviews@google.com.
   <int value="26" label="dangerous download canceled on profile closure"/>
 </enum>
 
-<!-- LINT.IfChange(DismissReason) -->
-
-<enum name="DismissReason">
-  <int value="0" label="UNKNOWN"/>
-  <int value="1" label="PRIMARY_ACTION"/>
-  <int value="2" label="SECONDARY_ACTION"/>
-  <int value="3" label="TIMER"/>
-  <int value="4" label="GESTURE"/>
-  <int value="5" label="TAB_SWITCHED"/>
-  <int value="6" label="TAB_DESTROYED"/>
-  <int value="7" label="ACTIVITY_DESTROYED"/>
-  <int value="8" label="SCOPE_DESTROYED"/>
-  <int value="9" label="DISMISSED_BY_FEATURE"/>
-  <int value="10" label="COUNT"/>
-</enum>
-
-<!-- LINT.ThenChange(//components/messages/android/message_enums.h) -->
-
 <enum name="DisplayPersistentNotificationEvents">
   <int value="0" label="Request to display persistent notification"/>
   <int value="1" label="Finished displaying persistent notification"/>
@@ -416,6 +398,8 @@ chromium-metrics-reviews@google.com.
 <enum name="SafeBrowsingRTLookupResponseVerdictType">
   <int value="0" label="VERDICT_TYPE_UNSPECIFIED"/>
   <int value="1" label="SAFE"/>
+  <int value="50" label="SUSPICIOUS"/>
+  <int value="75" label="WARN"/>
   <int value="100" label="DANGEROUS"/>
 </enum>
 
@@ -584,6 +568,16 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="UNEXPECTED_BYTES_WRITTEN_FAILURE"/>
   <int value="4" label="UNABLE_TO_RENAME_FAILURE"/>
 </enum>
+
+<!-- LINT.IfChange(SafeBrowsingV4UpdateType) -->
+
+<enum name="SafeBrowsingV4UpdateType">
+  <int value="0" label="Invalid update"/>
+  <int value="1" label="Full update"/>
+  <int value="2" label="Partial update"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/safe_browsing/core/browser/db/v4_store.h:ApplyUpdateType) -->
 
 <enum name="SafetyCheckWarningReason">
   <int value="1" label="Unpublished"/>

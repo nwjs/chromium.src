@@ -1206,10 +1206,6 @@ NSString* SerializedValue(const base::Value* value) {
          search_engines::SupportsSearchImageWithLens(service);
 }
 
-+ (BOOL)isWebChannelsEnabled {
-  return base::FeatureList::IsEnabled(kEnableWebChannels);
-}
-
 + (BOOL)isTabGroupSyncEnabled {
   return IsTabGroupSyncEnabled();
 }
@@ -1413,6 +1409,10 @@ NSString* SerializedValue(const base::Value* value) {
 
 + (void)copyTextToPasteboard:(NSString*)text {
   [UIPasteboard.generalPasteboard setString:text];
+}
+
++ (void)copyLinkAsURLToPasteBoard:(NSString*)link {
+  [UIPasteboard.generalPasteboard setURL:[NSURL URLWithString:link]];
 }
 
 #pragma mark - Watcher utilities

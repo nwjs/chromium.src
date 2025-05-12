@@ -137,7 +137,7 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
 // the elements after interacting with the device.
 @interface NTPHomeTestCase : ChromeTestCase
 
-@property(nonatomic, strong) NSString* defaultSearchEngine;
+@property(nonatomic, copy) NSString* defaultSearchEngine;
 
 @end
 
@@ -227,8 +227,6 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
     [NTPHomeTestCase setUpHelper];
   }
   [ChromeEarlGrey setBoolValue:YES forUserPref:prefs::kArticlesForYouEnabled];
-  [ChromeEarlGrey setBoolValue:YES
-                   forUserPref:feed::prefs::kArticlesListVisible];
 
   self.defaultSearchEngine = [SearchEnginesAppInterface defaultSearchEngine];
   [NewTabPageAppInterface disableSetUpList];
@@ -1103,7 +1101,7 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
 - (void)testToggleFeedEnabled {
   // Ensure that label is visible with correct text for enabled feed, and that
   // the NTP is scrollable.
-  [self checkFeedLabelForFeedVisible:YES];
+  [self checkFeedLabel];
   [self checkIfNTPIsScrollable];
 
   // Disable feed.
@@ -1144,7 +1142,7 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
   // scrollable.
   [self
       testNTPInitialPositionAndContent:[NewTabPageAppInterface collectionView]];
-  [self checkFeedLabelForFeedVisible:YES];
+  [self checkFeedLabel];
   [self checkIfNTPIsScrollable];
 }
 
@@ -1415,12 +1413,6 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
 // Tests the "new search" menu item from the new tab menu after disabling the
 // feed.
 - (void)testNewSearchFromNewTabMenuAfterTogglingFeed {
-  // Enable customization.
-  AppLaunchConfiguration config = [self appConfigurationForTestCase];
-  config.relaunch_policy = ForceRelaunchByCleanShutdown;
-  config.features_enabled.push_back(kHomeCustomization);
-  [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
-
   if ([ChromeEarlGrey isIPadIdiom]) {
     EARL_GREY_TEST_SKIPPED(@"New Search is only available in phone layout.");
   }
@@ -1451,69 +1443,6 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
   [[EarlGrey selectElementWithMatcher:chrome_test_util::FakeOmnibox()]
       assertWithMatcher:grey_not(grey_sufficientlyVisible())];
   GREYWaitForAppToIdle(@"App failed to idle");
-}
-
-// Tests that the scroll position is maintained when switching from the Discover
-// feed to the Following feed without fully scrolling into the feed.
-// TODO(crbug.com/40239216): Re-enable when fixed.
-- (void)DISABLED_testScrollPositionMaintainedWhenSwitchingFeedAboveFeed {
-  if (![ChromeEarlGrey isWebChannelsEnabled]) {
-    EARL_GREY_TEST_SKIPPED(@"Only applicable with Web Channels enabled.");
-  }
-  AppLaunchConfiguration config = [self appConfigurationForTestCase];
-  config.features_disabled.push_back(kDeprecateFeedHeader);
-  [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
-
-  // Sign in to enable Following.
-  [SigninEarlGreyUI signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
-
-  // Scrolls down a bit, not fully into the feed.
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::NTPCollectionView()]
-      performAction:grey_scrollInDirection(kGREYDirectionDown, 50)];
-
-  // Saves the content offset and switches to the Following feed.
-  UICollectionView* collectionView = [NewTabPageAppInterface collectionView];
-  CGFloat yOffsetBeforeSwitchingFeed = collectionView.contentOffset.y;
-
-  [[EarlGrey selectElementWithMatcher:FeedHeaderSegmentFollowing()]
-      performAction:grey_tap()];
-
-  // Ensures that the new content offset is the same.
-  collectionView = [NewTabPageAppInterface collectionView];
-  GREYAssertEqual(yOffsetBeforeSwitchingFeed, collectionView.contentOffset.y,
-                  @"Content offset is not the same after switching feeds.");
-}
-
-// Tests that the regular feed header is visible when signed out, and is swapped
-// for the Following feed header after signing in.
-// TODO(crbug.com/40239216): Re-enable when fixed.
-- (void)DISABLED_testFollowingFeedHeaderIsVisibleWhenSignedIn {
-  if (![ChromeEarlGrey isWebChannelsEnabled]) {
-    EARL_GREY_TEST_SKIPPED(@"Only applicable with Web Channels enabled.");
-  }
-  AppLaunchConfiguration config = [self appConfigurationForTestCase];
-  config.features_disabled.push_back(kDeprecateFeedHeader);
-  [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
-
-  // Check that regular feed header is visible when signed out, and not
-  // Following header.
-  [[EarlGrey
-      selectElementWithMatcher:grey_accessibilityID(
-                                   kNTPFeedHeaderSegmentedControlIdentifier)]
-      assertWithMatcher:grey_not(grey_sufficientlyVisible())];
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::DiscoverHeaderLabel()]
-      assertWithMatcher:grey_sufficientlyVisible()];
-
-  // Sign in to enable Following feed.
-  [SigninEarlGreyUI signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
-
-  // Check that Following header is now visible, and not regular feed header.
-  [[EarlGrey
-      selectElementWithMatcher:grey_accessibilityID(
-                                   kNTPFeedHeaderSegmentedControlIdentifier)]
-      assertWithMatcher:grey_sufficientlyVisible()];
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::DiscoverHeaderLabel()]
-      assertWithMatcher:grey_not(grey_sufficientlyVisible())];
 }
 
 // Tests that feed ablation successfully hides the feed from the NTP and the
@@ -1574,7 +1503,7 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
 
   // Ensure that label is visible with correct text for enabled feed, and that
   // the NTP is scrollable.
-  [self checkFeedLabelForFeedVisible:YES];
+  [self checkFeedLabel];
   [self checkIfNTPIsScrollable];
 
   // Opens settings menu and ensures that Discover setting is present.
@@ -1605,7 +1534,7 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
   [SigninEarlGreyUI signOut];
 
   // The feed label should be visible on sign-out.
-  [self checkFeedLabelForFeedVisible:YES];
+  [self checkFeedLabel];
   [self checkIfNTPIsScrollable];
 
   // Opens settings menu and ensures that Discover setting is present.
@@ -1617,11 +1546,9 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
 // Tests that the customization menu can be used to toggle the visibility of
 // Home surface modules.
 - (void)testToggleModuleVisiblityInCustomizationMenu {
-  // Enable customization.
+  // Tests most visited tiles visibility separately.
   AppLaunchConfiguration config = [self appConfigurationForTestCase];
   config.relaunch_policy = ForceRelaunchByCleanShutdown;
-  config.features_enabled.push_back(kHomeCustomization);
-  // Tests most visited tiles visibility separately.
   config.features_disabled.push_back(kNewFeedPositioning);
   [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
 
@@ -1725,17 +1652,15 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
       selectElementWithMatcher:
           grey_accessibilityID(kMagicStackScrollViewAccessibilityIdentifier)]
       assertWithMatcher:grey_not(grey_notVisible())];
-  [self checkFeedLabelForFeedVisible:YES];
+  [self checkFeedLabel];
 }
 
 // Tests that the toggles in the main page of the customization menu can be used
 // to navigate to their respective submenus.
 - (void)testNavigateInCustomizationMenu {
-  // Enable customization.
+  // Tests most visited tiles visibility separately.
   AppLaunchConfiguration config = [self appConfigurationForTestCase];
   config.relaunch_policy = ForceRelaunchByCleanShutdown;
-  config.features_enabled.push_back(kHomeCustomization);
-  // Tests most visited tiles visibility separately.
   config.features_disabled.push_back(kNewFeedPositioning);
   [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
 
@@ -1790,12 +1715,6 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
 
 // Tests the Discover submenu of the Home customization menu.
 - (void)testCustomizationDiscoverSubmenu {
-  // Enable customization.
-  AppLaunchConfiguration config = [self appConfigurationForTestCase];
-  config.relaunch_policy = ForceRelaunchByCleanShutdown;
-  config.features_enabled.push_back(kHomeCustomization);
-  [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
-
   [self resetCustomizationPrefs];
 
   // Open the Home customization menu.
@@ -1913,16 +1832,9 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
       assertWithMatcher:grey_sufficientlyVisible()];
 }
 
-// Check that feed label is visible with correct text for feed visibility.
-- (void)checkFeedLabelForFeedVisible:(BOOL)visible {
-  NSString* labelTextForVisibleFeed =
-      l10n_util::GetNSString(IDS_IOS_DISCOVER_FEED_TITLE);
-  NSString* labelTextForHiddenFeed =
-      [NSString stringWithFormat:@"%@ – %@", labelTextForVisibleFeed,
-                                 l10n_util::GetNSString(
-                                     IDS_IOS_DISCOVER_FEED_TITLE_OFF_LABEL)];
-  NSString* labelText =
-      visible ? labelTextForVisibleFeed : labelTextForHiddenFeed;
+// Check that feed label is visible with correct text.
+- (void)checkFeedLabel {
+  NSString* labelText = l10n_util::GetNSString(IDS_IOS_DISCOVER_FEED_TITLE);
   [[EarlGrey selectElementWithMatcher:chrome_test_util::DiscoverHeaderLabel()]
       assertWithMatcher:grey_sufficientlyVisible()];
   UILabel* discoverHeaderLabel = [NewTabPageAppInterface discoverHeaderLabel];
@@ -1955,31 +1867,6 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
       performAction:grey_swipeFastInDirection(kGREYDirectionDown)];
   [[EarlGrey selectElementWithMatcher:chrome_test_util::NTPCollectionView()]
       performAction:grey_scrollToContentEdge(kGREYContentEdgeTop)];
-}
-
-- (void)hideFeedFromNTPMenu {
-  bool feed_visible =
-      [ChromeEarlGrey userBooleanPref:feed::prefs::kArticlesListVisible];
-  GREYAssertTrue(feed_visible, @"Expect feed to be visible!");
-
-  // The feed header button may be offscreen, so scroll to find it if needed.
-  id<GREYMatcher> headerButton =
-      grey_allOf(grey_accessibilityID(kNTPFeedHeaderManagementButtonIdentifier),
-                 grey_sufficientlyVisible(), nil);
-  [[[EarlGrey selectElementWithMatcher:headerButton]
-         usingSearchAction:grey_scrollInDirection(kGREYDirectionDown, 100.0f)
-      onElementWithMatcher:chrome_test_util::NTPCollectionView()]
-      performAction:grey_tap()];
-
-  [[EarlGrey
-      selectElementWithMatcher:chrome_test_util::NTPFeedMenuDisableButton()]
-      performAction:grey_tap()];
-  // This ensures that the app is given time to update the pref before checking
-  // its state.
-  [ChromeEarlGreyUI waitForAppToIdle];
-  feed_visible =
-      [ChromeEarlGrey userBooleanPref:feed::prefs::kArticlesListVisible];
-  GREYAssertFalse(feed_visible, @"Expect feed to be hidden!");
 }
 
 // Resets the preferences related to Home customization.

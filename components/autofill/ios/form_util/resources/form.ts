@@ -8,7 +8,7 @@
 
 import {RENDERER_ID_NOT_SET} from '//components/autofill/ios/form_util/resources/fill_constants.js';
 import {getRemoteFrameToken} from '//components/autofill/ios/form_util/resources/fill_util.js';
-import {gCrWeb} from '//ios/web/public/js_messaging/resources/gcrweb.js';
+import {gCrWebLegacy} from '//ios/web/public/js_messaging/resources/gcrweb.js';
 import {sendWebKitMessage, trim} from '//ios/web/public/js_messaging/resources/utils.js';
 
 /**
@@ -28,6 +28,15 @@ const kNamelessFieldIDPrefix = 'gChrome~field~';
  * If the map is null, the source of changed is not track.
  */
 const wasEditedByUser: WeakMap<any, any> = new WeakMap();
+
+/**
+ * Registry that tracks the forms that were submitted during the frame's
+ * lifetime. Elements that are garbage collected will be removed from the
+ * registry so this can't memory leak. In the worst case the registry will get
+ * as big as the number of submitted forms that aren't yet deleted and we don't
+ * expect a lot of those.
+ */
+const formSubmissionRegistry: WeakSet<any> = new WeakSet();
 
 /**
  * Based on Element::isFormControlElement() (WebKit)
@@ -283,7 +292,7 @@ function getFormElementFromRendererId(identifier: number): HTMLFormElement|
     return null;
   }
   for (const form of document.forms) {
-    if (identifier.toString() === gCrWeb.fill.getUniqueID(form)) {
+    if (identifier.toString() === gCrWebLegacy.fill.getUniqueID(form)) {
       return form;
     }
   }
@@ -298,7 +307,7 @@ function getFormElementFromRendererId(identifier: number): HTMLFormElement|
  * makes an edited field unedited.
  */
 function fieldWasEditedByUser(element: Element) {
-  return !gCrWeb.autofill_form_features
+  return !gCrWebLegacy.autofill_form_features
               .isAutofillCorrectUserEditedBitInParsedField() ||
       (wasEditedByUser.get(element) ?? false);
 }
@@ -322,15 +331,25 @@ function formSubmitted(
     programmaticSubmission: boolean,
     includeRemoteFrameToken: boolean = false,
     ): void {
+  if (gCrWebLegacy.autofill_form_features
+          .isAutofillDedupeFormSubmissionEnabled()) {
+    // Handle deduping when the feature allows it.
+    if (formSubmissionRegistry.has(form)) {
+      // Do not double submit the same form.
+      return;
+    }
+    formSubmissionRegistry.add(form);
+  }
+
   // Default URL for action is the document's URL.
   const action = form.getAttribute('action') || document.URL;
 
   const message = {
     command: 'form.submit',
-    frameID: gCrWeb.message.getFrameId(),
-    formName: gCrWeb.form.getFormIdentifier(form),
+    frameID: gCrWebLegacy.message.getFrameId(),
+    formName: gCrWebLegacy.form.getFormIdentifier(form),
     href: getFullyQualifiedUrl(action),
-    formData: gCrWeb.fill.autofillSubmissionData(form),
+    formData: gCrWebLegacy.fill.autofillSubmissionData(form),
     remoteFrameToken: includeRemoteFrameToken ? getRemoteFrameToken() :
                                                 undefined,
     programmaticSubmission: programmaticSubmission,
@@ -339,7 +358,7 @@ function formSubmitted(
   sendWebKitMessage(messageHandler, message);
 }
 
-gCrWeb.form = {
+gCrWebLegacy.form = {
   wasEditedByUser,
   isFormControlElement,
   getFormControlElements,

@@ -19,6 +19,7 @@
 #include "base/task/current_thread.h"
 #include "base/test/mock_callback.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/test/test_future.h"
 #include "chrome/browser/ai/ai_test_utils.h"
 #include "chrome/browser/ai/ai_utils.h"
 #include "chrome/browser/ai/features.h"
@@ -32,6 +33,8 @@
 #include "components/optimization_guide/proto/features/prompt_api.pb.h"
 #include "components/optimization_guide/proto/on_device_model_execution_config.pb.h"
 #include "components/optimization_guide/proto/string_value.pb.h"
+#include "content/public/browser/render_widget_host_view.h"
+#include "services/on_device_model/public/cpp/capabilities.h"
 #include "services/on_device_model/public/mojom/on_device_model.mojom.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -42,11 +45,6 @@
 #include "third_party/blink/public/mojom/ai/model_download_progress_observer.mojom-forward.h"
 #include "third_party/blink/public/mojom/ai/model_streaming_responder.mojom-shared.h"
 
-using testing::_;
-using testing::ReturnRef;
-using testing::Test;
-using Role = blink::mojom::AILanguageModelPromptRole;
-
 namespace {
 
 using ::optimization_guide::MultimodalMessage;
@@ -55,6 +53,13 @@ using ::optimization_guide::proto::PromptApiPrompt;
 using ::optimization_guide::proto::PromptApiRequest;
 using ::optimization_guide::proto::PromptApiRole;
 using ::optimization_guide::proto::ProtoField;
+using ::testing::_;
+using ::testing::Return;
+using ::testing::ReturnRef;
+using ::testing::Test;
+using Role = ::blink::mojom::AILanguageModelPromptRole;
+using SetInputCallback = ::optimization_guide::OptimizationGuideModelExecutor::
+    Session::SetInputCallback;
 
 constexpr uint32_t kTestMaxContextToken = 10u;
 constexpr uint32_t kTestInitialPromptsToken = 5u;
@@ -209,7 +214,7 @@ std::string ToString(const optimization_guide::MultimodalMessage& request) {
 
 // Convert a Context to string for expectation matching.
 std::string GetContextString(AILanguageModel::Context& ctx) {
-  return ToString(ctx.MakeRequest());
+  return ToString(ctx.MakeRequest(on_device_model::Capabilities()));
 }
 
 const optimization_guide::proto::Any& GetPromptApiMetadata() {
@@ -321,9 +326,10 @@ class AILanguageModelTest : public AITestUtils::AITestBase {
                                 1
                           : 1);
                 });
-            ON_CALL(*session, SetInput(_))
+            ON_CALL(*session, SetInput(_, _))
                 .WillByDefault([&, initial = true](
-                                   MultimodalMessage request_metadata) mutable {
+                                   MultimodalMessage request_metadata,
+                                   SetInputCallback callback) mutable {
                   if (initial && !options.expected_context.empty()) {
                     initial = false;
                     EXPECT_THAT(ToString(request_metadata),
@@ -335,9 +341,11 @@ class AILanguageModelTest : public AITestUtils::AITestBase {
                   }
                 });
 
-            EXPECT_CALL(*session, ExecuteModel(_, _))
+            EXPECT_CALL(*session, ExecuteModelWithResponseConstraint(_, _, _))
                 .WillOnce(
                     [&](const google::protobuf::MessageLite& request_metadata,
+                        on_device_model::mojom::ResponseConstraintPtr
+                            constraint,
                         optimization_guide::
                             OptimizationGuideModelExecutionResultStreamingCallback
                                 callback) {
@@ -355,15 +363,18 @@ class AILanguageModelTest : public AITestUtils::AITestBase {
 
             SetUpMockSession(*session);
 
-            ON_CALL(*session, SetInput(_))
-                .WillByDefault([&](MultimodalMessage request_metadata) {
+            ON_CALL(*session, SetInput(_, _))
+                .WillByDefault([&](MultimodalMessage request_metadata,
+                                   SetInputCallback callback) {
                   EXPECT_THAT(ToString(request_metadata),
                               options.expected_cloned_context +
                                   options.expected_prompt);
                 });
-            EXPECT_CALL(*session, ExecuteModel(_, _))
+            EXPECT_CALL(*session, ExecuteModelWithResponseConstraint(_, _, _))
                 .WillOnce(
                     [&](const google::protobuf::MessageLite& request_metadata,
+                        on_device_model::mojom::ResponseConstraintPtr
+                            constraint,
                         optimization_guide::
                             OptimizationGuideModelExecutionResultStreamingCallback
                                 callback) {
@@ -511,7 +522,8 @@ class AILanguageModelTest : public AITestUtils::AITestBase {
                       });
 
               // The model should not be executed.
-              EXPECT_CALL(*session, ExecuteModel(_, _)).Times(0);
+              EXPECT_CALL(*session, ExecuteModelWithResponseConstraint(_, _, _))
+                  .Times(0);
               return session;
             });
 
@@ -574,22 +586,25 @@ class AILanguageModelTest : public AITestUtils::AITestBase {
                     std::move(callback).Run(mock_size_in_tokens);
                   });
 
-          EXPECT_CALL(*session, SetInput(_))
+          EXPECT_CALL(*session, SetInput(_, _))
               .Times(2)
-              .WillOnce([&](MultimodalMessage request) {
-                EXPECT_THAT(ToString(request), "U: A\nM: ");
-              })
-              .WillOnce([&](MultimodalMessage request) {
+              .WillOnce(
+                  [&](MultimodalMessage request, SetInputCallback callback) {
+                    EXPECT_THAT(ToString(request), "U: A\nM: ");
+                  })
+              .WillOnce([&](MultimodalMessage request,
+                            SetInputCallback callback) {
                 // Prompt history should be omitted if it would overflow.
                 EXPECT_THAT(ToString(request), should_overflow_context
                                                    ? "U: B\nM: "
                                                    : "U: A\nM: OK\nU: B\nM: ");
               });
 
-          EXPECT_CALL(*session, ExecuteModel(_, _))
+          EXPECT_CALL(*session, ExecuteModelWithResponseConstraint(_, _, _))
               .Times(2)
               .WillRepeatedly(
                   [&](const google::protobuf::MessageLite& request_metadata,
+                      on_device_model::mojom::ResponseConstraintPtr constraint,
                       optimization_guide::
                           OptimizationGuideModelExecutionResultStreamingCallback
                               callback) {
@@ -631,10 +646,10 @@ class AILanguageModelTest : public AITestUtils::AITestBase {
               responder_run_loop_2.Quit();
             }));
 
-    mock_session->Prompt(MakeInput("A"),
+    mock_session->Prompt(MakeInput("A"), /*constraint=*/nullptr,
                          mock_responder_1.BindNewPipeAndPassRemote());
     responder_run_loop_1.Run();
-    mock_session->Prompt(MakeInput("B"),
+    mock_session->Prompt(MakeInput("B"), /*constraint=*/nullptr,
                          mock_responder_2.BindNewPipeAndPassRemote());
     responder_run_loop_2.Run();
   }
@@ -692,7 +707,7 @@ class AILanguageModelTest : public AITestUtils::AITestBase {
   }
 
   void TestPromptCall(mojo::Remote<blink::mojom::AILanguageModel>& mock_session,
-                      std::string& prompt,
+                      const std::string& prompt,
                       bool should_overflow_context) {
     AITestUtils::MockModelStreamingResponder mock_responder;
 
@@ -716,6 +731,7 @@ class AILanguageModelTest : public AITestUtils::AITestBase {
             }));
 
     mock_session->Prompt(MakeInput(prompt),
+                         /*constraint=*/nullptr,
                          mock_responder.BindNewPipeAndPassRemote());
     responder_run_loop.Run();
   }
@@ -861,6 +877,7 @@ TEST_F(AILanguageModelTest, PromptAfterDestroy) {
          AITestUtils::MockModelStreamingResponder& mock_responder) {
         mock_session->Destroy();
         mock_session->Prompt(MakeInput(kTestPrompt),
+                             /*constraint=*/nullptr,
                              mock_responder.BindNewPipeAndPassRemote());
       }));
 }
@@ -872,6 +889,7 @@ TEST_F(AILanguageModelTest, PromptBeforeDestroy) {
       [](mojo::Remote<blink::mojom::AILanguageModel> mock_session,
          AITestUtils::MockModelStreamingResponder& mock_responder) {
         mock_session->Prompt(MakeInput(kTestPrompt),
+                             /*constraint=*/nullptr,
                              mock_responder.BindNewPipeAndPassRemote());
         mock_session->Destroy();
       }));
@@ -942,17 +960,23 @@ TEST_F(AILanguageModelTest, MultimodalInput) {
         auto session = std::make_unique<
             testing::NiceMock<optimization_guide::MockSession>>();
         SetUpMockSession(*session);
-        EXPECT_CALL(*session, SetInput(_))
-            .WillOnce([&](MultimodalMessage request_metadata) {
+        EXPECT_CALL(*session, GetCapabilities())
+            .WillRepeatedly(Return(on_device_model::Capabilities{
+                on_device_model::CapabilityFlags::kImageInput,
+                on_device_model::CapabilityFlags::kAudioInput}));
+        EXPECT_CALL(*session, SetInput(_, _))
+            .WillOnce([&](MultimodalMessage request_metadata,
+                          SetInputCallback callback) {
               EXPECT_THAT(ToString(request_metadata),
                           "U: Test prompt\n"
                           "U: <image>\n"
                           "U: <audio>\n"
                           "M: ");
             });
-        EXPECT_CALL(*session, ExecuteModel(_, _))
+        EXPECT_CALL(*session, ExecuteModelWithResponseConstraint(_, _, _))
             .WillOnce(
                 [&](const google::protobuf::MessageLite& request_metadata,
+                    on_device_model::mojom::ResponseConstraintPtr constraint,
                     optimization_guide::
                         OptimizationGuideModelExecutionResultStreamingCallback
                             callback) {
@@ -981,7 +1005,7 @@ TEST_F(AILanguageModelTest, MultimodalInput) {
   input.push_back(blink::mojom::AILanguageModelPrompt::New(
       Role::kUser,
       blink::mojom::AILanguageModelPromptContent::NewAudio(CreateTestAudio())));
-  mock_session->Prompt(std::move(input),
+  mock_session->Prompt(std::move(input), /*constraint=*/nullptr,
                        mock_responder.BindNewPipeAndPassRemote());
   run_loop.Run();
 }
@@ -1105,104 +1129,10 @@ TEST_P(AILanguageModelContextTest, TestContextOperation_OverflowOnFirstItem) {
   }
 }
 
-// TODO(crbug.com/385173789): Remove hacky multimodal prototype workarounds.
-class MockOnDeviceVisionSession : public on_device_model::mojom::Session {
- public:
-  MockOnDeviceVisionSession() = default;
-  ~MockOnDeviceVisionSession() override = default;
-
-  // on_device_model::mojom::Session:
-  MOCK_METHOD(
-      void,
-      Append,
-      (on_device_model::mojom::AppendOptionsPtr options,
-       mojo::PendingRemote<on_device_model::mojom::ContextClient> client),
-      (override));
-
-  MOCK_METHOD(void,
-              Generate,
-              (on_device_model::mojom::GenerateOptionsPtr input,
-               mojo::PendingRemote<on_device_model::mojom::StreamingResponder>
-                   response),
-              (override));
-
-  MOCK_METHOD(void,
-              GetSizeInTokens,
-              (on_device_model::mojom::InputPtr input,
-               GetSizeInTokensCallback callback),
-              (override));
-
-  MOCK_METHOD(void,
-              Score,
-              (const std::string& text, ScoreCallback callback),
-              (override));
-
-  MOCK_METHOD(void,
-              Clone,
-              (mojo::PendingReceiver<on_device_model::mojom::Session> session),
-              (override));
-};
-
-// TODO(crbug.com/385173789): Remove hacky multimodal prototype workarounds.
-class AILanguageModelHackyPrototypeTest : public AILanguageModelTest {
- public:
-  void SetUp() override {
-    scoped_feature_list_.InitWithFeaturesAndParameters(
-        {{optimization_guide::features::kOptimizationGuideOnDeviceModel,
-          {{"on_device_model_image_input", "true"}}},
-         {blink::features::kAIPromptAPIMultimodalInput, {}}},
-        {});
-    // Avoid conflicting scoped_feature_list_ from AILanguageModelTest::SetUp().
-    AITestUtils::AITestBase::SetUp();
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
-// Test Prompt() with image input.
-// TODO(crbug.com/385173789): Remove hacky multimodal prototype workarounds.
-TEST_F(AILanguageModelHackyPrototypeTest, Basic) {
-  MockOnDeviceVisionSession mock_on_device_vision_session;
-  // First call is for input.
-  EXPECT_CALL(mock_on_device_vision_session, Append(_, _))
-      .WillOnce([&](on_device_model::mojom::AppendOptionsPtr options,
-                    mojo::PendingRemote<on_device_model::mojom::ContextClient>
-                        client) {
-        auto pieces = options->input->pieces;
-        EXPECT_EQ(pieces.size(), 5u);
-        EXPECT_TRUE(std::holds_alternative<ml::Token>(pieces[0]));
-        EXPECT_TRUE(std::holds_alternative<std::string>(pieces[1]));
-        EXPECT_TRUE(std::holds_alternative<SkBitmap>(pieces[2]));
-        EXPECT_TRUE(std::holds_alternative<ml::Token>(pieces[3]));
-        EXPECT_TRUE(std::holds_alternative<ml::Token>(pieces[4]));
-        // Second call adds output to the session.
-        EXPECT_CALL(mock_on_device_vision_session, Append(_, _))
-            .WillOnce(
-                [&](on_device_model::mojom::AppendOptionsPtr options,
-                    mojo::PendingRemote<on_device_model::mojom::ContextClient>
-                        client) {
-                  auto pieces = options->input->pieces;
-                  EXPECT_EQ(pieces.size(), 2u);
-                  EXPECT_TRUE(std::holds_alternative<std::string>(pieces[0]));
-                  EXPECT_TRUE(std::holds_alternative<ml::Token>(pieces[1]));
-                });
-      });
-  EXPECT_CALL(mock_on_device_vision_session, Generate(_, _))
-      .WillOnce(
-          [&](on_device_model::mojom::GenerateOptionsPtr options,
-              mojo::PendingRemote<on_device_model::mojom::StreamingResponder>
-                  pending_responder) {
-            mojo::Remote<on_device_model::mojom::StreamingResponder> responder(
-                std::move(pending_responder));
-            auto chunk = on_device_model::mojom::ResponseChunk::New();
-            chunk->text = "Lovely, thanks for sharing";
-            responder->OnResponse(std::move(chunk));
-            responder->OnComplete(
-                on_device_model::mojom::ResponseSummary::New());
-          });
-
+TEST_F(AILanguageModelTest, Priority) {
   SetupMockOptimizationGuideKeyedService();
+  base::test::TestFuture<testing::NiceMock<optimization_guide::MockSession>*>
+      session_future;
   EXPECT_CALL(*mock_optimization_guide_keyed_service_, StartSession(_, _))
       .WillOnce(
           [&](optimization_guide::ModelBasedCapabilityKey feature,
@@ -1211,31 +1141,22 @@ TEST_F(AILanguageModelHackyPrototypeTest, Basic) {
             auto session = std::make_unique<
                 testing::NiceMock<optimization_guide::MockSession>>();
             SetUpMockSession(*session);
-            // optimization_guide::Session execution is bypassed for now.
-            EXPECT_CALL(*session, GetContextSizeInTokens(_, _)).Times(0);
-            EXPECT_CALL(*session, AddContext(_)).Times(0);
-            EXPECT_CALL(*session, ExecuteModel(_, _)).Times(0);
-            EXPECT_CALL(*session, GetSession())
-                .WillRepeatedly(ReturnRef(mock_on_device_vision_session));
+            EXPECT_CALL(
+                *session,
+                SetPriority(on_device_model::mojom::Priority::kForeground));
+            session_future.SetValue(session.get());
             return session;
           });
+  auto session_remote = CreateMockSession();
+  auto* session = session_future.Get();
 
-  mojo::Remote<blink::mojom::AILanguageModel> mock_session =
-      CreateMockSession();
-  AITestUtils::MockModelStreamingResponder mock_responder;
-  base::RunLoop run_loop;
-  EXPECT_CALL(mock_responder, OnStreaming("Lovely, thanks for sharing"));
-  EXPECT_CALL(mock_responder, OnCompletion(_))
-      .WillOnce(testing::InvokeWithoutArgs(&run_loop, &base::RunLoop::Quit));
+  EXPECT_CALL(*session,
+              SetPriority(on_device_model::mojom::Priority::kBackground));
+  main_rfh()->GetRenderWidgetHost()->GetView()->Hide();
 
-  std::vector<blink::mojom::AILanguageModelPromptPtr> input =
-      MakeInput(kTestPrompt);
-  input.push_back(blink::mojom::AILanguageModelPrompt::New(
-      Role::kUser, blink::mojom::AILanguageModelPromptContent::NewBitmap(
-                       CreateTestBitmap(10, 10))));
-  mock_session->Prompt(std::move(input),
-                       mock_responder.BindNewPipeAndPassRemote());
-  run_loop.Run();
+  EXPECT_CALL(*session,
+              SetPriority(on_device_model::mojom::Priority::kForeground));
+  main_rfh()->GetRenderWidgetHost()->GetView()->Show();
 }
 
 }  // namespace

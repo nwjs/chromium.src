@@ -11,7 +11,9 @@
 #include <iterator>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -79,6 +81,7 @@
 #include "components/tab_groups/tab_group_color.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tab_groups/tab_group_visual_data.h"
+#include "components/tabs/public/split_tab_id.h"
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/clipboard/clipboard_constants.h"
 #include "ui/base/dragdrop/drag_drop_types.h"
@@ -610,20 +613,18 @@ class TabStrip::TabDragContextImpl : public TabDragContext,
       CHECK_NE(dragged_view->parent(), this, base::NotFatalUntil::M128);
       AddChildViewRaw(dragged_view);
       dragged_view->set_dragging(true);
-    }
-
-    // If this is a header drag, start painting the group highlight.
-    TabGroupHeader* header = views::AsViewClass<TabGroupHeader>(views[0]);
-    if (header) {
-      tab_strip_->tab_container_->GetGroupViews(header->group().value())
-          ->highlight()
-          ->SetVisible(true);
-      // Make sure the bounds of the group views are up to date right now
-      // instead of waiting for subsequent drag events - if we are dragging a
-      // window by a group header, we won't get any more events. See
-      // https://crbug.com/1344774.
-      tab_strip_->tab_container_->UpdateTabGroupVisuals(
-          header->group().value());
+      if (TabGroupHeader* header =
+              views::AsViewClass<TabGroupHeader>(dragged_view)) {
+        tab_strip_->tab_container_->GetGroupViews(header->group().value())
+            ->highlight()
+            ->SetVisible(true);
+        // Make sure the bounds of the group views are up to date right now
+        // instead of waiting for subsequent drag events - if we are dragging a
+        // window by a group header, we won't get any more events. See
+        // https://crbug.com/1344774.
+        tab_strip_->tab_container_->UpdateTabGroupVisuals(
+            header->group().value());
+      }
     }
 
     tab_strip_->tab_container_->SetTabSlotVisibility();
@@ -723,11 +724,17 @@ class TabStrip::TabDragContextImpl : public TabDragContext,
     // preferred width.
     PreferredSizeChanged();
 
-    // If the dragged tabs are in a group, we need to update the bounds of the
-    // corresponding underline and header.
-    if (views[0]->group()) {
-      tab_strip_->tab_container_->UpdateTabGroupVisuals(
-          views[0]->group().value());
+    // If any of the dragged tabs are in a group, we need to update the bounds
+    // of the corresponding underlines and headers.
+    std::unordered_set<tab_groups::TabGroupId, tab_groups::TabGroupIdHash>
+        updated_groups;
+    for (TabSlotView* view : views) {
+      if (view->group().has_value() &&
+          !updated_groups.contains(view->group().value())) {
+        tab_strip_->tab_container_->UpdateTabGroupVisuals(
+            view->group().value());
+        updated_groups.insert(view->group().value());
+      }
     }
   }
 
@@ -895,19 +902,30 @@ class TabStrip::TabDragContextImpl : public TabDragContext,
       return false;
     }
 
+    Tab* const left_tab = GetTabAt(candidate_index - 1);
+    Tab* const right_tab = tab_strip_->IsValidModelIndex(candidate_index)
+                               ? GetTabAt(candidate_index)
+                               : nullptr;
+
     // This might be in the middle of a group, which may or may not be fine.
-    std::optional<tab_groups::TabGroupId> left_group =
-        GetTabAt(candidate_index - 1)->group();
+    std::optional<tab_groups::TabGroupId> left_group = left_tab->group();
     std::optional<tab_groups::TabGroupId> right_group =
-        tab_strip_->IsValidModelIndex(candidate_index)
-            ? GetTabAt(candidate_index)->group()
-            : std::nullopt;
+        right_tab ? right_tab->group() : std::nullopt;
     if (left_group.has_value() && left_group == right_group) {
       if (!can_insert_into_groups) {
         return false;
       }
       // Can't drag a tab into a collapsed group.
       if (tab_strip_->IsGroupCollapsed(left_group.value())) {
+        return false;
+      }
+    }
+
+    // Prevent a tab from being inserted in between two tabs that are within the
+    // same split view.
+    if (right_tab) {
+      std::optional<split_tabs::SplitTabId> left_split_id = left_tab->split();
+      if (left_split_id.has_value() && (left_split_id == right_tab->split())) {
         return false;
       }
     }
@@ -1299,11 +1317,17 @@ void TabStrip::OnGroupClosed(const tab_groups::TabGroupId& group) {
   tab_container_->OnGroupClosed(group);
 }
 
-void TabStrip::SetSplit(int split_index,
+void TabStrip::SetSplit(std::vector<int> split_indices,
                         std::optional<split_tabs::SplitTabId> split_id) {
-  tab_at(split_index)->SetSplit(split_id);
-  InvalidateLayout();
-  SchedulePaint();
+  for (const int split_index : split_indices) {
+    tab_at(split_index)->SetSplit(split_id);
+  }
+
+  if (split_id.has_value()) {
+    tab_container_->OnSplitCreated(split_indices);
+  } else {
+    tab_container_->OnSplitRemoved(split_indices);
+  }
 }
 
 bool TabStrip::ShouldDrawStrokes() const {
@@ -1891,8 +1915,7 @@ std::vector<Tab*> TabStrip::GetTabsInSplit(const Tab* tab) {
   }
 
   Tab* current_tab = tab->controller()->GetAdjacentTab(tab, 0);
-  // TODO(agale): In the future this might need to support more than two tab
-  // splits.
+  // Note that this only supports having two tabs in a split.
   Tab* start_tab = tab->controller()->GetAdjacentTab(tab, -1);
   if (start_tab && start_tab->split().has_value() &&
       start_tab->split().value() == current_tab->split().value()) {

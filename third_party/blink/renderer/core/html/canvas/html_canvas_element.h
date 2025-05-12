@@ -189,6 +189,7 @@ class CORE_EXPORT HTMLCanvasElement final
   void PostFinalizeFrame(FlushReason) override;
 
   CanvasResourceDispatcher* GetOrCreateResourceDispatcher() override;
+  void DiscardResourceDispatcher() override { frame_dispatcher_ = nullptr; }
 
   bool PushFrame(scoped_refptr<CanvasResource>&& image,
                  const SkIRect& damage_rect) override;
@@ -223,8 +224,7 @@ class CORE_EXPORT HTMLCanvasElement final
   size_t GetMemoryUsage() const override;
   bool ShouldAccelerate2dContext() const override;
   bool LowLatencyEnabled() const override;
-  CanvasResourceProvider* GetOrCreateCanvasResourceProvider(
-      RasterModeHint hint) override;
+  CanvasResourceProvider* GetOrCreateCanvasResourceProvider() override;
   bool IsPrinting() const override;
   bool IsHibernating() const override;
   void SetTransferToGPUTextureWasInvoked() override;

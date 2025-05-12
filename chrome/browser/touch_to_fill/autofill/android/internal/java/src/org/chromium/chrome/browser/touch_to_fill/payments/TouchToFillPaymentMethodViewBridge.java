@@ -12,14 +12,17 @@ import org.jni_zero.CalledByNative;
 import org.jni_zero.JNINamespace;
 import org.jni_zero.JniType;
 
+import org.chromium.chrome.browser.autofill.AutofillImageFetcher;
+import org.chromium.chrome.browser.autofill.AutofillImageFetcherFactory;
 import org.chromium.chrome.browser.autofill.PersonalDataManager;
-import org.chromium.chrome.browser.autofill.PersonalDataManagerFactory;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.touch_to_fill.common.BottomSheetFocusHelper;
 import org.chromium.components.autofill.AutofillSuggestion;
+import org.chromium.components.autofill.SuggestionType;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetControllerProvider;
 import org.chromium.ui.base.WindowAndroid;
+import org.chromium.url.GURL;
 
 import java.util.Arrays;
 import java.util.List;
@@ -32,13 +35,13 @@ class TouchToFillPaymentMethodViewBridge {
     private TouchToFillPaymentMethodViewBridge(
             TouchToFillPaymentMethodComponent.Delegate delegate,
             Context context,
-            PersonalDataManager personalDataManager,
+            AutofillImageFetcher imageFetcher,
             BottomSheetController bottomSheetController,
             WindowAndroid windowAndroid) {
         mComponent = new TouchToFillPaymentMethodCoordinator();
         mComponent.initialize(
                 context,
-                personalDataManager,
+                imageFetcher,
                 bottomSheetController,
                 delegate,
                 new BottomSheetFocusHelper(bottomSheetController, windowAndroid));
@@ -58,7 +61,7 @@ class TouchToFillPaymentMethodViewBridge {
         return new TouchToFillPaymentMethodViewBridge(
                 delegate,
                 context,
-                PersonalDataManagerFactory.getForProfile(profile),
+                AutofillImageFetcherFactory.getForProfile(profile),
                 bottomSheetController,
                 windowAndroid);
     }
@@ -91,6 +94,9 @@ class TouchToFillPaymentMethodViewBridge {
             @JniType("std::u16string") String subLabel,
             @JniType("std::u16string") String secondarySubLabel,
             @JniType("std::u16string") String labelContentDescription,
+            @SuggestionType int suggestionType,
+            GURL customIconUrl,
+            int iconId,
             boolean applyDeactivatedStyle,
             boolean shouldDisplayTermsAvailable) {
         return new AutofillSuggestion.Builder()
@@ -99,6 +105,9 @@ class TouchToFillPaymentMethodViewBridge {
                 .setSubLabel(subLabel)
                 .setSecondarySubLabel(secondarySubLabel)
                 .setLabelContentDescription(labelContentDescription)
+                .setSuggestionType(suggestionType)
+                .setCustomIconUrl(customIconUrl)
+                .setIconId(iconId)
                 .setApplyDeactivatedStyle(applyDeactivatedStyle)
                 .setShouldDisplayTermsAvailable(shouldDisplayTermsAvailable)
                 .build();

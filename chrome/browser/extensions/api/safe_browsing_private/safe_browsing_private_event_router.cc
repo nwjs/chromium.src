@@ -5,48 +5,30 @@
 #include "chrome/browser/extensions/api/safe_browsing_private/safe_browsing_private_event_router.h"
 
 #include <optional>
+#include <string>
 #include <utility>
 #include <vector>
 
 #include "base/files/file_path.h"
-#include "base/functional/bind.h"
-#include "base/functional/callback_helpers.h"
 #include "base/json/values_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/time/time.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
-#include "chrome/browser/browser_process.h"
-#include "chrome/browser/chrome_content_browser_client.h"
 #include "chrome/browser/enterprise/connectors/common.h"
 #include "chrome/browser/enterprise/connectors/connectors_service.h"
 #include "chrome/browser/policy/chrome_browser_policy_connector.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/profiles/profile_attributes_entry.h"
-#include "chrome/browser/profiles/profile_attributes_storage.h"
-#include "chrome/browser/profiles/reporting_util.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/deep_scanning_utils.h"
-#include "chrome/browser/safe_browsing/safe_browsing_service.h"
-#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/common/extensions/api/safe_browsing_private.h"
 #include "components/enterprise/connectors/core/reporting_constants.h"
 #include "components/enterprise/connectors/core/reporting_service_settings.h"
-#include "components/policy/core/common/cloud/cloud_policy_client.h"
-#include "components/policy/core/common/cloud/cloud_policy_util.h"
-#include "components/policy/core/common/cloud/device_management_service.h"
-#include "components/policy/core/common/cloud/machine_level_user_cloud_policy_manager.h"
-#include "components/policy/core/common/cloud/realtime_reporting_job_configuration.h"
-#include "components/policy/core/common/cloud/user_cloud_policy_manager.h"
 #include "components/prefs/pref_service.h"
-#include "components/safe_browsing/content/browser/web_ui/safe_browsing_ui.h"
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
-#include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/url_matcher/url_matcher.h"
 #include "components/url_matcher/url_util.h"
 #include "content/public/browser/browser_context.h"
 #include "extensions/browser/event_router.h"
-#include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "url/gurl.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -113,19 +95,16 @@ void AddAnalysisConnectorVerdictToEvent(
   for (const enterprise_connectors::TriggeredRule& trigger :
        result.triggered_rules()) {
     base::Value::Dict triggered_rule;
-    triggered_rule.Set(
-        extensions::SafeBrowsingPrivateEventRouter::kKeyTriggeredRuleName,
-        trigger.rule_name());
-    triggered_rule.Set(
-        extensions::SafeBrowsingPrivateEventRouter::kKeyTriggeredRuleId,
-        trigger.rule_id());
-    triggered_rule.Set(
-        extensions::SafeBrowsingPrivateEventRouter::kKeyUrlCategory,
-        trigger.url_category());
+    triggered_rule.Set(SafeBrowsingPrivateEventRouter::kKeyTriggeredRuleName,
+                       trigger.rule_name());
+    triggered_rule.Set(SafeBrowsingPrivateEventRouter::kKeyTriggeredRuleId,
+                       trigger.rule_id());
+    triggered_rule.Set(SafeBrowsingPrivateEventRouter::kKeyUrlCategory,
+                       trigger.url_category());
 
     triggered_rule_info.Append(std::move(triggered_rule));
   }
-  event.Set(extensions::SafeBrowsingPrivateEventRouter::kKeyTriggeredRuleInfo,
+  event.Set(SafeBrowsingPrivateEventRouter::kKeyTriggeredRuleInfo,
             std::move(triggered_rule_info));
 }
 #endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
@@ -236,29 +215,6 @@ void SafeBrowsingPrivateEventRouter::OnPolicySpecifiedPasswordReuseDetected(
         std::move(event_value));
     event_router_->BroadcastEvent(std::move(extension_event));
   }
-
-#if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
-  std::optional<enterprise_connectors::ReportingSettings> settings =
-      reporting_client_->GetReportingSettings();
-  if (!settings.has_value() ||
-      settings->enabled_event_names.count(
-          enterprise_connectors::kKeyPasswordReuseEvent) == 0) {
-    return;
-  }
-
-  base::Value::Dict event;
-  event.Set(kKeyUrl, params.url);
-  event.Set(kKeyUserName, params.user_name);
-  event.Set(kKeyIsPhishingUrl, params.is_phishing_url);
-  event.Set(kKeyEventResult,
-            enterprise_connectors::EventResultToString(
-                warning_shown ? enterprise_connectors::EventResult::WARNED
-                              : enterprise_connectors::EventResult::ALLOWED));
-
-  reporting_client_->ReportRealtimeEvent(
-      enterprise_connectors::kKeyPasswordReuseEvent,
-      std::move(settings.value()), std::move(event));
-#endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
 }
 
 void SafeBrowsingPrivateEventRouter::OnPolicySpecifiedPasswordChanged(
@@ -274,23 +230,6 @@ void SafeBrowsingPrivateEventRouter::OnPolicySpecifiedPasswordChanged(
         std::move(event_value));
     event_router_->BroadcastEvent(std::move(extension_event));
   }
-
-#if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
-  std::optional<enterprise_connectors::ReportingSettings> settings =
-      reporting_client_->GetReportingSettings();
-  if (!settings.has_value() ||
-      settings->enabled_event_names.count(
-          enterprise_connectors::kKeyPasswordChangedEvent) == 0) {
-    return;
-  }
-
-  base::Value::Dict event;
-  event.Set(kKeyUserName, user_name);
-
-  reporting_client_->ReportRealtimeEvent(
-      enterprise_connectors::kKeyPasswordChangedEvent,
-      std::move(settings.value()), std::move(event));
-#endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
 }
 
 void SafeBrowsingPrivateEventRouter::OnDangerousDownloadOpened(
@@ -383,33 +322,6 @@ void SafeBrowsingPrivateEventRouter::OnSecurityInterstitialShown(
         std::move(event_value));
     event_router_->BroadcastEvent(std::move(extension_event));
   }
-
-#if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
-  std::optional<enterprise_connectors::ReportingSettings> settings =
-      reporting_client_->GetReportingSettings();
-  if (!settings.has_value() ||
-      settings->enabled_event_names.count(
-          enterprise_connectors::kKeyInterstitialEvent) == 0) {
-    return;
-  }
-
-  PrefService* prefs = Profile::FromBrowserContext(context_)->GetPrefs();
-  enterprise_connectors::EventResult event_result =
-      prefs->GetBoolean(prefs::kSafeBrowsingProceedAnywayDisabled)
-          ? enterprise_connectors::EventResult::BLOCKED
-          : enterprise_connectors::EventResult::WARNED;
-  base::Value::Dict event;
-  event.Set(kKeyUrl, params.url);
-  event.Set(kKeyReason, params.reason);
-  event.Set(kKeyNetErrorCode, net_error_code);
-  event.Set(kKeyClickedThrough, false);
-  event.Set(kKeyEventResult,
-            enterprise_connectors::EventResultToString(event_result));
-
-  reporting_client_->ReportRealtimeEvent(
-      enterprise_connectors::kKeyInterstitialEvent, std::move(settings.value()),
-      std::move(event));
-#endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
 }
 
 void SafeBrowsingPrivateEventRouter::OnSecurityInterstitialProceeded(
@@ -435,28 +347,6 @@ void SafeBrowsingPrivateEventRouter::OnSecurityInterstitialProceeded(
         std::move(event_value));
     event_router_->BroadcastEvent(std::move(extension_event));
   }
-
-#if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
-  std::optional<enterprise_connectors::ReportingSettings> settings =
-      reporting_client_->GetReportingSettings();
-  if (!settings.has_value() ||
-      settings->enabled_event_names.count(
-          enterprise_connectors::kKeyInterstitialEvent) == 0) {
-    return;
-  }
-
-  base::Value::Dict event;
-  event.Set(kKeyUrl, params.url);
-  event.Set(kKeyReason, params.reason);
-  event.Set(kKeyNetErrorCode, net_error_code);
-  event.Set(kKeyClickedThrough, true);
-  event.Set(kKeyEventResult, enterprise_connectors::EventResultToString(
-                                 enterprise_connectors::EventResult::BYPASSED));
-
-  reporting_client_->ReportRealtimeEvent(
-      enterprise_connectors::kKeyInterstitialEvent, std::move(settings.value()),
-      std::move(event));
-#endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
 }
 
 void SafeBrowsingPrivateEventRouter::OnAnalysisConnectorResult(
@@ -888,16 +778,14 @@ void SafeBrowsingPrivateEventRouter::OnDataControlsSensitiveDataEvent(
   triggered_rule_info.reserve(triggered_rules.size());
   for (const auto& [index, rule] : triggered_rules) {
     base::Value::Dict triggered_rule;
-    triggered_rule.Set(
-        extensions::SafeBrowsingPrivateEventRouter::kKeyTriggeredRuleId,
-        rule.rule_id);
-    triggered_rule.Set(
-        extensions::SafeBrowsingPrivateEventRouter::kKeyTriggeredRuleName,
-        rule.rule_name);
+    triggered_rule.Set(SafeBrowsingPrivateEventRouter::kKeyTriggeredRuleId,
+                       rule.rule_id);
+    triggered_rule.Set(SafeBrowsingPrivateEventRouter::kKeyTriggeredRuleName,
+                       rule.rule_name);
 
     triggered_rule_info.Append(std::move(triggered_rule));
   }
-  event.Set(extensions::SafeBrowsingPrivateEventRouter::kKeyTriggeredRuleInfo,
+  event.Set(SafeBrowsingPrivateEventRouter::kKeyTriggeredRuleInfo,
             std::move(triggered_rule_info));
 
   reporting_client_->ReportRealtimeEvent(

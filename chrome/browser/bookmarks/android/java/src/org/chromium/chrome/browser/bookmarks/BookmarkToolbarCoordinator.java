@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.bookmarks;
 
 import android.content.Context;
+import android.view.View;
 
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.chrome.browser.bookmarks.BookmarkUiState.BookmarkUiMode;
@@ -39,9 +40,9 @@ public class BookmarkToolbarCoordinator {
             BookmarkUiPrefs bookmarkUiPrefs,
             ModalDialogManager modalDialogManager,
             Runnable endSearchRunnable,
-            BookmarkMoveSnackbarManager bookmarkMoveSnackbarManager,
             BooleanSupplier incognitoEnabledSupplier,
-            BookmarkManagerOpener bookmarkManagerOpener) {
+            BookmarkManagerOpener bookmarkManagerOpener,
+            View nextFocusableView) {
         mToolbar =
                 (BookmarkToolbar)
                         selectableListLayout.initializeToolbar(
@@ -60,6 +61,7 @@ public class BookmarkToolbarCoordinator {
         mModel.set(BookmarkToolbarProperties.BOOKMARK_UI_MODE, BookmarkUiMode.LOADING);
         mModel.set(BookmarkToolbarProperties.IS_DIALOG_UI, isDialogUi);
         mModel.set(BookmarkToolbarProperties.DRAG_ENABLED, false);
+        mModel.set(BookmarkToolbarProperties.NEXT_FOCUSABLE_VIEW, nextFocusableView);
         new BookmarkToolbarMediator(
                 context,
                 profile,
@@ -72,7 +74,6 @@ public class BookmarkToolbarCoordinator {
                 bookmarkUiPrefs,
                 new BookmarkAddNewFolderCoordinator(context, modalDialogManager, bookmarkModel),
                 endSearchRunnable,
-                bookmarkMoveSnackbarManager,
                 incognitoEnabledSupplier,
                 bookmarkManagerOpener);
 

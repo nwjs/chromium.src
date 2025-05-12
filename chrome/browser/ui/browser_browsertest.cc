@@ -33,6 +33,7 @@
 #include "base/test/metrics/user_action_tester.h"
 #include "base/test/mock_callback.h"
 #include "base/test/test_future.h"
+#include "base/version_info/version_info.h"
 #include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/apps/app_service/app_launch_params.h"
@@ -135,12 +136,14 @@
 #include "content/public/test/no_renderer_crashes_assertion.h"
 #include "content/public/test/slow_http_response.h"
 #include "content/public/test/test_navigation_observer.h"
+#include "extensions/browser/extension_registrar.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/uninstall_reason.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_set.h"
+#include "extensions/common/switches.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "net/test/embedded_test_server/request_handler_util.h"
@@ -1181,11 +1184,9 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, TabClosingWhenRemovingExtension) {
   model->AddObserver(&observer);
 
   // Uninstall the extension and make sure TabClosing is sent.
-  extensions::ExtensionService* service =
-      extensions::ExtensionSystem::Get(browser()->profile())
-          ->extension_service();
-  service->UninstallExtension(
-      GetExtension()->id(), extensions::UNINSTALL_REASON_FOR_TESTING, nullptr);
+  extensions::ExtensionRegistrar::Get(browser()->profile())
+      ->UninstallExtension(GetExtension()->id(),
+                           extensions::UNINSTALL_REASON_FOR_TESTING, nullptr);
   EXPECT_EQ(1, observer.closing_count());
 
   model->RemoveObserver(&observer);
@@ -1396,8 +1397,8 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, RestorePinnedTabs) {
 
   // Set last What's New version to the current version so there is no What's
   // New tab shown on launch (for the non-first-run case).
-  g_browser_process->local_state()->SetInteger(prefs::kLastWhatsNewVersion,
-                                               CHROME_VERSION_MAJOR);
+  g_browser_process->local_state()->SetInteger(
+      prefs::kLastWhatsNewVersion, version_info::GetMajorVersionNumberAsInt());
 
   // Close the browser window.
   browser()->window()->Close();
@@ -1669,7 +1670,7 @@ class BrowserTestWithExtensionsDisabled : public BrowserTest {
 
   void SetUpCommandLine(base::CommandLine* command_line) override {
     BrowserTest::SetUpCommandLine(command_line);
-    command_line->AppendSwitch(switches::kDisableExtensions);
+    command_line->AppendSwitch(extensions::switches::kDisableExtensions);
   }
 };
 
@@ -2948,7 +2949,7 @@ IN_PROC_BROWSER_TEST_F(
 
   // Successfully navigate to `url1`.
   got_slow_request = content::SlowHttpResponse::FinishResponseImmediately();
-  EXPECT_TRUE(NavigateToURL(wc, url1));
+  EXPECT_TRUE(content::NavigateToURL(wc, url1));
 
   // Kill the renderer for the tab.
   {
@@ -3028,8 +3029,8 @@ IN_PROC_BROWSER_TEST_F(
   // Successfully navigate to `url1`, then do a same-document navigation to
   // `url2`.
   got_slow_request = content::SlowHttpResponse::FinishResponseImmediately();
-  EXPECT_TRUE(NavigateToURL(wc, url1));
-  EXPECT_TRUE(NavigateToURL(wc, url2));
+  EXPECT_TRUE(content::NavigateToURL(wc, url1));
+  EXPECT_TRUE(content::NavigateToURL(wc, url2));
 
   // Kill the renderer for the tab.
   {
@@ -3135,3 +3136,25 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, PreventCloseYieldsCancelledEvent) {
   browser->OnWindowClosing();
 }
 #endif  // BUILDFLAG(IS_CHROMEOS)
+
+// Asserts that browser close operations only propagate browser closed
+// notifications once.
+IN_PROC_BROWSER_TEST_F(BrowserTest, BrowserCloseEmitsClosedNotificationsOnce) {
+  base::HistogramTester tester;
+  ASSERT_TRUE(embedded_test_server()->Start());
+
+  // There should be one browser and one tab to start with.
+  EXPECT_EQ(1u, chrome::GetBrowserCount(browser()->profile()));
+  ASSERT_EQ(1, browser()->tab_strip_model()->count());
+
+  // Assert only a single closed operation is propagated to registered clients.
+  base::MockCallback<BrowserWindowInterface::BrowserDidCloseCallback>
+      browser_did_close_callback;
+  EXPECT_CALL(browser_did_close_callback, Run).Times(1);
+  base::CallbackListSubscription subscription =
+      browser()->RegisterBrowserDidClose(browser_did_close_callback.Get());
+
+  EXPECT_EQ(1u, chrome::GetTotalBrowserCount());
+  CloseBrowserSynchronously(browser());
+  EXPECT_EQ(0u, chrome::GetTotalBrowserCount());
+}

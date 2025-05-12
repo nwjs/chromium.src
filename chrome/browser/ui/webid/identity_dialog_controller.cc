@@ -23,8 +23,9 @@
 // We add nognchecks on these includes so that Android bots do not fail
 // dependency checks.
 #if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/views/webid/fedcm_account_selection_view_desktop.h"  // nogncheck
-#include "components/tab_collections/public/tab_interface.h"  // nogncheck
+#include "components/tabs/public/tab_interface.h"  // nogncheck
 #endif
 
 #include "chrome/browser/ui/webid/account_selection_view.h"
@@ -347,19 +348,27 @@ void IdentityDialogController::RequestUiVolumeRecommendation(
   webid::FedCmClickthroughRateMetadata metadata =
       GetFedCmClickthroughRateMetadata();
   input_context->metadata_args.emplace(
-      segmentation_platform::kPerPageLoadClickthroughRate,
+      segmentation_platform::kFedCmHost,
+      segmentation_platform::processing::ProcessedValue(
+          rp_web_contents_->GetLastCommittedURL().host()));
+  input_context->metadata_args.emplace(
+      segmentation_platform::kFedCmUrl,
+      segmentation_platform::processing::ProcessedValue(
+          rp_web_contents_->GetLastCommittedURL()));
+  input_context->metadata_args.emplace(
+      segmentation_platform::kFedCmPerPageLoadClickthroughRate,
       segmentation_platform::processing::ProcessedValue(
           metadata.per_page_load_clickthrough_rate()));
   input_context->metadata_args.emplace(
-      segmentation_platform::kPerClientClickthroughRate,
+      segmentation_platform::kFedCmPerClientClickthroughRate,
       segmentation_platform::processing::ProcessedValue(
           metadata.per_client_clickthrough_rate()));
   input_context->metadata_args.emplace(
-      segmentation_platform::kPerImpressionClickthroughRate,
+      segmentation_platform::kFedCmPerImpressionClickthroughRate,
       segmentation_platform::processing::ProcessedValue(
           metadata.per_impression_clickthrough_rate()));
   input_context->metadata_args.emplace(
-      segmentation_platform::kLikelyToSignin,
+      segmentation_platform::kFedCmLikelyToSignin,
       segmentation_platform::processing::ProcessedValue(
           metadata.likely_to_signin()));
   segmentation_platform_service_->GetClassificationResult(

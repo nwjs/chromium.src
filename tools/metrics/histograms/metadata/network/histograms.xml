@@ -49,6 +49,18 @@ chromium-metrics-reviews@google.com.
   <variant name="WiFi.SecurityPasswordProtected"/>
 </variants>
 
+<!-- LINT.IfChange(ContentDecodingInterceptorClientType) -->
+
+<variants name="ContentDecodingInterceptorClientType">
+  <variant name="CommitNavigation"/>
+  <variant name="Download"/>
+  <variant name="NavigationPreload"/>
+  <variant name="SignedExchange"/>
+  <variant name="URLLoaderThrottle"/>
+</variants>
+
+<!-- LINT.ThenChange(/services/network/public/cpp/content_decoding_interceptor.h:ContentDecodingInterceptorClientType) -->
+
 <variants name="HTTPRequestConnectionProtocol">
   <variant name="Multiplexed"/>
   <variant name="Simple"/>
@@ -317,7 +329,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Network.Ash.Cellular.Apn.EnableCustomApn.ApnTypes"
-    enum="ApnTypes" expires_after="2025-08-10">
+    enum="ApnTypes" expires_after="2025-10-19">
   <owner>nikhilcn@google.com</owner>
   <owner>cros-device-enablement@google.com</owner>
   <summary>
@@ -1093,7 +1105,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Network.Cellular.CarrierLock.ConfigurationStateAfterInitialization"
-    enum="CellularCarrierLockInitialState" expires_after="2025-07-27">
+    enum="CellularCarrierLockInitialState" expires_after="2025-09-28">
   <owner>michamazur@google.com</owner>
   <owner>cros-cellular-core@google.com</owner>
   <summary>
@@ -1104,7 +1116,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Network.Cellular.CarrierLock.Error.{ErrorType}"
-    enum="CellularCarrierLockError" expires_after="2025-07-27">
+    enum="CellularCarrierLockError" expires_after="2025-09-28">
   <owner>michamazur@google.com</owner>
   <owner>cros-cellular-core@google.com</owner>
   <summary>
@@ -1137,7 +1149,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Network.Cellular.CarrierLock.Initialization.{Trigger}"
-    units="count" expires_after="2025-07-27">
+    units="count" expires_after="2025-09-28">
   <owner>michamazur@google.com</owner>
   <owner>cros-cellular-core@google.com</owner>
   <summary>
@@ -1153,7 +1165,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Network.Cellular.CarrierLock.LockState"
-    enum="CellularCarrierLockLockState" expires_after="2025-07-27">
+    enum="CellularCarrierLockLockState" expires_after="2025-09-28">
   <owner>michamazur@google.com</owner>
   <owner>cros-cellular-core@google.com</owner>
   <summary>
@@ -1195,7 +1207,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Network.Cellular.CarrierLock.PsmClaimResponse"
-    enum="CellularCarrierLockPsmResult" expires_after="2025-07-27">
+    enum="CellularCarrierLockPsmResult" expires_after="2025-09-28">
   <owner>michamazur@google.com</owner>
   <owner>cros-cellular-core@google.com</owner>
   <summary>
@@ -1772,17 +1784,21 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
-<histogram name="Network.ContentDecodingInterceptor.CreateDataPipe"
-    enum="CreateDataPipeMojoResult" expires_after="2025-06-18">
+<histogram
+    name="Network.ContentDecodingInterceptor.CreateDataPipeSuccess.{ContentDecodingInterceptorClientType}"
+    enum="Boolean" expires_after="2025-10-10">
   <owner>horo@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
-    Records the Mojo result code when the ContentDecodingInterceptor attempts to
-    create a new data pipe for delegating the content decoding to the network
-    service. Recorded when content decoding is intercepted for downloads
-    initiated via navigation or for Signed Exchange (SXG) responses, and the
+    Result of creating the Mojo data pipe used between the decoding thread and
+    the data receiving thread for the RendererSideContentDecoding feature.
+    Recorded whenever the renderer process receives a resource that needs to be
+    decoded, or content decoding is intercepted for downloads initiated via
+    navigation or for Signed Exchange (SXG) responses and when
     RendererSideContentDecoding feature is enabled.
   </summary>
+  <token key="ContentDecodingInterceptorClientType"
+      variants="ContentDecodingInterceptorClientType"/>
 </histogram>
 
 <histogram name="Network.DnsProxy.DnsOverHttpsMode"
@@ -2357,19 +2373,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Network.RendererSideContentDecoding.CreateDataPipe"
-    enum="CreateDataPipeMojoResult" expires_after="2025-06-18">
-  <owner>horo@chromium.org</owner>
-  <owner>blink-network-stack@google.com</owner>
-  <summary>
-    Result of creating the Mojo data pipe used between the decoding thread and
-    the data receiving thread in the renderer process for the
-    RendererSideContentDecoding feature. Recorded whenever the renderer process
-    receives a resource that needs to be decoded, and the
-    RendererSideContentDecoding feature is enabled.
-  </summary>
-</histogram>
-
 <histogram
     name="Network.SharedDictionary.CreateBrotliSourceStreamWithDictionary"
     units="microseconds" expires_after="2025-08-24">
@@ -2400,7 +2403,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Network.SharedDictionary.EncodingType"
-    enum="SharedDictionaryEncodingType" expires_after="2025-08-03">
+    enum="SharedDictionaryEncodingType" expires_after="2025-10-05">
   <owner>nidhijaju@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
@@ -2730,6 +2733,48 @@ chromium-metrics-reviews@google.com.
     Shill portal detection has failed to validate the network. This metric is
     logged each time a ConnectionDiagnostics object completes its diagnostics
     actions and reports the results to its caller.
+  </summary>
+</histogram>
+
+<histogram name="Network.Shill.Eap.Event" enum="NetworkEapConnectionEvent"
+    expires_after="2026-03-31">
+  <owner>olsa@google.com</owner>
+  <owner>chromeos-commercial-networking@google.com</owner>
+  <summary>
+    ChromeOS network metric that tracks the EAP TLS connection events.
+  </summary>
+</histogram>
+
+<histogram name="Network.Shill.Eap.EventCaCertExperiment1"
+    enum="NetworkEapConnectionEvent" expires_after="2026-03-31">
+  <owner>olsa@google.com</owner>
+  <owner>chromeos-commercial-networking@google.com</owner>
+  <summary>
+    ChromeOS network metric that tracks the EAP TLS connection events under the
+    experiment SingleCaCertVerificationPhase1 if system CA certs are in use and
+    custom cert is in use for the server authentication.
+  </summary>
+</histogram>
+
+<histogram name="Network.Shill.Eap.EventCaCertExperiment2"
+    enum="NetworkEapConnectionEvent" expires_after="2026-03-31">
+  <owner>olsa@google.com</owner>
+  <owner>chromeos-commercial-networking@google.com</owner>
+  <summary>
+    ChromeOS network metric that tracks the EAP TLS connection events under the
+    experiment SingleCaCertVerificationPhase2 if system CA certs are in use and
+    custom cert is in use for the server authentication.
+  </summary>
+</histogram>
+
+<histogram name="Network.Shill.Eap.EventCaCertExpValidCondition"
+    enum="NetworkEapConnectionEvent" expires_after="2026-03-31">
+  <owner>olsa@google.com</owner>
+  <owner>chromeos-commercial-networking@google.com</owner>
+  <summary>
+    ChromeOS network metric that tracks the EAP TLS connection events without
+    experiments if system CA certs are in use and custom cert is in use for
+    server authentication.
   </summary>
 </histogram>
 
@@ -4807,7 +4852,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Network.Wifi.Synced.Connection.Result" enum="BooleanSuccess"
-    expires_after="2025-08-03">
+    expires_after="2025-10-05">
   <owner>jonmann@chromium.org</owner>
   <owner>crisrael@google.com</owner>
   <owner>chromeos-cross-device-eng@google.com</owner>
@@ -5077,7 +5122,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NetworkService.IpProtection.EmptyTokenCache2"
-    enum="IpProtectionProxyLayer" expires_after="2025-07-06">
+    enum="IpProtectionProxyLayer" expires_after="2025-10-05">
   <owner>djmitche@chromium.org</owner>
   <owner>ashleynewson@chromium.org</owner>
   <owner>src/android_webview/OWNERS</owner>
@@ -5090,7 +5135,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NetworkService.IpProtection.GeoChangeTokenPresence"
-    enum="BooleanAvailable" expires_after="2025-08-10">
+    enum="BooleanAvailable" expires_after="2025-10-12">
   <owner>abhipatel@chromium.org</owner>
   <owner>src/chrome/browser/ip_protection/OWNERS</owner>
   <summary>
@@ -5117,7 +5162,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NetworkService.IpProtection.GetAuthTokenResult"
-    enum="BooleanSuccess" expires_after="2025-08-10">
+    enum="BooleanSuccess" expires_after="2025-10-12">
   <owner>djmitche@chromium.org</owner>
   <owner>ashleynewson@chromium.org</owner>
   <owner>src/android_webview/OWNERS</owner>
@@ -5131,7 +5176,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NetworkService.IpProtection.GetAuthTokenResultForGeo"
-    enum="IpProtectionGetAuthTokenResultForGeo" expires_after="2025-08-10">
+    enum="IpProtectionGetAuthTokenResultForGeo" expires_after="2025-10-12">
   <owner>abhipatel@chromium.org</owner>
   <owner>src/chrome/browser/ip_protection/OWNERS</owner>
   <summary>
@@ -5234,12 +5279,24 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NetworkService.IpProtection.OAuthTokenFetchTime" units="ms"
-    expires_after="2025-07-27">
+    expires_after="2025-09-28">
   <owner>djmitche@chromium.org</owner>
   <owner>src/chrome/browser/ip_protection/OWNERS</owner>
   <summary>
     Records the elapsed time for successful requests by IpProtectionConfigGetter
     for an OAuth token.
+  </summary>
+</histogram>
+
+<histogram
+    name="NetworkService.IpProtection.ProbabilisticRevealTokenRandomizationTime"
+    units="ms" expires_after="2025-09-01">
+  <owner>ryankalla@google.com</owner>
+  <owner>kiln-eng@google.com</owner>
+  <owner>src/chrome/browser/ip_protection/OWNERS</owner>
+  <summary>
+    Records the elapsed time for successfully re-randomizing a probabilistic
+    reveal token.
   </summary>
 </histogram>
 
@@ -5287,7 +5344,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NetworkService.IpProtection.ProxyAllowList.UpdateProcessTime"
-    units="ms" expires_after="2025-08-10">
+    units="ms" expires_after="2025-10-12">
   <owner>aakallam@chromium.org</owner>
   <owner>abhijithnair@chromium.org</owner>
   <owner>src/android_webview/OWNERS</owner>
@@ -5301,7 +5358,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NetworkService.IpProtection.ProxyAllowList.UpdateSuccess"
-    enum="BooleanSuccess" expires_after="2025-08-10">
+    enum="BooleanSuccess" expires_after="2025-10-12">
   <owner>aakallam@chromium.org</owner>
   <owner>abhijithnair@chromium.org</owner>
   <owner>src/android_webview/OWNERS</owner>
@@ -5314,7 +5371,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NetworkService.IpProtection.ProxyChainFallback"
-    enum="IpProtectionProxyChainId" expires_after="2025-08-10">
+    enum="IpProtectionProxyChainId" expires_after="2025-10-12">
   <owner>djmitche@chromium.org</owner>
   <owner>ashleynewson@chromium.org</owner>
   <owner>src/android_webview/OWNERS</owner>
@@ -5437,7 +5494,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NetworkService.IpProtection.TokenBatchRequestTime" units="ms"
-    expires_after="2025-08-10">
+    expires_after="2025-10-12">
   <owner>djmitche@chromium.org</owner>
   <owner>src/chrome/browser/ip_protection/OWNERS</owner>
   <summary>
@@ -5452,7 +5509,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NetworkService.IpProtection.TryGetAuthTokensErrors"
-    enum="IpProtectionTokenBatchRequestError" expires_after="2025-08-03">
+    enum="IpProtectionTokenBatchRequestError" expires_after="2025-10-05">
   <owner>linxinan@chromium.org</owner>
   <owner>src/chrome/browser/ip_protection/OWNERS</owner>
   <summary>
@@ -5464,7 +5521,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NetworkService.IpProtection.TryGetAuthTokensResult"
-    enum="IpProtectionTokenBatchRequestResult" expires_after="2025-07-27">
+    enum="IpProtectionTokenBatchRequestResult" expires_after="2025-09-28">
   <owner>djmitche@chromium.org</owner>
   <owner>src/chrome/browser/ip_protection/OWNERS</owner>
   <summary>
@@ -5521,7 +5578,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NetworkService.MaskedDomainList.EstimatedMemoryUsage"
-    units="KB" expires_after="2025-08-10">
+    units="KB" expires_after="2025-10-12">
   <owner>aakallam@chromium.org</owner>
   <owner>src/chrome/browser/ip_protection/OWNERS</owner>
   <summary>
@@ -5568,7 +5625,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NetworkService.MaskedDomainList.Size2" units="KB"
-    expires_after="2025-08-10">
+    expires_after="2025-10-12">
   <owner>aakallam@chromium.org</owner>
   <owner>src/chrome/browser/ip_protection/OWNERS</owner>
   <summary>
@@ -5612,7 +5669,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="NetworkService.Requests.{Multiplexed}.{RequestType}.{Method}.{Result}.TotalHeadersSize"
-    units="bytes" expires_after="2025-08-01">
+    units="bytes" expires_after="2025-10-05">
   <owner>ortuno@chromium.org</owner>
   <owner>navtracking-team@google.com</owner>
   <summary>
@@ -5629,7 +5686,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="NetworkService.Requests.{Multiplexed}.{RequestType}.{Method}.{Result}.TotalRequestSize"
-    units="bytes" expires_after="2025-08-01">
+    units="bytes" expires_after="2025-10-05">
   <owner>ortuno@chromium.org</owner>
   <owner>navtracking-team@google.com</owner>
   <summary>
@@ -5646,7 +5703,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="NetworkService.Requests.{Multiplexed}.{RequestType}.{Method}.{Result}.TotalUrlSize"
-    units="bytes" expires_after="2025-08-01">
+    units="bytes" expires_after="2025-10-05">
   <owner>ortuno@chromium.org</owner>
   <owner>navtracking-team@google.com</owner>
   <summary>
@@ -5755,6 +5812,28 @@ chromium-metrics-reviews@google.com.
     This could include several logs from the same client for the same network
     context if the migration fails, since this is reported each time the
     migration is attempted.
+  </summary>
+</histogram>
+
+<histogram
+    name="NetworkService.URLLoader.CloneDeviceBoundSessionAccessObserver"
+    units="microseconds" expires_after="2025-08-24">
+  <owner>horo@chromium.org</owner>
+  <owner>blink-network-stack@google.com</owner>
+  <summary>
+    Records the time taken (in microseconds) by the
+    `DeviceBoundSessionAccessObserver::Clone()` function call itself, executed
+    within the network service's URLLoader. This function initiates an
+    asynchronous IPC call; this histogram measures the duration of this
+    initiating call on the network service thread, not the time until the
+    asynchronous IPC operation completes in the background.
+
+    This measurement occurs only for relevant resource requests when the
+    `DeviceBoundSessionAccessObserverSharedRemote` optimization feature is
+    disabled.
+
+    Note that clients without high-resolution clocks will report 0 for very
+    short times.
   </summary>
 </histogram>
 

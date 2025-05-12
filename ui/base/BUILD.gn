@@ -12,7 +12,6 @@ import("//build/config/locales.gni")
 import("//build/config/ozone.gni")
 import("//build/config/sanitizers/sanitizers.gni")
 import("//build/config/ui.gni")
-import("//build/util/branding.gni")
 import("//skia/features.gni")
 import("//testing/libfuzzer/fuzzer_test.gni")
 import("//testing/test.gni")
@@ -28,6 +27,7 @@ if (is_android) {
   import("//build/config/apple/mobile_config.gni")
 } else if (is_mac) {
   import("//build/config/mac/rules.gni")
+  import("//build/util/branding.gni")
 }
 
 build_ime = !is_ios
@@ -579,14 +579,7 @@ component("base") {
   }
 
   if (use_glib) {
-    configs += [ "//build/config/linux:glib" ]
-    sources += [
-      "glib/glib_cast.h",
-      "glib/glib_integers.h",
-      "glib/scoped_gobject.h",
-      "glib/scoped_gsignal.cc",
-      "glib/scoped_gsignal.h",
-    ]
+    public_deps += [ "//ui/base/glib" ]
   }
 
   if (is_chromeos || (use_aura && is_linux) || is_fuchsia) {
@@ -1318,6 +1311,7 @@ test("ui_base_unittests") {
 
   if (use_glib) {
     sources += [ "glib/scoped_gsignal_unittest.cc" ]
+    deps += [ "//ui/base/glib" ]
   }
 
   if (is_linux) {

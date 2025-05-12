@@ -28,7 +28,6 @@ public abstract class SigninPromoDelegate {
     protected final Profile mProfile;
     protected final SigninAndHistorySyncActivityLauncher mLauncher;
     protected final Runnable mOnPromoVisibilityChange;
-    private final AccountPickerBottomSheetStrings mBottomSheetStrings;
 
     protected SigninPromoDelegate(
             Context context,
@@ -39,10 +38,6 @@ public abstract class SigninPromoDelegate {
         mProfile = profile;
         mLauncher = launcher;
         mOnPromoVisibilityChange = onPromoVisibilityChange;
-        mBottomSheetStrings =
-                new AccountPickerBottomSheetStrings.Builder(
-                                R.string.signin_account_picker_bottom_sheet_title)
-                        .build();
     }
 
     /** Returns the title string for the promo. */
@@ -74,6 +69,9 @@ public abstract class SigninPromoDelegate {
      */
     abstract boolean canShowPromo();
 
+    /** Returns the number of times where the promo is shown to the user, */
+    abstract int getPromoShownCount();
+
     /**
      * Refresh the promo state including its content and visibility. This method is invoked by
      * SigninPromoMediator whenever observed state affecting promo content/visibility is updated
@@ -86,6 +84,12 @@ public abstract class SigninPromoDelegate {
      *     with new values retrieved from the delegate.
      */
     abstract boolean refreshPromoState(@Nullable CoreAccountInfo visibleAccount);
+
+    AccountPickerBottomSheetStrings getBottomSheetStrings() {
+        return new AccountPickerBottomSheetStrings.Builder(
+                        R.string.signin_account_picker_bottom_sheet_title)
+                .build();
+    }
 
     boolean shouldHideSecondaryButton() {
         return false;
@@ -120,7 +124,7 @@ public abstract class SigninPromoDelegate {
     void onPrimaryButtonClicked() {
         BottomSheetSigninAndHistorySyncConfig config =
                 new BottomSheetSigninAndHistorySyncConfig.Builder(
-                                mBottomSheetStrings,
+                                getBottomSheetStrings(),
                                 NoAccountSigninMode.BOTTOM_SHEET,
                                 WithAccountSigninMode.DEFAULT_ACCOUNT_BOTTOM_SHEET,
                                 getHistoryOptInMode())
@@ -139,7 +143,7 @@ public abstract class SigninPromoDelegate {
 
         BottomSheetSigninAndHistorySyncConfig config =
                 new BottomSheetSigninAndHistorySyncConfig.Builder(
-                                mBottomSheetStrings,
+                                getBottomSheetStrings(),
                                 NoAccountSigninMode.BOTTOM_SHEET,
                                 WithAccountSigninMode.CHOOSE_ACCOUNT_BOTTOM_SHEET,
                                 getHistoryOptInMode())

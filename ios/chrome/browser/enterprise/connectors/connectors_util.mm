@@ -6,9 +6,12 @@
 
 #import <optional>
 
+#import "components/enterprise/connectors/core/common.h"
 #import "components/policy/core/common/cloud/cloud_policy_core.h"
 #import "components/policy/core/common/cloud/cloud_policy_store.h"
 #import "components/policy/core/common/cloud/user_cloud_policy_manager.h"
+#import "ios/chrome/browser/enterprise/connectors/connectors_service.h"
+#import "ios/chrome/browser/enterprise/connectors/features.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/profile/profile_attributes_ios.h"
 #import "ios/chrome/browser/shared/model/profile/profile_attributes_storage_ios.h"
@@ -107,6 +110,52 @@ base::flat_set<std::string> GetUserAffiliationIds(ProfileIOS* profile) {
 
   const auto& ids = policy_data->user_affiliation_ids();
   return {ids.begin(), ids.end()};
+}
+
+::chrome::cros::reporting::proto::UploadEventsRequest CreateUploadEventsRequest(
+    ProfileIOS* profile) {
+  ::chrome::cros::reporting::proto::UploadEventsRequest request;
+  request.mutable_browser()->set_user_agent(
+      web::GetWebClient()->GetUserAgent(web::UserAgentType::MOBILE));
+
+  if (!profile) {
+    return request;
+  }
+
+  request.mutable_profile()->set_profile_path(
+      profile->GetStatePath().AsUTF8Unsafe());
+  ProfileAttributesStorageIOS* storage = GetApplicationContext()
+                                             ->GetProfileManager()
+                                             ->GetProfileAttributesStorage();
+  if (storage) {
+    ProfileAttributesIOS attributes =
+        storage->GetAttributesForProfileWithName(profile->GetProfileName());
+    request.mutable_profile()->set_profile_name(attributes.GetProfileName());
+    request.mutable_profile()->set_gaia_email(attributes.GetUserName());
+  }
+
+  std::optional<std::string> client_id = GetUserClientId(profile);
+  if (client_id) {
+    request.mutable_profile()->set_client_id(*client_id);
+  }
+  std::optional<std::string> user_dm_token = GetUserDmToken(profile);
+  if (user_dm_token) {
+    request.mutable_profile()->set_dm_token(*user_dm_token);
+  }
+
+  return request;
+}
+
+bool IsEnterpriseUrlFilteringEnabled(ConnectorsService* connectors_service) {
+  if (!base::FeatureList::IsEnabled(
+          enterprise_connectors::kIOSEnterpriseRealtimeUrlFiltering)) {
+    return false;
+  }
+
+  return connectors_service &&
+         connectors_service->GetAppliedRealTimeUrlCheck() ==
+             EnterpriseRealTimeUrlCheckMode::
+                 REAL_TIME_CHECK_FOR_MAINFRAME_ENABLED;
 }
 
 }  // namespace enterprise_connectors

@@ -103,7 +103,7 @@ class HTMLElement;
 class HTMLTemplateElement;
 class Image;
 class InputDeviceCapabilities;
-class InterestInvokerData;
+class InvokerData;
 class InterestInvokerTargetData;
 class KURL;
 class Locale;
@@ -158,7 +158,7 @@ struct AttributeToNameTransform {
 using AttributeNamesView =
     bindings::TransformedView<AttributeCollection, AttributeToNameTransform>;
 
-using ColumnPseudoElementsVector = HeapVector<Member<ColumnPseudoElement>>;
+using ColumnPseudoElementsVector = GCedHeapVector<Member<ColumnPseudoElement>>;
 
 enum SpellcheckAttributeState {
   kSpellcheckAttributeTrue,
@@ -342,14 +342,16 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   // for more information.
   // This is only exposed as an implementation detail to AXRelationCache, which
   // computes aria-owns differently for element reflection.
+  bool HasAnyExplicitlySetAttrAssociatedElements() const;
   bool HasExplicitlySetAttrAssociatedElements(const QualifiedName& name) const;
   GCedHeapLinkedHashSet<WeakMember<Element>>* GetExplicitlySetElementsForAttr(
       const QualifiedName& name) const;
+
   Element* GetElementAttribute(const QualifiedName& name) const;
   Element* GetElementAttributeResolvingReferenceTarget(
       const QualifiedName& name) const;
   void SetElementAttribute(const QualifiedName&, Element*);
-  HeapVector<Member<Element>>* GetAttrAssociatedElements(
+  GCedHeapVector<Member<Element>>* GetAttrAssociatedElements(
       const QualifiedName& name,
       bool resolve_reference_target) const;
 
@@ -361,19 +363,22 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
                                                const AtomicString& id) const;
 
   FrozenArray<Element>* ariaControlsElements();
-  void setAriaControlsElements(HeapVector<Member<Element>>* given_elements);
+  void setAriaControlsElements(GCedHeapVector<Member<Element>>* given_elements);
   FrozenArray<Element>* ariaDescribedByElements();
-  void setAriaDescribedByElements(HeapVector<Member<Element>>* given_elements);
+  void setAriaDescribedByElements(
+      GCedHeapVector<Member<Element>>* given_elements);
   FrozenArray<Element>* ariaDetailsElements();
-  void setAriaDetailsElements(HeapVector<Member<Element>>* given_elements);
+  void setAriaDetailsElements(GCedHeapVector<Member<Element>>* given_elements);
   FrozenArray<Element>* ariaErrorMessageElements();
-  void setAriaErrorMessageElements(HeapVector<Member<Element>>* given_elements);
+  void setAriaErrorMessageElements(
+      GCedHeapVector<Member<Element>>* given_elements);
   FrozenArray<Element>* ariaFlowToElements();
-  void setAriaFlowToElements(HeapVector<Member<Element>>* given_elements);
+  void setAriaFlowToElements(GCedHeapVector<Member<Element>>* given_elements);
   FrozenArray<Element>* ariaLabelledByElements();
-  void setAriaLabelledByElements(HeapVector<Member<Element>>* given_elements);
+  void setAriaLabelledByElements(
+      GCedHeapVector<Member<Element>>* given_elements);
   FrozenArray<Element>* ariaOwnsElements();
-  void setAriaOwnsElements(HeapVector<Member<Element>>* given_elements);
+  void setAriaOwnsElements(GCedHeapVector<Member<Element>>* given_elements);
 
   // Call this to get the value of an attribute that is known not to be the
   // style attribute or one of the SVG animatable attributes.
@@ -1109,6 +1114,19 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
     return false;
   }
 
+  // If this element is a triggering element for an *open* popover, in one of
+  // several ways, this returns the targeted popover. These forms of triggering
+  // are supported:
+  //   <button popovertarget=foo>
+  //   <button command=*-popover commandfor=foo>
+  //   <button interesttarget=foo>
+  //   (JS) popover.showPopover({source: foo})
+  // Note: this function returns the *target* popover. Or nullptr if there isn't
+  // a target, it isn't a popover, or the popover isn't open as the result of
+  // this triggering element. (E.g. if the popover is just open on its own and
+  // wasn't triggered by this invoker, this will return nullptr.)
+  HTMLElement* GetOpenPopoverTarget() const;
+
   // Implementation of the `interesttarget` feature. These are called on the
   // element with the `interesttarget` attribute, and not on the target itself.
   // These are called when interest is actually gained or lost on the element,
@@ -1119,10 +1137,22 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   // Returns the target of the `interesttarget` attribute, if any, and only if
   // the element supports this attribute. For example, `interesttarget` is not
   // allowed on a `<div>`.
-  virtual Element* interestTargetElement() { return nullptr; }
-  // Returns true if this element is an interest invoker that currently "has
-  // interest".
-  bool HasInterest();
+  virtual Element* InterestTargetElement() const { return nullptr; }
+  // Returns the active interest invoker for which this element is the target,
+  // or nullptr otherwise.
+  Element* GetInterestInvoker() const;
+  enum class InterestState {
+    kNoInterest,
+    kPartialInterest,
+    kFullInterest,
+  };
+  // Returns the current state of "interest" in an element that is an interest
+  // invoker.
+  InterestState GetInterestState();
+  // Returns true if this element is (inclusively) contained within an open
+  // popover that is the target of an interest invoker that has partial
+  // interest.
+  bool IsInPartialInterestPopover() const;
 
   // The implementations of |innerText()| and |GetInnerTextWithoutUpdate()| are
   // found in "element_inner_text.cc".
@@ -1204,6 +1234,10 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
 
   // Returns true if this element has ::view-transition-group children.
   bool HasViewTransitionGroupChildren() const;
+
+  // Returns true if this element contains any ::scroll-button or
+  // ::scroll-marker-group pseudos.
+  bool HasScrollButtonOrMarkerGroupPseudos() const;
 
   bool PseudoElementStylesAffectCounters() const;
 
@@ -1308,6 +1342,10 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
 
   void SetCustomElementDefinition(CustomElementDefinition*);
   CustomElementDefinition* GetCustomElementDefinition() const;
+
+  // Scoped Custom Elements
+  CustomElementRegistry* customElementRegistry() const;
+
   // https://dom.spec.whatwg.org/#concept-element-is-value
   void SetIsValue(const AtomicString&);
   const AtomicString& IsValue() const;
@@ -1559,9 +1597,8 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   PopoverData& EnsurePopoverData();
   PopoverData* GetPopoverData() const;
 
-  void RemoveInterestInvokerData();
-  InterestInvokerData& EnsureInterestInvokerData();
-  InterestInvokerData* GetInterestInvokerData() const;
+  InvokerData& EnsureInvokerData();
+  InvokerData* GetInvokerData() const;
 
   void RemoveInterestInvokerTargetData();
   InterestInvokerTargetData& EnsureInterestInvokerTargetData();
@@ -1643,6 +1680,9 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   // Subclasses can override this method to specify a CascadeFilter to
   // filter out any unwanted CSS properties.
   virtual CascadeFilter GetCascadeFilter() const { return CascadeFilter(); }
+
+  GCedHeapVector<Member<Element>>* ElementsFromAttributeOrInternals(
+      const QualifiedName& attribute) const;
 
  protected:
   bool HasElementData() const { return static_cast<bool>(element_data_); }
@@ -1743,10 +1783,16 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
 
  private:
   friend class AXObject;
+  friend class KeyboardEventManager;
   struct AffectedByPseudoStateChange;
 
   template <typename Functor>
   bool PseudoElementStylesDependOnFunc(Functor& func) const;
+
+  // Returns true if the element satisfies conditions for focusability for
+  // spatial navigation, even if the spatial navigation is not currently
+  // enabled.
+  bool HasSpatialNavigationFocusHeuristics() const;
 
   // Returns true if this element has generate a pseudo element whose box is a
   // sibling box of its originating element's box. In this case we cannot skip
@@ -2124,14 +2170,27 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   bool IsStyleAttributeChangeAllowed(const AtomicString& style_string);
 
   // These schedule interest gained/lost events, for `interesttarget` invokers.
-  void ScheduleInterestGainedTask();
+  void ScheduleInterestGainedTask(InterestState);
   void ScheduleInterestLostTask();
-  // This returns the active interest invoker for which this element is the
-  // target.
-  Element* GetInterestInvoker() const;
+  void ChangeInterestState(Element* target, InterestState new_state);
   static bool GainOrLoseInterest(Element* invoker,
                                  Element* target,
-                                 bool interest_gained);
+                                 InterestState new_state);
+  enum class InterestTargetSource {
+    // This element was hovered.
+    kHover,
+    // This element was de-hovered.
+    kDeHover,
+    // This element was focused.
+    kFocus,
+    // This element was blurred.
+    kBlur,
+    // (Recursive call only) Inclusive ancestor chain of an element focused.
+    kFocusElementChain,
+    // (Recursive call only) Inclusive ancestor chain of an element blurred.
+    kBlurElementChain,
+  };
+  void HandleInterestTargetHoverOrFocus(InterestTargetSource source);
 
   // Highlight pseudos inherit all properties from the corresponding highlight
   // in the parent, but virtually all existing content uses universal rules
@@ -2160,7 +2219,7 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   FrozenArray<Element>* GetElementArrayAttribute(const QualifiedName& name);
   void SetElementArrayAttribute(
       const QualifiedName& name,
-      const HeapVector<Member<Element>>* given_elements);
+      const GCedHeapVector<Member<Element>>* given_elements);
 
   // Find the scroll-marker that should be active when told to scroll |this|
   // into view.

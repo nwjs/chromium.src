@@ -21,7 +21,9 @@ class Browser;
 class BrowserView;
 class BrowserWindowInterface;
 class ChromeLabsCoordinator;
+class CookieControlsBubbleCoordinator;
 class HistorySidePanelCoordinator;
+class BookmarksSidePanelCoordinator;
 class MemorySaverOptInIPHController;
 class SidePanelCoordinator;
 class SidePanelUI;
@@ -32,6 +34,10 @@ class ToastController;
 class ToastService;
 class DataSharingOpenGroupHelper;
 class DownloadToolbarUIController;
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+class PdfInfoBarController;
+#endif
 
 namespace extensions {
 class ExtensionSidePanelManager;
@@ -72,6 +78,10 @@ class MostRecentSharedTabUpdateStore;
 namespace send_tab_to_self {
 class SendTabToSelfToolbarBubbleController;
 }  // namespace send_tab_to_self
+
+namespace tabs_api::mojom {
+class TabStripController;
+}
 
 // This class owns the core controllers for features that are scoped to a given
 // browser window on desktop. It can be subclassed by tests to perform
@@ -127,6 +137,16 @@ class BrowserWindowFeatures {
   HistorySidePanelCoordinator* history_side_panel_coordinator() {
     return history_side_panel_coordinator_.get();
   }
+
+  BookmarksSidePanelCoordinator* bookmarks_side_panel_coordinator() {
+    return bookmarks_side_panel_coordinator_.get();
+  }
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+  PdfInfoBarController* pdf_infobar_controller() {
+    return pdf_infobar_controller_.get();
+  }
+#endif
 
   // TODO(crbug.com/346158959): For historical reasons, side_panel_ui is an
   // abstract base class that contains some, but not all of the public interface
@@ -207,6 +227,10 @@ class BrowserWindowFeatures {
     return tab_search_toolbar_button_controller_.get();
   }
 
+  CookieControlsBubbleCoordinator* cookie_controls_bubble_coordinator() {
+    return cookie_controls_bubble_coordinator_.get();
+  }
+
  protected:
   BrowserWindowFeatures();
 
@@ -241,6 +265,13 @@ class BrowserWindowFeatures {
       memory_saver_opt_in_iph_controller_;
 
   std::unique_ptr<HistorySidePanelCoordinator> history_side_panel_coordinator_;
+
+  std::unique_ptr<BookmarksSidePanelCoordinator>
+      bookmarks_side_panel_coordinator_;
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+  std::unique_ptr<PdfInfoBarController> pdf_infobar_controller_;
+#endif
 
   std::unique_ptr<SidePanelCoordinator> side_panel_coordinator_;
 
@@ -281,6 +312,12 @@ class BrowserWindowFeatures {
 
   std::unique_ptr<TabSearchToolbarButtonController>
       tab_search_toolbar_button_controller_;
+
+  std::unique_ptr<CookieControlsBubbleCoordinator>
+      cookie_controls_bubble_coordinator_;
+
+  // This is an experimental API that interacts with the TabStripModel.
+  std::unique_ptr<tabs_api::mojom::TabStripController> tab_strip_controller_;
 };
 
 #endif  // CHROME_BROWSER_UI_BROWSER_WINDOW_PUBLIC_BROWSER_WINDOW_FEATURES_H_

@@ -145,8 +145,9 @@ class PressureServiceForDedicatedWorkerTest
         &worker_service_, blink::DedicatedWorkerToken(), rfh->GetProcess(),
         rfh->GetGlobalId(), rfh->GetGlobalId(), rfh->GetStorageKey(),
         rfh->GetStorageKey().origin(), rfh->GetIsolationInfoForSubresources(),
-        rfh->BuildClientSecurityState(), nullptr, nullptr,
-        mojo::PendingReceiver<blink::mojom::DedicatedWorkerHost>());
+        rfh->BuildClientSecurityState(), /*creator_coep_reporter=*/nullptr,
+        mojo::PendingReceiver<blink::mojom::DedicatedWorkerHost>(),
+        net::StorageAccessApiStatus::kNone);
     mojo::Receiver<blink::mojom::BrowserInterfaceBroker>& bib =
         worker_host_->browser_interface_broker_receiver_for_testing();
     blink::mojom::BrowserInterfaceBroker* broker = bib.internal_state()->impl();
@@ -266,7 +267,8 @@ class PressureServiceForSharedWorkerTest
         blink::mojom::SharedWorkerCreationContextType::kSecure,
         rfh->GetStorageKey().IsFirstPartyContext()
             ? blink::mojom::SharedWorkerSameSiteCookies::kAll
-            : blink::mojom::SharedWorkerSameSiteCookies::kNone);
+            : blink::mojom::SharedWorkerSameSiteCookies::kNone,
+        /*extended_lifetime=*/false);
     worker_service_ = std::make_unique<SharedWorkerServiceImpl>(
         rfh->GetStoragePartition(), nullptr /* service_worker_context */);
     worker_host_ = std::make_unique<SharedWorkerHost>(

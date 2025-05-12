@@ -49,6 +49,7 @@
 #include "extensions/browser/install_flag.h"
 #include "extensions/browser/install_prefs_helper.h"
 #include "extensions/browser/pref_names.h"
+#include "extensions/browser/user_script_manager.h"
 #include "extensions/common/api/types.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
@@ -2270,7 +2271,7 @@ void ExtensionPrefs::RegisterProfilePrefs(
   // defined.
   registry->RegisterIntegerPref(kCorruptedDisableCount.name, 0);
 
-#if BUILDFLAG(ENABLE_SUPERVISED_USERS) && BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_SUPERVISED_USERS) && BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   registry->RegisterBooleanPref(
       prefs::kSupervisedUserExtensionsMayRequestPermissions, false);
   registry->RegisterBooleanPref(prefs::kSkipParentApprovalToInstallExtensions,
@@ -2281,7 +2282,7 @@ void ExtensionPrefs::RegisterProfilePrefs(
   registry->RegisterDictionaryPref(
       prefs::kSupervisedUserLocallyParentApprovedExtensions);
 #endif  // #if BUILDFLAG(ENABLE_SUPERVISED_USERS) &&
-        // BUILDFLAG(ENABLE_EXTENSIONS)
+        // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
 #if !BUILDFLAG(IS_MAC)
   registry->RegisterBooleanPref(pref_names::kAppFullscreenAllowed, true);
@@ -2298,6 +2299,10 @@ void ExtensionPrefs::RegisterProfilePrefs(
   registry->RegisterBooleanPref(
       kMV2DeprecationUnsupportedAcknowledgedGloballyPref.name, false);
   registry->RegisterStringPref(pref_names::kGlobalShortcutsUuid, std::string());
+
+  registry->RegisterBooleanPref(
+      UserScriptManager::kUserScriptsToggleMigratedPref.name,
+      /*default_value=*/false);
 }
 
 template <class ExtensionIdContainer>
@@ -2481,6 +2486,7 @@ void ExtensionPrefs::FinishExtensionInfoPrefs(
     bool needs_sort_ordinal,
     const syncer::StringOrdinal& suggested_page_ordinal,
     prefs::DictionaryValueUpdate* extension_dict) {
+  CHECK(extension_dict);
   // Reinitializes various preferences with empty dictionaries.
   if (!extension_dict->HasKey(pref_names::kPrefPreferences)) {
     extension_dict->Set(pref_names::kPrefPreferences,
@@ -2520,6 +2526,7 @@ void ExtensionPrefs::FinishExtensionInfoPrefs(
   // are updated non-transactionally. This is probably not fixable without
   // nested transactional updates to pref dictionaries.
   if (needs_sort_ordinal) {
+    CHECK(app_sorting());
     app_sorting()->EnsureValidOrdinals(extension_id, suggested_page_ordinal);
   }
 

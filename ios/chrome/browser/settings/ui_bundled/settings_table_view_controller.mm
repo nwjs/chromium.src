@@ -43,6 +43,7 @@
 #import "ios/chrome/app/application_delegate/app_state.h"
 #import "ios/chrome/app/profile/profile_state.h"
 #import "ios/chrome/browser/authentication/ui_bundled/cells/table_view_account_item.h"
+#import "ios/chrome/browser/authentication/ui_bundled/change_profile/change_profile_settings_continuation.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_utils.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin_presenter.h"
 #import "ios/chrome/browser/bubble/ui_bundled/bubble_constants.h"
@@ -134,7 +135,6 @@
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service_factory.h"
-#import "ios/chrome/browser/signin/model/chrome_account_manager_service_observer_bridge.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 #import "ios/chrome/browser/signin/model/system_identity.h"
 #import "ios/chrome/browser/sync/model/enterprise_utils.h"
@@ -190,7 +190,6 @@ struct EnhancedSafeBrowsingActivePromoData
 
 @interface SettingsTableViewController () <
     BooleanObserver,
-    ChromeAccountManagerServiceObserver,
     DownloadsSettingsCoordinatorDelegate,
     EnhancedSafeBrowsingInlinePromoDelegate,
     GoogleServicesSettingsCoordinatorDelegate,
@@ -263,10 +262,8 @@ struct EnhancedSafeBrowsingActivePromoData
   // Presenter for the signin IPH.
   BubbleViewControllerPresenter* _bubblePresenter;
 
-  // Identity object and observer used for Account Item refresh.
+  // Identity object.
   id<SystemIdentity> _identity;
-  std::unique_ptr<ChromeAccountManagerServiceObserverBridge>
-      _accountManagerServiceObserver;
 
   // PrefMember for voice locale code.
   StringPrefMember _voiceLocaleCode;
@@ -365,9 +362,7 @@ struct EnhancedSafeBrowsingActivePromoData
     AuthenticationService* authService =
         AuthenticationServiceFactory::GetForProfile(_profile);
     _identity = authService->GetPrimaryIdentity(signin::ConsentLevel::kSignin);
-    _accountManagerServiceObserver.reset(
-        new ChromeAccountManagerServiceObserverBridge(self,
-                                                      _accountManagerService));
+
     _featureEngagementTracker =
         feature_engagement::TrackerFactory::GetForProfile(_profile);
 
@@ -428,10 +423,6 @@ struct EnhancedSafeBrowsingActivePromoData
         [[NotificationsSettingsObserver alloc] initWithPrefService:prefService
                                                         localState:localState];
     _notificationsObserver.delegate = self;
-
-    // TODO(crbug.com/41344225): -loadModel should not be called from
-    // initializer. A possible fix is to move this call to -viewDidLoad.
-    [self loadModel];
   }
   return self;
 }
@@ -455,6 +446,8 @@ struct EnhancedSafeBrowsingActivePromoData
 
   self.navigationItem.largeTitleDisplayMode =
       UINavigationItemLargeTitleDisplayModeAlways;
+
+  [self loadModel];
 }
 
 - (void)viewWillAppear:(BOOL)animated {
@@ -1484,12 +1477,6 @@ struct EnhancedSafeBrowsingActivePromoData
   _manageSyncSettingsCoordinator = nil;
 }
 
-- (void)handleIdentityUpdated:(id<SystemIdentity>)identity {
-  if ([_identity isEqual:identity]) {
-    [self reloadAccountCell];
-  }
-}
-
 - (void)showGoogleServices {
   if (_googleServicesSettingsCoordinator &&
       self.navigationController.topViewController != self) {
@@ -1783,6 +1770,9 @@ struct EnhancedSafeBrowsingActivePromoData
   // Default search engine is enabled and set by policy.
   const std::string* status =
       dict.FindStringByDottedPath(DefaultSearchManager::kShortName);
+  if (!status) {
+    return @"";
+  }
   return base::SysUTF8ToNSString(*status);
 }
 
@@ -1962,7 +1952,7 @@ struct EnhancedSafeBrowsingActivePromoData
 
   bool promoIsTriggered = tracker->ShouldTriggerHelpUI(
       feature_engagement::kIPHiOSInlineEnhancedSafeBrowsingPromoFeature);
-  CHECK(promoIsTriggered, base::NotFatalUntil::M131);
+  CHECK(promoIsTriggered);
 
   std::unique_ptr<EnhancedSafeBrowsingActivePromoData> new_data =
       std::make_unique<EnhancedSafeBrowsingActivePromoData>();
@@ -1976,7 +1966,7 @@ struct EnhancedSafeBrowsingActivePromoData
 // Check if this is the last active Enhanced Safe Browsing promo shown and
 // dismisses the FET if so.
 - (void)removeEnhancedSafeBrowsingPromoFETDataIfNeeded {
-  CHECK(_profile, base::NotFatalUntil::M131);
+  CHECK(_profile);
   feature_engagement::Tracker* tracker =
       feature_engagement::TrackerFactory::GetForProfile(_profile);
   EnhancedSafeBrowsingActivePromoData* data =
@@ -2005,16 +1995,21 @@ struct EnhancedSafeBrowsingActivePromoData
   }
   self.isSigninInProgress = YES;
   __weak __typeof(self) weakSelf = self;
+  ChangeProfileContinuationProvider provider =
+      base::BindRepeating(&CreateChangeProfileSettingsContinuation);
   ShowSigninCommand* command = [[ShowSigninCommand alloc]
-      initWithOperation:AuthenticationOperation::kSheetSigninAndHistorySync
-               identity:nil
-            accessPoint:signin_metrics::AccessPoint::kSettings
-            promoAction:signin_metrics::PromoAction::
-                            PROMO_ACTION_NO_SIGNIN_PROMO
-             completion:^(SigninCoordinatorResult result,
-                          id<SystemIdentity> completionIdentity) {
-               [weakSelf didFinishSignin];
-             }];
+                      initWithOperation:AuthenticationOperation::
+                                            kSheetSigninAndHistorySync
+                               identity:nil
+                            accessPoint:signin_metrics::AccessPoint::kSettings
+                            promoAction:signin_metrics::PromoAction::
+                                            PROMO_ACTION_NO_SIGNIN_PROMO
+                             completion:^(
+                                 SigninCoordinatorResult result,
+                                 id<SystemIdentity> completionIdentity) {
+                               [weakSelf didFinishSignin];
+                             }
+      changeProfileContinuationProvider:provider];
   [self.applicationHandler showSignin:command baseViewController:self];
 }
 
@@ -2121,7 +2116,6 @@ struct EnhancedSafeBrowsingActivePromoData
   _searchEngineObserverBridge.reset();
   _syncObserverBridge.reset();
   _identityObserverBridge.reset();
-  _accountManagerServiceObserver.reset();
 
   // Remove PrefObserverDelegates.
   _notificationsObserver.delegate = nil;
@@ -2153,6 +2147,11 @@ struct EnhancedSafeBrowsingActivePromoData
 #pragma mark - SearchEngineObserverBridge
 
 - (void)searchEngineChanged {
+  // If the model hasn't been created yet, no need to update anything.
+  if (!self.tableViewModel) {
+    return;
+  }
+
   if (_managedSearchEngineItem) {
     _managedSearchEngineItem.statusText = [self managedSearchEngineDetailText];
     [self reconfigureCellsForItems:@[ _managedSearchEngineItem ]];
@@ -2163,24 +2162,6 @@ struct EnhancedSafeBrowsingActivePromoData
             ios::TemplateURLServiceFactory::GetForProfile(_profile)));
     [self reconfigureCellsForItems:@[ _defaultSearchEngineItem ]];
   }
-}
-
-#pragma mark - ChromeAccountManagerServiceObserver
-
-- (void)identityUpdated:(id<SystemIdentity>)identity {
-  if (IsUseAccountListFromIdentityManagerEnabled()) {
-    // Listening to `onExtendedAccountInfoUpdated` instead.
-    return;
-  }
-  [self handleIdentityUpdated:identity];
-}
-
-- (void)onChromeAccountManagerServiceShutdown:
-    (ChromeAccountManagerService*)accountManagerService {
-  // TODO(crbug.com/40926211): settingsWillBeDismissed must be called before the
-  // AccountManagerService is destroyed. Switch to DCHECK if the number of
-  // reports is low.
-  DUMP_WILL_BE_CHECK(!_accountManagerServiceObserver.get());
 }
 
 #pragma mark - BooleanObserver
@@ -2414,13 +2395,11 @@ struct EnhancedSafeBrowsingActivePromoData
 }
 
 - (void)onExtendedAccountInfoUpdated:(const AccountInfo&)info {
-  if (!IsUseAccountListFromIdentityManagerEnabled()) {
-    // Listening to `identityUpdated` instead.
-    return;
-  }
   id<SystemIdentity> identity =
       _accountManagerService->GetIdentityOnDeviceWithGaiaID(info.gaia);
-  [self handleIdentityUpdated:identity];
+  if ([_identity isEqual:identity]) {
+    [self reloadAccountCell];
+  }
 }
 
 #pragma mark - UIAdaptivePresentationControllerDelegate

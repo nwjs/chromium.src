@@ -47,6 +47,14 @@ BASE_FEATURE(kClearUndecryptablePasswordsOnSync,
 #endif
 );
 
+BASE_FEATURE(kFailedLoginDetectionBasedOnResourceLoadingErrors,
+             "FailedLoginDetectionBasedOnResourceLoadingErrors",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kFailedLoginDetectionBasedOnFormClearEvent,
+             "FailedLoginDetectionBasedOnFormClearEvent",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 #if BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kFetchGaiaHashOnSignIn,
              "FetchGaiaHashOnSignIn",
@@ -65,13 +73,9 @@ const base::FeatureParam<int> kIosPasswordFormExtractionRequestsTimeoutMs = {
     &kIosCleanupHangingPasswordFormExtractionRequests,
     /*name=*/"period-ms", /*default_value=*/250};
 
-BASE_FEATURE(kIosDetectUsernameInUff,
-             "IosSaveUsernameInUff",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kIOSImprovePasswordFieldDetectionForFilling,
              "IOSImprovePasswordFieldDetectionForFilling",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kIOSPasswordBottomSheetV2,
              "IOSPasswordBottomSheetV2",
@@ -81,10 +85,6 @@ BASE_FEATURE(kIOSProactivePasswordGenerationBottomSheet,
              "kIOSProactivePasswordGenerationBottomSheet",
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // IS_IOS
-
-BASE_FEATURE(kLocalStateEnterprisePasswordHashes,
-             "LocalStateEnterprisePasswordHashes",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kPasswordFormGroupedAffiliations,
              "PasswordFormGroupedAffiliations",
@@ -106,6 +106,10 @@ BASE_FEATURE(kPasswordManagerLogToTerminal,
 
 BASE_FEATURE(kPasswordManualFallbackAvailable,
              "PasswordManualFallbackAvailable",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kPostponeOnLoginSuccessful,
+             "PostponeOnLoginSuccessful",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kReuseDetectionBasedOnPasswordHashes,
@@ -146,34 +150,22 @@ BASE_FEATURE(kTriggerPasswordResyncAfterDeletingUndecryptablePasswords,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
-BASE_FEATURE(kUnifiedPasswordManagerLocalPasswordsAndroidAccessLossWarning,
-             "UnifiedPasswordManagerLocalPasswordsAndroidAccessLossWarning",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kBiometricAuthIdentityCheck,
              "BiometricAuthIdentityCheck",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kDropLoginDbRenameForUpmSyncingUsers,
-             "DropLoginDbRenameForUpmSyncingUsers",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLoginDbDeprecationAndroid,
              "LoginDbDeprecationAndroid",
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
 
-BASE_FEATURE(kUseAsyncOsCryptInLoginDatabase,
-             "UseAsyncOsCryptInLoginDatabase",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kUseNewEncryptionMethod,
              "UseNewEncryptionMethod",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kEncryptAllPasswordsWithOSCryptAsync,
              "EncryptAllPasswordsWithOSCryptAsync",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kMarkAllCredentialsAsLeaked,
              "MarkAllCredentialsAsLeaked",

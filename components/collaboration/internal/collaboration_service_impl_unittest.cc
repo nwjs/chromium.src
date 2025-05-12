@@ -71,8 +71,8 @@ class CollaborationServiceImplTest : public testing::Test {
   void InitService() {
     service_ = std::make_unique<CollaborationServiceImpl>(
         &mock_tab_group_sync_service_, &mock_data_sharing_service_,
-        identity_test_env_.identity_manager(), test_sync_service_.get(),
-        &pref_service_);
+        identity_test_env_.identity_manager(), &pref_service_);
+    service_->OnSyncServiceInitialized(test_sync_service_.get());
   }
 
  protected:
@@ -119,14 +119,20 @@ TEST_F(CollaborationServiceImplTest, GetCurrentUserRoleForGroup) {
 }
 
 TEST_F(CollaborationServiceImplTest, GetServiceStatus_Disabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures({},
+                                {data_sharing::features::kDataSharingFeature,
+                                 data_sharing::features::kDataSharingJoinOnly});
+  InitService();
+
   EXPECT_EQ(service_->GetServiceStatus().collaboration_status,
             CollaborationStatus::kDisabled);
 }
 
 TEST_F(CollaborationServiceImplTest, GetServiceStatus_JoinOnly) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(
-      data_sharing::features::kDataSharingJoinOnly);
+  feature_list.InitWithFeatures({data_sharing::features::kDataSharingJoinOnly},
+                                {data_sharing::features::kDataSharingFeature});
   InitService();
 
   EXPECT_EQ(service_->GetServiceStatus().collaboration_status,
@@ -135,8 +141,8 @@ TEST_F(CollaborationServiceImplTest, GetServiceStatus_JoinOnly) {
 
 TEST_F(CollaborationServiceImplTest, GetServiceStatus_Create) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(
-      data_sharing::features::kDataSharingFeature);
+  feature_list.InitWithFeatures({data_sharing::features::kDataSharingFeature},
+                                {data_sharing::features::kDataSharingJoinOnly});
   InitService();
 
   EXPECT_EQ(service_->GetServiceStatus().collaboration_status,
@@ -216,8 +222,7 @@ TEST_F(CollaborationServiceImplTest, StartJoinFlow) {
   MockCollaborationControllerDelegate* delegate_invalid_ptr =
       mock_delegate_invalid.get();
   EXPECT_CALL(*mock_delegate_invalid, OnFlowFinished());
-  service_->StartJoinFlow(std::move(mock_delegate_invalid), url,
-                          CollaborationServiceJoinEntryPoint::kUnknown);
+  service_->StartJoinFlow(std::move(mock_delegate_invalid), url);
   // Wait for post tasks.
   EXPECT_TRUE(base::test::RunUntil(
       [&]() { return service_->GetJoinControllersForTesting().size() == 1; }));
@@ -244,8 +249,7 @@ TEST_F(CollaborationServiceImplTest, StartJoinFlow) {
         return true;
       });
 
-  service_->StartJoinFlow(std::move(mock_delegate), url,
-                          CollaborationServiceJoinEntryPoint::kUnknown);
+  service_->StartJoinFlow(std::move(mock_delegate), url);
 
   // Wait for post tasks.
   EXPECT_TRUE(base::test::RunUntil(
@@ -265,8 +269,7 @@ TEST_F(CollaborationServiceImplTest, StartJoinFlow) {
   // Existing join flow will stop all conflicting flows and will be appended
   // similar to a new join flow.
   service_->StartJoinFlow(
-      std::make_unique<MockCollaborationControllerDelegate>(), url,
-      CollaborationServiceJoinEntryPoint::kUnknown);
+      std::make_unique<MockCollaborationControllerDelegate>(), url);
   EXPECT_EQ(service_->GetJoinControllersForTesting().size(), 1u);
   EXPECT_TRUE(cancel_called);
 }
@@ -375,8 +378,7 @@ TEST_F(CollaborationServiceImplTest, CancelAllFlows) {
       std::make_unique<MockCollaborationControllerDelegate>();
   MockCollaborationControllerDelegate* delegate_ptr = mock_delegate.get();
   EXPECT_CALL(*mock_delegate, OnFlowFinished());
-  service_->StartJoinFlow(std::move(mock_delegate), url,
-                          CollaborationServiceJoinEntryPoint::kUnknown);
+  service_->StartJoinFlow(std::move(mock_delegate), url);
 
   // Wait for post tasks.
   EXPECT_TRUE(base::test::RunUntil(

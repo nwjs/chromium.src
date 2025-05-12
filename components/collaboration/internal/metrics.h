@@ -5,9 +5,9 @@
 #ifndef COMPONENTS_COLLABORATION_INTERNAL_METRICS_H_
 #define COMPONENTS_COLLABORATION_INTERNAL_METRICS_H_
 
+#include "base/time/time.h"
 #include "components/collaboration/public/collaboration_flow_entry_point.h"
 #include "components/collaboration/public/collaboration_flow_type.h"
-#include "ui/base/page_transition_types.h"
 
 namespace data_sharing {
 class Logger;
@@ -89,9 +89,25 @@ enum class CollaborationServiceShareOrManageEvent {
   kDevicePolicyDisableSignin = 23,
   kManagedAccountSignin = 24,
   kAccountInfoNotReadyOnSignin = 25,
-  kMaxValue = kAccountInfoNotReadyOnSignin,
+  kCollaborationIdEmptyGroupToken = 26,
+  kCollaborationIdShareCanceled = 27,
+  kMaxValue = kCollaborationIdShareCanceled,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/collaboration_service/enums.xml:CollaborationServiceShareOrManageEvent)
+
+// Steps in a collaboration flow that has user wait time.
+// These values are persisted to logs. Entries should not be renumbered and
+// number values should never be reused.
+// LINT.IfChange(CollaborationServiceStep)
+enum class CollaborationServiceStep {
+  kUnknown = 0,
+  kAuthenticationSuccess = 1,
+  kServicesInitialized = 2,
+  kLinkReadyAfterGroupCreation = 3,
+  kTabGroupFetchedAfterPeopleGroupJoined = 4,
+  kMaxValue = kTabGroupFetchedAfterPeopleGroupJoined,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/collaboration_service/enums.xml:CollaborationServiceStep)
 
 void RecordJoinEvent(data_sharing::Logger* logger,
                      CollaborationServiceJoinEvent event);
@@ -104,11 +120,12 @@ void RecordJoinOrShareOrManageEvent(
     CollaborationServiceShareOrManageEvent share_or_manage_event);
 void RecordJoinEntryPoint(data_sharing::Logger* logger,
                           CollaborationServiceJoinEntryPoint entry);
-void RecordJoinPageTransitionType(data_sharing::Logger* logger,
-                                  ui::PageTransition transition);
 void RecordShareOrManageEntryPoint(
     data_sharing::Logger* logger,
     CollaborationServiceShareOrManageEntryPoint entry);
+void RecordLatency(data_sharing::Logger* logger,
+                   CollaborationServiceStep step,
+                   base::TimeDelta duration);
 }  // namespace collaboration::metrics
 
 #endif  // COMPONENTS_COLLABORATION_INTERNAL_METRICS_H_

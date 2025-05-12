@@ -6,10 +6,8 @@
 
 #include <memory>
 
-#include "base/containers/contains.h"
-#include "base/containers/flat_set.h"
+#include "base/containers/fixed_flat_set.h"
 #include "base/memory/raw_ptr.h"
-#include "base/no_destructor.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/browser_view_layout_delegate.h"
 #include "chrome/browser/ui/views/frame/contents_layout_manager.h"
@@ -85,23 +83,18 @@ class MockBrowserViewLayoutDelegate : public BrowserViewLayoutDelegate {
   }
   bool SupportsWindowFeature(
       const Browser::WindowFeature feature) const override {
-    static const base::NoDestructor<base::flat_set<Browser::WindowFeature>>
-        supported_features{{
+    static constexpr auto kSupportedFeatures =
+        base::MakeFixedFlatSet<Browser::WindowFeature>({
             Browser::FEATURE_TABSTRIP,
             Browser::FEATURE_TOOLBAR,
             Browser::FEATURE_LOCATIONBAR,
             Browser::FEATURE_BOOKMARKBAR,
-        }};
-    return base::Contains(*supported_features, feature);
+        });
+    return kSupportedFeatures.contains(feature);
   }
-  gfx::NativeView GetHostView() const override { return gfx::NativeView(); }
   gfx::NativeView GetHostViewForAnchoring() const override {
     return gfx::NativeView();
   }
-  bool BrowserIsSystemWebApp() const override { return false; }
-  bool BrowserIsWebApp() const override { return false; }
-  bool BrowserIsTypeApp() const override { return false; }
-  bool BrowserIsTypeNormal() const override { return true; }
   bool HasFindBarController() const override { return false; }
   void MoveWindowForFindBarIfNecessary() const override {}
   bool IsWindowControlsOverlayEnabled() const override { return false; }
@@ -220,6 +213,9 @@ class BrowserViewLayoutTest : public ChromeViewsTestBase {
     devtools_web_view_ = contents_container_->AddChildView(
         CreateFixedSizeView(gfx::Size(800, 600)));
     devtools_web_view_->SetVisible(false);
+    devtools_scrim_view_ = contents_container_->AddChildView(
+        CreateFixedSizeView(gfx::Size(800, 600)));
+    devtools_scrim_view_->SetVisible(false);
     contents_web_view_ = contents_container_->AddChildView(
         CreateFixedSizeView(gfx::Size(800, 600)));
     contents_scrim_view_ = contents_container_->AddChildView(
@@ -228,8 +224,8 @@ class BrowserViewLayoutTest : public ChromeViewsTestBase {
         CreateFixedSizeView(gfx::Size(800, 600)));
     contents_container_->SetLayoutManager(
         std::make_unique<ContentsLayoutManager>(
-            devtools_web_view_, contents_web_view_, lens_overlay_view_,
-            contents_scrim_view_,
+            devtools_web_view_, devtools_scrim_view_, contents_web_view_,
+            lens_overlay_view_, contents_scrim_view_,
             /*contents_border_view=*/nullptr, /*watermark_view=*/nullptr));
 
     auto delegate = std::make_unique<MockBrowserViewLayoutDelegate>();
@@ -283,6 +279,7 @@ class BrowserViewLayoutTest : public ChromeViewsTestBase {
   raw_ptr<views::View> contents_container_;
   raw_ptr<views::View> contents_web_view_;
   raw_ptr<views::View> devtools_web_view_;
+  raw_ptr<views::View> devtools_scrim_view_;
   raw_ptr<views::View> contents_scrim_view_;
   raw_ptr<views::View> lens_overlay_view_;
 

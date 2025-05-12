@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "third_party/omnibox_proto/types.pb.h"
 #ifdef UNSAFE_BUFFERS_BUILD
 // TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
 #pragma allow_unsafe_libc_calls
@@ -114,12 +115,13 @@ int GetDeduplicationProviderPreferenceScore(
 
   constexpr auto kProviderPrefMap =
       base::MakeFixedFlatMap<AutocompleteProvider::Type, int>({
-          // Prefer live document suggestions. We check provider type instead
+          // Prefer live remote suggestions. We check provider type instead
           // of match type in order to distinguish live suggestions from the
-          // document provider from stale suggestions from the shortcuts
-          // providers, because the latter omits changing metadata such as last
-          // access date.
+          // from their stale counterparts from the shortcut, history, and
+          // bookmark providers. The latter often have stale metadata such as
+          // last access date.
           {AutocompleteProvider::TYPE_DOCUMENT, 2},
+          {AutocompleteProvider::TYPE_ENTERPRISE_SEARCH_AGGREGATOR, 2},
           // Prefer bookmark suggestions, as:
           // 1) Their titles may be explicitly set.
           // 2) They may display enhanced information such as the bookmark
@@ -145,7 +147,8 @@ template <typename... Args>
 size_t ACMatchKeyHash<Args...>::operator()(
     const ACMatchKey<Args...>& key) const {
   size_t seed = 0;
-  // Compute a hash by applying `HashCombine` to each element of the "key" tuple.
+  // Compute a hash by applying `HashCombine` to each element of the "key"
+  // tuple.
   std::apply(
       [&seed](auto&&... args) { ((base::HashCombine(seed, args)), ...); }, key);
   return seed;
@@ -549,7 +552,11 @@ const gfx::VectorIcon& AutocompleteMatch::GetVectorIcon(
 
     case Type::SEARCH_SUGGEST:
       return IsTrendSuggestion() ? omnibox::kTrendingUpChromeRefreshIcon
-                                 : vector_icons::kSearchChromeRefreshIcon;
+             : (IsContextualSearchSuggestion() &&
+                omnibox_feature_configs::ContextualSearch::Get()
+                    .contextual_zero_suggest_lens_fulfillment)
+                 ? omnibox::kPageSparkIcon
+                 : vector_icons::kSearchChromeRefreshIcon;
 
     case Type::PEDAL:
       return takeover_action ? takeover_action->GetVectorIcon()
@@ -876,10 +883,12 @@ bool AutocompleteMatch::IsSearchHistoryType(Type type) {
          type == AutocompleteMatchType::SEARCH_SUGGEST_PERSONALIZED;
 }
 
+// static
 bool AutocompleteMatch::IsStarterPackType(Type type) {
   return type == AutocompleteMatchType::STARTER_PACK;
 }
 
+// static
 bool AutocompleteMatch::IsClipboardType(Type type) {
   return type == AutocompleteMatchType::CLIPBOARD_URL ||
          type == AutocompleteMatchType::CLIPBOARD_TEXT ||
@@ -922,10 +931,6 @@ omnibox::GroupId AutocompleteMatch::GetDefaultGroupId(Type type) {
 
   if (type == AutocompleteMatchType::HISTORY_CLUSTER)
     return omnibox::GROUP_HISTORY_CLUSTER;
-
-  if (type == AutocompleteMatchType::NULL_RESULT_MESSAGE) {
-    return omnibox::GROUP_ZERO_SUGGEST_IN_PRODUCT_HELP;
-  }
 
   return omnibox::GROUP_OTHER_NAVS;
 }
@@ -1388,6 +1393,7 @@ AutocompleteMatch::GetOmniboxEventResultType(int action_index) const {
       case OmniboxActionId::PEDAL:
       case OmniboxActionId::CONTEXTUAL_SEARCH_ASK_ABOUT_PAGE:
       case OmniboxActionId::CONTEXTUAL_SEARCH_SELECT_REGION:
+      case OmniboxActionId::CONTEXTUAL_SEARCH_OPEN_LENS:
         return OmniboxEventProto::Suggestion::PEDAL;
       case OmniboxActionId::TAB_SWITCH:
         return OmniboxEventProto::Suggestion::TAB_SWITCH;
@@ -1473,6 +1479,8 @@ AutocompleteMatch::GetOmniboxEventResultType(int action_index) const {
       return OmniboxEventProto::Suggestion::NULL_RESULT_MESSAGE;
     case AutocompleteMatchType::HISTORY_EMBEDDINGS_ANSWER:
       return OmniboxEventProto::Suggestion::HISTORY_EMBEDDINGS_ANSWER;
+    case AutocompleteMatchType::TAB_GROUP:
+      return OmniboxEventProto::Suggestion::TAB_GROUP;
     case AutocompleteMatchType::CONTACT_DEPRECATED:
     case AutocompleteMatchType::PHYSICAL_WEB_DEPRECATED:
     case AutocompleteMatchType::PHYSICAL_WEB_OVERFLOW_DEPRECATED:
@@ -1651,6 +1659,10 @@ bool AutocompleteMatch::IsTrendSuggestion() const {
 
 bool AutocompleteMatch::IsIPHSuggestion() const {
   return iph_type != IphType::kNone;
+}
+
+bool AutocompleteMatch::IsContextualSearchSuggestion() const {
+  return subtypes.contains(omnibox::SuggestSubtype::SUBTYPE_CONTEXTUAL_SEARCH);
 }
 
 void AutocompleteMatch::FilterOmniboxActions(
@@ -1875,6 +1887,19 @@ void AutocompleteMatch::UpgradeMatchWithPropertiesFrom(
         duplicate_match.description_class_for_shortcuts;
     swap_contents_and_description =
         duplicate_match.swap_contents_and_description;
+
+    // Image data should stay in sync with the suggestion text.
+    image_dominant_color = duplicate_match.image_dominant_color;
+    image_url = duplicate_match.image_url;
+    icon_url = duplicate_match.icon_url;
+
+    // Prefer to keep the original `type` for more helpful metric logging.
+    // However, searches and non-searches have different ranking & text display
+    // (see `swap_contents_and_description` and `UpdateKeywordDescriptions()`).
+    // Using text from a search/URL match but displaying the match like a
+    // URL/search could look very broken.
+    if (IsSearchType(type) != IsSearchType(duplicate_match.type))
+      type = duplicate_match.type;
   }
 
   // Copy `rich_autocompletion_triggered` for counterfactual logging.

@@ -199,17 +199,11 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(Profile* profile) {
   source->AddInteger(
       "multipleLoadedModulesMaxModuleInstanceCount",
       ntp_features::GetMultipleLoadedModulesMaxModuleInstanceCount());
-  source->AddBoolean("mostRelevantTabResumptionEnabled",
-                     base::FeatureList::IsEnabled(
-                         ntp_features::kNtpMostRelevantTabResumptionModule));
   source->AddBoolean(
-      "mostRelevantTabResumptionDeviceIconEnabled",
+      "mostRelevantTabResumptionAllowFaviconServerFallback",
       base::FeatureList::IsEnabled(
-          ntp_features::kNtpMostRelevantTabResumptionModuleDeviceIcon));
-  source->AddBoolean(
-      "mostRelevantTabResumptionUseIsKnownToSync",
-      base::FeatureList::IsEnabled(
-          ntp_features::kNtpMostRelevantTabResumptionUseIsKnownToSync));
+          ntp_features::
+              kNtpMostRelevantTabResumptionAllowFaviconServerFallback));
   source->AddBoolean(
       "mostRelevantTabResumptionModuleFallbackToHost",
       base::FeatureList::IsEnabled(
@@ -413,7 +407,8 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(Profile* profile) {
       {"modulesMoreActions", IDS_NTP_MODULES_MORE_ACTIONS},
       {"modulesTabResumptionDismissButton",
        IDS_NTP_MODULES_TAB_RESUMPTION_DISMISS_BUTTON},
-      {"modulesTabResumptionTitle", IDS_NTP_TAB_RESUMPTION_TITLE},
+      {"modulesTabResumptionTitle",
+       IDS_NTP_MODULES_MOST_RELEVANT_TAB_RESUMPTION_TITLE},
       {"modulesTabResumptionInfo", IDS_NTP_MODULES_TAB_RESUMPTION_INFO},
       {"modulesTabResumptionMultiDismiss",
        IDS_NTP_MODULES_TAB_RESUMPTION_MULTI_DISMISS},

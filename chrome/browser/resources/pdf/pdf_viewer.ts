@@ -13,8 +13,10 @@ import './elements/viewer_ink_host.js';
 // </if>
 import './elements/viewer_password_dialog.js';
 // <if expr="enable_pdf_ink2">
+import './elements/ink_text_box.js';
 import './elements/viewer_bottom_toolbar.js';
 import './elements/viewer_side_panel.js';
+import './elements/viewer_text_bottom_toolbar.js';
 import './elements/viewer_text_side_panel.js';
 // </if>
 import './elements/viewer_pdf_sidenav.js';
@@ -146,8 +148,7 @@ const LOCAL_STORAGE_SIDENAV_COLLAPSED_KEY: string = 'sidenavCollapsed';
  * The background color used for the regular viewer.
  */
 // LINT.IfChange(PdfBackgroundColor)
-const BACKGROUND_COLOR: number = 0xff525659;
-const CR23_BACKGROUND_COLOR: number = 0xff282828;
+const BACKGROUND_COLOR: number = 0xff282828;
 // LINT.ThenChange(//components/pdf/common/pdf_util.cc:PdfBackgroundColor)
 
 export interface PdfViewerElement {
@@ -176,7 +177,6 @@ export class PdfViewerElement extends PdfViewerBaseElement {
   static override get properties() {
     return {
       // from PdfViewerBaseElement
-      pdfCr23Enabled: {type: Boolean},
       showErrorDialog: {type: Boolean},
       strings: {type: Object},
 
@@ -192,6 +192,7 @@ export class PdfViewerElement extends PdfViewerBaseElement {
 
       documentMetadata_: {type: Object},
 
+      embedded_: {type: Boolean},
       fileName_: {type: String},
       hadPassword_: {type: Boolean},
       hasEdits_: {type: Boolean},
@@ -230,14 +231,14 @@ export class PdfViewerElement extends PdfViewerBaseElement {
   }
 
   beepCount: number = 0;
-  protected annotationMode_: AnnotationMode = AnnotationMode.NONE;
-  protected attachments_: Attachment[] = [];
-  protected bookmarks_: Bookmark[] = [];
-  private canSerializeDocument_: boolean = false;
-  protected clockwiseRotations_: number = 0;
-  protected docLength_: number = 0;
-  protected documentHasFocus_: boolean = false;
-  protected documentMetadata_: DocumentMetadata = {
+  protected accessor annotationMode_: AnnotationMode = AnnotationMode.OFF;
+  protected accessor attachments_: Attachment[] = [];
+  protected accessor bookmarks_: Bookmark[] = [];
+  private accessor canSerializeDocument_: boolean = false;
+  protected accessor clockwiseRotations_: number = 0;
+  protected accessor docLength_: number = 0;
+  protected accessor documentHasFocus_: boolean = false;
+  protected accessor documentMetadata_: DocumentMetadata = {
     author: '',
     canSerializeDocument: false,
     creationDate: '',
@@ -252,33 +253,34 @@ export class PdfViewerElement extends PdfViewerBaseElement {
     title: '',
     version: '',
   };
-  protected embedded_: boolean = false;
-  protected fileName_: string = '';
-  private hadPassword_: boolean = false;
-  protected hasEdits_: boolean = false;
-  protected hasEnteredAnnotationMode_: boolean = false;
+  protected accessor embedded_: boolean = false;
+  protected accessor fileName_: string = '';
+  private accessor hadPassword_: boolean = false;
+  protected accessor hasEdits_: boolean = false;
+  protected accessor hasEnteredAnnotationMode_: boolean = false;
   // <if expr="enable_pdf_ink2">
-  protected hasInk2Edits_: boolean = false;
+  protected accessor hasInk2Edits_: boolean = false;
   private hasSavedEdits_: boolean = false;
   // </if>
-  protected formFieldFocus_: FormFieldFocusType = FormFieldFocusType.NONE;
-  protected loadProgress_: number = 0;
+  protected accessor formFieldFocus_: FormFieldFocusType =
+      FormFieldFocusType.NONE;
+  protected accessor loadProgress_: number = 0;
   private navigator_: PdfNavigator|null = null;
-  protected pageNo_: number = 0;
+  protected accessor pageNo_: number = 0;
   // <if expr="enable_pdf_ink2">
-  protected pdfInk2Enabled_: boolean = false;
+  protected accessor pdfInk2Enabled_: boolean = false;
   // </if>
-  private pdfUseShowSaveFilePicker_: boolean = false;
+  private accessor pdfUseShowSaveFilePicker_: boolean = false;
   private pluginController_: PluginController = PluginController.getInstance();
   // <if expr="enable_pdf_ink2">
-  private restoreAnnotationMode_: AnnotationMode = AnnotationMode.NONE;
+  private restoreAnnotationMode_: AnnotationMode = AnnotationMode.OFF;
   // </if>
   // <if expr="enable_ink or enable_pdf_ink2">
   private showBeforeUnloadDialog_: boolean = false;
   // </if>
-  protected showPasswordDialog_: boolean = false;
-  protected showPropertiesDialog_: boolean = false;
-  protected sidenavCollapsed_: boolean;
+  protected accessor showPasswordDialog_: boolean = false;
+  protected accessor showPropertiesDialog_: boolean = false;
+  protected accessor sidenavCollapsed_: boolean;
 
   // <if expr="enable_ink">
   /**
@@ -288,14 +290,14 @@ export class PdfViewerElement extends PdfViewerBaseElement {
   private sidenavRestoreState_: boolean = false;
   // </if>
 
-  protected title_: string = '';
+  protected accessor title_: string = '';
   protected toolbarEnabled_: boolean = false;
-  protected twoUpViewEnabled_: boolean = false;
+  protected accessor twoUpViewEnabled_: boolean = false;
   // <if expr="enable_pdf_ink2">
-  private useSidePanelForInk_: boolean = false;
+  private accessor useSidePanelForInk_: boolean = false;
   // </if>
-  protected viewportZoom_: number = 1;
-  protected zoomBounds_: ZoomBounds = {min: 0, max: 0};
+  protected accessor viewportZoom_: number = 1;
+  protected accessor zoomBounds_: ZoomBounds = {min: 0, max: 0};
   private hasSearchifyText_: boolean = false;
 
   // <if expr="enable_ink">
@@ -311,6 +313,20 @@ export class PdfViewerElement extends PdfViewerBaseElement {
             LOCAL_STORAGE_SIDENAV_COLLAPSED_KEY)!,
         10));
   }
+
+  // <if expr="enable_pdf_ink2">
+  override willUpdate(changedProperties: PropertyValues<this>) {
+    super.willUpdate(changedProperties);
+
+    const changedPrivateProperties =
+        changedProperties as Map<PropertyKey, unknown>;
+    if (changedPrivateProperties.has('pdfInk2Enabled_') &&
+        this.pdfInk2Enabled_) {
+      // Set the viewport when PdfInk2 is enabled, if this happens after init().
+      Ink2Manager.getInstance().setViewport(this.viewport);
+    }
+  }
+  // </if>
 
   override updated(changedProperties: PropertyValues<this>) {
     super.updated(changedProperties);
@@ -331,7 +347,7 @@ export class PdfViewerElement extends PdfViewerBaseElement {
       this.useSidePanelForInk_ = mediaQuery.matches;
       // If we are in DRAW or TEXT annotation mode, record opening the
       // UI that's opened by making the window narrower/wider.
-      if (this.annotationMode_ !== AnnotationMode.NONE) {
+      if (this.annotationMode_ !== AnnotationMode.OFF) {
         record(
             this.useSidePanelForInk_ ? UserAction.OPEN_INK2_SIDE_PANEL :
                                        UserAction.OPEN_INK2_BOTTOM_TOOLBAR);
@@ -347,7 +363,7 @@ export class PdfViewerElement extends PdfViewerBaseElement {
   // </if> enable_ink or enable_pdf_ink2
 
   getBackgroundColor(): number {
-    return this.pdfCr23Enabled ? CR23_BACKGROUND_COLOR : BACKGROUND_COLOR;
+    return BACKGROUND_COLOR;
   }
 
   setPluginSrc(plugin: HTMLEmbedElement) {
@@ -542,7 +558,7 @@ export class PdfViewerElement extends PdfViewerBaseElement {
       case AnnotationMode.TEXT:
         record(UserAction.EXIT_INK2_TEXT_ANNOTATION_MODE);
         break;
-      case AnnotationMode.NONE:
+      case AnnotationMode.OFF:
         break;
       default:
         assertNotReached();
@@ -556,7 +572,7 @@ export class PdfViewerElement extends PdfViewerBaseElement {
       case AnnotationMode.TEXT:
         record(UserAction.ENTER_INK2_TEXT_ANNOTATION_MODE);
         break;
-      case AnnotationMode.NONE:
+      case AnnotationMode.OFF:
         break;
       default:
         assertNotReached();
@@ -574,16 +590,15 @@ export class PdfViewerElement extends PdfViewerBaseElement {
 
     // <if expr="enable_pdf_ink2">
     if (this.pdfInk2Enabled_) {
-      if (this.annotationMode_ === AnnotationMode.NONE) {
+      if (this.annotationMode_ === AnnotationMode.OFF) {
         record(
             this.useSidePanelForInk_ ? UserAction.OPEN_INK2_SIDE_PANEL :
                                        UserAction.OPEN_INK2_BOTTOM_TOOLBAR);
       }
-      if (this.restoreAnnotationMode_ === AnnotationMode.NONE) {
+      if (this.restoreAnnotationMode_ === AnnotationMode.OFF) {
         this.recordEnterExitAnnotationModeMetrics_(newAnnotationMode);
       }
-      this.pluginController_.setAnnotationMode(
-          newAnnotationMode !== AnnotationMode.NONE);
+      this.pluginController_.setAnnotationMode(newAnnotationMode);
       if (newAnnotationMode === AnnotationMode.DRAW &&
           !Ink2Manager.getInstance().isInitializationStarted()) {
         await Ink2Manager.getInstance().initializeBrush();
@@ -631,7 +646,7 @@ export class PdfViewerElement extends PdfViewerBaseElement {
       assert(this.currentController === this.inkController_);
       // TODO(dstockwell): set ink read-only, begin transition
       this.updateProgress(0);
-      this.annotationMode_ = AnnotationMode.NONE;
+      this.annotationMode_ = AnnotationMode.OFF;
       // This runs separately to allow other consumers of `loaded` to queue
       // up after this task.
       this.loaded!.then(() => {
@@ -651,11 +666,11 @@ export class PdfViewerElement extends PdfViewerBaseElement {
   // <if expr="enable_ink">
   /** Exits annotation mode if active. */
   private async exitAnnotationMode_(): Promise<void> {
-    if (this.$.toolbar.annotationMode === AnnotationMode.NONE) {
+    if (this.$.toolbar.annotationMode === AnnotationMode.OFF) {
       return;
     }
-    this.$.toolbar.setAnnotationMode(AnnotationMode.NONE);
-    this.annotationMode_ = AnnotationMode.NONE;
+    this.$.toolbar.setAnnotationMode(AnnotationMode.OFF);
+    this.annotationMode_ = AnnotationMode.OFF;
     await this.restoreSidenav_();
     await this.loaded;
   }
@@ -669,11 +684,11 @@ export class PdfViewerElement extends PdfViewerBaseElement {
   private async enterPresentationMode_(): Promise<void> {
     // <if expr="enable_pdf_ink2">
     // Exit annotation mode if it was enabled.
-    if (this.pdfInk2Enabled_ && this.annotationMode_ !== AnnotationMode.NONE) {
+    if (this.pdfInk2Enabled_ && this.annotationMode_ !== AnnotationMode.OFF) {
       this.restoreAnnotationMode_ = this.annotationMode_;
-      this.$.toolbar.setAnnotationMode(AnnotationMode.NONE);
+      this.$.toolbar.setAnnotationMode(AnnotationMode.OFF);
     }
-    assert(this.annotationMode_ === AnnotationMode.NONE);
+    assert(this.annotationMode_ === AnnotationMode.OFF);
     // </if>
 
     const scroller = this.$.scroller;
@@ -713,10 +728,10 @@ export class PdfViewerElement extends PdfViewerBaseElement {
     // <if expr="enable_pdf_ink2">
     // Enter annotation mode again if it was enabled before entering
     // Presentation mode.
-    if (this.restoreAnnotationMode_ !== AnnotationMode.NONE) {
+    if (this.restoreAnnotationMode_ !== AnnotationMode.OFF) {
       this.$.toolbar.setAnnotationMode(this.restoreAnnotationMode_);
-      assert(this.annotationMode_ !== AnnotationMode.NONE);
-      this.restoreAnnotationMode_ = AnnotationMode.NONE;
+      assert(this.annotationMode_ !== AnnotationMode.OFF);
+      this.restoreAnnotationMode_ = AnnotationMode.OFF;
     }
     // </if>
   }
@@ -844,6 +859,19 @@ export class PdfViewerElement extends PdfViewerBaseElement {
 
     assert(this.currentController);
     this.currentController.viewportChanged();
+    // <if expr="enable_pdf_ink2">
+    if (this.pdfInk2Enabled_) {
+      const hasScrollbars = this.viewport.documentHasScrollbars();
+      const scrollbarWidthStyle = `${this.viewport.scrollbarWidth}px`;
+      this.style.setProperty(
+          '--vertical-scrollbar-width',
+          hasScrollbars.vertical ? scrollbarWidthStyle : '0px');
+      this.style.setProperty(
+          '--horizontal-scrollbar-width',
+          hasScrollbars.horizontal ? scrollbarWidthStyle : '0px');
+      Ink2Manager.getInstance().viewportChanged();
+    }
+    // </if>
   }
 
   override handleStrings(strings: LoadTimeDataRaw) {
@@ -1014,6 +1042,9 @@ export class PdfViewerElement extends PdfViewerBaseElement {
             new CustomEvent<Ink2ThumbnailData>(
                 PluginControllerEventType.UPDATE_INK_THUMBNAIL,
                 {detail: thumbnailData}));
+        return;
+      case 'updateTextAnnotTextBoxRect':
+        // Handled by Ink2Manager.
         return;
         // </if>
     }
@@ -1317,7 +1348,7 @@ export class PdfViewerElement extends PdfViewerBaseElement {
     // For Ink, request type original in annotation mode --> need to exit
     // annotation mode before saving. See https://crbug.com/919364.
     let shouldExitAnnotationMode =
-        this.annotationMode_ !== AnnotationMode.NONE &&
+        this.annotationMode_ !== AnnotationMode.OFF &&
         requestType === SaveRequestType.ORIGINAL;
 
     // Ink2 overrides Ink, and Ink2 does not need to exit annotation mode.
@@ -1329,7 +1360,7 @@ export class PdfViewerElement extends PdfViewerBaseElement {
 
     if (shouldExitAnnotationMode) {
       await this.exitAnnotationMode_();
-      assert(this.annotationMode_ === AnnotationMode.NONE);
+      assert(this.annotationMode_ === AnnotationMode.OFF);
     }
     // </if> enable_ink
 
@@ -1486,6 +1517,10 @@ export class PdfViewerElement extends PdfViewerBaseElement {
   }
 
   // <if expr="enable_pdf_ink2">
+  protected isInTextAnnotationMode_(): boolean {
+    return this.annotationMode_ === AnnotationMode.TEXT;
+  }
+
   /**
    * @return Whether the Ink bottom toolbar should be shown. It should never be
    *     shown if the Ink side panel is shown.
@@ -1507,7 +1542,7 @@ export class PdfViewerElement extends PdfViewerBaseElement {
    * @returns Whether the PDF viewer has Ink2 enabled and is in annotation mode.
    */
   private inInk2AnnotationMode_(): boolean {
-    return this.pdfInk2Enabled_ && this.annotationMode_ !== AnnotationMode.NONE;
+    return this.pdfInk2Enabled_ && this.annotationMode_ !== AnnotationMode.OFF;
   }
   // </if>
 

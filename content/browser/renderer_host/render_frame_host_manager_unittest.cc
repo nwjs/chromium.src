@@ -526,7 +526,9 @@ class RenderFrameHostManagerTest
         entry->ConstructCommonNavigationParams(
             *frame_entry, request_body, frame_entry->url(),
             blink::mojom::Referrer::New(referrer.url, referrer.policy),
-            navigate_type, base::TimeTicks::Now(), base::TimeTicks::Now());
+            navigate_type, base::TimeTicks::Now() /* actual_navigation_start */,
+            base::TimeTicks::Now() /* navigation_start */,
+            base::TimeTicks::Now() /* input_start */);
     blink::mojom::CommitNavigationParamsPtr commit_params =
         entry->ConstructCommitNavigationParams(
             *frame_entry, common_params->url, common_params->method,
@@ -836,6 +838,13 @@ TEST_P(RenderFrameHostManagerTest, ActiveFrameCountWhileSwappingInAndOut) {
 
     // There are two active views on google.com now.
     EXPECT_EQ(instance1->group()->active_frame_count(), 2U);
+  } else if (ShouldUseDefaultSiteInstanceGroup()) {
+    // If default SiteInstanceGroups are used, the SiteInstances should be
+    // different, but active frame count is per group, so the active frame count
+    // is the same as that of default SiteInstance.
+    EXPECT_EQ(instance1->group()->active_frame_count(), 3U);
+    EXPECT_EQ(instance1->group(), instance2->group());
+    EXPECT_NE(instance1, instance2);
   } else {
     EXPECT_TRUE(instance1->IsDefaultSiteInstance());
     EXPECT_EQ(instance1->group()->active_frame_count(), 3U);
@@ -1346,7 +1355,7 @@ TEST_P(RenderFrameHostManagerTest, CreateProxiesForOpeners) {
   scoped_refptr<SiteInstanceImpl> site_instance1 = rfh1->GetSiteInstance();
   RenderFrameDeletedObserver rfh1_deleted_observer(rfh1);
   TestRenderViewHost* rvh1 = test_rvh();
-  EXPECT_EQ(!AreAllSitesIsolatedForTesting(),
+  EXPECT_EQ(!AreStrictSiteInstancesEnabled(),
             site_instance1->IsDefaultSiteInstance());
 
   // Create 2 new tabs and simulate them being the opener chain for the main
@@ -1420,7 +1429,7 @@ TEST_P(RenderFrameHostManagerTest, DisownOpener) {
   contents()->NavigateAndCommit(kUrl1);
   TestRenderFrameHost* rfh1 = main_test_rfh();
   scoped_refptr<SiteInstanceImpl> site_instance1 = rfh1->GetSiteInstance();
-  EXPECT_EQ(!AreAllSitesIsolatedForTesting(),
+  EXPECT_EQ(!AreStrictSiteInstancesEnabled(),
             site_instance1->IsDefaultSiteInstance());
 
   // Create a new tab and simulate having it be the opener for the main tab.
@@ -1473,7 +1482,7 @@ TEST_P(RenderFrameHostManagerTest, DisownOpenerDuringNavigation) {
   contents()->NavigateAndCommit(kUrl1);
   scoped_refptr<SiteInstanceImpl> site_instance1 =
       main_test_rfh()->GetSiteInstance();
-  EXPECT_EQ(!AreAllSitesIsolatedForTesting(),
+  EXPECT_EQ(!AreStrictSiteInstancesEnabled(),
             site_instance1->IsDefaultSiteInstance());
 
   // Create a new tab and simulate having it be the opener for the main tab.
@@ -1518,7 +1527,7 @@ TEST_P(RenderFrameHostManagerTest, DisownOpenerAfterNavigation) {
   contents()->NavigateAndCommit(kUrl1);
   scoped_refptr<SiteInstanceImpl> site_instance1 =
       main_test_rfh()->GetSiteInstance();
-  EXPECT_EQ(!AreAllSitesIsolatedForTesting(),
+  EXPECT_EQ(!AreStrictSiteInstancesEnabled(),
             site_instance1->IsDefaultSiteInstance());
 
   // Create a new tab and simulate having it be the opener for the main tab.
@@ -1664,7 +1673,7 @@ TEST_P(RenderFrameHostManagerTest, GuestNavigations) {
   EXPECT_NE(host, initial_host);
   // This test may run without strict site isolation, e.g. on Android.  In
   // that case, the navigation will end up in a default SiteInstance.
-  if (AreAllSitesIsolatedForTesting()) {
+  if (AreStrictSiteInstancesEnabled()) {
     EXPECT_EQ("http://google.com/",
               first_instance->GetSiteInfo().site_url().spec());
   } else {
@@ -1696,7 +1705,7 @@ TEST_P(RenderFrameHostManagerTest, GuestNavigations) {
 
   // The first RenderFrameHost will be reused only when there's no site
   // isolation between the two sites.
-  if (AreAllSitesIsolatedForTesting()) {
+  if (AreStrictSiteInstancesEnabled()) {
     EXPECT_NE(host, manager->current_frame_host());
     EXPECT_TRUE(manager->speculative_frame_host());
   } else {
@@ -1710,7 +1719,7 @@ TEST_P(RenderFrameHostManagerTest, GuestNavigations) {
   ASSERT_TRUE(host);
   EXPECT_TRUE(host->GetSiteInstance()->IsGuest());
 
-  if (AreAllSitesIsolatedForTesting()) {
+  if (AreStrictSiteInstancesEnabled()) {
     EXPECT_NE(host->GetSiteInstance(), first_instance);
     EXPECT_EQ("http://chromium.org/",
               host->GetSiteInstance()->GetSiteInfo().site_url().spec());
@@ -2541,7 +2550,7 @@ TEST_P(RenderFrameHostManagerTest, CreateOpenerProxiesWithCycleOnOpenerChain) {
   contents()->NavigateAndCommit(kUrl1);
   TestRenderFrameHost* rfh1 = main_test_rfh();
   scoped_refptr<SiteInstanceImpl> site_instance1 = rfh1->GetSiteInstance();
-  EXPECT_EQ(!AreAllSitesIsolatedForTesting(),
+  EXPECT_EQ(!AreStrictSiteInstancesEnabled(),
             site_instance1->IsDefaultSiteInstance());
 
   // Create 2 new tabs and construct the opener chain as follows:
@@ -2611,7 +2620,7 @@ TEST_P(RenderFrameHostManagerTest, CreateOpenerProxiesWhenOpenerPointsToSelf) {
   contents()->NavigateAndCommit(kUrl1);
   TestRenderFrameHost* rfh1 = main_test_rfh();
   scoped_refptr<SiteInstanceImpl> site_instance1 = rfh1->GetSiteInstance();
-  EXPECT_EQ(!AreAllSitesIsolatedForTesting(),
+  EXPECT_EQ(!AreStrictSiteInstancesEnabled(),
             site_instance1->IsDefaultSiteInstance());
 
   // Create an opener tab, and simulate that its opener points to itself.
@@ -3430,7 +3439,9 @@ TEST_P(RenderFrameHostManagerTest, NavigateFromDeadRendererToWebUI) {
           *frame_entry, nullptr, frame_entry->url(),
           blink::mojom::Referrer::New(referrer.url, referrer.policy),
           blink::mojom::NavigationType::DIFFERENT_DOCUMENT,
-          base::TimeTicks::Now(), base::TimeTicks::Now());
+          base::TimeTicks::Now() /* actual_navigation_start */,
+          base::TimeTicks::Now() /* navigation_start */,
+          base::TimeTicks::Now() /* input_start */);
   blink::mojom::CommitNavigationParamsPtr commit_params =
       entry.ConstructCommitNavigationParams(
           *frame_entry, common_params->url, common_params->method,
@@ -3915,7 +3926,7 @@ TEST_P(RenderFrameHostManagerTest,
       main_test_rfh()->GetSiteInstance();
   SiteInfo foo_site_info = SiteInfo::CreateForTesting(
       initial_instance->GetIsolationContext(), kFooUrl);
-  if (AreAllSitesIsolatedForTesting()) {
+  if (AreStrictSiteInstancesEnabled()) {
     EXPECT_FALSE(initial_instance->IsDefaultSiteInstance());
     EXPECT_EQ(kFooUrl, initial_instance->original_url());
     EXPECT_EQ(foo_site_info, initial_instance->GetSiteInfo());

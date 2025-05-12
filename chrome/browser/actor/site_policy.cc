@@ -14,9 +14,15 @@
 #include "base/notimplemented.h"
 #include "base/strings/string_split.h"
 #include "base/task/sequenced_task_runner.h"
+#include "base/types/cxx23_to_underlying.h"
 #include "chrome/browser/actor/actor_features.h"
+#include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
+#include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
+#include "chrome/browser/profiles/profile.h"
+#include "components/optimization_guide/core/optimization_guide_decision.h"
+#include "components/optimization_guide/proto/hints.pb.h"
 #include "components/safe_browsing/buildflags.h"
-#include "components/tab_collections/public/tab_interface.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
 #include "net/base/url_util.h"
 #include "url/gurl.h"
@@ -33,6 +39,8 @@ namespace {
 void ResolveDecision(DecisionCallback callback, bool decision) {
   // Some decisions are made asynchronously, so always invoke the callback
   // asynchronously for consistency.
+  VLOG(1) << __func__ << ": Decided to " << (decision ? "allow" : "block")
+          << " for actions";
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE, base::BindOnce(std::move(callback), decision));
 }
@@ -56,13 +64,27 @@ bool IsHostInAllowList(const std::vector<std::string_view>& allowlist,
   return false;
 }
 
-void MayActOnUrl(const GURL& url, DecisionCallback callback) {
-  if (net::IsLocalhost(url)) {
+void OnOptimizationGuideDecision(
+    DecisionCallback callback,
+    optimization_guide::OptimizationGuideDecision decision,
+    const optimization_guide::OptimizationMetadata& metadata) {
+  VLOG(1) << __func__ << ": OptimizationGuideDecision is "
+          << base::to_underlying(decision);
+  ResolveDecision(
+      std::move(callback),
+      decision == optimization_guide::OptimizationGuideDecision::kTrue);
+}
+
+void MayActOnUrl(const GURL& url, Profile* profile, DecisionCallback callback) {
+  VLOG(1) << __func__ << ": Considering for eligibility \"" << url.spec()
+          << "\"";
+  if (net::IsLocalhost(url) || url.IsAboutBlank()) {
     ResolveDecision(std::move(callback), true);
     return;
   }
 
   if (!url.SchemeIs(url::kHttpsScheme) || url.HostIsIPAddress()) {
+    VLOG(1) << __func__ << ": Wrong scheme";
     ResolveDecision(std::move(callback), false);
     return;
   }
@@ -88,24 +110,44 @@ void MayActOnUrl(const GURL& url, DecisionCallback callback) {
     }
 
     if (kAllowlistOnly.Get()) {
+      VLOG(1) << __func__ << ": URL not in allowlist";
       ResolveDecision(std::move(callback), false);
       return;
     }
   }
 
-  // TODO(mcnee): Implement blocklist.
-  NOTIMPLEMENTED();
+  if (auto* optimization_guide_decider =
+          OptimizationGuideKeyedServiceFactory::GetForProfile(profile);
+      optimization_guide_decider &&
+      base::FeatureList::IsEnabled(kGlicActionUseOptimizationGuide)) {
+    optimization_guide_decider->CanApplyOptimization(
+        url, optimization_guide::proto::GLIC_ACTION_PAGE_BLOCK,
+        base::BindOnce(&OnOptimizationGuideDecision, std::move(callback)));
+    return;
+  }
 
-  ResolveDecision(std::move(callback), true);
+  // Fail closed.
+  ResolveDecision(std::move(callback), false);
 }
 
 }  // namespace
 
+void InitActionBlocklist(Profile* profile) {
+  if (auto* optimization_guide_decider =
+          OptimizationGuideKeyedServiceFactory::GetForProfile(profile);
+      optimization_guide_decider &&
+      base::FeatureList::IsEnabled(kGlicActionUseOptimizationGuide)) {
+    optimization_guide_decider->RegisterOptimizationTypes(
+        {optimization_guide::proto::GLIC_ACTION_PAGE_BLOCK});
+  }
+}
+
 // TODO(mcnee): Add UMA for the outcomes.
 void MayActOnTab(const tabs::TabInterface& tab, DecisionCallback callback) {
-  const content::WebContents& web_contents = *tab.GetContents();
+  content::WebContents& web_contents = *tab.GetContents();
 
   if (web_contents.GetPrimaryMainFrame()->IsErrorDocument()) {
+    VLOG(1) << __func__ << ": Tab is an error document";
     ResolveDecision(std::move(callback), false);
     return;
   }
@@ -117,13 +159,16 @@ void MayActOnTab(const tabs::TabInterface& tab, DecisionCallback callback) {
   // Do not act on such a page.
   if (safe_browsing::SafeBrowsingUserInteractionObserver::FromWebContents(
           &web_contents)) {
+    VLOG(1) << __func__ << ": Blocked by safebrowsing";
     ResolveDecision(std::move(callback), false);
     return;
   }
 #endif
 
   const GURL& url = web_contents.GetPrimaryMainFrame()->GetLastCommittedURL();
-  MayActOnUrl(url, std::move(callback));
+  MayActOnUrl(url,
+              Profile::FromBrowserContext(web_contents.GetBrowserContext()),
+              std::move(callback));
 }
 
 }  // namespace actor

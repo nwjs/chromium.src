@@ -1396,8 +1396,10 @@ void AutofillMetrics::LogImageFetchResult(bool succeeded) {
 }
 
 // static
-void AutofillMetrics::LogImageFetcherRequestLatency(base::TimeDelta duration) {
-  base::UmaHistogramLongTimes("Autofill.ImageFetcher.RequestLatency", duration);
+void AutofillMetrics::LogImageFetchOverallResult(bool succeeded) {
+  base::UmaHistogramBoolean(
+      "Autofill.ImageFetcher.CreditCardArt.OverallResultOnBrowserStart",
+      succeeded);
 }
 
 // static

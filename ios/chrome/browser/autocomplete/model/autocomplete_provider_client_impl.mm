@@ -19,6 +19,7 @@
 #import "components/omnibox/browser/shortcuts_backend.h"
 #import "components/omnibox/common/omnibox_features.h"
 #import "components/prefs/pref_service.h"
+#import "components/saved_tab_groups/public/tab_group_sync_service.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
 #import "components/sync/service/sync_service.h"
 #import "components/unified_consent/url_keyed_data_collection_consent_helper.h"
@@ -187,6 +188,13 @@ ProviderStateService* AutocompleteProviderClientImpl::GetProviderStateService()
   return ios::ProviderStateServiceFactory::GetForProfile(profile_);
 }
 
+base::CallbackListSubscription
+AutocompleteProviderClientImpl::GetLensSuggestInputsWhenReady(
+    LensOverlaySuggestInputsCallback callback) const {
+  NOTREACHED()
+      << "GetLensSuggestInputsWhenReady is not implemented by default.";
+}
+
 std::string AutocompleteProviderClientImpl::GetAcceptLanguages() const {
   return profile_->GetPrefs()->GetString(language::prefs::kAcceptLanguages);
 }
@@ -222,6 +230,11 @@ AutocompleteProviderClientImpl::GetComponentUpdateService() {
 signin::IdentityManager* AutocompleteProviderClientImpl::GetIdentityManager()
     const {
   return IdentityManagerFactory::GetForProfile(profile_);
+}
+
+tab_groups::TabGroupSyncService*
+AutocompleteProviderClientImpl::GetTabGroupSyncService() const {
+  return nullptr;
 }
 
 bool AutocompleteProviderClientImpl::IsOffTheRecord() const {

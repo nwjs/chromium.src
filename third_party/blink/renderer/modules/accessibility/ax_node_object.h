@@ -150,7 +150,6 @@ class MODULES_EXPORT AXNodeObject : public AXObject {
   bool IsSelectedFromFocusSupported() const override;
   bool IsSelectedFromFocus() const override;
   bool IsNotUserSelectable() const override;
-  bool ComputeIsOffScreen() const override;
   bool IsRequired() const final;
   bool IsControl() const override;
   AXRestriction Restriction() const override;
@@ -279,6 +278,9 @@ class MODULES_EXPORT AXNodeObject : public AXObject {
   // Add a child that must be included in tree, enforced via DCHECK.
   void AddChildAndCheckIncluded(AXObject*, bool is_from_aria_owns = false);
   // If node is non-null, GetOrCreate an AXObject for it and add as a child.
+  // This includes expanding the given node if the structure needs to be
+  // unpacked. For example, scrollers and their nested scroll-marker-groups
+  // become siblings.
   void AddNodeChild(Node*);
   // Set is_from_aria_owns to true if the child is being insert because it was
   // pointed to from aria-owns.
@@ -402,6 +404,7 @@ class MODULES_EXPORT AXNodeObject : public AXObject {
   bool UseNameFromSelectedOption() const;
   virtual bool IsTabItemSelected() const;
 
+  void AddNodeChildImpl(Node*);
   void AddChildrenImpl();
   void AddNodeChildren();
   void AddPseudoElementChildrenFromLayoutTree();

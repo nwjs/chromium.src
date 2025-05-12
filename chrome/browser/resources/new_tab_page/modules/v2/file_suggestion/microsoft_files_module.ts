@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 import '../../info_dialog.js';
-import '../../module_header.js';
+import '../module_header.js';
 import './file_suggestion.js';
 
 import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
@@ -50,8 +50,8 @@ export class MicrosoftFilesModuleElement extends
     };
   }
 
-  protected files_: File[] = [];
-  protected showInfoDialog_: boolean = false;
+  protected accessor files_: File[] = [];
+  protected accessor showInfoDialog_: boolean = false;
 
   private handler_: MicrosoftFilesPageHandlerRemote;
 

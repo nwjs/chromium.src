@@ -8,15 +8,18 @@
 #include <utility>
 
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/extensions/api/management/chrome_management_api_delegate.h"
+#include "chrome/browser/extensions/chrome_extension_system_factory.h"
+#include "chrome/browser/extensions/chrome_extension_web_contents_observer.h"
 #include "chrome/browser/extensions/chrome_extensions_browser_api_provider.h"
 #include "chrome/browser/extensions/desktop_android/desktop_android_extension_host_delegate.h"
-#include "chrome/browser/extensions/desktop_android/desktop_android_extension_system.h"
-#include "chrome/browser/extensions/desktop_android/desktop_android_extension_web_contents_observer.h"
 #include "chrome/browser/extensions/desktop_android/desktop_android_runtime_api_delegate.h"
 #include "chrome/browser/extensions/error_console/error_console.h"
+#include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_selections.h"
+#include "components/update_client/update_client.h"
 #include "components/version_info/version_info.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_task_traits.h"
@@ -71,6 +74,11 @@ class DesktopAndroidExtensionsAPIClient : public ExtensionsAPIClient {
       messaging_delegate_ = std::make_unique<MessagingDelegate>();
     }
     return messaging_delegate_.get();
+  }
+
+  ManagementAPIDelegate* CreateManagementAPIDelegate() const override {
+    // `ManagementAPI` owns the object.
+    return new ChromeManagementAPIDelegate;
   }
 
  private:
@@ -275,7 +283,7 @@ bool DesktopAndroidExtensionsBrowserClient::IsLoggedInAsPublicAccount() {
 
 ExtensionSystemProvider*
 DesktopAndroidExtensionsBrowserClient::GetExtensionSystemFactory() {
-  return DesktopAndroidExtensionSystem::GetFactory();
+  return ChromeExtensionSystemFactory::GetInstance();
 }
 
 void DesktopAndroidExtensionsBrowserClient::
@@ -289,7 +297,7 @@ void DesktopAndroidExtensionsBrowserClient::
 std::unique_ptr<RuntimeAPIDelegate>
 DesktopAndroidExtensionsBrowserClient::CreateRuntimeAPIDelegate(
     content::BrowserContext* context) const {
-  return std::make_unique<DesktopAndroidRuntimeApiDelegate>();
+  return std::make_unique<DesktopAndroidRuntimeApiDelegate>(context);
 }
 
 const ComponentExtensionResourceManager*
@@ -325,15 +333,19 @@ void DesktopAndroidExtensionsBrowserClient::ReportError(
 
 void DesktopAndroidExtensionsBrowserClient::CreateExtensionWebContentsObserver(
     content::WebContents* web_contents) {
-  DesktopAndroidExtensionWebContentsObserver::CreateForWebContents(
-      web_contents);
+  ChromeExtensionWebContentsObserver::CreateForWebContents(web_contents);
 }
 
 ExtensionWebContentsObserver*
 DesktopAndroidExtensionsBrowserClient::GetExtensionWebContentsObserver(
     content::WebContents* web_contents) {
-  return DesktopAndroidExtensionWebContentsObserver::FromWebContents(
-      web_contents);
+  return ChromeExtensionWebContentsObserver::FromWebContents(web_contents);
+}
+
+scoped_refptr<update_client::UpdateClient>
+DesktopAndroidExtensionsBrowserClient::CreateUpdateClient(
+    content::BrowserContext* context) {
+  return util::CreateUpdateClient(context);
 }
 
 KioskDelegate* DesktopAndroidExtensionsBrowserClient::GetKioskDelegate() {

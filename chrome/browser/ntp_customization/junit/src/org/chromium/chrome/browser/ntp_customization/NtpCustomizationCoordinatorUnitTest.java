@@ -17,7 +17,6 @@ import android.view.View;
 import android.widget.ViewFlipper;
 
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.filters.SmallTest;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -27,6 +26,7 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
+import org.chromium.base.supplier.Supplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.ntp_customization.ntp_cards.NtpCardsCoordinator;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
@@ -48,20 +48,19 @@ public class NtpCustomizationCoordinatorUnitTest {
     public void setUp() {
         mContext = ApplicationProvider.getApplicationContext();
         mNtpCustomizationCoordinator =
-                new NtpCustomizationCoordinator(mContext, mBottomSheetController);
+                new NtpCustomizationCoordinator(
+                        mContext, mBottomSheetController, mock(Supplier.class));
         mNtpCustomizationCoordinator.setViewFlipperForTesting(mViewFlipper);
         mNtpCustomizationCoordinator.setMediatorForTesting(mMediator);
     }
 
     @Test
-    @SmallTest
     public void testShowBottomSheet() {
         mNtpCustomizationCoordinator.showBottomSheet();
         verify(mMediator).showBottomSheet(eq(MAIN));
     }
 
     @Test
-    @SmallTest
     public void testBottomSheetDelegateImplementation() {
         BottomSheetDelegate delegate =
                 mNtpCustomizationCoordinator.getBottomSheetDelegateForTesting();
@@ -76,7 +75,6 @@ public class NtpCustomizationCoordinatorUnitTest {
     }
 
     @Test
-    @SmallTest
     public void testGetOptionClickListener() {
         View.OnClickListener listener =
                 mNtpCustomizationCoordinator.getOptionClickListener(NTP_CARDS);
@@ -87,7 +85,6 @@ public class NtpCustomizationCoordinatorUnitTest {
     }
 
     @Test
-    @SmallTest
     public void testDestroy() {
         NtpCardsCoordinator ntpCardsCoordinator = mock(NtpCardsCoordinator.class);
         mNtpCustomizationCoordinator.setNtpCardsCoordinatorForTesting(ntpCardsCoordinator);

@@ -153,7 +153,7 @@ struct ClientResourceProvider::ImportedResource {
         returned_sync_token(resource.sync_token()),
         evicted_callback(std::move(evicted_callback)) {
     // We should never have no ReleaseCallback.
-    DCHECK(this->impl_release_callback || this->main_thread_release_callback);
+    CHECK(this->impl_release_callback || this->main_thread_release_callback);
     // Replace the |resource| id with the local id from this
     // ClientResourceProvider.
     this->resource.id = id;
@@ -204,7 +204,8 @@ ClientResourceProvider::ClientResourceProvider() {
 ClientResourceProvider::ClientResourceProvider(
     scoped_refptr<base::SequencedTaskRunner> main_task_runner,
     scoped_refptr<base::SequencedTaskRunner> impl_task_runner,
-    ResourceFlushCallback resource_flush_callback)
+    ResourceFlushCallback resource_flush_callback,
+    bool use_imported_resource_id)
     : main_task_runner_(main_task_runner),
       impl_task_runner_(impl_task_runner),
       resource_flush_callback_(std::move(resource_flush_callback)),
@@ -212,7 +213,8 @@ ClientResourceProvider::ClientResourceProvider(
           base::FeatureList::IsEnabled(
               features::kBatchMainThreadReleaseCallbacks) &&
           main_task_runner_ && impl_task_runner_ &&
-          main_task_runner_ != impl_task_runner_ && resource_flush_callback_) {}
+          main_task_runner_ != impl_task_runner_ && resource_flush_callback_),
+      use_imported_resource_id_(use_imported_resource_id) {}
 
 ClientResourceProvider::~ClientResourceProvider() {
   // If this fails, there are outstanding resources exported that should be
@@ -436,7 +438,16 @@ ResourceId ClientResourceProvider::ImportResource(
     ReleaseCallback main_thread_release_callback,
     ResourceEvictedCallback evicted_callback) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  ResourceId id = id_generator_.GenerateNextId();
+
+  // Clients are not allowed to import any empty resource.
+  CHECK(!resource.is_empty());
+  ResourceId id;
+  if (use_imported_resource_id_) {
+    CHECK_NE(resource.id, kInvalidResourceId);
+    id = resource.id;
+  } else {
+    id = id_generator_.GenerateNextId();
+  }
   auto result = imported_resources_.emplace(
       id, ImportedResource(id, resource, std::move(impl_release_callback),
                            std::move(main_thread_release_callback),
@@ -507,11 +518,22 @@ void ClientResourceProvider::ShutdownAndReleaseAllResources() {
     // If this is false, then the resource has not been removed via
     // RemoveImportedResource(), and all resources should be removed before
     // we resort to marking resources as lost during shutdown.
-    DCHECK(imported.marked_for_deletion)
-        << "id: " << pair.first << " from:\n"
-        << imported.stack_trace.ToString() << "===";
-    DCHECK(imported.exported_count) << "id: " << pair.first << " from:\n"
-                                    << imported.stack_trace.ToString() << "===";
+    // Note that |use_imported_resource_id_| is true for TreesInViz. In that
+    // case, Viz side ClientResourceProvider's imported resources are only
+    // marked for deletion when signaled by the Renderer.
+    // ::ShutdownAndReleaseAllResources() can be called when LayerTreeHostImpl
+    // owning the ClientResourceProvider is being destroyed and Viz
+    // might not have yet received the marked_for_deletion signal from the
+    // Renderer, Hence this check is invalid for those scenarios and hence for
+    // Viz side ClientResourceProvider.
+    if (!use_imported_resource_id_) {
+      DCHECK(imported.marked_for_deletion)
+          << "id: " << pair.first << " from:\n"
+          << imported.stack_trace.ToString() << "===";
+      DCHECK(imported.exported_count)
+          << "id: " << pair.first << " from:\n"
+          << imported.stack_trace.ToString() << "===";
+    }
 #endif
 
     imported.returned_lost = true;

@@ -749,13 +749,6 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   Color ForcedBackgroundColor() const { return forced_background_color_; }
   Color ColorAdjustBackgroundColor() const;
 
-  void SetViewTransitionNames(const Vector<AtomicString>& names) {
-    view_transition_names_ = names;
-  }
-  const Vector<AtomicString>& ViewTransitionTags() const {
-    return view_transition_names_;
-  }
-
   ImageResourceContent* CacheImageContent(FetchParameters& params) {
     return style_image_cache_.CacheImageContent(GetDocument().Fetcher(),
                                                 params);
@@ -787,7 +780,8 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   // Returns true if marked dirty for layout
   bool UpdateLastSuccessfulPositionFallbacksAndAnchorScrollShift();
 
-  void RevisitStyleSheetForInspector(StyleSheetContents* contents);
+  void RevisitStyleSheetForInspector(StyleSheetContents* contents,
+                                     const RuleFeatureSet* features) const;
 
  private:
   void UpdateCounters(const Element& element,
@@ -817,10 +811,6 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   void MarkUserStyleDirty();
 
   Document& GetDocument() const { return *document_; }
-
-  void RevisitStyleRulesForInspector(
-      const RuleFeatureSet& features,
-      const HeapVector<Member<StyleRuleBase>>& rules);
 
   bool MediaQueryAffectingValueChanged(const ActiveStyleSheetVector&,
                                        MediaValueChange);
@@ -1194,10 +1184,6 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   // subtree is stored here during in_dom_removal_ and is marked for whitespace
   // re-attachment after the removal.
   Member<LayoutObject> parent_for_detached_subtree_;
-
-  // The set of IDs for which ::view-transition-group pseudo elements are
-  // generated during a ViewTransition.
-  Vector<AtomicString> view_transition_names_;
 
   // The @view-transition rule currently applying to the document.
   Member<StyleRuleViewTransition> view_transition_rule_;

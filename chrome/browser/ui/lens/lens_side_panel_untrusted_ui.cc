@@ -14,7 +14,9 @@
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/lens/lens_overlay_controller.h"
+#include "chrome/browser/ui/lens/lens_overlay_side_panel_coordinator.h"
 #include "chrome/browser/ui/lens/lens_overlay_theme_utils.h"
+#include "chrome/browser/ui/lens/lens_search_controller.h"
 #include "chrome/browser/ui/webui/searchbox/lens_searchbox_handler.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/branded_strings.h"
@@ -45,10 +47,16 @@ LensSidePanelUntrustedUI::LensSidePanelUntrustedUI(content::WebUI* web_ui)
                                   IDS_LENS_OVERLAY_TOAST_DISMISS_MESSAGE);
   html_source->AddLocalizedString(
       "networkErrorPageTopLine",
-      IDS_SIDE_PANEL_COMPANION_ERROR_PAGE_FIRST_LINE);
+      IDS_SIDE_PANEL_LENS_OVERLAY_GENERIC_ERROR_PAGE_FIRST_LINE);
   html_source->AddLocalizedString(
       "networkErrorPageBottomLine",
-      IDS_SIDE_PANEL_COMPANION_ERROR_PAGE_SECOND_LINE);
+      IDS_SIDE_PANEL_LENS_OVERLAY_GENERIC_ERROR_PAGE_SECOND_LINE);
+  html_source->AddLocalizedString(
+      "protectedErrorPageTopLine",
+      IDS_SIDE_PANEL_LENS_OVERLAY_PROTECTED_PAGE_ERROR_FIRST_LINE);
+  html_source->AddLocalizedString(
+      "protectedErrorPageBottomLine",
+      IDS_SIDE_PANEL_LENS_OVERLAY_PROTECTED_PAGE_ERROR_SECOND_LINE);
   html_source->AddLocalizedString(
       "searchboxGhostLoaderHintTextPrimaryDefault",
       lens::features::ShouldUseAltLoadingHintWeb()
@@ -67,6 +75,10 @@ LensSidePanelUntrustedUI::LensSidePanelUntrustedUI(content::WebUI* web_ui)
   html_source->AddLocalizedString(
       "searchboxGhostLoaderNoSuggestText",
       IDS_GOOGLE_SEARCH_BOX_CONTEXTUAL_NO_SUGGEST_TEXT);
+  html_source->AddLocalizedString("feedbackToastMessage",
+                                  IDS_LENS_OVERLAY_FEEDBACK_TOAST_MESSAGE);
+  html_source->AddLocalizedString("sendFeedbackButtonText",
+                                  IDS_LENS_OVERLAY_SEND_FEEDBACK_BUTTON_LABEL);
   const bool dark_mode = lens::LensOverlayShouldUseDarkMode(
       ThemeServiceFactory::GetForProfile(Profile::FromWebUI(web_ui)));
 
@@ -88,6 +100,9 @@ LensSidePanelUntrustedUI::LensSidePanelUntrustedUI(content::WebUI* web_ui)
   html_source->AddLocalizedString(
       "searchBoxHintContextualPdf",
       IDS_GOOGLE_SEARCH_BOX_EMPTY_HINT_CONTEXTUAL_PDF);
+  html_source->AddBoolean(
+      "newFeedbackEnabled",
+      lens::features::IsLensSearchSidePanelNewFeedbackEnabled());
 
   // Allow FrameSrc from all Google subdomains as redirects can occur.
   GURL results_side_panel_url =
@@ -170,9 +185,16 @@ void LensSidePanelUntrustedUI::BindInterface(
   help_bubble_handler_factory_receiver_.Bind(std::move(receiver));
 }
 
+LensSearchController& LensSidePanelUntrustedUI::GetLensSearchController() {
+  LensSearchController* controller =
+      LensSearchController::FromWebUIWebContents(web_ui()->GetWebContents());
+  CHECK(controller);
+  return *controller;
+}
+
 LensOverlayController& LensSidePanelUntrustedUI::GetLensOverlayController() {
   LensOverlayController* controller =
-      LensOverlayController::GetController(web_ui()->GetWebContents());
+      LensOverlayController::FromWebUIWebContents(web_ui()->GetWebContents());
   CHECK(controller);
   return *controller;
 }
@@ -180,11 +202,12 @@ LensOverlayController& LensSidePanelUntrustedUI::GetLensOverlayController() {
 void LensSidePanelUntrustedUI::CreateSidePanelPageHandler(
     mojo::PendingReceiver<lens::mojom::LensSidePanelPageHandler> receiver,
     mojo::PendingRemote<lens::mojom::LensSidePanelPage> page) {
-  LensOverlayController& controller = GetLensOverlayController();
+  LensSearchController& controller = GetLensSearchController();
 
   // Once the interface is bound, we want to connect this instance with the
-  // appropriate instance of LensOverlayController.
-  controller.BindSidePanel(std::move(receiver), std::move(page));
+  // appropriate instance of LensOverlaySidePanelCoordinator.
+  controller.lens_overlay_side_panel_coordinator()->BindSidePanel(
+      std::move(receiver), std::move(page));
 }
 
 void LensSidePanelUntrustedUI::CreateGhostLoaderPage(

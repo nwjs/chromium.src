@@ -25,9 +25,7 @@
 #include "chrome/browser/extensions/profile_util.h"
 #include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/extensions/extension_action_view_controller.h"
-#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toolbar/toolbar_action_view_controller.h"
 #include "chrome/browser/ui/toolbar/toolbar_actions_model_factory.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
@@ -427,8 +425,8 @@ void ToolbarActionsModel::InitializeActionList() {
   pinned_action_ids_ = GetFilteredPinnedActionIds();
 
   if (!profile_->IsOffTheRecord()) {
-    // Prefixed with "ExtensionToolbarModel" rather than
-    // "Extensions.Toolbar" for historical reasons.
+    // Prefixed with "ExtensionToolbarModel" rather than "Extensions.Toolbar"
+    // for historical reasons.
     base::UmaHistogramCounts100("ExtensionToolbarModel.BrowserActionsCount",
                                 action_ids_.size());
     if (extensions::profile_util::ProfileCanUseNonComponentExtensions(
@@ -528,6 +526,7 @@ std::vector<ToolbarActionsModel::ActionId>
 ToolbarActionsModel::GetFilteredPinnedActionIds() const {
   // Force-pinned extensions should always be present in the output vector.
   extensions::ExtensionIdList pinned = extension_prefs_->GetPinnedExtensions();
+
   auto* management =
       extensions::ExtensionManagementFactory::GetForBrowserContext(profile_);
   // O(n^2), but there are typically very few force-pinned extensions.

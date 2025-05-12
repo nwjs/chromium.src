@@ -107,13 +107,6 @@ CSSPrimitiveValue* ConsumeIntegerOrNumberCalc(
     CSSPrimitiveValue::ValueRange = CSSPrimitiveValue::ValueRange::kInteger);
 CSSPrimitiveValue* ConsumePositiveInteger(CSSParserTokenStream&,
                                           const CSSParserContext&);
-// All <numbers> should allow calc() expressions, and calc() expressions are not
-// always possible to reduce to a number at parse time. This method will fail
-// for valid values like `sibling-index()` and `sign(1em - 20px)`.
-// Use ConsumeNumber() instead.
-bool ConsumeNumberRaw_DO_NOT_USE(CSSParserTokenStream&,
-                                 const CSSParserContext& context,
-                                 double& result);
 CSSPrimitiveValue* ConsumeNumber(CSSParserTokenStream&,
                                  const CSSParserContext&,
                                  CSSPrimitiveValue::ValueRange);
@@ -361,7 +354,8 @@ CSSValue* ConsumeTimelineRangeNameAndPercent(CSSParserTokenStream&,
 CSSValue* ConsumeAnimationDelay(CSSParserTokenStream&, const CSSParserContext&);
 CSSValue* ConsumeAnimationRange(CSSParserTokenStream&,
                                 const CSSParserContext&,
-                                double default_offset_percent);
+                                double default_offset_percent,
+                                bool allow_auto);
 
 bool ConsumeAnimationShorthand(
     const StylePropertyShorthand&,
@@ -530,7 +524,7 @@ bool ConsumeGridTemplateShorthand(bool important,
                                   const CSSValue*& template_columns,
                                   const CSSValue*& template_areas);
 
-CSSValue* ConsumeMasonrySlack(CSSParserTokenStream&, const CSSParserContext&);
+CSSValue* ConsumeItemTolerance(CSSParserTokenStream&, const CSSParserContext&);
 
 CSSValue* ConsumeHyphenateLimitChars(CSSParserTokenStream&,
                                      const CSSParserContext&);

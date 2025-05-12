@@ -14,18 +14,20 @@
 #include "base/memory/raw_ptr.h"
 #include "chrome/browser/ui/tabs/tab_change_type.h"
 #include "components/sessions/core/session_id.h"
-#include "components/tab_collections/public/tab_interface.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tab_groups/tab_group_visual_data.h"
+#include "components/tabs/public/tab_interface.h"
 #include "third_party/perfetto/include/perfetto/tracing/traced_value_forward.h"
 #include "ui/base/models/list_selection_model.h"
 
 class TabStripModel;
 namespace tabs {
-class TabModel;
 class TabGroupTabCollection;
-enum class SplitTabLayout;
 }  // namespace tabs
+
+namespace split_tabs {
+class SplitTabVisualData;
+}
 
 namespace content {
 class WebContents;
@@ -297,7 +299,7 @@ struct TabGroupChange {
     ~CreateChange() override;
 
     TabGroupCreationReason reason() const { return reason_; }
-    std::vector<tabs::TabModel*> GetDetachedTabs() const;
+    std::vector<tabs::TabInterface*> GetDetachedTabs() const;
 
    private:
     TabGroupCreationReason reason_;
@@ -310,7 +312,7 @@ struct TabGroupChange {
     ~CloseChange() override;
 
     TabGroupClosureReason reason() const { return reason_; }
-    std::vector<tabs::TabModel*> GetDetachedTabs() const;
+    std::vector<tabs::TabInterface*> GetDetachedTabs() const;
 
    private:
     TabGroupClosureReason reason_;
@@ -432,7 +434,7 @@ class TabStripModelObserver {
       std::vector<std::pair<tabs::TabInterface*, int>> tabs,
       split_tabs::SplitTabId split_id,
       SplitTabAddReason reason,
-      tabs::SplitTabLayout tab_layout);
+      split_tabs::SplitTabVisualData visual_data);
 
   // Notification that a split view has been removed from the TabStripModel.
   virtual void OnSplitTabRemoved(
@@ -440,9 +442,11 @@ class TabStripModelObserver {
       split_tabs::SplitTabId split_id,
       SplitTabRemoveReason reason);
 
-  // Notification that the orientation of a split view is updated.
-  virtual void OnSplitTabOrientationChanged(split_tabs::SplitTabId split_id,
-                                            tabs::SplitTabLayout tab_layout);
+  // Notification that the visuals of a split view is updated.
+  virtual void OnSplitTabVisualsChanged(
+      split_tabs::SplitTabId split_id,
+      split_tabs::SplitTabVisualData old_visual_data,
+      split_tabs::SplitTabVisualData new_visual_data);
 
   // Notification that the contents of a split view is updated.
   virtual void OnSplitTabContentsUpdated(

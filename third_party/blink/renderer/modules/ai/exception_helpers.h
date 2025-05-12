@@ -27,8 +27,11 @@ extern const char kExceptionMessageRequestAborted[];
 extern const char kExceptionMessageSystemPromptIsDefinedMultipleTimes[];
 extern const char kExceptionMessageSystemPromptIsNotTheFirst[];
 extern const char kExceptionMessageUnsupportedLanguages[];
+extern const char kExceptionMessageInvalidResponseJsonSchema[];
+extern const char kExceptionMessageCrossOriginAccess[];
 
 void ThrowInvalidContextException(ExceptionState& exception_state);
+void ThrowDocumentNotActiveException(ExceptionState& exception_state);
 void ThrowSessionDestroyedException(ExceptionState& exception_state);
 void ThrowAbortedException(ExceptionState& exception_state);
 
@@ -48,6 +51,18 @@ WTF::String ConvertModelAvailabilityCheckResultToDebugString(
 bool HandleAbortSignal(AbortSignal* signal,
                        ScriptState* script_state,
                        ExceptionState& exception_state);
+
+// Return true if fully active window or if service workers are permitted.
+// Otherwise, throw an InvalidStateError and return false.
+bool ValidateScriptState(ScriptState* script_state,
+                         ExceptionState& exception_state,
+                         bool permit_workers);
+
+// Validates and stringifies the responseConstraint JSON schema option if
+// provided. Throws an exception if an unsupported schema is detected.
+String ValidateAndStringifyObject(const ScriptValue& input,
+                                  ScriptState* script_state,
+                                  ExceptionState& exception_state);
 
 }  // namespace blink
 

@@ -11,7 +11,7 @@
 #include "base/notreached.h"
 #include "third_party/blink/renderer/core/animation/css/css_animations.h"
 #include "third_party/blink/renderer/core/animation/css_interpolation_environment.h"
-#include "third_party/blink/renderer/core/animation/css_interpolation_types_map.h"
+#include "third_party/blink/renderer/core/animation/interpolation_types_map.h"
 #include "third_party/blink/renderer/core/animation/invalidatable_interpolation.h"
 #include "third_party/blink/renderer/core/animation/property_handle.h"
 #include "third_party/blink/renderer/core/animation/transition_interpolation.h"
@@ -144,8 +144,7 @@ PropertyHandle ToPropertyHandle(const CSSProperty& property,
     DCHECK(IsA<CustomProperty>(property));
     return PropertyHandle(property.GetPropertyNameAtomicString());
   }
-  return PropertyHandle(CSSProperty::Get(id),
-                        DecodeIsPresentationAttribute(position));
+  return PropertyHandle(CSSProperty::Get(id));
 }
 
 // https://drafts.csswg.org/css-cascade-4/#default
@@ -486,8 +485,7 @@ void StyleCascade::AnalyzeInterpolations() {
   for (wtf_size_t i = 0; i < entries.size(); ++i) {
     for (const auto& active_interpolation : *entries[i].map) {
       auto name = active_interpolation.key.GetCSSPropertyName();
-      uint32_t position = EncodeInterpolationPosition(
-          name.Id(), i, active_interpolation.key.IsPresentationAttribute());
+      uint32_t position = EncodeInterpolationPosition(name.Id(), i);
       CascadePriority priority(entries[i].origin,
                                /* important */ false,
                                /* tree_order */ 0,
@@ -782,8 +780,7 @@ void StyleCascade::ApplyInterpolationMap(const ActiveInterpolationsMap& map,
                                          CascadeResolver& resolver) {
   for (const auto& entry : map) {
     auto name = entry.key.GetCSSPropertyName();
-    uint32_t position = EncodeInterpolationPosition(
-        name.Id(), index, entry.key.IsPresentationAttribute());
+    uint32_t position = EncodeInterpolationPosition(name.Id(), index);
     CascadePriority priority(origin,
                              /* important */ false,
                              /* tree_order */ 0,
@@ -817,8 +814,8 @@ void StyleCascade::ApplyInterpolation(
     CascadeResolver& resolver) {
   DCHECK(!property.IsSurrogate());
 
-  CSSInterpolationTypesMap map(state_.GetDocument().GetPropertyRegistry(),
-                               state_.GetDocument());
+  InterpolationTypesMap map(state_.GetDocument().GetPropertyRegistry(),
+                            state_.GetDocument());
   CSSInterpolationEnvironment environment(map, state_, this, &resolver);
 
   const Interpolation& interpolation = *interpolations.front();

@@ -4,6 +4,7 @@
 
 #include "chrome/browser/extensions/extension_util.h"
 
+#include <string_view>
 #include <vector>
 
 #include "base/check_is_test.h"
@@ -13,20 +14,25 @@
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/extensions/permissions/permissions_updater.h"
+#include "chrome/browser/extensions/shared_module_service.h"
+#include "chrome/browser/extensions/updater/chrome_update_client_config.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/webui/extensions/extension_icon_source.h"
 #include "chrome/common/extensions/api/url_handlers/url_handlers_parser.h"
 #include "chrome/common/extensions/sync_helper.h"
 #include "chrome/common/pref_names.h"
+#include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_service.h"
+#include "components/update_client/update_client.h"
 #include "components/variations/variations_associated_data.h"
 #include "content/public/browser/site_instance.h"
 #include "extensions/browser/disable_reason.h"
 #include "extensions/browser/extension_prefs.h"
+#include "extensions/browser/extension_registrar.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/extension_util.h"
 #include "extensions/browser/pref_names.h"
-#include "extensions/browser/process_map.h"
 #include "extensions/browser/renderer_startup_helper.h"
 #include "extensions/browser/user_script_manager.h"
 #include "extensions/common/extension.h"
@@ -44,20 +50,18 @@
 #include "chromeos/ash/components/file_manager/app_id.h"
 #endif
 
-#if BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/extensions/desktop_android/desktop_android_extension_system.h"
-#else
+#if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_sync_service.h"
-#include "chrome/browser/extensions/shared_module_service.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/webui/extensions/extension_icon_source.h"
 #endif
 
-namespace extensions {
-namespace util {
+namespace extensions::util {
 
 namespace {
+
+constexpr std::string_view kCrxUrlPath = "/service/update2/crx";
+constexpr std::string_view kJsonUrlPath = "/service/update2/json";
 
 // Returns |extension_id|. See note below.
 std::string ReloadExtension(const std::string& extension_id,
@@ -65,18 +69,7 @@ std::string ReloadExtension(const std::string& extension_id,
   // When we reload the extension the ID may be invalidated if we've passed it
   // by const ref everywhere. Make a copy to be safe. http://crbug.com/103762
   std::string id = extension_id;
-#if BUILDFLAG(IS_ANDROID)
-  DesktopAndroidExtensionSystem* extension_system =
-      static_cast<DesktopAndroidExtensionSystem*>(
-          ExtensionSystem::Get(context));
-  CHECK(extension_system);
-  extension_system->ReloadExtension(id);
-#else
-  ExtensionService* service =
-      ExtensionSystem::Get(context)->extension_service();
-  CHECK(service);
-  service->ReloadExtension(id);
-#endif
+  ExtensionRegistrar::Get(context)->ReloadExtension(extension_id);
   return id;
 }
 
@@ -268,56 +261,6 @@ void SetAllowFileAccess(const std::string& extension_id,
   ReloadExtension(extension_id, context);
 }
 
-// TODO(crbug.com/356905053): Enable more extension util functions on
-// desktop android.
-#if !BUILDFLAG(IS_ANDROID)
-bool IsExtensionIdle(const std::string& extension_id,
-                     content::BrowserContext* context) {
-  std::vector<std::string> ids_to_check;
-  ids_to_check.push_back(extension_id);
-
-  const Extension* extension =
-      ExtensionRegistry::Get(context)->enabled_extensions().GetByID(
-          extension_id);
-  if (extension && extension->is_shared_module()) {
-    // We have to check all the extensions that use this shared module for idle
-    // to tell whether it is really 'idle'.
-    SharedModuleService* service = ExtensionSystem::Get(context)
-                                       ->extension_service()
-                                       ->shared_module_service();
-    std::unique_ptr<ExtensionSet> dependents =
-        service->GetDependentExtensions(extension);
-    for (ExtensionSet::const_iterator i = dependents->begin();
-         i != dependents->end();
-         i++) {
-      ids_to_check.push_back((*i)->id());
-    }
-  }
-
-  ProcessManager* process_manager = ProcessManager::Get(context);
-  ProcessMap* process_map = ProcessMap::Get(context);
-  for (std::vector<std::string>::const_iterator i = ids_to_check.begin();
-       i != ids_to_check.end();
-       i++) {
-    const std::string id = (*i);
-    ExtensionHost* host = process_manager->GetBackgroundHostForExtension(id);
-    if (host)
-      return false;
-
-    if (!process_manager->GetRenderFrameHostsForExtension(id).empty()) {
-      return false;
-    }
-
-    // TODO(devlin): We can probably remove the checks above (for background
-    // hosts and frame hosts). If an extension has any active frames, it should
-    // have a dedicated process.
-    if (process_map->ExtensionHasProcess(id)) {
-      return false;
-    }
-  }
-  return true;
-}
-
 base::Value::Dict GetExtensionInfo(const Extension* extension) {
   DCHECK(extension);
   base::Value::Dict dict;
@@ -328,12 +271,11 @@ base::Value::Dict GetExtensionInfo(const Extension* extension) {
   GURL icon = extensions::ExtensionIconSource::GetIconURL(
       extension, extension_misc::EXTENSION_ICON_SMALLISH,
       ExtensionIconSet::Match::kBigger,
-      false);  // Not grayscale.
+      /*grayscale=*/false);
   dict.Set("icon", icon.spec());
 
   return dict;
 }
-#endif  // !BUILDFLAG(IS_ANDROID)
 
 std::unique_ptr<const PermissionSet> GetInstallPromptPermissionSetForExtension(
     const Extension* extension,
@@ -346,6 +288,8 @@ std::unique_ptr<const PermissionSet> GetInstallPromptPermissionSetForExtension(
   return extension->permissions_data()->active_permissions().Clone();
 }
 
+// TODO(crbug.com/356905053): Enable more extension util functions on
+// desktop android.
 #if !BUILDFLAG(IS_ANDROID)
 std::vector<content::BrowserContext*> GetAllRelatedProfiles(
     Profile* profile,
@@ -402,10 +346,30 @@ std::u16string GetFixupExtensionNameForUIDisplay(
       extension_name, extension_name_char_limit, break_type);
   return fixup_extension_name;
 }
+
 std::u16string GetFixupExtensionNameForUIDisplay(
     const std::string& extension_name) {
   return GetFixupExtensionNameForUIDisplay(base::UTF8ToUTF16(extension_name));
 }
 
-}  // namespace util
-}  // namespace extensions
+void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
+  registry->RegisterBooleanPref(prefs::kShouldGarbageCollectStoragePartitions,
+                                false);
+}
+
+scoped_refptr<update_client::UpdateClient> CreateUpdateClient(
+    content::BrowserContext* context) {
+  std::optional<GURL> override_url;
+  GURL update_url = extension_urls::GetWebstoreUpdateUrl();
+  if (update_url != extension_urls::GetDefaultWebstoreUpdateUrl()) {
+    if (update_url.path() == kCrxUrlPath) {
+      override_url = update_url.GetWithEmptyPath().Resolve(kJsonUrlPath);
+    } else {
+      override_url = update_url;
+    }
+  }
+  return update_client::UpdateClientFactory(
+      ChromeUpdateClientConfig::Create(context, override_url));
+}
+
+} // namespace extensions::util

@@ -66,7 +66,6 @@ class CORE_EXPORT SVGLength final : public SVGListablePropertyBase {
   void Trace(Visitor*) const override;
 
   SVGLength* Clone() const;
-  SVGPropertyBase* CloneForAnimation(const String&) const override;
 
   CSSPrimitiveValue::UnitType NumericLiteralType() const {
     DCHECK(value_->IsNumericLiteralValue());
@@ -84,7 +83,7 @@ class CORE_EXPORT SVGLength final : public SVGListablePropertyBase {
   float Value(const SVGLengthConversionData&, float dimension) const;
   float Value(const SVGLengthContext&) const;
   float ValueInSpecifiedUnits() const {
-    return To<CSSNumericLiteralValue>(*value_).GetFloatValue();
+    return ClampTo<float>(To<CSSNumericLiteralValue>(*value_).GetDoubleValue());
   }
 
   void SetValueAsNumber(float);
@@ -116,8 +115,6 @@ class CORE_EXPORT SVGLength final : public SVGListablePropertyBase {
 
   bool IsNegativeNumericLiteral() const;
 
-  static SVGLengthMode LengthModeForAnimatedLengthAttribute(
-      const QualifiedName&);
   static bool NegativeValuesForbiddenForAnimatedLengthAttribute(
       const QualifiedName&);
 

@@ -40,8 +40,8 @@ export class FileSuggestionElement extends CrLitElement {
     };
   }
 
-  files: File[] = [];
-  moduleName: string;
+  accessor files: File[] = [];
+  accessor moduleName: string;
 
   protected onFileClick_(e: Event) {
     const clickFileEvent = new Event('usage', {composed: true, bubbles: true});

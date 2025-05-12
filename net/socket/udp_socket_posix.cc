@@ -4,6 +4,8 @@
 
 #include "net/socket/udp_socket_posix.h"
 
+#include "base/notimplemented.h"
+
 #ifdef UNSAFE_BUFFERS_BUILD
 // TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
 #pragma allow_unsafe_buffers
@@ -41,6 +43,7 @@
 #include "net/base/cronet_buildflags.h"
 #include "net/base/io_buffer.h"
 #include "net/base/ip_address.h"
+#include "net/base/ip_address_util.h"
 #include "net/base/ip_endpoint.h"
 #include "net/base/net_errors.h"
 #include "net/base/network_activity_monitor.h"
@@ -153,7 +156,7 @@ int UDPSocketPosix::AdoptOpenedSocket(AddressFamily address_family,
 }
 
 int UDPSocketPosix::ConfigureOpenedSocket() {
-#if BUILDFLAG(IS_APPLE) && !BUILDFLAG(CRONET_BUILD)
+#if BUILDFLAG(IS_APPLE) && !BUILDFLAG(CRONET_BUILD) && !BUILDFLAG(IS_IOS_TVOS)
   // https://crbug.com/41271555: Guard against a file descriptor being closed
   // out from underneath the socket.
   guardid_t guardid = reinterpret_cast<guardid_t>(this);
@@ -200,7 +203,7 @@ void UDPSocketPosix::Close() {
   CHECK_EQ(socket_hash_, GetSocketFDHash(socket_));
   TRACE_EVENT("base", perfetto::StaticString{"CloseSocketUDP"});
 
-#if BUILDFLAG(IS_APPLE) && !BUILDFLAG(CRONET_BUILD)
+#if BUILDFLAG(IS_APPLE) && !BUILDFLAG(CRONET_BUILD) && !BUILDFLAG(IS_IOS_TVOS)
   // Attempt to clear errors on the socket so that they are not returned by
   // close(). This seems to be effective at clearing some, but not all,
   // EPROTOTYPE errors. See https://crbug.com/40732798.
@@ -922,8 +925,7 @@ int UDPSocketPosix::JoinGroup(const IPAddress& group_address) const {
       ip_mreqn mreq = {};
       mreq.imr_ifindex = multicast_interface_;
       mreq.imr_address.s_addr = htonl(INADDR_ANY);
-      memcpy(&mreq.imr_multiaddr, group_address.bytes().data(),
-             IPAddress::kIPv4AddressSize);
+      mreq.imr_multiaddr = ToInAddr(group_address);
       int rv = setsockopt(socket_, IPPROTO_IP, IP_ADD_MEMBERSHIP,
                           &mreq, sizeof(mreq));
       if (rv < 0)
@@ -935,8 +937,7 @@ int UDPSocketPosix::JoinGroup(const IPAddress& group_address) const {
         return ERR_ADDRESS_INVALID;
       ipv6_mreq mreq;
       mreq.ipv6mr_interface = multicast_interface_;
-      memcpy(&mreq.ipv6mr_multiaddr, group_address.bytes().data(),
-             IPAddress::kIPv6AddressSize);
+      mreq.ipv6mr_multiaddr = ToIn6Addr(group_address);
       int rv = setsockopt(socket_, IPPROTO_IPV6, IPV6_JOIN_GROUP,
                           &mreq, sizeof(mreq));
       if (rv < 0)
@@ -961,8 +962,7 @@ int UDPSocketPosix::LeaveGroup(const IPAddress& group_address) const {
       ip_mreqn mreq = {};
       mreq.imr_ifindex = multicast_interface_;
       mreq.imr_address.s_addr = INADDR_ANY;
-      memcpy(&mreq.imr_multiaddr, group_address.bytes().data(),
-             IPAddress::kIPv4AddressSize);
+      mreq.imr_multiaddr = ToInAddr(group_address);
       int rv = setsockopt(socket_, IPPROTO_IP, IP_DROP_MEMBERSHIP,
                           &mreq, sizeof(mreq));
       if (rv < 0)
@@ -978,8 +978,7 @@ int UDPSocketPosix::LeaveGroup(const IPAddress& group_address) const {
 #else   // BUILDFLAG(IS_FUCHSIA)
       mreq.ipv6mr_interface = 0;  // 0 indicates default multicast interface.
 #endif  // !BUILDFLAG(IS_FUCHSIA)
-      memcpy(&mreq.ipv6mr_multiaddr, group_address.bytes().data(),
-             IPAddress::kIPv6AddressSize);
+      mreq.ipv6mr_multiaddr = ToIn6Addr(group_address);
       int rv = setsockopt(socket_, IPPROTO_IPV6, IPV6_LEAVE_GROUP,
                           &mreq, sizeof(mreq));
       if (rv < 0)
@@ -1095,6 +1094,19 @@ int UDPSocketPosix::SetIOSNetworkServiceType(int ios_network_service_type) {
   }
 #endif  // BUILDFLAG(IS_IOS)
   return OK;
+}
+
+void UDPSocketPosix::RegisterQuicConnectionClosePayload(
+    base::span<uint8_t> payload) {
+#if BUILDFLAG(IS_ANDROID)
+  net::android::RegisterQuicConnectionClosePayload(socket_, payload);
+#endif  // BUILDFLAG(IS_ANDROID)
+}
+
+void UDPSocketPosix::UnregisterQuicConnectionClosePayload() {
+#if BUILDFLAG(IS_ANDROID)
+  net::android::UnregisterQuicConnectionClosePayload(socket_);
+#endif  // BUILDFLAG(IS_ANDROID)
 }
 
 }  // namespace net

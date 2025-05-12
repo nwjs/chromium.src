@@ -195,6 +195,7 @@ public class AuxiliarySearchDonorUnitTest {
                 id,
                 documentTtl,
                 /* score= */ 0,
+                AuxiliarySearchDonor.SOURCE_TAB,
                 counts,
                 currentTime);
         assertEquals(1, counts[type]);
@@ -231,6 +232,7 @@ public class AuxiliarySearchDonorUnitTest {
                 id,
                 documentTtl,
                 /* score= */ 0,
+                AuxiliarySearchDonor.SOURCE_TAB,
                 counts,
                 currentTime);
         assertEquals(1, counts[type]);
@@ -299,6 +301,7 @@ public class AuxiliarySearchDonorUnitTest {
                 id,
                 tabDocumentTtl,
                 /* score= */ 0,
+                AuxiliarySearchDonor.SOURCE_TAB,
                 counts,
                 currentTime);
         testBuildDocumentImplAndVerify(
@@ -310,6 +313,7 @@ public class AuxiliarySearchDonorUnitTest {
                 visitId,
                 historyDocumentTtl,
                 /* score= */ 0,
+                AuxiliarySearchDonor.SOURCE_CUSTOM_TAB,
                 counts,
                 currentTime);
         testBuildDocumentImplAndVerify(
@@ -321,6 +325,7 @@ public class AuxiliarySearchDonorUnitTest {
                 visitId3,
                 historyDocumentTtl,
                 AuxiliarySearchTestHelper.SCORE_1,
+                AuxiliarySearchDonor.SOURCE_TOP_SITE,
                 counts,
                 currentTime);
         assertEquals(1, counts[type]);
@@ -337,6 +342,7 @@ public class AuxiliarySearchDonorUnitTest {
             int id,
             long documentTtlMs,
             int score,
+            String source,
             int[] counts,
             long currentTime) {
         Bitmap bitmap = Bitmap.createBitmap(100, 100, Config.RGB_565);
@@ -350,6 +356,7 @@ public class AuxiliarySearchDonorUnitTest {
         assertEquals(lastAccessTimeStamp, webPage.getCreationTimestampMillis());
         assertEquals(documentTtlMs, webPage.getDocumentTtlMillis());
         assertEquals(score, webPage.getDocumentScore());
+        assertEquals(source, webPage.getSource());
         assertTrue(
                 Arrays.equals(
                         AuxiliarySearchUtils.bitmapToBytes(bitmap),
@@ -383,6 +390,9 @@ public class AuxiliarySearchDonorUnitTest {
         mAuxiliarySearchDonor.onSetSchemaResponseAvailable(setSchemaResponse);
         assertNull(mAuxiliarySearchDonor.getPendingDocumentsForTesting());
         assertTrue(mAuxiliarySearchDonor.getIsSchemaSetForTesting());
+        assertEquals(
+                AuxiliarySearchUtils.CURRENT_SCHEMA_VERSION,
+                AuxiliarySearchUtils.getSchemaVersion());
     }
 
     @Test
@@ -453,6 +463,7 @@ public class AuxiliarySearchDonorUnitTest {
         mAuxiliarySearchDonor.resetSchemaSetForTesting();
         SharedPreferencesManager chromeSharedPreferences = ChromeSharedPreferences.getInstance();
         chromeSharedPreferences.writeBoolean(key, true);
+        AuxiliarySearchUtils.setSchemaVersion(AuxiliarySearchUtils.CURRENT_SCHEMA_VERSION);
         assertFalse(mAuxiliarySearchDonor.getIsSchemaSetForTesting());
 
         // Verifies that #onConsumerSchemaSearchedImpl() returns false, i.e., not to set the schema
@@ -499,6 +510,7 @@ public class AuxiliarySearchDonorUnitTest {
     public void testOnConsumerSchemaSearchedImpl() {
         ChromeSharedPreferences.getInstance()
                 .writeBoolean(ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_SET, true);
+        AuxiliarySearchUtils.setSchemaVersion(AuxiliarySearchUtils.CURRENT_SCHEMA_VERSION);
         Callback<Boolean> callback = Mockito.mock(Callback.class);
         mAuxiliarySearchDonor.setPendingCallbackForTesting(callback);
 
@@ -525,6 +537,20 @@ public class AuxiliarySearchDonorUnitTest {
         // AUXILIARY_SEARCH_CONSUMER_SCHEMA_FOUND is set to be true.
         ChromeSharedPreferences.getInstance()
                 .writeBoolean(ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_SET, false);
+        assertTrue(mAuxiliarySearchDonor.onConsumerSchemaSearchedImpl(/* success= */ true));
+        assertTrue(
+                ChromeSharedPreferences.getInstance()
+                        .readBoolean(
+                                ChromePreferenceKeys.AUXILIARY_SEARCH_CONSUMER_SCHEMA_FOUND,
+                                false));
+
+        // Verifies that onConsumerSchemaSearchedImpl() returns true to set the schema if the
+        // AUXILIARY_SEARCH_SCHEMA_VERSION doesn't match the CURRENT_SCHEMA_VERSION.
+        ChromeSharedPreferences.getInstance()
+                .writeBoolean(ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_SET, true);
+        ChromeSharedPreferences.getInstance()
+                .removeKey(ChromePreferenceKeys.AUXILIARY_SEARCH_SCHEMA_VERSION);
+        assertEquals(0, AuxiliarySearchUtils.getSchemaVersion());
         assertTrue(mAuxiliarySearchDonor.onConsumerSchemaSearchedImpl(/* success= */ true));
         assertTrue(
                 ChromeSharedPreferences.getInstance()
@@ -636,12 +662,28 @@ public class AuxiliarySearchDonorUnitTest {
 
     @Test
     @SmallTest
+    @EnableFeatures({
+        ChromeFeatureList.ANDROID_APP_INTEGRATION_MULTI_DATA_SOURCE + ":use_schema_v1/true"
+    })
+    public void testGetSupportedDocumentClasses_UseSchemaV1() {
+        // Enables multiple data source.
+        when(mHooks.isMultiDataTypeEnabledOnDevice()).thenReturn(true);
+        assertTrue(AuxiliarySearchControllerFactory.getInstance().isMultiDataTypeEnabledOnDevice());
+        createAndInitAuxiliarySearchDonor();
+        List<Class<?>> list = mAuxiliarySearchDonor.getSupportedDocumentClasses();
+        assertEquals(1, list.size());
+        assertTrue(list.contains(WebPage.class));
+    }
+
+    @Test
+    @SmallTest
     @EnableFeatures({"AndroidAppIntegrationMultiDataSource:use_schema_v1/true"})
     public void testUseSchemaV1() {
         mAuxiliarySearchDonor.resetSchemaSetForTesting();
         SharedPreferencesManager chromeSharedPreferences = ChromeSharedPreferences.getInstance();
         String key = ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_SET;
         chromeSharedPreferences.writeBoolean(key, true);
+        AuxiliarySearchUtils.setSchemaVersion(AuxiliarySearchUtils.CURRENT_SCHEMA_VERSION);
         assertFalse(mAuxiliarySearchDonor.getIsSchemaSetForTesting());
 
         // Verifies that |mIsSchemaSet| checks the key for schema V1.

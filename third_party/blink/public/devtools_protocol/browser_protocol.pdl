@@ -1537,6 +1537,7 @@ domain Browser
     enum
       openTabSearch
       closeTabSearch
+      openGlic
 
   # Set permission settings for given origin.
   experimental command setPermission
@@ -2437,7 +2438,12 @@ experimental domain CSS
   # For example, a value of '1em' is evaluated according to the computed
   # 'font-size' of the element and a value 'calc(1px + 2px)' will be
   # resolved to '3px'.
-  command resolveValues
+  # If the `propertyName` was specified the `values` are resolved as if
+  # they were property's declaration. If a value cannot be parsed according
+  # to the provided property syntax, the value is parsed using combined
+  # syntax as if null `propertyName` was provided. If the value cannot be
+  # resolved even then, return the provided value without any changes.
+  experimental command resolveValues
     parameters
       # Substitution functions (var()/env()/attr()) and cascade-dependent
       # keywords (revert/revert-layer) do not work.
@@ -2448,9 +2454,9 @@ experimental domain CSS
       optional string propertyName
       # Pseudo element type, only works for pseudo elements that generate
       # elements in the tree, such as ::before and ::after.
-      experimental optional DOM.PseudoType pseudoType
+      optional DOM.PseudoType pseudoType
       # Pseudo element custom ident.
-      experimental optional string pseudoIdentifier
+      optional string pseudoIdentifier
     returns
       array of string results
 
@@ -4670,8 +4676,8 @@ domain Emulation
         protanopia
         tritanopia
 
-  # Overrides the Geolocation Position or Error. Omitting any of the parameters emulates position
-  # unavailable.
+  # Overrides the Geolocation Position or Error. Omitting latitude, longitude or
+  # accuracy emulates position unavailable.
   command setGeolocationOverride
     parameters
       # Mock latitude
@@ -4680,6 +4686,14 @@ domain Emulation
       optional number longitude
       # Mock accuracy
       optional number accuracy
+      # Mock altitude
+      optional number altitude
+      # Mock altitudeAccuracy
+      optional number altitudeAccuracy
+      # Mock heading
+      optional number heading
+      # Mock speed
+      optional number speed
 
   experimental command getOverriddenSensorInformation
     parameters
@@ -4839,6 +4853,14 @@ domain Emulation
     parameters
       # Whether the override should be enabled.
       boolean enabled
+
+  # Allows overriding the difference between the small and large viewport sizes, which determine the
+  # value of the `svh` and `lvh` unit, respectively. Only supported for top-level frames.
+  experimental command setSmallViewportHeightDifferenceOverride
+    parameters
+      # This will cause an element of size 100svh to be `difference` pixels smaller than an element
+      # of size 100lvh.
+      integer difference
 
 # This domain provides experimental commands only supported in headless mode.
 experimental domain HeadlessExperimental
@@ -6328,6 +6350,7 @@ domain Network
       cache
       fetch-event
       race-network-and-fetch-handler
+      race-network-and-cache
 
   experimental type ServiceWorkerRouterInfo extends object
     properties
@@ -7497,6 +7520,32 @@ domain Network
       RequestId identifier
       MonotonicTime timestamp
 
+  # Fired when data is sent to tcp direct socket stream.
+  experimental event directTCPSocketChunkSent
+    parameters
+      RequestId identifier
+      binary data
+      MonotonicTime timestamp
+
+  # Fired when data is received from tcp direct socket stream.
+  experimental event directTCPSocketChunkReceived
+    parameters
+      RequestId identifier
+      binary data
+      MonotonicTime timestamp
+
+  # Fired when there is an error
+  # when writing to tcp direct socket stream.
+  # For example, if user writes illegal type like string
+  # instead of ArrayBuffer or ArrayBufferView.
+  # There's no reporting for reading, because
+  # we cannot know errors on the other side.
+  experimental event directTCPSocketChunkError
+    parameters
+      RequestId identifier
+      string errorMessage
+      MonotonicTime timestamp
+
   experimental type PrivateNetworkRequestPolicy extends string
     enum
       Allow
@@ -8406,6 +8455,7 @@ domain Page
 
   # All Permissions Policy features. This enum should match the one defined
   # in services/network/public/cpp/permissions_policy/permissions_policy_features.json5.
+  # LINT.IfChange(PermissionsPolicyFeature)
   experimental type PermissionsPolicyFeature extends string
     enum
       accelerometer
@@ -8448,6 +8498,7 @@ domain Page
       cross-origin-isolated
       deferred-fetch
       deferred-fetch-minimal
+      device-attributes
       digital-credentials-get
       direct-sockets
       direct-sockets-private
@@ -8471,6 +8522,7 @@ domain Page
       keyboard-map
       language-detector
       local-fonts
+      local-network-access
       magnetometer
       media-playback-while-not-visible
       microphone
@@ -8484,6 +8536,7 @@ domain Page
       private-state-token-redemption
       publickey-credentials-create
       publickey-credentials-get
+      record-ad-auction-events
       rewriter
       run-ad-auction
       screen-wake-lock
@@ -8508,6 +8561,7 @@ domain Page
       window-management
       writer
       xr-spatial-tracking
+  # LINT.ThenChange(//services/network/public/cpp/permissions_policy/permissions_policy_features.json5:PermissionsPolicy)
 
   # Reason for a permissions policy feature to be disabled.
   experimental type PermissionsPolicyBlockReason extends string
@@ -9137,13 +9191,15 @@ domain Page
       # Recommendation for manifest's id attribute to match current id computed from start_url
       optional string recommendedId
 
-  experimental command getAdScriptId
+  experimental command getAdScriptAncestryIds
     parameters
       FrameId frameId
     returns
-      # Identifies the bottom-most script which caused the frame to be labelled
-      # as an ad. Only sent if frame is labelled as an ad and id is available.
-      optional AdScriptId adScriptId
+      # The ancestry chain of ad script identifiers leading to this frame's
+      # creation, ordered from the most immediate script (in the frame creation
+      # stack) to more distant ancestors (that created the immediately preceding
+      # script). Only sent if frame is labelled as an ad and ids are available.
+      array of AdScriptId adScriptAncestryIds
 
   # Returns present frame tree structure.
   command getFrameTree
@@ -9755,6 +9811,8 @@ domain Page
   # closed.
   event javascriptDialogClosed
     parameters
+      # Frame id.
+      experimental FrameId frameId
       # Whether dialog was confirmed.
       boolean result
       # User input in case of prompt.
@@ -9766,6 +9824,8 @@ domain Page
     parameters
       # Frame url.
       string url
+      # Frame id.
+      experimental FrameId frameId
       # Message that will be displayed by the dialog.
       string message
       # Dialog type.
@@ -9936,7 +9996,8 @@ domain Page
       RequestedByWebViewClient
       PostMessageByWebViewClient
       CacheControlNoStoreDeviceBoundSessionTerminated
-      CacheLimitPruned
+      CacheLimitPrunedOnModerateMemoryPressure
+      CacheLimitPrunedOnCriticalMemoryPressure
 
   # Types of not restored reasons for back-forward cache.
   experimental type BackForwardCacheNotRestoredReasonType extends string
@@ -10606,6 +10667,19 @@ experimental domain Storage
       # storage.
       integer bytesUsed
 
+  # Represents a dictionary object passed in as privateAggregationConfig to
+  # run or selectURL.
+  type SharedStoragePrivateAggregationConfig extends object
+    properties
+      # The chosen aggregation service deployment.
+      optional string aggregationCoordinatorOrigin
+      # The context ID provided.
+      optional string contextId
+      # Configures the maximum size allowed for filtering IDs.
+      integer filteringIdMaxBytes
+      # The limit on the number of contributions in the final report.
+      optional integer maxContributions
+
   # Pair of reporting metadata details for a candidate URL for `selectURL()`.
   type SharedStorageReportingMetadata extends object
     properties
@@ -10625,44 +10699,61 @@ experimental domain Storage
   type SharedStorageAccessParams extends object
     properties
       # Spec of the module script URL.
-      # Present only for SharedStorageAccessType.documentAddModule.
+      # Present only for SharedStorageAccessMethods: addModule and
+      # createWorklet.
       optional string scriptSourceUrl
+      # String denoting "context-origin", "script-origin", or a custom
+      # origin to be used as the worklet's data origin.
+      # Present only for SharedStorageAccessMethod: createWorklet.
+      optional string dataOrigin
       # Name of the registered operation to be run.
-      # Present only for SharedStorageAccessType.documentRun and
-      # SharedStorageAccessType.documentSelectURL.
+      # Present only for SharedStorageAccessMethods: run and selectURL.
       optional string operationName
+      # Whether or not to keep the worket alive for future run or selectURL
+      # calls.
+      # Present only for SharedStorageAccessMethods: run and selectURL.
+      optional boolean keepAlive
+      # Configures the private aggregation options.
+      # Present only for SharedStorageAccessMethods: run and selectURL.
+      optional SharedStoragePrivateAggregationConfig privateAggregationConfig
       # The operation's serialized data in bytes (converted to a string).
-      # Present only for SharedStorageAccessType.documentRun and
-      # SharedStorageAccessType.documentSelectURL.
+      # Present only for SharedStorageAccessMethods: run and selectURL.
+      # TODO(crbug.com/401011862): Consider updating this parameter to binary.
       optional string serializedData
       # Array of candidate URLs' specs, along with any associated metadata.
-      # Present only for SharedStorageAccessType.documentSelectURL.
+      # Present only for SharedStorageAccessMethod: selectURL.
       optional array of SharedStorageUrlWithMetadata urlsWithMetadata
+      # Spec of the URN:UUID generated for a selectURL call.
+      # Present only for SharedStorageAccessMethod: selectURL.
+      optional string urnUuid
       # Key for a specific entry in an origin's shared storage.
-      # Present only for SharedStorageAccessType.documentSet,
-      # SharedStorageAccessType.documentAppend,
-      # SharedStorageAccessType.documentDelete,
-      # SharedStorageAccessType.workletSet,
-      # SharedStorageAccessType.workletAppend,
-      # SharedStorageAccessType.workletDelete,
-      # SharedStorageAccessType.workletGet,
-      # SharedStorageAccessType.headerSet,
-      # SharedStorageAccessType.headerAppend, and
-      # SharedStorageAccessType.headerDelete.
+      # Present only for SharedStorageAccessMethods: set, append, delete, and
+      # get.
       optional string key
       # Value for a specific entry in an origin's shared storage.
-      # Present only for SharedStorageAccessType.documentSet,
-      # SharedStorageAccessType.documentAppend,
-      # SharedStorageAccessType.workletSet,
-      # SharedStorageAccessType.workletAppend,
-      # SharedStorageAccessType.headerSet, and
-      # SharedStorageAccessType.headerAppend.
+      # Present only for SharedStorageAccessMethods: set and append.
       optional string value
       # Whether or not to set an entry for a key if that key is already present.
-      # Present only for SharedStorageAccessType.documentSet,
-      # SharedStorageAccessType.workletSet, and
-      # SharedStorageAccessType.headerSet.
+      # Present only for SharedStorageAccessMethod: set.
       optional boolean ignoreIfPresent
+      # If the method is called on a worklet, or as part of
+      # a worklet script, it will have an ID for the associated worklet.
+      # Present only for SharedStorageAccessMethods: addModule, createWorklet,
+      # run, selectURL, and any other SharedStorageAccessMethod when the
+      # SharedStorageAccessScope is worklet.
+      optional string workletId
+      # Name of the lock to be acquired, if present.
+      # Optionally present only for SharedStorageAccessMethods: batchUpdate,
+      # set, append, delete, and clear.
+      optional string withLock
+      # If the method has been called as part of a batchUpdate, then this
+      # number identifies the batch to which it belongs.
+      # Optionally present only for SharedStorageAccessMethods:
+      # batchUpdate (required), set, append, delete, and clear.
+      optional string batchUpdateId
+      # Number of modifier methods sent in batch.
+      # Present only for SharedStorageAccessMethod: batchUpdate.
+      optional integer batchSize
 
   type StorageBucketsDurability extends string
     enum
@@ -11115,6 +11206,11 @@ experimental domain Storage
       number limit
       number maxEventStates
 
+  experimental type AttributionReportingNamedBudgetDef extends object
+    properties
+      string name
+      integer budget
+
   experimental type AttributionReportingSourceRegistration extends object
     properties
       Network.TimeSinceEpoch time
@@ -11137,6 +11233,9 @@ experimental domain Storage
       AttributionReportingAggregatableDebugReportingConfig aggregatableDebugReportingConfig
       optional AttributionScopesData scopesData
       integer maxEventLevelReports
+      array of AttributionReportingNamedBudgetDef namedBudgets
+      boolean debugReporting
+      number eventLevelEpsilon
 
   experimental type AttributionReportingSourceRegistrationResult extends string
     enum
@@ -11199,6 +11298,11 @@ experimental domain Storage
       optional UnsignedInt64AsBase10 dedupKey
       AttributionReportingFilterPair filters
 
+  experimental type AttributionReportingNamedBudgetCandidate extends object
+    properties
+      optional string name
+      AttributionReportingFilterPair filters
+
   experimental type AttributionReportingTriggerRegistration extends object
     properties
       AttributionReportingFilterPair filters
@@ -11214,6 +11318,7 @@ experimental domain Storage
       optional string triggerContextId
       AttributionReportingAggregatableDebugReportingConfig aggregatableDebugReportingConfig
       array of string scopes
+      array of AttributionReportingNamedBudgetCandidate namedBudgets
 
   experimental type AttributionReportingEventLevelResult extends string
     enum
@@ -11291,6 +11396,12 @@ experimental domain Storage
       # Array of matching URLs. If there is a primary pattern match for the first-
       # party URL, only the first-party URL is returned in the array.
       array of string matchedUrls
+
+  command setProtectedAudienceKAnonymity
+    parameters
+      string owner
+      string name
+      array of binary hashes
 
 # The SystemInfo domain defines methods and events for querying low-level system information.
 experimental domain SystemInfo
@@ -11587,6 +11698,10 @@ domain Target
       optional boolean background
       # Whether to create the target of type "tab".
       experimental optional boolean forTab
+      # Whether to create a hidden target. The hidden target is observable via protocol, but not
+      # present in the tab UI strip. Cannot be created with `forTab: true`, `newWindow: true` or
+      # `background: false`. The life-time of the tab is limited to the life-time of the session.
+      experimental optional boolean hidden
     returns
       # The id of the page opened.
       TargetID targetId
@@ -11634,11 +11749,14 @@ domain Target
       # Deprecated.
       deprecated optional TargetID targetId
 
-  # Controls whether to automatically attach to new targets which are considered to be related to
-  # this one. When turned on, attaches to all existing related targets as well. When turned off,
+  # Controls whether to automatically attach to new targets which are considered
+  # to be directly related to this one (for example, iframes or workers).
+  # When turned on, attaches to all existing related targets as well. When turned off,
   # automatically detaches from all currently attached targets.
   # This also clears all targets added by `autoAttachRelated` from the list of targets to watch
   # for creation of related targets.
+  # You might want to call this recursively for auto-attached targets to attach
+  # to all available targets.
   command setAutoAttach
     parameters
       # Whether to auto-attach to related targets.
@@ -13238,6 +13356,21 @@ experimental domain BluetoothEmulation
       connection
       discovery
 
+  # Indicates the various types of characteristic write.
+  type CharacteristicWriteType extends string
+    enum
+      write-default-deprecated
+      write-with-response
+      write-without-response
+
+  # Indicates the various types of characteristic operation.
+  type CharacteristicOperationType extends string
+    enum
+      read
+      write
+      subscribe-to-notifications
+      unsubscribe-from-notifications
+
   # Stores the manufacturer data
   type ManufacturerData extends object
     properties
@@ -13322,6 +13455,18 @@ experimental domain BluetoothEmulation
       GATTOperationType type
       integer code
 
+  # Simulates the response from the characteristic with |characteristicId| for a
+  # characteristic operation of |type|. The |code| value follows the Error
+  # Codes from Bluetooth Core Specification Vol 3 Part F 3.4.1.1 Error Response.
+  # The |data| is expected to exist when simulating a successful read operation
+  # response.
+  command simulateCharacteristicOperationResponse
+    parameters
+      string characteristicId
+      CharacteristicOperationType type
+      integer code
+      optional binary data
+
   # Adds a service with |serviceUuid| to the peripheral with |address|.
   command addService
     parameters
@@ -13331,18 +13476,15 @@ experimental domain BluetoothEmulation
       # An identifier that uniquely represents this service.
       string serviceId
 
-  # Removes the service respresented by |serviceId| from the peripheral with
-  # |address|.
+  # Removes the service respresented by |serviceId| from the simulated central.
   command removeService
     parameters
-      string address
       string serviceId
 
   # Adds a characteristic with |characteristicUuid| and |properties| to the
-  # service represented by |serviceId| in the peripheral with |address|.
+  # service represented by |serviceId|.
   command addCharacteristic
     parameters
-      string address
       string serviceId
       string characteristicUuid
       CharacteristicProperties properties
@@ -13351,12 +13493,25 @@ experimental domain BluetoothEmulation
       string characteristicId
 
   # Removes the characteristic respresented by |characteristicId| from the
-  # service respresented by |serviceId| in the peripheral with |address|.
+  # simulated central.
   command removeCharacteristic
     parameters
-      string address
-      string serviceId
       string characteristicId
+
+  # Adds a descriptor with |descriptorUuid| to the characteristic respresented
+  # by |characteristicId|.
+  command addDescriptor
+    parameters
+      string characteristicId
+      string descriptorUuid
+    returns
+      # An identifier that uniquely represents this descriptor.
+      string descriptorId
+
+  # Removes the descriptor with |descriptorId| from the simulated central.
+  command removeDescriptor
+    parameters
+      string descriptorId
 
   # Event for when a GATT operation of |type| to the peripheral with |address|
   # happened.
@@ -13364,3 +13519,13 @@ experimental domain BluetoothEmulation
     parameters
       string address
       GATTOperationType type
+
+  # Event for when a characteristic operation of |type| to the characteristic
+  # respresented by |characteristicId| happened. |data| and |writeType| is
+  # expected to exist when |type| is write.
+  event characteristicOperationReceived
+    parameters
+      string characteristicId
+      CharacteristicOperationType type
+      optional binary data
+      optional CharacteristicWriteType writeType

@@ -15,7 +15,9 @@
 #include "chrome/browser/glic/widget/glic_window_controller.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/common/chrome_features.h"
+#include "components/variations/active_field_trials.h"
 #include "content/public/test/browser_test.h"
+#include "content/public/test/no_renderer_crashes_assertion.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/interaction/state_observer.h"
@@ -54,6 +56,34 @@ class GlicUiStateHistoryObserver
 
 DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(GlicUiStateHistoryObserver,
                                     kGlicUiStateHistory);
+
+class ContextAccessIndicatorObserver
+    : public ui::test::StateObserver<std::vector<bool>> {
+ public:
+  explicit ContextAccessIndicatorObserver(GlicKeyedService* service) {
+    scoped_subscription_ =
+        service->AddContextAccessIndicatorStatusChangedCallback(
+            base::BindRepeating(&ContextAccessIndicatorObserver::
+                                    ContextAccessIndicatorStatusChanged,
+                                base::Unretained(this)));
+  }
+
+  ~ContextAccessIndicatorObserver() override = default;
+
+  ValueType GetStateObserverInitialState() const override { return states_; }
+
+ private:
+  void ContextAccessIndicatorStatusChanged(bool status) {
+    states_.push_back(status);
+    OnStateObserverStateChanged(states_);
+  }
+
+  base::CallbackListSubscription scoped_subscription_;
+  ValueType states_;
+};
+
+DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(ContextAccessIndicatorObserver,
+                                    kGlicContextAccessIndicatorHistory);
 
 // Specifies artificial parameters for how network and loading should behave for
 // tests in this file.
@@ -182,6 +212,13 @@ class GlicUiInteractiveUiTestBase : public test::InteractiveGlicTest {
     return CurrentStateMatcher(testing::Ne(state));
   }
 
+  static auto IsContextAccessIndicatorCurrently(bool showing) {
+    return testing::AllOf(
+        testing::Not(testing::IsEmpty()),
+        testing::Property(&ContextAccessIndicatorObserver::ValueType::back,
+                          showing));
+  }
+
   const DeepQuery kOfflinePanel = {"#offlinePanel"};
   const DeepQuery kLoadingPanel = {"#loadingPanel"};
   const DeepQuery kErrorPanel = {"#errorPanel"};
@@ -216,6 +253,11 @@ IN_PROC_BROWSER_TEST_P(GlicUiConnectedUiTest, DisconnectedPanelHidden) {
       OpenGlicWindow(GlicWindowMode::kAttached, GlicInstrumentMode::kHostOnly),
       WaitForState(kGlicUiStateHistory, IsNotCurrently(WebUiState::kOffline)),
       CheckElementVisible(kOfflinePanel, false));
+
+  // Window opened - make sure tier state finch group logged.
+  // Tiered rollout not enabled for this test.
+  EXPECT_TRUE(variations::IsInSyntheticTrialGroup("SyntheticGlicTieredRollout",
+                                                  "Disabled"));
 }
 
 IN_PROC_BROWSER_TEST_P(GlicUiConnectedUiTest,
@@ -268,6 +310,28 @@ IN_PROC_BROWSER_TEST_P(GlicUiConnectedUiTest,
     window.setTimeout(() => resolve(true), 1000);
     return promise;
   })js")));
+}
+
+IN_PROC_BROWSER_TEST_P(GlicUiConnectedUiTest,
+                       HidesTabAccessUIOnWebClientCrash) {
+  content::ScopedAllowRendererCrashes scoped_allow_renderer_crashes;
+  RunTestSequence(
+      ObserveState(kGlicUiStateHistory, &window_controller()),
+      ObserveState(kGlicContextAccessIndicatorHistory, glic_service()),
+      OpenGlicWindow(GlicWindowMode::kAttached,
+                     GlicInstrumentMode::kHostAndContents),
+      WaitForElementVisible(test::kGlicContentsElementId, {"body"}),
+      InAnyContext(ExecuteJs(
+          test::kGlicContentsElementId,
+          R"js(()=>{client.browser.setContextAccessIndicator(true);})js")),
+      InAnyContext(WaitForState(kGlicContextAccessIndicatorHistory,
+                                IsContextAccessIndicatorCurrently(true))),
+      // Kills the web client process, simulating a renderer crash.
+      Do([this] { FindGlicGuestMainFrame()->GetProcess()->Shutdown(0); }),
+      InAnyContext(
+          WaitForState(kGlicUiStateHistory, IsCurrently(WebUiState::kError))),
+      InAnyContext(WaitForState(kGlicContextAccessIndicatorHistory,
+                                IsContextAccessIndicatorCurrently(false))));
 }
 
 // Tests the network being unavailable at startup.

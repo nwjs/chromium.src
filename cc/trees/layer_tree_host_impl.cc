@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
-#pragma allow_unsafe_libc_calls
-#endif
-
 #include "cc/trees/layer_tree_host_impl.h"
 
 #include <stddef.h>
@@ -230,7 +225,7 @@ bool VerboseLogEnabled() {
   if (VLOG_IS_ON(4))
     return true;
   const char* client_name = GetClientNameForMetrics();
-  return client_name && strcmp(client_name, "Renderer") == 0;
+  return client_name && UNSAFE_TODO(strcmp(client_name, "Renderer")) == 0;
 }
 
 const char* ClientNameForVerboseLog() {
@@ -315,11 +310,6 @@ void LayerTreeHostImpl::DidUpdateScrollAnimationCurve() {
   // results.
   NotifyLatencyInfoSwapPromiseMonitors();
   events_metrics_manager_.SaveActiveEventMetrics();
-}
-
-void LayerTreeHostImpl::AccumulateScrollDeltaForTracing(
-    const gfx::Vector2dF& delta) {
-  scroll_accumulated_this_frame_ += delta;
 }
 
 void LayerTreeHostImpl::DidStartPinchZoom() {
@@ -503,7 +493,8 @@ LayerTreeHostImpl::LayerTreeHostImpl(
           ? task_runner_provider_->ImplThreadTaskRunner()
           : task_runner_provider_->MainThreadTaskRunner(),
       base::BindRepeating(&LayerTreeHostImpl::MaybeFlushPendingWork,
-                          weak_factory_.GetWeakPtr()));
+                          weak_factory_.GetWeakPtr()),
+      /*use_imported_resource_id=*/settings.is_display_tree);
   DCHECK(mutator_host_);
   mutator_host_->SetMutatorHostClient(this);
   mutator_events_ = mutator_host_->CreateEvents();
@@ -1187,8 +1178,9 @@ LayerTreeHostImpl::GetScopedEventMetricsMonitor(
   return events_metrics_manager_.GetScopedMonitor(std::move(done_callback));
 }
 
-void LayerTreeHostImpl::NotifyInputEvent() {
+void LayerTreeHostImpl::NotifyInputEvent(bool is_fling) {
   frame_rate_estimator_.NotifyInputEvent();
+  has_non_fling_input_since_last_frame_ |= (!is_fling);
 }
 
 void LayerTreeHostImpl::QueueSwapPromiseForMainThreadScrollUpdate(
@@ -1228,8 +1220,7 @@ std::string LayerTreeHostImpl::FrameData::ToString() const {
 DrawMode LayerTreeHostImpl::GetDrawMode() const {
   if (resourceless_software_draw_) {
     return DRAW_MODE_RESOURCELESS_SOFTWARE;
-  } else if (layer_tree_frame_sink_->context_provider() ||
-             settings_.is_display_tree) {
+  } else if (layer_tree_frame_sink_->context_provider()) {
     return DRAW_MODE_HARDWARE;
   } else {
     return DRAW_MODE_SOFTWARE;
@@ -1444,47 +1435,53 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame) {
   if (settings_.enable_compositing_based_throttling)
     throttle_decider_.Prepare();
 
-  if (!use_layer_context_for_display_) {
-    const auto& context = AppendQuadsContext{
-        GetDrawMode(), std::move(capture_view_transition_tokens),
-        /* for_view_transition_capture= */ false};
-    const auto& view_transition_capture_context = AppendQuadsContext{
-        context.draw_mode, context.capture_view_transition_tokens,
-        /* for_view_transition_capture= */ true};
+  const auto& context = AppendQuadsContext{
+      GetDrawMode(), std::move(capture_view_transition_tokens),
+      /* for_view_transition_capture= */ false};
+  const auto& view_transition_capture_context = AppendQuadsContext{
+      context.draw_mode, context.capture_view_transition_tokens,
+      /* for_view_transition_capture= */ true};
 
-    for (EffectTreeLayerListIterator it(active_tree());
-         it.state() != EffectTreeLayerListIterator::State::kEnd; ++it) {
-      RenderSurfaceImpl* target_render_surface = it.target_render_surface();
+  // In TreesInViz mode, FrameData built in the renderer side is abandoned
+  // and later rebuilt in viz side. Therefore, certain steps can be skipped.
+  bool output_frame_data = !use_layer_context_for_display_;
 
-      viz::CompositorRenderPass* target_render_pass = FindRenderPassById(
-          frame->render_passes, target_render_surface->render_pass_id());
+  for (EffectTreeLayerListIterator it(active_tree());
+       it.state() != EffectTreeLayerListIterator::State::kEnd; ++it) {
+    RenderSurfaceImpl* target_render_surface = it.target_render_surface();
 
-      viz::CompositorRenderPass* view_transition_capture_render_pass =
-          target_render_surface->has_view_transition_capture_contributions()
-              ? FindRenderPassById(
-                    frame->render_passes,
-                    it.target_render_surface()
-                        ->view_transition_capture_render_pass_id())
-              : nullptr;
+    viz::CompositorRenderPass* target_render_pass = FindRenderPassById(
+        frame->render_passes, target_render_surface->render_pass_id());
 
-      AppendQuadsData append_quads_data;
+    viz::CompositorRenderPass* view_transition_capture_render_pass =
+        (output_frame_data &&
+         target_render_surface->has_view_transition_capture_contributions())
+            ? FindRenderPassById(frame->render_passes,
+                                 it.target_render_surface()
+                                     ->view_transition_capture_render_pass_id())
+            : nullptr;
 
-      if (it.state() == EffectTreeLayerListIterator::State::kTargetSurface) {
-        RenderSurfaceImpl* render_surface = it.target_render_surface();
-        if (render_surface->HasCopyRequest()) {
-          active_tree()
-              ->property_trees()
-              ->effect_tree_mutable()
-              .TakeCopyRequestsAndTransformToSurface(
-                  render_surface->EffectTreeIndex(),
-                  &target_render_pass->copy_requests);
-        }
-        if (settings_.enable_compositing_based_throttling &&
-            target_render_pass) {
-          throttle_decider_.ProcessRenderPass(*target_render_pass);
-        }
-      } else if (it.state() ==
-                 EffectTreeLayerListIterator::State::kContributingSurface) {
+    AppendQuadsData append_quads_data;
+
+    if (it.state() == EffectTreeLayerListIterator::State::kTargetSurface) {
+      // TODO(zmo): Make sure EffectTree's copy requests are sent to viz.
+      if (target_render_surface->HasCopyRequest()) {
+        active_tree()
+            ->property_trees()
+            ->effect_tree_mutable()
+            .TakeCopyRequestsAndTransformToSurface(
+                target_render_surface->EffectTreeIndex(),
+                &target_render_pass->copy_requests);
+      }
+      // The only place where enable_compositing_based_throttling is set
+      // to true is AshWindowTreeHost::Create().
+      // TODO(zmo): Audit if this is necessary for UI in TreesInViz mode.
+      if (settings_.enable_compositing_based_throttling && target_render_pass) {
+        throttle_decider_.ProcessRenderPass(*target_render_pass);
+      }
+    } else if (it.state() ==
+               EffectTreeLayerListIterator::State::kContributingSurface) {
+      if (output_frame_data) {
         RenderSurfaceImpl* render_surface = it.current_render_surface();
         if (render_surface->contributes_to_drawn_surface()) {
           render_surface->AppendQuads(context, target_render_pass,
@@ -1496,39 +1493,51 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame) {
                                         &data);
           }
         }
-      } else if (it.state() == EffectTreeLayerListIterator::State::kLayer) {
-        LayerImpl* layer = it.current_layer();
-        if (layer->WillDraw(context.draw_mode, resource_provider_.get())) {
-          DCHECK_EQ(active_tree_.get(), layer->layer_tree_impl());
+      }
+    } else if (it.state() == EffectTreeLayerListIterator::State::kLayer) {
+      LayerImpl* layer = it.current_layer();
+      if (layer->WillDraw(context.draw_mode, resource_provider_.get())) {
+        DCHECK_EQ(active_tree_.get(), layer->layer_tree_impl());
 
-          frame->will_draw_layers.push_back(layer);
-          if (layer->may_contain_video()) {
-            num_of_layers_with_videos++;
+        // This is necessary in TreesInViz mode to trigger DidDraw() through
+        // LayerTreeHostImpl::DidDrawAllLayers().
+        frame->will_draw_layers.push_back(layer);
+
+        if (layer->may_contain_video()) {
+          num_of_layers_with_videos++;
+          if (output_frame_data) {
             frame->may_contain_video = true;
           }
-          if (compute_video_layer_preferred_interval &&
-              layer->GetLayerType() == mojom::LayerType::kVideo) {
-            VideoLayerImpl* video_layer = static_cast<VideoLayerImpl*>(layer);
-            std::optional<base::TimeDelta> video_preferred_interval =
-                video_layer->GetPreferredRenderInterval();
-            if (video_preferred_interval) {
-              frame->video_layer_preferred_intervals[video_preferred_interval
-                                                         .value()]++;
-            }
+        }
+        if (output_frame_data && compute_video_layer_preferred_interval &&
+            layer->GetLayerType() == mojom::LayerType::kVideo) {
+          VideoLayerImpl* video_layer = static_cast<VideoLayerImpl*>(layer);
+          std::optional<base::TimeDelta> video_preferred_interval =
+              video_layer->GetPreferredRenderInterval();
+          if (video_preferred_interval) {
+            frame->video_layer_preferred_intervals[video_preferred_interval
+                                                       .value()]++;
           }
-          layer->NotifyKnownResourceIdsBeforeAppendQuads(known_resource_ids);
+        }
+        layer->NotifyKnownResourceIdsBeforeAppendQuads(known_resource_ids);
+        if (output_frame_data) {
           layer->AppendQuads(context, target_render_pass, &append_quads_data);
           if (view_transition_capture_render_pass) {
             AppendQuadsData data;
             layer->AppendQuads(view_transition_capture_context,
                                view_transition_capture_render_pass, &data);
           }
-        } else {
-          if (settings_.enable_compositing_based_throttling) {
-            throttle_decider_.ProcessLayerNotToDraw(layer);
-          }
         }
+      } else {
+        // The only place where enable_compositing_based_throttling is set
+        // to true is AshWindowTreeHost::Create().
+        // TODO(zmo): Audit if this is necessary for UI in TreesInViz mode.
+        if (settings_.enable_compositing_based_throttling) {
+          throttle_decider_.ProcessLayerNotToDraw(layer);
+        }
+      }
 
+      if (output_frame_data) {
         rendering_stats_instrumentation_->AddVisibleContentArea(
             append_quads_data.visible_layer_area);
         rendering_stats_instrumentation_->AddApproximatedVisibleContentArea(
@@ -1544,10 +1553,14 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame) {
           have_missing_animated_tiles |=
               layer->screen_space_transform_is_animating();
         }
-        if (settings_.is_layer_tree_for_ui) {
-          AccumulateInvalidatedArea(layer, total_invalidated_area_.value());
-        }
       }
+
+      // TODO(zmo): Audit if this is necessary when UI is moved to TreesInViz.
+      if (settings_.is_layer_tree_for_ui) {
+        AccumulateInvalidatedArea(layer, total_invalidated_area_.value());
+      }
+    }
+    if (output_frame_data) {
       frame->activation_dependencies.insert(
           frame->activation_dependencies.end(),
           append_quads_data.activation_dependencies.begin(),
@@ -2034,6 +2047,10 @@ void LayerTreeHostImpl::SetIsLikelyToRequireADraw(
   // for draw tile here, then we will miss telling the scheduler each frame that
   // we intend to draw so it may make worse scheduling decisions.
   is_likely_to_require_a_draw_ = is_likely_to_require_a_draw;
+}
+
+viz::SharedImageFormat LayerTreeHostImpl::GetTileFormat() const {
+  return raster_caps_.tile_format;
 }
 
 TargetColorParams LayerTreeHostImpl::GetTargetColorParams(
@@ -3056,12 +3073,6 @@ viz::CompositorFrame LayerTreeHostImpl::GenerateCompositorFrame(
   // drawn.
   if (active_tree_->hud_layer()) {
     TRACE_EVENT0("cc", "DrawLayers.UpdateHudTexture");
-    if (use_layer_context_for_display_) {
-      // We won't have ran WillDraw() for layers. This must run before calling
-      // into UpdateHudTexture().
-      active_tree_->hud_layer()->WillDraw(draw_mode, resource_provider_.get());
-    }
-
     active_tree_->hud_layer()->UpdateHudTexture(
         draw_mode, layer_tree_frame_sink_, resource_provider_.get(),
         raster_caps(), frame->render_passes);
@@ -3069,39 +3080,56 @@ viz::CompositorFrame LayerTreeHostImpl::GenerateCompositorFrame(
 
   viz::CompositorFrameMetadata metadata = MakeCompositorFrameMetadata();
 
-  ViewTransitionRequest::ViewTransitionElementMap view_transition_element_map;
-  const auto& capture_view_transition_tokens =
-      active_tree_->GetCaptureViewTransitionTokens();
-  for (RenderSurfaceImpl* render_surface : *frame->render_surface_list) {
-    const auto& view_transition_element_resource_id =
-        render_surface->OwningEffectNode()->view_transition_element_resource_id;
-    if (!view_transition_element_resource_id.IsValid()) {
-      continue;
+  // Don't compute transition directives in TreesInViz mode because
+  // the requests will be sent over to viz to compute them.
+  // If we call TakeViewTransitionRequests() here, it will clear the requests
+  // and send none to viz.
+  if (!use_layer_context_for_display_) {
+    ViewTransitionRequest::ViewTransitionElementMap view_transition_element_map;
+    const auto& capture_view_transition_tokens =
+        active_tree_->GetCaptureViewTransitionTokens();
+    for (RenderSurfaceImpl* render_surface : *frame->render_surface_list) {
+      const auto& view_transition_element_resource_id =
+          render_surface->OwningEffectNode()
+              ->view_transition_element_resource_id;
+      if (!view_transition_element_resource_id.IsValid()) {
+        continue;
+      }
+
+      DCHECK(!base::Contains(view_transition_element_map,
+                             view_transition_element_resource_id))
+          << "Cannot map " << view_transition_element_resource_id.ToString()
+          << " to render pass "
+          << render_surface->render_pass_id().GetUnsafeValue()
+          << "; It already maps to render pass "
+          << view_transition_element_map[view_transition_element_resource_id]
+                 .GetUnsafeValue();
+
+      if (view_transition_element_resource_id.MatchesToken(
+              capture_view_transition_tokens)) {
+        view_transition_element_map[view_transition_element_resource_id] =
+            render_surface->view_transition_capture_render_pass_id();
+      } else {
+        view_transition_element_map[view_transition_element_resource_id] =
+            render_surface->render_pass_id();
+      }
     }
 
-    DCHECK(!base::Contains(view_transition_element_map,
-                           view_transition_element_resource_id))
-        << "Cannot map " << view_transition_element_resource_id.ToString()
-        << " to render pass "
-        << render_surface->render_pass_id().GetUnsafeValue()
-        << "; It already maps to render pass "
-        << view_transition_element_map[view_transition_element_resource_id]
-               .GetUnsafeValue();
-
-    if (view_transition_element_resource_id.MatchesToken(
-            capture_view_transition_tokens)) {
-      view_transition_element_map[view_transition_element_resource_id] =
-          render_surface->view_transition_capture_render_pass_id();
-    } else {
-      view_transition_element_map[view_transition_element_resource_id] =
-          render_surface->render_pass_id();
+    auto display_color_spaces = GetDisplayColorSpaces();
+    for (auto& request : active_tree_->TakeViewTransitionRequests(
+             /*should_set_needs_update_draw_properties=*/true)) {
+      metadata.transition_directives.push_back(request->ConstructDirective(
+          view_transition_element_map, display_color_spaces));
     }
-  }
-
-  auto display_color_spaces = GetDisplayColorSpaces();
-  for (auto& request : active_tree_->TakeViewTransitionRequests()) {
-    metadata.transition_directives.push_back(request->ConstructDirective(
-        view_transition_element_map, display_color_spaces));
+  } else {
+    // In TreesInViz mode, we call TakeViewTransitionRequest() later in
+    // VizLayerContext::UpdateDisplayTreeFrom(), but we still want to set
+    // the flag here to avoid changing the flow of computing. Also, we will
+    // skip setting the flag when TakeViewTransitionRequest() is called later
+    // to avoid triggering a DCHECK.
+    if (active_tree_->HasViewTransitionRequests()) {
+      active_tree_->set_needs_update_draw_properties();
+    }
   }
 
   PopulateMetadataContentColorUsage(frame, &metadata);
@@ -3115,6 +3143,25 @@ viz::CompositorFrame LayerTreeHostImpl::GenerateCompositorFrame(
       CurrentBeginFrameArgs().frame_time;
   metadata.frame_interval_inputs.has_input =
       frame_rate_estimator_.input_priority_mode();
+  metadata.frame_interval_inputs.has_user_input =
+      has_non_fling_input_since_last_frame_;
+  has_non_fling_input_since_last_frame_ = false;
+
+  if (frame->damage_reasons.Has(DamageReason::kCompositorScroll)) {
+    // Sanity check frame time delta.
+    if (begin_frame_time_delta_.InMicroseconds() < 100 ||
+        begin_frame_time_delta_.InMicroseconds() > 1000000) {
+      metadata.frame_interval_inputs.major_scroll_speed_in_pixels_per_second =
+          0.f;
+    } else {
+      metadata.frame_interval_inputs.major_scroll_speed_in_pixels_per_second =
+          frame_max_scroll_delta_ / begin_frame_time_delta_.InSecondsF();
+    }
+    metadata.frame_interval_inputs.content_interval_info.push_back(
+        {viz::ContentFrameIntervalType::kCompositorScroll, base::TimeDelta(),
+         1u});
+    frame->damage_reasons.Remove(DamageReason::kCompositorScroll);
+  }
 
   if (!frame->video_layer_preferred_intervals.empty() &&
       frame->damage_reasons.Has(DamageReason::kVideoLayer)) {
@@ -3238,11 +3285,9 @@ viz::CompositorFrame LayerTreeHostImpl::GenerateCompositorFrame(
 
   viz::CompositorFrame compositor_frame;
   compositor_frame.metadata = std::move(metadata);
-  if (!settings_.is_display_tree) {
     resource_provider_->PrepareSendToParent(
         resources, &compositor_frame.resource_list,
         layer_tree_frame_sink_->context_provider());
-  }
   compositor_frame.render_pass_list = std::move(frame->render_passes);
 
   // We should always have a valid LocalSurfaceId in LayerTreeImpl unless we
@@ -3427,6 +3472,15 @@ bool LayerTreeHostImpl::WillBeginImplFrame(const viz::BeginFrameArgs& args) {
                                       input_delegate_->IsCurrentlyScrolling() &&
                                       !input_delegate_->HasQueuedInput());
   }
+
+  frame_max_scroll_delta_ = 0.f;
+  if (current_begin_frame_tracker_.HasLast()) {
+    begin_frame_time_delta_ =
+        args.frame_time - current_begin_frame_tracker_.Last().frame_time;
+  } else {
+    begin_frame_time_delta_ = base::TimeDelta();
+  }
+
   impl_thread_phase_ = ImplThreadPhase::INSIDE_IMPL_FRAME;
   current_begin_frame_tracker_.Start(args);
   frame_trackers_.NotifyBeginImplFrame(args);
@@ -4191,7 +4245,8 @@ LayerTreeHostImpl::CreateRasterBufferProvider() {
 
   if (!compositor_context_provider) {
     return std::make_unique<ZeroCopyRasterBufferProvider>(
-        layer_tree_frame_sink_, raster_caps_);
+        layer_tree_frame_sink_->shared_image_interface(),
+        /*is_software=*/true);
   }
 
   const gpu::Capabilities& caps =
@@ -4203,9 +4258,8 @@ LayerTreeHostImpl::CreateRasterBufferProvider() {
     DCHECK(worker_context_provider);
 
     return std::make_unique<GpuRasterBufferProvider>(
-        compositor_context_provider, worker_context_provider, raster_caps_,
-        settings_.max_gpu_raster_tile_size,
-        settings_.unpremultiply_and_dither_low_bit_depth_tiles,
+        compositor_context_provider, worker_context_provider,
+        raster_caps_.tile_overlay_candidate, settings_.max_gpu_raster_tile_size,
         pending_raster_queries_.get());
   }
 
@@ -4220,7 +4274,8 @@ LayerTreeHostImpl::CreateRasterBufferProvider() {
 
   if (use_zero_copy) {
     return std::make_unique<ZeroCopyRasterBufferProvider>(
-        compositor_context_provider, raster_caps_);
+        compositor_context_provider->SharedImageInterface(),
+        /*is_software=*/false);
   }
 
   const int max_copy_texture_chromium_size =
@@ -4228,7 +4283,8 @@ LayerTreeHostImpl::CreateRasterBufferProvider() {
   return std::make_unique<OneCopyRasterBufferProvider>(
       GetTaskRunner(), compositor_context_provider, worker_context_provider,
       max_copy_texture_chromium_size, settings_.use_partial_raster,
-      settings_.max_staging_buffer_usage_in_bytes, raster_caps_);
+      settings_.max_staging_buffer_usage_in_bytes,
+      raster_caps_.tile_overlay_candidate);
 }
 
 void LayerTreeHostImpl::SetLayerTreeMutator(
@@ -4645,7 +4701,12 @@ void LayerTreeHostImpl::WillScrollContent(ElementId element_id) {
   }
 }
 
-void LayerTreeHostImpl::DidScrollContent(ElementId element_id, bool animated) {
+void LayerTreeHostImpl::DidScrollContent(ElementId element_id,
+                                         bool animated,
+                                         const gfx::Vector2dF& scroll_delta) {
+  scroll_accumulated_this_frame_ += scroll_delta;
+  frame_max_scroll_delta_ =
+      std::max(std::abs(scroll_delta.x()), std::abs(scroll_delta.y()));
   if (settings().scrollbar_flash_after_any_scroll_update) {
     FlashAllScrollbars(true);
   } else {
@@ -4850,6 +4911,11 @@ void LayerTreeHostImpl::UpdateChildLocalSurfaceId() {
       resource_provider_->SetEvicted(false);
     }
   }
+}
+
+void LayerTreeHostImpl::ReturnResource(
+    viz::ReturnedResource returned_resource) {
+  client_->ReturnResource(std::move(returned_resource));
 }
 
 void LayerTreeHostImpl::CollectScrollbarUpdatesForCommit(

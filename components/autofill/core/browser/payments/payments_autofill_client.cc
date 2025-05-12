@@ -19,6 +19,7 @@
 #include "components/autofill/core/browser/ui/payments/bnpl_tos_controller.h"
 #include "components/autofill/core/browser/ui/payments/bubble_show_options.h"
 #include "components/autofill/core/browser/ui/payments/card_unmask_prompt_options.h"
+#include "components/autofill/core/browser/ui/payments/select_bnpl_issuer_dialog_controller.h"
 
 #if !BUILDFLAG(IS_IOS)
 #include "components/webauthn/core/browser/internal_authenticator.h"
@@ -65,12 +66,12 @@ bool PaymentsAutofillClient::HasCreditCardScanFeature() const {
 
 void PaymentsAutofillClient::ScanCreditCard(CreditCardScanCallback callback) {}
 
-void PaymentsAutofillClient::ConfirmSaveCreditCardLocally(
+void PaymentsAutofillClient::ShowSaveCreditCardLocally(
     const CreditCard& card,
     SaveCreditCardOptions options,
     LocalSaveCardPromptCallback callback) {}
 
-void PaymentsAutofillClient::ConfirmSaveCreditCardToCloud(
+void PaymentsAutofillClient::ShowSaveCreditCardToCloud(
     const CreditCard& card,
     const LegalMessageLines& legal_message_lines,
     SaveCreditCardOptions options,
@@ -117,6 +118,7 @@ void PaymentsAutofillClient::CloseAutofillProgressDialog(
     base::OnceClosure no_interactive_authentication_callback) {}
 
 void PaymentsAutofillClient::ShowCardUnmaskOtpInputDialog(
+    CreditCard::RecordType card_type,
     const CardUnmaskChallengeOption& challenge_option,
     base::WeakPtr<OtpUnmaskDelegate> delegate) {}
 
@@ -242,10 +244,18 @@ PaymentsAutofillClient::GetOrCreatePaymentsMandatoryReauthManager() {
   return nullptr;
 }
 
-payments::BnplManager* PaymentsAutofillClient::GetPaymentsBnplManager() {
-  return nullptr;
-}
-
 void PaymentsAutofillClient::ShowCreditCardSaveAndFillDialog() {}
+
+void PaymentsAutofillClient::ShowSelectBnplIssuerDialog(
+    std::vector<BnplIssuerContext> bnpl_issuer_context,
+    std::string app_locale,
+    base::OnceCallback<void(BnplIssuer)> selected_issuer_callback,
+    base::OnceClosure cancel_callback) {}
+
+void PaymentsAutofillClient::DismissSelectBnplIssuerDialog() {}
+
+bool PaymentsAutofillClient::IsTabModalPopup() const {
+  return false;
+}
 
 }  // namespace autofill::payments

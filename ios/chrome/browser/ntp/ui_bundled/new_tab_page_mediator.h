@@ -7,7 +7,6 @@
 
 #import <UIKit/UIKit.h>
 
-#import "ios/chrome/browser/ntp/ui_bundled/feed_management/feed_management_navigation_delegate.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_mutator.h"
 
 namespace regional_capabilities {
@@ -24,6 +23,7 @@ class WebState;
 }  // namespace web
 
 class AuthenticationService;
+class BrowserViewVisibilityNotifierBrowserAgent;
 class ChromeAccountManagerService;
 class DiscoverFeedService;
 @protocol FeedControlDelegate;
@@ -39,25 +39,26 @@ class UrlLoadingBrowserAgent;
 
 // Mediator for the NTP Home panel, handling the interactions with the
 // suggestions.
-@interface NewTabPageMediator
-    : NSObject <FeedManagementNavigationDelegate, NewTabPageMutator>
+@interface NewTabPageMediator : NSObject <NewTabPageMutator>
 
 - (instancetype)
-     initWithTemplateURLService:(TemplateURLService*)templateURLService
-                      URLLoader:(UrlLoadingBrowserAgent*)URLLoader
-                    authService:(AuthenticationService*)authService
-                identityManager:(signin::IdentityManager*)identityManager
-          accountManagerService:
-              (ChromeAccountManagerService*)accountManagerService
-       identityDiscImageUpdater:(id<UserAccountImageUpdateDelegate>)imageUpdater
-                    isIncognito:(BOOL)isIncognito
-            discoverFeedService:(DiscoverFeedService*)discoverFeedService
-                    prefService:(PrefService*)prefService
-                    syncService:(syncer::SyncService*)syncService
-    regionalCapabilitiesService:
-        (regional_capabilities::RegionalCapabilitiesService*)
-            regionalCapabilitiesService
-                     isSafeMode:(BOOL)isSafeMode NS_DESIGNATED_INITIALIZER;
+       initWithTemplateURLService:(TemplateURLService*)templateURLService
+                        URLLoader:(UrlLoadingBrowserAgent*)URLLoader
+                      authService:(AuthenticationService*)authService
+                  identityManager:(signin::IdentityManager*)identityManager
+            accountManagerService:
+                (ChromeAccountManagerService*)accountManagerService
+         identityDiscImageUpdater:
+             (id<UserAccountImageUpdateDelegate>)imageUpdater
+              discoverFeedService:(DiscoverFeedService*)discoverFeedService
+                      prefService:(PrefService*)prefService
+                      syncService:(syncer::SyncService*)syncService
+      regionalCapabilitiesService:
+          (regional_capabilities::RegionalCapabilitiesService*)
+              regionalCapabilitiesService
+    browserViewVisibilityNotifier:(BrowserViewVisibilityNotifierBrowserAgent*)
+                                      browserViewVisibilityNotifierBrowserAgent
+                       isSafeMode:(BOOL)isSafeMode NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)init NS_UNAVAILABLE;
 
@@ -71,6 +72,11 @@ class UrlLoadingBrowserAgent;
 @property(nonatomic, weak) id<FeedControlDelegate> feedControlDelegate;
 // Delegate for actions relating to the NTP content.
 @property(nonatomic, weak) id<NewTabPageContentDelegate> NTPContentDelegate;
+// Indicates that the new tab page is visible.
+@property(nonatomic, assign) BOOL NTPVisible;
+// A pointer to the collection view that currently embeds all the contents on
+// the new tab page.
+@property(nonatomic, weak) UICollectionView* contentCollectionView;
 // Indicates whether the feed header should be visible.
 @property(nonatomic, readonly, getter=isFeedHeaderVisible)
     BOOL feedHeaderVisible;
@@ -86,10 +92,6 @@ class UrlLoadingBrowserAgent;
 
 // Restores the current state of the NTP.
 - (void)restoreNTPStateForWebState:(web::WebState*)webState;
-
-// Handles the actions following a tap on the "Learn More" item in the Discover
-// feed menu.
-- (void)handleFeedLearnMoreTapped;
 
 @end
 

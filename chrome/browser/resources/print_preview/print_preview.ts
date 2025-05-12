@@ -9,7 +9,7 @@ export {CrIconButtonElement} from 'chrome://resources/cr_elements/cr_icon_button
 export {CrInputElement} from 'chrome://resources/cr_elements/cr_input/cr_input.js';
 export {PluralStringProxyImpl as PrintPreviewPluralStringProxyImpl} from 'chrome://resources/js/plural_string_proxy.js';
 export {getTrustedHTML} from 'chrome://resources/js/static_types.js';
-export {Cdd, ColorOption, DpiOption, DuplexOption, DuplexType, MediaSizeCapability, MediaSizeOption, MediaTypeCapability, MediaTypeOption, PageOrientationOption, SelectOption, VendorCapabilityValueType} from './data/cdd.js';
+export {Cdd, ColorOption, DpiOption, DuplexOption, DuplexType, MediaSizeCapability, MediaSizeOption, PageOrientationOption, SelectOption, VendorCapabilityValueType} from './data/cdd.js';
 export {ColorMode, createDestinationKey, Destination, DestinationOptionalParams, DestinationOrigin, GooglePromotedDestinationId, makeRecentDestination, PDF_DESTINATION_KEY, PrinterType, RecentDestination} from './data/destination.js';
 export {DestinationErrorType, DestinationStore, DestinationStoreEventType} from './data/destination_store.js';
 export {PageLayoutInfo} from './data/document_info.js';
@@ -17,6 +17,7 @@ export {ExtensionDestinationInfo, LocalDestinationInfo} from './data/local_parse
 export {CustomMarginsOrientation, Margins, MarginsSetting, MarginsType} from './data/margins.js';
 export {MeasurementSystem, MeasurementSystemUnitType} from './data/measurement_system.js';
 export {DuplexMode, getInstance, PolicyObjectEntry, PrintPreviewModelElement, PrintTicket, SerializedSettings, Setting, Settings, whenReady} from './data/model.js';
+export {Observable, WildcardChangeRecord} from './data/observable.js';
 export {ScalingType} from './data/scaling.js';
 export {Size} from './data/size.js';
 export {Error, State} from './data/state.js';
@@ -42,7 +43,6 @@ export {PrintPreviewMarginControlElement} from './ui/margin_control.js';
 export {PrintPreviewMarginControlContainerElement} from './ui/margin_control_container.js';
 export {PrintPreviewMarginsSettingsElement} from './ui/margins_settings.js';
 export {PrintPreviewMediaSizeSettingsElement} from './ui/media_size_settings.js';
-export {PrintPreviewMediaTypeSettingsElement} from './ui/media_type_settings.js';
 export {PrintPreviewNumberSettingsSectionElement} from './ui/number_settings_section.js';
 export {PrintPreviewOtherOptionsSettingsElement} from './ui/other_options_settings.js';
 export {PrintPreviewPagesPerSheetSettingsElement} from './ui/pages_per_sheet_settings.js';
@@ -52,6 +52,7 @@ export {PreviewAreaState, PreviewTicket, PrintPreviewPreviewAreaElement} from '.
 export {PrintPreviewSearchBoxElement} from './ui/print_preview_search_box.js';
 export {PrintPreviewScalingSettingsElement} from './ui/scaling_settings.js';
 export {SelectMixin, SelectMixinInterface} from './ui/select_mixin.js';
+export {SelectMixinLit} from './ui/select_mixin_lit.js';
 export {SettingsMixinInterface} from './ui/settings_mixin.js';
 export {PrintPreviewSettingsSelectElement} from './ui/settings_select.js';
 export {PrintPreviewSidebarElement} from './ui/sidebar.js';

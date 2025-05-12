@@ -22,6 +22,30 @@ chromium-metrics-reviews@google.com.
 
 <histograms>
 
+<variants name="ProfileStateGroup">
+  <variant name="_ActiveMultiProfile"
+      summary="Recorded only for users with &gt;=2 active profiles; recorded
+               for all their profiles."/>
+  <variant name="_All" summary="Recorded for every profile of every user."/>
+  <variant name="_AllManagedDevice"
+      summary="Recorded for every profile of every user on managed devices."/>
+  <variant name="_AllUnmanagedDevice"
+      summary="Recorded for every profile of every user on unmanaged devices."/>
+  <variant name="_LatentMultiProfile"
+      summary="Recorded only for users with &gt;=2 profiles but only one
+               active; recorded for all their profiles."/>
+  <variant name="_LatentMultiProfileActive"
+      summary="Recorded only for users with &gt;=2 profiles but only one
+               active; recorded only for the one active profile."/>
+  <variant name="_LatentMultiProfileOthers"
+      summary="Recorded only for users with &gt;=2 profiles but only one
+               active; recorded only for the non-active profiles."/>
+  <variant name="_SingleProfile"
+      summary="Recorded only for single-profile users."/>
+  <variant name="_UponDeletion"
+      summary="Recorded for a profile upon its deletion"/>
+</variants>
+
 <histogram name="Profile.AddNewUser" enum="ProfileAddNewUser"
     expires_after="2025-09-14">
   <owner>rogerta@chromium.org</owner>
@@ -290,7 +314,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Profile.Menu.ClickedActionableItem{ProfileType}"
-    enum="ProfileMenuActionableItem" expires_after="2025-08-03">
+    enum="ProfileMenuActionableItem" expires_after="2025-10-05">
   <owner>droger@chromium.org</owner>
   <owner>msarda@chromium.org</owner>
   <owner>chrome-signin-team@google.com</owner>
@@ -393,7 +417,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Profile.NumberOfProfilesAtProfileInit" units="profiles"
-    expires_after="2025-08-10">
+    expires_after="2025-10-12">
   <owner>alexilin@chromium.org</owner>
   <owner>chrome-signin-team@google.com</owner>
   <summary>
@@ -407,7 +431,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Profile.NumberOfProfilesAtProfileSwitch" units="profiles"
-    expires_after="2025-08-10">
+    expires_after="2025-10-12">
   <owner>droger@chromium.org</owner>
   <owner>chrome-signin-team@google.com</owner>
   <summary>
@@ -441,7 +465,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Profile.PercentageOfManagedProfiles" units="units"
-    expires_after="2025-07-13">
+    expires_after="2025-10-05">
   <owner>agawronska@chromium.org</owner>
   <owner>cros-families-eng@google.com</owner>
   <summary>
@@ -482,33 +506,36 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram base="true" name="Profile.State.LastUsed" units="days"
+<histogram name="Profile.State.LastUsed{ProfileStateGroup}" units="days"
     expires_after="2025-09-14">
   <owner>droger@chromium.org</owner>
   <owner>chrome-signin-team@google.com</owner>
   <summary>
     The number of days since a profile was last used. Recorded on startup of
     Chrome and whenever Chrome is used after at least 30 minutes of inactivity.
+    {ProfileStateGroup}
   </summary>
 </histogram>
 
-<histogram base="true" name="Profile.State.SyncEnabled" enum="BooleanEnabled"
-    expires_after="2025-08-24">
+<histogram name="Profile.State.SyncEnabled{ProfileStateGroup}"
+    enum="BooleanEnabled" expires_after="2025-08-24">
   <owner>droger@chromium.org</owner>
   <owner>chrome-signin-team@google.com</owner>
   <summary>
     The sync status of the profile. Recorded on startup of Chrome and whenever
-    Chrome is used after at least 30 minutes of inactivity.
+    Chrome is used after at least 30 minutes of inactivity. {ProfileStateGroup}
   </summary>
 </histogram>
 
-<histogram base="true" name="Profile.State.UnconsentedPrimaryAccountType"
+<histogram
+    name="Profile.State.UnconsentedPrimaryAccountType{ProfileStateGroup}"
     enum="ProfileUnconsentedPrimaryAccountType" expires_after="2025-09-14">
   <owner>droger@chromium.org</owner>
   <owner>chrome-signin-team@google.com</owner>
   <summary>
     The type of profile's unconsented primary account. Recorded on startup of
     Chrome and whenever Chrome is used after at least 30 minutes of inactivity.
+    {ProfileStateGroup}
   </summary>
 </histogram>
 
@@ -584,7 +611,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Profile.{Database}Size" units="MB" expires_after="2025-08-10">
+<histogram name="Profile.{Database}Size" units="MB" expires_after="2025-10-12">
   <owner>etienneb@chromium.org</owner>
   <owner>gab@chromium.org</owner>
   <summary>
@@ -606,7 +633,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ProfileChooser.HasProfilesShown" enum="BooleanShown"
-    expires_after="2025-07-27">
+    expires_after="2025-09-28">
   <owner>vasilii@chromium.org</owner>
   <owner>ewald@chromium.org</owner>
   <summary>

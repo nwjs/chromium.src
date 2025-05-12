@@ -292,10 +292,11 @@ BASE_FEATURE(kPreloadedDictionaryConditionalUse,
              "PreloadedDictionaryConditionalUse",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enables the `require-sri-for` CSP directive, which enables developers to
-// ensure all their external scripts have their integrity enforced.
-BASE_FEATURE(kCSPRequireSRIFor,
-             "CSPRequireSRIFor",
+// Enables support for the `Integrity-Policy` header with script destinations,
+// which enables developers to ensure all their external scripts have their
+// integrity enforced.
+BASE_FEATURE(kIntegrityPolicyScript,
+             "IntegrityPolicyScript",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kVisibilityAwareResourceScheduler,
@@ -324,6 +325,15 @@ BASE_FEATURE_PARAM(int,
                    &kRendererSideContentDecoding,
                    /*name=*/"RendererSideContentDecodingPipeSize",
                    /*default_value=*/0);
+// For testing purposes only. If set to true, the creation of the Mojo data pipe
+// for the RendererSideContentDecoding feature will be forced to fail,
+// simulating an insufficient resources error (net::ERR_INSUFFICIENT_RESOURCES).
+BASE_FEATURE_PARAM(
+    bool,
+    kRendererSideContentDecodingForceMojoFailureForTesting,
+    &kRendererSideContentDecoding,
+    /*name=*/"RendererSideContentDecodingForceMojoFailureForTesting",
+    /*default_value=*/false);
 
 // This feature allows skipping TPCD mitigation checks when the cookie access
 // is tagged as being used for advertising purposes. This means that cookies
@@ -363,10 +373,16 @@ BASE_FEATURE(kAvoidResourceRequestCopies,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables Document-Isolation-Policy (DIP).
-// https://github.com/explainers-by-googlers/document-isolation-policy
+// https://github.com/WICG/document-isolation-policy
 BASE_FEATURE(kDocumentIsolationPolicy,
              "DocumentIsolationPolicy",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS) || \
+    BUILDFLAG(IS_LINUX)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
 
 // This feature enables the Prefetch() method on the NetworkContext, and makes
 // the PrefetchMatchingURLLoaderFactory check the match quality.
@@ -393,10 +409,6 @@ BASE_FEATURE(kTreatNullIPAsPublicAddressSpace,
 // resource request only if the request includes a DevTools request id.
 BASE_FEATURE(kCloneDevToolsConnectionOnlyIfRequested,
              "CloneDevToolsConnectionOnlyIfRequested",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kStorageAccessHeaders,
-             "StorageAccessHeaders",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSRIMessageSignatureEnforcement,
@@ -580,6 +592,10 @@ BASE_FEATURE(kGetCookiesOnSet,
              "GetCookiesOnSet",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kIncreaseCookieAccessCacheSize,
+             "IncreaseCookieAccessCacheSize",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kPopulatePermissionsPolicyOnRequest,
              "PopulatePermissionsPolicyOnRequest",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -587,5 +603,15 @@ BASE_FEATURE(kPopulatePermissionsPolicyOnRequest,
 BASE_FEATURE(kProtectedAudienceCorsSafelistKVv2Signals,
              "ProtectedAudienceCorsSafelistKVv2Signals",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kStorageAccessHeadersRespectPermissionsPolicy,
+             "StorageAccessHeadersRespectPermissionsPolicy",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kDeviceBoundSessionAccessObserverSharedRemote,
+             "DeviceBoundSessionAccessObserverSharedRemote",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kCSPScriptSrcV2, "ScriptSrcV2", base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace network::features

@@ -4,7 +4,6 @@
 
 source_set("ui_bundled") {
   sources = [
-    "discover_feed_manage_delegate.h",
     "discover_feed_preview_delegate.h",
     "feed_control_delegate.h",
     "feed_sign_in_promo_delegate.h",
@@ -61,6 +60,7 @@ source_set("component_factory") {
     "//ios/chrome/app:tests_hook",
     "//ios/chrome/app/application_delegate:app_state",
     "//ios/chrome/app/profile",
+    "//ios/chrome/browser/browser_view/model",
     "//ios/chrome/browser/content_suggestions/ui_bundled:coordinator",
     "//ios/chrome/browser/content_suggestions/ui_bundled:ui",
     "//ios/chrome/browser/discover_feed/model",
@@ -93,7 +93,6 @@ source_set("coordinator") {
     ":component_factory_protocol",
     ":constants",
     ":feature_flags",
-    ":feed_menu",
     ":logo",
     ":ntp_internal",
     ":ui_bundled",
@@ -112,6 +111,8 @@ source_set("coordinator") {
     "//ios/chrome/app/profile",
     "//ios/chrome/app/strings",
     "//ios/chrome/browser/authentication/ui_bundled/enterprise:enterprise_utils",
+    "//ios/chrome/browser/authentication/ui_bundled/signin:signin_headers",
+    "//ios/chrome/browser/authentication/ui_bundled/signin/account_menu:constants",
     "//ios/chrome/browser/bubble/ui_bundled",
     "//ios/chrome/browser/content_suggestions/ui_bundled:coordinator",
     "//ios/chrome/browser/content_suggestions/ui_bundled:public",
@@ -132,7 +133,6 @@ source_set("coordinator") {
     "//ios/chrome/browser/ntp/shared/metrics",
     "//ios/chrome/browser/ntp/shared/metrics:constants",
     "//ios/chrome/browser/ntp/shared/metrics:home_metrics",
-    "//ios/chrome/browser/ntp/ui_bundled/feed_management",
     "//ios/chrome/browser/ntp/ui_bundled/feed_top_section",
     "//ios/chrome/browser/ntp/ui_bundled/incognito",
     "//ios/chrome/browser/overscroll_actions/ui_bundled",
@@ -146,6 +146,7 @@ source_set("coordinator") {
     "//ios/chrome/browser/shared/model/prefs",
     "//ios/chrome/browser/shared/model/prefs:pref_names",
     "//ios/chrome/browser/shared/model/profile",
+    "//ios/chrome/browser/shared/model/profile:features",
     "//ios/chrome/browser/shared/model/web_state_list",
     "//ios/chrome/browser/shared/public/commands",
     "//ios/chrome/browser/shared/public/features",
@@ -177,7 +178,6 @@ source_set("ntp_internal") {
   sources = [
     "feed_header_view_controller.h",
     "feed_header_view_controller.mm",
-    "feed_menu_commands.h",
     "feed_wrapper_view_controller.h",
     "feed_wrapper_view_controller.mm",
     "new_tab_page_consumer.h",
@@ -210,6 +210,7 @@ source_set("ntp_internal") {
     "//components/strings",
     "//ios/chrome/app/strings",
     "//ios/chrome/browser/alert_view/ui_bundled",
+    "//ios/chrome/browser/browser_view/model",
     "//ios/chrome/browser/bubble/ui_bundled",
     "//ios/chrome/browser/content_suggestions/ui_bundled:content_suggestions_constant",
     "//ios/chrome/browser/content_suggestions/ui_bundled:coordinator",
@@ -234,8 +235,8 @@ source_set("ntp_internal") {
     "//ios/chrome/browser/ntp/shared/metrics",
     "//ios/chrome/browser/ntp/shared/metrics:constants",
     "//ios/chrome/browser/ntp/shared/metrics:home_metrics",
-    "//ios/chrome/browser/ntp/ui_bundled/feed_management:navigation_delegate",
     "//ios/chrome/browser/ntp/ui_bundled/resources",
+    "//ios/chrome/browser/omnibox/public",
     "//ios/chrome/browser/omnibox/public:features",
     "//ios/chrome/browser/omnibox/ui_bundled:omnibox_internal",
     "//ios/chrome/browser/omnibox/ui_bundled:omnibox_popup_shared",
@@ -244,7 +245,9 @@ source_set("ntp_internal") {
     "//ios/chrome/browser/push_notification/ui_bundled:prominence_notification_setting_alert",
     "//ios/chrome/browser/regional_capabilities/model",
     "//ios/chrome/browser/search_engines/model",
+    "//ios/chrome/browser/shared/model/application_context",
     "//ios/chrome/browser/shared/model/prefs:pref_names",
+    "//ios/chrome/browser/shared/model/profile:features",
     "//ios/chrome/browser/shared/model/url:constants",
     "//ios/chrome/browser/shared/model/utils",
     "//ios/chrome/browser/shared/model/web_state_list",
@@ -284,29 +287,6 @@ source_set("ntp_internal") {
   ]
 }
 
-source_set("feed_menu") {
-  sources = [
-    "feed_menu_coordinator.h",
-    "feed_menu_coordinator.mm",
-  ]
-  deps = [
-    ":ntp_internal",
-    "//components/feed/core/v2/public/ios:feed_ios_public",
-    "//components/prefs",
-    "//ios/chrome/app/strings",
-    "//ios/chrome/browser/shared/coordinator/alert",
-    "//ios/chrome/browser/shared/coordinator/chrome_coordinator",
-    "//ios/chrome/browser/shared/model/browser",
-    "//ios/chrome/browser/shared/model/profile",
-    "//ios/chrome/browser/shared/public/commands",
-    "//ios/chrome/browser/shared/public/features",
-    "//ios/chrome/browser/shared/ui/symbols",
-    "//ios/chrome/browser/signin/model:authentication_service",
-    "//ios/chrome/browser/signin/model:authentication_service_factory",
-    "//ui/strings",
-  ]
-}
-
 source_set("unit_tests") {
   testonly = true
   sources = [
@@ -318,7 +298,6 @@ source_set("unit_tests") {
     ":component_factory",
     ":coordinator",
     ":feature_flags",
-    ":feed_menu",
     ":logo",
     ":ntp_internal",
     ":ui_bundled",
@@ -339,6 +318,8 @@ source_set("unit_tests") {
     "//components/variations/service",
     "//ios/chrome/app/strings",
     "//ios/chrome/browser/bookmarks/model",
+    "//ios/chrome/browser/browser_view/model",
+    "//ios/chrome/browser/browser_view/model:audience",
     "//ios/chrome/browser/commerce/model:shopping_service",
     "//ios/chrome/browser/content_suggestions/ui_bundled:content_suggestions_constant",
     "//ios/chrome/browser/content_suggestions/ui_bundled:coordinator",
@@ -361,6 +342,7 @@ source_set("unit_tests") {
     "//ios/chrome/browser/shared/model/application_context",
     "//ios/chrome/browser/shared/model/browser",
     "//ios/chrome/browser/shared/model/browser/test:test_support",
+    "//ios/chrome/browser/shared/model/prefs:pref_names",
     "//ios/chrome/browser/shared/model/profile/test",
     "//ios/chrome/browser/shared/model/url:constants",
     "//ios/chrome/browser/shared/model/web_state_list",
@@ -379,6 +361,7 @@ source_set("unit_tests") {
     "//ios/chrome/browser/url_loading/model",
     "//ios/chrome/browser/url_loading/model:test_support",
     "//ios/chrome/test:test_support",
+    "//ios/chrome/test/providers/discover_feed",
     "//ios/testing:block_swizzler",
     "//ios/web/public/test",
     "//ios/web/public/test/fakes",

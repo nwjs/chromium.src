@@ -16,7 +16,9 @@ export type PageType =
     // A login page.
     'login'
     // A page that should be displayed.
-    |'regular';
+    |'regular'
+    // A error page that should be displayed.
+    |'guestError';
 
 // Calls from the webview to its owner.
 export interface WebviewDelegate {
@@ -171,13 +173,9 @@ export class WebviewController {
     }
     switch (e.permission) {
       case 'media': {
-        const isMediaAllowed =
-            await this.host.shouldAllowMediaPermissionRequest();
-        if (isMediaAllowed) {
-          e.request.allow();
-        } else {
-          e.request.deny();
-        }
+        // TODO(crbug.com/409118577): Block mic requests if the mic permission
+        // is not enabled.
+        e.request.allow();
         return;
       }
       case 'geolocation': {
@@ -201,6 +199,7 @@ export class WebviewController {
   private onExit(e: any): void {
     if (e.reason !== 'normal') {
       this.destroyHost(WebClientState.ERROR);
+      chrome.metricsPrivate.recordUserAction('GlicSessionWebClientCrash');
       console.warn(`webview exit. reason: ${e.reason}`);
     }
   }
@@ -209,10 +208,9 @@ export class WebviewController {
     if (!isTopLevel) {
       return;
     }
-    if (this.getWebClientState().getCurrentValue() ===
-        WebClientState.RESPONSIVE) {
-      this.persistentState.onCommitAfterConnect(url);
-    }
+    const wasResponsive = this.getWebClientState().getCurrentValue() ===
+        WebClientState.RESPONSIVE;
+
     this.destroyHost(WebClientState.UNINITIALIZED);
 
     if (this.webview.contentWindow) {
@@ -230,9 +228,16 @@ export class WebviewController {
 
     // TODO(https://crbug.com/388328847): Remove when login issues are resolved.
     if (url.startsWith('https://login.corp.google.com/') ||
-        url.startsWith('https://accounts.google.com/')) {
+        url.startsWith('https://accounts.google.com/') ||
+        url.startsWith('https://accounts.googlers.com/') ||
+        url.startsWith('https://gaiastaging.corp.google.com/')) {
       this.delegate.webviewPageCommit('login');
+    } else if (new URL(url).pathname.startsWith('/sorry/')) {
+      this.delegate.webviewPageCommit('guestError');
     } else {
+      if (wasResponsive) {
+        this.persistentState.onCommitAfterConnect(url);
+      }
       this.delegate.webviewPageCommit('regular');
     }
   }

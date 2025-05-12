@@ -34,6 +34,7 @@ import org.chromium.chrome.browser.compositor.layouts.components.LayoutTab;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutHelperManager;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.fullscreen.BrowserControlsManager;
+import org.chromium.chrome.browser.gesturenav.OverscrollGlowCoordinator;
 import org.chromium.chrome.browser.layouts.CompositorModelChangeProcessor;
 import org.chromium.chrome.browser.layouts.EventFilter;
 import org.chromium.chrome.browser.layouts.EventFilter.EventType;
@@ -351,6 +352,7 @@ public class LayoutManagerImpl
 
         overlayOrder =
                 new Class[] {
+                    OverscrollGlowCoordinator.getSceneOverlayClass(),
                     // Place the tab strip behind the toolbar scene layer as during tab strip
                     // transition, the toolbar will move up and cover the tab strip.
                     StripLayoutHelperManager.class,
@@ -486,10 +488,47 @@ public class LayoutManagerImpl
     }
 
     /**
+     * Gives the {@link LayoutManagerImpl} a chance to process the generic motion events from the
+     * Android {@link View} system.
+     *
+     * @param e A {@link MotionEvent} instance.
+     * @return Whether or not {@code e} was consumed.
+     */
+    public boolean dispatchGenericMotionEvent(MotionEvent e) {
+        if (mActiveLayout == null) return false;
+
+        PointF offsets = getMotionOffsets(e);
+
+        // The last added overlay will be drawn on top of everything else, therefore the last
+        // filter added should have the first chance to intercept any motion events.
+        for (int i = mSceneOverlays.size() - 1; i >= 0; i--) {
+            if (!mSceneOverlays.get(i).isSceneOverlayTreeShowing()) continue;
+            if (didEventFilterHandleGenericMotionEvent(
+                    mSceneOverlays.get(i).getEventFilter(), offsets, e)) {
+                return true;
+            }
+        }
+
+        // If no overlay's filter took the event, check the layout.
+        if (didEventFilterHandleGenericMotionEvent(mActiveLayout.getEventFilter(), offsets, e)) {
+            return true;
+        }
+        return false;
+    }
+
+    private boolean didEventFilterHandleGenericMotionEvent(
+            EventFilter eventFilter, PointF offsets, MotionEvent e) {
+        if (eventFilter == null) return false;
+        if (offsets != null) eventFilter.setCurrentMotionEventOffsets(offsets.x, offsets.y);
+        return eventFilter.onGenericMotionEvent(e);
+    }
+
+    /**
      * Gives the {@link LayoutManagerImpl} a chance to process the hover events from the Android
      * {@link View} system.
+     *
      * @param e A {@link MotionEvent} instance.
-     * @return  Whether or not {@code e} was consumed.
+     * @return Whether or not {@code e} was consumed.
      */
     public boolean onHoverEvent(MotionEvent e) {
         if (mActiveEventFilter == null) return false;

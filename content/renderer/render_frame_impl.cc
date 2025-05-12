@@ -5,7 +5,6 @@
 #include "content/renderer/render_frame_impl.h"
 
 #include <algorithm>
-#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -145,6 +144,7 @@
 #include "services/service_manager/public/mojom/interface_provider.mojom.h"
 #include "services/tracing/public/cpp/perfetto/track_name_recorder.h"
 #include "services/viz/public/cpp/gpu/context_provider_command_buffer.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/chrome_debug_urls.h"
 #include "third_party/blink/public/common/context_menu_data/context_menu_data.h"
@@ -330,12 +330,12 @@ constexpr base::TimeDelta kDelaySecondsForContentStateSyncHidden =
 constexpr base::TimeDelta kDelaySecondsForContentStateSync = base::Seconds(1);
 
 #if BUILDFLAG(CONTENT_ENABLE_LEGACY_IPC)
-typedef std::map<int, RenderFrameImpl*> RoutingIDFrameMap;
+using RoutingIDFrameMap = absl::flat_hash_map<int, RenderFrameImpl*>;
 static base::LazyInstance<RoutingIDFrameMap>::DestructorAtExit
     g_routing_id_frame_map = LAZY_INSTANCE_INITIALIZER;
 #endif
 
-typedef std::map<blink::WebFrame*, RenderFrameImpl*> FrameMap;
+using FrameMap = absl::flat_hash_map<blink::WebFrame*, RenderFrameImpl*>;
 base::LazyInstance<FrameMap>::DestructorAtExit g_frame_map =
     LAZY_INSTANCE_INITIALIZER;
 
@@ -648,7 +648,9 @@ blink::mojom::CommonNavigationParamsPtr MakeCommonNavigationParams(
       url_request_extra_data->transition_type(), navigation_type,
       download_policy,
       info->frame_load_type == WebFrameLoadType::kReplaceCurrentItem, GURL(),
-      base::TimeTicks::Now(), info->url_request.HttpMethod().Latin1(),
+      info->actual_navigation_start,
+      /*navigation_start=*/base::TimeTicks::Now(),
+      info->url_request.HttpMethod().Latin1(),
       blink::GetRequestBodyForWebURLRequest(info->url_request),
       std::move(source_location), false /* started_from_context_menu */,
       info->url_request.HasUserGesture(),
@@ -994,10 +996,7 @@ void FillMiscNavigationParams(
   DCHECK(!commit_params.can_load_local_resources);
 #endif
 
-  if (commit_params.origin_to_commit) {
-    navigation_params->origin_to_commit =
-        commit_params.origin_to_commit.value();
-  }
+  navigation_params->origin_to_commit = commit_params.origin_to_commit;
   navigation_params->storage_key = std::move(commit_params.storage_key);
 
   navigation_params->frame_policy = commit_params.frame_policy;
@@ -2746,11 +2745,29 @@ void RenderFrameImpl::CommitNavigation(
     mojom::StorageInfoPtr storage_info,
     mojom::NavigationClient::CommitNavigationCallback commit_callback) {
   if (!response_head->client_side_content_decoding_types.empty()) {
-    network::ContentDecodingInterceptor::Intercept(
-        response_head->client_side_content_decoding_types,
-        url_loader_client_endpoints, response_body,
-        base::ThreadPool::CreateSequencedTaskRunner(
-            {base::TaskPriority::USER_BLOCKING}));
+    // Attempt to create the data pipe needed for content decoding.
+    auto data_pipe_pair =
+        network::ContentDecodingInterceptor::CreateDataPipePair(
+            network::ContentDecodingInterceptor::ClientType::kCommitNavigation);
+    if (data_pipe_pair) {
+      // If pipe creation succeeds, intercept the response to set up decoding.
+      network::ContentDecodingInterceptor::Intercept(
+          response_head->client_side_content_decoding_types,
+          url_loader_client_endpoints, response_body,
+          std::move(*data_pipe_pair),
+          base::ThreadPool::CreateSequencedTaskRunner(
+              {base::TaskPriority::USER_BLOCKING}));
+    } else {
+      // Handle data pipe creation failure. This is rare but can happen if
+      // shared memory is exhausted. In such a situation, the page load will
+      // likely fail anyway as resources cannot be properly loaded. However, we
+      // should avoid crashing the renderer process or attempting to display the
+      // raw encoded body. Instead, discard the response body and log a console
+      // error message for debugging and testing purposes.
+      response_body.reset();
+      AddMessageToConsole(blink::mojom::ConsoleMessageLevel::kError,
+                          "Failed to decode content");
+    }
   }
   base::ElapsedTimer timer;
   base::ScopedUmaHistogramTimer histogram_timer(kCommitRenderFrame);
@@ -2762,11 +2779,6 @@ void RenderFrameImpl::CommitNavigation(
   DCHECK(navigation_client_impl_);
   DCHECK(!blink::IsRendererDebugURL(common_params->url));
   DCHECK(!NavigationTypeUtils::IsSameDocument(common_params->navigation_type));
-  // `origin_to_commit` must only be set on failed navigations or  data: URL
-  // navigations, except when kUseBrowserCalculatedOrigin is enabled.
-  CHECK(!commit_params->origin_to_commit ||
-        common_params->url.SchemeIs(url::kDataScheme) ||
-        base::FeatureList::IsEnabled(features::kUseBrowserCalculatedOrigin));
   LogCommitHistograms(commit_params->commit_sent, is_main_frame_,
                       common_params->url);
 
@@ -3126,8 +3138,6 @@ void RenderFrameImpl::CommitFailedNavigation(
                frame_token_);
   DCHECK(navigation_client_impl_);
   DCHECK(!NavigationTypeUtils::IsSameDocument(common_params->navigation_type));
-  // `origin_to_commit` must be set on failed navigations.
-  CHECK(commit_params->origin_to_commit);
 
   // The browser process should not send us an initiator_base_url in a failed
   // navigation.
@@ -3576,7 +3586,7 @@ RenderFrameImpl::CreateSpeechRecognitionClient() {
 #endif
 
 scoped_refptr<blink::WebWorkerFetchContext>
-RenderFrameImpl::CreateWorkerFetchContext() {
+RenderFrameImpl::CreateWorkletFetchContext() {
   ServiceWorkerNetworkProviderForFrame* provider =
       static_cast<ServiceWorkerNetworkProviderForFrame*>(
           frame_->GetDocumentLoader()->GetServiceWorkerNetworkProvider());
@@ -3629,7 +3639,7 @@ RenderFrameImpl::CreateWorkerFetchContext() {
 }
 
 scoped_refptr<blink::WebWorkerFetchContext>
-RenderFrameImpl::CreateWorkerFetchContextForPlzDedicatedWorker(
+RenderFrameImpl::CreateWorkerFetchContext(
     blink::WebDedicatedWorkerHostFactoryClient* factory_client) {
   DCHECK(factory_client);
 
@@ -5960,6 +5970,7 @@ void RenderFrameImpl::OpenURL(std::unique_ptr<blink::WebNavigationInfo> info) {
   if (info->requestor_base_url.IsValid()) {
     params->initiator_base_url = info->requestor_base_url;
   }
+  params->actual_navigation_start = info->actual_navigation_start;
   params->post_body = blink::GetRequestBodyForWebURLRequest(info->url_request);
   DCHECK_EQ(!!params->post_body, IsHttpPost(info->url_request));
   params->extra_headers =

@@ -6,18 +6,24 @@
 
 #include <stddef.h>
 
+#include <cstdint>
+#include <memory>
 #include <utility>
 #include <vector>
 
+#include "base/check.h"
 #include "base/check_op.h"
-#include "base/functional/bind.h"
+#include "base/memory/ptr_util.h"
+#include "base/memory/weak_ptr.h"
 #include "base/notreached.h"
 #include "base/trace_event/base_tracing.h"
-#include "components/services/storage/public/cpp/buckets/bucket_locator.h"
 #include "content/browser/indexed_db/indexed_db_database_error.h"
+#include "content/browser/indexed_db/indexed_db_external_object.h"
 #include "content/browser/indexed_db/indexed_db_value.h"
 #include "content/browser/indexed_db/instance/callback_helpers.h"
 #include "content/browser/indexed_db/instance/transaction.h"
+#include "content/browser/indexed_db/status.h"
+#include "mojo/public/cpp/bindings/pending_associated_remote.h"
 #include "mojo/public/cpp/bindings/self_owned_associated_receiver.h"
 #include "third_party/blink/public/mojom/indexeddb/indexeddb.mojom.h"
 
@@ -66,9 +72,7 @@ Cursor::Cursor(std::unique_ptr<BackingStore::Cursor> cursor,
                indexed_db::CursorType cursor_type,
                blink::mojom::IDBTaskType task_type,
                base::WeakPtr<Transaction> transaction)
-    : bucket_locator_(transaction->BackingStoreTransaction()
-                          ->backing_store()
-                          ->bucket_locator()),
+    : bucket_locator_(transaction->bucket_context()->bucket_locator()),
       task_type_(task_type),
       cursor_type_(cursor_type),
       transaction_(std::move(transaction)),
@@ -299,8 +303,8 @@ Status Cursor::PrefetchIterationOperation(
       saved_cursor_ = cursor_->Clone();
     }
 
-    found_keys.push_back(cursor_->key());
-    found_primary_keys.push_back(cursor_->primary_key());
+    found_keys.push_back(cursor_->GetKey());
+    found_primary_keys.push_back(cursor_->GetPrimaryKey());
 
     switch (cursor_type_) {
       case indexed_db::CursorType::kKeyOnly:
@@ -308,7 +312,7 @@ Status Cursor::PrefetchIterationOperation(
         break;
       case indexed_db::CursorType::kKeyAndValue: {
         IndexedDBValue value;
-        value.swap(*cursor_->value());
+        value.swap(cursor_->GetValue());
         size_estimate += value.SizeEstimate();
         found_values.push_back(value);
         break;
@@ -316,8 +320,8 @@ Status Cursor::PrefetchIterationOperation(
       default:
         NOTREACHED();
     }
-    size_estimate += cursor_->key().size_estimate();
-    size_estimate += cursor_->primary_key().size_estimate();
+    size_estimate += cursor_->GetKey().size_estimate();
+    size_estimate += cursor_->GetPrimaryKey().size_estimate();
 
     if (size_estimate > max_size_estimate) {
       break;

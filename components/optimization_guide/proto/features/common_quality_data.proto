@@ -213,6 +213,7 @@ message AnnotatedPageContent {
   PageInteractionInfo page_interaction_info = 4;
 
   // The rect of the viewport for the tab. i.e., screenshot dimensions.
+  // Dimensions are in captured pixels.
   BoundingRect viewport_geometry = 5;
 }
 
@@ -242,7 +243,7 @@ message ContentNode {
   ContentAttributes content_attributes = 2;
 }
 
-// Next ID: 23
+// Next ID: 25
 message ContentAttributes {
   oneof content_data {
     // Only set if attribute_type is CONTENT_ATTRIBUTE_TEXT.
@@ -250,6 +251,12 @@ message ContentAttributes {
 
     // Only set if attribute_type is CONTENT_ATTRIBUTE_IMAGE.
     ImageInfo image_data = 11;
+
+    // Only set if attribute_type is CONTENT_ATTRIBUTE_SVG.
+    SVGData svg_data = 23;
+
+    // Only set if attribute_type is CONTENT_ATTRIBUTE_CANVAS.
+    CanvasData canvas_data = 24;
 
     // Only set if attribute_type is CONTENT_ATTRIBUTE_ANCHOR.
     AnchorData anchor_data = 14;
@@ -270,17 +277,6 @@ message ContentAttributes {
     TableRowData table_row_data = 13;
   }
 
-  // The ID for this ContentNode. This is unique to the AnnotatedPageContent,
-  // including the embedded iframes. The value may change across different
-  // AnnotatedPageContent extractions for the same page; it is not guaranteed to
-  // be stable in the same page across different time.
-  int32 content_node_id = 22;
-
-  // The IDs of the DOM nodes whose content is represented by this ContentNode.
-  // This is used to map the results of the receiver's action back to the
-  // original DOM node.
-  repeated int32 dom_node_ids = 1;
-
   // If this content node has the content of an entire subtree, this is the ID
   // of the common ancestor of all the nodes in the subtree.
   int32 common_ancestor_dom_node_id = 2;
@@ -290,7 +286,11 @@ message ContentAttributes {
   // This is the geometry of the common_ancestor_dom_node_id.
   Geometry geometry = 4;
 
-  // The interaction information for the content node.
+  // The interaction information for the content node. This information is only
+  // computed for proto version
+  // ANNOTATED_PAGE_CONTENT_VERSION_ONLY_ACTIONABLE_ELEMENTS_1_0.
+  //
+  // Unless otherwise specified, all nodes are selectable.
   InteractionInfo interaction_info = 21;
 
   // These can come from the aria role, the html tag, or are assumed from some
@@ -301,7 +301,7 @@ message ContentAttributes {
   // be "Submit".
   string label = 16;
 
-  reserved 5, 6, 7, 17, 18;
+  reserved 5, 6, 7, 17, 18, 1, 22;
 }
 
 // The geometry of the content, in the page coordinate system.
@@ -337,13 +337,15 @@ message BoundingRect {
 
 // The interaction information for the content node. This indicates whether the
 // node is interactive and what type of interaction it supports.
-// Next ID: 11
+// Next ID: 14
 message InteractionInfo {
-  // Whether the content node can scroll in the x direction.
-  bool scrolls_overflow_x = 1;
+  // Set if the content node is scrollable.
+  ScrollerInfo scroller_info = 12;
 
-  // Whether the content node can scroll in the y direction.
-  bool scrolls_overflow_y = 2;
+  // DEPRECATED: Use `scroller_info` instead.
+  bool scrolls_overflow_x = 1 [deprecated = true];
+
+  bool scrolls_overflow_y = 2 [deprecated = true];
 
   // Whether the content node is selectable.
   bool is_selectable = 3;
@@ -370,7 +372,52 @@ message InteractionInfo {
   // behavior. It also checks for whether the node has a click handler.
   bool is_clickable = 10;
 
+  // If this is a label node associated with an input node using `for`, provides
+  // the DOM node ID of the input node. This will match the
+  // `common_ancestor_dom_node_id` of the ContentNode of the input node, if it
+  // exists.
+  //
+  // Note: The label may be an ancestor of the input node.
+  int32 for_dom_node_id = 11;
+
+  // The z-order of the content node relative to other nodes in the same
+  // Document. A higher value means the node is in front of other nodes with
+  // lower values.
+  //
+  // Since all content within a Document is rendered as a single layer, nodes
+  // behind the iframe in the embedder draw behind all nodes inside the
+  // iframe's Document (similar for nodes on top of the iframe node).
+  //
+  // Note: This value is only set for nodes in the viewport.
+  int32 document_scoped_z_order = 13;
+
   reserved 8;
+}
+
+// The coordinate space for the dimensions here is physical coordinates (not
+// logical coordinates). This means it's the same irrespective of the writing
+// mode.
+// The dimensions also exclude non-overlay scrollbars.
+message ScrollerInfo {
+  // The complete layout dimensions of the scroller. This is the total area
+  // that can be revealed through a scroll operation.
+  BoundingSize scrolling_bounds = 1;
+
+  // The subset of this scroller's content which is currently scrolled to. This
+  // is relative to the origin of `scrolling_bounds`.
+  BoundingRect visible_area = 2;
+
+  // Indicates whether this can be scrolled by the user in horizontal or
+  // vertical directions. These nodes can still be scrolled by script.
+  bool user_scrollable_horizontal = 3;
+
+  bool user_scrollable_vertical = 4;
+}
+
+message BoundingSize {
+  int32 width = 1;
+
+  int32 height = 2;
 }
 
 // Next ID: 5
@@ -406,7 +453,7 @@ message ImageInfo {
 
   // DEPRECATED: Provides the URL for this image if available. For example,
   // data: URLs for inline images will be skipped.
-  string source_url = 3;
+  string source_url = 3 [deprecated = true];
 
   // Provides the source origin for the image.
   SecurityOrigin security_origin = 4;
@@ -429,6 +476,17 @@ message SecurityOrigin {
   // The raw value of the origin. It is set to the nonce for opaque origins and
   // scheme-host-port string for non-opaque origins.
   string value = 2;
+}
+
+message SVGData {
+  // The inner text for the SVG subtree.
+  string inner_text = 1;
+}
+
+message CanvasData {
+  int32 layout_width = 1;
+
+  int32 layout_height = 2;
 }
 
 message AnchorData {
@@ -484,6 +542,7 @@ message SelectOption {
   string text = 2;
 
   // Whether the option is selected.
+  // Not set for FormsAI purposes, but used in PCA.
   bool is_selected = 3;
 }
 
@@ -497,7 +556,7 @@ message TableData {
 message IframeData {
   // DEPRECATED in favor of Security Origin in FrameData.
   // The URL of the iframe.
-  string url = 1;
+  string url = 1 [deprecated = true];
 
   FrameData frame_data = 3;
 
@@ -508,7 +567,7 @@ message IframeData {
 
 // The data for a frame in the web page. This is the common data structure for
 // both the root frame and embedded iframes.
-// Next ID: 6
+// Next ID: 8
 message FrameData {
   // The security origin of the frame.
   SecurityOrigin security_origin = 1;
@@ -528,11 +587,26 @@ message FrameData {
   // Information about paid content in the frame.  Only set
   // if paid content was checked.
   PaidContentMetadata paid_content_metadata = 6;
-}
 
-message PaidContentMetadata {
-  // Whether the frame contains paid content.
-  bool contains_paid_content = 1;
+  // DEPRECATED: USE `document_scoped_z_order` IN InteractionInfo INSTEAD.
+  //
+  // The ordered list of DOM nodes which are eligible for hit testing in the
+  // viewport. This list is ordered back-to-front, i.e., in the given list :
+  // [0, 1], node 1 draws on top of node 0.
+  //
+  // Each frame provides its own list of hit test nodes. Since all content
+  // within a frame is rendered as a single layer, nodes behind the iframe in
+  // the embedder draw behind all nodes inside the iframe (similar for nodes on
+  // top of the iframe node).
+  //
+  // The set of nodes in this list may or may not generate a ContentNode:
+  // 1. If a node is not eligible for hit testing, for example with
+  //    `pointer-events: none`, it won't be in this list but could generate a
+  //    ContentNode.
+  // 2. If a node is eligible for hit testing and is in the viewport, but
+  //    isn't actionable or satisfies any other criteria for generating a
+  //    ContentNode, it will still be in this list.
+  repeated HitTestNode hit_test_nodes = 7 [deprecated = true];
 }
 
 // The interaction information for the frame. This is for interactions that
@@ -571,6 +645,27 @@ message DocumentIdentifier {
   // A unique identifier for the frame that is not stable across APC
   // calls/pages. Caller can map these to a client side frame id.
   string serialized_token = 1;
+}
+
+// Metadata about paid content in the frame.
+// Next ID: 2
+message PaidContentMetadata {
+  // Whether the frame contains paid content.
+  bool contains_paid_content = 1;
+}
+
+// Represents a DOM node which is eligible for hit testing.
+message HitTestNode {
+  // The ID to uniquely identify this node. If the DOM node generates a
+  // ContentNode, this ID is consisted with the ContentNode's ID.
+  int32 dom_node_id = 1;
+
+  // Denotes which subset of this node is visible, in the page coordinate
+  // system.
+  // Note: We currently provide the smallest axis aligned bounding box that
+  // contains this node's hit testable area. A future improvement could be to
+  // provide a quad.
+  BoundingRect visible_bounding_box = 2;
 }
 
 message TableRowData {
@@ -625,6 +720,7 @@ message FormData {
   uint64 form_signature = 4;
 }
 
+// Next ID: 14
 message FormFieldData {
   // The name for the field.
   string field_name = 1;
@@ -632,13 +728,12 @@ message FormFieldData {
   // The label for the field.
   string field_label = 2;
 
-  // The value of the field.
-  string field_value = 3;
+  string field_value = 3 [deprecated = true];
 
-  // Whether the field is visible.
-  bool is_visible = 4;
+  bool is_visible = 4 [deprecated = true];
 
   // Whether the field is focusable.
+  // Only set during data collection, not in prediction requests.
   bool is_focusable = 5;
 
   // The type of control for this form field.
@@ -653,9 +748,7 @@ message FormFieldData {
   // The AX node ID of the form control for this field.
   int32 form_control_ax_node_id = 9;
 
-  // Whether the field is eligible for filling and importing. This flag does not
-  // take the value of the field into consideration.
-  bool is_eligible = 10;
+  bool is_eligible = 10 [deprecated = true];
 
   // Only set during data collection, not in prediction requests.
   AutofillGlobalId global_id = 11;
@@ -664,6 +757,14 @@ message FormFieldData {
   // changes dynamically.
   // Only set during data collection, not in prediction requests.
   uint32 field_signature = 12;
+
+  // The text of the elements denoted by the aria-labelledby attribute of field
+  // or the value of its aria-label attribute, with priority given to the
+  // aria-labelledby attribute.
+  // TODO(crbug.com/389631485): The client doesn't set this for model requests at the
+  // moment. But it can and should be used for inference since it is contained
+  // in the metadata pipeline.
+  string aria_label = 13;
 }
 
 message TableRow {
@@ -1563,8 +1664,10 @@ enum AnnotatedPageContentVersion {
 // When adding new types, please also update AIPageContentAttributeType in
 // third_party/blink/public/mojom/content_extraction/ai_page_content.mojom.
 // See crrev.com/c/6072788 for an example.
-// Next ID: 25;
+// Next ID: 27;
 enum ContentAttributeType {
+  // Unknown is not a valid attribute type and should never be used by the
+  // client. You can consider discarding ContentNodes with this attribute type.
   CONTENT_ATTRIBUTE_UNKNOWN = 0;
 
   CONTENT_ATTRIBUTE_ROOT = 1;
@@ -1584,6 +1687,10 @@ enum ContentAttributeType {
 
   // Image chunks.
   CONTENT_ATTRIBUTE_IMAGE = 9;
+
+  CONTENT_ATTRIBUTE_SVG = 25;
+
+  CONTENT_ATTRIBUTE_CANVAS = 26;
 
   // Structured chunks.
   CONTENT_ATTRIBUTE_ORDERED_LIST = 6;

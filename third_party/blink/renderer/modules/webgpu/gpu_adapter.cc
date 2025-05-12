@@ -28,8 +28,7 @@ namespace blink {
 namespace {
 
 // TODO(crbug.com/351564777): should be UNSAFE_BUFFER_USAGE
-GPUSupportedFeatures* MakeFeatureNameSet(wgpu::Adapter adapter,
-                                         ExecutionContext* execution_context) {
+GPUSupportedFeatures* MakeFeatureNameSet(wgpu::Adapter adapter) {
   GPUSupportedFeatures* features = MakeGarbageCollected<GPUSupportedFeatures>();
   DCHECK(features->FeatureNameSet().empty());
 
@@ -42,19 +41,9 @@ GPUSupportedFeatures* MakeFeatureNameSet(wgpu::Adapter adapter,
     auto feature_name_enum_optional =
         GPUSupportedFeatures::ToV8FeatureNameEnum(f);
     if (feature_name_enum_optional) {
-      V8GPUFeatureName::Enum feature_name_enum =
-          feature_name_enum_optional.value();
-      // Subgroups features are under OT.
-      // TODO(crbug.com/349125474): remove this check after subgroups features
-      // OT finished.
-      if (feature_name_enum_optional == V8GPUFeatureName::Enum::kSubgroups) {
-        if (!RuntimeEnabledFeatures::WebGPUSubgroupsFeaturesEnabled(
-                execution_context)) {
-          continue;
-        }
+      features->AddFeatureName(
+          V8GPUFeatureName(feature_name_enum_optional.value()));
       }
-      features->AddFeatureName(V8GPUFeatureName(feature_name_enum));
-    }
   }
   return features;
 }
@@ -92,6 +81,10 @@ GPUAdapter::GPUAdapter(
     *propertiesChain = &vkProperties;
     propertiesChain = &(*propertiesChain)->nextInChain;
   }
+  wgpu::DawnAdapterPropertiesPowerPreference powerProperties{};
+  *propertiesChain = &powerProperties;
+  propertiesChain = &(*propertiesChain)->nextInChain;
+
   GetHandle().GetInfo(&info);
   is_fallback_adapter_ = info.adapterType == wgpu::AdapterType::CPU;
   adapter_type_ = info.adapterType;
@@ -121,8 +114,9 @@ GPUAdapter::GPUAdapter(
   }
   subgroup_min_size_ = subgroupsProperties.subgroupMinSize;
   subgroup_max_size_ = subgroupsProperties.subgroupMaxSize;
+  power_preference_ = powerProperties.powerPreference;
 
-  features_ = MakeFeatureNameSet(GetHandle(), gpu_->GetExecutionContext());
+  features_ = MakeFeatureNameSet(GetHandle());
 
   wgpu::Limits limits = {};
   GetHandle().GetLimits(&limits);
@@ -140,7 +134,7 @@ GPUAdapterInfo* GPUAdapter::CreateAdapterInfoForAdapter() {
         vendor_, architecture_, subgroup_min_size_, subgroup_max_size_,
         is_fallback_adapter_, device_, description_, driver_,
         FromDawnEnum(backend_type_), FromDawnEnum(adapter_type_),
-        d3d_shader_model_, vk_driver_version_);
+        d3d_shader_model_, vk_driver_version_, FromDawnEnum(power_preference_));
     for (GPUMemoryHeapInfo* memory_heap : memory_heaps_) {
       info->AppendMemoryHeapInfo(memory_heap);
     }
@@ -294,7 +288,7 @@ ScriptPromise<GPUDevice> GPUAdapter::requestDevice(
     HashSet<wgpu::FeatureName> required_features_set;
     for (const V8GPUFeatureName& f : descriptor->requiredFeatures()) {
       // If the feature is not a valid feature reject with a type error.
-      if (!features_->has(f.AsEnum())) {
+      if (!features_->Has(f.AsEnum())) {
         resolver->RejectWithTypeError(
             String::Format("Unsupported feature: %s", f.AsCStr()));
         return promise;

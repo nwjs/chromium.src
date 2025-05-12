@@ -69,6 +69,10 @@ class SharedStorageBrowserTestBase : public ContentBrowserTest {
   void ExpectAccessObserved(
       const std::vector<TestSharedStorageObserver::Access>& expected_accesses);
 
+  void ExpectOperationFinishedInfosObserved(
+      const std::vector<TestSharedStorageObserver::OperationFinishedInfo>&
+          expected_infos);
+
   uint16_t port() { return https_server()->port(); }
 
   double GetRemainingBudget(const url::Origin& origin);
@@ -132,6 +136,8 @@ class SharedStorageBrowserTestBase : public ContentBrowserTest {
   net::EmbeddedTestServer* https_server() { return &https_server_; }
 
   TestSharedStorageRuntimeManager& test_runtime_manager();
+
+  const std::vector<GURL>& urn_uuids_observed() const;
 
   ~SharedStorageBrowserTestBase() override;
 

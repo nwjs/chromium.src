@@ -26,19 +26,15 @@
                     signedIdentity:(id<SystemIdentity>)signedIdentity
                    userTappedClose:(BOOL)userTappedClose;
 
-// Starts the sign-in flow. Then call `completion`, with a parameter stating
-// whether the the sign-in was done.
-- (AuthenticationFlow*)
-    triggerSigninWithSystemIdentity:(id<SystemIdentity>)identity
-                         anchorRect:(CGRect)anchorRect
-                         completion:
-                             (signin_ui::SigninCompletionCallback)completion;
+// Returns an authentication flow.
+- (AuthenticationFlow*)authenticationFlow:(id<SystemIdentity>)identity
+                               anchorRect:(CGRect)anchorRect;
 
 // Sign out, display a toast, and call `callback` with argument stating whether
 // it’s a success.
 // It should only be called when the current scene is not blocked.
 - (void)signOutFromTargetRect:(CGRect)targetRect
-                   completion:(void (^)(BOOL))completion;
+                   completion:(signin_ui::SignoutCompletionCallback)completion;
 
 // Shows https://myaccount.google.com/ for the account currently signed-in
 // to Chrome. The content is displayed in a new view in the stack, i.e.

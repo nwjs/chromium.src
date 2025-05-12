@@ -8,6 +8,7 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/weak_ptr.h"
+#include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/enterprise/profile_management/profile_management_features.h"
@@ -399,9 +400,11 @@ SigninViewControllerDelegateViews::SigninViewControllerDelegateViews(
       << "Unsupported dialog modal type " << dialog_modal_type;
   SetModalType(dialog_modal_type);
 
-  RegisterDeleteDelegateCallback(base::BindOnce(
-      &SigninViewControllerDelegateViews::NotifyModalDialogClosed,
-      base::Unretained(this)));
+  RegisterDeleteDelegateCallback(
+      RegisterDeleteCallbackPassKey(),
+      base::BindOnce(
+          &SigninViewControllerDelegateViews::NotifyModalDialogClosed,
+          base::Unretained(this)));
 
   if (!wait_for_size) {
     DisplayModal();

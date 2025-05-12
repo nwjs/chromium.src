@@ -100,6 +100,10 @@ const char kLastPolicyCheckTime[] = "policy.last_policy_check_time";
 #if BUILDFLAG(IS_IOS)
 const char kUserPolicyNotificationWasShown[] =
     "policy.user_policy_notification_was_shown";
+
+// A bool for storing whether the user has seen the sync disabled alert since
+// sync was disabled.
+const char kSyncDisabledAlertShown[] = "sync.disabled_alert_shown";
 #endif
 
 // Boolean controlling whether SafeSearch is mandatory for Google Web Searches.
@@ -148,11 +152,6 @@ const char kAllowBackForwardCacheForCacheControlNoStorePageEnabled[] =
 const char kLocalTestPoliciesForNextStartup[] =
     "local_test_policies_for_next_startup";
 
-// A boolean pref indicating whether to fire deprecated/removed mutation events.
-// If false, mutation events might not be fired.
-const char kMutationEventsEnabled[] =
-    "policy.deprecated_mutation_events_enabled";
-
 // Enables the deprecated :--foo syntax of CSS custom state. The :--foo syntax
 // was deprecated and replaced by :state(foo).
 const char kCSSCustomStateDeprecatedSyntaxEnabled[] =
@@ -188,5 +187,9 @@ const char kAlwaysOnVpnPreConnectUrlAllowlist[] =
 // Boolean value for the FloatingWorkspaceEnabled policy
 const char kFloatingWorkspaceEnabled[] = "ash.floating_workspace_enabled";
 #endif
+
+// A boolean value indicating whether the built-in AI APIs are enabled.
+const char kBuiltInAIAPIsEnabled[] = "policy.built_in_ai_apis_enabled";
+
 }  // namespace policy_prefs
 }  // namespace policy

@@ -1398,7 +1398,9 @@ CSSValue* ComputedStyleUtils::ValueForFontVariationSettings(
     const FontVariationAxis& variation_axis = variation_settings->at(i);
     cssvalue::CSSFontVariationValue* variation_value =
         MakeGarbageCollected<cssvalue::CSSFontVariationValue>(
-            variation_axis.TagString(), variation_axis.Value());
+            variation_axis.TagString(),
+            MakeGarbageCollected<CSSNumericLiteralValue>(
+                variation_axis.Value(), CSSPrimitiveValue::UnitType::kNumber));
     list->Append(*variation_value);
   }
   return list;
@@ -2142,7 +2144,7 @@ CSSValue* ComputedStyleUtils::ValueForGridPosition(
   return list;
 }
 
-CSSValue* ComputedStyleUtils::ValueForMasonrySlack(
+CSSValue* ComputedStyleUtils::ValueForItemTolerance(
     const std::optional<Length>& slack_length,
     const ComputedStyle& style) {
   return slack_length ? ZoomAdjustedPixelValueForLength(*slack_length, style)
@@ -2541,25 +2543,45 @@ CSSValue* ComputedStyleUtils::ValueForAnimationTriggerRangeEndList(
       animation_data, style, Length::Percent(100.0));
 }
 
+CSSValue* ComputedStyleUtils::ValueForAnimationRangeOrAuto(
+    const TimelineOffsetOrAuto& offset,
+    const ComputedStyle& style,
+    const Length& default_offset) {
+  if (offset.IsAuto()) {
+    return MakeGarbageCollected<CSSIdentifierValue>(CSSValueID::kAuto);
+  }
+  return ValueForAnimationRange(offset.GetTimelineOffset(), style,
+                                default_offset);
+}
+
+CSSValue* ComputedStyleUtils::ValueForAnimationTriggerExitRangeList(
+    const Vector<TimelineOffsetOrAuto>& range_list,
+    const CSSAnimationData* animation_data,
+    const ComputedStyle& style,
+    const Length& default_offset) {
+  return CreateAnimationValueList(range_list, &ValueForAnimationRangeOrAuto,
+                                  style, default_offset);
+}
+
 CSSValue* ComputedStyleUtils::ValueForAnimationTriggerExitRangeStartList(
     const CSSAnimationData* animation_data,
     const ComputedStyle& style) {
-  return ValueForAnimationRangeList(
-      animation_data ? animation_data->TriggerExitRangeStartList()
-                     : Vector<std::optional<
-                           TimelineOffset>>{CSSAnimationData::
-                                                InitialTriggerExitRangeStart()},
+  return ValueForAnimationTriggerExitRangeList(
+      animation_data
+          ? animation_data->TriggerExitRangeStartList()
+          : Vector<TimelineOffsetOrAuto>{CSSAnimationData::
+                                             InitialTriggerExitRangeStart()},
       animation_data, style, Length::Percent(0.0));
 }
 
 CSSValue* ComputedStyleUtils::ValueForAnimationTriggerExitRangeEndList(
     const CSSAnimationData* animation_data,
     const ComputedStyle& style) {
-  return ValueForAnimationRangeList(
-      animation_data ? animation_data->TriggerExitRangeEndList()
-                     : Vector<std::optional<
-                           TimelineOffset>>{CSSAnimationData::
-                                                InitialTriggerExitRangeEnd()},
+  return ValueForAnimationTriggerExitRangeList(
+      animation_data
+          ? animation_data->TriggerExitRangeEndList()
+          : Vector<TimelineOffsetOrAuto>{CSSAnimationData::
+                                             InitialTriggerExitRangeEnd()},
       animation_data, style, Length::Percent(100.0));
 }
 
@@ -2777,14 +2799,14 @@ CSSValue* ComputedStyleUtils::ValueForCornerShape(
   if (superellipse == Superellipse::Scoop()) {
     return CSSIdentifierValue::Create(CSSValueID::kScoop);
   }
-  if (superellipse == Superellipse::Straight()) {
-    return CSSIdentifierValue::Create(CSSValueID::kStraight);
+  if (superellipse == Superellipse::Square()) {
+    return CSSIdentifierValue::Create(CSSValueID::kSquare);
   }
   if (superellipse == Superellipse::Squircle()) {
     return CSSIdentifierValue::Create(CSSValueID::kSquircle);
   }
   return MakeGarbageCollected<cssvalue::CSSSuperellipseValue>(
-      *CSSNumericLiteralValue::Create(superellipse.Exponent(),
+      *CSSNumericLiteralValue::Create(superellipse.Parameter(),
                                       CSSPrimitiveValue::UnitType::kNumber));
 }
 
@@ -4014,6 +4036,31 @@ CSSValueList* ComputedStyleUtils::ValuesForGridTemplateShorthand(
           ? template_column_values
           : template_columns_computed,
       template_area_values);
+}
+
+const CSSValue* ComputedStyleUtils::ValuesForBidirectionalGapRuleShorthand(
+    const StylePropertyShorthand& shorthand,
+    const ComputedStyle& style,
+    const LayoutObject* layout_object,
+    bool allow_visited_style,
+    CSSValuePhase value_phase) {
+  DCHECK_EQ(shorthand.length(), 2u);
+  const CSSValue* column_rule_property =
+      shorthand.properties()[0]->CSSValueFromComputedStyle(
+          style, layout_object, allow_visited_style, value_phase);
+  const CSSValue* row_rule_property =
+      shorthand.properties()[1]->CSSValueFromComputedStyle(
+          style, layout_object, allow_visited_style, value_phase);
+
+  // The `rule-*` shorthand is bi-directional, so the values should be
+  // equivalent.
+  //
+  // https://drafts.csswg.org/css-gaps-1/#rule-bi-directional
+  if (!base::ValuesEquivalent(column_rule_property, row_rule_property)) {
+    return nullptr;
+  }
+
+  return column_rule_property;
 }
 
 CSSValueList* ComputedStyleUtils::ValuesForSidesShorthand(

@@ -10,9 +10,10 @@
 #include "base/check_op.h"
 #include "base/trace_event/trace_event.h"
 #include "chrome/browser/ui/tabs/split_tab_collection.h"
+#include "chrome/browser/ui/tabs/split_tab_visual_data.h"
 #include "chrome/browser/ui/tabs/tab_group_tab_collection.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "components/tab_collections/public/tab_interface.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
 #include "third_party/perfetto/include/perfetto/tracing/traced_value.h"
 
@@ -190,16 +191,16 @@ const TabGroupChange::CreateChange* TabGroupChange::GetCreateChange() const {
   return static_cast<const CreateChange*>(delta.get());
 }
 
-std::vector<tabs::TabModel*> TabGroupChange::CreateChange::GetDetachedTabs()
+std::vector<tabs::TabInterface*> TabGroupChange::CreateChange::GetDetachedTabs()
     const {
   CHECK(detached_group_);
-  return detached_group_->GetTabs();
+  return detached_group_->GetTabsRecursive();
 }
 
-std::vector<tabs::TabModel*> TabGroupChange::CloseChange::GetDetachedTabs()
+std::vector<tabs::TabInterface*> TabGroupChange::CloseChange::GetDetachedTabs()
     const {
   CHECK(detached_group_);
-  return detached_group_->GetTabs();
+  return detached_group_->GetTabsRecursive();
 }
 
 const TabGroupChange::CloseChange* TabGroupChange::GetCloseChange() const {
@@ -266,16 +267,17 @@ void TabStripModelObserver::OnSplitTabCreated(
     std::vector<std::pair<tabs::TabInterface*, int>> tabs,
     split_tabs::SplitTabId split_id,
     TabStripModelObserver::SplitTabAddReason reason,
-    tabs::SplitTabLayout tab_layout) {}
+    split_tabs::SplitTabVisualData visual_data) {}
 
 void TabStripModelObserver::OnSplitTabRemoved(
     std::vector<std::pair<tabs::TabInterface*, int>> tabs,
     split_tabs::SplitTabId split_id,
     TabStripModelObserver::SplitTabRemoveReason reason) {}
 
-void TabStripModelObserver::OnSplitTabOrientationChanged(
+void TabStripModelObserver::OnSplitTabVisualsChanged(
     split_tabs::SplitTabId split_id,
-    tabs::SplitTabLayout tab_layout) {}
+    split_tabs::SplitTabVisualData old_visual_data,
+    split_tabs::SplitTabVisualData new_visual_data) {}
 
 void TabStripModelObserver::OnSplitTabContentsUpdated(
     split_tabs::SplitTabId split_id,

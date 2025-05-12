@@ -33,6 +33,8 @@
 
 #include "base/containers/contains.h"
 #include "base/debug/dump_without_crashing.h"
+#include "base/feature_list.h"
+#include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/web_sandbox_flags.h"
 #include "services/network/public/mojom/content_security_policy.mojom-blink-forward.h"
 #include "services/network/public/mojom/integrity_algorithm.mojom-blink.h"
@@ -496,6 +498,7 @@ void ContentSecurityPolicy::ComputeInternalStateForParsedPolicy(
       case CSPDirectiveName::ScriptSrc:
       case CSPDirectiveName::ScriptSrcAttr:
       case CSPDirectiveName::ScriptSrcElem:
+      case CSPDirectiveName::ScriptSrcV2:
       case CSPDirectiveName::StyleSrc:
       case CSPDirectiveName::StyleSrcAttr:
       case CSPDirectiveName::StyleSrcElem:
@@ -520,7 +523,6 @@ void ContentSecurityPolicy::ComputeInternalStateForParsedPolicy(
       case CSPDirectiveName::ObjectSrc:
       case CSPDirectiveName::ReportTo:
       case CSPDirectiveName::ReportURI:
-      case CSPDirectiveName::RequireSRIFor:
       case CSPDirectiveName::RequireTrustedTypesFor:
       case CSPDirectiveName::Sandbox:
       case CSPDirectiveName::TreatAsPublicAddress:
@@ -832,6 +834,7 @@ bool AllowResourceHintRequestForPolicy(
              CSPDirectiveName::MediaSrc,
              CSPDirectiveName::ObjectSrc,
              CSPDirectiveName::ScriptSrc,
+             CSPDirectiveName::ScriptSrcV2,
              CSPDirectiveName::ScriptSrcElem,
              CSPDirectiveName::StyleSrc,
              CSPDirectiveName::StyleSrcElem,
@@ -854,44 +857,7 @@ bool AllowResourceHintRequestForPolicy(
       .IsAllowed();
 }
 
-bool CSPDirectiveRequiresSRI(
-    const network::mojom::blink::ContentSecurityPolicy& csp,
-    network::mojom::RequestDestination request_destination) {
-  return (csp.require_sri_for ==
-              network::mojom::blink::CSPRequireSRIFor::Script &&
-          request_destination ==
-              network::mojom::blink::RequestDestination::kScript);
-}
-
 }  // namespace
-
-bool ContentSecurityPolicy::AllowRequestWithoutIntegrity(
-    mojom::blink::RequestContextType context,
-    network::mojom::RequestDestination request_destination,
-    const KURL& url,
-    ReportingDisposition reporting_disposition,
-    CheckHeaderType check_header_type) {
-  for (const auto& policy : policies_) {
-    if (!CheckHeaderTypeMatches(check_header_type, reporting_disposition,
-                                policy->header->type)) {
-      continue;
-    }
-    if (CSPDirectiveRequiresSRI(*policy, request_destination)) {
-      if (reporting_disposition == ReportingDisposition::kReport) {
-        ReportViolation(GetDirectiveName(CSPDirectiveName::RequireSRIFor),
-                        CSPDirectiveName::RequireSRIFor, String(), url,
-                        policy->report_endpoints, policy->use_reporting_api,
-                        policy->header->header_value, policy->header->type,
-                        ContentSecurityPolicyViolationType::kSRIViolation,
-                        std::unique_ptr<SourceLocation>(),
-                        /*contextFrame=*/nullptr);
-      }
-      return check_header_type ==
-             ContentSecurityPolicy::CheckHeaderType::kCheckReportOnly;
-    }
-  }
-  return true;
-}
 
 // https://w3c.github.io/webappsec-csp/#does-request-violate-policy
 bool ContentSecurityPolicy::AllowRequest(
@@ -923,14 +889,6 @@ bool ContentSecurityPolicy::AllowRequest(
 
   std::optional<CSPDirectiveName> type =
       GetDirectiveTypeFromRequestContextType(context);
-
-  if ((integrity_metadata.empty() ||
-       request_mode == network::mojom::RequestMode::kNoCors) &&
-      !url.ProtocolIsData() && !url.ProtocolIs("blob") &&
-      !AllowRequestWithoutIntegrity(context, request_destination, url,
-                                    reporting_disposition, check_header_type)) {
-    return false;
-  }
 
   if (!type)
     return true;
@@ -1577,14 +1535,14 @@ const char* ContentSecurityPolicy::GetDirectiveName(CSPDirectiveName type) {
       return "report-to";
     case CSPDirectiveName::ReportURI:
       return "report-uri";
-    case CSPDirectiveName::RequireSRIFor:
-      return "require-sri-for";
     case CSPDirectiveName::RequireTrustedTypesFor:
       return "require-trusted-types-for";
     case CSPDirectiveName::Sandbox:
       return "sandbox";
     case CSPDirectiveName::ScriptSrc:
       return "script-src";
+    case CSPDirectiveName::ScriptSrcV2:
+      return "script-src-v2";
     case CSPDirectiveName::ScriptSrcAttr:
       return "script-src-attr";
     case CSPDirectiveName::ScriptSrcElem:
@@ -1644,15 +1602,16 @@ CSPDirectiveName ContentSecurityPolicy::GetDirectiveType(const String& name) {
     return CSPDirectiveName::ReportTo;
   if (name == "report-uri")
     return CSPDirectiveName::ReportURI;
-  if (name == "require-sri-for") {
-    return CSPDirectiveName::RequireSRIFor;
-  }
   if (name == "require-trusted-types-for")
     return CSPDirectiveName::RequireTrustedTypesFor;
   if (name == "sandbox")
     return CSPDirectiveName::Sandbox;
   if (name == "script-src")
     return CSPDirectiveName::ScriptSrc;
+  if (base::FeatureList::IsEnabled(network::features::kCSPScriptSrcV2) &&
+      name == "script-src-v2") {
+    return CSPDirectiveName::ScriptSrcV2;
+  }
   if (name == "script-src-attr")
     return CSPDirectiveName::ScriptSrcAttr;
   if (name == "script-src-elem")

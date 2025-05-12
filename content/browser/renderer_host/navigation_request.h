@@ -213,6 +213,26 @@ class CONTENT_EXPORT NavigationRequest
     kMaxValue = kNotExplicitlyRequestedAndOriginKeyed
   };
 
+  // If this navigation is a browser-initiated error page navigation, this enum
+  // describes the scenario that triggered the navigation, and how session
+  // history will be affected as a result.
+  enum class BrowserInitiatedErrorNavigationType {
+    // This navigation is not a browser-initiated error page navigation. The
+    // default value for all newly-created NavigationRequests.
+    kNone,
+
+    // This is a normal error navigation as triggered by
+    // NavigationControllerImpl::NavigateFrameToErrorPage(). The current session
+    // history item will be fully replaced when the navigation commits.
+    kRegular,
+
+    // This is a post-commit error page navigation as triggered by
+    // NavigationController::LoadPostCommitErrorPage(). The current session
+    // history item will be set aside when the navigation commits, and replaced
+    // when any following navigation commits.
+    kPostCommit,
+  };
+
   // Creates a request for a browser-initiated navigation.
   static std::unique_ptr<NavigationRequest> CreateBrowserInitiated(
       FrameTreeNode* frame_tree_node,
@@ -311,7 +331,8 @@ class CONTENT_EXPORT NavigationRequest
       const GURL& original_url,
       std::unique_ptr<CrossOriginEmbedderPolicyReporter> coep_reporter,
       std::unique_ptr<DocumentIsolationPolicyReporter> dip_reporter,
-      int http_response_code);
+      int http_response_code,
+      base::TimeTicks actual_navigation_start);
 
   static NavigationRequest* From(NavigationHandle* handle);
 
@@ -695,13 +716,20 @@ class CONTENT_EXPORT NavigationRequest
     navigation_type_ = navigation_type;
   }
 
-  const std::string& post_commit_error_page_html() {
-    return post_commit_error_page_html_;
+  void set_browser_initiated_error_navigation_type(
+      BrowserInitiatedErrorNavigationType type) {
+    browser_initiated_error_navigation_type_ = type;
   }
 
-  void set_post_commit_error_page_html(
-      const std::string& post_commit_error_page_html) {
-    post_commit_error_page_html_ = post_commit_error_page_html;
+  BrowserInitiatedErrorNavigationType
+  browser_initiated_error_navigation_type() {
+    return browser_initiated_error_navigation_type_;
+  }
+
+  void set_error_page_html(const std::string& error_page_html) {
+    CHECK(browser_initiated_error_navigation_type_ !=
+          BrowserInitiatedErrorNavigationType::kNone);
+    error_page_html_ = error_page_html;
   }
 
   void set_from_download_cross_origin_redirect(
@@ -902,7 +930,8 @@ class CONTENT_EXPORT NavigationRequest
   // Typically this is called when navigation commits to move these observers to
   // the committed document.
   [[nodiscard]] std::vector<
-      mojo::PendingReceiver<network::mojom::CookieAccessObserver>>
+      std::pair<mojo::PendingReceiver<network::mojom::CookieAccessObserver>,
+                CookieAccessDetails::Source>>
   TakeCookieObservers();
 
   void NotifyCookiesAccessed(
@@ -1486,44 +1515,81 @@ class CONTENT_EXPORT NavigationRequest
     // timestamps except for `start`, `finish`, and the DidCommit IPC
     // timestamps).
 
-    // The time at which the navigation starts. Note that for renderer-initiated
-    // navigations, this will be the time when the navigation starts in the
-    // renderer.
+    // The time at which the navigation starts, as accurately as we can
+    // determine. Note that for renderer-initiated navigations, this will be the
+    // time when the navigation starts in the renderer.
     //
-    // TODO(alexmos): For renderer-initiated navigations, this timestamp is
-    // recorded when CommonNavigationParams are created in
-    // RenderFrameImpl::BeginNavigationInternal(), just before sending the
-    // BeginNavigation IPC to the browser process, but after processing
-    // renderer-side beforeunload events, doing all blink-side navigation start
-    // work, and dispatching DidStartNavigation() and some other observer
-    // events. Ideally, it should be taken earlier, somewhere closer to when
-    // Frame::Navigate() starts executing in Blink, to more faithfully measure
-    // the user-visible navigation latency.
+    // Note that this may not be the start time used by many current navigation
+    // related metrics, such as FCP, since those often use `common_params_start`
+    // to avoid including beforeunload durations.
+    // TODO(crbug.com/385170155): Update these metrics to have a more consistent
+    // and representative start time and duration.
     base::TimeTicks start;
+
+    // For navigations that start in the renderer and target local frames, this
+    // is the time at which "beforeunload phase 1" starts, when ShouldClose is
+    // called for any local frames that may be affected. This is null for other
+    // types of navigations which do not use beforeunload phase 1 (e.g., browser
+    // initiated navigations, or navigations that target remote frames). See
+    // also beforeunload_phase2_start, for the second phase of running
+    // beforeunload handlers which may exist in other processes.
+    //
+    // The delta between this and `start` captures the time the renderer process
+    // spends initializing the navigation, including notifying
+    // RenderFrameObserver::DidStartNavigation observers.
+    base::TimeTicks beforeunload_phase1_start;
+
+    // The time "beforeunload phase 1" ends in the initiating renderer process,
+    // or null if that phase is not used in this navigation. Recording this
+    // allows beforeunload duration to be excluded from navigation metrics,
+    // since that time may include user-visible dialogs or JavaScript code that
+    // is out of our control.
+    base::TimeTicks beforeunload_phase1_end;
 
     // The time at which the NavigationRequest is created. The delta between
     // this and `start` covers the time between starting the navigation
     // (possibly in the renderer process) and the browser process starting
-    // doing work for it.
+    // doing work for it. It is often useful to exclude beforeunload phase 1
+    // duration from this delta.
     base::TimeTicks navigation_request_creation;
 
-    // The time beforeunload handler processing was started by the browser
-    // process. For renderer-initiated navigations, this is currently set to
-    // when the browser process starts beforeunload processing (e.g., in OOPIFs)
-    // and ignores the beforeunload handler processing done in the renderer
-    // prior to sending the BeginNavigation IPC. Might be null if the navigation
-    // did not need to process beforeunload handlers.
+    // The time "beforeunload phase 2" processing was started by the browser
+    // process. This phase can occur on any type of navigation (e.g., browser or
+    // renderer initiated), to run beforeunload handlers in any process that may
+    // be affected by the navigation (e.g., remote frames, OOPIFs). Might be
+    // null if the navigation did not need to run beforeunload handlers, or if
+    // all of the necessary handlers have already run in "beforeunload phase 1."
+    // Note that legacy PostTask cases (which do not run beforeunload handlers)
+    // are not treated as beforeunload phase 2.
     //
     // The delta between this and `navigation_request_creation` captures the
     // time the browser process spends initializing the navigation, including
     // creating a speculative RenderFrameHost (if needed) and picking a target
     // SiteInstance/process.
-    base::TimeTicks beforeunload_start;
+    base::TimeTicks beforeunload_phase2_start;
 
-    // The time at which NavigationRequest::BeginNavigation() is called. The
-    // delta between this and `beforeunload_start` captures the time spent
-    // running beforeunload handlers in other processes, including any time
-    // spent in beforeunload dialogs.
+    // The time "beforeunload phase 2" processing ends, or null if that phase is
+    // not used in this navigation. Recording this allows beforeunload duration
+    // to be excluded from navigation metrics, since that may include
+    // user-visible dialogs or JavaScript code that is out of our control.
+    base::TimeTicks beforeunload_phase2_end;
+
+    // The adjusted start time used by many navigation metrics, such as FCP.
+    // This is currently set inconsistently, and can be after beforeunload phase
+    // 1 in the initiating renderer, or early in a browser-initiated navigation,
+    // or after beforeunload phase 2 in the browser process if that phase is
+    // used. As a result, this value may not be in chronological order in this
+    // struct, and it is mainly recorded here for metrics that measure the start
+    // time inconsistency.
+    // TODO(crbug.com/385170155): Remove this once navigation start metrics are
+    // more consistent.
+    base::TimeTicks common_params_start;
+
+    // The time at which NavigationRequest::BeginNavigation() is called. This is
+    // a decision point at which a network request may or may not be made. The
+    // delta between this and `navigation_request_creation` (with any
+    // beforeunload phase 2 duration removed) captures additional navigation
+    // work in the browser process.
     base::TimeTicks begin_navigation;
 
     // The time at which the NavigationURLLoader for the navigation was started.
@@ -2598,13 +2664,17 @@ class CONTENT_EXPORT NavigationRequest
   // The time this NavigationRequest was created.
   base::TimeTicks creation_time_ = base::TimeTicks().Now();
 
-  // The time beforeunload handler processing was started by the browser
-  // process. For renderer-initiated navigations, this is currently set to when
-  // the browser process starts beforeunload processing (e.g., in OOPIFs) and
-  // ignores the beforeunload handler processing done in the renderer prior to
-  // sending the BeginNavigation IPC. Might be null if the navigation did
-  // not need to process beforeunload handlers.
-  base::TimeTicks beforeunload_start_time_;
+  // The time that the browser process started running beforeunload phase 2,
+  // which is used to run any beforeunload handlers that were not run already in
+  // an initiating renderer process during beforeunload phase 1 (and may include
+  // handlers in a remote target frame or OOPIFs within the target frame). This
+  // value is null if the navigation did not need to run beforeunload phase 2.
+  // Note that legacy PostTask cases are not considered beforeunload phase 2,
+  // because they do not run actual beforeunload handlers.
+  base::TimeTicks beforeunload_phase2_start_time_;
+
+  // The time that beforeunload phase 2 ended, if it ran.
+  base::TimeTicks beforeunload_phase2_end_time_;
 
   // The time BeginNavigation() was called.
   base::TimeTicks begin_navigation_time_;
@@ -2630,12 +2700,24 @@ class CONTENT_EXPORT NavigationRequest
   // The time WillStartRequest() was called.
   base::TimeTicks will_start_request_time_;
 
+  // For bfcache and prerender page activations, this is the time that the
+  // activation commits (after ReadyToCommitNavigation), since no commit IPC is
+  // sent to the renderer process.
+  base::TimeTicks page_activation_commit_time_;
+
   // Set in ReadyToCommitNavigation.
   bool is_same_process_ = true;
 
-  // If set, starting the navigation will immediately result in an error page
-  // with this html as content and |net_error| as the network error.
-  std::string post_commit_error_page_html_;
+  // If set to a value other than NONE, starting the navigation will immediately
+  // result in an error page with |net_error_| as the network error and
+  // |error_page_html_| as the content. This value of this field indicates what
+  // scenario prompted the error navigation.
+  BrowserInitiatedErrorNavigationType browser_initiated_error_navigation_type_ =
+      BrowserInitiatedErrorNavigationType::kNone;
+
+  // If browser_initiated_error_navigation_type_ is set, this HTML will be
+  // shown as the content of the resulting error page.
+  std::string error_page_html_;
 
   // This test-only callback will be run when BeginNavigation() is called.
   base::OnceClosure begin_navigation_callback_for_testing_;

@@ -7,10 +7,10 @@
 #import "base/check.h"
 #import "base/i18n/rtl.h"
 #import "base/notreached.h"
+#import "ios/chrome/browser/omnibox/public/omnibox_popup_accessibility_identifier_constants.h"
 #import "ios/chrome/browser/omnibox/public/omnibox_ui_features.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/popup/carousel/carousel_item.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/popup/carousel/omnibox_popup_carousel_control.h"
-#import "ios/chrome/browser/omnibox/ui_bundled/popup/omnibox_popup_accessibility_identifier_constants.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ui/base/device_form_factor.h"
@@ -243,15 +243,19 @@ UIStackView* CarouselStackView() {
 #pragma mark - OmniboxKeyboardDelegate
 
 - (BOOL)canPerformKeyboardAction:(OmniboxKeyboardAction)keyboardAction {
+  using enum OmniboxKeyboardAction;
   switch (keyboardAction) {
-    case OmniboxKeyboardActionUpArrow:
+    case kUpArrow:
       return NO;
-    case OmniboxKeyboardActionDownArrow:
+    case kDownArrow:
       return NO;
-    case OmniboxKeyboardActionLeftArrow:
+    case kLeftArrow:
       return self.isHighlighted;
-    case OmniboxKeyboardActionRightArrow:
+    case kRightArrow:
       return self.isHighlighted;
+    case kReturnKey:
+      // Return is currently handled in OmniboxPopupViewController.
+      return NO;
   }
   return NO;
 }
@@ -275,12 +279,11 @@ UIStackView* CarouselStackView() {
   NSArray<OmniboxPopupCarouselControl*>* allTiles =
       self.suggestionsStackView.arrangedSubviews;
 
-  OmniboxKeyboardAction nextTileAction = base::i18n::IsRTL()
-                                             ? OmniboxKeyboardActionLeftArrow
-                                             : OmniboxKeyboardActionRightArrow;
+  using enum OmniboxKeyboardAction;
+  OmniboxKeyboardAction nextTileAction =
+      base::i18n::IsRTL() ? kLeftArrow : kRightArrow;
   OmniboxKeyboardAction previousTileAction =
-      base::i18n::IsRTL() ? OmniboxKeyboardActionRightArrow
-                          : OmniboxKeyboardActionLeftArrow;
+      base::i18n::IsRTL() ? kRightArrow : kLeftArrow;
 
   if (keyboardAction == nextTileAction) {
     nextHighlightedIndex =

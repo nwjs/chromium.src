@@ -12,13 +12,14 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 
 import org.chromium.base.metrics.RecordUserAction;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeUtils;
 import org.chromium.components.browser_ui.widget.ChromeDialog;
 import org.chromium.ui.widget.ButtonCompat;
 import org.chromium.ui.widget.CheckableImageView;
 
 /** Dialog in the form of a notice shown for the Privacy Sandbox. */
+@NullMarked
 public class PrivacySandboxDialogNoticeEEA extends ChromeDialog
         implements DialogInterface.OnShowListener {
     private final PrivacySandboxBridge mPrivacySandboxBridge;
@@ -52,14 +53,6 @@ public class PrivacySandboxDialogNoticeEEA extends ChromeDialog
 
         ButtonCompat ackButton = mContentView.findViewById(R.id.ack_button);
         ackButton.setOnClickListener(mOnClickListener);
-        ButtonCompat ackButtonEqualized = mContentView.findViewById(R.id.ack_button_equalized);
-        ackButtonEqualized.setOnClickListener(mOnClickListener);
-        if (ChromeFeatureList.isEnabled(
-                ChromeFeatureList.PRIVACY_SANDBOX_EQUALIZED_PROMPT_BUTTONS)) {
-            ackButton.setVisibility(View.GONE);
-        } else {
-            ackButtonEqualized.setVisibility(View.GONE);
-        }
         ButtonCompat settingsButton = mContentView.findViewById(R.id.settings_button);
         settingsButton.setOnClickListener(mOnClickListener);
 
@@ -115,7 +108,7 @@ public class PrivacySandboxDialogNoticeEEA extends ChromeDialog
 
     public void processClickImpl(View view) {
         int id = view.getId();
-        if (id == R.id.ack_button || id == R.id.ack_button_equalized) {
+        if (id == R.id.ack_button) {
             RecordUserAction.record("Settings.PrivacySandbox.NoticeEeaDialog.AckClicked");
             mPrivacySandboxBridge.promptActionOccurred(
                     PromptAction.NOTICE_ACKNOWLEDGE, mSurfaceType);

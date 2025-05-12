@@ -10,6 +10,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "base/files/file_path.h"
 #include "base/types/expected.h"
 #include "base/version.h"
 #include "chrome/browser/apps/app_service/app_launch_params.h"
@@ -19,8 +20,13 @@
 #include "chrome/browser/web_applications/web_app_install_params.h"
 #include "chrome/browser/web_applications/web_app_management_type.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
+#include "components/web_package/signed_web_bundles/signed_web_bundle_id.h"
 #include "components/webapps/browser/installable/installable_metrics.h"
 #include "components/webapps/browser/uninstall_result_code.h"
+
+#if BUILDFLAG(IS_CHROMEOS)
+#include "chrome/browser/web_applications/isolated_web_apps/policy/isolated_web_app_cache_client.h"
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 class GURL;
 class Profile;
@@ -71,6 +77,11 @@ struct SynchronizeOsOptions;
 struct WebAppIconDiagnosticResult;
 struct WebAppInstallInfo;
 
+#if BUILDFLAG(IS_CHROMEOS)
+class CleanupBundleCacheSuccess;
+class CleanupBundleCacheError;
+#endif  // BUILDFLAG(IS_CHROMEOS)
+
 // The command scheduler is the main API to access the web app system. The
 // scheduler internally ensures:
 // * Operations occur after the WebAppProvider is ready (so you don't have to
@@ -97,7 +108,7 @@ class WebAppCommandScheduler {
   using WebAppIconDiagnosticResultCallback =
       base::OnceCallback<void(std::optional<WebAppIconDiagnosticResult>)>;
   using WebInstallFromUrlCommandCallback =
-      base::OnceCallback<void(const GURL& manifest_id,
+      base::OnceCallback<void(const webapps::AppId& app_id,
                               webapps::InstallResultCode code)>;
   using UninstallCallback =
       base::OnceCallback<void(webapps::UninstallResultCode)>;
@@ -272,6 +283,18 @@ class WebAppCommandScheduler {
       base::OnceCallback<void(IsolatedInstallabilityCheckResult,
                               std::optional<base::Version>)> callback,
       const base::Location& call_location = FROM_HERE);
+
+#if BUILDFLAG(IS_CHROMEOS)
+  // Cleans all IWA cached bundles for `session_type` which are not in the
+  // `iwas_to_keep_in_cache`.
+  void CleanupIsolatedWebAppBundleCache(
+      const std::vector<web_package::SignedWebBundleId>& iwas_to_keep_in_cache,
+      IwaCacheClient::SessionType session_type,
+      base::OnceCallback<void(
+          base::expected<CleanupBundleCacheSuccess, CleanupBundleCacheError>)>
+          callback,
+      const base::Location& call_location = FROM_HERE);
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
   // Computes the browsing data size of all installed Isolated Web Apps.
   void GetIsolatedWebAppBrowsingData(

@@ -34,6 +34,9 @@ BASE_DECLARE_FEATURE(kAddReferringAppInfoToProtegoPings);
 BASE_DECLARE_FEATURE(kAddReferringWebApkToProtegoPings);
 #endif
 
+// Enables Bundled Security Settings UI on chrome://settings/security
+BASE_DECLARE_FEATURE(kBundledSecuritySettings);
+
 // Enables adding warning shown timestamp to client safe browsing report.
 BASE_DECLARE_FEATURE(kAddWarningShownTSToClientSafeBrowsingReport);
 
@@ -64,6 +67,9 @@ BASE_DECLARE_FEATURE(
 // OptimizationGuide.
 BASE_DECLARE_FEATURE(kClientSideDetectionKillswitch);
 
+// Killswitch for Llama forced trigger info redirect chain check.
+BASE_DECLARE_FEATURE(kClientSideDetectionForcedLlamaRedirectChainKillswitch);
+
 // Expand CSPP beyond phishing and trigger when keyboard or pointer lock request
 // occurs on the page.
 BASE_DECLARE_FEATURE(kClientSideDetectionKeyboardPointerLockRequest);
@@ -71,6 +77,9 @@ BASE_DECLARE_FEATURE(kClientSideDetectionKeyboardPointerLockRequest);
 // Expand CSD-Phishing beyond phishing and trigger when a notification prompt
 // occurs on the page.
 BASE_DECLARE_FEATURE(kClientSideDetectionNotificationPrompt);
+
+// Killswitch for force request redirect chain check.
+BASE_DECLARE_FEATURE(kClientSideDetectionRedirectChainKillswitch);
 
 // Send a sample CSPP ping when a URL matches the CSD allowlist and all other
 // preclassification check conditions pass.
@@ -148,10 +157,6 @@ BASE_DECLARE_FEATURE(kEnterprisePasswordReuseUiRefresh);
 // When on, enterprise policy EnterpriseRealTimeUrlCheckMode on Android is
 // supported.
 BASE_DECLARE_FEATURE(kEnterpriseRealTimeUrlCheckOnAndroid);
-
-// Enables string update on the enhanced protection description on
-// chrome://settings/security to mention the use of AI.
-BASE_DECLARE_FEATURE(kEsbAiStringUpdate);
 
 // Makes the Enhanced Protection a syncable setting.
 // Check the design doc (go/esb-as-a-synced-setting-dd) for further details.
@@ -257,6 +262,10 @@ BASE_DECLARE_FEATURE(kOnDeviceNotificationContentDetectionModel);
 extern const base::FeatureParam<int>
     kOnDeviceNotificationContentDetectionModelAllowlistSamplingRate;
 
+// Enable the collection of Notification Telemetry to track potentially abusive
+// notifications.
+BASE_DECLARE_FEATURE(kNotificationTelemetry);
+
 // Enable movement of password leak toggle out of standard protection and into
 // its own section.
 BASE_DECLARE_FEATURE(kPasswordLeakToggleMove);
@@ -275,6 +284,16 @@ extern const base::FeatureParam<std::string> kRedWarningSurveyReportTypeFilter;
 
 // Specifies the HaTS survey's identifier.
 extern const base::FeatureParam<std::string> kRedWarningSurveyTriggerId;
+
+// Enables reporting notification contents and metadata to the server, upon user
+// consent.
+BASE_DECLARE_FEATURE(kReportNotificationContentDetectionData);
+// Determines how often we should log the reported notification to the server.
+// For the default rate of 100, the notification will always be reported where a
+// rate of 0 means there is no reporting. This will help limit data volume, if
+// it becomes excessive.
+extern const base::FeatureParam<int>
+    kReportNotificationContentDetectionDataRate;
 
 // Enables client side phishing daily reports limit to be configured via Finch
 // for ESB and SBER users
@@ -317,6 +336,11 @@ extern const base::FeatureParam<int>
 // `kSafetyHubDisruptiveNotificationRevocationMinNotificationCount`,
 extern const base::FeatureParam<double>
     kSafetyHubDisruptiveNotificationRevocationMaxEngagementScore;
+
+// Timeout in seconds for the Safety Hub OS notification informing users about
+// revoked notification permissions.
+extern const base::FeatureParam<int>
+    kSafetyHubDisruptiveNotificationRevocationNotificationTimeoutSeconds;
 
 // Enables saving gaia password hash from the Profile Picker sign-in flow.
 BASE_DECLARE_FEATURE(kSavePasswordHashFromProfilePicker);

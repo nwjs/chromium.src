@@ -13,7 +13,7 @@
 
 #include <list>
 
-#include "base/apple/mach_port_rendezvous.h"
+#include "base/apple/mach_port_rendezvous_ios.h"
 #include "base/no_destructor.h"
 #include "base/threading/platform_thread.h"
 #include "content/browser/child_process_launcher.h"
@@ -217,8 +217,7 @@ ChildProcessLauncherHelper::LaunchProcessOnLauncherThread(
   std::string process_type = GetProcessType();
   std::string utility_sub_type =
       command_line()->GetSwitchValueASCII(switches::kUtilitySubType);
-  if (process_type == switches::kUtilityProcess &&
-      utility_sub_type == network::mojom::NetworkService::Name_) {
+  if (process_type == switches::kUtilityProcess) {
     void (^process_launch_complete)(BENetworkingProcess* process,
                                     NSError* error) =
         ^void(BENetworkingProcess* process, NSError* error) {

@@ -921,12 +921,22 @@ void Navigator::Navigate(std::unique_ptr<NavigationRequest> request,
   // We don't want to dispatch a beforeunload handler if
   // is_history_navigation_in_new_child is true. This indicates a newly created
   // child frame which does not have a beforeunload handler.
+  //
+  // We also don't want to dispatch a beforeunload handler if the browser is
+  // forcibly navigating a frame to an error page, because the renderer should
+  // have no chance to respond before that occurs.
+  // TODO(crbug.com/406729265): LoadPostCommitErrorPage() does not initiate a
+  // navigation via Navigator::Navigate(). We should fix that, so that
+  // post-commit error page navigations don't bypass other important checks in
+  // this function.
   bool should_dispatch_beforeunload =
       !NavigationTypeUtils::IsSameDocument(
           request->common_params().navigation_type) &&
       !request->common_params().is_history_navigation_in_new_child_frame &&
       frame_tree_node->current_frame_host()->ShouldDispatchBeforeUnload(
-          false /* check_subframes_only */);
+          false /* check_subframes_only */) &&
+      request->browser_initiated_error_navigation_type() ==
+          NavigationRequest::BrowserInitiatedErrorNavigationType::kNone;
 
   int nav_entry_id = request->nav_entry_id();
   bool is_pending_entry =
@@ -1074,6 +1084,7 @@ void Navigator::NavigateFromFrameProxy(
     const std::optional<blink::Impression>& impression,
     blink::mojom::NavigationInitiatorActivationAndAdStatus
         initiator_activation_and_ad_status,
+    base::TimeTicks actual_navigation_start_time,
     base::TimeTicks navigation_start_time,
     bool is_embedder_initiated_fenced_frame_navigation,
     bool is_unfenced_top_navigation,
@@ -1127,10 +1138,11 @@ void Navigator::NavigateFromFrameProxy(
       should_replace_current_entry, download_policy, method, post_body,
       extra_headers, std::move(source_location),
       std::move(blob_url_loader_factory), is_form_submission, impression,
-      initiator_activation_and_ad_status, navigation_start_time,
-      is_embedder_initiated_fenced_frame_navigation, is_unfenced_top_navigation,
-      force_new_browsing_instance, is_container_initiated, has_rel_opener,
-      storage_access_api_status, embedder_shared_storage_context);
+      initiator_activation_and_ad_status, actual_navigation_start_time,
+      navigation_start_time, is_embedder_initiated_fenced_frame_navigation,
+      is_unfenced_top_navigation, force_new_browsing_instance,
+      is_container_initiated, has_rel_opener, storage_access_api_status,
+      embedder_shared_storage_context);
 }
 
 void Navigator::SetWillNavigateFromFrameProxyCallbackForTesting(

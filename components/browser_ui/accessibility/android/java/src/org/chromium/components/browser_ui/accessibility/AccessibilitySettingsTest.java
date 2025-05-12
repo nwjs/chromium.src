@@ -11,6 +11,8 @@ import static androidx.test.espresso.matcher.ViewMatchers.hasDescendant;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.verify;
@@ -54,6 +56,7 @@ import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.components.browser_ui.settings.BlankUiTestActivitySettingsTestRule;
 import org.chromium.components.browser_ui.settings.ChromeSwitchPreference;
 import org.chromium.components.browser_ui.settings.SettingsNavigation;
+import org.chromium.components.dom_distiller.core.DomDistillerFeatures;
 import org.chromium.content.browser.HostZoomMapImpl;
 import org.chromium.content.browser.HostZoomMapImplJni;
 import org.chromium.content_public.browser.BrowserContextHandle;
@@ -103,7 +106,7 @@ public class AccessibilitySettingsTest {
 
         // Enable screen reader to display all settings options.
         ThreadUtils.runOnUiThreadBlocking(
-                () -> AccessibilityState.setIsScreenReaderEnabledForTesting(true));
+                () -> AccessibilityState.setIsKnownScreenReaderEnabledForTesting(true));
         when(mDelegate.shouldShowImageDescriptionsSetting()).thenReturn(true);
 
         mSettingsActivityTestRule.launchPreference(
@@ -119,7 +122,7 @@ public class AccessibilitySettingsTest {
     @After
     public void tearDown() {
         ThreadUtils.runOnUiThreadBlocking(
-                () -> AccessibilityState.setIsScreenReaderEnabledForTesting(false));
+                () -> AccessibilityState.setIsKnownScreenReaderEnabledForTesting(false));
         when(mDelegate.shouldShowImageDescriptionsSetting()).thenReturn(false);
     }
 
@@ -451,6 +454,7 @@ public class AccessibilitySettingsTest {
                 (ChromeSwitchPreference)
                         mAccessibilitySettings.findPreference(
                                 AccessibilitySettings.PREF_READER_FOR_ACCESSIBILITY);
+        assertTrue(readerModePref.isVisible());
         boolean initialValue = readerModePref.isChecked();
 
         HistogramWatcher watcher =
@@ -461,6 +465,20 @@ public class AccessibilitySettingsTest {
                         .build();
         readerModePref.callChangeListener(!initialValue);
         watcher.assertExpected();
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"Accessibility"})
+    @EnableFeatures(
+            DomDistillerFeatures.READER_MODE_IMPROVEMENTS
+                    + ":trigger_on_mobile_friendly_pages/true")
+    public void testReaderModePreference_notVisibleWhenMobileTriggeringEnabled() {
+        ChromeSwitchPreference readerModePref =
+                (ChromeSwitchPreference)
+                        mAccessibilitySettings.findPreference(
+                                AccessibilitySettings.PREF_READER_FOR_ACCESSIBILITY);
+        assertFalse(readerModePref.isVisible());
     }
 
     // Helper methods.

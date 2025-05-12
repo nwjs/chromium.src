@@ -23,16 +23,13 @@ import android.widget.RemoteViews;
 import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.annotation.OptIn;
 import androidx.annotation.VisibleForTesting;
 import androidx.browser.auth.AuthTabSessionToken;
-import androidx.browser.auth.ExperimentalAuthTab;
 import androidx.browser.customtabs.CustomTabsCallback;
 import androidx.browser.customtabs.CustomTabsIntent;
 import androidx.browser.customtabs.CustomTabsService;
 import androidx.browser.customtabs.CustomTabsSessionToken;
 import androidx.browser.customtabs.EngagementSignalsCallback;
-import androidx.browser.customtabs.ExperimentalMinimizationCallback;
 import androidx.browser.customtabs.ExperimentalPrefetch;
 import androidx.browser.customtabs.PostMessageServiceConnection;
 import androidx.browser.customtabs.PrefetchOptions;
@@ -59,7 +56,6 @@ import org.chromium.base.supplier.Supplier;
 import org.chromium.base.task.ChainedTasks;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
-import org.chromium.build.annotations.MockedInTests;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeApplicationImpl;
 import org.chromium.chrome.browser.IntentHandler;
@@ -122,8 +118,6 @@ import java.util.function.Consumer;
  * ChromeApplicationImpl}.
  */
 @JNINamespace("customtabs")
-@MockedInTests
-@OptIn(markerClass = ExperimentalAuthTab.class)
 public class CustomTabsConnection {
     private static final String TAG = "ChromeConnection";
     private static final String LOG_SERVICE_REQUESTS = "custom-tabs-log-service-requests";
@@ -1091,9 +1085,9 @@ public class CustomTabsConnection {
      * @return The hidden tab, or null.
      */
     public @Nullable HiddenTabHolder.HiddenTab takeHiddenTab(
-            @Nullable SessionHolder<?> session, String url, @Nullable String referrer) {
+            @Nullable SessionHolder<?> session, String url, Intent intent) {
         return mHiddenTabHolder.takeHiddenTab(
-                session, mClientManager.getIgnoreFragmentsForSession(session), url, referrer);
+                session, mClientManager.getIgnoreFragmentsForSession(session), url, intent);
     }
 
     /**
@@ -1115,14 +1109,20 @@ public class CustomTabsConnection {
                     bundleToJson(intent.getExtras()));
         }
 
+        if (ChromeBrowserInitializer.getInstance().isFullBrowserInitialized()) {
+            CustomTabsConnectionJni.get().emitIntentHandledTrigger();
+        }
+
         // If we still have pending warmup tasks, don't continue as they would only delay intent
         // processing from now on.
         if (mWarmupTasks != null) mWarmupTasks.cancel();
 
-        maybePreconnectToRedirectEndpoint(session, url, intent);
-        ChromeBrowserInitializer.getInstance()
-                .runNowOrAfterFullBrowserStarted(() -> handleParallelRequest(session, intent));
-        maybePrefetchResources(session, intent);
+        try (TraceEvent event = TraceEvent.scoped("CustomTabsConnection.PreconnectResources")) {
+            maybePreconnectToRedirectEndpoint(session, url, intent);
+            ChromeBrowserInitializer.getInstance()
+                    .runNowOrAfterFullBrowserStarted(() -> handleParallelRequest(session, intent));
+            maybePrefetchResources(session, intent);
+        }
     }
 
     /**
@@ -1492,7 +1492,6 @@ public class CustomTabsConnection {
     }
 
     /** Called when a Custom Tab is unminimized. */
-    @OptIn(markerClass = ExperimentalMinimizationCallback.class)
     public void onUnminimized(@Nullable SessionHolder<?> session) {
         Bundle args = new Bundle();
 
@@ -1510,7 +1509,6 @@ public class CustomTabsConnection {
     }
 
     /** Called when a Custom Tab is minimized. */
-    @OptIn(markerClass = ExperimentalMinimizationCallback.class)
     public void onMinimized(@Nullable SessionHolder<?> session) {
         Bundle args = new Bundle();
 
@@ -2293,6 +2291,10 @@ public class CustomTabsConnection {
         return success;
     }
 
+    public boolean isSessionValid(SessionHolder<?> session) {
+        return mClientManager.isSessionValid(session);
+    }
+
     public static void setInstanceForTesting(CustomTabsConnection connection) {
         var oldValue = sInstance;
         sInstance = connection;
@@ -2322,5 +2324,7 @@ public class CustomTabsConnection {
                 SessionHolder<?> session,
                 WebContents webContents,
                 @JniType("std::string") String textFragment);
+
+        void emitIntentHandledTrigger();
     }
 }

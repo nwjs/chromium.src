@@ -11,12 +11,12 @@
 #import "base/task/thread_pool.h"
 #import "base/test/gmock_callback_support.h"
 #import "base/test/scoped_feature_list.h"
-#import "base/test/task_environment.h"
 #import "base/test/test_file_util.h"
 #import "base/test/test_future.h"
 #import "base/uuid.h"
 #import "ios/chrome/app/change_profile_commands.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
+#import "ios/chrome/browser/shared/model/profile/features.h"
 #import "ios/chrome/browser/shared/model/profile/mutable_profile_attributes_storage_ios.h"
 #import "ios/chrome/browser/shared/model/profile/profile_attributes_ios.h"
 #import "ios/chrome/browser/shared/model/profile/profile_attributes_storage_observer_ios.h"
@@ -26,6 +26,7 @@
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity_manager.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
+#import "ios/web/public/test/web_task_environment.h"
 #import "testing/gmock/include/gmock/gmock.h"
 #import "testing/gtest/include/gtest/gtest.h"
 #import "testing/gtest_mac.h"
@@ -69,8 +70,7 @@ using testing::UnorderedElementsAre;
   NOTREACHED();
 }
 
-- (void)deleteProfile:(std::string_view)profileName
-           completion:(ProfileDeletedCallback)completion {
+- (void)deleteProfile:(std::string_view)profileName {
   _deleteProfileCalled = YES;
   _manager->MarkProfileForDeletion(profileName);
 }
@@ -356,8 +356,8 @@ class AccountProfileMapperTest : public PlatformTest {
 
  protected:
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
-  base::test::TaskEnvironment task_environment_{
-      base::test::TaskEnvironment::TimeSource::MOCK_TIME};
+  web::WebTaskEnvironment task_environment_{
+      web::WebTaskEnvironment::TimeSource::MOCK_TIME};
   std::unique_ptr<FakeProfileManagerIOS> profile_manager_;
   raw_ptr<FakeSystemIdentityManager> system_identity_manager_;
   std::unique_ptr<AccountProfileMapper> account_profile_mapper_;

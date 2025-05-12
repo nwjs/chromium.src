@@ -10,7 +10,7 @@
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/views/view.h"
 
-class Browser;
+class BrowserWindowInterface;
 
 namespace content {
 class WebContents;
@@ -26,28 +26,29 @@ class PrivacySandboxDialogView : public views::View {
   METADATA_HEADER(PrivacySandboxDialogView, views::View)
 
  public:
-  PrivacySandboxDialogView(Browser* browser,
-                           PrivacySandboxService::PromptType dialog_type);
+  static std::unique_ptr<PrivacySandboxDialogView>
+  CreateDialogViewForPromptType(BrowserWindowInterface* browser,
+                                PrivacySandboxService::PromptType prompt_type);
+  // TODO(chrstne): Create initialization method for PSNotice, v2.
 
   void Close();
+  content::WebContents* GetWebContentsForTesting();
 
  private:
   friend class PrivacySandboxQueueTestNotice;
 
+  explicit PrivacySandboxDialogView(BrowserWindowInterface* browser);
+  void InitializeDialogUIForPromptType(
+      PrivacySandboxService::PromptType prompt_type);
   void AdsDialogNoArgsCallback(
       PrivacySandboxService::AdsDialogCallbackNoArgsEvents event);
   void ResizeNativeView(int height);
   void ShowNativeView();
   void OpenPrivacySandboxSettings();
   void OpenPrivacySandboxAdMeasurementSettings();
-  friend class PrivacySandboxDialogViewPrivacyPolicyBrowserTest;
-  friend class
-      PrivacySandboxDialogViewAdsApiUxEnhancementPrivacyPolicyBrowserTest;
-  friend class PrivacySandboxDialogViewAdsApiUxEnhancementsLearnMoreBrowserTest;
-  content::WebContents* GetWebContentsForTesting();
 
   raw_ptr<views::WebView> web_view_;
-  raw_ptr<Browser> browser_;
+  raw_ptr<BrowserWindowInterface> browser_;
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_PRIVACY_SANDBOX_PRIVACY_SANDBOX_DIALOG_VIEW_H_

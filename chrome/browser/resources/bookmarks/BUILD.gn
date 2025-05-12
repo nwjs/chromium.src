@@ -9,7 +9,7 @@ build_webui("build") {
 
   static_files = [ "bookmarks.html" ]
 
-  non_web_component_files = [
+  ts_files = [
     "actions.ts",
     "api_listener.ts",
     "app.html.ts",
@@ -32,6 +32,8 @@ build_webui("build") {
     "item.ts",
     "list.html.ts",
     "list.ts",
+    "promo_card.html.ts",
+    "promo_card.ts",
     "reducers.ts",
     "router.ts",
     "store.ts",
@@ -42,19 +44,22 @@ build_webui("build") {
     "util.ts",
   ]
 
+  icons_html_files = [ "icons.html" ]
+  html_to_wrapper_template = "detect"
+
   # Files that are passed as input to css_to_wrapper().
   css_files = [
     "app.css",
     "folder_node.css",
     "item.css",
     "list.css",
-    "toolbar.css",
+    "promo_card.css",
     "shared_style_lit.css",
     "shared_vars.css",
+    "toolbar.css",
   ]
 
   ts_composite = true
-  ts_tsconfig_base = "//tools/typescript/tsconfig_base_lit_389737066.json"
   ts_definitions = [
     "//tools/typescript/definitions/bookmark_manager_private.d.ts",
     "//tools/typescript/definitions/bookmarks.d.ts",

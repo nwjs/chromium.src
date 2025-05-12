@@ -7,13 +7,14 @@
 #include "base/test/run_until.h"
 #include "base/time/time.h"
 #include "chrome/browser/glic/glic_keyed_service.h"
+#include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/test_support/interactive_glic_test.h"
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/test/base/in_process_browser_test.h"
-#include "components/tab_collections/public/tab_interface.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/test/browser_test.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -22,11 +23,12 @@ namespace {
 
 class GlicFreControllerBrowserTest : public glic::test::InteractiveGlicTest {
  public:
+  GlicFreControllerBrowserTest() = default;
   ~GlicFreControllerBrowserTest() override = default;
 
   void SetUpOnMainThread() override {
     glic::test::InteractiveGlicTest::SetUpOnMainThread();
-    glic_test_environment().SetFRECompletion(false);
+    glic_test_environment().SetFRECompletion(prefs::FreStatus::kNotStarted);
   }
 
   GlicFreController* glic_fre_controller() {
@@ -43,15 +45,29 @@ class GlicFreControllerBrowserTest : public glic::test::InteractiveGlicTest {
   }
 
   void WaitForFreShow() {
-    ASSERT_TRUE(base::test::RunUntil(
-        [&]() { return glic_fre_controller()->IsShowingDialog(); }));
+    ASSERT_TRUE(base::test::RunUntil([&]() {
+      return glic_fre_controller()->IsShowingDialog();
+    })) << "FRE dialog should have been shown";
+  }
+
+  void WaitForFreClose() {
+    ASSERT_TRUE(base::test::RunUntil([&]() {
+      return !glic_fre_controller()->IsShowingDialog();
+    })) << "FRE dialog should have been closed";
+  }
+
+  void WaitForGlicPanelShow() {
+    ASSERT_TRUE(base::test::RunUntil([&]() {
+      return glic_test_environment().GetService()->IsWindowShowing();
+    })) << "Glic panel should have been shown";
   }
 
   void EnsureFreDoesNotShow() {
     auto end_time = base::TimeTicks::Now() + base::Milliseconds(500);
     ASSERT_TRUE(base::test::RunUntil(
         [&]() { return end_time < base::TimeTicks::Now(); }));
-    ASSERT_FALSE(glic_fre_controller()->IsShowingDialog());
+    ASSERT_FALSE(glic_fre_controller()->IsShowingDialog())
+        << "FRE dialog should not have been shown";
   }
 };
 
@@ -120,13 +136,13 @@ IN_PROC_BROWSER_TEST_F(GlicFreControllerBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(GlicFreControllerBrowserTest,
-                       CookieSyncPreventsFreShow) {
+                       ShowFreDialogOnFailedCookieSync) {
   glic_test_environment().SetResultForFutureCookieSyncInFre(false);
   // Open the FRE dialog in a tab.
   chrome::AddTabAt(browser(), GURL("about:blank"), -1, true);
   browser()->tab_strip_model()->ActivateTabAt(0);
   glic_fre_controller()->ShowFreDialog(browser());
-  EnsureFreDoesNotShow();
+  WaitForFreShow();
 }
 
 IN_PROC_BROWSER_TEST_F(GlicFreControllerBrowserTest,
@@ -225,6 +241,19 @@ IN_PROC_BROWSER_TEST_F(GlicFreControllerBrowserTest,
   // Destroy the WebContents that the dialog is being shown on.
   browser()->tab_strip_model()->CloseWebContentsAt(
       0, TabCloseTypes::CLOSE_USER_GESTURE);
+}
+
+IN_PROC_BROWSER_TEST_F(GlicFreControllerBrowserTest, FreAcceptance) {
+  // Open the FRE dialog in a tab.
+  chrome::AddTabAt(browser(), GURL("about:blank"), 0, true);
+  browser()->tab_strip_model()->ActivateTabAt(0);
+  glic_fre_controller()->ShowFreDialog(browser());
+  WaitForFreShow();
+
+  // Accept the FRE and confirm it closed and the glic panel opened.
+  glic_fre_controller()->AcceptFre();
+  WaitForFreClose();
+  WaitForGlicPanelShow();
 }
 
 }  // namespace

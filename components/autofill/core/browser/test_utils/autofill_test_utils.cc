@@ -35,7 +35,7 @@
 #include "components/autofill/core/browser/data_model/payments/iban.h"
 #include "components/autofill/core/browser/data_model/payments/payment_instrument.h"
 #include "components/autofill/core/browser/field_types.h"
-#include "components/autofill/core/browser/integrators/mock_autofill_optimization_guide.h"
+#include "components/autofill/core/browser/integrators/optimization_guide/mock_autofill_optimization_guide.h"
 #include "components/autofill/core/browser/metrics/suggestions_list_metrics.h"
 #include "components/autofill/core/browser/payments/card_unmask_challenge_option.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
@@ -907,7 +907,8 @@ EntityInstance GetPassportEntityInstance(PassportEntityOptions options) {
   return EntityInstance(
       EntityType(EntityTypeName::kPassport), std::move(attributes),
       base::Uuid::ParseLowercase(options.guid), std::string(options.nickname),
-      base::Time::FromTimeT(options.date_modified.ToTimeT()));
+      base::Time::FromTimeT(options.date_modified.ToTimeT()), /*use_count=*/0,
+      /*use_date=*/base::Time::FromTimeT(0));
 }
 
 EntityInstance GetDriversLicenseEntityInstance(DriversLicenseOptions options) {
@@ -950,7 +951,8 @@ EntityInstance GetDriversLicenseEntityInstance(DriversLicenseOptions options) {
   return EntityInstance(
       EntityType(EntityTypeName::kDriversLicense), std::move(attributes),
       base::Uuid::ParseLowercase(options.guid), std::string(options.nickname),
-      base::Time::FromTimeT(options.date_modified.ToTimeT()));
+      base::Time::FromTimeT(options.date_modified.ToTimeT()), /*use_count=*/0,
+      /*use_date=*/base::Time::FromTimeT(0));
 }
 
 EntityInstance GetVehicleEntityInstance(VehicleOptions options) {
@@ -989,7 +991,7 @@ EntityInstance GetVehicleEntityInstance(VehicleOptions options) {
   }
   if (options.year) {
     attributes.emplace_back(AttributeType(kVehicleYear));
-    attributes.back().SetInfo(VEHICLE_YEAR, options.model,
+    attributes.back().SetInfo(VEHICLE_YEAR, options.year,
                               /*app_locale=*/"", /*format_string=*/u"",
                               VerificationStatus::kNoStatus);
   }
@@ -1002,7 +1004,8 @@ EntityInstance GetVehicleEntityInstance(VehicleOptions options) {
   return EntityInstance(
       EntityType(EntityTypeName::kVehicle), std::move(attributes),
       base::Uuid::ParseLowercase(options.guid), std::string(options.nickname),
-      base::Time::FromTimeT(kJune2017.ToTimeT()));
+      base::Time::FromTimeT(kJune2017.ToTimeT()), /*use_count=*/0,
+      /*use_date=*/base::Time::FromTimeT(0));
 }
 
 void InitializePossibleTypes(std::vector<FieldTypeSet>& possible_field_types,
@@ -1272,14 +1275,13 @@ sync_pb::PaymentInstrument CreatePaymentInstrumentWithLinkedBnplIssuer(
   return payment_instrument;
 }
 
-BnplIssuer GetTestLinkedBnplIssuer(std::string_view issuer_id) {
+BnplIssuer GetTestLinkedBnplIssuer(autofill::BnplIssuer::IssuerId issuer_id) {
   std::vector<BnplIssuer::EligiblePriceRange> eligible_price_ranges;
   // Currency: USD, price lower bound: $50, price upper bound: $200.
   eligible_price_ranges.emplace_back(/*currency=*/"USD",
                                      /*price_lower_bound=*/50'000'000,
                                      /*price_upper_bound=*/200'000'000);
-  return BnplIssuer(12345, std::string(issuer_id),
-                    std::move(eligible_price_ranges));
+  return BnplIssuer(12345, issuer_id, std::move(eligible_price_ranges));
 }
 
 BnplIssuer GetTestUnlinkedBnplIssuer() {
@@ -1288,7 +1290,7 @@ BnplIssuer GetTestUnlinkedBnplIssuer() {
   eligible_price_ranges.emplace_back(/*currency=*/"USD",
                                      /*price_lower_bound=*/35'000'000,
                                      /*price_upper_bound=*/100'000'000);
-  return BnplIssuer(std::nullopt, std::string(kBnplZipIssuerId),
+  return BnplIssuer(std::nullopt, autofill::BnplIssuer::IssuerId::kBnplZip,
                     std::move(eligible_price_ranges));
 }
 

@@ -11,6 +11,7 @@
 #import "components/signin/public/identity_manager/identity_manager.h"
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/authentication/ui_bundled/authentication_ui_util.h"
+#import "ios/chrome/browser/authentication/ui_bundled/continuation.h"
 #import "ios/chrome/browser/authentication/ui_bundled/history_sync/history_sync_coordinator.h"
 #import "ios/chrome/browser/authentication/ui_bundled/history_sync/history_sync_popup_coordinator.h"
 #import "ios/chrome/browser/authentication/ui_bundled/history_sync/history_sync_utils.h"
@@ -63,46 +64,35 @@ using signin_metrics::PromoAction;
   raw_ptr<signin::IdentityManager> _identityManager;
   raw_ptr<AuthenticationService> _authenticationService;
   raw_ptr<syncer::SyncService> _syncService;
+  ChangeProfileContinuationProvider _continuationProvider;
 }
 
 #pragma mark - Public
 
 - (instancetype)initWithBaseViewController:(UIViewController*)viewController
                                    browser:(Browser*)browser
+                              contextStyle:(SigninContextStyle)contextStyle
                                accessPoint:(AccessPoint)accessPoint
                                promoAction:(PromoAction)promoAction
-                              signinIntent:
-                                  (AddAccountSigninIntent)signinIntent {
+                              signinIntent:(AddAccountSigninIntent)signinIntent
+                      continuationProvider:
+                          (const ChangeProfileContinuationProvider&)
+                              continuationProvider {
   self = [super initWithBaseViewController:viewController
                                    browser:browser
+                              contextStyle:contextStyle
                                accessPoint:accessPoint];
   if (self) {
+    CHECK(continuationProvider);
+    _continuationProvider = continuationProvider;
     _signinIntent = signinIntent;
     _promoAction = promoAction;
   }
   return self;
 }
 
-#pragma mark - InterruptibleChromeCoordinator
-
-- (void)interruptAnimated:(BOOL)animated {
-  // When interrupting `self.postSigninManagerCoordinator` or
-  // `self.historySyncPopupCoordinator` below, the signinCompletion is called.
-  // This callback is in charge to call `[self
-  // runCompletionWithSigninResult: completionIdentity:]`.
-  if (self.postSigninManagerCoordinator) {
-    DCHECK(!self.addAccountSigninManager);
-    [self.postSigninManagerCoordinator interruptAnimated:animated];
-    return;
-  }
-
-  if (self.historySyncPopupCoordinator) {
-    DCHECK(!self.addAccountSigninManager);
-    return;
-  }
-
-  DCHECK(self.addAccountSigninManager);
-  [self.addAccountSigninManager interruptAnimated:animated];
+- (void)dealloc {
+  CHECK(!_accountManagerService, base::NotFatalUntil::M145);
 }
 
 #pragma mark - ChromeCoordinator
@@ -128,8 +118,18 @@ using signin_metrics::PromoAction;
   [self.addAccountSigninManager showSigninWithIntent:self.signinIntent];
 }
 
-- (void)stop {
-  [super stop];
+#pragma mark - AnimatedCoordinator
+
+- (void)stopAnimated:(BOOL)animated {
+  [super stopAnimated:animated];
+  // When interrupting `self.postSigninManagerCoordinator` or
+  // `self.historySyncPopupCoordinator` below, the signinCompletion is called.
+  // This callback is in charge to call `[self
+  // runCompletionWithSigninResult: completionIdentity:]`.
+
+  [self stopPostSigninManagerCoordinatorAnimated:animated];
+  [self interruptAddAccountSigninManager:animated];
+
   _accountManagerService = nullptr;
   _identityManager = nullptr;
   _authenticationService = nil;
@@ -156,6 +156,7 @@ using signin_metrics::PromoAction;
   }
   // Add account is done, we don't need `self.AddAccountSigninManager`
   // anymore.
+  self.addAccountSigninManager.delegate = nil;
   self.addAccountSigninManager = nil;
 
   switch (result) {
@@ -188,19 +189,14 @@ using signin_metrics::PromoAction;
       // If the signin was successful, but the identity isn't showing up on the
       // device, then it must be an identity that's restricted by policy.
       bool identityOnDeviceFound = false;
-      if (IsUseAccountListFromIdentityManagerEnabled()) {
-        const GaiaId gaia(identity.gaiaID);
-        std::vector<AccountInfo> accountsOnDevice =
-            _identityManager->GetAccountsOnDevice();
-        for (const AccountInfo& accountInfo : accountsOnDevice) {
-          if (accountInfo.gaia == gaia) {
-            identityOnDeviceFound = true;
-            break;
-          }
+      const GaiaId gaia(identity.gaiaID);
+      std::vector<AccountInfo> accountsOnDevice =
+          _identityManager->GetAccountsOnDevice();
+      for (const AccountInfo& accountInfo : accountsOnDevice) {
+        if (accountInfo.gaia == gaia) {
+          identityOnDeviceFound = true;
+          break;
         }
-      } else {
-        identityOnDeviceFound =
-            _accountManagerService->IsValidIdentity(identity);
       }
       if (!identityOnDeviceFound) {
         __weak __typeof(self) weakSelf = self;
@@ -220,14 +216,20 @@ using signin_metrics::PromoAction;
 
 #pragma mark - Private
 
+- (void)interruptAddAccountSigninManager:(BOOL)animated {
+  [self.addAccountSigninManager interruptAnimated:animated];
+  self.addAccountSigninManager.delegate = nil;
+  self.addAccountSigninManager = nil;
+}
+
 - (void)stopHistorySyncPopupCoordinator {
   [self.historySyncPopupCoordinator stop];
   self.historySyncPopupCoordinator.delegate = nil;
   self.historySyncPopupCoordinator = nil;
 }
 
-- (void)stopPostSigninManagerCoordinator {
-  [self.postSigninManagerCoordinator stop];
+- (void)stopPostSigninManagerCoordinatorAnimated:(BOOL)animated {
+  [self.postSigninManagerCoordinator stopAnimated:animated];
   self.postSigninManagerCoordinator = nil;
 }
 
@@ -315,8 +317,10 @@ using signin_metrics::PromoAction;
       instantSigninCoordinatorWithBaseViewController:self.baseViewController
                                              browser:self.browser
                                             identity:identity
+                                        contextStyle:self.contextStyle
                                          accessPoint:self.accessPoint
-                                         promoAction:self.promoAction];
+                                         promoAction:self.promoAction
+                                continuationProvider:_continuationProvider];
 
   __weak AddAccountSigninCoordinator* weakSelf = self;
   self.postSigninManagerCoordinator.signinCompletion = ^(
@@ -333,7 +337,7 @@ using signin_metrics::PromoAction;
             (SigninCoordinatorResult)result
                           signinCompletionIdentity:
                               (id<SystemIdentity>)resultIdentity {
-  [self stopPostSigninManagerCoordinator];
+  [self stopPostSigninManagerCoordinatorAnimated:NO];
   if (result != SigninCoordinatorResultSuccess) {
     [self addAccountDoneWithSigninResult:result identity:resultIdentity];
     return;
@@ -350,6 +354,7 @@ using signin_metrics::PromoAction;
                      showUserEmail:NO
                  signOutIfDeclined:NO
                         isOptional:YES
+                      contextStyle:self.contextStyle
                        accessPoint:self.accessPoint];
     self.historySyncPopupCoordinator.delegate = self;
     [self.historySyncPopupCoordinator start];

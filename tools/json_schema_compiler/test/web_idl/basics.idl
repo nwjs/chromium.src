@@ -57,6 +57,23 @@ interface TestWebIdl {
   // |arg2|: This second argument uses a custom type.
   static undefined parameterComments(boolean arg1, ExampleType arg2);
 
+  static attribute OnTestOneEvent onTestOne;
+  static attribute OnTestTwoEvent onTestTwo;
+};
+
+callback OnTestOneListener = undefined (
+    DOMString argument1, optional double argument2);
+callback OnTestTwoListener = undefined (ExampleType customType);
+
+interface OnTestOneEvent : ExtensionEvent {
+  static void addListener(OnTestOneListener listener);
+  static void removeListener(OnTestOneListener listener);
+  static void hasListener(OnTestOneListener listener);
+};
+interface OnTestTwoEvent : ExtensionEvent {
+  static void addListener(OnTestTwoListener listener);
+  static void removeListener(OnTestTwoListener listener);
+  static void hasListener(OnTestTwoListener listener);
 };
 
 dictionary ExampleType {

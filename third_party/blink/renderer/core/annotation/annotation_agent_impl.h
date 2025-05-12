@@ -7,8 +7,11 @@
 
 #include "base/types/pass_key.h"
 #include "third_party/blink/public/mojom/annotation/annotation.mojom-blink.h"
+#include "third_party/blink/public/mojom/scroll/scroll_enums.mojom-blink-forward.h"
+#include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink-forward.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/layout/geometry/physical_rect.h"
+#include "third_party/blink/renderer/platform/graphics/dom_node_id.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/heap/member.h"
 #include "third_party/blink/renderer/platform/mojo/heap_mojo_receiver.h"
@@ -54,6 +57,7 @@ class CORE_EXPORT AnnotationAgentImpl final
   AnnotationAgentImpl(AnnotationAgentContainerImpl& owning_container,
                       mojom::blink::AnnotationType annotation_type,
                       AnnotationSelector& selector,
+                      std::optional<DOMNodeId> search_range_start_node_id,
                       base::PassKey<AnnotationAgentContainerImpl>);
   ~AnnotationAgentImpl() override = default;
 
@@ -103,10 +107,10 @@ class CORE_EXPORT AnnotationAgentImpl final
   void Remove();
 
   // mojom::blink::AnnotationAgent
-  void ScrollIntoView() override {
-    const_cast<const AnnotationAgentImpl*>(this)->ScrollIntoView();
+  void ScrollIntoView(bool applies_focus) override {
+    const_cast<const AnnotationAgentImpl*>(this)->ScrollIntoView(applies_focus);
   }
-  void ScrollIntoView() const;
+  void ScrollIntoView(bool applies_focus) const;
 
   const RangeInFlatTree& GetAttachedRange() const {
     CHECK(attached_range_.Get());
@@ -135,6 +139,10 @@ class CORE_EXPORT AnnotationAgentImpl final
 
   bool IsRemoved() const;
 
+  mojom::blink::ScrollBehavior ComputeScrollIntoViewBehavior(
+      const PhysicalRect& bounding_box,
+      const mojom::blink::ScrollIntoViewParams& params) const;
+
   // Mojo bindings to the remote host and this' remote. These are always
   // connected as a pair and disconnecting one will cause the other to be
   // disconnected as well.
@@ -158,6 +166,10 @@ class CORE_EXPORT AnnotationAgentImpl final
   // TODO(bokan): This doesn't need to be const but is due to the
   // TextFragmentFinder::Client interface.
   Member<const RangeInFlatTree> pending_range_;
+
+  // The start node id of the search range within which the agent will attempt
+  // to match the selector in.
+  std::optional<DOMNodeId> search_range_start_node_id_;
 
   // TODO(bokan): Once we have more of this implemented we'll use the type to
   // determine styling and context menu behavior.

@@ -75,7 +75,7 @@ class MockNativeWidget : public internal::NativeWidgetPrivate {
               (ui::mojom::ModalType modal_type),
               (override));
   MOCK_METHOD(void,
-              SetColorMode,
+              OnWidgetThemeChanged,
               (ui::ColorProviderKey::ColorMode),
               (override));
   MOCK_METHOD(gfx::Rect, GetWindowBoundsInScreen, (), (const override));
@@ -104,6 +104,7 @@ class MockNativeWidget : public internal::NativeWidgetPrivate {
               (override));
   MOCK_METHOD(void, Hide, (), (override));
   MOCK_METHOD(bool, IsVisible, (), (const override));
+  MOCK_METHOD(bool, IsVisibleOnScreen, (), (const override));
   MOCK_METHOD(void, Activate, (), (override));
   MOCK_METHOD(void, Deactivate, (), (override));
   MOCK_METHOD(bool, IsActive, (), (const override));

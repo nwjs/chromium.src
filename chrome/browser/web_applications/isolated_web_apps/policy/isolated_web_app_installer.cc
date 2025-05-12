@@ -20,11 +20,11 @@
 #include "chrome/browser/web_applications/isolated_web_apps/update_manifest/update_manifest_fetcher.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/common/chrome_features.h"
-#include "chromeos/components/mgs/managed_guest_session_utils.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/web_applications/isolated_web_apps/policy/isolated_web_app_cache_client.h"
+#include "chromeos/components/mgs/managed_guest_session_utils.h"
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 namespace web_app {
@@ -102,17 +102,6 @@ std::optional<UpdateManifest::VersionEntry> GetVersionWithOptions(
     return update_manifest.GetLatestVersion(install_options.update_channel());
   }
 }
-
-#if BUILDFLAG(IS_CHROMEOS)
-std::string CopyErrorToString(IwaCacheClient::CopyBundleToCacheError error) {
-  switch (error) {
-    case IwaCacheClient::CopyBundleToCacheError::kFailedToCreateDir:
-      return "FailedToCreateDir";
-    case IwaCacheClient::CopyBundleToCacheError::kFailedToCopyFile:
-      return "FailedToCopyFile";
-  }
-}
-#endif  // BUILDFLAG(IS_CHROMEOS)
 
 }  // namespace
 
@@ -245,8 +234,9 @@ void IwaInstaller::OnBundleCopiedToCache(
     log_->Append(base::Value(u"successfully copied bundle to the cache: " +
                              result->cached_bundle_path.LossyDisplayName()));
   } else {
-    log_->Append(base::Value("failed to copy bundle to cache: " +
-                             CopyErrorToString(result.error())));
+    log_->Append(
+        base::Value("failed to copy bundle to cache: " +
+                    IwaCacheClient::CopyErrorToString(result.error())));
   }
 
   // TODO(crbug.com/388727600): add UMA metrics for failed and successful copy

@@ -109,7 +109,7 @@ static constexpr double kRejectionLogNormalSigma = 1.4;
 static constexpr char kDefaultFieldName[] = "name";
 static constexpr char kDefaultFieldEmail[] = "email";
 static constexpr char kDefaultFieldPicture[] = "picture";
-static constexpr char kFieldPhoneNumber[] = "phone";
+static constexpr char kFieldPhoneNumber[] = "tel";
 static constexpr char kFieldUsername[] = "username";
 
 static constexpr char kVcSdJwt[] = "vc+sd-jwt";
@@ -454,6 +454,17 @@ std::vector<uint8_t> Sha256(std::string_view data) {
   return result;
 }
 
+bool CanBypassPermissionStatusCheck(
+    const blink::mojom::RpMode& rp_mode,
+    const MediationRequirement& mediation_requirement) {
+  // Embargo or browser settings should not affect active mode. Since
+  // conditional flow isn't intrusive which was the main reason we added such
+  // controls, we can bypass the check for it as well.
+  return rp_mode == RpMode::kActive ||
+         (IsFedCmAutofillEnabled() &&
+          mediation_requirement == MediationRequirement::kConditional);
+}
+
 }  // namespace
 
 FederatedAuthRequestImpl::FetchData::FetchData() = default;
@@ -661,7 +672,7 @@ void FederatedAuthRequestImpl::RequestToken(
   }
 
   if (requirement == MediationRequirement::kConditional &&
-      !IsFedCmDelegationEnabled()) {
+      !IsFedCmAutofillEnabled()) {
     // The conditional mediation parameter can only be used when delegation
     // is enabled while it is under development.
     //
@@ -671,8 +682,8 @@ void FederatedAuthRequestImpl::RequestToken(
     // TODO(crbug.com/380367784): handle all of the many cases in which a
     // conditional mediation may interact with other features.
     ReportBadMessageAndDeleteThis(
-        "Conditional mediation is not supported when delegation is "
-        "disabled.");
+        "Conditional mediation is not supported when both autofill and "
+        "delegation are disabled.");
     return;
   }
 
@@ -749,6 +760,7 @@ void FederatedAuthRequestImpl::RequestToken(
     std::move(callback).Run(RequestTokenStatus::kError, std::nullopt, "",
                             /*error=*/nullptr,
                             /*is_auto_selected=*/false);
+    fedcm_metrics_.reset();
     return;
   }
 
@@ -761,6 +773,7 @@ void FederatedAuthRequestImpl::RequestToken(
     std::move(callback).Run(RequestTokenStatus::kError, std::nullopt, "",
                             /*error=*/nullptr,
                             /*is_auto_selected=*/false);
+    fedcm_metrics_.reset();
     return;
   }
 
@@ -768,8 +781,6 @@ void FederatedAuthRequestImpl::RequestToken(
       render_frame_host().HasTransientUserActivation();
 
   MaybeCreateFedCmMetrics();
-  int old_session_id = fedcm_metrics_->session_id();
-  fedcm_metrics_->SetSessionID(webid::GetNewSessionID());
   // Store the previous `idp_order_` value from this class. Note that this is {}
   // unless there is a pending request from the same RFH. In particular, this is
   // still {} if there is a pending request but from a different RFH.
@@ -828,17 +839,17 @@ void FederatedAuthRequestImpl::RequestToken(
       // call will be rejected. The two requests may be from different RFHs so
       // we should calculate properly.
       if (old_idp_order.empty()) {
-        fedcm_metrics_->SetSessionID(
-            pending_request->fedcm_metrics_->session_id());
         fedcm_metrics_->RecordMultipleRequestsFromDifferentIdPs(
             idp_order_ != pending_request->idp_order_);
       } else {
-        // The old request is alive, so set the session ID to the old one.
-        fedcm_metrics_->SetSessionID(old_session_id);
         fedcm_metrics_->RecordMultipleRequestsFromDifferentIdPs(idp_order_ !=
                                                                 old_idp_order);
       }
 
+      // Reset to record kErrorTooManyRequests but recreate to continue
+      // recording for the pending request.
+      fedcm_metrics_.reset();
+      MaybeCreateFedCmMetrics();
       idp_order_ = std::move(old_idp_order);
       return;
     }
@@ -846,9 +857,7 @@ void FederatedAuthRequestImpl::RequestToken(
     // Cancel the pending request before starting the new active flow request.
     // Set the old values before completing in case the pending request
     // corresponds to one in this object.
-    int new_session_id = fedcm_metrics_->session_id();
     std::vector<GURL> new_idp_order = std::move(idp_order_);
-    fedcm_metrics_->SetSessionID(old_session_id);
     idp_order_ = std::move(old_idp_order);
     pending_request->CompleteRequestWithError(
         FederatedAuthRequestResult::kReplacedByActiveMode,
@@ -859,7 +868,7 @@ void FederatedAuthRequestImpl::RequestToken(
     // Some members were reset to false during CleanUp when replacing a passive
     // flow from the same frame so we need to set them again.
     had_transient_user_activation_ = true;
-    fedcm_metrics_->SetSessionID(new_session_id);
+    MaybeCreateFedCmMetrics();
     idp_order_ = std::move(new_idp_order);
   }
 
@@ -904,34 +913,36 @@ void FederatedAuthRequestImpl::RequestToken(
 
   FederatedApiPermissionStatus permission_status = GetApiPermissionStatus();
 
-  std::optional<TokenStatus> error_token_status;
-  FederatedAuthRequestResult request_result =
-      FederatedAuthRequestResult::kError;
+  if (!CanBypassPermissionStatusCheck(rp_mode_, mediation_requirement_)) {
+    std::optional<TokenStatus> error_token_status;
+    FederatedAuthRequestResult request_result =
+        FederatedAuthRequestResult::kError;
 
-  switch (permission_status) {
-    case FederatedApiPermissionStatus::BLOCKED_VARIATIONS:
-      error_token_status = TokenStatus::kDisabledInFlags;
-      request_result = FederatedAuthRequestResult::kDisabledInFlags;
-      break;
-    case FederatedApiPermissionStatus::BLOCKED_SETTINGS:
-      error_token_status = TokenStatus::kDisabledInSettings;
-      request_result = FederatedAuthRequestResult::kDisabledInSettings;
-      break;
-    case FederatedApiPermissionStatus::BLOCKED_EMBARGO:
-      error_token_status = TokenStatus::kDisabledEmbargo;
-      request_result = FederatedAuthRequestResult::kDisabledInSettings;
-      break;
-    case FederatedApiPermissionStatus::GRANTED:
-      // Intentional fall-through.
-      break;
-    default:
-      NOTREACHED();
-  }
+    switch (permission_status) {
+      case FederatedApiPermissionStatus::BLOCKED_VARIATIONS:
+        error_token_status = TokenStatus::kDisabledInFlags;
+        request_result = FederatedAuthRequestResult::kDisabledInFlags;
+        break;
+      case FederatedApiPermissionStatus::BLOCKED_SETTINGS:
+        error_token_status = TokenStatus::kDisabledInSettings;
+        request_result = FederatedAuthRequestResult::kDisabledInSettings;
+        break;
+      case FederatedApiPermissionStatus::BLOCKED_EMBARGO:
+        error_token_status = TokenStatus::kDisabledEmbargo;
+        request_result = FederatedAuthRequestResult::kDisabledInSettings;
+        break;
+      case FederatedApiPermissionStatus::GRANTED:
+        // Intentional fall-through.
+        break;
+      default:
+        NOTREACHED();
+    }
 
-  if (error_token_status && rp_mode_ == RpMode::kPassive) {
-    CompleteRequestWithError(request_result, *error_token_status,
-                             /*should_delay_callback=*/true);
-    return;
+    if (error_token_status) {
+      CompleteRequestWithError(request_result, *error_token_status,
+                               /*should_delay_callback=*/true);
+      return;
+    }
   }
 
   ++num_requests_;
@@ -1409,42 +1420,12 @@ void FederatedAuthRequestImpl::OnAllConfigAndWellKnownFetched(
       continue;
     }
 
-    if (IsFedCmLightweightModeEnabled()) {
-      std::vector<IdentityRequestAccountPtr> stored_accounts =
-          permission_delegate_->GetAccounts(
-              url::Origin::Create(idp_info->provider->config->config_url));
-      if (stored_accounts.size() > 0) {
-        OnAccountsResponseReceived(
-            std::move(idp_info),
-            {.parse_status = IdpNetworkRequestManager::ParseStatus::kSuccess,
-             .response_code = 200},
-            std::move(stored_accounts));
-        continue;
-      }
-
-      // If there were no stored accounts and the accounts endpoint URL is
-      // empty, behave as though we received an empty accounts response.
-      if (idp_info->endpoints.accounts.is_empty()) {
-        OnAccountsResponseReceived(
-            std::move(idp_info),
-            {.parse_status =
-                 IdpNetworkRequestManager::ParseStatus::kEmptyListError,
-             .response_code = 200},
-            {});
-        continue;
-      }
-    }
-
     GURL accounts_endpoint = idp_info->endpoints.accounts;
     std::string client_id = idp_info->provider->config->client_id;
     const GURL& config_url = idp_info->provider->config->config_url;
 
-    // accounts_endpoint can't be empty here; if Lightweight FedCM is enabled,
-    // that condition is checked in the previous block, and we continue on to
-    // the next IdP. If it's not enabled, an empty accounts_endpoint returns an
-    // error state from the FederatedProviderFetcher and we never get here.
     network_manager_->SendAccountsRequest(
-        accounts_endpoint, client_id,
+        url::Origin::Create(config_url), accounts_endpoint, client_id,
         base::BindOnce(&FederatedAuthRequestImpl::OnAccountsResponseReceived,
                        weak_ptr_factory_.GetWeakPtr(), std::move(idp_info)));
     fedcm_metrics_->RecordAccountsRequestSent(config_url);
@@ -1464,6 +1445,7 @@ void FederatedAuthRequestImpl::CompleteDisconnectRequest(
   }
   std::move(callback).Run(status);
   disconnect_request_.reset();
+  fedcm_metrics_.reset();
 }
 
 void FederatedAuthRequestImpl::OnClientMetadataResponseReceived(
@@ -1654,8 +1636,8 @@ void FederatedAuthRequestImpl::OnFetchDataForIdpFailed(
 
 const std::optional<std::vector<IdentityRequestAccountPtr>>
 FederatedAuthRequestImpl::GetAutofillSuggestions() const {
-  // Requires delegation to be enabled.
-  if (!IsFedCmDelegationEnabled()) {
+  // Requires conditional FedCM to be enabled.
+  if (!IsFedCmAutofillEnabled()) {
     return std::nullopt;
   }
 
@@ -1681,9 +1663,8 @@ void FederatedAuthRequestImpl::MaybeShowAccountsDialog() {
   // able to disable FedCM API (e.g. via settings or dismissing another FedCM UI
   // on the same RP origin) before the browser receives the accounts response.
   // We should exit early without showing any UI.
-  // Note that for the active flow is not affected by the permission status.
-  if (GetApiPermissionStatus() != FederatedApiPermissionStatus::GRANTED &&
-      rp_mode_ != RpMode::kActive) {
+  if (!CanBypassPermissionStatusCheck(rp_mode_, mediation_requirement_) &&
+      GetApiPermissionStatus() != FederatedApiPermissionStatus::GRANTED) {
     CompleteRequestWithError(FederatedAuthRequestResult::kDisabledInSettings,
                              TokenStatus::kDisabledInSettings,
                              /*should_delay_callback=*/true);
@@ -1952,14 +1933,69 @@ void FederatedAuthRequestImpl::MaybeShowAccountsDialog() {
 
 void FederatedAuthRequestImpl::NotifyAutofillSuggestionAccepted(
     const GURL& idp,
-    const std::string& account_id) {
+    const std::string& account_id,
+    OnFederatedTokenReceivedCallback callback) {
+  // Currently the verified email flow opens a modal UI upon notification and
+  // the autofill dropdown UI gets dismissed immediately. i.e. it doesn't need a
+  // valid callback. However, if a user is presented a full federated account,
+  // upon the account selection we'd proceed with fetching tokens directly and
+  // update he autofill dropdown UI to a loading UI.
+  if (!callback.is_null()) {
+    OnAccountSelected(idp, account_id, true);
+    token_received_callback_for_autofill_ = std::move(callback);
+    return;
+  }
   // TODO(crbug.com/380367784): The third argument of OnAccountSelected checks
   // if this is a sign-in or a sign-up moment. In delegation, however, by
   // design, the IdP doesn't get to learn about the presentations, so wouldn't
   // know whether this is a sign-in or sign-up moment (e.g. wouldn't have a
   // approved_clients array). We should figure out how to reconcile these two
   // modes.
-  OnAccountSelected(idp, account_id, true);
+  auto get_info_it = token_request_get_infos_.find(idp);
+
+  // TODO(crbug.com/412640661): Currently, in order to skip the account chooser
+  // and go straight to the disclosure UI, we have to call ShowLoadingDialog()
+  // before we can call ShowAccountsDialog() to create the internal state
+  // necessary in the dialog controller. We should probably be able to create
+  // the internal state on demand in case it isn't available.
+  if (!request_dialog_controller_->ShowLoadingDialog(
+          GetTopFrameOriginForDisplay(GetEmbeddingOrigin()),
+          FormatOriginForDisplay(url::Origin::Create(idp)),
+          get_info_it->second.rp_context, blink::mojom::RpMode::kActive,
+          base::BindOnce(&FederatedAuthRequestImpl::OnDialogDismissed,
+                         weak_ptr_factory_.GetWeakPtr()))) {
+    return;
+  }
+
+  std::vector<IdentityRequestAccountPtr> selected;
+
+  for (auto account : accounts_) {
+    if (account->identity_provider->idp_metadata.config_url == idp &&
+        account->id == account_id) {
+      selected.push_back(account);
+    }
+  }
+
+  // TODO(crbug.com/412640661): in order to skip the account chooser, we
+  // overload the use of "new_accounts" in the ShowAccountsDialog. We should
+  // probably refactor the API to support this use case, rather than overload
+  // an unintended use.
+  if (!request_dialog_controller_->ShowAccountsDialog(
+          std::move(content::RelyingPartyData(
+              GetTopFrameOriginForDisplay(GetEmbeddingOrigin()))),
+          idp_data_for_display_, {}, SignInMode::kExplicit,
+          blink::mojom::RpMode::kActive, selected,
+          base::BindOnce(&FederatedAuthRequestImpl::OnAccountSelected,
+                         weak_ptr_factory_.GetWeakPtr()),
+          base::BindRepeating(&FederatedAuthRequestImpl::LoginToIdP,
+                              weak_ptr_factory_.GetWeakPtr(),
+                              /*can_append_hints=*/false),
+          base::BindOnce(&FederatedAuthRequestImpl::OnDialogDismissed,
+                         weak_ptr_factory_.GetWeakPtr()),
+          base::BindOnce(&FederatedAuthRequestImpl::OnAccountsDisplayed,
+                         weak_ptr_factory_.GetWeakPtr()))) {
+    return;
+  }
 }
 
 void FederatedAuthRequestImpl::OnAccountsDisplayed() {
@@ -2435,11 +2471,10 @@ void FederatedAuthRequestImpl::OnAccountSelected(const GURL& idp_config_url,
   // should enforce this check before all requests but users typically won't
   // have time to disable the FedCM API in other types of requests.
   // Note that for the active flow is not affected by the permission status.
-  if (GetApiPermissionStatus() != FederatedApiPermissionStatus::GRANTED &&
-      rp_mode_ != RpMode::kActive) {
+  if (!CanBypassPermissionStatusCheck(rp_mode_, mediation_requirement_) &&
+      GetApiPermissionStatus() != FederatedApiPermissionStatus::GRANTED) {
     CompleteRequestWithError(FederatedAuthRequestResult::kDisabledInSettings,
                              TokenStatus::kDisabledInSettings,
-
                              /*should_delay_callback=*/true);
     return;
   }
@@ -2817,12 +2852,13 @@ void FederatedAuthRequestImpl::OnTokenResponseReceived(
   // takes a long time due to latency etc. In case that the fetching process is
   // fast, we still want to show the "Verify" sheet for at least
   // `kTokenRequestDelay` seconds for better UX.
-  // Note that for active flow we can complete without delay because there is
-  // no contextual UI displayed to users.
+  // Note that for active flow or conditional flow we can complete without delay
+  // because there is no contextual UI displayed to users.
   id_assertion_response_time_ = base::TimeTicks::Now();
   base::TimeDelta fetch_time =
       id_assertion_response_time_ - select_account_time_;
   if (should_complete_request_immediately_ || rp_mode_ == RpMode::kActive ||
+      mediation_requirement_ == MediationRequirement::kConditional ||
       fetch_time >= kTokenRequestDelay) {
     std::move(complete_request_callback).Run();
     return;
@@ -3240,6 +3276,7 @@ void FederatedAuthRequestImpl::CleanUp() {
   // Given that |request_dialog_controller_| has reference to this web content
   // instance we destroy that first.
   provider_fetcher_.reset();
+  fedcm_metrics_.reset();
   account_id_ = std::string();
   start_time_ = base::TimeTicks();
   well_known_and_config_fetched_time_ = base::TimeTicks();
@@ -3275,6 +3312,9 @@ void FederatedAuthRequestImpl::CleanUp() {
   rp_mode_ = RpMode::kPassive;
   private_key_.reset();
   disclosures_.clear();
+  if (token_received_callback_for_autofill_) {
+    std::move(token_received_callback_for_autofill_).Run();
+  }
 }
 
 void FederatedAuthRequestImpl::AddDevToolsIssue(
@@ -3787,8 +3827,6 @@ void FederatedAuthRequestImpl::Disconnect(
     blink::mojom::IdentityCredentialDisconnectOptionsPtr options,
     DisconnectCallback callback) {
   MaybeCreateFedCmMetrics();
-  // FedCMMetrics is used to record disconnect metrics, but does not use the
-  // session_id_, which belongs to token request calls.
   if (disconnect_request_) {
     // Since we do not send any fetches in this case, consider the request to be
     // instant, e.g. duration is 0.
@@ -3800,7 +3838,7 @@ void FederatedAuthRequestImpl::Disconnect(
         FedCmDisconnectStatus::kTooManyRequests, std::nullopt,
         webid::ComputeRequesterFrameType(render_frame_host(), origin(),
                                          GetEmbeddingOrigin()),
-        options->config->config_url, webid::GetNewSessionID());
+        options->config->config_url);
     std::move(callback).Run(DisconnectStatus::kErrorTooManyRequests);
     return;
   }

@@ -5307,7 +5307,7 @@ IN_PROC_BROWSER_TEST_F(SubresourceLoadingTest,
       main_frame->child_at(0)->current_frame_host();
   RenderFrameHostImpl* grandchild_frame =
       child_frame->child_at(0)->current_frame_host();
-  if (AreAllSitesIsolatedForTesting()) {
+  if (AreStrictSiteInstancesEnabled()) {
     EXPECT_NE(main_frame->GetSiteInstance(), child_frame->GetSiteInstance());
   } else {
     EXPECT_EQ(main_frame->GetSiteInstance(), child_frame->GetSiteInstance());
@@ -5357,7 +5357,7 @@ IN_PROC_BROWSER_TEST_F(SubresourceLoadingTest,
       main_frame->child_at(0)->current_frame_host();
   RenderFrameHostImpl* grandchild_frame =
       child_frame->child_at(0)->current_frame_host();
-  if (AreAllSitesIsolatedForTesting()) {
+  if (AreStrictSiteInstancesEnabled()) {
     EXPECT_NE(main_frame->GetSiteInstance(), child_frame->GetSiteInstance());
   } else {
     EXPECT_EQ(main_frame->GetSiteInstance(), child_frame->GetSiteInstance());
@@ -5401,7 +5401,7 @@ IN_PROC_BROWSER_TEST_F(SubresourceLoadingTest, TopToAboutBlank_CrossSite) {
       shell()->web_contents()->GetPrimaryMainFrame());
   RenderFrameHostImpl* child_frame =
       main_frame->child_at(0)->current_frame_host();
-  if (AreAllSitesIsolatedForTesting()) {
+  if (AreStrictSiteInstancesEnabled()) {
     EXPECT_NE(main_frame->GetSiteInstance(), child_frame->GetSiteInstance());
   } else {
     EXPECT_EQ(main_frame->GetSiteInstance(), child_frame->GetSiteInstance());
@@ -7807,6 +7807,13 @@ IN_PROC_BROWSER_TEST_F(
   NavigationController::LoadURLParams load_url_params(
       OpenURLParams::FromNavigationHandle(
           first_tab_manager.GetNavigationHandle()));
+
+  // Check that the FrameTreeNode id is set, but then clear it since we'll be
+  // navigating another tab with the rest of the params.
+  EXPECT_EQ(load_url_params.frame_tree_node_id,
+            main_frame()->frame_tree_node_id());
+  load_url_params.frame_tree_node_id = content::FrameTreeNodeId();
+
   Shell* second_tab = CreateBrowser();
   TestNavigationManager second_tab_manager(second_tab->web_contents(),
                                            load_url_params.url);
@@ -7885,7 +7892,7 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
   // Now, the site should be set before we send the CommitNavigation IPC.
   EXPECT_TRUE(site_instance->HasSite());
 
-  if (AreAllSitesIsolatedForTesting()) {
+  if (AreStrictSiteInstancesEnabled()) {
     // When we get into this situation with strict site isolation, the site URL
     // currently used is "about:". This may be changed in the future (e.g., to
     // an opaque ID).

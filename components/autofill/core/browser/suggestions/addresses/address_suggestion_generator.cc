@@ -379,7 +379,9 @@ void RemoveDisusedSuggestions(
   auto is_profile_disused =
       [&min_last_used](
           const raw_ptr<const AutofillProfile, VectorExperimental>& profile) {
-        return profile->usage_history().use_date() <= min_last_used;
+        return std::max(profile->usage_history().use_date(),
+                        profile->usage_history().modification_date()) <=
+               min_last_used;
       };
   const size_t original_size = profiles.size();
   // Exclude the first address from the list of potentially removed ones so that
@@ -549,14 +551,6 @@ std::vector<Suggestion> CreateSuggestionsFromProfiles(
   std::vector<Suggestion> suggestions;
   std::vector<std::vector<Suggestion::Text>> labels = CreateSuggestionLabels(
       profiles, field_types, trigger_field_type, app_locale);
-  const bool contains_profile_related_fields =
-      std::ranges::count_if(field_types, [](FieldType field_type) {
-        FieldTypeGroup field_type_group = GroupTypeOfFieldType(field_type);
-        return field_type_group == FieldTypeGroup::kName ||
-               field_type_group == FieldTypeGroup::kAddress ||
-               field_type_group == FieldTypeGroup::kPhone ||
-               field_type_group == FieldTypeGroup::kEmail;
-      }) > 1;
   FieldTypeGroup trigger_field_type_group =
       GroupTypeOfFieldType(trigger_field_type);
   // If `features::kAutofillImprovedLabels` is enabled, name fields should have
@@ -599,7 +593,7 @@ std::vector<Suggestion> CreateSuggestionsFromProfiles(
     // address suggestions.
     if (GroupTypeOfFieldType(trigger_field_type) == FieldTypeGroup::kEmail) {
       suggestion.icon = Suggestion::Icon::kEmail;
-    } else if (contains_profile_related_fields) {
+    } else {
       if (base::FeatureList::IsEnabled(
               features::kAutofillEnableSupportForHomeAndWork)) {
         // TODO(crbug.com/6373444): Confirm that the distance between icon and
@@ -607,9 +601,15 @@ std::vector<Suggestion> CreateSuggestionsFromProfiles(
         switch (profile.record_type()) {
           case AutofillProfile::RecordType::kAccountHome:
             suggestion.icon = Suggestion::Icon::kHome;
+            suggestion.iph_metadata = Suggestion::IPHMetadata(
+                &feature_engagement::
+                    kIPHAutofillHomeWorkProfileSuggestionFeature);
             break;
           case AutofillProfile::RecordType::kAccountWork:
             suggestion.icon = Suggestion::Icon::kWork;
+            suggestion.iph_metadata = Suggestion::IPHMetadata(
+                &feature_engagement::
+                    kIPHAutofillHomeWorkProfileSuggestionFeature);
             break;
           case AutofillProfile::RecordType::kLocalOrSyncable:
           case AutofillProfile::RecordType::kAccount:
@@ -627,14 +627,6 @@ std::vector<Suggestion> CreateSuggestionsFromProfiles(
       suggestion.iph_metadata = Suggestion::IPHMetadata(
           &feature_engagement::
               kIPHAutofillExternalAccountProfileSuggestionFeature);
-    }
-
-    if ((profile.record_type() == AutofillProfile::RecordType::kAccountHome ||
-         profile.record_type() == AutofillProfile::RecordType::kAccountWork) &&
-        base::FeatureList::IsEnabled(
-            features::kAutofillEnableSupportForHomeAndWork)) {
-      suggestion.iph_metadata = Suggestion::IPHMetadata(
-          &feature_engagement::kIPHAutofillHomeWorkProfileSuggestionFeature);
     }
   }
   return suggestions;

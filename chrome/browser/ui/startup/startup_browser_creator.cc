@@ -1270,11 +1270,9 @@ bool StartupBrowserCreator::ProcessCmdLineImpl(
       }
       return true;
     } else {
-      extensions::ExtensionService* extension_service =
-        extensions::ExtensionSystem::Get(profile_info.profile)->extension_service();
       extensions::ExtensionRegistry* extension_registry =
         extensions::ExtensionRegistry::Get(profile_info.profile);
-      extensions::ComponentLoader* component_loader = extension_service->component_loader();
+      extensions::ComponentLoader* component_loader = extensions::ComponentLoader::Get(profile_info.profile);
       std::string id;
       if (base::FeatureList::IsEnabled(::features::kNWNewWin)) {
         id = component_loader->GetExtensionID(IDR_NWJS_DEFAPP_MANIFEST_NEWWIN,

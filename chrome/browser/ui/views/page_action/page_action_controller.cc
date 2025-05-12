@@ -5,9 +5,11 @@
 #include "chrome/browser/ui/views/page_action/page_action_controller.h"
 
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
+#include "chrome/browser/ui/views/page_action/page_action_metrics_recorder.h"
 #include "chrome/browser/ui/views/page_action/page_action_model.h"
+#include "chrome/browser/ui/views/page_action/page_action_properties_provider.h"
 #include "chrome/browser/ui/views/page_action/page_action_view.h"
-#include "components/tab_collections/public/tab_interface.h"
+#include "components/tabs/public/tab_interface.h"
 #include "ui/actions/action_id.h"
 #include "ui/actions/actions.h"
 
@@ -17,8 +19,11 @@ using PassKey = base::PassKey<PageActionController>;
 
 PageActionController::PageActionController(
     PinnedToolbarActionsModel* pinned_actions_model,
-    PageActionModelFactory* page_action_model_factory)
-    : page_action_model_factory_(page_action_model_factory) {
+    PageActionModelFactory* page_action_model_factory,
+    PageActionMetricsRecorderFactory* page_action_metrics_recorder_factory)
+    : page_action_model_factory_(page_action_model_factory),
+      page_action_metrics_recorder_factory_(
+          page_action_metrics_recorder_factory) {
   if (pinned_actions_model) {
     pinned_actions_observation_.Observe(pinned_actions_model);
   }
@@ -28,7 +33,8 @@ PageActionController::~PageActionController() = default;
 
 void PageActionController::Initialize(
     tabs::TabInterface& tab_interface,
-    const std::vector<actions::ActionId>& action_ids) {
+    const std::vector<actions::ActionId>& action_ids,
+    const PageActionPropertiesProviderInterface& properties_provider) {
   tab_activated_callback_subscription_ =
       tab_interface.RegisterDidActivate(base::BindRepeating(
           &PageActionController::OnTabActivated, base::Unretained(this)));
@@ -36,7 +42,19 @@ void PageActionController::Initialize(
       tab_interface.RegisterWillDeactivate(base::BindRepeating(
           &PageActionController::OnTabWillDeactivate, base::Unretained(this)));
   for (actions::ActionId id : action_ids) {
-    Register(id, tab_interface.IsActivated());
+    const PageActionProperties& properties =
+        properties_provider.GetProperties(id);
+    Register(id, tab_interface.IsActivated(), properties.is_ephemeral);
+
+    // It's safe to use base::Unretained here since the recorded is owned by
+    // this object.
+    std::unique_ptr<PageActionMetricsRecorderInterface> metrics_recorder =
+        CreateMetricsRecorder(
+            tab_interface, properties, FindPageActionModel(id),
+            base::BindRepeating(
+                &PageActionController::GetVisibleEphemeralPageActionsCount,
+                base::Unretained(this)));
+    metrics_recorders_.emplace(id, std::move(metrics_recorder));
   }
   if (pinned_actions_observation_.GetSource()) {
     PinnedActionsModelChanged();
@@ -44,8 +62,10 @@ void PageActionController::Initialize(
 }
 
 void PageActionController::Register(actions::ActionId action_id,
-                                    bool is_tab_active) {
-  std::unique_ptr<PageActionModelInterface> model = CreateModel(action_id);
+                                    bool is_tab_active,
+                                    bool is_ephemeral) {
+  std::unique_ptr<PageActionModelInterface> model =
+      CreateModel(action_id, is_ephemeral);
   model->SetTabActive(PassKey(), is_tab_active);
   page_actions_.emplace(action_id, std::move(model));
 }
@@ -63,13 +83,13 @@ void PageActionController::Hide(actions::ActionId action_id) {
 void PageActionController::ShowSuggestionChip(actions::ActionId action_id,
                                               SuggestionChipConfig config) {
   PageActionModelInterface& model = FindPageActionModel(action_id);
-  model.SetShouldAnimateChip(PassKey(), config.should_animate);
-  model.SetShowSuggestionChip(PassKey(), /*show_suggestion_chip=*/true);
+  model.SetSuggestionChipConfig(PassKey(), config);
+  model.SetShowSuggestionChip(PassKey(), /*show=*/true);
 }
 
 void PageActionController::HideSuggestionChip(actions::ActionId action_id) {
-  FindPageActionModel(action_id).SetShowSuggestionChip(
-      PassKey(), /*show_suggestion_chip=*/false);
+  FindPageActionModel(action_id).SetShowSuggestionChip(PassKey(),
+                                                       /*show=*/false);
 }
 
 void PageActionController::ActionItemChanged(
@@ -100,6 +120,19 @@ void PageActionController::OverrideText(actions::ActionId action_id,
 void PageActionController::ClearOverrideText(actions::ActionId action_id) {
   FindPageActionModel(action_id).SetOverrideText(
       PassKey(), /*override_text=*/std::nullopt);
+}
+
+void PageActionController::OverrideAccessibleName(
+    actions::ActionId action_id,
+    const std::u16string& override_accessible_name) {
+  FindPageActionModel(action_id).SetOverrideAccessibleName(
+      PassKey(), /*override_accessible_name=*/override_accessible_name);
+}
+
+void PageActionController::ClearOverrideAccessibleName(
+    actions::ActionId action_id) {
+  FindPageActionModel(action_id).SetOverrideAccessibleName(
+      PassKey(), /*override_accessible_name=*/std::nullopt);
 }
 
 void PageActionController::OverrideImage(actions::ActionId action_id,
@@ -172,12 +205,62 @@ PageActionModelInterface& PageActionController::FindPageActionModel(
 }
 
 std::unique_ptr<PageActionModelInterface> PageActionController::CreateModel(
-    actions::ActionId action_id) {
+    actions::ActionId action_id,
+    bool is_ephemeral) {
   if (page_action_model_factory_ != nullptr) {
-    return page_action_model_factory_->Create(action_id);
+    return page_action_model_factory_->Create(action_id, is_ephemeral);
   } else {
-    return std::make_unique<PageActionModel>();
+    return std::make_unique<PageActionModel>(is_ephemeral);
   }
+}
+
+std::unique_ptr<PageActionMetricsRecorderInterface>
+PageActionController::CreateMetricsRecorder(
+    tabs::TabInterface& tab_interface,
+    const PageActionProperties& properties,
+    PageActionModelInterface& model,
+    VisibleEphemeralPageActionsCountCallback
+        visible_ephemeral_page_actions_count_callback) {
+  if (page_action_metrics_recorder_factory_ != nullptr) {
+    return page_action_metrics_recorder_factory_->Create(
+        tab_interface, properties, model,
+        std::move(visible_ephemeral_page_actions_count_callback));
+  } else {
+    return std::make_unique<PageActionMetricsRecorder>(
+        tab_interface, properties, model,
+        std::move(visible_ephemeral_page_actions_count_callback));
+  }
+}
+
+base::RepeatingCallback<void(PageActionTrigger)>
+PageActionController::GetClickCallback(actions::ActionId action_id) {
+  return base::BindRepeating(&PageActionController::RecordClickMetric,
+                             weak_factory_.GetWeakPtr(), action_id);
+}
+
+void PageActionController::RecordClickMetric(actions::ActionId action_id,
+                                             PageActionTrigger trigger_source) {
+  auto id_and_recorder = metrics_recorders_.find(action_id);
+  CHECK(id_and_recorder != metrics_recorders_.end());
+  CHECK(id_and_recorder->second.get());
+  id_and_recorder->second->RecordClick(trigger_source);
+}
+
+int PageActionController::GetVisibleEphemeralPageActionsCount() const {
+  int visible_ephemeral_page_actions_count = 0;
+  for (auto& [id, model] : page_actions_) {
+    CHECK(metrics_recorders_.contains(id));
+    if (model->GetVisible() && model->IsEphemeral()) {
+      ++visible_ephemeral_page_actions_count;
+    }
+  }
+  return visible_ephemeral_page_actions_count;
+}
+
+std::ostream& operator<<(std::ostream& os, const SuggestionChipConfig& config) {
+  os << "{ should_animate: " << config.should_animate
+     << ", should_announce_chip: " << config.should_announce_chip << " }";
+  return os;
 }
 
 }  // namespace page_actions

@@ -26,6 +26,7 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
 #include "base/threading/hang_watcher.h"
+#include "base/time/time.h"
 #include "base/trace_event/named_trigger.h"
 #include "base/trace_event/trace_event.h"
 #include "base/values.h"
@@ -659,6 +660,13 @@ void ChromeBrowserMainParts::StartMetricsRecording() {
   g_browser_process->metrics_service()->CheckForClonedInstall();
 
 #if BUILDFLAG(IS_WIN)
+  if (base::TimeTicks::GetHighResolutionTimeTicksFieldTrial(&trial_name,
+                                                            &group_name)) {
+    ChromeMetricsServiceAccessor::RegisterSyntheticFieldTrial(
+        trial_name, group_name,
+        variations::SyntheticTrialAnnotationMode::kCurrentLog);
+  }
+
   // The last live timestamp is used to assess whether a browser crash occurred
   // due to a full system crash. Update the last live timestamp on a slow
   // schedule to get the bast possible accuracy for the assessment.
@@ -884,13 +892,10 @@ int ChromeBrowserMainParts::OnLocalStateLoaded(
   }
 #endif
 
-  std::string locale =
-      startup_data_->chrome_feature_list_creator()->actual_locale();
-  if (locale.empty()) {
+  if (startup_data_->chrome_feature_list_creator()->actual_locale().empty()) {
     *failed_to_load_resource_bundle = true;
     return CHROME_RESULT_CODE_MISSING_DATA;
   }
-  browser_process_->SetApplicationLocale(locale);
 
   const int apply_first_run_result = ApplyFirstRunPrefs();
   if (apply_first_run_result != content::RESULT_CODE_NORMAL_EXIT)
@@ -955,7 +960,7 @@ int ChromeBrowserMainParts::ApplyFirstRunPrefs() {
 int ChromeBrowserMainParts::PreCreateThreadsImpl() {
   TRACE_EVENT0("startup", "ChromeBrowserMainParts::PreCreateThreadsImpl");
 
-  if (browser_process_->GetApplicationLocale().empty()) {
+  if (startup_data_->chrome_feature_list_creator()->actual_locale().empty()) {
     ShowMissingLocaleMessageBox();
     return CHROME_RESULT_CODE_MISSING_DATA;
   }

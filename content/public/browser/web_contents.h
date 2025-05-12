@@ -54,6 +54,7 @@
 #include "third_party/blink/public/mojom/picture_in_picture_window_options/picture_in_picture_window_options.mojom.h"
 #include "third_party/perfetto/include/perfetto/tracing/traced_value_forward.h"
 #include "third_party/skia/include/core/SkColor.h"
+#include "ui/accessibility/ax_enums.mojom-shared.h"
 #include "ui/accessibility/ax_mode.h"
 #include "ui/accessibility/platform/inspect/ax_api_type.h"
 #include "ui/base/cursor/mojom/cursor_type.mojom-shared.h"
@@ -65,6 +66,7 @@
 #include "url/gurl.h"
 
 #if BUILDFLAG(IS_ANDROID)
+#include "content/public/browser/android/child_process_importance.h"
 #include "third_party/jni_zero/jni_zero.h"
 #endif
 
@@ -204,6 +206,10 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
 
     // True if the contents should be initially hidden.
     bool initially_hidden = false;
+
+    // True if newly created WebContents should defer all autofill to the
+    // platform.
+    bool initially_use_platform_autofill = false;
 
     // If non-null then this WebContents will be hosted by a BrowserPlugin.
     raw_ptr<BrowserPluginGuestDelegate> guest_delegate = nullptr;
@@ -562,6 +568,14 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
                                      base::TimeDelta timeout,
                                      AXTreeSnapshotPolicy policy) = 0;
 
+  // Request a one-time snapshot of the accessibility tree, without going
+  // through the renderer process. This method constructs the tree based on the
+  // current AXTree's in the browser-side RenderFrameHosts. This will only work
+  // if an accessibility mode is already enabled. Unlike RequestAXTreeSnapshot,
+  // the AXMode is not an input; rather, the AXMode that was used to construct
+  // the existing tree must be used.
+  virtual ui::AXTreeUpdate RequestAXTreeSnapshotWithinBrowserProcess() = 0;
+
   // Causes the current page to be closed, including running its onunload event
   // handler.
   virtual void ClosePage() = 0;
@@ -656,6 +670,11 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
   virtual std::string DumpAccessibilityTree(
       ui::AXApiType::Type api_type,
       std::vector<ui::AXPropertyFilter> property_filters) = 0;
+
+  // Applies a fix to an AXTree from an AXTreeFixing service.
+  virtual void ApplyAXTreeFixingResult(ui::AXTreeID tree_id,
+                                       ui::AXNodeID node_id,
+                                       ax::mojom::Role role) = 0;
 
   // A callback that takes a string which contains accessibility event
   // information.
@@ -1434,6 +1453,16 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
   // scoped to this WebContents. This provides access to interfaces implemented
   // in Java in the browser process to C++ code in the browser process.
   virtual service_manager::InterfaceProvider* GetJavaInterfaces() = 0;
+
+  // Returns the primary main frame importance. This is for testing only.
+  virtual ChildProcessImportance GetPrimaryMainFrameImportanceForTesting() = 0;
+
+  // Set an importance of the page to the primary main frame.
+  //
+  // Note this does not affect importance of subframe processes or main frames
+  // processeses for non-primary pages.
+  virtual void SetPrimaryMainFrameImportance(
+      ChildProcessImportance importance) = 0;
 #endif  // BUILDFLAG(IS_ANDROID)
 
   // Returns true if the WebContents has completed its first meaningful paint
@@ -1542,6 +1571,8 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
   // - `prefetch_url` is the url the prefetch will be performed.
   // - If `use_prefetch_proxy` is set to true, private prefetch proxy is used in
   //   this prefetch request.
+  // - `embedder_histogram_suffix` is used for generating internal histogram
+  //   names recorded per trigger.
   // - `referrer` is utilized as a value of Referer HTTP request header in this
   //   prefetch request.
   // - `referring_origin` represents the initiator origin of prefetch request,
@@ -1561,6 +1592,7 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
   virtual std::unique_ptr<PrefetchHandle> StartPrefetch(
       const GURL& prefetch_url,
       bool use_prefetch_proxy,
+      const std::string& embedder_histogram_suffix,
       const blink::mojom::Referrer& referrer,
       const std::optional<url::Origin>& referring_origin,
       std::optional<net::HttpNoVarySearchData> no_vary_search_hint,

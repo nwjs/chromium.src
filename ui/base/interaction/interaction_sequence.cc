@@ -571,6 +571,11 @@ bool InteractionSequence::IsCurrentStepInAnyContextForTesting() const {
   return current_step_->in_any_context;
 }
 
+bool InteractionSequence::IsCurrentStepImmediateForTesting() const {
+  CHECK(current_step_);
+  return current_step_->step_start_mode == StepStartMode::kImmediate;
+}
+
 void InteractionSequence::FailForTesting() {
   Abort(AbortedReason::kFailedForTesting);
 }
@@ -1096,8 +1101,13 @@ void InteractionSequence::CompleteStepTransition() {
 
   // For step types where the element passed to a callback must not be null,
   // ensure there is an element.
-  CHECK(AllowNullElementInStartCallback(current_step_->type) ||
-        !current_step_->start_callback || current_step_->element);
+  if (!AllowNullElementInStartCallback(current_step_->type) &&
+      current_step_->start_callback && !current_step_->element) {
+    LOG(ERROR) << "Assumption violated: Start callback for this step should "
+                  "always have a valid element!";
+    Abort(AbortedReason::kElementHiddenBetweenTriggerAndStepStart);
+    return;
+  }
   RunIfValid(std::move(current_step_->start_callback), this,
              current_step_->element.get());
   if (!abort_guard) {

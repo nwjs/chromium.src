@@ -87,8 +87,7 @@
 #elif PA_BUILDFLAG(IS_WIN)
 #include <windows.h>
 #elif PA_BUILDFLAG(IS_APPLE)
-#include <mach/host_info.h>
-#include <mach/mach.h>
+#include <sys/sysctl.h>
 #elif PA_BUILDFLAG(IS_POSIX)
 #include <unistd.h>
 #endif
@@ -121,14 +120,11 @@ uint64_t AmountOfPhysicalMemory() {
   }
   return 0;
 #elif PA_BUILDFLAG(IS_APPLE)
-  struct host_basic_info host_basic_info;
-  mach_msg_type_number_t count = HOST_BASIC_INFO_COUNT;
-  if (host_info(mach_host_self(), HOST_BASIC_INFO,
-                reinterpret_cast<host_info_t>(&host_basic_info),
-                &count) == KERN_SUCCESS) {
-    return host_basic_info.max_mem;
-  }
-  return 0;
+  uint64_t physical_memory;
+  size_t size = sizeof(physical_memory);
+  int rv = sysctlbyname("hw.memsize", &physical_memory, &size, nullptr, 0);
+  PA_CHECK(rv == 0) << "sysctlbyname(\"hw.memsize\")";
+  return physical_memory;
 #elif PA_BUILDFLAG(IS_POSIX)
   long pages = sysconf(_SC_PHYS_PAGES);
   long page_size = sysconf(_SC_PAGESIZE);
@@ -388,13 +384,28 @@ class PartitionAllocTest
 
   PartitionOptions GetCommonPartitionOptions() {
     PartitionOptions opts;
-    // Requires explicit `FreeFlag` to activate, no effect otherwise.
-    opts.zapping_by_free_flags = PartitionOptions::kEnabled;
     opts.eventually_zero_freed_memory = PartitionOptions::kEnabled;
     opts.fewer_memory_regions = PartitionOptions::kDisabled;
-    opts.scheduler_loop_quarantine = PartitionOptions::kEnabled;
-    opts.scheduler_loop_quarantine_branch_capacity_in_bytes =
-        std::numeric_limits<size_t>::max();
+    opts.scheduler_loop_quarantine_global_config = {
+        .quarantine_config =
+            {
+                .lock_required = true,
+                .branch_capacity_in_bytes = std::numeric_limits<size_t>::max(),
+                .leak_on_destruction = true,
+            },
+        .enable_quarantine = true,
+        .enable_zapping = true,
+    };
+    opts.scheduler_loop_quarantine_thread_local_config = {
+        .quarantine_config =
+            {
+                .lock_required = false,
+                .branch_capacity_in_bytes = std::numeric_limits<size_t>::max(),
+                .leak_on_destruction = false,
+            },
+        .enable_quarantine = true,
+        .enable_zapping = true,
+    };
     return opts;
   }
 
@@ -3810,20 +3821,27 @@ TEST_P(PartitionAllocTest, ZeroFill) {
 }
 
 TEST_P(PartitionAllocTest, SchedulerLoopQuarantine) {
-  LightweightQuarantineBranch& branch =
+  SchedulerLoopQuarantineBranch& branch =
       allocator.root()->GetSchedulerLoopQuarantineBranchForTesting();
-
-  constexpr size_t kCapacityInBytes = std::numeric_limits<size_t>::max();
-  size_t original_capacity_in_bytes = branch.GetCapacityInBytes();
-  branch.SetCapacityInBytes(kCapacityInBytes);
 
   for (size_t size : kTestSizes) {
     SCOPED_TRACE(size);
 
+    ASSERT_GT(branch.GetConfigurationForTesting()
+                  .quarantine_config.branch_capacity_in_bytes,
+              size);
+
     void* object = allocator.root()->Alloc(size);
     allocator.root()->Free<FreeFlags::kSchedulerLoopQuarantine>(object);
 
-    ASSERT_TRUE(branch.IsQuarantinedForTesting(object));
+    if (size <= kMaxBucketed) {
+      ASSERT_TRUE(
+          branch.GetInternalBranchForTesting().IsQuarantinedForTesting(object));
+    } else {
+      // Direct-mapped allocations should not be quarantined.
+      ASSERT_FALSE(
+          branch.GetInternalBranchForTesting().IsQuarantinedForTesting(object));
+    }
   }
 
   for (int i = 0; i < 10; ++i) {
@@ -3832,15 +3850,14 @@ TEST_P(PartitionAllocTest, SchedulerLoopQuarantine) {
         allocator.root(), 250);
   }
 
-  branch.Purge();
-  branch.SetCapacityInBytes(original_capacity_in_bytes);
+  branch.GetInternalBranchForTesting().Purge();
 }
 
 // Ensures `Free<kSchedulerLoopQuarantine>` works as `Free<kNone>` if disabled.
 // See: https://crbug.com/324994233.
 TEST_P(PartitionAllocTest, SchedulerLoopQuarantineDisabled) {
   PartitionOptions opts = GetCommonPartitionOptions();
-  opts.scheduler_loop_quarantine = PartitionOptions::kDisabled;
+  opts.scheduler_loop_quarantine_global_config = {};
   opts.thread_cache = PartitionOptions::kDisabled;
   std::unique_ptr<PartitionRoot> root = CreateCustomTestRoot(opts, {});
 
@@ -3882,7 +3899,10 @@ TEST_P(PartitionAllocTest, ZapOnFree) {
   EXPECT_EQ(kFreedByte, *(static_cast<unsigned char*>(ptr) + size - 1));
 
   // Make sure the quarantine is empty before the root is reset.
-  allocator.root()->GetSchedulerLoopQuarantineBranchForTesting().Purge();
+  allocator.root()
+      ->GetSchedulerLoopQuarantineBranchForTesting()
+      .GetInternalBranchForTesting()
+      .Purge();
 }
 
 #if PA_BUILDFLAG(IS_LINUX) || PA_BUILDFLAG(IS_ANDROID) || \
@@ -5193,9 +5213,9 @@ TEST_P(PartitionAllocTest,
   EXPECT_EQ(g_dangling_raw_ptr_detected_count, 1);
   EXPECT_EQ(g_dangling_raw_ptr_released_count, 2);
 
-  LightweightQuarantineBranch& branch =
+  SchedulerLoopQuarantineBranch& branch =
       allocator.root()->GetSchedulerLoopQuarantineBranchForTesting();
-  branch.Purge();
+  branch.GetInternalBranchForTesting().Purge();
 }
 
 // Similar to `PartitionAllocTest.DanglingPtr`, but using
@@ -5241,9 +5261,9 @@ TEST_P(PartitionAllocTest, DanglingPtrReleaseAfterSchedulerLoopQuarantineExit) {
   EXPECT_EQ(g_dangling_raw_ptr_detected_count, 1);
   EXPECT_EQ(g_dangling_raw_ptr_released_count, 1);
 
-  LightweightQuarantineBranch& branch =
+  SchedulerLoopQuarantineBranch& branch =
       allocator.root()->GetSchedulerLoopQuarantineBranchForTesting();
-  branch.Purge();
+  branch.GetInternalBranchForTesting().Purge();
 
   // The dangling raw_ptr stop referencing it again.
   // Allocation should not be reclaimed because it is still held by the
@@ -5626,15 +5646,17 @@ TEST_P(PartitionAllocTest, DISABLED_PreforkHandler) {
 TEST_P(PartitionAllocTest, GetIndex) {
   BucketIndexLookup lookup{};
 
+  BucketDistribution distribution = allocator.root()->GetBucketDistribution();
+
   for (size_t size = 0; size < kMaxBucketed; size++) {
-    size_t index = BucketIndexLookup::GetIndex(size);
+    size_t index = PartitionRoot::SizeToBucketIndex(size, distribution);
     ASSERT_GE(lookup.bucket_sizes()[index], size);
   }
 
   // Make sure that power-of-two have exactly matching buckets.
   for (size_t size = (1 << (kMinBucketedOrder - 1)); size < kMaxBucketed;
        size <<= 1) {
-    size_t index = BucketIndexLookup::GetIndex(size);
+    size_t index = PartitionRoot::SizeToBucketIndex(size, distribution);
     ASSERT_EQ(lookup.bucket_sizes()[index], size);
   }
 }
@@ -6322,6 +6344,43 @@ TEST_P(PartitionAllocTest, FastReclaimEventuallyLooksAtAllBuckets) {
             0u);
 
   allocator.root()->now_maybe_overridden_for_testing = base::TimeTicks::Now;
+}
+
+// This test makes sure it's safe to switch to the denser bucket distribution
+// at runtime. This is intended to happen once, near the start of Chrome,
+// once we have enabled features.
+TEST_P(PartitionAllocTest, SwitchBucketDistributionBeforeAlloc) {
+  PartitionRoot* root = allocator.root();
+
+  root->SwitchToDenserBucketDistribution();
+  constexpr size_t n = (1 << 12) * 15 / 8;
+  EXPECT_NE(internal::BucketIndexLookup::GetIndexForDenserBuckets(n),
+            internal::BucketIndexLookup::GetIndexForNeutralBuckets(n));
+
+  void* ptr = root->Alloc(n);
+
+  root->ResetBucketDistributionForTesting();
+
+  root->Free(ptr);
+}
+
+// This test makes sure it's safe to switch to the denser bucket distribution
+// at runtime. This is intended to happen once, near the start of Chrome,
+// once we have enabled features.
+TEST_P(PartitionAllocTest, SwitchBucketDistributionAfterAlloc) {
+  constexpr size_t n = (1 << 12) * 15 / 8;
+  EXPECT_NE(internal::BucketIndexLookup::GetIndexForDenserBuckets(n),
+            internal::BucketIndexLookup::GetIndexForNeutralBuckets(n));
+
+  PartitionRoot* root = allocator.root();
+  void* ptr = root->Alloc(n);
+
+  root->SwitchToDenserBucketDistribution();
+
+  void* ptr2 = root->Alloc(n);
+
+  root->Free(ptr2);
+  root->Free(ptr);
 }
 
 }  // namespace partition_alloc::internal

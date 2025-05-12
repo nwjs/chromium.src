@@ -105,7 +105,6 @@ class CORE_EXPORT WorkerGlobalScope
   void Dispose() override;
   WorkerThread* GetThread() const final { return thread_; }
   const base::UnguessableToken& GetDevToolsToken() const override;
-  bool IsInitialized() const final { return !url_.IsNull(); }
   CodeCacheHost* GetCodeCacheHost() override;
   std::optional<mojo::PendingRemote<network::mojom::blink::URLLoaderFactory>>
   FindRaceNetworkRequestURLLoaderFactory(
@@ -215,8 +214,7 @@ class CORE_EXPORT WorkerGlobalScope
       std::unique_ptr<PolicyContainer> policy_container,
       const FetchClientSettingsObjectSnapshot& outside_settings_object,
       WorkerResourceTimingNotifier& outside_resource_timing_notifier,
-      network::mojom::CredentialsMode,
-      RejectCoepUnsafeNone reject_coep_unsafe_none) = 0;
+      network::mojom::CredentialsMode) = 0;
 
   void ReceiveMessage(BlinkTransferableMessage);
   Event* ReceiveCustomEventInternal(
@@ -378,9 +376,8 @@ class CORE_EXPORT WorkerGlobalScope
 
   std::unique_ptr<ukm::UkmRecorder> ukm_recorder_;
 
-  // |worker_main_script_load_params_for_modules_| is used to load a root module
-  // script for dedicated workers (when PlzDedicatedWorker is enabled) and
-  // shared workers.
+  // `worker_main_script_load_params_for_modules_` is used to load a root module
+  // script for dedicated workers and shared workers.
   std::unique_ptr<WorkerMainScriptLoadParameters>
       worker_main_script_load_params_for_modules_;
 

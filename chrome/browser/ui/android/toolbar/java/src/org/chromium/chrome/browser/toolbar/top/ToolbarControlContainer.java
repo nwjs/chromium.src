@@ -4,8 +4,11 @@
 
 package org.chromium.chrome.browser.toolbar.top;
 
+import static org.chromium.build.NullUtil.assumeNonNull;
+
 import android.content.Context;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.Region;
@@ -17,11 +20,11 @@ import android.util.AttributeSet;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.ViewStub;
 import android.widget.FrameLayout;
 
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.coordinatorlayout.widget.CoordinatorLayout;
 import androidx.core.content.res.ResourcesCompat;
@@ -32,6 +35,9 @@ import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.Supplier;
+import org.chromium.build.annotations.Initializer;
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.browser_controls.BrowserStateBrowserControlsVisibilityDelegate;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
@@ -64,6 +70,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.util.function.BooleanSupplier;
 
 /** Layout for the browser controls (omnibox, menu, tab strip, etc..). */
+@NullMarked
 public class ToolbarControlContainer extends OptimizedFrameLayout
         implements ControlContainer, DesktopWindowStateManager.AppHeaderObserver {
     private boolean mIncognito;
@@ -74,14 +81,16 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
     private Toolbar mToolbar;
     private ToolbarViewResourceFrameLayout mToolbarContainer;
 
-    private SwipeGestureListener mSwipeGestureListener;
-    private OnDragListener mToolbarContainerDragListener;
+    private @Nullable SwipeGestureListener mSwipeGestureListener;
+    private @Nullable OnDragListener mToolbarContainerDragListener;
 
     private boolean mIsAppInUnfocusedDesktopWindow;
     private final int mToolbarLayoutHeight;
 
     private View mToolbarHairline;
-    private View mToolbarView;
+    private ViewGroup mToolbarView;
+    private boolean mShowLocationBarOnly;
+    private @Nullable View mLocationBarView;
 
     /**
      * Constructs a new control container.
@@ -144,6 +153,7 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
     }
 
     @Override
+    @Initializer
     public void initWithToolbar(int toolbarLayoutId) {
         try (TraceEvent te = TraceEvent.scoped("ToolbarControlContainer.initWithToolbar")) {
             mToolbarContainer =
@@ -201,6 +211,32 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
     }
 
     @Override
+    public void toggleLocationBarOnlyMode(boolean showLocationBarOnly) {
+        if (mShowLocationBarOnly == showLocationBarOnly) return;
+
+        mShowLocationBarOnly = showLocationBarOnly;
+        if (showLocationBarOnly) {
+            mLocationBarView = mToolbar.removeLocationBarView();
+            assert mLocationBarView != null
+                    : "Trying to remove location bar view from toolbar when there is no location"
+                            + " bar";
+            mToolbar.getProgressBar().setVisibility(View.INVISIBLE);
+            mToolbarView.setVisibility(View.INVISIBLE);
+            mToolbarView.removeView(mLocationBarView);
+            mToolbarContainer.addView(mLocationBarView);
+            setBackgroundColor(mToolbar.getPrimaryColor());
+        } else {
+            assert mLocationBarView != null
+                    : "Trying to restore location bar view to toolbar without removing it first";
+            mToolbar.getProgressBar().setVisibility(View.VISIBLE);
+            mToolbarView.setVisibility(View.VISIBLE);
+            mToolbarContainer.removeView(mLocationBarView);
+            mToolbar.restoreLocationBarView();
+            setBackgroundColor(Color.TRANSPARENT);
+        }
+    }
+
+    @Override
     public void destroy() {
         ((ToolbarViewResourceAdapter) getToolbarResourceAdapter()).destroy();
         if (mToolbarContainerDragListener != null) {
@@ -241,13 +277,9 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
                         getContext().getResources(),
                         TabUiThemeUtil.getTabResource(),
                         getContext().getTheme());
+        assumeNonNull(backgroundTabImage);
         backgroundTabImage.setTint(
-                TabUiThemeUtil.getTabStripContainerColor(
-                        getContext(),
-                        incognito,
-                        /* foreground= */ true,
-                        /* isPlaceholder= */ false,
-                        /* isHovered= */ false));
+                TabUiThemeUtil.getTabStripSelectedTabColor(getContext(), incognito));
         LayerDrawable backgroundDrawable =
                 new LayerDrawable(new Drawable[] {backgroundColor, backgroundTabImage});
 
@@ -288,8 +320,10 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
      * @param layoutStateProviderSupplier Used to check the current layout type.
      * @param fullscreenManager Used to check whether in fullscreen.
      */
+    @Initializer
     public void setPostInitializationDependencies(
             Toolbar toolbar,
+            ViewGroup toolbarView,
             boolean isIncognito,
             ObservableSupplier<Integer> constraintsSupplier,
             Supplier<Tab> tabSupplier,
@@ -313,7 +347,7 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
                 fullscreenManager,
                 () -> mMidVisibilityToggle);
 
-        mToolbarView = findViewById(R.id.toolbar);
+        mToolbarView = toolbarView;
         assert mToolbarView != null;
 
         if (mToolbarView instanceof ToolbarTablet) {
@@ -381,7 +415,7 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
     /** The layout that handles generating the toolbar view resource. */
     // Only publicly visible due to lint warnings.
     public static class ToolbarViewResourceFrameLayout extends ViewResourceFrameLayout {
-        @Nullable private BooleanSupplier mIsMidVisibilityToggle;
+        private BooleanSupplier mIsMidVisibilityToggle;
         private boolean mReadyForBitmapCapture;
 
         public ToolbarViewResourceFrameLayout(Context context, AttributeSet attrs) {
@@ -396,6 +430,7 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
         /**
          * @see ToolbarViewResourceAdapter#setPostInitializationDependencies.
          */
+        @Initializer
         public void setPostInitializationDependencies(
                 Toolbar toolbar,
                 ObservableSupplier<Integer> constraintsSupplier,
@@ -462,18 +497,17 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
         private final Callback<Boolean> mOnCompositorInMotionChange =
                 this::onCompositorInMotionChange;
 
-        @Nullable private Toolbar mToolbar;
-        @Nullable private ConstraintsChecker mConstraintsObserver;
-        @Nullable private Supplier<Tab> mTabSupplier;
-        @Nullable private ObservableSupplier<Boolean> mCompositorInMotionSupplier;
+        private Toolbar mToolbar;
+        private ConstraintsChecker mConstraintsObserver;
+        private Supplier<Tab> mTabSupplier;
+        private ObservableSupplier<Boolean> mCompositorInMotionSupplier;
 
-        @Nullable
         private BrowserStateBrowserControlsVisibilityDelegate
                 mBrowserStateBrowserControlsVisibilityDelegate;
 
-        @Nullable private BooleanSupplier mControlContainerIsVisibleSupplier;
-        @Nullable private LayoutStateProvider mLayoutStateProvider;
-        @Nullable private FullscreenManager mFullscreenManager;
+        private BooleanSupplier mControlContainerIsVisibleSupplier;
+        private @Nullable LayoutStateProvider mLayoutStateProvider;
+        private FullscreenManager mFullscreenManager;
 
         private int mControlsToken = TokenHolder.INVALID_TOKEN;
 
@@ -499,6 +533,7 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
          * @param layoutStateProviderSupplier Used to check the current layout type.
          * @param fullscreenManager Used to check whether in fullscreen.
          */
+        @Initializer
         public void setPostInitializationDependencies(
                 Toolbar toolbar,
                 ObservableSupplier<Integer> constraintsSupplier,
@@ -610,7 +645,8 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
         }
 
         @Override
-        public void onCaptureStart(Canvas canvas, Rect dirtyRect) {
+        @SuppressWarnings("NullAway")
+        public void onCaptureStart(Canvas canvas, @Nullable Rect dirtyRect) {
             RecordHistogram.recordEnumeratedHistogram(
                     "Android.Toolbar.BitmapCapture",
                     ToolbarCaptureType.TOP,
@@ -795,5 +831,9 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
 
     void setToolbarForTesting(Toolbar testToolbar) {
         mToolbar = testToolbar;
+    }
+
+    ToolbarViewResourceFrameLayout getToolbarContainerForTesting() {
+        return mToolbarContainer;
     }
 }

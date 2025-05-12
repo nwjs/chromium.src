@@ -63,6 +63,7 @@ using OptimizationGuideModelExecutionError = optimization_guide::
 using ::testing::_;
 using ::testing::An;
 using ::testing::Contains;
+using ::testing::DoAll;
 using ::testing::Invoke;
 using ::testing::NiceMock;
 using ::testing::Return;
@@ -100,22 +101,6 @@ std::unique_ptr<KeyedService> CreateOptimizationService(
     content::BrowserContext* context) {
   return std::make_unique<
       testing::NiceMock<MockOptimizationGuideKeyedService>>();
-}
-
-content::WebContents* OpenNewTabInBackground(base::WeakPtr<Browser> browser,
-                                             const GURL& url,
-                                             content::WebContents*) {
-  if (!browser) {
-    return nullptr;
-  }
-  int preexisting_tab = browser->tab_strip_model()->active_index();
-  content::WebContents* contents = PasswordManagerBrowserTestBase::GetNewTab(
-      browser.get(), /*open_new_tab=*/true);
-  ui_test_utils::NavigateToURLWithDisposition(
-      browser.get(), url, WindowOpenDisposition::CURRENT_TAB,
-      ui_test_utils::BROWSER_TEST_NO_WAIT);
-  browser->tab_strip_model()->ActivateTabAt(preexisting_tab);
-  return contents;
 }
 
 // Verifies that |test_ukm_recorder| recorder has a single entry called |entry|
@@ -221,18 +206,29 @@ class PasswordChangeBrowserTest : public PasswordManagerBrowserTestBase {
                 ExecuteModel(optimization_guide::ModelBasedCapabilityKey::
                                  kPasswordChangeSubmission,
                              _, _, _))
-        .WillOnce(WithArg<3>(Invoke([response,
-                                     logs_uploader_weak_ptr](auto callback) {
-          base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-              FROM_HERE,
-              base::BindOnce(
-                  std::move(callback),
-                  optimization_guide::OptimizationGuideModelExecutionResult(
-                      optimization_guide::AnyWrapProto(response),
-                      /*execution_info=*/nullptr),
-                  std::make_unique<optimization_guide::ModelQualityLogEntry>(
-                      logs_uploader_weak_ptr)));
-        })));
+        .WillOnce(DoAll(
+            WithArg<1>([&](const google::protobuf::MessageLite& request) {
+              auto& password_change_request = static_cast<
+                  const optimization_guide::proto::PasswordChangeRequest&>(
+                  request);
+              ASSERT_TRUE(password_change_request.page_context()
+                              .has_annotated_page_content());
+              ASSERT_TRUE(
+                  password_change_request.page_context().has_ax_tree_data());
+            }),
+            WithArg<3>(Invoke([response,
+                               logs_uploader_weak_ptr](auto callback) {
+              base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+                  FROM_HERE,
+                  base::BindOnce(
+                      std::move(callback),
+                      optimization_guide::OptimizationGuideModelExecutionResult(
+                          optimization_guide::AnyWrapProto(response),
+                          /*execution_info=*/nullptr),
+                      std::make_unique<
+                          optimization_guide::ModelQualityLogEntry>(
+                          logs_uploader_weak_ptr)));
+            }))));
   }
 
   void CheckPasswordsSavedOnFailure(const std::string& username,
@@ -855,10 +851,11 @@ IN_PROC_BROWSER_TEST_F(PasswordChangeBrowserTest,
           "/password/update_form_empty_fields.html")));
 
   // Open new tab.
-  OpenNewTabInBackground(browser()->AsWeakPtr(),
-                         embedded_test_server()->GetURL("/password/done.html"),
-                         nullptr);
-  browser()->tab_strip_model()->ActivateTabAt(1);
+  ui_test_utils::NavigateToURLWithDisposition(
+      browser(), embedded_test_server()->GetURL("/password/done.html"),
+      WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      ui_test_utils::BROWSER_TEST_NO_WAIT);
+
   BubbleObserver prompt_observer(
       browser()->tab_strip_model()->GetActiveWebContents());
 
@@ -948,4 +945,66 @@ IN_PROC_BROWSER_TEST_F(PasswordChangeBrowserTest,
   EXPECT_EQ(
       ManagePasswordsUIController::FromWebContents(web_contents)->GetState(),
       password_manager::ui::MANAGE_STATE);
+}
+
+IN_PROC_BROWSER_TEST_F(
+    PasswordChangeBrowserTest,
+    SuccessfulDialogDisplayedAutomaticallyEvenAfterTheCheckIsFinished) {
+  SetPrivacyNoticeAcceptedPref();
+  const GURL main_url = WebContents()->GetLastCommittedURL();
+  EXPECT_CALL(*affiliation_service(), GetChangePasswordURL(main_url))
+      .WillOnce(testing::Return(embedded_test_server()->GetURL(
+          "/password/update_form_empty_fields.html")));
+  StartPasswordChange(main_url, u"test", u"pa$$word", WebContents());
+
+  // Activate tab with change password flow.
+  browser()->tab_strip_model()->ActivateTabAt(1);
+  MockPasswordChangeOutcome(
+      PasswordChangeOutcome::
+          PasswordChangeSubmissionData_PasswordChangeOutcome_SUCCESSFUL_OUTCOME);
+
+  PasswordChangeDelegate* delegate =
+      password_change_service()->GetPasswordChangeDelegate(WebContents());
+  EXPECT_TRUE(base::test::RunUntil([delegate]() {
+    return delegate->GetCurrentState() ==
+           PasswordChangeDelegate::State::kPasswordSuccessfullyChanged;
+  }));
+  // Expect the bubble to be visible.
+  EXPECT_TRUE(PasswordBubbleViewBase::manage_password_bubble());
+  PasswordBubbleViewBase::CloseCurrentBubble();
+
+  // Verify that activating the original tab shows a bubble automatically again.
+  BubbleObserver prompt_observer(
+      browser()->tab_strip_model()->GetWebContentsAt(0));
+  browser()->tab_strip_model()->ActivateTabAt(0);
+  EXPECT_TRUE(prompt_observer.IsBubbleDisplayedAutomatically());
+}
+
+IN_PROC_BROWSER_TEST_F(PasswordChangeBrowserTest, OTPDetectionHaltsTheFlow) {
+  SetPrivacyNoticeAcceptedPref();
+  const GURL main_url = WebContents()->GetLastCommittedURL();
+  EXPECT_CALL(*affiliation_service(), GetChangePasswordURL(main_url))
+      .WillOnce(testing::Return(
+          embedded_test_server()->GetURL("/password/done.html")));
+
+  StartPasswordChange(main_url, u"test", u"pa$$word", WebContents());
+
+  base::WeakPtr<PasswordChangeDelegate> delegate =
+      password_change_service()
+          ->GetPasswordChangeDelegate(
+              browser()->tab_strip_model()->GetWebContentsAt(0))
+          ->AsWeakPtr();
+  ASSERT_TRUE(delegate);
+  EXPECT_EQ(PasswordChangeDelegate::State::kWaitingForChangePasswordForm,
+            delegate->GetCurrentState());
+
+  BubbleObserver prompt_observer(WebContents());
+
+  delegate->OnOtpFieldDetected(
+      browser()->tab_strip_model()->GetWebContentsAt(1));
+
+  EXPECT_EQ(PasswordChangeDelegate::State::kOtpDetected,
+            delegate->GetCurrentState());
+  EXPECT_TRUE(prompt_observer.IsBubbleDisplayedAutomatically());
+  EXPECT_EQ(2, browser()->tab_strip_model()->count());
 }

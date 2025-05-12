@@ -4,6 +4,8 @@
 
 package org.chromium.chrome.browser.toolbar.top;
 
+import static org.chromium.build.NullUtil.assumeNonNull;
+
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.drawable.Drawable;
@@ -12,8 +14,6 @@ import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.View.OnLongClickListener;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
@@ -21,6 +21,8 @@ import org.chromium.base.CallbackController;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.Supplier;
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider.LayoutStateObserver;
@@ -28,6 +30,7 @@ import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.tab.CurrentTabObserver;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab_ui.TabModelDotInfo;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.toolbar.R;
 import org.chromium.chrome.browser.toolbar.TabSwitcherDrawable;
@@ -45,24 +48,25 @@ import org.chromium.url.GURL;
  * TODO(crbug.com/40588354): Finish converting HomeButton to MVC and move more logic into this
  * class.
  */
+@NullMarked
 public class ToggleTabStackButtonCoordinator {
     private final CallbackController mCallbackController = new CallbackController();
     private final Context mContext;
-    @NonNull private ToggleTabStackButton mToggleTabStackButton;
+    private ToggleTabStackButton mToggleTabStackButton;
     private final UserEducationHelper mUserEducationHelper;
     private final Supplier<Boolean> mIsIncognitoSupplier;
     private final OneshotSupplier<Boolean> mPromoShownOneshotSupplier;
     private final CurrentTabObserver mPageLoadObserver;
     private final ObservableSupplier<TabModelSelector> mTabModelSelectorSupplier;
 
-    private LayoutStateProvider mLayoutStateProvider;
-    private LayoutStateObserver mLayoutStateObserver;
+    private @Nullable LayoutStateProvider mLayoutStateProvider;
+    private @Nullable LayoutStateObserver mLayoutStateObserver;
     @VisibleForTesting boolean mIphBeingShown;
     // Non-null when tab declutter is enabled and initWithNative is called.
     private @Nullable ObservableSupplier<Integer> mArchivedTabCountSupplier;
     private @Nullable Runnable mArchivedTabsIphShownCallback;
     private @Nullable Runnable mArchivedTabsIphDismissedCallback;
-    private @Nullable Callback<Integer> mArchivedTabCountObserver = this::maybeShowDeclutterIph;
+    private Callback<Integer> mArchivedTabCountObserver = this::maybeShowDeclutterIph;
     private boolean mAlreadyRequestedDeclutterIph;
 
     /**
@@ -125,13 +129,16 @@ public class ToggleTabStackButtonCoordinator {
             OnLongClickListener onLongClickListener,
             ObservableSupplier<Integer> tabCountSupplier,
             @Nullable ObservableSupplier<Integer> archivedTabCountSupplier,
-            ObservableSupplier<Boolean> tabModelNotificationDotSupplier,
-            @NonNull Runnable archivedTabsIphShownCallback,
-            @NonNull Runnable archivedTabsIphDismissedCallback) {
+            ObservableSupplier<TabModelDotInfo> tabModelNotificationDotSupplier,
+            Runnable archivedTabsIphShownCallback,
+            Runnable archivedTabsIphDismissedCallback) {
         mToggleTabStackButton.setOnClickListener(onClickListener);
         mToggleTabStackButton.setOnLongClickListener(onLongClickListener);
         mToggleTabStackButton.setSuppliers(
-                tabCountSupplier, tabModelNotificationDotSupplier, mIsIncognitoSupplier);
+                tabCountSupplier,
+                tabModelNotificationDotSupplier,
+                mIsIncognitoSupplier,
+                mUserEducationHelper);
 
         mArchivedTabCountSupplier = archivedTabCountSupplier;
         if (mArchivedTabCountSupplier != null) {
@@ -148,6 +155,7 @@ public class ToggleTabStackButtonCoordinator {
         mPageLoadObserver.destroy();
 
         if (mLayoutStateProvider != null) {
+            assumeNonNull(mLayoutStateObserver);
             mLayoutStateProvider.removeObserver(mLayoutStateObserver);
             mLayoutStateProvider = null;
             mLayoutStateObserver = null;
@@ -323,6 +331,8 @@ public class ToggleTabStackButtonCoordinator {
         mAlreadyRequestedDeclutterIph = true;
         HighlightParams params = new HighlightParams(HighlightShape.CIRCLE);
         params.setBoundsRespectPadding(true);
+        assumeNonNull(mArchivedTabsIphShownCallback);
+        assumeNonNull(mArchivedTabsIphDismissedCallback);
         mUserEducationHelper.requestShowIph(
                 new IphCommandBuilder(
                                 mContext.getResources(),

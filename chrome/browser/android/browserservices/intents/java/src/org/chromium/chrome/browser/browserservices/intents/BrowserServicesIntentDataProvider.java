@@ -19,6 +19,8 @@ import androidx.annotation.IntDef;
 import androidx.annotation.Px;
 import androidx.browser.customtabs.CustomTabsIntent;
 import androidx.browser.customtabs.CustomTabsIntent.CloseButtonPosition;
+import androidx.browser.trusted.FileHandlingData;
+import androidx.browser.trusted.LaunchHandlerClientMode;
 import androidx.browser.trusted.TrustedWebActivityDisplayMode;
 import androidx.browser.trusted.sharing.ShareData;
 import androidx.browser.trusted.sharing.ShareTarget;
@@ -48,7 +50,8 @@ public abstract class BrowserServicesIntentDataProvider {
         CustomTabsUiType.MINIMAL_UI_WEBAPP,
         CustomTabsUiType.OFFLINE_PAGE,
         CustomTabsUiType.AUTH_TAB,
-        CustomTabsUiType.NETWORK_BOUND_TAB
+        CustomTabsUiType.NETWORK_BOUND_TAB,
+        CustomTabsUiType.POPUP
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface CustomTabsUiType {
@@ -61,6 +64,7 @@ public abstract class BrowserServicesIntentDataProvider {
         int READ_LATER = 6;
         int AUTH_TAB = 7;
         int NETWORK_BOUND_TAB = 8;
+        int POPUP = 9;
     }
 
     // The type of Disclosure for TWAs to use.
@@ -681,6 +685,19 @@ public abstract class BrowserServicesIntentDataProvider {
 
     /** Return the https redirect URL path for AuthTab. */
     public @Nullable String getAuthRedirectPath() {
+        return null;
+    }
+
+    /** Return the client mode for Launch Handler API. */
+    public @LaunchHandlerClientMode.ClientMode int getLaunchHandlerClientMode() {
+        return LaunchHandlerClientMode.AUTO;
+    }
+
+    /**
+     * Return {@link FileHandlingData} which contains the URIs of the opened files for Launch
+     * Handler API.
+     */
+    public @Nullable FileHandlingData getFileHandlingData() {
         return null;
     }
 }

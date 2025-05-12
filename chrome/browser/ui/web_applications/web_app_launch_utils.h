@@ -13,7 +13,6 @@
 
 #include "base/functional/callback_helpers.h"
 #include "base/memory/stack_allocated.h"
-#include "base/memory/weak_ptr.h"
 #include "base/values.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/web_applications/web_app_ui_manager.h"
@@ -119,8 +118,7 @@ Browser* CreateWebAppWindowMaybeWithHomeTab(
     const webapps::AppId& app_id,
     const Browser::CreateParams& params);
 
-content::WebContents* NavigateWebAppUsingParams(const std::string& app_id,
-                                                NavigateParams& nav_params);
+content::WebContents* NavigateWebAppUsingParams(NavigateParams& nav_params);
 
 // RecordLaunchMetrics methods report UMA metrics. It shouldn't have other
 // side-effects (e.g. updating app launch time).

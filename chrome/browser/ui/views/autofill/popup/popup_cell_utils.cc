@@ -27,6 +27,7 @@
 #include "chrome/browser/ui/views/autofill/popup/popup_row_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_view_utils.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
+#include "chrome/browser/ui/webid/identity_ui_utils.h"
 #include "components/autofill/core/browser/filling/filling_product.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
@@ -190,7 +191,7 @@ std::unique_ptr<views::ImageView> ConvertModelToImageView(
 // leading and trailing icons is contained.
 std::unique_ptr<views::TableLayoutView> CreateSuggestionContentTable(
     std::unique_ptr<views::Label> main_text_label,
-    std::vector<std::unique_ptr<views::Label>> minor_text_labels,
+    std::vector<std::unique_ptr<views::View>> minor_text_labels,
     std::unique_ptr<views::Label> description_label,
     std::vector<std::unique_ptr<views::View>> subtext_views) {
   const bool kHasTwoColumns = !!description_label;
@@ -258,10 +259,11 @@ std::unique_ptr<views::TableLayoutView> CreateSuggestionContentTable(
 std::optional<ui::ImageModel> GetIconImageModelFromIcon(Suggestion::Icon icon) {
   switch (icon) {
     case Suggestion::Icon::kNoIcon:
-      // TODO(crbug.com/381994105): Implement Home/Work icons.
-    case Suggestion::Icon::kHome:
-    case Suggestion::Icon::kWork:
       return std::nullopt;
+    case Suggestion::Icon::kHome:
+      return ImageModelFromVectorIcon(vector_icons::kHomeIcon, kIconSize);
+    case Suggestion::Icon::kWork:
+      return ImageModelFromVectorIcon(vector_icons::kWorkIcon, kIconSize);
     case Suggestion::Icon::kAccount:
       return ImageModelFromVectorIcon(kAccountCircleIcon, kIconSize);
     case Suggestion::Icon::kClear:
@@ -424,9 +426,13 @@ std::unique_ptr<views::ImageView> GetIconImageView(
 
   if (auto* icon = std::get_if<gfx::Image>(&suggestion.custom_icon);
       icon && !icon->IsEmpty()) {
-    std::optional<ui::ImageModel> image_model =
-        ImageModelFromImageSkia(icon->AsImageSkia());
-    return ConvertModelToImageView(image_model,
+    gfx::ImageSkia image = icon->AsImageSkia();
+    if (std::holds_alternative<Suggestion::IdentityCredentialPayload>(
+            suggestion.payload)) {
+      image =
+          CreateCircleCroppedImage(image, kDesiredAvatarSizeInAutofillDropdown);
+    }
+    return ConvertModelToImageView(ImageModelFromImageSkia(image),
                                    suggestion.HasDeactivatedStyle());
   }
   std::unique_ptr<views::ImageView> icon_image_view =
@@ -477,7 +483,7 @@ void AddSpacerWithSize(views::BoxLayoutView& view,
 void AddSuggestionContentToView(
     const Suggestion& suggestion,
     std::unique_ptr<views::Label> main_text_label,
-    std::vector<std::unique_ptr<views::Label>> minor_text_labels,
+    std::vector<std::unique_ptr<views::View>> minor_text_labels,
     std::unique_ptr<views::Label> description_label,
     std::vector<std::unique_ptr<views::View>> subtext_views,
     std::unique_ptr<views::View> icon,

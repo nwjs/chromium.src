@@ -55,6 +55,7 @@
 #include "third_party/blink/renderer/core/dom/flat_tree_traversal.h"
 #include "third_party/blink/renderer/core/dom/focus_params.h"
 #include "third_party/blink/renderer/core/dom/id_target_observer.h"
+#include "third_party/blink/renderer/core/dom/invoker_data.h"
 #include "third_party/blink/renderer/core/dom/node_lists_node_data.h"
 #include "third_party/blink/renderer/core/dom/node_traversal.h"
 #include "third_party/blink/renderer/core/dom/popover_data.h"
@@ -774,6 +775,8 @@ const AttributeTriggers* HTMLElement::TriggersForAttributeName(
        kNoEvent, nullptr},
       {html_names::kWritingsuggestionsAttr,
        WebFeature::kHTMLElementWritingSuggestions, kNoEvent, nullptr},
+      {html_names::kRoleAttr, kNoWebFeature, kNoEvent,
+       &HTMLElement::OnRoleAttrChanged},
   });
 
   static bool registered_triggers = false;
@@ -1585,7 +1588,7 @@ void HTMLElement::ShowPopoverInternal(Element* invoker,
   original_document.AddToTopLayer(this);
   // Make the popover match `:popover-open` and remove `display:none` styling:
   GetPopoverData()->setVisibilityState(PopoverVisibilityState::kShowing);
-  GetPopoverData()->setInvoker(invoker);
+  SetPopoverInvoker(invoker);
   SetImplicitAnchor(invoker);
 
   PseudoStateChanged(CSSSelector::kPseudoPopoverOpen);
@@ -1635,6 +1638,16 @@ void HTMLElement::ShowPopoverInternal(Element* invoker,
             element->DispatchEvent(*event);
           },
           WrapPersistent(this), WrapPersistent(after_event))));
+}
+
+void HTMLElement::SetPopoverInvoker(Element* invoker) {
+  if (Element* oldInvoker = GetPopoverData()->invoker()) {
+    oldInvoker->GetInvokerData()->SetInvokedPopover(nullptr);
+  }
+  GetPopoverData()->setInvoker(invoker);
+  if (invoker) {
+    invoker->EnsureInvokerData().SetInvokedPopover(this);
+  }
 }
 
 // static
@@ -1802,7 +1815,7 @@ void HTMLElement::HidePopoverInternal(
   }
 
   MarkPopoverInvokersDirty(*this);
-  GetPopoverData()->setInvoker(nullptr);
+  SetPopoverInvoker(nullptr);
   // Events are only fired in the case that the popover is not being removed
   // from the document.
   if (transition_behavior ==
@@ -3206,6 +3219,119 @@ AtomicString HTMLElement::writingSuggestions() const {
 
 void HTMLElement::setWritingSuggestions(const AtomicString& value) {
   setAttribute(html_names::kWritingsuggestionsAttr, value);
+}
+
+void HTMLElement::OnRoleAttrChanged(const AttributeModificationParams& params) {
+  if (IsInUserAgentShadowRoot()) {
+    // Don't UseCount values built into the browser, we want to know when
+    // authors are using them.
+    return;
+  }
+
+  if (EqualIgnoringASCIICase(params.new_value, "menu")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeMenu);
+  } else if (EqualIgnoringASCIICase(params.new_value, "menubar")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeMenubar);
+  } else if (EqualIgnoringASCIICase(params.new_value, "menuitem")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeMenuitem);
+  } else if (EqualIgnoringASCIICase(params.new_value, "menuitemcheckbox")) {
+    UseCounter::Count(GetDocument(),
+                      WebFeature::kRoleAttributeMenuitemcheckbox);
+  } else if (EqualIgnoringASCIICase(params.new_value, "menuitemradio")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeMenuitemradio);
+  } else if (EqualIgnoringASCIICase(params.new_value, "button")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeButton);
+  } else if (EqualIgnoringASCIICase(params.new_value, "cell")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeCell);
+  } else if (EqualIgnoringASCIICase(params.new_value, "checkbox")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeCheckbox);
+  } else if (EqualIgnoringASCIICase(params.new_value, "columnheader")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeColumnheader);
+  } else if (EqualIgnoringASCIICase(params.new_value, "combobox")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeCombobox);
+  } else if (EqualIgnoringASCIICase(params.new_value, "dialog")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeDialog);
+  } else if (EqualIgnoringASCIICase(params.new_value, "grid")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeGrid);
+  } else if (EqualIgnoringASCIICase(params.new_value, "gridcell")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeGridcell);
+  } else if (EqualIgnoringASCIICase(params.new_value, "heading")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeHeading);
+  } else if (EqualIgnoringASCIICase(params.new_value, "img")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeImg);
+  } else if (EqualIgnoringASCIICase(params.new_value, "input")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeInput);
+  } else if (EqualIgnoringASCIICase(params.new_value, "link")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeLink);
+  } else if (EqualIgnoringASCIICase(params.new_value, "list")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeList);
+  } else if (EqualIgnoringASCIICase(params.new_value, "listbox")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeListbox);
+  } else if (EqualIgnoringASCIICase(params.new_value, "listitem")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeListitem);
+  } else if (EqualIgnoringASCIICase(params.new_value, "main")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeMain);
+  } else if (EqualIgnoringASCIICase(params.new_value, "marquee")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeMarquee);
+  } else if (EqualIgnoringASCIICase(params.new_value, "math")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeMath);
+  } else if (EqualIgnoringASCIICase(params.new_value, "meter")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeMeter);
+  } else if (EqualIgnoringASCIICase(params.new_value, "navigation")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeNavigation);
+  } else if (EqualIgnoringASCIICase(params.new_value, "option")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeOption);
+  } else if (EqualIgnoringASCIICase(params.new_value, "progressbar")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeProgressbar);
+  } else if (EqualIgnoringASCIICase(params.new_value, "radio")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeRadio);
+  } else if (EqualIgnoringASCIICase(params.new_value, "radiogroup")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeRadiogroup);
+  } else if (EqualIgnoringASCIICase(params.new_value, "range")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeRange);
+  } else if (EqualIgnoringASCIICase(params.new_value, "row")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeRow);
+  } else if (EqualIgnoringASCIICase(params.new_value, "rowgroup")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeRowgroup);
+  } else if (EqualIgnoringASCIICase(params.new_value, "rowheader")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeRowheader);
+  } else if (EqualIgnoringASCIICase(params.new_value, "scrollbar")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeScrollbar);
+  } else if (EqualIgnoringASCIICase(params.new_value, "search")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeSearch);
+  } else if (EqualIgnoringASCIICase(params.new_value, "searchbox")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeSearchbox);
+  } else if (EqualIgnoringASCIICase(params.new_value, "select")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeSelect);
+  } else if (EqualIgnoringASCIICase(params.new_value, "separator")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeSeparator);
+  } else if (EqualIgnoringASCIICase(params.new_value, "slider")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeSlider);
+  } else if (EqualIgnoringASCIICase(params.new_value, "spinbutton")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeSpinbutton);
+  } else if (EqualIgnoringASCIICase(params.new_value, "switch")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeSwitch);
+  } else if (EqualIgnoringASCIICase(params.new_value, "tab")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeTab);
+  } else if (EqualIgnoringASCIICase(params.new_value, "table")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeTable);
+  } else if (EqualIgnoringASCIICase(params.new_value, "tablist")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeTablist);
+  } else if (EqualIgnoringASCIICase(params.new_value, "tabpanel")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeTabpanel);
+  } else if (EqualIgnoringASCIICase(params.new_value, "textbox")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeTextbox);
+  } else if (EqualIgnoringASCIICase(params.new_value, "toolbar")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeToolbar);
+  } else if (EqualIgnoringASCIICase(params.new_value, "tooltip")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeTooltip);
+  } else if (EqualIgnoringASCIICase(params.new_value, "tree")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeTree);
+  } else if (EqualIgnoringASCIICase(params.new_value, "treegrid")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeTreegrid);
+  } else if (EqualIgnoringASCIICase(params.new_value, "treeitem")) {
+    UseCounter::Count(GetDocument(), WebFeature::kRoleAttributeTreeitem);
+  }
 }
 
 }  // namespace blink

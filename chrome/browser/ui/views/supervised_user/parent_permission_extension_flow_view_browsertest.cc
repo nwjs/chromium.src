@@ -12,7 +12,6 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/path_service.h"
 #include "base/test/metrics/histogram_tester.h"
-#include "base/test/scoped_feature_list.h"
 #include "chrome/browser/extensions/chrome_test_extension_loader.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_util.h"
@@ -36,12 +35,12 @@
 #include "chrome/test/supervised_user/supervision_mixin.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "components/supervised_user/core/browser/supervised_user_service.h"
-#include "components/supervised_user/core/common/features.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/test_launcher.h"
 #include "content/public/test/test_utils.h"
 #include "extensions/browser/disable_reason.h"
 #include "extensions/browser/extension_dialog_auto_confirm.h"
+#include "extensions/browser/extension_registrar.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/extension_util.h"
@@ -63,20 +62,13 @@ class ExtensionEnableFlowTestSupervised
   };
 
   ExtensionEnableFlowTestSupervised()
-      : TestParentPermissionDialogViewObserver(this) {
-    feature_list_.InitWithFeatures(
-        // Enable extensions for supervised users in Desktop platforms.
-        /*enabled_features=*/
-        {supervised_user::
-             kEnableExtensionsPermissionsForSupervisedUsersOnDesktop},
-        /*disabled_features=*/{});
-  }
+      : TestParentPermissionDialogViewObserver(this) {}
 
   ExtensionEnableFlowTestSupervised(const ExtensionEnableFlowTestSupervised&) =
       delete;
   ExtensionEnableFlowTestSupervised& operator=(
       const ExtensionEnableFlowTestSupervised&) = delete;
-  ~ExtensionEnableFlowTestSupervised() override { feature_list_.Reset(); }
+  ~ExtensionEnableFlowTestSupervised() override = default;
 
   void OnParentPermissionDialogDone(ParentPermissionDialog::Result result) {
     result_ = result;
@@ -123,7 +115,7 @@ class ExtensionEnableFlowTestSupervised
             browser()->profile());
 
     test_extension_ = extensions::ExtensionBuilder("test extension").Build();
-    extension_service()->AddExtension(test_extension_.get());
+    extension_registrar()->AddExtension(test_extension_);
     extension_service()->DisableExtension(
         test_extension_->id(),
         extensions::disable_reason::DISABLE_CUSTODIAN_APPROVAL_REQUIRED);
@@ -148,6 +140,10 @@ class ExtensionEnableFlowTestSupervised
     return test_extension_.get();
   }
 
+  extensions::ExtensionRegistrar* extension_registrar() {
+    return extensions::ExtensionRegistrar::Get(browser()->profile());
+  }
+
   extensions::ExtensionRegistry* extension_registry() {
     return extensions::ExtensionRegistry::Get(browser()->profile());
   }
@@ -161,7 +157,6 @@ class ExtensionEnableFlowTestSupervised
       supervised_user_extensions_delegate_;
 
  private:
-  base::test::ScopedFeatureList feature_list_;
   raw_ptr<ParentPermissionDialogView, DanglingUntriaged> view_ = nullptr;
   std::unique_ptr<ParentPermissionDialog> parent_permission_dialog_;
   ParentPermissionDialog::Result result_;

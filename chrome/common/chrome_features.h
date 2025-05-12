@@ -76,20 +76,22 @@ COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kBrowserAppInstanceTracking);
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
+#if BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
 // Enable the Certificate Management UI v2.
 //
-// TODO(crbug.com/40928765) Remove this flag when UI is complete.
+// TODO(crbug.com/390333881): Remove this flag when launch is complete.
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kEnableCertManagementUIV2);
 // Enable the Certificate Management UI v2 write features.
 //
-// TODO(crbug.com/40928765) Remove this flag when UI is complete.
+// TODO(crbug.com/390333881): Remove this flag when launch is complete.
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kEnableCertManagementUIV2Write);
 
-// TODO(crbug.com/40928765) Remove this flag when UI is complete.
+// TODO(crbug.com/390333881): Remove this flag when launch is complete.
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kEnableCertManagementUIV2EditCerts);
+#endif  // BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
 
 #if BUILDFLAG(IS_CHROMEOS)
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kCrostini);
@@ -154,6 +156,11 @@ COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kShortcutsNotAppsRevealDesktop);
 #endif
 
+#if BUILDFLAG(IS_ANDROID)
+COMPONENT_EXPORT(CHROME_FEATURES)
+BASE_DECLARE_FEATURE(kDisplayEdgeToEdgeFullscreen);
+#endif
+
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kDnsOverHttps);
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<std::string> kDnsOverHttpsTemplatesParam;
@@ -196,6 +203,8 @@ extern const base::FeatureParam<int> kGlicMinLoadingTimeMs;
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<int> kGlicMaxLoadingTimeMs;
 COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<int> kGlicReloadMaxLoadingTimeMs;
+COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<int> kGlicInitialWidth;
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<int> kGlicInitialHeight;
@@ -213,9 +222,33 @@ COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kGlicURLConfig);
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<std::string> kGlicGuestURL;
 
+COMPONENT_EXPORT(CHROME_FEATURES)
+BASE_DECLARE_FEATURE(kGlicUserStatusCheck);
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<std::string> kGlicUserStatusUrl;
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<base::TimeDelta> kGlicUserStatusRequestDelay;
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<std::string> kGeminiOAuth2Scope;
+
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kGlicFreURLConfig);
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<std::string> kGlicFreURL;
+
+// TODO(b/414418994): remove features/parameters when URLs are finalized.
+COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kGlicLearnMoreURLConfig);
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<std::string> kGlicShortcutsLearnMoreURL;
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<std::string> kGlicSettingsPageLearnMoreURL;
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<std::string> kGlicLauncherToggleLearnMoreURL;
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<std::string> kGlicLocationToggleLearnMoreURL;
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<std::string> kGlicTabAccessToggleLearnMoreURL;
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<std::string> kGlicSettingsPageLearnMoreURL;
 
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kGlicCSPConfig);
 COMPONENT_EXPORT(CHROME_FEATURES)
@@ -233,7 +266,12 @@ extern const base::FeatureParam<int> kGlicClientUnresponsiveUiMaxTimeMs;
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kGlicKeyboardShortcutNewBadge);
 
+COMPONENT_EXPORT(CHROME_FEATURES)
+BASE_DECLARE_FEATURE(kGlicAppMenuNewBadge);
+
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kGlicDetached);
+
+COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kGlicZOrderChanges);
 
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kGlicDebugWebview);
 
@@ -245,9 +283,20 @@ COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kGlicSizingFitWindow);
 
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kGlicWarming);
 
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<int> kGlicWarmingDelayMs;
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<int> kGlicWarmingJitterMs;
+
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kGlicFreWarming);
 
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kGlicWarmMultiple);
+
+COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kGlicTieredRollout);
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<std::string> kGlicTieredRolloutAllowedGroup;
+
+COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kGlicRollout);
 #endif  // BUILDFLAG(ENABLE_GLIC)
 
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kTabstripComboButton);
@@ -533,10 +582,6 @@ extern const base::FeatureParam<int> kLinuxLowMemoryMonitorCriticalLevel;
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kListWebAppsSwitch);
 #endif
 
-#if BUILDFLAG(IS_MAC)
-COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kMacDirectEmailShare);
-#endif
-
 #if BUILDFLAG(IS_CHROMEOS)
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kShowHiddenNetworkToggle);
@@ -664,6 +709,9 @@ BASE_DECLARE_FEATURE(kSafetyHubWeakAndReusedPasswords);
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kSafetyHubLocalPasswordsModule);
+
+COMPONENT_EXPORT(CHROME_FEATURES)
+BASE_DECLARE_FEATURE(kSafetyHubUnifiedPasswordsModule);
 #endif
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -950,9 +998,6 @@ BASE_DECLARE_FEATURE(kUseManagedPrintJobOptionsInPrintPreview);
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kWin10AcceleratedDefaultBrowserFlow);
 #endif  // BUILDFLAG(IS_WIN)
-
-COMPONENT_EXPORT(CHROME_FEATURES)
-BASE_DECLARE_FEATURE(kWriteBasicSystemProfileToPersistentHistogramsFile);
 
 #if BUILDFLAG(IS_CHROMEOS)
 COMPONENT_EXPORT(CHROME_FEATURES)

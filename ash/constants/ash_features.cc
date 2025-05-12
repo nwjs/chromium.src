@@ -223,9 +223,12 @@ BASE_FEATURE(kBocaOnTaskMuteArcAudio,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables or disables the Boca OnTask pod on ChromeOS.
-BASE_FEATURE(kBocaOnTaskPod,
-             "BocaOnTaskPod",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kBocaOnTaskPod, "BocaOnTaskPod", base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables or disables unmute browser tabs when unlock Boca.
+BASE_FEATURE(kBocaOnTaskUnmuteBrowserTabsOnUnlock,
+             "BocaOnTaskUnmuteBrowserTabsOnUnlock",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables or disables Boca OnTask enter locked mode countdown duration on
 // ChromeOS.
@@ -242,7 +245,7 @@ constexpr base::FeatureParam<base::TimeDelta>
 // Enables or disables Boca sending student heartbeat requests on ChromeOS.
 BASE_FEATURE(kBocaStudentHeartbeat,
              "BocaStudentHeartbeat",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables or disables Boca student heartbeat custom interval on ChromeOS.
 BASE_FEATURE(kBocaStudentHeartbeatCustomInterval,
@@ -263,10 +266,32 @@ BASE_FEATURE(kBocaExtensionConsumer,
 // Enables or disables Spotlight for Boca on ChromeOS.
 BASE_FEATURE(kBocaSpotlight, "BocaSpotlight", base::FEATURE_ENABLED_BY_DEFAULT);
 
+// The url to use when connecting to spotlight
+constexpr base::FeatureParam<std::string> kBocaSpotlightUrlTemplate{
+    &kBocaSpotlight, "spotlight-url-template",
+    "https://remotedesktop.google.com/support/session/{sessionCode}"};
+
 // Enables or disables Boca network restriction for Boca on ChromeOS.
 BASE_FEATURE(kBocaNetworkRestriction,
              "BocaNetworkRestriction",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables or disables using a specific app name for speech recognition for Boca
+// on ChromeOS.
+BASE_FEATURE(kBocaClientTypeForSpeechRecognition,
+             "BocaClientTypeForSpeechRecognition",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables or disables using a specific app name for speech recognition for Boca
+// on ChromeOS.
+BASE_FEATURE(kBocaAdjustCaptionBubbleOnExpand,
+             "BocaAdjustCaptionBubbleOnExpand",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables or disables enforcing sequential execution for Boca Session load.
+BASE_FEATURE(kBocaSequentialSessionLoad,
+             "BocaSequentialSessionLoad",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kCrosSwitcher, "CrosSwitcher", base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -756,7 +781,7 @@ BASE_FEATURE(kEnableRootNsDnsProxy,
 // Settings > Privacy controls.
 BASE_FEATURE(kEnableToggleCameraShortcut,
              "EnableToggleCameraShortcut",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // TODO:(b/345017297): If enabled, touchscreen mapping experience is visible in
 // settings.
@@ -832,6 +857,11 @@ const base::FeatureParam<EolIncentiveParam> kEolIncentiveParam{
 
 BASE_FEATURE(kEolIncentiveSettings,
              "EolIncentiveSettings",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Control whether the eSIM activation dialog supports submitting an empty code.
+BASE_FEATURE(kESimEmptyActivationCodeSupported,
+             "ESimEmptyActivationCodeSupported",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enable or disable support for touchpad with haptic feedback.
@@ -1194,7 +1224,7 @@ BASE_FEATURE(kGameDashboardUtilities,
 // Enables the App launch keyboard shortcut.
 BASE_FEATURE(kAppLaunchShortcut,
              "AppLaunchShortcut",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables the Game Dashboard's Record Game feature. This flag is to be enabled
 // by the feature management module.
@@ -1563,6 +1593,11 @@ BASE_FEATURE(kImeServiceProto,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enable or disable system emoji picker GIF support
+BASE_FEATURE(kImeManifestV3,
+             "ImeManifestV3",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enable or disable system emoji picker GIF support
 BASE_FEATURE(kImeSystemEmojiPickerGIFSupport,
              "SystemEmojiPickerGIFSupport",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -1806,7 +1841,7 @@ BASE_FEATURE(kLobsterRightClickMenu,
 // returned from the server.
 BASE_FEATURE(kLobsterUseRewrittenQuery,
              "LobsterUseRewrittenQuery",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables / Disables the lobster feature from the feature management module.
 BASE_FEATURE(kFeatureManagementLobster,
@@ -1902,13 +1937,6 @@ BASE_FEATURE(kMinimumChromeVersion,
              "MinimumChromeVersion",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables the use of Mojo by Chrome-process code to communicate with Power
-// Manager. In order to use mojo, this feature must be turned on and a callsite
-// must use PowerManagerMojoClient::Get().
-BASE_FEATURE(kMojoDBusRelay,
-             "MojoDBusRelay",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Enables to split left and right modifiers in settings.
 BASE_FEATURE(kModifierSplit, "ModifierSplit", base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -1999,11 +2027,6 @@ BASE_FEATURE(kFeatureManagementShouldExcludeFromSysUiHoldback,
 // Enables a holdback experiment for Drive integration.
 BASE_FEATURE(kSysUiShouldHoldbackDriveIntegration,
              "SysUiShouldHoldbackDriveIntegration",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables a holdback experiment for Forest.
-BASE_FEATURE(kSysUiShouldHoldbackForest,
-             "SysUiShouldHoldbackForest",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables a holdback experiment for Task Management
@@ -2521,11 +2544,6 @@ BASE_FEATURE(kPromiseIconsForWebApps,
 // Controls whether the quick dim prototype is enabled.
 BASE_FEATURE(kQuickDim, "QuickDim", base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Controls whether to readahead files on login screen.
-BASE_FEATURE(kReadaheadForLogin,
-             "ReadaheadForLogin",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kQuickAppAccessTestUI,
              "QuickAppAccessTestUI",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -2739,6 +2757,18 @@ BASE_FEATURE(kShimlessRMA3pDiagnosticsAllowPermissionPolicy,
              "ShimlessRMA3pDiagnosticsAllowPermissionPolicy",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Enables or disables the skip option of hardware validation on Shimless RMA
+// landing page.
+BASE_FEATURE(kShimlessRMAHardwareValidationSkip,
+             "ShimlessRMAHardwareValidationSkip",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables or disables the option of grey out specific input fields on Shimless
+// RMA device information page.
+BASE_FEATURE(kShimlessRMADynamicDeviceInfoInputs,
+             "ShimlessRMADynamicDeviceInfoInputs",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // If enabled, system shortcuts will utilize state machiens instead of
 // keeping track of entire history of keys pressed.
 BASE_FEATURE(kShortcutStateMachines,
@@ -2929,6 +2959,12 @@ BASE_FEATURE(kUnmanagedDeviceDeviceTrustConnectorEnabled,
 // Use the Android staging SM-DS server when fetching pending eSIM profiles.
 BASE_FEATURE(kUseAndroidStagingSmds,
              "UseAndroidStagingSmds",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// If enabled, the new `TokenHandleStoreImpl` will be used instead of
+// `TokenHandleUtil`.
+BASE_FEATURE(kUseTokenHandleStore,
+             "UseTokenHandleStore",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Use the AnnotatedAccountId for mapping between User and BrowserContext
@@ -3186,10 +3222,6 @@ BASE_FEATURE(kWifiConnectMacAddressRandomization,
 BASE_FEATURE(kWifiConcurrency,
              "WifiConcurrency",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Control whether the WiFi Direct is enabled. When enabled, it will allow
-// the nearby share feature to utilize WiFi P2P for sharing data.
-BASE_FEATURE(kWifiDirect, "WiFiDirect", base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls whether to enable the syncing of deletes of Wi-Fi configurations.
 // This only controls sending delete events to the Chrome Sync server.
@@ -3454,6 +3486,10 @@ bool IsBocaOnTaskPodEnabled() {
   return base::FeatureList::IsEnabled(kBocaOnTaskPod);
 }
 
+bool IsBocaOnTaskUnmuteBrowserTabsOnUnlockEnabled() {
+  return base::FeatureList::IsEnabled(kBocaOnTaskUnmuteBrowserTabsOnUnlock);
+}
+
 bool IsBocaLockedModeCustomCountdownDurationEnabled() {
   return base::FeatureList::IsEnabled(kBocaLockedModeCustomCountdownDuration);
 }
@@ -3472,6 +3508,18 @@ bool IsBocaSpotlightEnabled() {
 
 bool IsBocaNetworkRestrictionEnabled() {
   return base::FeatureList::IsEnabled(kBocaNetworkRestriction);
+}
+
+bool IsBocaClientTypeForSpeechRecognitionEnabled() {
+  return base::FeatureList::IsEnabled(kBocaClientTypeForSpeechRecognition);
+}
+
+bool IsBocaAdjustCaptionBubbleOnExpandEnabled() {
+  return base::FeatureList::IsEnabled(kBocaAdjustCaptionBubbleOnExpand);
+}
+
+bool IsBocaSequentialSessionLoadEnabled() {
+  return base::FeatureList::IsEnabled(kBocaSequentialSessionLoad);
 }
 
 bool IsBrightnessControlInSettingsEnabled() {
@@ -3628,6 +3676,10 @@ bool IsEOLIncentiveEnabled() {
   return base::FeatureList::IsEnabled(kEolIncentive);
 }
 
+bool IsESimEmptyActivationCodeSupportEnabled() {
+  return base::FeatureList::IsEnabled(kESimEmptyActivationCodeSupported);
+}
+
 bool IsExperimentalRgbKeyboardPatternsEnabled() {
   return base::FeatureList::IsEnabled(kExperimentalRgbKeyboardPatterns);
 }
@@ -3753,17 +3805,6 @@ bool ShouldForceEnableServerSideSpeechRecognition() {
 }
 
 bool IsForestFeatureEnabled() {
-  // If the holdback feature flag is enabled, the feature should be disabled,
-  // but only if the device is eligible for the study. Exclusion happens
-  // via hardware overlay, so it needs to be checked separately from the finch
-  // controlled holdback feature flag.
-  const bool device_excluded_from_holdback_study = base::FeatureList::IsEnabled(
-      kFeatureManagementShouldExcludeFromSysUiHoldback);
-  if (IsSysUiShouldHoldbackForestEnabled() &&
-      !device_excluded_from_holdback_study) {
-    return false;
-  }
-
   return base::FeatureList::IsEnabled(kForestFeature);
 }
 
@@ -4516,6 +4557,14 @@ bool IsShimlessRMA3pDiagnosticsAllowPermissionPolicyEnabled() {
       kShimlessRMA3pDiagnosticsAllowPermissionPolicy);
 }
 
+bool IsShimlessRMAHardwareValidationSkipEnabled() {
+  return base::FeatureList::IsEnabled(kShimlessRMAHardwareValidationSkip);
+}
+
+bool IsShimlessRMADynamicDeviceInfoInputsEnabled() {
+  return base::FeatureList::IsEnabled(kShimlessRMADynamicDeviceInfoInputs);
+}
+
 bool IsShowSharingUserInLauncherContinueSectionEnabled() {
   return IsLauncherContinueSectionWithRecentsEnabled() &&
          base::FeatureList::IsEnabled(
@@ -4550,11 +4599,6 @@ bool IsSystemTrayShadowEnabled() {
 
 bool IsSysUiShouldHoldbackDriveIntegrationEnabled() {
   return base::FeatureList::IsEnabled(kSysUiShouldHoldbackDriveIntegration) &&
-         !base::FeatureList::IsEnabled(kIgnoreM129Holdback);
-}
-
-bool IsSysUiShouldHoldbackForestEnabled() {
-  return base::FeatureList::IsEnabled(kSysUiShouldHoldbackForest) &&
          !base::FeatureList::IsEnabled(kIgnoreM129Holdback);
 }
 
@@ -4728,10 +4772,6 @@ bool IsWifiConcurrencyEnabled() {
   return base::FeatureList::IsEnabled(kWifiConcurrency);
 }
 
-bool IsWifiDirectEnabled() {
-  return base::FeatureList::IsEnabled(kWifiDirect);
-}
-
 bool IsWifiSyncAndroidEnabled() {
   return base::FeatureList::IsEnabled(kWifiSyncAndroid);
 }
@@ -4795,6 +4835,10 @@ bool UseMixedFileLauncherContinueSection() {
           base::GetFieldTrialParamByFeatureAsBool(
               features::kLauncherContinueSectionWithRecentsRollout,
               "mix_local_and_drive", false));
+}
+
+bool IsUseTokenHandleStoreEnabled() {
+  return base::FeatureList::IsEnabled(kUseTokenHandleStore);
 }
 
 }  // namespace ash::features

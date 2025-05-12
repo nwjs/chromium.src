@@ -585,8 +585,7 @@ class ComputedStyle final : public ComputedStyleBase {
 
   // column-rule-width
   GapDataList<int> ColumnRuleWidth() const {
-    if (ColumnRuleStyle().GetLegacyValue() == EBorderStyle::kNone ||
-        ColumnRuleStyle().GetLegacyValue() == EBorderStyle::kHidden) {
+    if (!BorderStyleIsVisible(ColumnRuleStyle())) {
       return GapDataList<int>(0);
     }
     return ColumnRuleWidthInternal();
@@ -602,8 +601,7 @@ class ComputedStyle final : public ComputedStyleBase {
     // contain a gap decoration, which is a visible separator (such as a line)
     // painted between adjacent boxes.
     // See https://drafts.csswg.org/css-gaps-1/#gap-decorations
-    return (!HasAutoColumnCount() || !HasAutoColumnWidth()) ||
-           IsDisplayFlexibleBox() || IsDisplayGridBox() ||
+    return SpecifiesColumns() || IsDisplayFlexibleBox() || IsDisplayGridBox() ||
            IsDisplayMasonryBox();
   }
 
@@ -986,7 +984,8 @@ class ComputedStyle final : public ComputedStyleBase {
 
   // Column utility functions.
   bool SpecifiesColumns() const {
-    return !HasAutoColumnCount() || !HasAutoColumnWidth();
+    return !HasAutoColumnCount() || !HasAutoColumnWidth() ||
+           !HasAutoColumnHeight();
   }
   bool ColumnRuleIsTransparent() const {
     return ColumnRuleColor()
@@ -1000,8 +999,8 @@ class ComputedStyle final : public ComputedStyleBase {
                                 Display() != EDisplay::kFlex)) [[likely]] {
       return false;
     }
-    return ColumnRuleWidth().GetLegacyValue() && !ColumnRuleIsTransparent() &&
-           BorderStyleIsVisible(ColumnRuleStyle().GetLegacyValue());
+    return HasRuleWidth(ColumnRuleWidth()) && !ColumnRuleIsTransparent() &&
+           BorderStyleIsVisible(ColumnRuleStyle());
   }
 
   bool RowRuleIsTransparent() const {
@@ -1011,8 +1010,8 @@ class ComputedStyle final : public ComputedStyleBase {
         .IsFullyTransparent();
   }
   bool HasRowRule() const {
-    return RowRuleWidth().GetLegacyValue() && !RowRuleIsTransparent() &&
-           BorderStyleIsVisible(RowRuleStyle().GetLegacyValue());
+    return HasRuleWidth(RowRuleWidth()) && !RowRuleIsTransparent() &&
+           BorderStyleIsVisible(RowRuleStyle());
   }
 
   bool HasGapRule() const { return HasColumnRule() || HasRowRule(); }
@@ -1097,46 +1096,20 @@ class ComputedStyle final : public ComputedStyleBase {
   // Grid axis utility functions, usable in Grid and Masonry.
   const NGGridTrackList& AutoTracks(
       GridTrackSizingDirection track_direction) const {
-    if (IsDisplayMasonryBox(Display())) {
-      DCHECK_EQ(track_direction, MasonryTrackSizingDirection())
-          << "Masonry containers have a single grid axis, we shouldn't try to "
-             "get the auto tracks of its stacking axis.";
-      return MasonryAutoTracks();
-    }
     return (track_direction == kForColumns) ? GridAutoColumns()
                                             : GridAutoRows();
   }
   const ComputedGridTrackList& TemplateTracks(
       GridTrackSizingDirection track_direction) const {
-    if (IsDisplayMasonryBox(Display())) {
-      DCHECK_EQ(track_direction, MasonryTrackSizingDirection())
-          << "Masonry containers have a single grid axis, we shouldn't try to "
-             "get the template tracks of its stacking axis.";
-      return MasonryTemplateTracks();
-    }
     return (track_direction == kForColumns) ? GridTemplateColumns()
                                             : GridTemplateRows();
   }
   const GridPosition& TrackStart(
-      const ComputedStyle& parent_style,
       GridTrackSizingDirection track_direction) const {
-    if (IsDisplayMasonryBox(parent_style.Display())) {
-      DCHECK_EQ(track_direction, parent_style.MasonryTrackSizingDirection())
-          << "Masonry containers have a single grid axis, we shouldn't try to "
-             "get the track start in the stacking axis.";
-      return MasonryTrackStart();
-    }
     return (track_direction == kForColumns) ? GridColumnStart()
                                             : GridRowStart();
   }
-  const GridPosition& TrackEnd(const ComputedStyle& parent_style,
-                               GridTrackSizingDirection track_direction) const {
-    if (IsDisplayMasonryBox(parent_style.Display())) {
-      DCHECK_EQ(track_direction, parent_style.MasonryTrackSizingDirection())
-          << "Masonry containers have a single grid axis, we shouldn't try to "
-             "get the track end in the stacking axis.";
-      return MasonryTrackEnd();
-    }
+  const GridPosition& TrackEnd(GridTrackSizingDirection track_direction) const {
     return (track_direction == kForColumns) ? GridColumnEnd() : GridRowEnd();
   }
 
@@ -1921,9 +1894,7 @@ class ComputedStyle final : public ComputedStyleBase {
 
   // Returns true if the element is HTML inert, or if 'interactivity' computes
   // to 'inert'.
-  bool IsInert() const {
-    return IsHTMLInert() || Interactivity() == EInteractivity::kInert;
-  }
+  bool IsInert() const { return IsHTMLInert() || IsCSSInert(); }
 
   // Visibility utility functions.
   bool VisibleToHitTesting() const {
@@ -2248,6 +2219,49 @@ class ComputedStyle final : public ComputedStyleBase {
   static bool BorderStyleIsVisible(EBorderStyle style) {
     return style != EBorderStyle::kNone && style != EBorderStyle::kHidden;
   }
+
+  static bool BorderStyleIsVisible(GapDataList<EBorderStyle> styles) {
+    for (const auto& style : styles.GetGapDataList()) {
+      if (!style.IsRepeaterData()) {
+        // Simple single value, check directly.
+        if (BorderStyleIsVisible(style.GetValue())) {
+          return true;
+        }
+      } else {
+        // Repeater value, check each repeated value.
+        for (const auto& repeated_style :
+             style.GetValueRepeater()->RepeatedValues()) {
+          if (BorderStyleIsVisible(repeated_style)) {
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
+  }
+
+  static bool HasRuleWidth(GapDataList<int> widths) {
+    for (const auto& width : widths.GetGapDataList()) {
+      if (!width.IsRepeaterData()) {
+        // Simple single value, check directly.
+        if (width.GetValue() != 0) {
+          return true;
+        }
+      } else {
+        // Repeater value, check each repeated value.
+        for (const auto& repeated_width :
+             width.GetValueRepeater()->RepeatedValues()) {
+          if (repeated_width != 0) {
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
+  }
+
   bool BorderObscuresBackground() const;
   void GetBorderEdgeInfo(
       BorderEdgeArray& edges,
@@ -2290,6 +2304,11 @@ class ComputedStyle final : public ComputedStyleBase {
   CORE_EXPORT blink::Color VisitedDependentColor(
       const Longhand& color_property,
       bool* is_current_color = nullptr) const;
+
+  // Used to resolve gap decoration colors for painting.
+  CORE_EXPORT blink::Color VisitedDependentGapColor(const StyleColor& gap_color,
+                                                    const ComputedStyle& style,
+                                                    bool is_column_rule) const;
 
   // Used to resolve 'context-fill' and 'context-stroke' paints
   CORE_EXPORT blink::Color VisitedDependentContextFill(
@@ -2423,7 +2442,7 @@ class ComputedStyle final : public ComputedStyleBase {
 
   LogicalSize LogicalAspectRatio() const {
     DCHECK_NE(AspectRatio().GetType(), EAspectRatioType::kAuto);
-    return AspectRatio().GetLayoutRatio().ConvertToLogical(GetWritingMode());
+    return ToLogicalSize(AspectRatio().GetLayoutRatio(), GetWritingMode());
   }
 
   EBoxSizing BoxSizingForAspectRatio() const {

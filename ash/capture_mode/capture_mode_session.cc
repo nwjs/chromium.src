@@ -67,6 +67,7 @@
 #include "base/location.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
@@ -3974,6 +3975,10 @@ bool CaptureModeSession::TakeFocusForSearchResultsPanel(bool reverse) {
 
 void CaptureModeSession::ClearPseudoFocus() {
   focus_cycler_->ClearFocus();
+}
+
+void CaptureModeSession::SetA11yOverrideWindowToSearchResultsPanel() {
+  focus_cycler_->SetA11yOverrideWindowToSearchResultsPanel();
 }
 
 }  // namespace ash

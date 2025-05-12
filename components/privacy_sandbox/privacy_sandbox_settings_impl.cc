@@ -201,11 +201,6 @@ PrivacySandboxSettingsImpl::PrivacySandboxSettingsImpl(
       base::BindRepeating(
           &PrivacySandboxSettingsImpl::OnRelatedWebsiteSetsEnabledPrefChanged,
           base::Unretained(this)));
-  pref_change_registrar_.Add(
-      prefs::kCookieControlsMode,
-      base::BindRepeating(
-          &PrivacySandboxSettingsImpl::OnCookieControlsModePrefChanged,
-          base::Unretained(this)));
 }
 
 PrivacySandboxSettingsImpl::~PrivacySandboxSettingsImpl() = default;
@@ -427,12 +422,20 @@ bool PrivacySandboxSettingsImpl::IsAttributionReportingAllowed(
           "Attestation check for Attribution Reporting on " +
               reporting_origin.Serialize() + " failed.");
     }
+    dwa::builders::PrivacySandbox_IsAttributionReportingAllowed()
+        .SetContent(reporting_origin.Serialize())
+        .SetStatus(static_cast<int64_t>(attestation_status))
+        .Record(metrics::dwa::DwaRecorder::Get());
     return false;
   }
 
   Status status =
       GetM1AdMeasurementAllowedStatus(top_frame_origin, reporting_origin);
   JoinHistogram(kIsAttributionReportingAllowedHistogram, status);
+  dwa::builders::PrivacySandbox_IsAttributionReportingAllowed()
+      .SetContent(reporting_origin.Serialize())
+      .SetStatus(static_cast<int64_t>(status))
+      .Record(metrics::dwa::DwaRecorder::Get());
   return IsAllowed(status);
 }
 
@@ -886,23 +889,6 @@ void PrivacySandboxSettingsImpl::OnRelatedWebsiteSetsEnabledPrefChanged() {
   }
 }
 
-void PrivacySandboxSettingsImpl::OnCookieControlsModePrefChanged() {
-  if (!base::FeatureList::IsEnabled(privacy_sandbox::kAddLimit3pcsSetting)) {
-    return;
-  }
-
-  CookieControlsMode mode = static_cast<CookieControlsMode>(
-      pref_change_registrar_.prefs()->GetInteger(prefs::kCookieControlsMode));
-  if (mode == CookieControlsMode::kOff ||
-      mode == CookieControlsMode::kIncognitoOnly) {
-    return;
-  }
-
-  for (Observer& obs : observers_) {
-    obs.OnRelatedWebsiteSetsEnabledChanged(AreRelatedWebsiteSetsEnabled());
-  }
-}
-
 void PrivacySandboxSettingsImpl::AddObserver(Observer* observer) {
   observers_.AddObserver(observer);
 }
@@ -1015,11 +1001,9 @@ void PrivacySandboxSettingsImpl::OnBlockAllThirdPartyCookiesChanged() {
 }
 
 bool PrivacySandboxSettingsImpl::AreRelatedWebsiteSetsEnabled() const {
-  if (tracking_protection_settings_->IsTrackingProtection3pcdEnabled() ||
-      base::FeatureList::IsEnabled(privacy_sandbox::kAddLimit3pcsSetting)) {
+  if (tracking_protection_settings_->IsTrackingProtection3pcdEnabled()) {
     return cookie_settings_->AreThirdPartyCookiesLimited();
   }
-
   return pref_service_->GetBoolean(
       prefs::kPrivacySandboxRelatedWebsiteSetsEnabled);
 }

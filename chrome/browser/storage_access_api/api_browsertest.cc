@@ -295,9 +295,6 @@ std::vector<base::test::FeatureRefAndParams> GetEnabledFeaturesForStorage(
   if (is_storage_partitioned) {
     enabled.push_back({net::features::kThirdPartyStoragePartitioning, {}});
   }
-  // WebSQL is disabled by default as of M119 (crbug/695592). Enable feature
-  // in tests during deprecation trial and enterprise policy support.
-  enabled.push_back({blink::features::kWebSQLAccess, {}});
   return enabled;
 }
 
@@ -441,10 +438,25 @@ class StorageAccessAPIBaseBrowserTest : public policy::PolicyTest {
   }
 
   void NavigateToPageWithFrame(std::string_view host,
-                               Browser* browser_ptr = nullptr) {
-    GURL main_url(https_server_.GetURL(host, "/iframe.html"));
+                               Browser* browser_ptr = nullptr,
+                               bool credentialless = false) {
+    GURL main_url(https_server_.GetURL(
+        host, credentialless ? "/iframe_credentialless.html" : "/iframe.html"));
     ASSERT_TRUE(ui_test_utils::NavigateToURL(
         browser_ptr ? browser_ptr : browser(), main_url));
+  }
+
+  void NavigateToPageWithFrameBlockingStorageAccessPermissionsPolicy(
+      std::string_view host) {
+    ASSERT_TRUE(ui_test_utils::NavigateToURL(
+        browser(),
+        https_server_.GetURL(host, base::StrCat({
+                                       "/cross_site_iframe_factory.html?",
+                                       host,
+                                       "(",
+                                       host,
+                                       "{disallow-storage-access})",
+                                   }))));
   }
 
   void NavigateToNewTabWithFrame(std::string_view host) {
@@ -3153,43 +3165,15 @@ INSTANTIATE_TEST_SUITE_P(,
                          StorageAccessAPIAutograntsWithFedCMBrowserTest,
                          testing::Bool());
 
-class StorageAccessHeadersDisabledBrowserTest
-    : public StorageAccessAPIBrowserTest {
- public:
-  std::vector<base::test::FeatureRef> GetDisabledFeatures() override {
-    return {
-        {network::features::kStorageAccessHeaders},
-    };
-  }
-};
-
-IN_PROC_BROWSER_TEST_F(StorageAccessHeadersDisabledBrowserTest, RetryHeader) {
-  SetBlockThirdPartyCookies(true);
-
-  // Pre-seed with a <A, B> permission grant.
-  NavigateToPageWithFrame(kHostA);
-  NavigateFrameTo(EchoCookiesURL(kHostB));
-  prompt_factory()->set_response_type(
-      permissions::PermissionRequestManager::ACCEPT_ALL);
-  ASSERT_TRUE(storage::test::RequestAndCheckStorageAccessForFrame(GetFrame()));
-
-  // Now attempt to use that permission grant for a B subresource fetched by an
-  // A document, without invoking the Storage Access API. The feature is
-  // disabled, so the request header is not sent and neither are cookies.
-  NavigateToPage(kHostA, "/empty.html");
-  EXPECT_THAT(
-      ContentFromFetch(GetPrimaryMainFrame(), kHostB, kRetryPath),
-      HeadersAre(UnorderedElementsAre(
-          Pair(net::HttpRequestHeaders::kCookie, kHeaderNotProvidedSentinel),
-          Pair(kSecFetchStorageAccess, kHeaderNotProvidedSentinel))));
-  EXPECT_EQ(retry_path_fetch_count_, 1);
-}
-
 class StorageAccessHeadersBrowserTest : public StorageAccessAPIBrowserTest {
  public:
   std::vector<base::test::FeatureRefAndParams> GetEnabledFeatures() override {
     return {
-        {network::features::kStorageAccessHeaders, {}},
+        // TODO(crbug.com/382291442): Remove below two once permissions policies
+        // are launched.
+        {{network::features::kPopulatePermissionsPolicyOnRequest}, {}},
+        {{network::features::kStorageAccessHeadersRespectPermissionsPolicy},
+         {}},
     };
   }
 };
@@ -3213,6 +3197,30 @@ IN_PROC_BROWSER_TEST_F(StorageAccessHeadersBrowserTest, RetryHeader) {
                   Pair(net::HttpRequestHeaders::kCookie, "cross-site=b.test"),
                   Pair(kSecFetchStorageAccess, "active"))));
   EXPECT_EQ(retry_path_fetch_count_, 2);
+}
+
+IN_PROC_BROWSER_TEST_F(StorageAccessHeadersBrowserTest,
+                       RetryHeader_WithBlockingPermissionsPolicy) {
+  SetBlockThirdPartyCookies(true);
+  SetRetryAllowedOriginFromHost(kHostA);
+
+  // Pre-seed with a <A, B> permission grant.
+  NavigateToPageWithFrame(kHostA);
+  NavigateFrameTo(EchoCookiesURL(kHostB));
+  prompt_factory()->set_response_type(
+      permissions::PermissionRequestManager::ACCEPT_ALL);
+  ASSERT_TRUE(storage::test::RequestAndCheckStorageAccessForFrame(GetFrame()));
+
+  // Now attempt to use that permission grant for a B subresource fetched by an
+  // A document, without invoking the Storage Access API.
+  NavigateToPageWithFrameBlockingStorageAccessPermissionsPolicy(kHostA);
+  EXPECT_THAT(
+      ContentFromFetch(ChildFrameAt(GetPrimaryMainFrame(), 0), kHostB,
+                       kRetryPath),
+      HeadersAre(UnorderedElementsAre(
+          Pair(net::HttpRequestHeaders::kCookie, kHeaderNotProvidedSentinel),
+          Pair(kSecFetchStorageAccess, "none"))));
+  EXPECT_EQ(retry_path_fetch_count_, 1);
 }
 
 IN_PROC_BROWSER_TEST_F(StorageAccessHeadersBrowserTest, RetryHeader_Wildcard) {
@@ -3356,6 +3364,26 @@ IN_PROC_BROWSER_TEST_F(StorageAccessHeadersBrowserTest, LoadHeader) {
 }
 
 IN_PROC_BROWSER_TEST_F(StorageAccessHeadersBrowserTest,
+                       LoadHeader_WithBlockingPermissionsPolicy) {
+  SetBlockThirdPartyCookies(true);
+
+  // Pre-seed with a <A, B> permission grant.
+  NavigateToPageWithFrame(kHostA);
+  NavigateFrameTo(EchoCookiesURL(kHostB));
+  prompt_factory()->set_response_type(
+      permissions::PermissionRequestManager::ACCEPT_ALL);
+  ASSERT_TRUE(storage::test::RequestAndCheckStorageAccessForFrame(GetFrame()));
+
+  // Now attempt to use that permission grant for a cross-site iframe, without
+  // invoking the Storage Access API.
+  NavigateToPageWithFrameBlockingStorageAccessPermissionsPolicy(kHostA);
+  NavigateFrameTo(GetURL(kHostB, "/set-header?Activate-Storage-Access: load"),
+                  nullptr, "child-0");
+  // No storage access was activated because permissions policy blocked it.
+  EXPECT_FALSE(storage::test::HasStorageAccessForFrame(GetFrame()));
+}
+
+IN_PROC_BROWSER_TEST_F(StorageAccessHeadersBrowserTest,
                        LoadHeader_NoopWithoutGrant) {
   SetBlockThirdPartyCookies(true);
 
@@ -3406,6 +3434,20 @@ IN_PROC_BROWSER_TEST_F(StorageAccessHeadersBrowserTest, RequestHeadersNone) {
   SetBlockThirdPartyCookies(true);
 
   NavigateToPageWithFrame(kHostA);
+  NavigateFrameTo(GetURL(kHostB));
+  EXPECT_THAT(ObservedRequestHeaders(),
+              Contains(Pair("/", IsSupersetOf<HeaderMapMatchers>({
+                                     Pair("Host", StartsWith(kHostB)),
+                                     Pair(kSecFetchStorageAccess, "none"),
+                                 }))));
+}
+
+IN_PROC_BROWSER_TEST_F(StorageAccessHeadersBrowserTest,
+                       RequestHeadersCredentiallessFrame) {
+  SetBlockThirdPartyCookies(true);
+
+  NavigateToPageWithFrame(kHostA, /*browser_ptr=*/nullptr,
+                          /*credentialless=*/true);
   NavigateFrameTo(GetURL(kHostB));
   EXPECT_THAT(ObservedRequestHeaders(),
               Contains(Pair("/", IsSupersetOf<HeaderMapMatchers>({
@@ -3619,18 +3661,8 @@ IN_PROC_BROWSER_TEST_F(StorageAccessHeadersWithThirdPartyCookiesBrowserTest,
   EXPECT_EQ(retry_path_fetch_count_, 1);
 }
 
-class StorageAccessHeadersWithFedCMBrowserTest
-    : public StorageAccessAPIAutograntsWithFedCMBrowserTest {
- public:
-  std::vector<base::test::FeatureRefAndParams> GetEnabledFeatures() override {
-    std::vector<base::test::FeatureRefAndParams> features =
-        StorageAccessAPIAutograntsWithFedCMBrowserTest::GetEnabledFeatures();
-    features.push_back({network::features::kStorageAccessHeaders, {}});
-    return features;
-  }
-};
-
-IN_PROC_BROWSER_TEST_P(StorageAccessHeadersWithFedCMBrowserTest, RetryHeader) {
+IN_PROC_BROWSER_TEST_P(StorageAccessAPIAutograntsWithFedCMBrowserTest,
+                       RetryHeader) {
   SetBlockThirdPartyCookies(true);
   SetRetryAllowedOriginFromHost(kHostA);
   GrantFedCMPermission();
@@ -3652,9 +3684,6 @@ IN_PROC_BROWSER_TEST_P(StorageAccessHeadersWithFedCMBrowserTest, RetryHeader) {
           Pair(kSecFetchStorageAccess, "none"))));
   EXPECT_EQ(retry_path_fetch_count_, 1);
 }
-INSTANTIATE_TEST_SUITE_P(,
-                         StorageAccessHeadersWithFedCMBrowserTest,
-                         testing::Bool());
 
 class StorageAccessAPIWindowOpenTestBase
     : public StorageAccessAPIBaseBrowserTest {

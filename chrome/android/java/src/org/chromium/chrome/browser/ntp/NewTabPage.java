@@ -12,7 +12,6 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Point;
 import android.graphics.Rect;
-import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -139,6 +138,7 @@ public class NewTabPage
     private final ActivityLifecycleDispatcher mActivityLifecycleDispatcher;
 
     private final String mTitle;
+    private final Point mLastTouchPosition = new Point(-1, -1);
     private final JankTracker mJankTracker;
     private final Context mContext;
     private final int mBackgroundColor;
@@ -409,6 +409,10 @@ public class NewTabPage
             if (mIsDestroyed) return;
             mIsLoaded = true;
             NewTabPageUma.recordNtpImpression(NewTabPageUma.NTP_IMPRESSION_REGULAR);
+
+            var state = NewTabPageCreationState.from(mTab);
+            if (state != null) state.onNtpLoaded(this);
+
             // If not visible when loading completes, wait until onShown is received.
             if (!mTab.isHidden()) recordNtpShown();
         }
@@ -457,7 +461,7 @@ public class NewTabPage
      * @param lifecycleDispatcher Activity lifecycle dispatcher.
      * @param tabModelSelector {@link TabModelSelector} object.
      * @param isTablet {@code true} if running on a Tablet device.
-     * @param uma {@link NewTabPageUma} object recording user metrics.
+     * @param tabCreationTracker {@link NewTabPageCreationTracker} object recording user metrics.
      * @param isInNightMode {@code true} if the night mode setting is on.
      * @param nativePageHost The host that is showing this new tab page.
      * @param tab The {@link Tab} that contains this new tab page.
@@ -482,7 +486,7 @@ public class NewTabPage
             ActivityLifecycleDispatcher lifecycleDispatcher,
             TabModelSelector tabModelSelector,
             boolean isTablet,
-            NewTabPageUma uma,
+            NewTabPageCreationTracker tabCreationTracker,
             boolean isInNightMode,
             NativePageHost nativePageHost,
             Tab tab,
@@ -606,25 +610,25 @@ public class NewTabPage
                 mCallbackController.makeCancelable(
                         unusedTabModelSelector -> mayCreateSearchResumptionModule(profile)));
 
-        getView()
-                .addOnAttachStateChangeListener(
-                        new View.OnAttachStateChangeListener() {
+        View view = getView();
+        view.addOnAttachStateChangeListener(
+                new View.OnAttachStateChangeListener() {
 
-                            @Override
-                            public void onViewAttachedToWindow(View view) {
-                                updateMargins();
-                                getView().removeOnAttachStateChangeListener(this);
-                            }
+                    @Override
+                    public void onViewAttachedToWindow(View view) {
+                        updateMargins();
+                        view.removeOnAttachStateChangeListener(this);
+                    }
 
-                            @Override
-                            public void onViewDetachedFromWindow(View view) {}
-                        });
+                    @Override
+                    public void onViewDetachedFromWindow(View view) {}
+                });
         mBrowserControlsStateProvider.addObserver(this);
 
         mToolbarHeight =
                 activity.getResources().getDimensionPixelSize(R.dimen.toolbar_height_no_shadow);
 
-        uma.recordContentSuggestionsDisplayStatus(profile);
+        NewTabPageUma.recordContentSuggestionsDisplayStatus(profile);
 
         // TODO(twellington): Move this somewhere it can be shared with NewTabPageView?
         Runnable closeContextMenuCallback = activity::closeContextMenu;
@@ -898,15 +902,6 @@ public class NewTabPage
     }
 
     /**
-     * Set the search box background drawable.
-     *
-     * @param drawable The search box background.
-     */
-    public void setSearchBoxBackground(Drawable drawable) {
-        mNewTabPageLayout.setSearchBoxBackground(drawable);
-    }
-
-    /**
      * @return Whether the location bar is shown in the NTP.
      */
     public boolean isLocationBarShownInNtp() {
@@ -955,6 +950,14 @@ public class NewTabPage
             mVoiceRecognitionHandler.addObserver(this);
             mNewTabPageLayout.updateActionButtonVisibility();
         }
+    }
+
+    /**
+     * Returns the last touch position in the view. It will be (-1, -1) if no touches have been
+     * received.
+     */
+    public Point getLastTouchPosition() {
+        return mLastTouchPosition;
     }
 
     @Override
@@ -1163,6 +1166,14 @@ public class NewTabPage
             Activity activity, SurfaceCoordinator coordinator, Profile profile) {
         return new NtpFeedSurfaceLifecycleManager(
                 activity, mTab, (FeedSurfaceCoordinator) coordinator);
+    }
+
+    @Override
+    public void sendMotionEventForInputTracking(MotionEvent ev) {
+        if (ev.getAction() == MotionEvent.ACTION_DOWN) {
+            mLastTouchPosition.x = Math.round(ev.getX());
+            mLastTouchPosition.y = Math.round(ev.getY());
+        }
     }
 
     @Override

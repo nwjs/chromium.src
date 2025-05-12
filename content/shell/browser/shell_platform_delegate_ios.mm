@@ -227,21 +227,24 @@ std::unique_ptr<content::ScopedAccessibilityMode> _scoped_accessibility_mode;
   ]];
 
   _contentView.translatesAutoresizingMaskIntoConstraints = NO;
+
   [NSLayoutConstraint activateConstraints:@[
     [_contentView.topAnchor
         constraintEqualToAnchor:_headerBackgroundView.bottomAnchor],
     [_contentView.leadingAnchor
-        constraintEqualToAnchor:self.view.leadingAnchor],
+        constraintEqualToAnchor:self.view.safeAreaLayoutGuide.leadingAnchor],
     [_contentView.trailingAnchor
-        constraintEqualToAnchor:self.view.trailingAnchor],
-    [_contentView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
+        constraintEqualToAnchor:self.view.safeAreaLayoutGuide.trailingAnchor],
+    [_contentView.bottomAnchor
+        constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor],
   ]];
 
   // Enable Accessibility if VoiceOver is already running.
   if (UIAccessibilityIsVoiceOverRunning()) {
     _scoped_accessibility_mode =
         content::BrowserAccessibilityState::GetInstance()
-            ->CreateScopedModeForProcess(ui::kAXModeComplete);
+            ->CreateScopedModeForProcess(ui::kAXModeComplete |
+                                         ui::AXMode::kFromPlatform);
   }
 
   // Register for VoiceOver notifications.
@@ -426,7 +429,8 @@ std::unique_ptr<content::ScopedAccessibilityMode> _scoped_accessibility_mode;
       content::BrowserAccessibilityState::GetInstance();
   if (UIAccessibilityIsVoiceOverRunning()) {
     _scoped_accessibility_mode =
-        accessibility_state->CreateScopedModeForProcess(ui::kAXModeComplete);
+        accessibility_state->CreateScopedModeForProcess(
+            ui::kAXModeComplete | ui::AXMode::kFromPlatform);
     accessibility_state->SetScreenReaderAppActive(true);
   } else {
     _scoped_accessibility_mode.reset();

@@ -20,7 +20,7 @@ import {getCss} from './app.css.js';
 import {getHtml} from './app.html.js';
 import {AppStyleUpdater} from './app_style_updater.js';
 import type {SettingsPrefs} from './common.js';
-import {getCurrentSpeechRate, isHtmlElementVisible, isWhitespace, minOverflowLengthToScroll, playFromSelectionTimeout} from './common.js';
+import {getCurrentSpeechRate, isHtmlElementVisible, minOverflowLengthToScroll, playFromSelectionTimeout} from './common.js';
 import type {LanguageToastElement} from './language_toast.js';
 import {ReadAnythingLogger, TimeFrom} from './read_anything_logger.js';
 import type {ReadAnythingToolbarElement} from './read_anything_toolbar.js';
@@ -51,15 +51,7 @@ const IGNORED_HIGHLIGHT_CHARACTERS_REGEX: RegExp = /^[.,!?'"(){}\[\]]+$/;
 
 // The maximum speech length that should be used with remote voices
 // due to a TTS engine bug with voices timing out on too-long text.
-export const MAX_SPEECH_LENGTH_FOR_REMOTE_VOICES: number = 175;
-
-// This corresponds to what would be more than a 2 second delay between
-// sentences.
-export const MAX_SPEECH_LENGTH_FOR_WORD_BOUNDARIES: number = 250;
-
-// Punctuation that is reasonable to splice audio on if text is too long.
-const SPLICEABLE_PUNCTUATION_ARRAY = [',', '(', ')', '-', '[', ']', '{', '}'];
-
+export const MAX_SPEECH_LENGTH: number = 175;
 
 // A two-way map where each key is unique and each value is unique. The keys are
 // DOM nodes and the values are numbers, representing AXNodeIDs.
@@ -80,6 +72,15 @@ class TwoWayMap<K, V> extends Map<K, V> {
   override clear() {
     super.clear();
     this.#reverseMap.clear();
+  }
+  override delete(key: K): boolean {
+    const v = this.get(key);
+    let wasReverseDeleted = false;
+    if (v) {
+      wasReverseDeleted = this.#reverseMap.delete(v);
+    }
+
+    return wasReverseDeleted && super.delete(key);
   }
 }
 
@@ -140,10 +141,9 @@ export interface WordBoundaryState {
   // just the correct index within the current string.
   // Default is 0.
   speechUtteranceStartIndex: number;
-  // If we have to break a string because the text is too long, we need to
-  // offset future word boundaries within this utterance by this offset so
-  // that they appear in the correct locations.
-  tooLongTextOffset: number;
+  // The length of the current word if it was provided by the speech engine. If
+  // not, this is 0.
+  speechUtteranceLength: number;
 }
 
 export interface AppElement {
@@ -221,11 +221,11 @@ export class AppElement extends AppElementBase {
 
   private allowAutoScroll_ = true;
   private scrollingOnSelection_ = false;
-  protected hasContent_ = false;
-  protected emptyStateImagePath_?: string;
-  protected emptyStateDarkImagePath_?: string;
-  protected emptyStateHeading_?: string;
-  protected emptyStateSubheading_ = '';
+  protected accessor hasContent_ = false;
+  protected accessor emptyStateImagePath_: string|undefined;
+  protected accessor emptyStateDarkImagePath_: string|undefined;
+  protected accessor emptyStateHeading_: string|undefined;
+  protected accessor emptyStateSubheading_ = '';
 
   private previousHighlights_: HTMLElement[] = [];
   private previousRootId_?: number;
@@ -237,7 +237,7 @@ export class AppElement extends AppElementBase {
   // the play / pause buttons normally. Otherwise, we should disable the
   // Read Aloud controls until the engine has loaded in order to provide
   // visual feedback that a voice is about to be spoken.
-  private speechEngineLoaded_: boolean = true;
+  private accessor speechEngineLoaded_: boolean = true;
 
   // The extension is responsible for installing the Natural voices. We need to
   // keep track of whether the extension is being responsive. If not, the
@@ -250,7 +250,7 @@ export class AppElement extends AppElementBase {
   // when the current distillation finishes, we re-distill immediately. In that
   // case we shouldn't allow playing speech until the next distillation to avoid
   // resetting speech right after starting it.
-  private willDrawAgainSoon_: boolean = false;
+  private accessor willDrawAgainSoon_: boolean = false;
 
   // After the first utterance has been spoken, we should assume that the
   // speech engine has loaded, and we shouldn't adjust the play / pause
@@ -263,11 +263,11 @@ export class AppElement extends AppElementBase {
   // request the install.
   private waitingForNewEngine_ = false;
 
-  protected selectedVoice_: SpeechSynthesisVoice|undefined;
+  protected accessor selectedVoice_: SpeechSynthesisVoice|undefined;
   // The set of languages currently enabled for use by Read Aloud. This
   // includes user-enabled languages and auto-downloaded languages. The former
   // are stored in preferences. The latter are not.
-  enabledLangs: string[] = [];
+  accessor enabledLangs: string[] = [];
 
   // These are languages that don't exist when restoreEnabledLanguagesFromPref()
   // is first called when the engine is getting set up. We need to disable
@@ -280,18 +280,18 @@ export class AppElement extends AppElementBase {
   possiblyDisabledLangs: string[] = [];
 
   // All possible available voices for the current speech engine.
-  protected availableVoices_: SpeechSynthesisVoice[] = [];
+  protected accessor availableVoices_: SpeechSynthesisVoice[] = [];
   // The set of languages found in availableVoices.
   private availableLangs_: string[] = [];
   // If a preview is playing, this is set to the voice the preview is playing.
   // Otherwise, this is undefined.
-  protected previewVoicePlaying_?: SpeechSynthesisVoice;
+  protected accessor previewVoicePlaying_: SpeechSynthesisVoice|undefined;
 
-  protected localeToDisplayName_: {[locale: string]: string} = {};
+  protected accessor localeToDisplayName_: {[locale: string]: string} = {};
 
   // Our local representation of the status of voice pack downloads and
   // availability
-  private voiceStatusLocalState_:
+  private accessor voiceStatusLocalState_:
       {[language: string]: VoiceClientSideStatusCode} = {};
 
   // Cache of responses from LanguagePackManager
@@ -309,7 +309,7 @@ export class AppElement extends AppElementBase {
   private logger_: ReadAnythingLogger = ReadAnythingLogger.getInstance();
   private styleUpdater_: AppStyleUpdater;
   private speech_: SpeechBrowserProxy;
-  protected settingsPrefs_: SettingsPrefs = {
+  protected accessor settingsPrefs_: SettingsPrefs = {
     letterSpacing: 0,
     lineSpacing: 0,
     theme: 0,
@@ -321,7 +321,7 @@ export class AppElement extends AppElementBase {
   // State for speech synthesis paused/play state needs to be tracked explicitly
   // because there are bugs with window.speechSynthesis.paused and
   // window.speechSynthesis.speaking on some platforms.
-  speechPlayingState: SpeechPlayingState = {
+  accessor speechPlayingState: SpeechPlayingState = {
     isSpeechTreeInitialized: false,
     isSpeechActive: false,
     pauseSource: PauseActionSource.DEFAULT,
@@ -330,13 +330,13 @@ export class AppElement extends AppElementBase {
     isSpeechBeingRepositioned: false,
   };
 
-  private imagesEnabled: boolean = false;
+  private accessor imagesEnabled: boolean = false;
 
   wordBoundaryState: WordBoundaryState = {
     mode: WordBoundaryMode.BOUNDARIES_NOT_SUPPORTED,
     speechUtteranceStartIndex: 0,
     previouslySpokenIndex: 0,
-    tooLongTextOffset: 0,
+    speechUtteranceLength: 0,
   };
 
   // If the node id of the first text node that should be used by Read Aloud
@@ -455,24 +455,13 @@ export class AppElement extends AppElementBase {
             anchorNodeId, anchorOffset, focusNodeId, focusOffset);
       }
 
-      // If there's been a selection, clear the current
-      // Read Aloud highlight.
-      const elements =
-          this.shadowRoot?.querySelectorAll('.' + currentReadHighlightClass);
-      if (elements && anchorNodeId && focusNodeId) {
-        elements.forEach(el => el.classList.remove(currentReadHighlightClass));
+      // If there's been a selection, clear the current Read Aloud highlight.
+      if (anchorNodeId && focusNodeId) {
+        // If speech is resumed, this won't be restored.
+        // TODO: crbug.com/40927698 - Restore the previous highlight after
+        // speech is resumed after a selection.
+        this.clearHighlightFormatting_();
       }
-
-      // Clear the previously read highlight if there's been a selection.
-      // If speech is resumed, this won't be restored.
-      // TODO: crbug.com/40927698 - Restore the previous highlight after speech
-      // is resumed after a selection.
-      this.previousHighlights_.forEach((element) => {
-        if (element) {
-          element.classList.remove(previousReadHighlightClass);
-        }
-      });
-      this.previousHighlights_ = [];
     };
 
     this.$.containerParent.onscroll = () => {
@@ -546,6 +535,25 @@ export class AppElement extends AppElementBase {
     chrome.readingMode.onTtsEngineInstalled = () => {
       this.onTtsEngineInstalled();
     };
+
+    chrome.readingMode.onNodeWillBeDeleted = (nodeId: number) => {
+      this.onNodeWillBeDeleted(nodeId);
+    };
+  }
+
+  private clearHighlightFormatting_() {
+    const elements =
+        this.shadowRoot?.querySelectorAll('.' + currentReadHighlightClass);
+    if (elements) {
+      elements.forEach(el => el.classList.remove(currentReadHighlightClass));
+    }
+
+    this.previousHighlights_.forEach((element) => {
+      if (element) {
+        element.classList.remove(previousReadHighlightClass);
+      }
+    });
+    this.previousHighlights_ = [];
   }
 
   private getOffsetInAncestor(node: Node): number {
@@ -732,17 +740,14 @@ export class AppElement extends AppElementBase {
 
     // This shouldn't happen. If it does, there is likely a bug, so log it so
     // we can monitor it.
-    if (this.speechPlayingState.isAudioCurrentlyPlaying) {
+    if (this.speechPlayingState.isSpeechActive) {
       console.error(
-          'updateContent called while audio is currently playing. ',
+          'updateContent called while speech is active. ',
           'There may be a bug.');
       this.logger_.logSpeechStopSource(
           chrome.readingMode.unexpectedUpdateContentStopSource);
     }
-    const hadSpeechBeenTriggered =
-        this.speechPlayingState.hasSpeechBeenTriggered;
-    const hadWordBoundaries =
-        this.wordBoundaryState.mode === WordBoundaryMode.BOUNDARY_DETECTED;
+    const previousSpeechPlayingState = {...this.speechPlayingState};
     const previousWordBoundaryState = {...this.wordBoundaryState};
 
     this.speech_.cancel();
@@ -768,9 +773,17 @@ export class AppElement extends AppElementBase {
 
     this.willDrawAgainSoon_ = chrome.readingMode.requiresDistillation;
     const node = this.buildSubtree_(rootId);
-    // If there is not text or images in the node, do not prodeed. The empty
+    // If there is no text or images in the tree, do not proceed. The empty
     // state container will show instead.
     if (!node.textContent && this.imageNodeIdsToFetch_.size === 0) {
+      // Sometimes the controller thinks there will be content and redraws
+      // without showing the empty page, but we end up not actually having any
+      // content and also not showing the empty page sometimes. In this case,
+      // send that info back to the controller.
+      if (this.hasContent_) {
+        this.hasContent_ = false;
+        chrome.readingMode.onNoTextContent();
+      }
       return;
     }
 
@@ -793,31 +806,23 @@ export class AppElement extends AppElementBase {
 
     // If the previous reading position still exists and we haven't reached the
     // end of speech, keep that spot.
-    if (hadSpeechBeenTriggered) {
+    if (previousSpeechPlayingState.hasSpeechBeenTriggered) {
       this.setPreviousReadingPositionIfExists_(
-          hadWordBoundaries, previousWordBoundaryState);
+          previousWordBoundaryState, previousSpeechPlayingState);
     }
   }
 
   private setPreviousReadingPositionIfExists_(
-      hadWordBoundaries: boolean,
-      previousWordBoundaryState: WordBoundaryState) {
+      previousWordBoundaryState: WordBoundaryState,
+      previousSpeechPlayingState: SpeechPlayingState) {
     if (this.lastReadingId_ === null || this.lastReadingOffset_ === null) {
       return;
     }
 
     if (this.domNodeToAxNodeIdMap_.keyFrom(this.lastReadingId_)) {
-      this.speechPlayingState = {
-        ...this.speechPlayingState,
-        hasSpeechBeenTriggered: true,
-      };
       this.movePlaybackToNode_(this.lastReadingId_, this.lastReadingOffset_);
-      // If there were word boundaries before the content was updated and we can
-      // restore the reading position, restore the word boundary state so that
-      // we can restore the specific word we stopped on.
-      if (hadWordBoundaries) {
-        this.wordBoundaryState = {...previousWordBoundaryState};
-      }
+      this.speechPlayingState = {...previousSpeechPlayingState};
+      this.wordBoundaryState = {...previousWordBoundaryState};
       // Since we're setting the reading position after a content update when
       // we're paused, redraw the highlight after moving the traversal state to
       // the right spot above.
@@ -1543,7 +1548,8 @@ export class AppElement extends AppElementBase {
     this.resetToDefaultWordBoundaryState();
     chrome.readingMode.movePositionToPreviousGranularity();
 
-    if (!this.highlightAndPlayMessage()) {
+    if (!this.highlightAndPlayMessage(/*isInterrupted=*/ false,
+                                      /*isMovingBackward=*/ true)) {
       this.onSpeechFinished();
     }
   }
@@ -1703,19 +1709,26 @@ export class AppElement extends AppElementBase {
       return false;
     }
 
-    const {anchorNodeId, anchorOffset, focusNodeId, focusOffset} =
-        this.getSelectedIds();
+    const anchorNodeId = chrome.readingMode.startNodeId;
+    const anchorOffset = chrome.readingMode.startOffset;
+    const focusNodeId = chrome.readingMode.endNodeId;
+    const focusOffset = chrome.readingMode.endOffset;
+
     // If only one of the ids is present, use that one.
     let startingNodeId: number|undefined =
         anchorNodeId ? anchorNodeId : focusNodeId;
     let startingOffset = anchorNodeId ? anchorOffset : focusOffset;
     // If both are present, start with the node that is sooner in the page.
     if (anchorNodeId && focusNodeId) {
-      const pos =
-          selection.anchorNode.compareDocumentPosition(selection.focusNode);
-      const focusIsFirst = pos === Node.DOCUMENT_POSITION_PRECEDING;
-      startingNodeId = focusIsFirst ? focusNodeId : anchorNodeId;
-      startingOffset = focusIsFirst ? focusOffset : anchorOffset;
+      if (anchorNodeId === focusNodeId) {
+        startingOffset = Math.min(anchorOffset, focusOffset);
+      } else {
+        const pos =
+            selection.anchorNode.compareDocumentPosition(selection.focusNode);
+        const focusIsFirst = pos === Node.DOCUMENT_POSITION_PRECEDING;
+        startingNodeId = focusIsFirst ? focusNodeId : anchorNodeId;
+        startingOffset = focusIsFirst ? focusOffset : anchorOffset;
+      }
     }
 
     if (!startingNodeId) {
@@ -1774,7 +1787,9 @@ export class AppElement extends AppElementBase {
   // following text.
   // TODO: crbug.com/1474951 - Investigate using AXRange.GetText to get text
   // between start node / end nodes and their offsets.
-  highlightAndPlayMessage(isInterrupted: boolean = false): boolean {
+  highlightAndPlayMessage(
+      isInterrupted: boolean = false,
+      isMovingBackward: boolean = false): boolean {
     // getCurrentText gets the AX Node IDs of text that should be spoken and
     // highlighted.
     const axNodeIds: number[] = chrome.readingMode.getCurrentText();
@@ -1786,27 +1801,19 @@ export class AppElement extends AppElementBase {
     }
 
     if (axNodeIds.every(id => this.hiddenImageNodesIds_.has(id))) {
-      chrome.readingMode.movePositionToNextGranularity();
-      return this.highlightAndPlayMessage(isInterrupted);
+      return this.skipCurrentPosition_(isInterrupted, isMovingBackward);
     }
 
     const utteranceText = this.extractTextOf(axNodeIds);
     // If node ids were returned but they don't exist in the Reading Mode panel,
     // there's been a mismatch between Reading Mode and Read Aloud. In this
     // case, we should move to the next Read Aloud node and attempt to continue
-    // playing.
-    if (!utteranceText) {
-      // TODO: crbug.com/332694565 - This fallback should never be needed, but
-      // it is. Investigate root cause of Read Aloud / Reading Mode mismatch.
-      chrome.readingMode.movePositionToNextGranularity();
-      return this.highlightAndPlayMessage(isInterrupted);
-    }
-
-    // The TTS engine may not like attempts to speak whitespace, so move to the
-    // next utterance.
-    if (utteranceText.trim().length === 0) {
-      chrome.readingMode.movePositionToNextGranularity();
-      return this.highlightAndPlayMessage(isInterrupted);
+    // playing. TODO: crbug.com/332694565 - This fallback should never be
+    // needed, but it is. Investigate root cause of Read Aloud / Reading Mode
+    // mismatch. Additionally, the TTS engine may not like attempts to speak
+    // whitespace, so move to the next utterance in that case.
+    if (!utteranceText || utteranceText.trim().length === 0) {
+      return this.skipCurrentPosition_(isInterrupted, isMovingBackward);
     }
 
     // If we're resuming a previously interrupted message, use word
@@ -1820,11 +1827,14 @@ export class AppElement extends AppElementBase {
       this.wordBoundaryState.speechUtteranceStartIndex = substringIndex;
       const utteranceTextForWordBoundary =
           utteranceText.substring(substringIndex);
-      // Don't use the word boundary if it's going to cause a TTS engine issue.
-      if (utteranceTextForWordBoundary.trim().length === 0) {
-        this.playText(utteranceText);
+      // If we paused right at the end of the sentence, no need to speak the
+      // ending punctuation.
+      if (isInvalidHighlightForWordHighlighting(
+              utteranceTextForWordBoundary.trim())) {
+        this.resetToDefaultWordBoundaryState();
+        return this.skipCurrentPosition_(isInterrupted, isMovingBackward);
       } else {
-        this.playText(utteranceText.substring(substringIndex));
+        this.playText(utteranceTextForWordBoundary);
       }
     } else {
       this.playText(utteranceText);
@@ -1832,6 +1842,16 @@ export class AppElement extends AppElementBase {
 
     this.highlightCurrentGranularity(axNodeIds);
     return true;
+  }
+
+  private skipCurrentPosition_(
+      isInterrupted: boolean, isMovingBackward: boolean): boolean {
+    if (isMovingBackward) {
+      chrome.readingMode.movePositionToPreviousGranularity();
+    } else {
+      chrome.readingMode.movePositionToNextGranularity();
+    }
+    return this.highlightAndPlayMessage(isInterrupted, isMovingBackward);
   }
 
   // Highlights or rehighlights the current granularity, sentence or word.
@@ -1874,40 +1894,19 @@ export class AppElement extends AppElementBase {
 
   // Gets the accessible text boundary for the given string.
   getAccessibleTextLength(utteranceText: string): number {
-    const maxSpeechLength = this.selectedVoice_?.localService ?
-        MAX_SPEECH_LENGTH_FOR_WORD_BOUNDARIES :
-        MAX_SPEECH_LENGTH_FOR_REMOTE_VOICES;
+    // Splicing on commas won't work for all locales, but since this is a
+    // simple strategy for splicing text in languages that do use commas
+    // that reduces the need for calling getAccessibleBoundary.
+    // TODO(crbug.com/40927698): Investigate if we can utilize comma splices
+    // directly in the utils methods called by #getAccessibleBoundary.
+    const lastCommaIndex =
+        utteranceText.substring(0, MAX_SPEECH_LENGTH).lastIndexOf(', ');
 
-    // Splicing on punctuation won't work for all locales, but since this is a
-    // simple strategy for splicing text in languages that do use these
-    // characters that reduces the need for calling getAccessibleBoundary.
-    // Since these characters will be searched for in-order, they should
-    // be listed in priority order for most likely to be a reasonable splice.
-    // TODO: crub.com/1474951 - Investigate if we can utilize comma splices
-    // and splices on other punctuation directly in the utils methods called by
-    // #getAccessibleBoundary.
-    for (const punctuationString of SPLICEABLE_PUNCTUATION_ARRAY) {
-      let utteranceSubstring = utteranceText.substring(0, maxSpeechLength);
-      let lastPunctuationIndex =
-          utteranceSubstring.lastIndexOf(punctuationString);
-
-      // If we're not in a valid splicing position, try to find another
-      // instance of the current punctuation in the string before moving
-      // on to the next punctuation.
-      while (!this.isValidSplicePosition(
-          lastPunctuationIndex, punctuationString, utteranceSubstring,
-          maxSpeechLength)) {
-        utteranceSubstring = utteranceText.substring(0, lastPunctuationIndex);
-        lastPunctuationIndex =
-            utteranceSubstring.lastIndexOf(punctuationString);
-      }
-
-      // To prevent infinite looping, only use the lastCommaIndex if it's not
-      // the first character. Otherwise, use getAccessibleBoundary to prevent
-      // repeatedly splicing on the first comma of the same substring.
-      if (lastPunctuationIndex > 0) {
-        return lastPunctuationIndex;
-      }
+    // To prevent infinite looping, only use the lastCommaIndex if it's not the
+    // first character. Otherwise, use getAccessibleBoundary to prevent
+    // repeatedly splicing on the first comma of the same substring.
+    if (lastCommaIndex > 0) {
+      return lastCommaIndex;
     }
 
     // TODO: crbug.com/40927698 - getAccessibleBoundary breaks on the nearest
@@ -1915,49 +1914,19 @@ export class AppElement extends AppElementBase {
     // it would be preferable to break on the punctuation so the pause in
     // speech sounds more natural.
     return chrome.readingMode.getAccessibleBoundary(
-        utteranceText, maxSpeechLength);
-  }
-
-  // crbug.com/400786507- If we can't find a better permanent solution for
-  // long delays between sentences, we should look into using
-  // phrase highlighting and / or other i18n libraries here to reduce
-  // duplication and make this more robust.
-  private isValidSplicePosition(
-      splicePosition: number, spliceCharacter: string, utteranceText: string,
-      maxSpeechLength: number): boolean {
-    if (spliceCharacter !== ',' && spliceCharacter !== '-') {
-      return true;
-    }
-
-    if (splicePosition > 0 && splicePosition < maxSpeechLength) {
-      const previousChar = utteranceText.charAt(splicePosition - 1);
-      const nextChar = utteranceText.charAt(splicePosition + 1);
-      // We shouldn't splice on hyphens between two non-whitespace characters.
-      // e.g. twenty-five or 10-4
-      if (spliceCharacter === '-' && !isWhitespace(previousChar) &&
-          !isWhitespace(nextChar)) {
-        return false;
-      }
-
-      // If the previous and next characters are both numbers, don't splice
-      // here to avoid splicing on numbers like 10,000.
-      if (!isNaN(parseInt(previousChar)) && !isNaN(parseInt(nextChar))) {
-        return false;
-      }
-    }
-    return true;
+        utteranceText, MAX_SPEECH_LENGTH);
   }
 
   private playText(utteranceText: string) {
     // This check is needed due limits of TTS audio for remote voices. See
     // crbug.com/1176078 for more details.
-    // This check is also needed for local voices on Windows, Linux, and Mac
-    // to reduce the delay between sentences. See crbug.com/395909372.
     // Since the TTS bug only impacts remote voices, no need to check for
     // maximum text length if we're using a local voice. If we do somehow
     // attempt to speak text that's too long, this will be able to be handled
     // by listening for a text-too-long error in message.onerror.
-    const isTextTooLong = this.isTextTooLong(utteranceText.length);
+    const isTextTooLong = this.selectedVoice_?.localService ?
+        false :
+        utteranceText.length > MAX_SPEECH_LENGTH;
     const endBoundary = isTextTooLong ?
         this.getAccessibleTextLength(utteranceText) :
         utteranceText.length;
@@ -1979,7 +1948,7 @@ export class AppElement extends AppElementBase {
       // the sentence granularity level, so we'll retrieve these boundaries in
       // message.onEnd instead.
       if (event.name === 'word') {
-        this.updateBoundary(event.charIndex);
+        this.updateBoundary(event.charIndex, event.charLength);
 
         // No need to update the highlight on word boundary events if
         // highlighting is off or if sentence highlighting is used.
@@ -2015,20 +1984,6 @@ export class AppElement extends AppElementBase {
 
     message.onend = () => {
       if (isTextTooLong) {
-        // If we've had to splice the text because it was too long, we
-        // should offset word boundary highlights by how long the previous
-        // part of the text segment was. Otherwise, highlights will always
-        // show on the first part of the segment.
-        // e.g. with the phrase "This is a long sentence." if we splice the
-        // sentence into "This is a long" and "sentence," when we speak
-        // "sentence," we need to offset the highlight by the length of
-        // "This is a long" to ensure that "sentence" is highlighted and "This"
-        // is not.
-        this.wordBoundaryState = {
-          ...this.wordBoundaryState,
-          tooLongTextOffset:
-              this.wordBoundaryState.tooLongTextOffset + endBoundary,
-        };
         // Since our previous utterance was too long, continue speaking pieces
         // of the current utterance until the utterance is complete. The
         // entire utterance is highlighted, so there's no need to update
@@ -2160,10 +2115,10 @@ export class AppElement extends AppElementBase {
     this.stopSpeech(PauseActionSource.DEFAULT);
   }
 
-  updateBoundary(charIndex: number) {
-    this.wordBoundaryState.previouslySpokenIndex =
-        charIndex + this.wordBoundaryState.tooLongTextOffset;
+  updateBoundary(charIndex: number, charLength: number = 0) {
+    this.wordBoundaryState.previouslySpokenIndex = charIndex;
     this.wordBoundaryState.mode = WordBoundaryMode.BOUNDARY_DETECTED;
+    this.wordBoundaryState.speechUtteranceLength = charLength;
   }
 
   resetToDefaultWordBoundaryState(
@@ -2185,23 +2140,8 @@ export class AppElement extends AppElementBase {
           WordBoundaryMode.NO_BOUNDARIES :
           WordBoundaryMode.BOUNDARIES_NOT_SUPPORTED,
       speechUtteranceStartIndex: 0,
-      tooLongTextOffset: 0,
+      speechUtteranceLength: 0,
     };
-  }
-
-
-  isTextTooLong(textLength: number): boolean {
-    const maxSpeechLength = this.selectedVoice_?.localService ?
-        MAX_SPEECH_LENGTH_FOR_WORD_BOUNDARIES :
-        MAX_SPEECH_LENGTH_FOR_REMOTE_VOICES;
-
-    if (!chrome.readingMode.isChromeOsAsh && this.selectedVoice_ &&
-        isNatural(this.selectedVoice_)) {
-      return textLength > maxSpeechLength;
-    }
-
-    return this.selectedVoice_?.localService ? false :
-                                               textLength > maxSpeechLength;
   }
 
   private extractTextOf(axNodeIds: number[]): string {
@@ -2240,13 +2180,15 @@ export class AppElement extends AppElementBase {
     this.resetPreviousHighlight_();
     const index = this.wordBoundaryState.speechUtteranceStartIndex +
         this.wordBoundaryState.previouslySpokenIndex;
+    const length = this.wordBoundaryState.speechUtteranceLength;
+
     const highlightNodes =
         chrome.readingMode.getHighlightForCurrentSegmentIndex(
             index, highlightPhrases);
     let anyHighlighted: boolean = false;
     for (const highlightNode of highlightNodes) {
       const nodeId = highlightNode.nodeId;
-      const highlightLength: number = highlightNode.length;
+      const highlightLength: number = length ? length : highlightNode.length;
       const highlightStartIndex = highlightNode.start;
       const endIndex = highlightStartIndex + highlightLength;
       const element = this.domNodeToAxNodeIdMap_.keyFrom(nodeId);
@@ -2418,8 +2360,6 @@ export class AppElement extends AppElementBase {
     if (chrome.readingMode.linksEnabled) {
       this.updateLinks_();
     }
-    // Clear the formatting we added for highlighting.
-    this.updateContent();
     this.logSpeechPlaySession_();
   }
 
@@ -2433,7 +2373,7 @@ export class AppElement extends AppElementBase {
       isSpeechBeingRepositioned: false,
     };
 
-    this.previousHighlights_ = [];
+    this.clearHighlightFormatting_();
     this.resetToDefaultWordBoundaryState();
   }
 
@@ -2783,6 +2723,19 @@ export class AppElement extends AppElementBase {
 
   onTtsEngineInstalled() {
     this.waitingForNewEngine_ = true;
+  }
+
+  onNodeWillBeDeleted(nodeId: number) {
+    const deletedNode = this.domNodeToAxNodeIdMap_.keyFrom(nodeId) as ChildNode;
+    if (deletedNode) {
+      this.domNodeToAxNodeIdMap_.delete(deletedNode);
+      deletedNode.remove();
+    }
+    const root = this.domNodeToAxNodeIdMap_.keyFrom(chrome.readingMode.rootId);
+    if (this.hasContent_ && !root?.textContent) {
+      this.hasContent_ = false;
+      chrome.readingMode.onNoTextContent();
+    }
   }
 
   languageChanged() {

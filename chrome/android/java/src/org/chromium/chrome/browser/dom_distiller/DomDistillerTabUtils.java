@@ -12,6 +12,7 @@ import org.chromium.base.ResettersForTesting;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.components.dom_distiller.core.DomDistillerFeatures;
 import org.chromium.components.navigation_interception.InterceptNavigationDelegate;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.content_public.browser.WebContents;
@@ -102,10 +103,14 @@ public class DomDistillerTabUtils {
      * Check if the distiller should report mobile-friendly pages as non-distillable.
      *
      * @return True if heuristic is ADABOOST_MODEL, and "Simplified view for accessibility" is
-     *     disabled.
+     *     disabled. Or false under certain experimental conditions.
      */
     public static boolean shouldExcludeMobileFriendly(Tab tab) {
         if (sExcludeMobileFriendlyForTesting != null) return sExcludeMobileFriendlyForTesting;
+        if (DomDistillerFeatures.triggerOnMobileFriendlyPages()) {
+            return false;
+        }
+
         return !isReaderModeAccessibilitySettingEnabled(tab.getProfile())
                 && getDistillerHeuristics() == DistillerHeuristicsType.ADABOOST_MODEL;
     }

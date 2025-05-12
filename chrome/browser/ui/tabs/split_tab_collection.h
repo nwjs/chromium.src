@@ -5,88 +5,32 @@
 #ifndef CHROME_BROWSER_UI_TABS_SPLIT_TAB_COLLECTION_H_
 #define CHROME_BROWSER_UI_TABS_SPLIT_TAB_COLLECTION_H_
 
-#include <memory>
-#include <optional>
-
-#include "chrome/browser/ui/tabs/split_tab_id.h"
 #include "chrome/browser/ui/tabs/tab_collection.h"
-#include "url/gurl.h"
+#include "components/tabs/public/split_tab_id.h"
+
+namespace split_tabs {
+class SplitTabData;
+class SplitTabVisualData;
+}
 
 namespace tabs {
 
-class TabModel;
-class TabCollectionStorage;
-
-enum class SplitTabLayout { kHorizontal, kVertical };
-
+// A collection for split tabs.
 class SplitTabCollection : public TabCollection {
  public:
-  explicit SplitTabCollection(split_tabs::SplitTabId split_id);
+  explicit SplitTabCollection(split_tabs::SplitTabId split_id,
+                              split_tabs::SplitTabVisualData visual_data);
   ~SplitTabCollection() override;
   SplitTabCollection(const SplitTabCollection&) = delete;
   SplitTabCollection& operator=(const SplitTabCollection&) = delete;
 
-  // Adds a `tab_model` to the split at a particular index.
-  void AddTab(std::unique_ptr<TabModel> tab_model, size_t index);
+  split_tabs::SplitTabData* data() const { return split_tab_data_.get(); }
 
-  // Appends a `tab_model` to the end of the split.
-  void AppendTab(std::unique_ptr<TabModel> tab_model);
-
-  // Moves a `tab_model` to the `dst_index` within the split.
-  void MoveTab(TabModel* tab_model, size_t dst_index);
-
-  // Removes and cleans the `tab_model`.
-  void CloseTab(TabModel* tab_model);
-
-  // Returns the `split_id_` this collection is associated with.
-  split_tabs::SplitTabId GetSplitTabId() const { return split_id_; }
-
-  // Returns the tab at a direct child index in this collection. If the index is
-  // invalid it returns nullptr.
-  tabs::TabModel* GetTabAtIndex(size_t index) const;
-
-  // TabCollection:
-  bool ContainsTab(const TabInterface* tab) const override;
-
-  // This is non-recursive for split tab collection as it does not contain
-  // another collection.
-  bool ContainsTabRecursive(const TabInterface* tab) const override;
-
-  // This is false as split tab collection does not contain another
-  // collection.
-  bool ContainsCollection(TabCollection* collection) const override;
-
-  // This is non-recursive for split tab collection as it does not contain
-  // another collection.
-  std::optional<size_t> GetIndexOfTabRecursive(
-      const TabInterface* tab) const override;
-
-  // This is nullopt as split tab collection does not contain another
-  // collection.
-  std::optional<size_t> GetIndexOfCollection(
-      TabCollection* collection) const override;
-
-  std::unique_ptr<TabModel> MaybeRemoveTab(TabModel* tab_model) override;
-
-  // This is the same as number of tabs the split contains as split tab
-  // collection does not contain another collection.
-  size_t ChildCount() const override;
-
-  // TabCollection interface methods that are currently not supported by the
-  // collection.
-  std::unique_ptr<TabCollection> MaybeRemoveCollection(
-      TabCollection* collection) override;
-
-  TabCollectionStorage* GetTabCollectionStorageForTesting() {
-    return impl_.get();
-  }
+  // Returns the SplitTabId this collection is associated with.
+  split_tabs::SplitTabId GetSplitTabId() const;
 
  private:
-  // The split identifier of this collection.
-  const split_tabs::SplitTabId split_id_;
-
-  // Underlying implementation for the storage of children.
-  const std::unique_ptr<TabCollectionStorage> impl_;
+  std::unique_ptr<split_tabs::SplitTabData> split_tab_data_;
 };
 
 }  // namespace tabs

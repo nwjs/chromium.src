@@ -22,6 +22,7 @@
 #include "components/crx_file/id_util.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/test_navigation_observer.h"
+#include "extensions/browser/extension_registrar.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/common/extension_builder.h"
 #include "extensions/test/test_extension_dir.h"
@@ -63,9 +64,8 @@ ExtensionsToolbarUITest::ForceInstallExtension(const std::string& name) {
           .SetLocation(extensions::mojom::ManifestLocation::kExternalPolicy)
           .SetID(crx_file::id_util::GenerateId(name))
           .Build();
-  extensions::ExtensionSystem::Get(browser()->profile())
-      ->extension_service()
-      ->AddExtension(extension.get());
+  extensions::ExtensionRegistrar::Get(browser()->profile())
+      ->AddExtension(extension);
   return extension;
 }
 

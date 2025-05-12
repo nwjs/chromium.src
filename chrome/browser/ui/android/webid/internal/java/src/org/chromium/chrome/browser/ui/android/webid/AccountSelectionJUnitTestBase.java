@@ -154,6 +154,8 @@ public class AccountSelectionJUnitTestBase {
     Account mFilteredOutAccount;
     Account mFilteredOutAccountWithUseDifferentAccount;
     Account mNicolasAccount;
+    Account mSingleIdentifierAccount;
+    Account mSingleIdentifierAccountFilteredOut;
 
     IdentityCredentialTokenError mTokenError;
     IdentityCredentialTokenError mTokenErrorEmptyUrl;
@@ -387,6 +389,34 @@ public class AccountSelectionJUnitTestBase {
                         /* isFilteredOut= */ false,
                         mIdpData);
 
+        mSingleIdentifierAccount =
+                new Account(
+                        "singleid1",
+                        "",
+                        "username",
+                        "",
+                        /* secondaryDescription= */ null,
+                        /* pictureBitmap= */ null,
+                        /* circledBadgedPictureBitmap= */ null,
+                        /* isSignIn= */ false,
+                        /* isBrowserTrustedSignIn= */ false,
+                        /* isFilteredOut= */ false,
+                        mIdpData);
+
+        mSingleIdentifierAccountFilteredOut =
+                new Account(
+                        "singleid2",
+                        "",
+                        "username2",
+                        "",
+                        /* secondaryDescription= */ null,
+                        /* pictureBitmap= */ null,
+                        /* circledBadgedPictureBitmap= */ null,
+                        /* isSignIn= */ true,
+                        /* isBrowserTrustedSignIn= */ true,
+                        /* isFilteredOut= */ true,
+                        mIdpData);
+
         mNewAccountsSingleReturningAccount = Arrays.asList(mAnaAccount);
         mNewAccountsSingleNewAccount = Arrays.asList(mNewUserAccount);
         mNewAccountsMultipleAccounts = Arrays.asList(mAnaAccount, mBobAccount);
@@ -415,18 +445,7 @@ public class AccountSelectionJUnitTestBase {
                         /* scrollOffsetSupplier= */ null,
                         mRpMode);
         mMockModalDialogManager = new MockModalDialogManager();
-        mMediator =
-                new AccountSelectionMediator(
-                        mTab,
-                        mMockDelegate,
-                        mModel,
-                        mSheetAccountItems,
-                        mMockBottomSheetController,
-                        mBottomSheetContent,
-                        DESIRED_AVATAR_SIZE,
-                        mRpMode,
-                        mContext,
-                        mMockModalDialogManager);
+        resetMediator();
     }
 
     MVCListAdapter.ListItem buildAccountItem(Account account, boolean showIdp) {
@@ -457,5 +476,20 @@ public class AccountSelectionJUnitTestBase {
             return model.get((WritableBooleanPropertyKey) key);
         }
         return model.get((WritableObjectPropertyKey<PropertyModel>) key) != null;
+    }
+
+    void resetMediator() {
+        mMediator =
+                new AccountSelectionMediator(
+                        mTab,
+                        mMockDelegate,
+                        mModel,
+                        mSheetAccountItems,
+                        mMockBottomSheetController,
+                        mBottomSheetContent,
+                        DESIRED_AVATAR_SIZE,
+                        mRpMode,
+                        mContext,
+                        mMockModalDialogManager);
     }
 }

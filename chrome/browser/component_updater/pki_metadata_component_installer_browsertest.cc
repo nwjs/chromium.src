@@ -24,7 +24,9 @@
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/certificate_transparency/certificate_transparency_config.pb.h"
+#include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/network_service_util.h"
+#include "content/public/browser/ssl_status.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "crypto/ec_private_key.h"
@@ -844,6 +846,133 @@ IN_PROC_BROWSER_TEST_F(PKIMetadataComponentChromeRootStoreUpdateTest,
       ssl_test_util::AuthState::SHOWING_INTERSTITIAL);
 }
 
+class PKIMetadataComponentChromeRootStoreUpdateQwacTest
+    : public PKIMetadataComponentChromeRootStoreUpdateTest,
+      public testing::WithParamInterface<bool> {
+ public:
+  PKIMetadataComponentChromeRootStoreUpdateQwacTest() {
+    if (GetParam()) {
+      feature_list_.InitAndEnableFeature(net::features::kVerifyQWACs);
+    } else {
+      feature_list_.InitAndDisableFeature(net::features::kVerifyQWACs);
+    }
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+INSTANTIATE_TEST_SUITE_P(,
+                         PKIMetadataComponentChromeRootStoreUpdateQwacTest,
+                         testing::Bool());
+
+IN_PROC_BROWSER_TEST_P(PKIMetadataComponentChromeRootStoreUpdateQwacTest,
+                       CheckCrsEutlUpdate) {
+  net::EmbeddedTestServer https_server_ok(net::EmbeddedTestServer::TYPE_HTTPS);
+  net::EmbeddedTestServer::ServerCertificateConfig server_config;
+  server_config.dns_names = {"*.example.com"};
+  // Set policy OIDs and QWAC QC types on the leaf so that it will validate as
+  // a QWAC. Also include an intermediate so we can set the intermediate as
+  // part of the EUTL trust store in the CRS update.
+  // OIDs: CABF OV, ETSI QNCP-w
+  server_config.policy_oids = {"2.23.140.1.2.2", "0.4.0.194112.1.5"};
+  server_config.qwac_qc_types = {bssl::der::Input(net::kEtsiQctWebOid)};
+  server_config.intermediate =
+      net::EmbeddedTestServer::IntermediateType::kInHandshake;
+  https_server_ok.SetSSLConfig(server_config);
+  https_server_ok.ServeFilesFromSourceDirectory("chrome/test/data");
+
+  // Install only the root cert as a trust anchor in CRS and check that the
+  // page load is successful but the cert is not a valid QWAC.
+  net::TestRootCerts::GetInstance()->Clear();
+  int64_t crs_version = net::CompiledChromeRootStoreVersion();
+  {
+    scoped_refptr<net::X509Certificate> root_cert =
+        net::ImportCertFromFile(net::EmbeddedTestServer::GetRootCertPemPath());
+    ASSERT_TRUE(root_cert);
+    chrome_root_store::RootStore root_store_proto;
+    root_store_proto.set_version_major(++crs_version);
+    auto* trust_anchor = root_store_proto.add_trust_anchors();
+    trust_anchor->set_der(
+        net::x509_util::CryptoBufferAsStringPiece(root_cert->cert_buffer()));
+    InstallCRSUpdate(std::move(root_store_proto));
+  }
+
+  ASSERT_TRUE(https_server_ok.Start());
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), https_server_ok.GetURL("a.example.com", "/simple.html")));
+
+  // Check that the page's cert status is not a QWAC.
+  content::WebContents* tab = chrome_test_utils::GetActiveWebContents(this);
+  ASSERT_TRUE(WaitForRenderFrameReady(tab->GetPrimaryMainFrame()));
+  EXPECT_EQ(chrome_test_utils::GetActiveWebContents(this)->GetTitle(), u"OK");
+  ssl_test_util::CheckAuthenticatedState(tab, ssl_test_util::AuthState::NONE);
+  content::NavigationEntry* entry = tab->GetController().GetVisibleEntry();
+  net::CertStatus cert_status = entry->GetSSL().cert_status;
+  EXPECT_FALSE(cert_status & net::CERT_STATUS_IS_QWAC);
+
+  // Install CRS update that has the root as a trust anchor in CRS and the
+  // intermediate as a QWAC issuer.
+  {
+    scoped_refptr<net::X509Certificate> root_cert =
+        net::ImportCertFromFile(net::EmbeddedTestServer::GetRootCertPemPath());
+    ASSERT_TRUE(root_cert);
+    scoped_refptr<net::X509Certificate> intermediate_cert =
+        https_server_ok.GetGeneratedIntermediate();
+    ASSERT_TRUE(intermediate_cert);
+
+    chrome_root_store::RootStore root_store_proto;
+    root_store_proto.set_version_major(++crs_version);
+    auto* trust_anchor = root_store_proto.add_trust_anchors();
+    trust_anchor->set_der(
+        net::x509_util::CryptoBufferAsStringPiece(root_cert->cert_buffer()));
+    auto* additional_cert = root_store_proto.add_additional_certs();
+    additional_cert->set_der(net::x509_util::CryptoBufferAsStringPiece(
+        intermediate_cert->cert_buffer()));
+    additional_cert->set_eutl(true);
+    InstallCRSUpdate(std::move(root_store_proto));
+  }
+
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), https_server_ok.GetURL("b.example.com", "/simple.html")));
+
+  // Check the page's cert status is a QWAC (if net::features::kVerifyQWACs is
+  // enabled).
+  tab = chrome_test_utils::GetActiveWebContents(this);
+  ASSERT_TRUE(WaitForRenderFrameReady(tab->GetPrimaryMainFrame()));
+  EXPECT_EQ(chrome_test_utils::GetActiveWebContents(this)->GetTitle(), u"OK");
+  ssl_test_util::CheckAuthenticatedState(tab, ssl_test_util::AuthState::NONE);
+  cert_status = tab->GetController().GetVisibleEntry()->GetSSL().cert_status;
+  EXPECT_EQ(GetParam(), !!(cert_status & net::CERT_STATUS_IS_QWAC));
+
+  // Install a CRS update that has the root as both a trust anchor in CRS and
+  // a QWAC issuer
+  {
+    scoped_refptr<net::X509Certificate> root_cert =
+        net::ImportCertFromFile(net::EmbeddedTestServer::GetRootCertPemPath());
+    ASSERT_TRUE(root_cert);
+    chrome_root_store::RootStore root_store_proto;
+    root_store_proto.set_version_major(++crs_version);
+    auto* trust_anchor = root_store_proto.add_trust_anchors();
+    trust_anchor->set_der(
+        net::x509_util::CryptoBufferAsStringPiece(root_cert->cert_buffer()));
+    trust_anchor->set_eutl(true);
+    InstallCRSUpdate(std::move(root_store_proto));
+  }
+
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), https_server_ok.GetURL("c.example.com", "/simple.html")));
+
+  // Check the page's cert status is a QWAC (if net::features::kVerifyQWACs is
+  // enabled).
+  tab = chrome_test_utils::GetActiveWebContents(this);
+  ASSERT_TRUE(WaitForRenderFrameReady(tab->GetPrimaryMainFrame()));
+  EXPECT_EQ(chrome_test_utils::GetActiveWebContents(this)->GetTitle(), u"OK");
+  ssl_test_util::CheckAuthenticatedState(tab, ssl_test_util::AuthState::NONE);
+  cert_status = tab->GetController().GetVisibleEntry()->GetSSL().cert_status;
+  EXPECT_EQ(GetParam(), !!(cert_status & net::CERT_STATUS_IS_QWAC));
+}
+
 // Test suite for tests that depend on both Certificate Transparency and Chrome
 // Root Store updates.
 class PKIMetadataComponentCtAndCrsUpdaterTest
@@ -1120,24 +1249,10 @@ IN_PROC_BROWSER_TEST_P(PKIMetadataComponentCtAndCrsUpdaterTest,
 
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
       browser(), https_server_ok.GetURL("c.example.com", "/simple.html")));
-  switch (GetParam()) {
-    case CTEnforcement::kEnabled:
-    case CTEnforcement::kEnabledWithStaticCTEnforcement:
-    case CTEnforcement::kDisabledByFeature:
-      // Should be trusted if CT is enabled since the SCTNotAfter constraint is
-      // satisfied by the SCT from log1. Should be trusted if CT feature is
-      // disabled since SCTNotAfter fails open when CT is disabled.
-      EXPECT_EQ(u"OK",
-                chrome_test_utils::GetActiveWebContents(this)->GetTitle());
-      break;
-    case CTEnforcement::kDisabledByProto:
-      // Should be distrusted if CT is disabled by proto kill switch since the
-      // proto kill switch short-circuits the loading of the rest of the proto,
-      // so the test configured CT logs are not trusted.
-      EXPECT_NE(u"OK",
-                chrome_test_utils::GetActiveWebContents(this)->GetTitle());
-      break;
-  }
+  // Should be trusted if CT is enabled since the SCTNotAfter constraint is
+  // satisfied by the SCT from log1. Should be trusted if CT feature is
+  // disabled since SCTNotAfter fails open when CT is disabled.
+  EXPECT_EQ(u"OK", chrome_test_utils::GetActiveWebContents(this)->GetTitle());
 
   // Install CRS update that trusts root with a SCTNotAfter constraint that is
   // before both of the valid SCTs.
@@ -1159,16 +1274,13 @@ IN_PROC_BROWSER_TEST_P(PKIMetadataComponentCtAndCrsUpdaterTest,
   switch (GetParam()) {
     case CTEnforcement::kEnabled:
     case CTEnforcement::kEnabledWithStaticCTEnforcement:
-    case CTEnforcement::kDisabledByProto:
       // Should be distrusted if CT is enabled. The SCTNotAfter constraint is
       // not satisfied by any valid SCT. The SCT from the unknown log is not
       // counted even though the timestamp matches the constraint.
-      // Should be distrusted if CT is disabled by proto kill switch since the
-      // proto kill switch short-circuits the loading of the rest of the proto,
-      // so the test configured CT logs are not trusted.
       EXPECT_NE(u"OK",
                 chrome_test_utils::GetActiveWebContents(this)->GetTitle());
       break;
+    case CTEnforcement::kDisabledByProto:
     case CTEnforcement::kDisabledByFeature:
       // Should be trusted if CT feature is disabled since SCTNotAfter fails
       // open when CT is disabled.
@@ -1194,25 +1306,11 @@ IN_PROC_BROWSER_TEST_P(PKIMetadataComponentCtAndCrsUpdaterTest,
 
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
       browser(), https_server_ok.GetURL("c.example.com", "/simple.html")));
-  switch (GetParam()) {
-    case CTEnforcement::kEnabled:
-    case CTEnforcement::kEnabledWithStaticCTEnforcement:
-    case CTEnforcement::kDisabledByFeature:
-      // Should be trusted if CT is enabled since the SCTAlltAfter constraint is
-      // satisfied by the SCT from both logs.
-      // Should be trusted if CT feature is disabled since SCTAllAfter fails
-      // open when CT is disabled.
-      EXPECT_EQ(u"OK",
-                chrome_test_utils::GetActiveWebContents(this)->GetTitle());
-      break;
-    case CTEnforcement::kDisabledByProto:
-      // Should be distrusted if CT is disabled by proto kill switch since the
-      // proto kill switch short-circuits the loading of the rest of the proto,
-      // so the test configured CT logs are not trusted.
-      EXPECT_NE(u"OK",
-                chrome_test_utils::GetActiveWebContents(this)->GetTitle());
-      break;
-  }
+  // Should be trusted if CT is enabled since the SCTAlltAfter constraint is
+  // satisfied by the SCT from both logs.
+  // Should be trusted if CT feature is disabled since SCTAllAfter fails
+  // open when CT is disabled.
+  EXPECT_EQ(u"OK", chrome_test_utils::GetActiveWebContents(this)->GetTitle());
 
   // Install CRS update that trusts root with a SCTAllAfter constraint that is
   // before one of the SCTs but after the other.
@@ -1234,15 +1332,12 @@ IN_PROC_BROWSER_TEST_P(PKIMetadataComponentCtAndCrsUpdaterTest,
   switch (GetParam()) {
     case CTEnforcement::kEnabled:
     case CTEnforcement::kEnabledWithStaticCTEnforcement:
-    case CTEnforcement::kDisabledByProto:
       // Should be distrusted since one of the SCTs was before the SCTAllAfter
       // constraint.
-      // Should be distrusted if CT is disabled by proto kill switch since the
-      // proto kill switch short-circuits the loading of the rest of the proto,
-      // so the test configured CT logs are not trusted.
       EXPECT_NE(u"OK",
                 chrome_test_utils::GetActiveWebContents(this)->GetTitle());
       break;
+    case CTEnforcement::kDisabledByProto:
     case CTEnforcement::kDisabledByFeature:
       // Should be trusted if CT feature is disabled since SCTAllAfter fails
       // open when CT is disabled.

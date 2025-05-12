@@ -1188,8 +1188,8 @@ WebViewGuest::WebViewGuest(content::RenderFrameHost* owner_rfh)
       find_helper_(this),
       allow_nw_(false),
       javascript_dialog_helper_(this),
-      web_view_guest_delegate_(base::WrapUnique(
-          ExtensionsAPIClient::Get()->CreateWebViewGuestDelegate(this))),
+      web_view_guest_delegate_(
+          ExtensionsAPIClient::Get()->CreateWebViewGuestDelegate(this)),
       is_spatial_navigation_enabled_(
           base::CommandLine::ForCurrentProcess()->HasSwitch(
               switches::kEnableSpatialNavigation)) {

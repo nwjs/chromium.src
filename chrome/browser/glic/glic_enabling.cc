@@ -5,7 +5,9 @@
 #include "chrome/browser/glic/glic_enabling.h"
 
 #include "base/command_line.h"
+#include "base/feature_list.h"
 #include "chrome/browser/glic/glic_pref_names.h"
+#include "chrome/browser/glic/glic_user_status_fetcher.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_attributes_storage.h"
@@ -13,6 +15,7 @@
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
+#include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
@@ -20,6 +23,7 @@
 namespace glic {
 
 namespace {
+
 bool IsNonEnterpriseEnabled(Profile* profile) {
   if (!GlicEnabling::IsProfileEligible(profile)) {
     return false;
@@ -28,6 +32,12 @@ bool IsNonEnterpriseEnabled(Profile* profile) {
   auto* command_line = base::CommandLine::ForCurrentProcess();
   if (command_line->HasSwitch(::switches::kGlicDev)) {
     return true;
+  }
+
+  // Check whether profile is eligible for tiered ollout.
+  if (!base::FeatureList::IsEnabled(features::kGlicRollout) &&
+      !GlicEnabling::IsEligibleForGlicTieredRollout(profile)) {
+    return false;
   }
 
   signin::IdentityManager* identity_manager =
@@ -53,7 +63,13 @@ bool IsNonEnterpriseEnabled(Profile* profile) {
 
 bool IsEnterpriseEnabled(Profile* profile) {
   return profile->GetPrefs()->GetInteger(::prefs::kGeminiSettings) ==
-         static_cast<int>(glic::prefs::SettingsPolicyState::kEnabled);
+             static_cast<int>(glic::prefs::SettingsPolicyState::kEnabled) &&
+         !GlicUserStatusFetcher::IsDisabled(profile);
+}
+
+bool HasConsentedForProfile(Profile* profile) {
+  return profile->GetPrefs()->GetInteger(prefs::kGlicCompletedFre) ==
+         static_cast<int>(prefs::FreStatus::kCompleted);
 }
 }  // namespace
 
@@ -74,11 +90,12 @@ bool GlicEnabling::IsEnabledForProfile(Profile* profile) {
 }
 
 bool GlicEnabling::IsEnabledAndConsentForProfile(Profile* profile) {
-  if (!IsEnabledForProfile(profile)) {
-    return false;
-  }
-  return (profile->GetPrefs()->GetInteger(glic::prefs::kGlicCompletedFre) ==
-          static_cast<int>(prefs::FreStatus::kCompleted));
+  return IsEnabledForProfile(profile) && HasConsentedForProfile(profile);
+}
+
+bool GlicEnabling::DidDismissForProfile(Profile* profile) {
+  return profile->GetPrefs()->GetInteger(glic::prefs::kGlicCompletedFre) ==
+         static_cast<int>(prefs::FreStatus::kIncomplete);
 }
 
 bool GlicEnabling::IsReadyForProfile(Profile* profile) {
@@ -111,6 +128,11 @@ mojom::ProfileReadyState GlicEnabling::GetProfileReadyState(Profile* profile) {
   return mojom::ProfileReadyState::kReady;
 }
 
+bool GlicEnabling::IsEligibleForGlicTieredRollout(Profile* profile) {
+  return base::FeatureList::IsEnabled(features::kGlicTieredRollout) &&
+         profile->GetPrefs()->GetBoolean(prefs::kGlicRolloutEligibility);
+}
+
 bool GlicEnabling::ShouldShowSettingsPage(Profile* profile) {
   if (!IsEnterpriseEnabled(profile)) {
     // If the feature is disabled by enterprise policy, the settings page should
@@ -135,10 +157,26 @@ GlicEnabling::GlicEnabling(Profile* profile,
       ::prefs::kGeminiSettings,
       base::BindRepeating(&GlicEnabling::OnGlicSettingsPolicyChanged,
                           base::Unretained(this)));
+  pref_registrar_.Add(prefs::kGlicCompletedFre,
+                      base::BindRepeating(&GlicEnabling::UpdateConsentStatus,
+                                          base::Unretained(this)));
+  if (!base::FeatureList::IsEnabled(features::kGlicRollout) &&
+      base::FeatureList::IsEnabled(features::kGlicTieredRollout)) {
+    pref_registrar_.Add(
+        prefs::kGlicRolloutEligibility,
+        base::BindRepeating(&GlicEnabling::OnTieredRolloutStatusMaybeChanged,
+                            base::Unretained(this)));
+  }
   signin::IdentityManager* identity_manager =
       IdentityManagerFactory::GetForProfile(profile);
   CHECK(identity_manager);
   identity_manager_observation_.Observe(identity_manager);
+
+  if (base::FeatureList::IsEnabled(features::kGlicUserStatusCheck)) {
+    glic_user_status_fetcher_ = std::make_unique<GlicUserStatusFetcher>(
+        profile_, base::BindRepeating(&GlicEnabling::UpdateEnabledStatus,
+                                      base::Unretained(this)));
+  }
 }
 GlicEnabling::~GlicEnabling() = default;
 
@@ -146,18 +184,56 @@ bool GlicEnabling::IsAllowed() {
   return IsEnabledForProfile(profile_);
 }
 
+bool GlicEnabling::HasConsented() {
+  return HasConsentedForProfile(profile_);
+}
+
 base::CallbackListSubscription GlicEnabling::RegisterAllowedChanged(
     EnableChangedCallback callback) {
   return enable_changed_callback_list_.Add(std::move(callback));
+}
+
+base::CallbackListSubscription GlicEnabling::RegisterOnConsentChanged(
+    ConsentChangedCallback callback) {
+  return consent_changed_callback_list_.Add(std::move(callback));
+}
+
+base::CallbackListSubscription GlicEnabling::RegisterOnShowSettingsPageChanged(
+    ShowSettingsPageChangedCallback callback) {
+  return show_settings_page_changed_callback_list_.Add(std::move(callback));
 }
 
 void GlicEnabling::OnGlicSettingsPolicyChanged() {
   UpdateEnabledStatus();
 }
 
+void GlicEnabling::UpdateUserStatus(
+    const signin::PrimaryAccountChangeEvent& event_details) {
+  if (!glic_user_status_fetcher_) {
+    return;
+  }
+
+  switch (event_details.GetEventTypeFor(signin::ConsentLevel::kSignin)) {
+    case signin::PrimaryAccountChangeEvent::Type::kSet:
+      if (glic_user_status_fetcher_) {
+        glic_user_status_fetcher_->UpdateUserStatus();
+      }
+      break;
+    // Ignore until primary account is set.
+    case signin::PrimaryAccountChangeEvent::Type::kNone:
+      break;
+    case signin::PrimaryAccountChangeEvent::Type::kCleared:
+      if (glic_user_status_fetcher_) {
+        glic_user_status_fetcher_->InvalidateCachedStatus();
+        glic_user_status_fetcher_->CancelUserStatusUpdateIfNeeded();
+      }
+      break;
+  }
+}
 void GlicEnabling::OnPrimaryAccountChanged(
     const signin::PrimaryAccountChangeEvent& event_details) {
   UpdateEnabledStatus();
+  UpdateUserStatus(event_details);
 }
 
 void GlicEnabling::OnExtendedAccountInfoUpdated(const AccountInfo& info) {
@@ -171,8 +247,23 @@ void GlicEnabling::OnExtendedAccountInfoRemoved(const AccountInfo& info) {
 void GlicEnabling::OnRefreshTokensLoaded() {
   UpdateEnabledStatus();
 }
+
+// It happens that when the request is sent upon sign-in, the refresh token is
+// not available yet, the request would hence be cancelled. In such cases, we
+// re-send the request when refresh token becomes available.
+void GlicEnabling::OnRefreshTokenUpdatedForAccount(
+    const CoreAccountInfo& account_info) {
+  if (glic_user_status_fetcher_) {
+    glic_user_status_fetcher_->UpdateUserStatusIfNeeded();
+  }
+}
+
 void GlicEnabling::OnRefreshTokenRemovedForAccount(
     const CoreAccountId& account_id) {
+  UpdateEnabledStatus();
+}
+
+void GlicEnabling::OnTieredRolloutStatusMaybeChanged() {
   UpdateEnabledStatus();
 }
 
@@ -187,6 +278,17 @@ void GlicEnabling::OnErrorStateOfRefreshTokenUpdatedForAccount(
     return;
   }
   UpdateEnabledStatus();
+
+  if (glic_user_status_fetcher_) {
+    glic_user_status_fetcher_->CancelUserStatusUpdateIfNeeded();
+  }
+}
+
+void GlicEnabling::OnIdentityManagerShutdown(
+    signin::IdentityManager* identity_manager) {
+  if (glic_user_status_fetcher_) {
+    glic_user_status_fetcher_->CancelUserStatusUpdateIfNeeded();
+  }
 }
 
 void GlicEnabling::UpdateEnabledStatus() {
@@ -196,6 +298,12 @@ void GlicEnabling::UpdateEnabledStatus() {
     entry->SetIsGlicEligible(IsAllowed());
   }
   enable_changed_callback_list_.Notify();
+  show_settings_page_changed_callback_list_.Notify();
+}
+
+void GlicEnabling::UpdateConsentStatus() {
+  consent_changed_callback_list_.Notify();
+  show_settings_page_changed_callback_list_.Notify();
 }
 
 }  // namespace glic

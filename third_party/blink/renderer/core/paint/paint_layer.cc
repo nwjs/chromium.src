@@ -497,33 +497,24 @@ void PaintLayer::UpdateDescendantDependentFlags() {
 void PaintLayer::UpdateHasVisibleContent() {
   bool previously_has_visible_content = has_visible_content_;
 
-  if (GetLayoutObject().StyleRef().Visibility() == EVisibility::kVisible) {
+  const LayoutObject& object = GetLayoutObject();
+  if (object.StyleRef().Visibility() == EVisibility::kVisible) {
     has_visible_content_ = true;
   } else {
     // layer may be hidden but still have some visible content, check for this
     has_visible_content_ = false;
-    LayoutObject* r = GetLayoutObject().SlowFirstChild();
+    const LayoutObject* r = object.NextInPreOrder(&object);
     while (r) {
-      if (r->StyleRef().Visibility() == EVisibility::kVisible &&
-          (!r->HasLayer() || !r->EnclosingLayer()->IsSelfPaintingLayer())) {
+      if (r->HasLayer() &&
+          To<LayoutBoxModelObject>(r)->HasSelfPaintingLayer()) {
+        r = r->NextInPreOrderAfterChildren(&object);
+        continue;
+      }
+      if (r->StyleRef().Visibility() == EVisibility::kVisible) {
         has_visible_content_ = true;
         break;
       }
-      LayoutObject* layout_object_first_child = r->SlowFirstChild();
-      if (layout_object_first_child &&
-          (!r->HasLayer() || !r->EnclosingLayer()->IsSelfPaintingLayer())) {
-        r = layout_object_first_child;
-      } else if (r->NextSibling()) {
-        r = r->NextSibling();
-      } else {
-        do {
-          r = r->Parent();
-          if (r == &GetLayoutObject())
-            r = nullptr;
-        } while (r && !r->NextSibling());
-        if (r)
-          r = r->NextSibling();
-      }
+      r = r->NextInPreOrder(&object);
     }
   }
 
@@ -1133,10 +1124,9 @@ HitTestingTransformState PaintLayer::CreateLocalTransformState(
   HitTestingTransformState transform_state =
       container_transform_state
           ? *container_transform_state
-          : HitTestingTransformState(
-                recursion_data.location.TransformedPoint(),
-                recursion_data.location.TransformedRect(),
-                gfx::QuadF(gfx::RectF(recursion_data.rect)));
+          : HitTestingTransformState(recursion_data.location.TransformedPoint(),
+                                     recursion_data.location.TransformedRect(),
+                                     recursion_data.rect);
 
   if (&transform_container == this) {
     DCHECK(!container_transform_state);
@@ -1915,14 +1905,12 @@ gfx::RectF PaintLayer::BackdropFilterReferenceBox() const {
   return gfx::RectF(GetLayoutBox()->PhysicalBorderBoxRect());
 }
 
-// TODO(crbug.com/402437852) support corner-shape for backdrop filter bounds
-gfx::RRectF PaintLayer::BackdropFilterBounds() const {
-  gfx::RRectF backdrop_filter_bounds(
-      SkRRect(ContouredBorderGeometry::PixelSnappedContouredBorder(
-                  GetLayoutObject().StyleRef(),
-                  PhysicalRect::EnclosingRect(BackdropFilterReferenceBox()))
-                  .AsRoundedRect()));
-  return backdrop_filter_bounds;
+SkPath PaintLayer::BackdropFilterBounds() const {
+  return ContouredBorderGeometry::PixelSnappedContouredBorder(
+             GetLayoutObject().StyleRef(),
+             PhysicalRect::EnclosingRect(BackdropFilterReferenceBox()))
+      .GetPath()
+      .GetSkPath();
 }
 
 bool PaintLayer::HitTestClippedOutByClipPath(
@@ -2323,7 +2311,7 @@ void PaintLayer::UpdateCompositorFilterOperationsForFilter(
 
 void PaintLayer::UpdateCompositorFilterOperationsForBackdropFilter(
     CompositorFilterOperations& operations,
-    gfx::RRectF& backdrop_filter_bounds) {
+    SkPath& backdrop_filter_bounds) {
   const auto& style = GetLayoutObject().StyleRef();
   if (style.BackdropFilter().IsEmpty()) {
     operations.Clear();

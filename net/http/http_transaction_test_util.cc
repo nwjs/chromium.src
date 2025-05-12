@@ -16,6 +16,7 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/location.h"
+#include "base/notimplemented.h"
 #include "base/run_loop.h"
 #include "base/strings/stringprintf.h"
 #include "base/task/single_thread_task_runner.h"
@@ -462,10 +463,6 @@ LoadState MockNetworkTransaction::GetLoadState() const {
   return LOAD_STATE_IDLE;
 }
 
-void MockNetworkTransaction::SetQuicServerInfo(
-    QuicServerInfo* quic_server_info) {
-}
-
 bool MockNetworkTransaction::GetLoadTimingInfo(
     LoadTimingInfo* load_timing_info) const {
   if (socket_log_id_ != NetLogSource::kInvalidId) {
@@ -534,24 +531,12 @@ int MockNetworkTransaction::StartInternal(HttpRequestInfo request,
     return ERR_IO_PENDING;
   }
 
-  next_state_ = State::NOTIFY_BEFORE_CREATE_STREAM;
+  next_state_ = State::CREATE_STREAM;
   int rv = DoLoop(OK);
   if (rv == ERR_IO_PENDING) {
     callback_ = std::move(callback);
   }
   return rv;
-}
-
-int MockNetworkTransaction::DoNotifyBeforeCreateStream() {
-  next_state_ = State::CREATE_STREAM;
-  bool defer = false;
-  if (!before_network_start_callback_.is_null()) {
-    std::move(before_network_start_callback_).Run(&defer);
-  }
-  if (!defer) {
-    return OK;
-  }
-  return ERR_IO_PENDING;
 }
 
 int MockNetworkTransaction::DoCreateStream() {
@@ -697,10 +682,6 @@ int MockNetworkTransaction::DoLoop(int result) {
     State state = next_state_;
     next_state_ = State::NONE;
     switch (state) {
-      case State::NOTIFY_BEFORE_CREATE_STREAM:
-        CHECK_EQ(OK, rv);
-        rv = DoNotifyBeforeCreateStream();
-        break;
       case State::CREATE_STREAM:
         CHECK_EQ(OK, rv);
         rv = DoCreateStream();
@@ -751,11 +732,6 @@ void MockNetworkTransaction::OnIOComplete(int result) {
   }
 }
 
-void MockNetworkTransaction::SetBeforeNetworkStartCallback(
-    BeforeNetworkStartCallback callback) {
-  before_network_start_callback_ = std::move(callback);
-}
-
 void MockNetworkTransaction::SetModifyRequestHeadersCallback(
     base::RepeatingCallback<void(HttpRequestHeaders*)> callback) {
   modify_request_headers_callback_ = std::move(callback);
@@ -764,11 +740,6 @@ void MockNetworkTransaction::SetModifyRequestHeadersCallback(
 void MockNetworkTransaction::SetConnectedCallback(
     const ConnectedCallback& callback) {
   connected_callback_ = callback;
-}
-
-int MockNetworkTransaction::ResumeNetworkStart() {
-  CHECK_EQ(next_state_, State::CREATE_STREAM);
-  return DoLoop(OK);
 }
 
 ConnectionAttempts MockNetworkTransaction::GetConnectionAttempts() const {

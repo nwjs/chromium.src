@@ -30,7 +30,7 @@
 #include "components/lens/lens_features.h"
 #include "components/lens/lens_overlay_permission_utils.h"
 #include "components/omnibox/browser/omnibox_prefs.h"
-#include "components/tab_collections/public/tab_interface.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/navigation_entry.h"
 
 namespace {
@@ -66,7 +66,7 @@ void LensOverlayEntryPointController::Initialize(
   browser_window_interface_ = browser_window_interface;
   location_bar_ = location_bar;
   if (location_bar_) {
-    location_bar_->GetFocusManager()->AddFocusChangeListener(this);
+    focus_manager_observation_.Observe(location_bar_->GetFocusManager());
     location_bar_->AddObserver(this);
   }
 
@@ -224,13 +224,14 @@ void LensOverlayEntryPointController::InvokeAction(
 
 void LensOverlayEntryPointController::OnViewAddedToWidget(views::View* view) {
   CHECK(location_bar_);
-  location_bar_->GetFocusManager()->AddFocusChangeListener(this);
+  focus_manager_observation_.Observe(location_bar_->GetFocusManager());
 }
 
 void LensOverlayEntryPointController::OnViewRemovedFromWidget(
     views::View* view) {
   CHECK(location_bar_);
-  location_bar_->GetFocusManager()->RemoveFocusChangeListener(this);
+  CHECK(location_bar_->GetFocusManager());
+  focus_manager_observation_.Reset();
 }
 
 void LensOverlayEntryPointController::OnDidChangeFocus(views::View* before,

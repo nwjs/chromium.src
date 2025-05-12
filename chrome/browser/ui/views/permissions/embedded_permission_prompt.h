@@ -101,6 +101,9 @@ class EmbeddedPermissionPrompt
 
   std::unique_ptr<views::Widget> content_scrim_widget_;
   views::ViewTracker prompt_view_tracker_;
+  std::unique_ptr<tabs::ScopedTabModalUI> scoped_tab_modal_ui_;
+  std::optional<content::WebContents::ScopedIgnoreInputEvents>
+      scoped_ignore_input_events_;
 
   raw_ptr<permissions::PermissionPrompt::Delegate> delegate_;
 

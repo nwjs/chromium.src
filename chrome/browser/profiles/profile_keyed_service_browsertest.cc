@@ -207,6 +207,7 @@ class ProfileKeyedServiceBrowserTest : public InProcessBrowserTest {
           omnibox::kOnDeviceTailModel,
           omnibox::kOnDeviceHeadProviderNonIncognito,
 #endif  // BUILDFLAG(BUILD_WITH_TFLITE_LIB)
+          switches::kSyncEnableBookmarksInTransportMode,
         },
         {});
     // clang-format on
@@ -385,6 +386,9 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     "ExtensionInstallEventRouter",
 #endif  // BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
     "ChromeEnterpriseRealTimeUrlLookupService",
+#if BUILDFLAG(IS_CHROMEOS)
+    "ComponentExtensionContentSettingsAllowlist",
+#endif
     "EnterpriseReportingPrivateEventRouter",
     "ExtensionNavigationRegistry",
     "ExtensionSystem",
@@ -538,6 +542,7 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
                        GuestProfileParent_NeededServices) {
   // clang-format off
   std::set<std::string> guest_active_services {
+    "AccountBookmarkSyncServiceFactory",
     "AccountExtensionTracker",
     "ActivityLog",
     "ActivityLogPrivateAPI",
@@ -595,6 +600,12 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     "ChildAccountService",
     "ChromeSigninClient",
     "CommandService",
+#if BUILDFLAG(IS_CHROMEOS)
+    "ComponentExtensionContentSettingsAllowlist",
+#endif
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+    "ComponentLoader",
+#endif
 #if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
     "ConnectorsService",
 #endif  // BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
@@ -614,6 +625,7 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     "DeviceInfoSyncService",
     "DownloadCoreService",
     "EventRouter",
+    "EnterpriseManagementService",
     "ExtensionActionDispatcher",
     "ExtensionActionManager",
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
@@ -675,7 +687,6 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     "InstallTracker",
     "InstallVerifier",
     "InstanceIDProfileService",
-
 #if !BUILDFLAG(IS_CHROMEOS)
     // TODO(crbug.com/374351946): Investigate if this is necessary on CrOS.
     "InvalidationService",
@@ -686,7 +697,6 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     "ListFamilyMembersService",
     "LocalOrSyncableBookmarkSyncServiceFactory",
     "LoginUIServiceFactory",
-
     "MDnsAPI",
     "ManagedBookmarkService",
     "ManagedConfigurationAPI",
@@ -777,19 +787,20 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     "sessions::TabRestoreService",
     "SettingsOverridesAPI",
     "SettingsPrivateEventRouter",
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+    "SharedModuleService",
+#endif
     "ShoppingService",
     "SidePanelService",
     "SiteDataCacheFacadeFactory",
     "SiteEngagementService",
     "SocketManager",
-
 #if !BUILDFLAG(IS_CHROMEOS)
     // TODO(crbug.com/374351946): Desktop chrome create this via
     // ShoppingService->SyncService->Spellchecker. Investigate if this is
     // expected on desktop chrome.
     "SpellcheckService",
 #endif
-
     "StorageFrontend",
     "StorageNotificationService",
     "SupervisedUserService",

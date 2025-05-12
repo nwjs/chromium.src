@@ -13,11 +13,10 @@ import androidx.appcompat.content.res.AppCompatResources;
 import androidx.core.content.ContextCompat;
 
 import com.google.android.material.color.MaterialColors;
-import com.google.android.material.elevation.ElevationOverlayProvider;
 
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorCoordinator.CreationMode;
-import org.chromium.components.browser_ui.styles.ChromeColors;
+import org.chromium.chrome.browser.theme.SurfaceColorUpdateUtils;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 
 /** Utility class that provides theme related attributes for Tab UI. */
@@ -178,12 +177,8 @@ public class TabUiThemeProvider {
                 return ColorStateList.valueOf(
                         MaterialColors.compositeARGBWithAlpha(baseColor, alpha));
             } else {
-                float backgroundElevation =
-                        context.getResources().getDimension(R.dimen.default_elevation_4);
-                @ColorInt
-                int baseColor =
-                        new ElevationOverlayProvider(context)
-                                .compositeOverlayWithThemeSurfaceColorIfNeeded(backgroundElevation);
+
+                @ColorInt int baseColor = SemanticColorUtils.getColorSurfaceContainerHigh(context);
                 int alpha =
                         context.getResources()
                                 .getInteger(R.integer.tab_grid_hovered_card_background_color_alpha);
@@ -207,7 +202,7 @@ public class TabUiThemeProvider {
         if (creationMode == CreationMode.DIALOG) {
             return getTabGridDialogBackgroundColor(context, isIncognito);
         } else {
-            return ChromeColors.getPrimaryBackgroundColor(context, isIncognito);
+            return SurfaceColorUpdateUtils.getGridTabSwitcherBackgroundColor(context, isIncognito);
         }
     }
 
@@ -318,10 +313,8 @@ public class TabUiThemeProvider {
             Context context, boolean isIncognito) {
         int backgroundTint =
                 isIncognito
-                        ? ContextCompat.getColor(
-                                context, R.color.default_bg_color_dark_elev_5_baseline)
-                        : ChromeColors.getSurfaceColor(
-                                context, R.dimen.tab_hover_card_bg_color_elev);
+                        ? ContextCompat.getColor(context, R.color.incognito_tab_hover_card_bg_color)
+                        : ContextCompat.getColor(context, R.color.tab_hover_card_bg_color);
         return ColorStateList.valueOf(backgroundTint);
     }
 
@@ -363,15 +356,10 @@ public class TabUiThemeProvider {
      */
     public static @ColorInt int getTabSelectionToolbarBackground(
             Context context, boolean isIncognito, @CreationMode int creationMode) {
-        if (isIncognito) {
-            return context.getColor(R.color.incognito_tab_list_editor_toolbar_bg_color);
-        } else {
-            if (creationMode == CreationMode.DIALOG) {
-                return ContextCompat.getColor(context, R.color.tab_grid_dialog_bg_color);
-            }
-
-            return MaterialColors.getColor(context, R.attr.colorSurface, TAG);
+        if (creationMode == CreationMode.DIALOG) {
+            return ContextCompat.getColor(context, R.color.tab_grid_dialog_bg_color);
         }
+        return SurfaceColorUpdateUtils.getGridTabSwitcherBackgroundColor(context, isIncognito);
     }
 
     /**
@@ -570,5 +558,19 @@ public class TabUiThemeProvider {
      */
     public static @ColorInt int getTabBubbleFillColor(Context context) {
         return MaterialColors.getColor(context, R.attr.colorPrimary, TAG);
+    }
+
+    /**
+     * Get the background fill color used for the tab group cluster quarter.
+     *
+     * @param context {@link Context} used to retrieve color.
+     * @param showFavicon Whether the quarter is showing a favicon.
+     * @return The color for the tab group favicon quarter.
+     */
+    public static @ColorInt int getTabGroupFaviconQuarterFillColor(
+            Context context, boolean showFavicon) {
+        return showFavicon
+                ? SemanticColorUtils.getColorSurfaceBright(context)
+                : SemanticColorUtils.getColorSurfaceContainerLow(context);
     }
 }

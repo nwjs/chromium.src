@@ -5848,7 +5848,7 @@ CompositorFrame BuildCompositorFrameWithResources(
     gfx::ProtectedVideoType protected_video_type =
         gfx::ProtectedVideoType::kClear;
     quad->SetAll(sqs, rect, visible_rect, needs_blending, resource_id,
-                 gfx::Size(), premultiplied_alpha, uv_top_left, uv_bottom_right,
+                 premultiplied_alpha, uv_top_left, uv_bottom_right,
                  background_color, nearest_neighbor, secure_output_only,
                  protected_video_type);
   }
@@ -7814,6 +7814,14 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, RenderPassHasPerQuadDamage) {
     // 2-4  - Quads that have |per_quad_damage|
     for (auto* quad : output_root_pass->quad_list) {
       EXPECT_EQ(quad_rects[i], quad->rect);
+
+      if (i < 2) {
+        const SharedQuadState* sqs = quad->shared_quad_state;
+        // Surface color quad should not have an |overlay_damage_index|
+        // even though it is the only non |per_quad_damage| quad in its
+        // render pass.
+        EXPECT_FALSE(sqs->overlay_damage_index.has_value());
+      }
 
       // Looking at only the quads with |per_quad_damage|.
       if (i >= 2) {

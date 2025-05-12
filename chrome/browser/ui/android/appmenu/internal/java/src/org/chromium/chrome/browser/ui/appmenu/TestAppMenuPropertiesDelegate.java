@@ -68,18 +68,11 @@ class TestAppMenuPropertiesDelegate implements AppMenuPropertiesDelegate {
                         PropertyModel subModel = AppMenuUtil.menuItemToPropertyModel(subitem);
                         subList.add(new MVCListAdapter.ListItem(0, subModel));
                     }
-                    propertyModel.set(AppMenuItemProperties.SUBMENU, subList);
+                    propertyModel.set(AppMenuItemProperties.ADDITIONAL_ICONS, subList);
                 }
                 int menutype = AppMenuItemType.STANDARD;
                 if (item.getItemId() == R.id.icon_row_menu_id) {
-                    int viewCount = item.getSubMenu().size();
-                    if (viewCount == 3) {
-                        menutype = AppMenuItemType.THREE_BUTTON_ROW;
-                    } else if (viewCount == 4) {
-                        menutype = AppMenuItemType.FOUR_BUTTON_ROW;
-                    } else if (viewCount == 5) {
-                        menutype = AppMenuItemType.FIVE_BUTTON_ROW;
-                    }
+                    menutype = AppMenuItemType.BUTTON_ROW;
                 }
                 modelList.add(new MVCListAdapter.ListItem(menutype, propertyModel));
             }

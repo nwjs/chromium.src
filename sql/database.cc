@@ -27,6 +27,7 @@
 #include "base/check.h"
 #include "base/check_op.h"
 #include "base/dcheck_is_on.h"
+#include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/format_macros.h"
@@ -47,6 +48,7 @@
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/synchronization/lock.h"
 #include "base/threading/platform_thread.h"
 #include "base/threading/scoped_blocking_call.h"
@@ -61,6 +63,7 @@
 #include "sql/initialization.h"
 #include "sql/internal_api_token.h"
 #include "sql/meta_table.h"
+#include "sql/sql_features.h"
 #include "sql/sqlite_result_code.h"
 #include "sql/sqlite_result_code_values.h"
 #include "sql/statement.h"
@@ -871,12 +874,15 @@ bool Database::SetMmapAltStatus(int64_t status) {
 size_t Database::ComputeMmapSizeForOpen() {
   TRACE_EVENT0("sql", "Database::ComputeMmapSizeForOpen");
 
-  std::optional<base::ScopedBlockingCall> scoped_blocking_call;
-  InitScopedBlockingCall(FROM_HERE, &scoped_blocking_call);
-
   // How much to map if no errors are found.  50MB encompasses the 99th
   // percentile of Chrome databases in the wild, so this should be good.
   const size_t kMmapEverything = 256 * 1024 * 1024;
+  if (base::FeatureList::IsEnabled(sql::features::kSqlFixedMmapSize)) {
+    return kMmapEverything;
+  }
+
+  std::optional<base::ScopedBlockingCall> scoped_blocking_call;
+  InitScopedBlockingCall(FROM_HERE, &scoped_blocking_call);
 
   // Progress information is tracked in the [meta] table for databases which use
   // sql::MetaTable, otherwise it is tracked in a special view.
@@ -2291,20 +2297,7 @@ void Database::PreloadInternal(const base::FilePath& path) {
 }
 
 void Database::ConfigureSqliteDatabaseObject() {
-  // The use of SQLite's non-standard string quoting is not allowed in Chrome.
-  //
-  // Allowing double-quoted string literals is now considered a misfeature by
-  // SQLite authors. See https://www.sqlite.org/quirks.html#dblquote
   auto sqlite_result_code = ToSqliteResultCode(
-      sqlite3_db_config(db_, SQLITE_DBCONFIG_DQS_DDL, 0, nullptr));
-  DCHECK_EQ(sqlite_result_code, SqliteResultCode::kOk)
-      << "sqlite3_db_config(SQLITE_DBCONFIG_DQS_DDL) should not fail";
-  sqlite_result_code = ToSqliteResultCode(
-      sqlite3_db_config(db_, SQLITE_DBCONFIG_DQS_DML, 0, nullptr));
-  DCHECK_EQ(sqlite_result_code, SqliteResultCode::kOk)
-      << "sqlite3_db_config(SQLITE_DBCONFIG_DQS_DML) should not fail";
-
-  sqlite_result_code = ToSqliteResultCode(
       sqlite3_db_config(db_, SQLITE_DBCONFIG_ENABLE_FKEY, 0, nullptr));
   DCHECK_EQ(sqlite_result_code, SqliteResultCode::kOk)
       << "sqlite3_db_config(SQLITE_DBCONFIG_ENABLE_FKEY) should not fail";

@@ -4,17 +4,22 @@
 
 package org.chromium.chrome.browser.customtabs.content;
 
+import android.net.Uri;
 import android.text.TextUtils;
 
-import androidx.browser.trusted.LaunchHandlerClientMode;
+import androidx.browser.trusted.FileHandlingData;
 
 import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntentDataProvider;
+import org.chromium.chrome.browser.browserservices.ui.controller.CurrentPageVerifier;
+import org.chromium.chrome.browser.browserservices.ui.controller.Verifier;
 import org.chromium.chrome.browser.customtabs.CustomTabAuthUrlHeuristics;
 import org.chromium.chrome.browser.customtabs.CustomTabObserver;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.content_public.browser.LoadUrlParams;
+
+import java.util.List;
 
 /**
  * Default implementation of {@link CustomTabIntentHandlingStrategy}. Navigates the Custom Tab to
@@ -24,14 +29,20 @@ public class DefaultCustomTabIntentHandlingStrategy implements CustomTabIntentHa
     private final CustomTabActivityTabProvider mTabProvider;
     private final CustomTabActivityNavigationController mNavigationController;
     private final CustomTabObserver mCustomTabObserver;
+    private final Verifier mVerifier;
+    private final CurrentPageVerifier mCurrentPageVerfier;
 
     public DefaultCustomTabIntentHandlingStrategy(
             CustomTabActivityTabProvider tabProvider,
             CustomTabActivityNavigationController navigationController,
-            CustomTabObserver customTabObserver) {
+            CustomTabObserver customTabObserver,
+            Verifier verifier,
+            CurrentPageVerifier currentPageVerfier) {
         mTabProvider = tabProvider;
         mNavigationController = navigationController;
         mCustomTabObserver = customTabObserver;
+        mVerifier = verifier;
+        mCurrentPageVerfier = currentPageVerfier;
     }
 
     @Override
@@ -50,6 +61,10 @@ public class DefaultCustomTabIntentHandlingStrategy implements CustomTabIntentHa
 
         CustomTabAuthUrlHeuristics.recordUrlParamsHistogram(intentDataProvider.getUrlToLoad());
         CustomTabAuthUrlHeuristics.recordRedirectUriSchemeHistogram(intentDataProvider);
+
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.ANDROID_WEB_APP_LAUNCH_HANDLER)) {
+            handleLaunch(intentDataProvider, true);
+        }
     }
 
     // The hidden tab case needs a bit of special treatment.
@@ -82,23 +97,44 @@ public class DefaultCustomTabIntentHandlingStrategy implements CustomTabIntentHa
         mNavigationController.navigate(params, intentDataProvider.getIntent());
     }
 
-    private WebAppLaunchParams handleLaunch(BrowserServicesIntentDataProvider intentDataProvider) {
-        String packageName = intentDataProvider.getClientPackageName();
-        return WebAppLaunchHandler.getLaunchParams(
-                LaunchHandlerClientMode.NAVIGATE_EXISTING,
-                intentDataProvider.getUrlToLoad(),
-                packageName);
-    }
+    private void handleLaunch(
+            BrowserServicesIntentDataProvider intentDataProvider, boolean isInitialIntent) {
+        List<Uri> fileUris = null;
+        FileHandlingData fileHandlingData = intentDataProvider.getFileHandlingData();
+        if (fileHandlingData != null) {
+            fileUris = fileHandlingData.uris;
+        }
 
-    @Override
-    public void handleNewIntent(BrowserServicesIntentDataProvider intentDataProvider) {
-        if (ChromeFeatureList.isEnabled(ChromeFeatureList.ANDROID_WEB_APP_LAUNCH_HANDLER)) {
-            WebAppLaunchParams launchParams = handleLaunch(intentDataProvider);
-            if (!launchParams.startNewNavigation) {
+        WebAppLaunchHandler launchHandler =
+                new WebAppLaunchHandler(
+                        intentDataProvider.getLaunchHandlerClientMode(),
+                        intentDataProvider.getUrlToLoad(),
+                        intentDataProvider.getClientPackageName(),
+                        fileUris,
+                        isInitialIntent);
+
+        if (launchHandler.getStartNewNavigation() && !isInitialIntent) {
+            loadUrl(intentDataProvider);
+        } else {
+            // Check if the URL of the current page is in the web app scope.
+            // Launch params should not be sent to a not verified origin.
+            CurrentPageVerifier.VerificationState state = mCurrentPageVerfier.getState();
+            if (state == null || state.status != CurrentPageVerifier.VerificationStatus.SUCCESS) {
                 return;
             }
         }
 
+        // Check if the URL sent in launch params is in the web app scope.
+        mVerifier
+                .verify(intentDataProvider.getUrlToLoad())
+                .then(
+                        (verified) -> {
+                            if (!verified) return;
+                            launchHandler.notifyLaunchQueue(mTabProvider.getTab().getWebContents());
+                        });
+    }
+
+    private void loadUrl(BrowserServicesIntentDataProvider intentDataProvider) {
         String url = intentDataProvider.getUrlToLoad();
         if (TextUtils.isEmpty(url)) return;
         LoadUrlParams params = new LoadUrlParams(url);
@@ -112,5 +148,14 @@ public class DefaultCustomTabIntentHandlingStrategy implements CustomTabIntentHa
         }
 
         mNavigationController.navigate(params, intentDataProvider.getIntent());
+    }
+
+    @Override
+    public void handleNewIntent(BrowserServicesIntentDataProvider intentDataProvider) {
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.ANDROID_WEB_APP_LAUNCH_HANDLER)) {
+            handleLaunch(intentDataProvider, false);
+        } else {
+            loadUrl(intentDataProvider);
+        }
     }
 }

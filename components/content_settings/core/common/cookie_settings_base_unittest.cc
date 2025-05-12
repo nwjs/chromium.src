@@ -83,7 +83,8 @@ class CallbackCookieSettings : public CookieSettingsBase {
   bool ShouldBlockThirdPartyCookies(
       base::optional_ref<const url::Origin> top_frame_origin,
       net::CookieSettingOverrides overrides) const override {
-    return Are3pcsForceDisabledByOverride(overrides);
+    return MaybeBlockThirdPartyCookiesPerModifiers(top_frame_origin, overrides)
+        .value_or(false);
   }
   bool MitigationsEnabledFor3pcd() const override { return false; }
 
@@ -225,6 +226,28 @@ TEST_F(CookieSettingsBaseTest, CookieAccessAllowedWithAllowSetting) {
       url_, site_for_cookies_, origin_, net::CookieSettingOverrides()));
 }
 
+TEST_F(CookieSettingsBaseTest, CookieAccessAllowedWithNonNoncePartitionKey) {
+  CallbackCookieSettings settings(CONTENT_SETTING_ALLOW);
+  net::CookiePartitionKey cookie_partition_key =
+      net::CookiePartitionKey::FromURLForTesting(url_);
+
+  EXPECT_TRUE(settings.IsFullCookieAccessAllowed(
+      url_, site_for_cookies_, origin_, net::CookieSettingOverrides(),
+      cookie_partition_key));
+}
+
+TEST_F(CookieSettingsBaseTest, CookieAccessNotAllowedWithNoncePartitionKey) {
+  CallbackCookieSettings settings(CONTENT_SETTING_ALLOW);
+  net::CookiePartitionKey cookie_partition_key =
+      net::CookiePartitionKey::FromURLForTesting(
+          url_, net::CookiePartitionKey::AncestorChainBit::kCrossSite,
+          base::UnguessableToken::Create());
+
+  EXPECT_FALSE(settings.IsFullCookieAccessAllowed(
+      url_, site_for_cookies_, origin_, net::CookieSettingOverrides(),
+      cookie_partition_key));
+}
+
 TEST_F(CookieSettingsBaseTest, ThirdPartyCookiesOverriden) {
   const GURL kThirdPartyURL = GURL("https://3p.com");
 
@@ -303,6 +326,10 @@ TEST_F(CookieSettingsBaseTest, IsValidLegacyAccessSetting) {
   EXPECT_FALSE(CookieSettingsBase::IsValidSettingForLegacyAccess(
       CONTENT_SETTING_SESSION_ONLY));
 }
+
+// `GetStorageAccessStatus` is tested in
+// components/content_settings/core/browser/cookie_settings_unittest.cc and
+// services/network/cookie_settings_unittest.cc
 
 class CookieSettingsBaseStorageAccessAPITest
     : public testing::TestWithParam<std::tuple<bool, bool>> {

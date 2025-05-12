@@ -31,18 +31,6 @@
 
 namespace autofill {
 
-// Specifies if the Username First Flow vote has intermediate values.
-enum class IsMostRecentSingleUsernameCandidate {
-  // Field is not part of Username First Flow.
-  kNotPartOfUsernameFirstFlow = 0,
-  // Field is candidate for username in Username First Flow and has no
-  // intermediate fields
-  kMostRecentCandidate = 1,
-  // Field is candidate for username in Username First Flow and has intermediate
-  // fields between candidate and password form.
-  kHasIntermediateValuesInBetween = 2,
-};
-
 // Specifies which type of field value is desired from AutofillField::value().
 // TODO: crbug.com/40227496 - Remove together with `value(ValueSemantics)`.
 enum class ValueSemantics {
@@ -114,9 +102,6 @@ class AutofillField : public FormFieldData {
   experimental_server_predictions() const {
     return experimental_server_predictions_;
   }
-  std::optional<bool> may_use_prefilled_placeholder() const {
-    return may_use_prefilled_placeholder_;
-  }
   HtmlFieldType html_type() const { return html_type_; }
   HtmlFieldMode html_mode() const { return html_mode_; }
   const FieldTypeSet& possible_types() const { return possible_types_; }
@@ -140,10 +125,6 @@ class AutofillField : public FormFieldData {
       AutofillQueryResponse::FormSuggestion::FieldSuggestion::FieldPrediction
           prediction);
 
-  void set_may_use_prefilled_placeholder(
-      std::optional<bool> may_use_prefilled_placeholder) {
-    may_use_prefilled_placeholder_ = may_use_prefilled_placeholder;
-  }
   void set_possible_types(const FieldTypeSet& possible_types) {
     possible_types_ = possible_types;
   }
@@ -289,7 +270,9 @@ class AutofillField : public FormFieldData {
                          base::PassKey<FormStructure> pass_key);
 
   void set_initial_value_hash(uint32_t value) { initial_value_hash_ = value; }
-  std::optional<uint32_t> initial_value_hash() { return initial_value_hash_; }
+  std::optional<uint32_t> initial_value_hash() const {
+    return initial_value_hash_;
+  }
 
   // TODO: crbug.com/40227496 - Remove when kAutofillFixValueSemantics is
   // cleaned up.
@@ -305,22 +288,6 @@ class AutofillField : public FormFieldData {
   }
   size_t credit_card_number_offset() const {
     return credit_card_number_offset_;
-  }
-
-  void set_generation_type(
-      AutofillUploadContents::Field::PasswordGenerationType type) {
-    generation_type_ = type;
-  }
-  AutofillUploadContents::Field::PasswordGenerationType generation_type()
-      const {
-    return generation_type_;
-  }
-
-  void set_generated_password_changed(bool generated_password_changed) {
-    generated_password_changed_ = generated_password_changed;
-  }
-  bool generated_password_changed() const {
-    return generated_password_changed_;
   }
 
   void set_vote_type(AutofillUploadContents::Field::VoteType type) {
@@ -355,7 +322,7 @@ class AutofillField : public FormFieldData {
   //
   // Only one format string is stored at a time: the one with the
   // highest-ranking `FormatStringSource`.
-  base::optional_ref<const std::u16string> format_string() const;
+  base::optional_ref<const std::u16string> format_string() const LIFETIME_BOUND;
 
   FormatStringSource format_string_source() const {
     return format_string_source_;
@@ -367,33 +334,6 @@ class AutofillField : public FormFieldData {
       format_string_ = std::move(format_string);
       format_string_source_ = source;
     }
-  }
-
-  // Getter and Setter methods for |state_is_a_matching_type_|.
-  void set_state_is_a_matching_type(bool value = true) {
-    state_is_a_matching_type_ = value;
-  }
-  bool state_is_a_matching_type() const { return state_is_a_matching_type_; }
-
-  void set_single_username_vote_type(
-      AutofillUploadContents::Field::SingleUsernameVoteType vote_type) {
-    single_username_vote_type_ = vote_type;
-  }
-  std::optional<AutofillUploadContents::Field::SingleUsernameVoteType>
-  single_username_vote_type() const {
-    return single_username_vote_type_;
-  }
-
-  void set_is_most_recent_single_username_candidate(
-      IsMostRecentSingleUsernameCandidate
-          is_most_recent_single_username_candidate) {
-    is_most_recent_single_username_candidate_ =
-        is_most_recent_single_username_candidate;
-  }
-
-  IsMostRecentSingleUsernameCandidate is_most_recent_single_username_candidate()
-      const {
-    return is_most_recent_single_username_candidate_;
   }
 
   void set_field_log_events(const std::vector<FieldLogEventType>& events) {
@@ -505,12 +445,6 @@ class AutofillField : public FormFieldData {
       AutofillQueryResponse::FormSuggestion::FieldSuggestion::FieldPrediction>
       experimental_server_predictions_;
 
-  // Whether the server-side classification believes that the field
-  // may be pre-filled with a placeholder in the value attribute.
-  // For autofillable types, `nullopt` indicates that there is no server-side
-  // classification. For PWM, `nullopt` and `false` are currently identical.
-  std::optional<bool> may_use_prefilled_placeholder_ = std::nullopt;
-
   // Requirements the site imposes to passwords (for password generation).
   // Corresponds to the requirements determined by the Autofill server.
   std::optional<PasswordRequirementsSpec> password_requirements_;
@@ -580,37 +514,11 @@ class AutofillField : public FormFieldData {
   // label when the label is divided between subsequent fields.
   std::u16string parseable_label_;
 
-  // The type of password generation event, if it happened.
-  AutofillUploadContents::Field::PasswordGenerationType generation_type_ =
-      AutofillUploadContents::Field::NO_GENERATION;
-
-  // Whether the generated password was changed by user.
-  bool generated_password_changed_ = false;
-
   // The vote type, if the autofill type is USERNAME or any password vote.
   // Otherwise, the field is ignored. |vote_type_| provides context as to what
   // triggered the vote.
   AutofillUploadContents::Field::VoteType vote_type_ =
       AutofillUploadContents::Field::NO_INFORMATION;
-
-  // Denotes if |ADDRESS_HOME_STATE| should be added to |possible_types_|.
-  bool state_is_a_matching_type_ = false;
-
-  // Strength of the single username vote signal, if applicable.
-  std::optional<AutofillUploadContents::Field::SingleUsernameVoteType>
-      single_username_vote_type_;
-
-  // If set to `kMostRecentCandidate`, the field is candidate for username
-  // in Username First Flow and the field has no intermediate
-  // fields (like OTP/Captcha) between the candidate and the password form.
-  // If set to `kHasIntermediateValuesInBetween`, the field is candidate for
-  // username in Username First Flow, but has intermediate fields between the
-  // candidate and the password form.
-  // If set to `kNotPartOfUsernameFirstFlow`, the field is not part of Username
-  // First Flow.
-  IsMostRecentSingleUsernameCandidate
-      is_most_recent_single_username_candidate_ =
-          IsMostRecentSingleUsernameCandidate::kNotPartOfUsernameFirstFlow;
 
   // A list of field log events, which record when user interacts the field
   // during autofill or editing, such as user clicks on the field, the

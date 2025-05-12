@@ -883,7 +883,7 @@ VISIT_PROTO_FIELDS(const sync_pb::DataTypeState& proto) {
   VISIT(encryption_key_name);
   VISIT_ENUM(initial_sync_state);
   VISIT(cache_guid);
-  VISIT(authenticated_account_id);
+  VISIT(authenticated_obfuscated_gaia_id);
   VISIT_REP(invalidations);
   VISIT(notes_enabled_before_initial_sync_for_passwords);
 }
@@ -2006,7 +2006,7 @@ VISIT_PROTO_FIELDS(
   VISIT(merchant_name);
   VISIT(program_name);
   VISIT(program_logo);
-  VISIT(loyalty_card_suffix);
+  VISIT(loyalty_card_number);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::SharedTabDetails& proto) {
@@ -2014,10 +2014,16 @@ VISIT_PROTO_FIELDS(const sync_pb::SharedTabDetails& proto) {
   VISIT(last_seen_timestamp_windows_epoch);
 }
 
+VISIT_PROTO_FIELDS(const sync_pb::SharedTabGroupDetails& proto) {
+  VISIT(pinned_position);
+}
+
 VISIT_PROTO_FIELDS(const sync_pb::SharedTabGroupAccountDataSpecifics& proto) {
   VISIT(guid);
   VISIT(collaboration_id);
   VISIT(shared_tab_details);
+  VISIT(shared_tab_group_details);
+  VISIT(update_time_windows_epoch_micros);
 }
 
 }  // namespace syncer

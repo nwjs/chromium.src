@@ -19,10 +19,12 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.components.browser_ui.settings.ChromeSwitchPreference;
 import org.chromium.components.browser_ui.settings.EmbeddableSettingsPage;
+import org.chromium.components.browser_ui.settings.SettingsFragment;
 import org.chromium.components.browser_ui.settings.SettingsUtils;
 import org.chromium.components.browser_ui.site_settings.AllSiteSettings;
 import org.chromium.components.browser_ui.site_settings.SingleCategorySettings;
 import org.chromium.components.browser_ui.site_settings.SiteSettingsCategory;
+import org.chromium.components.dom_distiller.core.DomDistillerFeatures;
 import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.content_public.browser.ContentFeatureList;
 import org.chromium.content_public.browser.ContentFeatureMap;
@@ -101,6 +103,9 @@ public class AccessibilitySettings extends PreferenceFragmentCompat
 
         ChromeSwitchPreference readerForAccessibilityPref =
                 findPreference(PREF_READER_FOR_ACCESSIBILITY);
+        // Removes the preference if triggering is enabled for mobile friendly pages since it will
+        // have no effect.
+        readerForAccessibilityPref.setVisible(!DomDistillerFeatures.triggerOnMobileFriendlyPages());
         readerForAccessibilityPref.setChecked(
                 mDelegate.getReaderAccessibilityDelegate().getValue());
         readerForAccessibilityPref.setOnPreferenceChangeListener(this);
@@ -183,5 +188,10 @@ public class AccessibilitySettings extends PreferenceFragmentCompat
             OmniboxFeatures.setJumpStartOmniboxEnabled((Boolean) newValue);
         }
         return true;
+    }
+
+    @Override
+    public @SettingsFragment.AnimationType int getAnimationType() {
+        return SettingsFragment.AnimationType.PROPERTY;
     }
 }

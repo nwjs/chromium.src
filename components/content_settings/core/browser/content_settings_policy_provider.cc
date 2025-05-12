@@ -37,6 +37,11 @@ struct PrefsForManagedContentSettingsMapEntry {
   ContentSetting setting;
 };
 
+// The order of prefs here matter! Namely in cases where different prefs refer
+// to the same content type the  last entry for given origin wins. The order
+// should always be from the least to the most restrictive policy -
+// ALLOW < ASK < BLOCK. When adding new types consider adding a test that
+// verifies this invariant or documents any necessary deviation.
 constexpr PrefsForManagedContentSettingsMapEntry
     kPrefsForManagedContentSettingsMap[] = {
         {prefs::kManagedAutomaticFullscreenAllowedForUrls,
@@ -244,6 +249,9 @@ constexpr const char* kManagedDefaultPrefs[] = {
     prefs::kManagedDefaultDirectSocketsSetting,
     prefs::kManagedDefaultDirectSocketsPrivateNetworkAccessSetting,
     prefs::kManagedDefaultControlledFrameSetting,
+#if BUILDFLAG(IS_CHROMEOS)
+    prefs::kManagedDefaultSmartCardConnectSetting
+#endif  // BUILDFLAG(IS_CHROMEOS)
 };
 
 void ReportCookiesAllowedForUrlsUsage(
@@ -359,6 +367,10 @@ const PolicyProvider::PrefsForManagedDefaultMapEntry
          prefs::kManagedDefaultDirectSocketsPrivateNetworkAccessSetting},
         {ContentSettingsType::CONTROLLED_FRAME,
          prefs::kManagedDefaultControlledFrameSetting},
+#if BUILDFLAG(IS_CHROMEOS)
+        {ContentSettingsType::SMART_CARD_GUARD,
+         prefs::kManagedDefaultSmartCardConnectSetting},
+#endif  // BUILDFLAG(IS_CHROMEOS)
 };
 
 // static
@@ -457,10 +469,9 @@ void PolicyProvider::GetContentSettingsFromPreferences() {
 
 #if BUILDFLAG(IS_CHROMEOS)
       if (entry.content_type == ContentSettingsType::SMART_CARD_GUARD &&
-          entry.setting == CONTENT_SETTING_ALLOW &&
           !pattern_pair.first.MatchesSingleOrigin()) {
-        VLOG(1) << "Smart card reader access cannot be allowed by wildcard, "
-                   "skipping pattern "
+        VLOG(1) << "Smart card reader access cannot be allowed or blocked by "
+                   "wildcard, skipping pattern."
                 << original_pattern_str;
         continue;
       }

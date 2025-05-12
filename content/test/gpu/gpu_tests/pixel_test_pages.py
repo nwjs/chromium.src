@@ -155,6 +155,17 @@ class TestActionSwitchTabsAndCopyImage(sghitb.TestAction):
     sghitb.EvalInTestIframe(tab, 'copyImage()')
 
 
+class TestActionSleepBeforeRender(sghitb.TestAction):
+  """Wait for 2 seconds before webgpu rendering."""
+
+  def Run(self, test_case: PixelTestPage, tab_data: sghitb.TabData,
+          loop_state: sghitb.LoopState,
+          test_instance: sghitb.SkiaGoldHeartbeatIntegrationTestBase) -> None:
+    tab = tab_data.tab
+    time.sleep(2)
+    sghitb.EvalInTestIframe(tab, 'render()')
+
+
 class TestActionRunOffscreenCanvasIBRCWebGLLowPerfTest(sghitb.TestAction):
   """Runs steps for an offscreen canvas IBRC WebGL test on the low power GPU."""
   def Run(self, test_case: PixelTestPage, tab_data: sghitb.TabData,
@@ -538,6 +549,9 @@ class PixelTestPages():
         PixelTestPage('pixel_webgl_copy_image.html',
                       base_name + '_WebGLCopyImage',
                       crop_action=standard_crop),
+        PixelTestPage('pixel_webgl_texture_from_webgl_readback.html',
+                      base_name + '_WebGLTextureFromWebGLReadback',
+                      crop_action=standard_crop),
         PixelTestPage('pixel_webgl_read_pixels_tab_switch.html',
                       base_name + '_WebGLReadPixelsTabSwitch',
                       crop_action=standard_crop,
@@ -768,6 +782,58 @@ class PixelTestPages():
             other_args=other_args_canvas_accelerated_two_copy),
     ]
 
+  @staticmethod
+  def WebGPUDeviceDestroyPages(base_name) -> list[PixelTestPage]:
+    webgpu_args = cba.ENABLE_WEBGPU_FOR_TESTING + [
+        cba.ENABLE_EXPERIMENTAL_WEB_PLATFORM_FEATURES
+    ]
+
+    standard_crop = ca.NonWhiteContentCropAction(
+        initial_crop=ca.FixedRectCropAction(0, 0, 320, 210))
+
+    offscreen_crop = ca.NonWhiteContentCropAction(
+        initial_crop=ca.FixedRectCropAction(0, 0, 210, 210))
+
+    methods = [
+        'drawImage', 'toDataURL', 'toBlob', 'captureStream',
+        'transferToImageBitmap', 'copyExternalImageToTexture', 'glTexImage2D'
+    ]
+    canvas_tyes = ['onscreen', 'offscreen', 'transferToOffscreen']
+
+    test_actions = [
+        sghitb.TestActionWaitForContinue(SHORT_GLOBAL_TIMEOUT),
+        TestActionSleepBeforeRender(),
+        sghitb.TestActionWaitForFinish(SHORT_GLOBAL_TIMEOUT),
+    ]
+
+    testPages = []
+    for method in methods:
+      for canvas_type in canvas_tyes:
+        if method == 'toDataURL' and canvas_type != 'onscreen':
+          continue  # toDataURL is only supported for onscreen canvas
+        if method == 'captureStream' and canvas_type != 'onscreen':
+          continue  # only test captureStream for onscreen canvas
+        if method == 'transferToImageBitmap' and canvas_type == 'onscreen':
+          continue  # transferToImageBitmap only works on OffScreenCanvas
+
+        arguments = '?method=' + method + '&canvas=' + canvas_type
+
+        canvas_type_name = canvas_type[0].upper() + canvas_type[1:]
+        method_name = method[0].upper() + method[1:]
+        test_name = canvas_type_name + 'Canvas' + '_' + method_name
+
+        crop = standard_crop
+        if canvas_type == 'offscreen':
+          crop = offscreen_crop
+
+        testPages.append(
+            PixelTestPage('pixel_destroyed_webgpu_canvas.html' + arguments,
+                          base_name + '_WebGPUDestroyed_' + test_name,
+                          crop_action=crop,
+                          browser_args=webgpu_args,
+                          test_actions=test_actions))
+
+    return testPages
 
   # Pages that should be run with GPU rasterization enabled.
   @staticmethod
@@ -1328,68 +1394,87 @@ class PixelTestPages():
 
     standard_crop = ca.NonWhiteContentCropAction(
         initial_crop=ca.FixedRectCropAction(0, 0, 300, 300))
+    mp4_crop = ca.NonWhiteContentCropAction(
+        initial_crop=ca.FixedRectCropAction(0, 0, 600, 600))
     large_crop = ca.NonWhiteContentCropAction(
         initial_crop=ca.FixedRectCropAction(0, 0, 1000, 600))
 
+    MP4_FULLSIZE_WIDTH = 960
+    MP4_FULLSIZE_HEIGHT = 540
+    MP4_HALF_WIDTH = MP4_FULLSIZE_WIDTH / 2
+    MP4_HALF_HEIGHT = MP4_FULLSIZE_HEIGHT / 2
+
     return [
-        PixelTestPage(f'pixel_video_mp4.html?width=240&height=135&{swap_param}',
-                      base_name + '_DirectComposition_Video_MP4',
-                      crop_action=standard_crop,
-                      browser_args=browser_args,
-                      other_args={
-                          'codec': h264,
-                      },
-                      matching_algorithm=permissive_dc_sobel_algorithm),
-        PixelTestPage(f'pixel_video_mp4.html?width=960&height=540&{swap_param}',
-                      base_name + '_DirectComposition_Video_MP4_Fullsize',
-                      browser_args=browser_args,
-                      other_args={
-                          'full_size': True,
-                          'codec': h264,
-                      },
-                      crop_action=large_crop,
-                      matching_algorithm=strict_dc_sobel_algorithm),
-        PixelTestPage(f'pixel_video_mp4.html?width=240&height=135&{swap_param}',
-                      base_name + '_DirectComposition_Video_MP4_NV12',
-                      crop_action=standard_crop,
-                      browser_args=browser_args_NV12,
-                      other_args={
-                          'pixel_format': overlay_support.PixelFormat.NV12,
-                          'codec': h264,
-                      },
-                      matching_algorithm=permissive_dc_sobel_algorithm),
-        PixelTestPage(f'pixel_video_mp4.html?width=240&height=135&{swap_param}',
-                      base_name + '_DirectComposition_Video_MP4_YUY2',
-                      crop_action=standard_crop,
-                      browser_args=browser_args_YUY2,
-                      other_args={
-                          'pixel_format': overlay_support.PixelFormat.YUY2,
-                          'codec': h264,
-                      },
-                      matching_algorithm=permissive_dc_sobel_algorithm),
-        PixelTestPage(f'pixel_video_mp4.html?width=960&height=540&{swap_param}',
-                      base_name + '_DirectComposition_Video_MP4_BGRA',
-                      crop_action=large_crop,
-                      browser_args=browser_args_BGRA,
-                      other_args={
-                          'pixel_format': overlay_support.PixelFormat.BGRA8,
-                          'codec': h264,
-                      },
-                      matching_algorithm=permissive_dc_sobel_algorithm),
-        PixelTestPage(f'pixel_video_mp4.html?width=240&height=135&{swap_param}',
-                      base_name + '_DirectComposition_Video_MP4_VP_SCALING',
-                      crop_action=standard_crop,
-                      browser_args=browser_args_vp_scaling,
-                      other_args={
-                          'zero_copy': False,
-                          'codec': h264,
-                      },
-                      matching_algorithm=permissive_dc_sobel_algorithm),
+        PixelTestPage(
+            f'pixel_video_mp4.html?width={MP4_HALF_WIDTH}&'
+            f'height={MP4_HALF_HEIGHT}&{swap_param}',
+            base_name + '_DirectComposition_Video_MP4',
+            crop_action=mp4_crop,
+            browser_args=browser_args,
+            other_args={
+                'codec': h264,
+            },
+            matching_algorithm=permissive_dc_sobel_algorithm),
+        PixelTestPage(
+            f'pixel_video_mp4.html?width={MP4_FULLSIZE_WIDTH}&'
+            f'height={MP4_FULLSIZE_HEIGHT}&{swap_param}',
+            base_name + '_DirectComposition_Video_MP4_Fullsize',
+            browser_args=browser_args,
+            other_args={
+                'full_size': True,
+                'codec': h264,
+            },
+            crop_action=large_crop,
+            matching_algorithm=strict_dc_sobel_algorithm),
+        PixelTestPage(
+            f'pixel_video_mp4.html?width={MP4_HALF_WIDTH}&'
+            f'height={MP4_HALF_HEIGHT}&{swap_param}',
+            base_name + '_DirectComposition_Video_MP4_NV12',
+            crop_action=mp4_crop,
+            browser_args=browser_args_NV12,
+            other_args={
+                'pixel_format': overlay_support.PixelFormat.NV12,
+                'codec': h264,
+            },
+            matching_algorithm=permissive_dc_sobel_algorithm),
+        PixelTestPage(
+            f'pixel_video_mp4.html?width={MP4_HALF_WIDTH}&'
+            f'height={MP4_HALF_HEIGHT}&{swap_param}',
+            base_name + '_DirectComposition_Video_MP4_YUY2',
+            crop_action=mp4_crop,
+            browser_args=browser_args_YUY2,
+            other_args={
+                'pixel_format': overlay_support.PixelFormat.YUY2,
+                'codec': h264,
+            },
+            matching_algorithm=permissive_dc_sobel_algorithm),
+        PixelTestPage(
+            f'pixel_video_mp4.html?width={MP4_FULLSIZE_WIDTH}&'
+            f'height={MP4_FULLSIZE_HEIGHT}&{swap_param}',
+            base_name + '_DirectComposition_Video_MP4_BGRA',
+            crop_action=large_crop,
+            browser_args=browser_args_BGRA,
+            other_args={
+                'pixel_format': overlay_support.PixelFormat.BGRA8,
+                'codec': h264,
+            },
+            matching_algorithm=permissive_dc_sobel_algorithm),
+        PixelTestPage(
+            f'pixel_video_mp4.html?width={MP4_HALF_WIDTH}&'
+            f'height={MP4_HALF_HEIGHT}&{swap_param}',
+            base_name + '_DirectComposition_Video_MP4_VP_SCALING',
+            crop_action=mp4_crop,
+            browser_args=browser_args_vp_scaling,
+            other_args={
+                'zero_copy': False,
+                'codec': h264,
+            },
+            matching_algorithm=permissive_dc_sobel_algorithm),
         PixelTestPage(
             (f'pixel_video_mp4_four_colors_aspect_4x3.html?'
-             f'width=240&height=135&{swap_param}'),
+             f'width={MP4_HALF_WIDTH}&height={MP4_HALF_HEIGHT}&{swap_param}'),
             base_name + '_DirectComposition_Video_MP4_FourColors_Aspect_4x3',
-            crop_action=standard_crop,
+            crop_action=mp4_crop,
             browser_args=browser_args,
             other_args={
                 'codec': h264,
@@ -1397,9 +1482,9 @@ class PixelTestPages():
             matching_algorithm=permissive_dc_sobel_algorithm),
         PixelTestPage(
             (f'pixel_video_mp4_four_colors_rot_90.html?'
-             f'width=270&height=240&{swap_param}'),
+             f'width={MP4_HALF_HEIGHT}&height={MP4_HALF_WIDTH}&{swap_param}'),
             base_name + '_DirectComposition_Video_MP4_FourColors_Rot_90',
-            crop_action=standard_crop,
+            crop_action=mp4_crop,
             browser_args=browser_args,
             other_args={
                 'video_rotation': overlay_support.VideoRotation.ROT90,
@@ -1408,9 +1493,9 @@ class PixelTestPages():
             matching_algorithm=strict_dc_sobel_algorithm),
         PixelTestPage(
             (f'pixel_video_mp4_four_colors_rot_180.html?'
-             f'width=240&height=135&{swap_param}'),
+             f'width={MP4_HALF_WIDTH}&height={MP4_HALF_HEIGHT}&{swap_param}'),
             base_name + '_DirectComposition_Video_MP4_FourColors_Rot_180',
-            crop_action=standard_crop,
+            crop_action=mp4_crop,
             browser_args=browser_args,
             other_args={
                 'video_rotation': overlay_support.VideoRotation.ROT180,
@@ -1419,9 +1504,9 @@ class PixelTestPages():
             matching_algorithm=strict_dc_sobel_algorithm),
         PixelTestPage(
             (f'pixel_video_mp4_four_colors_rot_270.html?'
-             f'width=270&height=240&{swap_param}'),
+             f'width={MP4_HALF_HEIGHT}&height={MP4_HALF_WIDTH}&{swap_param}'),
             base_name + '_DirectComposition_Video_MP4_FourColors_Rot_270',
-            crop_action=standard_crop,
+            crop_action=mp4_crop,
             browser_args=browser_args,
             other_args={
                 'video_rotation': overlay_support.VideoRotation.ROT270,

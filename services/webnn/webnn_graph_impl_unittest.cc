@@ -48,18 +48,23 @@ namespace {
 // computing graph message.
 class FakeWebNNGraphImpl final : public WebNNGraphImpl {
  public:
-  FakeWebNNGraphImpl(WebNNContextImpl* context,
-                     ComputeResourceInfo compute_resource_info)
-      : WebNNGraphImpl(context, std::move(compute_resource_info)) {}
+  FakeWebNNGraphImpl(
+      mojo::PendingAssociatedReceiver<mojom::WebNNGraph> receiver,
+      WebNNContextImpl* context,
+      ComputeResourceInfo compute_resource_info)
+      : WebNNGraphImpl(std::move(receiver),
+                       context,
+                       std::move(compute_resource_info)) {}
   ~FakeWebNNGraphImpl() override = default;
 
   static void CreateAndBuild(
+      mojo::PendingAssociatedReceiver<mojom::WebNNGraph> receiver,
       WebNNContextImpl* context,
       const mojom::GraphInfo& graph_info,
       ComputeResourceInfo compute_resource_info,
       WebNNContextImpl::CreateGraphImplCallback callback) {
     std::move(callback).Run(std::make_unique<FakeWebNNGraphImpl>(
-        context, std::move(compute_resource_info)));
+        std::move(receiver), context, std::move(compute_resource_info)));
   }
 
  private:
@@ -109,13 +114,14 @@ class FakeWebNNContextImpl final : public WebNNContextImpl {
 
  private:
   void CreateGraphImpl(
+      mojo::PendingAssociatedReceiver<mojom::WebNNGraph> receiver,
       mojom::GraphInfoPtr graph_info,
       WebNNGraphImpl::ComputeResourceInfo compute_resource_info,
       base::flat_map<
           uint64_t,
           std::unique_ptr<WebNNConstantOperand>> /*constant_operands*/,
       CreateGraphImplCallback callback) override {
-    FakeWebNNGraphImpl::CreateAndBuild(this, *graph_info,
+    FakeWebNNGraphImpl::CreateAndBuild(std::move(receiver), this, *graph_info,
                                        std::move(compute_resource_info),
                                        std::move(callback));
   }
@@ -1041,17 +1047,17 @@ struct Conv2dTester {
     std::vector<uint32_t> strides = {1, 1};
     std::vector<uint32_t> dilations = {1, 1};
     uint32_t groups = 1;
-    InputOperandLayout input_layout = InputOperandLayout::kNchw;
     std::optional<OperandInfo> bias;
   };
   Conv2dAttributes attributes;
+  InputOperandLayout input_operand_layout = InputOperandLayout::kNchw;
   OperandInfo output;
   bool expected;
 
   void Test(WebNNGraphImplTest& test) {
     auto context_properties = GetContextPropertiesForTesting();
     // Override the default input layout to exercise all the validation cases.
-    context_properties.input_operand_layout = attributes.input_layout;
+    context_properties.input_operand_layout = input_operand_layout;
 
     // Build the graph with mojo type.
     mojo::AssociatedRemote<mojom::WebNNGraphBuilder> remote =
@@ -1136,7 +1142,7 @@ TEST_F(WebNNGraphImplTest, Conv2dTest) {
                            .dimensions = {1, 2, 5, 5}},
                  .filter = {.type = OperandDataType::kFloat16,
                             .dimensions = {1, 2, 3, 3}},
-                 .attributes = {.input_layout = InputOperandLayout::kNchw},
+                 .input_operand_layout = InputOperandLayout::kNchw,
                  .output = {.type = OperandDataType::kFloat16,
                             .dimensions = {1, 1, 3, 3}},
                  .expected = true}
@@ -1308,13 +1314,13 @@ TEST_F(WebNNGraphImplTest, ConvTranspose2dTest) {
         .Test(*this);
   }
   {
-    // Test convTranspose2d with input_layout = kChannelsLast.
+    // Test convTranspose2d with input_layout = nhwc.
     Conv2dTester{.type = mojom::Conv2d::Kind::kTransposed,
                  .input = {.type = OperandDataType::kFloat32,
                            .dimensions = {1, 3, 3, 1}},
                  .filter = {.type = OperandDataType::kFloat32,
                             .dimensions = {1, 3, 3, 1}},
-                 .attributes = {.input_layout = InputOperandLayout::kNhwc},
+                 .input_operand_layout = InputOperandLayout::kNhwc,
                  .output = {.type = OperandDataType::kFloat32,
                             .dimensions = {1, 5, 5, 1}},
                  .expected = true}
@@ -3690,16 +3696,16 @@ struct InstanceNormalizationTester {
   struct InstanceNormalizationAttributes {
     std::optional<uint64_t> scale_operand_id;
     std::optional<uint64_t> bias_operand_id;
-    mojom::InputOperandLayout layout =
-        mojom::InputOperandLayout::kChannelsFirst;
     float epsilon = 1e-5;
   };
   InstanceNormalizationAttributes attributes;
+  InputOperandLayout input_operand_layout = InputOperandLayout::kNchw;
   OperandInfo output;
   bool expected;
 
   void Test(WebNNGraphImplTest& test) {
     auto context_properties = GetContextPropertiesForTesting();
+    context_properties.input_operand_layout = input_operand_layout;
 
     // Build the graph with mojo type.
     mojo::AssociatedRemote<mojom::WebNNGraphBuilder> remote =
@@ -3735,7 +3741,7 @@ TEST_F(WebNNGraphImplTest, InstanceNormalizationTest) {
         .Test(*this);
   }
   {
-    // Test building instanceNormalization with layout = kChannelsLast.
+    // Test building instanceNormalization with layout = nhwc.
     InstanceNormalizationTester{
         .input = {.type = OperandDataType::kFloat32,
                   .dimensions = {1, 2, 3, 3}},
@@ -3743,14 +3749,14 @@ TEST_F(WebNNGraphImplTest, InstanceNormalizationTest) {
             OperandInfo{.type = OperandDataType::kFloat32, .dimensions = {3}},
         .bias =
             OperandInfo{.type = OperandDataType::kFloat32, .dimensions = {3}},
-        .attributes = {.layout = mojom::InputOperandLayout::kChannelsLast},
+        .input_operand_layout = InputOperandLayout::kNhwc,
         .output = {.type = OperandDataType::kFloat32,
                    .dimensions = {1, 2, 3, 3}},
         .expected = true}
         .Test(*this);
   }
   {
-    // Test building instanceNormalization with default layout = kChannelsFirst.
+    // Test building instanceNormalization with default layout = nchw.
     InstanceNormalizationTester{
         .input = {.type = OperandDataType::kFloat32,
                   .dimensions = {1, 2, 3, 3}},
@@ -3809,7 +3815,7 @@ TEST_F(WebNNGraphImplTest, InstanceNormalizationTest) {
                   .dimensions = {1, 2, 3, 3}},
         .bias =
             OperandInfo{.type = OperandDataType::kFloat32, .dimensions = {2}},
-        .attributes = {.layout = mojom::InputOperandLayout::kChannelsLast},
+        .input_operand_layout = InputOperandLayout::kNhwc,
         .output = {.type = OperandDataType::kFloat32,
                    .dimensions = {1, 2, 3, 3}},
         .expected = false}
@@ -4852,9 +4858,9 @@ struct Pool2dTester {
     std::vector<uint32_t> padding = {0, 0, 0, 0};
     std::vector<uint32_t> strides = {1, 1};
     std::vector<uint32_t> dilations = {1, 1};
-    InputOperandLayout layout = InputOperandLayout::kNchw;
   };
   Pool2dAttributes attributes;
+  InputOperandLayout input_operand_layout = InputOperandLayout::kNchw;
   OperandInfo output;
   bool expected;
 
@@ -4866,7 +4872,7 @@ struct Pool2dTester {
 
   void Test(WebNNGraphImplTest& test, mojom::Pool2d::Kind kind) {
     auto context_properties = GetContextPropertiesForTesting();
-    context_properties.input_operand_layout = attributes.layout;
+    context_properties.input_operand_layout = input_operand_layout;
 
     // Build the graph with mojo type.
     mojo::AssociatedRemote<mojom::WebNNGraphBuilder> remote =
@@ -4931,9 +4937,8 @@ TEST_F(WebNNGraphImplTest, Pool2dTest) {
     // Test pool2d with layout="nhwc".
     Pool2dTester{.input = {.type = OperandDataType::kFloat16,
                            .dimensions = {1, 5, 5, 2}},
-                 .attributes = {.window_dimensions = {3, 3},
-                                .strides = {1, 1},
-                                .layout = InputOperandLayout::kNhwc},
+                 .attributes = {.window_dimensions = {3, 3}, .strides = {1, 1}},
+                 .input_operand_layout = InputOperandLayout::kNhwc,
                  .output = {.type = OperandDataType::kFloat16,
                             .dimensions = {1, 3, 3, 2}},
                  .expected = true}

@@ -31,6 +31,7 @@
 <translation id="137466361146087520">Google Chrome Beta</translation>
 <translation id="1383876407941801731">Cerca</translation>
 <translation id="1399397803214730675">Su questo computer è già installata una versione più recente di Google Chrome. Se il software non funziona, disinstalla Google Chrome e riprova.</translation>
+<translation id="141901961143729572">Condividi le tue opinioni</translation>
 <translation id="1425903838053942728">{COUNT,plural, =0{Chrome ha terminato l'aggiornamento. Puoi utilizzare l'ultima versione non appena eseguirai il riavvio. Dopodiché verranno riaperte le schede correnti.}=1{Chrome ha terminato l'aggiornamento. Puoi utilizzare l'ultima versione non appena eseguirai il riavvio. Dopodiché verranno riaperte le schede correnti. La finestra di navigazione in incognito non verrà riaperta.}other{Chrome ha terminato l'aggiornamento. Puoi utilizzare l'ultima versione non appena eseguirai il riavvio. Dopodiché verranno riaperte le schede correnti. # finestre di navigazione in incognito non verranno riaperte.}}</translation>
 <translation id="1434626383986940139">Applicazioni Chrome Canary</translation>
 <translation id="146866447420868597">Accedere a Chrome?</translation>
@@ -103,7 +104,6 @@
 <translation id="234869673307233423">Chrome non può controllare le tue password. Riprova più tardi.</translation>
 <translation id="235650106824528204">Tutti i dati di Chrome generati durante l'utilizzo di questo profilo (come i preferiti, la cronologia, le password e altre impostazioni) possono essere rimossi dall'amministratore del profilo di lavoro. <ph name="LEARN_MORE" /></translation>
 <translation id="2359808026110333948">Continua</translation>
-<translation id="2401189691232800402">Sistema ChromeOS</translation>
 <translation id="2403703063067034158">Errore di avvio: è in esecuzione un'altra istanza di configurazione. Riprova più tardi.</translation>
 <translation id="2409816192575564775">{NUM_DEVICES,plural, =0{Una o più estensioni di Chrome stavano accedendo a 1 dispositivo HID}=1{Una o più estensioni di Chrome stanno accedendo a 1 dispositivo HID}other{Una o più estensioni di Chrome stanno accedendo a # dispositivi HID}}</translation>
 <translation id="2424440923901031101">Questa estensione viola le norme del Chrome Web Store e potrebbe non essere sicura. Rimuovila da Chrome in modo che non possa più vedere e modificare i tuoi dati sui siti che visiti, incluse le tue informazioni personali.</translation>
@@ -169,6 +169,7 @@
 <translation id="3065168410429928842">Scheda Chrome</translation>
 <translation id="3080151273017101988">Continua a eseguire applicazioni in background dopo la chiusura di Google Chrome</translation>
 <translation id="3100998948628680988">Assegna un nome al tuo profilo Chrome</translation>
+<translation id="310459126943037700">Impossibile terminare le attività.</translation>
 <translation id="3112458742631356345">Chrome ha bloccato questo download perché il file non viene scaricato comunemente e potrebbe essere pericoloso</translation>
 <translation id="3114643501466072395">Per controllare che le tue altre password siano protette da violazioni dei dati e altri problemi di sicurezza, <ph name="BEGIN_LINK" />accedi a Chrome<ph name="END_LINK" />.</translation>
 <translation id="3119573284443908657">Chrome ha bloccato questo download perché il file di archivio include altri file che potrebbero nascondere malware</translation>
@@ -509,6 +510,7 @@
 <translation id="7661924425853052955">Non hai visitato il sito di recente. Chrome ha rimosso <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> e altre <ph name="COUNT" /> autorizzazioni</translation>
 <translation id="7670287553302121848">L'account Chrome richiede la ri-autenticazione</translation>
 <translation id="769538538642757151">Chrome ti avviserà qualora fosse necessario un controllo da parte tua</translation>
+<translation id="7716950018788545737">Attività terminate.</translation>
 <translation id="77283119132245232">Fornisce servizi di tracciamento del sistema per <ph name="BROWSER_NAME" />. Se questo servizio viene disattivato, le tracce delle prestazioni create dal browser non includeranno eventi a livello di sistema, ad esempio eventi di commutazione di contesto e di thread pronti.</translation>
 <translation id="7736869414036750079">La tua organizzazione richiede l'accesso a Chrome</translation>
 <translation id="7747138024166251722">Il programma di installazione non ha creato una directory temporanea. Verifica di disporre di spazio libero sul disco e dell'autorizzazione per l'installazione del software.</translation>
@@ -614,7 +616,6 @@
 <translation id="8999208279178790196">{0,plural, =0{È disponibile un aggiornamento di Chrome}=1{È disponibile un aggiornamento di Chrome}other{È disponibile un aggiornamento di Chrome da # giorni}}</translation>
 <translation id="9014771989710951291">Più organizzazioni gestiscono Chrome</translation>
 <translation id="9024318700713112071">Imposta Chrome come browser predefinito</translation>
-<translation id="9053892488859122171">Sistema ChromeOS Flex</translation>
 <translation id="9090566250983691233">Scopri perché Chrome blocca alcuni file</translation>
 <translation id="9106236359747881194">Seleziona il testo da cercare</translation>
 <translation id="911206726377975832">Eliminare anche i tuoi dati di navigazione?</translation>

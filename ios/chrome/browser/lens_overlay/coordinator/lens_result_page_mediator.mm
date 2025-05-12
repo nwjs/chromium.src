@@ -15,7 +15,7 @@
 #import "components/lens/lens_url_utils.h"
 #import "ios/chrome/browser/context_menu/ui_bundled/context_menu_configuration_provider.h"
 #import "ios/chrome/browser/lens_overlay/coordinator/lens_overlay_availability.h"
-#import "ios/chrome/browser/lens_overlay/coordinator/lens_overlay_tab_change_responder.h"
+#import "ios/chrome/browser/lens_overlay/coordinator/lens_overlay_tab_change_audience.h"
 #import "ios/chrome/browser/lens_overlay/coordinator/lens_result_page_mediator_delegate.h"
 #import "ios/chrome/browser/lens_overlay/model/lens_overlay_url_utils.h"
 #import "ios/chrome/browser/lens_overlay/ui/lens_overlay_error_handler.h"
@@ -312,17 +312,14 @@ inline constexpr char kDarkModeParameterDarkValue[] = "1";
 
     decisionHandler(web::WebStatePolicyDecider::PolicyDecision::Cancel());
 
-    if (URL.IsAboutBlank()) {
+    // Minimize bottom sheet URLs are still delivered but are not handled in a
+    // special way anymore. Refrain from adding them to the navigation stack.
+    if (URL.IsAboutBlank() || IsMinimizeBottomSheetURL(URL)) {
       return;
     }
 
     if (IsMaximizeBottomSheetURL(URL)) {
       [self.presentationDelegate requestMaximizeBottomSheet];
-      return;
-    }
-
-    if (IsMinimizeBottomSheetURL(URL)) {
-      [self.presentationDelegate requestMinimizeBottomSheet];
       return;
     }
 
@@ -551,7 +548,7 @@ inline constexpr char kDarkModeParameterDarkValue[] = "1";
       IsLensOverlaySameTabNavigationEnabled(
           ProfileIOS::FromBrowserState(_webState->GetBrowserState())
               ->GetPrefs())) {
-    [_tabChangeResponder prepareForBackgroundTabChange];
+    [_tabChangeAudience backgroundTabWillBecomeActive];
   }
 
   if (WebStateList* webStateList = _webStateList.get()) {

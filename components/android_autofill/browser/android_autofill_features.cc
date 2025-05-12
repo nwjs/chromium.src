@@ -21,18 +21,10 @@ namespace autofill::features {
 namespace {
 
 const base::Feature* const kFeaturesExposedToJava[] = {
-    &kAndroidAutofillBottomSheetWorkaround,
-    &kAndroidAutofillDeprecateAccessibilityApi};
+    &kAndroidAutofillDeprecateAccessibilityApi,
+    &kAutofillVirtualViewStructureAndroidInCct};
 
 }  // namespace
-
-// If enabled, we send SparseArrayWithWorkaround class as the PrefillHints for
-// the platform API `AutofillManager.notifyViewReady()` as a workaround for the
-// platform bug, see the comment on the class. This works as a kill switch for
-// the workaround in case any unexpected thing goes wrong.
-BASE_FEATURE(kAndroidAutofillBottomSheetWorkaround,
-             "AndroidAutofillBottomSheetWorkaround",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, autofill calls are never falling back to the accessibility APIs.
 // This feature is meant to be enabled after AutofillVirtualViewStructureAndroid
@@ -40,6 +32,13 @@ BASE_FEATURE(kAndroidAutofillBottomSheetWorkaround,
 BASE_FEATURE(kAndroidAutofillDeprecateAccessibilityApi,
              "AndroidAutofillDeprecateAccessibilityApi",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Safe-guard for a crucial fix that prevented consistent use of 3P in CCTs.
+// It's ineffective when AutofillVirtualViewStructureAndroid is disabled.
+// TODO: crbug.com/409579377 - Delete after M140.
+BASE_FEATURE(kAutofillVirtualViewStructureAndroidInCct,
+             "AutofillVirtualViewStructureAndroidInCct",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 static jlong JNI_AndroidAutofillFeatures_GetFeature(JNIEnv* env, jint ordinal) {
   return reinterpret_cast<jlong>(kFeaturesExposedToJava[ordinal]);

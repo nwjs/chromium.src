@@ -18,6 +18,7 @@ import org.chromium.components.metrics.AndroidMetricsFeatures;
 import org.chromium.components.metrics.MetricsFeatures;
 import org.chromium.components.metrics.MetricsSwitches;
 import org.chromium.components.network_session_configurator.NetworkSessionSwitches;
+import org.chromium.components.payments.PaymentFeatureList;
 import org.chromium.components.permissions.PermissionsAndroidFeatureList;
 import org.chromium.components.safe_browsing.SafeBrowsingFeatures;
 import org.chromium.components.sensitive_content.SensitiveContentFeatures;
@@ -208,16 +209,18 @@ public final class ProductionSupportedFlagList {
         Flag.baseFeature(
                 BlinkFeatures.LAYOUT_NG_SHAPE_CACHE, "Cache shape results for short text blocks."),
         Flag.baseFeature(
-                BlinkFeatures.SIMPLIFY_LOADING_TRANSPARENT_PLACEHOLDER_IMAGE,
-                "Enables simplifying loading known transparent placeholder images."),
-        Flag.baseFeature(
-                BlinkFeatures.OPTIMIZE_LOADING_DATA_URLS, "Enables optimizing loading data: URLs."),
-        Flag.baseFeature(
                 NetFeatures.SIMDUTF_BASE64_SUPPORT,
                 "Use the simdutf library to base64 decode data: URLs."),
         Flag.baseFeature(
                 NetFeatures.FURTHER_OPTIMIZE_PARSING_DATA_URLS,
                 "Further optimize parsing data: URLs."),
+        Flag.baseFeature(
+                BlinkFeatures.PRELOAD_LINK_REL_DATA_URLS,
+                "Allow preloading data: URLs with link rel=preload"),
+        Flag.baseFeature(
+                BlinkFeatures.DOCUMENT_POLICY_EXPECT_NO_LINKED_RESOURCES,
+                "Enables the ability to use Document Policy header to control feature"
+                        + " ExpectNoLinkedResources."),
         Flag.baseFeature(
                 AwFeatures.WEBVIEW_EXTRA_HEADERS_SAME_ORIGIN_ONLY,
                 "Only allow extra headers added via loadUrl() to be sent to the same origin "
@@ -234,8 +237,8 @@ public final class ProductionSupportedFlagList {
                 "Enables retrieval of the emoji font through GMS Core "
                         + "improving emoji glyph coverage."),
         Flag.baseFeature(
-                AndroidAutofillFeatures.ANDROID_AUTOFILL_BOTTOM_SHEET_WORKAROUND_NAME,
-                "Enable the workaround for autofill bottom sheet platform bug."),
+                AndroidAutofillFeatures.ANDROID_AUTOFILL_VIRTUAL_VIEW_STRUCTURE_ANDROID_IN_CCT_NAME,
+                "Disables checking AutofilManager#isEnabled too early. Mainly affects CCTs."),
         Flag.baseFeature(
                 AutofillFeatures.AUTOFILL_ACCEPT_DOM_MUTATION_AFTER_AUTOFILL_SUBMISSION,
                 "Accepts DOM_MUTATION_AFTER_AUTOFILL submissions detected on password forms."),
@@ -270,11 +273,11 @@ public final class ProductionSupportedFlagList {
                 AutofillFeatures.AUTOFILL_FIX_CURRENT_VALUE_IN_IMPORT,
                 "Prevents the AutofillField's current value from being reset for import"),
         Flag.baseFeature(
-                AutofillFeatures.AUTOFILL_INFER_LABEL_FROM_DEFAULT_SELECT_TEXT,
-                "Considers the text of a <select> element's first <option> as a potential label"),
-        Flag.baseFeature(
                 AutofillFeatures.AUTOFILL_IMPROVE_CITY_FIELD_CLASSIFICATION,
                 "Reduces city field false positive classifications"),
+        Flag.baseFeature(
+                AutofillFeatures.AUTOFILL_DISALLOW_SLASH_DOT_LABELS,
+                "Disallows labels that only contain slashes, dots and other special characters."),
         Flag.baseFeature(
                 AutofillFeatures.AUTOFILL_DETECT_REMOVED_FORM_CONTROLS,
                 "Enables Autofill to detect if form controls are removed from the DOM"),
@@ -300,6 +303,10 @@ public final class ProductionSupportedFlagList {
                 AutofillFeatures.AUTOFILL_REPLACE_CACHED_WEB_ELEMENTS_BY_RENDERER_IDS,
                 "When enabled, AutofillAgent will store its cached form and fields as renderer ids "
                         + "instead of holding strong references to blink::WebElement objects."),
+        Flag.baseFeature(
+                AutofillFeatures.AUTOFILL_UNIFY_RATIONALIZATION_AND_SECTIONING_ORDER,
+                "When enabled, the same rationalization/sectioning order is used for heuristic and"
+                        + " server predictions."),
         Flag.baseFeature(
                 AutofillFeatures.AUTOFILL_USE_FR_ADDRESS_MODEL,
                 "When enabled, Autofill uses a custom address model for France."),
@@ -502,10 +509,6 @@ public final class ProductionSupportedFlagList {
                 "Disable the per-domain blocking for 3D APIs after GPU reset. "
                         + "This switch is intended only for tests."),
         Flag.baseFeature(
-                BlinkFeatures.MEDIA_RECORDER_USE_MEDIA_VIDEO_ENCODER,
-                "When enabled, media::VideoEncoder implementation is used in MediaRecorder API"
-                        + " instead of using MediaRecorder own video encoder implementation."),
-        Flag.baseFeature(
                 MetricsFeatures.FLUSH_PERSISTENT_SYSTEM_PROFILE_ON_WRITE,
                 "Controls whether to schedule a flush of persistent histogram memory "
                         + "immediately after writing a system profile to it."),
@@ -664,16 +667,9 @@ public final class ProductionSupportedFlagList {
                         + "targeting a cross-origin iframe which has moved within its "
                         + "embedding page recently."),
         Flag.baseFeature(
-                ContentFeatures.BACK_FORWARD_CACHE_MEDIA_SESSION_SERVICE,
-                "Enables media session usage when bfcache is enabled"),
-        Flag.baseFeature(
                 AwFeatures.WEBVIEW_AUTO_SAA,
                 "Enable auto granting storage access API requests. This will be done "
                         + "if a relationship is detected between the app and the website."),
-        Flag.baseFeature(
-                AwFeatures.WEBVIEW_SUPERVISED_USER_SITE_BLOCK,
-                "Enable blocking the loading of mature sites on "
-                        + "WebViews running on supervised user accounts"),
         Flag.baseFeature(GwpAsanFeatures.GWP_ASAN_MALLOC, "GWP-ASan for `malloc()`."),
         Flag.baseFeature(GwpAsanFeatures.GWP_ASAN_PARTITION_ALLOC, "GWP-ASan for PartitionAlloc."),
         Flag.baseFeature(
@@ -737,6 +733,10 @@ public final class ProductionSupportedFlagList {
         Flag.baseFeature(
                 ContentFeatures.ACCESSIBILITY_MANAGE_BROADCAST_RECEIVER_ON_BACKGROUND,
                 "Register, un-register Accessibility broadcast receiver on a background thread."),
+        Flag.baseFeature(
+                "BatteryStatusManagerBroadcastReceiverInBackground",
+                "Register, unregister Battery Status Manager broadcast receiver on a background"
+                        + " thread."),
         Flag.baseFeature(
                 BlinkFeatures.INCREMENT_LOCAL_SURFACE_ID_FOR_MAINFRAME_SAME_DOC_NAVIGATION,
                 "When enabled, every mainframe same-doc navigation will increment the"
@@ -926,9 +926,6 @@ public final class ProductionSupportedFlagList {
                     + " is enabled, the response headers passed to the app remain unchanged. Also,"
                     + " the set-cookie header has no effect on the cookie jar."),
         Flag.baseFeature(
-                VizFeatures.RENDER_PASS_DRAWN_RECT,
-                "Enable optimization for tracking damage in a drawn rect for each render pass."),
-        Flag.baseFeature(
                 AwFeatures.WEBVIEW_HYPERLINK_CONTEXT_MENU,
                 "Enables hyperlink context menu in WebView"),
         Flag.baseFeature("MojoUseBinder"),
@@ -980,10 +977,6 @@ public final class ProductionSupportedFlagList {
                 ContentFeatures.IGNORE_DUPLICATE_NAVS,
                 "Ignore duplicate navigations, keeping the older navigations instead."),
         Flag.baseFeature(
-                ContentFeatures.USE_BROWSER_CALCULATED_ORIGIN,
-                "Use origin calculated in the browser process rather than renderer process for"
-                        + " navigations."),
-        Flag.baseFeature(
                 "AllowSensorsToEnterBfcache",
                 "Allow pages with sensors to enter back/forward cache."),
         Flag.baseFeature(
@@ -1004,7 +997,6 @@ public final class ProductionSupportedFlagList {
                 "LCPTimingPredictorPrerender2",
                 "When enabled, Prerender2 by Speculation Rules API is delayed until LCP is"
                         + " finished."),
-        Flag.baseFeature("SyntheticResponseReportUnexpectedHeader"),
         Flag.baseFeature(
                 "SelectParserRelaxation",
                 "Enables new HTML parser behavior for the <select> element."),
@@ -1039,6 +1031,14 @@ public final class ProductionSupportedFlagList {
                 "Enable the JavaScript PaymentRequest API for launching payment apps through"
                         + " Android intents."),
         Flag.baseFeature(
+                PaymentFeatureList.UPDATE_PAYMENT_DETAILS_INTENT_FILTER_IN_PAYMENT_APP,
+                "PaymentRequest looks up the dynamic price updates service in the payment app,"
+                        + " via an intent filter."),
+        Flag.baseFeature(
+                PaymentFeatureList.ANDROID_PAYMENT_INTENTS_OMIT_DEPRECATED_PARAMETERS,
+                "Omit the deprecated parameters from the intents that are sent to "
+                        + "Android payment apps in the PaymentRequest API."),
+        Flag.baseFeature(
                 GpuFeatures.WEB_GPU_USE_VULKAN_MEMORY_MODEL,
                 "Use the Vulkan Memory Model from WebGPU when available"),
         Flag.baseFeature("RunBeforeUnloadClosureOnStackInvestigation"),
@@ -1056,6 +1056,10 @@ public final class ProductionSupportedFlagList {
         Flag.baseFeature(
                 NetworkServiceFeatures.RENDERER_SIDE_CONTENT_DECODING,
                 "Enable renderer-side content decoding (decompression)."),
+        Flag.baseFeature(
+                NetworkServiceFeatures.DEVICE_BOUND_SESSION_ACCESS_OBSERVER_SHARED_REMOTE,
+                "Enable the optimization of reducing unnecessary IPC for cloning"
+                        + " DeviceBoundSessionAccessObserver."),
         Flag.commandLine(
                 AwSwitches.WEBVIEW_USE_STARTUP_TASKS_LOGIC,
                 "When enabled, webview chromium initialization uses the startup tasks logic where"
@@ -1068,6 +1072,30 @@ public final class ProductionSupportedFlagList {
                 CcFeatures.EXPORT_FRAME_TIMING_AFTER_FRAME_DONE,
                 "When enabled, moves the layer tree client's metric export call for from beginning"
                         + " of the subsequent frame to the end of the subsequent frame."),
+        Flag.baseFeature(
+                BlinkFeatures.ASYNC_SET_COOKIE,
+                "When enabled, the communication between renderer and network service is "
+                        + "asynchronous when setting cookies."),
+        Flag.baseFeature(
+                NetworkServiceFeatures.GET_COOKIES_ON_SET,
+                "When enabled, the network service returns all the cookies when setting a new "
+                        + "cookie, so that it can be cached."),
+        Flag.baseFeature(
+                NetworkServiceFeatures.INCREASE_COOKIE_ACCESS_CACHE_SIZE,
+                "When enabled, keep more cookies in the cache to be able to skip redundant access"
+                        + " notifications."),
+        Flag.baseFeature(
+                MediaFeatures.MULTI_BUFFER_NEVER_DEFER,
+                "Controls behavior of network deferrals during media src=file playbacks."),
+        Flag.baseFeature("PrefetchScheduler"),
+        Flag.baseFeature(
+                AwFeatures.WEBVIEW_SEQUENCED_SHOULD_INTERCEPT_REQUEST,
+                "Enforces sequencing of calls to shouldInterceptRequest, "
+                        + "instead of invoking each call on a separate background thread."),
+        Flag.baseFeature(
+                BlinkFeatures.RENDER_BLOCKING_FULL_FRAME_RATE,
+                "Enable the <link blocking=\"full-frame-rate\"/> API to lower the frame rate during"
+                        + " loading"),
         // Add new commandline switches and features above. The final entry should have a
         // trailing comma for cleaner diffs.
     };

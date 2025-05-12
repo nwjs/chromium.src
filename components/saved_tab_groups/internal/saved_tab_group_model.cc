@@ -414,8 +414,10 @@ void SavedTabGroupModel::UpdateLocalTabId(const base::Uuid& group_id,
   saved_tab_groups_[group_index.value()].UpdateTab(tab);
 }
 
-void SavedTabGroupModel::RemoveTabFromGroupLocally(const base::Uuid& group_id,
-                                                   const base::Uuid& tab_id) {
+void SavedTabGroupModel::RemoveTabFromGroupLocally(
+    const base::Uuid& group_id,
+    const base::Uuid& tab_id,
+    std::optional<GaiaId> local_gaia_id) {
   if (!Contains(group_id)) {
     return;
   }
@@ -429,7 +431,9 @@ void SavedTabGroupModel::RemoveTabFromGroupLocally(const base::Uuid& group_id,
 
   // Remove the group from the model if the last tab will be removed from it.
   if (group.saved_tabs().size() == 1) {
-    base::UmaHistogramBoolean("TabGroups.Shared.LastTabClosed", true);
+    if (group.is_shared_tab_group()) {
+      base::UmaHistogramBoolean("TabGroups.Shared.LastTabClosed2", true);
+    }
     RemovedLocally(group_id);
     return;
   }
@@ -437,7 +441,8 @@ void SavedTabGroupModel::RemoveTabFromGroupLocally(const base::Uuid& group_id,
   // TODO(crbug.com/40062298): Convert all methods to pass ids by value to
   // prevent UAFs. Also removes the need for a separate copy variable.
   const base::Uuid copy_tab_id = tab_id;
-  saved_tab_groups_[index.value()].RemoveTabLocally(tab_id);
+  saved_tab_groups_[index.value()].RemoveTabLocally(tab_id,
+                                                    std::move(local_gaia_id));
 
   // TODO(dljames): Update to use SavedTabGroupRemoveLocally and update the API
   // to pass a group_id and an optional tab_id.
@@ -514,6 +519,32 @@ void SavedTabGroupModel::UpdateLastUserInteractionTimeLocally(
 
   for (SavedTabGroupModelObserver& observer : observers_) {
     observer.SavedTabGroupLastUserInteractionTimeUpdated(group->saved_guid());
+  }
+}
+
+void SavedTabGroupModel::UpdateTabLastSeenTime(const base::Uuid& group_id,
+                                               const base::Uuid& tab_id,
+                                               base::Time time,
+                                               TriggerSource source) {
+  SavedTabGroup* group = GetMutableGroup(group_id);
+  CHECK(group);
+
+  SavedTabGroupTab* tab = group->GetTab(tab_id);
+  CHECK(tab);
+
+  // If the new time is not more recent than the one in the model,
+  // ignore it. This data is managed by the account data sync bridge,
+  // which always prefers the more recent time.
+  const std::optional<base::Time>& current_model_time =
+      tab->last_seen_time_windows_epoch_micros();
+  if (current_model_time.has_value() && current_model_time.value() >= time) {
+    return;
+  }
+
+  tab->SetLastSeenTimeWindowsEpochMicros(time);
+
+  for (SavedTabGroupModelObserver& observer : observers_) {
+    observer.SavedTabGroupTabLastSeenTimeUpdated(tab_id, source);
   }
 }
 
@@ -963,6 +994,21 @@ void SavedTabGroupModel::TogglePinState(base::Uuid id) {
   } else {
     base::RecordAction(
         base::UserMetricsAction("TabGroups_SavedTabGroups_Pinned"));
+  }
+}
+
+void SavedTabGroupModel::UpdateArchivalStatus(const base::Uuid& id,
+                                              bool archival_status) {
+  SavedTabGroup* const group = GetMutableGroup(id);
+  CHECK(group);
+  std::optional<base::Time> archival_time;
+  if (archival_status) {
+    archival_time = base::Time::Now();
+  }
+  group->SetArchivalTime(archival_time);
+
+  for (auto& observer : observers_) {
+    observer.SavedTabGroupUpdatedLocally(id, /*tab_guid=*/std::nullopt);
   }
 }
 

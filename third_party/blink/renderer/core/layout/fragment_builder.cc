@@ -113,11 +113,11 @@ void FragmentBuilder::ReplaceChild(wtf_size_t index,
   children_[index] = LogicalFragmentLink(new_child, offset);
 }
 
-HeapVector<Member<LayoutBoxModelObject>>&
+GCedHeapVector<Member<LayoutBoxModelObject>>&
 FragmentBuilder::EnsureStickyDescendants() {
   if (!sticky_descendants_) {
     sticky_descendants_ =
-        MakeGarbageCollected<HeapVector<Member<LayoutBoxModelObject>>>();
+        MakeGarbageCollected<GCedHeapVector<Member<LayoutBoxModelObject>>>();
   }
   return *sticky_descendants_;
 }
@@ -135,9 +135,9 @@ void FragmentBuilder::PropagateStickyDescendants(
   }
 }
 
-HeapVector<Member<Element>>& FragmentBuilder::EnsureSnapAreas() {
+GCedHeapVector<Member<Element>>& FragmentBuilder::EnsureSnapAreas() {
   if (!snap_areas_) {
-    snap_areas_ = MakeGarbageCollected<HeapVector<Member<Element>>>();
+    snap_areas_ = MakeGarbageCollected<GCedHeapVector<Member<Element>>>();
   }
   return *snap_areas_;
 }
@@ -211,15 +211,17 @@ void FragmentBuilder::PropagateChildAnchors(const PhysicalFragment& child,
     // Set the child's `anchor-name` before propagating its descendants', so
     // that ancestors have precedence over their descendants.
     LogicalRect logical_rect(child_offset,
-                             child.Size().ConvertToLogical(GetWritingMode()));
+                             ToLogicalSize(child.Size(), GetWritingMode()));
     const WritingModeConverter converter(GetWritingDirection(), Size());
     PhysicalRect rect = converter.ToPhysical(logical_rect);
     options = AnchorQuerySetOptions(
         child, node_, IsBlockFragmentationContextRoot() || HasItems());
     if (child.IsExplicitAnchor()) {
       for (const ScopedCSSName* name : child.Style().AnchorName()->GetNames()) {
-        EnsureAnchorQuery().Set(name, *child.GetLayoutObject(), rect, *options,
-                                context);
+        AnchorScopedName* anchor_scoped_name =
+            ToAnchorScopedName(*name, *child.GetLayoutObject());
+        EnsureAnchorQuery().Set(anchor_scoped_name, *child.GetLayoutObject(),
+                                rect, *options, context);
       }
     }
     if (child.IsImplicitAnchor()) {

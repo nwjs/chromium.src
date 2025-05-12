@@ -43,6 +43,7 @@
 #include "chrome/browser/download/download_request_limiter.h"
 #include "chrome/browser/download/download_stats.h"
 #include "chrome/browser/download/download_target_determiner.h"
+#include "chrome/browser/download/download_ui_safe_browsing_util.h"
 #include "chrome/browser/download/insecure_download_blocking.h"
 #include "chrome/browser/download/save_package_file_picker.h"
 #include "chrome/browser/enterprise/connectors/common.h"
@@ -66,6 +67,7 @@
 #include "components/offline_pages/buildflags/buildflags.h"
 #include "components/pdf/common/constants.h"
 #include "components/pdf/common/pdf_util.h"
+#include "components/policy/content/policy_blocklist_service.h"
 #include "components/policy/core/common/policy_pref_names.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_member.h"
@@ -183,12 +185,20 @@ using extensions::CrxInstallError;
 
 namespace {
 
-#if !BUILDFLAG(IS_ANDROID)
 // How long an ephemeral warning lasts before being automatically canceled (if
 // there is no user interaction).
 constexpr base::TimeDelta kEphemeralWarningLifetimeBeforeCancel =
     base::Hours(1);
+
+bool IsEphemeralWarningCancellationEnabled() {
+#if BUILDFLAG(IS_ANDROID)
+  return ShouldShowSafeBrowsingAndroidDownloadWarnings();
 #else
+  return download::IsDownloadBubbleEnabled();
+#endif
+}
+
+#if BUILDFLAG(IS_ANDROID)
 const char kPdfDirName[] = "pdfs";
 #endif
 
@@ -480,7 +490,6 @@ download::DownloadDangerType SavePackageDangerType(
 }
 #endif  // BUILDFLAG(SAFE_BROWSING_DOWNLOAD_PROTECTION)
 
-#if !BUILDFLAG(IS_ANDROID)
 // Events related to ephemeral warning cancellation.
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused.
@@ -503,7 +512,6 @@ void LogCancelEphemeralWarningEvent(CancelEphemeralWarningEvent event) {
   base::UmaHistogramEnumeration("SBClientDownload.CancelEphemeralWarning",
                                 event);
 }
-#endif  // !BUILDFLAG(IS_ANDROID)
 
 void OnCheckDownloadAllowedFailed(
     content::CheckDownloadAllowedCallback check_download_allowed_cb) {
@@ -1002,6 +1010,16 @@ bool ChromeDownloadManagerDelegate::InterceptDownloadIfApplicable(
     int64_t content_length,
     bool is_transient,
     content::WebContents* web_contents) {
+  PolicyBlocklistService* service =
+      PolicyBlocklistFactory::GetForBrowserContext(profile_);
+  policy::URLBlocklist::URLBlocklistState blocklist_state =
+      service->GetURLBlocklistState(url);
+  if (blocklist_state ==
+      policy::URLBlocklist::URLBlocklistState::URL_IN_BLOCKLIST) {
+    LOG(WARNING) << "URL is blocked by a policy.";
+    return true;
+  }
+
 #if BUILDFLAG(ENABLE_OFFLINE_PAGES)
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   // For background service downloads we don't want offline pages backend to
@@ -1076,10 +1094,17 @@ void ChromeDownloadManagerDelegate::ChooseSavePath(
     const base::FilePath::StringType& default_extension,
     bool can_save_as_complete,
     content::SavePackagePathPickedCallback callback) {
+#if BUILDFLAG(IS_ANDROID)
+  content::SavePackagePathPickedParams param;
+  param.file_path = suggested_path.ReplaceExtension("mhtml");
+  param.save_type = content::SavePageType::SAVE_PAGE_TYPE_AS_MHTML;
+  std::move(callback).Run(param, base::DoNothing());
+#else
   // Deletes itself.
   new SavePackageFilePicker(web_contents, suggested_path, default_extension,
                             can_save_as_complete, download_prefs_.get(),
                             std::move(callback));
+#endif
 }
 
 void ChromeDownloadManagerDelegate::SanitizeSavePackageResourceName(
@@ -2204,15 +2229,14 @@ void ChromeDownloadManagerDelegate::OnManagerInitialized() {
     download::GetDownloadTaskRunner()->PostTask(
         FROM_HERE, base::BindOnce([]() { base::DeleteFile(GetTempPdfDir()); }));
   }
-#else
-  CancelAllEphemeralWarnings();
 #endif
+
+  CancelAllEphemeralWarnings();
 }
 
-#if !BUILDFLAG(IS_ANDROID)
 void ChromeDownloadManagerDelegate::ScheduleCancelForEphemeralWarning(
     const std::string& guid) {
-  if (!download::IsDownloadBubbleEnabled()) {
+  if (!IsEphemeralWarningCancellationEnabled()) {
     return;
   }
   LogCancelEphemeralWarningEvent(
@@ -2226,6 +2250,7 @@ void ChromeDownloadManagerDelegate::ScheduleCancelForEphemeralWarning(
 
 void ChromeDownloadManagerDelegate::CancelForEphemeralWarning(
     const std::string& guid) {
+  CHECK(IsEphemeralWarningCancellationEnabled());
   LogCancelEphemeralWarningEvent(
       CancelEphemeralWarningEvent::kCancellationTriggered);
   download::DownloadItem* download = download_manager_->GetDownloadByGuid(guid);
@@ -2250,7 +2275,7 @@ void ChromeDownloadManagerDelegate::CancelForEphemeralWarning(
 }
 
 void ChromeDownloadManagerDelegate::CancelAllEphemeralWarnings() {
-  if (!download::IsDownloadBubbleEnabled()) {
+  if (!IsEphemeralWarningCancellationEnabled()) {
     return;
   }
   content::DownloadManager::DownloadVector downloads;
@@ -2263,4 +2288,3 @@ void ChromeDownloadManagerDelegate::CancelAllEphemeralWarnings() {
     }
   }
 }
-#endif  // !BUILDFLAG(IS_ANDROID)

@@ -6,7 +6,6 @@ package org.chromium.chrome.browser.tabmodel;
 
 import android.app.Activity;
 import android.content.Intent;
-import android.os.Bundle;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -89,6 +88,7 @@ public class TabModelImpl extends TabModelJniBridge {
     private int mIndex = INVALID_TAB_INDEX;
 
     private boolean mActive;
+    private boolean mInitializationComplete;
 
     // Undo State Tracking -------------------------------------------------------------------------
 
@@ -104,6 +104,7 @@ public class TabModelImpl extends TabModelJniBridge {
             if (mIndex >= insertIndex) mIndex++;
             assert !tab.isDestroyed() : "Attempting to undo tab that is destroyed.";
             mTabs.add(insertIndex, tab);
+            tab.onAddedToTabModel(mCurrentTabSupplier);
             mTabIdToTabs.put(tab.getId(), tab);
             mTabCountSupplier.set(mTabs.size());
 
@@ -230,9 +231,9 @@ public class TabModelImpl extends TabModelJniBridge {
         super.destroy();
     }
 
-    @Override
-    public void broadcastSessionRestoreComplete() {
-        super.broadcastSessionRestoreComplete();
+    /** Required to be called before this object is ready for most usage. */
+    public void completeInitialization() {
+        mInitializationComplete = true;
 
         // This is to make sure TabModel has a valid index when it has at least one valid Tab after
         // TabState is initialized. Otherwise, TabModel can have an invalid index even though it has
@@ -267,7 +268,7 @@ public class TabModelImpl extends TabModelJniBridge {
 
     @Override
     public @NonNull TabCreator getTabCreator() {
-        return isIncognitoBranded() ? mIncognitoTabCreator : mRegularTabCreator;
+        return getTabCreator(isIncognitoBranded());
     }
 
     /**
@@ -310,6 +311,7 @@ public class TabModelImpl extends TabModelJniBridge {
                     mIndex++;
                 }
             }
+            tab.onAddedToTabModel(mCurrentTabSupplier);
             mTabIdToTabs.put(tab.getId(), tab);
             mTabCountSupplier.set(mTabs.size());
 
@@ -572,10 +574,10 @@ public class TabModelImpl extends TabModelJniBridge {
             tab.setClosing(true);
         }
         allowUndo &= supportsPendingClosures();
+        for (TabModelObserver obs : mObservers) obs.willCloseMultipleTabs(allowUndo, tabs);
         if (!allowUndo) {
             notifyOnFinishingMultipleTabClosure(tabs, saveToTabRestoreService);
         }
-        for (TabModelObserver obs : mObservers) obs.willCloseMultipleTabs(allowUndo, tabs);
         for (Tab tab : tabs) {
             // Pass a null undoRunnable here as we want to attach it to the latter tab closure
             // event.
@@ -766,6 +768,11 @@ public class TabModelImpl extends TabModelJniBridge {
         return mActive;
     }
 
+    @Override
+    public boolean isInitializationComplete() {
+        return mInitializationComplete;
+    }
+
     /**
      * Performs the necessary actions to remove this {@link Tab} from this {@link TabModel}. This
      * does not actually destroy the {@link Tab} (see {@link #finalizeTabClosure(Tab)}.
@@ -841,6 +848,7 @@ public class TabModelImpl extends TabModelJniBridge {
         }
 
         mTabs.remove(tab);
+        tab.onRemovedFromTabModel(mCurrentTabSupplier);
         mTabIdToTabs.remove(tab.getId());
         mTabCountSupplier.set(mTabs.size());
 
@@ -912,22 +920,18 @@ public class TabModelImpl extends TabModelJniBridge {
         return true;
     }
 
-    @Override
-    protected TabCreator getTabCreator(boolean incognito) {
-        return incognito ? mIncognitoTabCreator : mRegularTabCreator;
-    }
-
     /** Used to restore tabs from native. */
     @Override
     protected boolean createTabWithWebContents(
             Tab parent, Profile profile, WebContents webContents, boolean select) {
         return getTabCreator(profile.isOffTheRecord())
-                .createTabWithWebContents(
-                        parent,
-                        webContents,
-                        select
-                                ? TabLaunchType.FROM_RECENT_TABS_FOREGROUND
-                                : TabLaunchType.FROM_RECENT_TABS);
+                        .createTabWithWebContents(
+                                parent,
+                                webContents,
+                                select
+                                        ? TabLaunchType.FROM_RECENT_TABS_FOREGROUND
+                                        : TabLaunchType.FROM_RECENT_TABS)
+                != null;
     }
 
     @Override
@@ -997,9 +1001,13 @@ public class TabModelImpl extends TabModelJniBridge {
                         /* addTrustedIntentExtras= */ true);
 
         Activity activity = ContextUtils.activityFromContext(parentTab.getContext());
-        Bundle options = MultiWindowUtils.getOpenInOtherWindowActivityOptions(activity);
 
-        ReparentingTask.from(tab).begin(activity, intent, options, null);
+        ReparentingTask.from(tab)
+                .begin(
+                        activity,
+                        intent,
+                        /* startActivityOptions= */ null,
+                        /* finalizeCallback= */ null);
         return tab;
     }
 
@@ -1084,5 +1092,19 @@ public class TabModelImpl extends TabModelJniBridge {
         for (TabModelObserver obs : mObservers) {
             obs.onFinishingMultipleTabClosure(tabs, saveToTabRestoreService);
         }
+    }
+
+    /**
+     * Returns the {@link TabCreator} for the given {@link Profile}.
+     *
+     * <p>Please note that, the {@link TabCreator} and {@TabModelImpl} are separate instances for
+     * {@link ChromeTabbedActivity} and {@link CustomTabActivity} across both regular and Incognito
+     * modes which allows us to pass the boolean directly.
+     *
+     * @param incognito A boolean to indicate whether to return IncognitoTabCreator or
+     *     RegularTabCreator.
+     */
+    private TabCreator getTabCreator(boolean incognito) {
+        return incognito ? mIncognitoTabCreator : mRegularTabCreator;
     }
 }

@@ -94,6 +94,7 @@ import org.chromium.chrome.browser.messages.MessageContainerCoordinator;
 import org.chromium.chrome.browser.messages.MessageContainerObserver;
 import org.chromium.chrome.browser.messages.MessagesResourceMapperInitializer;
 import org.chromium.chrome.browser.metrics.UmaSessionStats;
+import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
 import org.chromium.chrome.browser.omnibox.OmniboxFocusReason;
 import org.chromium.chrome.browser.omnibox.geo.GeolocationHeader;
 import org.chromium.chrome.browser.omnibox.suggestions.action.OmniboxActionDelegateImpl;
@@ -488,6 +489,7 @@ public class RootUiCoordinator
         mTabSwitcherSupplier = tabSwitcherSupplier;
         mIncognitoTabSwitcherSupplier = incognitoTabSwitcherSupplier;
         mIntentMetadataOneshotSupplier = intentMetadataOneshotSupplier;
+        mOverviewColorSupplier = overviewColorSupplier;
 
         boolean isTablet = DeviceFormFactor.isNonMultiDisplayContextOnTablet(activity);
         mTopUiThemeColorProvider =
@@ -497,7 +499,8 @@ public class RootUiCoordinator
                         activityThemeColorSupplier,
                         isTablet,
                         shouldAllowThemingInNightMode(),
-                        shouldAllowBrightThemeColors());
+                        shouldAllowBrightThemeColors(),
+                        shouldAllowThemingOnTablets());
 
         mStatusBarColorController =
                 new StatusBarColorController(
@@ -510,7 +513,8 @@ public class RootUiCoordinator
                         mActivityTabProvider,
                         mTopUiThemeColorProvider,
                         edgeToEdgeManager.getEdgeToEdgeSystemBarColorHelper(),
-                        mDesktopWindowStateManagerSupplier);
+                        mDesktopWindowStateManagerSupplier,
+                        mOverviewColorSupplier);
         mEphemeralTabCoordinatorSupplier = ephemeralTabCoordinatorSupplier;
 
         mPageZoomCoordinator =
@@ -536,7 +540,6 @@ public class RootUiCoordinator
                         new Handler());
         mExpandedBottomSheetHelper =
                 new ExpandedSheetHelperImpl(mModalDialogManagerSupplier, getTabObscuringHandler());
-        mOverviewColorSupplier = overviewColorSupplier;
         mEdgeToEdgeManager = edgeToEdgeManager;
         mBottomControlsStacker =
                 new BottomControlsStacker(mBrowserControlsManager, mActivity, mWindowAndroid);
@@ -910,9 +913,7 @@ public class RootUiCoordinator
                 contextualSearchManager.addObserver(mReadAloudContextualSearchObserver);
             }
         }
-        if (BuildInfo.getInstance().isAutomotive
-                && ChromeFeatureList.isEnabled(
-                        ChromeFeatureList.AUTOMOTIVE_FULLSCREEN_TOOLBAR_IMPROVEMENTS)) {
+        if (BuildInfo.getInstance().isAutomotive) {
             mAutomotiveBackButtonToolbarCoordinator =
                     new AutomotiveBackButtonToolbarCoordinator(
                             mActivity,
@@ -1147,8 +1148,8 @@ public class RootUiCoordinator
 
     /**
      * @return Whether the {@link MerchantTrustSignalsCoordinator} should be initialized in the
-     * context of this coordinator's UI.
-     **/
+     *     context of this coordinator's UI.
+     */
     protected boolean shouldInitializeMerchantTrustSignals() {
         return false;
     }
@@ -1484,7 +1485,9 @@ public class RootUiCoordinator
                             mBackPressManager,
                             mOverviewColorSupplier,
                             mReadAloudControllerSupplier,
-                            getDesktopWindowStateManager());
+                            getDesktopWindowStateManager(),
+                            getMultiInstanceManager(),
+                            mTabBookmarkerSupplier);
             if (!mSupportsAppMenuSupplier.getAsBoolean()) {
                 mToolbarManager.getToolbar().disableMenuButton();
             }
@@ -1705,6 +1708,14 @@ public class RootUiCoordinator
 
     /** Whether the top toolbar theme color provider should allow bright theme colors. */
     protected boolean shouldAllowBrightThemeColors() {
+        return false;
+    }
+
+    /**
+     * Whether the top toolbar theme color provider should allow using a web page theme on large
+     * form-factors.
+     */
+    protected boolean shouldAllowThemingOnTablets() {
         return false;
     }
 
@@ -2051,5 +2062,9 @@ public class RootUiCoordinator
     /** Returns a supplier of the share delegate. */
     public Supplier<ShareDelegate> getShareDelegateSupplier() {
         return mShareDelegateSupplier;
+    }
+
+    public @Nullable MultiInstanceManager getMultiInstanceManager() {
+        return null;
     }
 }

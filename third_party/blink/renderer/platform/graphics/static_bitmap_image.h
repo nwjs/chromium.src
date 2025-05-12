@@ -53,7 +53,6 @@ class PLATFORM_EXPORT StaticBitmapImage : public Image {
   // sub-class
   virtual bool IsValid() const { return true; }
   virtual void Transfer() {}
-  virtual bool IsOriginTopLeft() const { return true; }
 
   // Creates a non-gpu copy of the image, or returns this if image is already
   // non-gpu.
@@ -61,14 +60,15 @@ class PLATFORM_EXPORT StaticBitmapImage : public Image {
 
   // Methods overridden by AcceleratedStaticBitmapImage only
   // Assumes the destination texture has already been allocated.
-  virtual bool CopyToTexture(gpu::gles2::GLES2Interface*,
-                             GLenum,
-                             GLuint,
-                             GLint,
-                             bool,
-                             bool,
-                             const gfx::Point&,
-                             const gfx::Rect&) {
+  // `src_rect` is always in top-left coordinate space.
+  virtual bool CopyToTexture(gpu::gles2::GLES2Interface* dest_gl,
+                             GLenum dest_target,
+                             GLuint dest_texture_id,
+                             GLint dest_level,
+                             SkAlphaType dest_alpha_type,
+                             GrSurfaceOrigin destination_origin,
+                             const gfx::Point& dest_point,
+                             const gfx::Rect& src_rect) {
     NOTREACHED();
   }
 
@@ -114,7 +114,6 @@ class PLATFORM_EXPORT StaticBitmapImage : public Image {
 
   virtual gfx::Size GetSize() const = 0;
   virtual SkAlphaType GetAlphaType() const = 0;
-  virtual SkColorType GetSkColorType() const = 0;
   virtual sk_sp<SkColorSpace> GetSkColorSpace() const = 0;
   virtual gfx::ColorSpace GetColorSpace() const = 0;
   virtual viz::SharedImageFormat GetSharedImageFormat() const = 0;

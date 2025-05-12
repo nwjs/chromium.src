@@ -40,7 +40,7 @@ class EnterpriseSearchAggregatorProvider : public AutocompleteProvider {
     int relevance;
     size_t strong_word_matches;
     size_t weak_word_matches;
-    std::string rule;
+    std::string source;
   };
 
   EnterpriseSearchAggregatorProvider(AutocompleteProviderClient* client,
@@ -62,7 +62,7 @@ class EnterpriseSearchAggregatorProvider : public AutocompleteProvider {
   bool IsProviderAllowed(const AutocompleteInput& input);
 
   // Called by `debouncer_`, queued when `Start()` is called.
-  void Run();
+  void Run(const AutocompleteInput& input);
 
   // Callback for when the loader is available with a valid token. Takes
   // ownership of the loader.
@@ -117,7 +117,6 @@ class EnterpriseSearchAggregatorProvider : public AutocompleteProvider {
   // Helper method to get `destination_url` based on `suggestion_type` for
   // `CreateMatch()`.
   std::string GetMatchDestinationUrl(const base::Value::Dict& result,
-                                     const TemplateURLRef& url_ref,
                                      SuggestionType suggestion_type) const;
 
   // Helper method to get `description` based on `suggestion_type` for

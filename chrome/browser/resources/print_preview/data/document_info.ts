@@ -15,7 +15,6 @@ export interface DocumentSettings {
   allPagesHaveCustomOrientation: boolean;
   hasSelection: boolean;
   isModifiable: boolean;
-  isFromArc: boolean;
   isScalingDisabled: boolean;
   fitToPageScaling: number;
   pageCount: number;
@@ -54,7 +53,6 @@ export class PrintPreviewDocumentInfoElement extends
             allPagesHaveCustomOrientation: false,
             hasSelection: false,
             isModifiable: true,
-            isFromArc: false,
             isScalingDisabled: false,
             fitToPageScaling: 100,
             pageCount: 0,
@@ -99,11 +97,11 @@ export class PrintPreviewDocumentInfoElement extends
     };
   }
 
-  documentSettings: DocumentSettings;
-  inFlightRequestId: number;
-  margins: Margins;
-  pageSize: Size;
-  printableArea: PrintableArea;
+  declare documentSettings: DocumentSettings;
+  declare inFlightRequestId: number;
+  declare margins: Margins;
+  declare pageSize: Size;
+  declare printableArea: PrintableArea;
   private isInitialized_: boolean = false;
 
   override connectedCallback() {
@@ -125,12 +123,9 @@ export class PrintPreviewDocumentInfoElement extends
   /**
    * Initializes the state of the data model.
    */
-  init(
-      isModifiable: boolean, isFromArc: boolean, title: string,
-      hasSelection: boolean) {
+  init(isModifiable: boolean, title: string, hasSelection: boolean) {
     this.isInitialized_ = true;
     this.set('documentSettings.isModifiable', isModifiable);
-    this.set('documentSettings.isFromArc', isFromArc);
     this.set('documentSettings.title', title);
     this.set('documentSettings.hasSelection', hasSelection);
   }

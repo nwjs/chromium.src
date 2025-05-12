@@ -16,16 +16,25 @@
 #include "base/functional/callback_forward.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
-#include "base/memory/ref_counted.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/values.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/common/buildflags.h"
+#include "components/content_settings/core/common/content_settings_types.h"
+#include "components/keyed_service/core/keyed_service.h"
+#include "extensions/buildflags/buildflags.h"
 #include "extensions/common/extension_id.h"
 
+static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
+
 class Profile;
+
+namespace content {
+class BrowserContext;
+}
 
 namespace extensions {
 
@@ -33,14 +42,17 @@ class Extension;
 class ExtensionSystem;
 
 // For registering, loading, and unloading component extensions.
-class ComponentLoader {
+class ComponentLoader : public KeyedService {
  public:
-  ComponentLoader(ExtensionSystem* extension_system, Profile* browser_context);
+  static ComponentLoader* Get(content::BrowserContext* context);
 
   ComponentLoader(const ComponentLoader&) = delete;
   ComponentLoader& operator=(const ComponentLoader&) = delete;
 
-  virtual ~ComponentLoader();
+  ~ComponentLoader() override;
+
+  // KeyedService:
+  void Shutdown() override;
 
   size_t registered_extensions_count() const {
     return component_extensions_.size();
@@ -120,9 +132,7 @@ class ComponentLoader {
       const base::FilePath::CharType* manifest_file_name,
       const base::FilePath::CharType* guest_manifest_file_name,
       base::OnceClosure done_cb);
-#endif  // BUILDFLAG(IS_CHROMEOS)
 
-#if BUILDFLAG(IS_CHROMEOS)
   // Add a component extension from a specific directory. Assumes that the
   // extension uses a different manifest file when this is a guest session
   // and that the manifest file lives in |root_directory|. Calls |done_cb|
@@ -141,7 +151,7 @@ class ComponentLoader {
                                         const std::string& description_string);
 
   void AddChromeOsSpeechSynthesisExtensions();
-#endif
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
   void set_ignore_allowlist_for_testing(bool value) {
     ignore_allowlist_for_testing_ = value;
@@ -151,6 +161,7 @@ class ComponentLoader {
   void set_profile_for_testing(Profile* profile) { profile_ = profile; }
 
  private:
+  friend class ComponentLoaderFactory;
   FRIEND_TEST_ALL_PREFIXES(ComponentLoaderTest, ParseManifest);
 
   // Information about a registered component extension.
@@ -175,6 +186,8 @@ class ComponentLoader {
     // The component extension's ID.
     ExtensionId extension_id;
   };
+
+  explicit ComponentLoader(Profile* profile);
 
   // Parses the given JSON manifest. Returns `std::nullopt` if it cannot be
   // parsed or if the result is not a base::Value::Dict.
@@ -208,6 +221,13 @@ class ComponentLoader {
   void AddWebStoreApp();
 
 #if BUILDFLAG(IS_CHROMEOS)
+  void AddChromeApp();
+  void AddFileManagerExtension();
+  void AddGalleryExtension();
+  void AddImageLoaderExtension();
+  void AddGuestModeTestExtension(const base::FilePath& path);
+  void AddKeyboardApp();
+
   // Used as a reply callback by |AddComponentFromDir|.
   // Called with a |root_directory| and parsed |manifest| and invokes
   // |done_cb| after adding the extension.
@@ -218,15 +238,13 @@ class ComponentLoader {
       const std::optional<std::string>& description_string,
       base::OnceClosure done_cb,
       std::optional<base::Value::Dict> manifest);
-#endif  // BUILDFLAG(IS_CHROMEOS)
 
-#if BUILDFLAG(IS_CHROMEOS)
-  void AddChromeApp();
-  void AddFileManagerExtension();
-  void AddGalleryExtension();
-  void AddImageLoaderExtension();
-  void AddGuestModeTestExtension(const base::FilePath& path);
-  void AddKeyboardApp();
+  // Finishes loading an extension tts engine.
+  void FinishLoadSpeechSynthesisExtension(const ExtensionId& extension_id);
+
+  // Grant ContentSettingsType permissions to Extension.
+  void GrantPermissions(const ExtensionId& extension_id,
+                        std::initializer_list<ContentSettingsType> permissions);
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
   scoped_refptr<const Extension> CreateExtension(
@@ -234,9 +252,6 @@ class ComponentLoader {
 
   // Unloads |component| from the memory.
   void UnloadComponent(ComponentExtensionInfo* component);
-
-  // Finishes loading an extension tts engine.
-  void FinishLoadSpeechSynthesisExtension(const ExtensionId& extension_id);
 
   raw_ptr<Profile> profile_;
 

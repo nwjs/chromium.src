@@ -4,11 +4,7 @@
 
 package org.chromium.chrome.browser.suggestions.tile;
 
-import android.annotation.SuppressLint;
 import android.util.SparseArray;
-import android.view.ContextMenu;
-import android.view.ContextMenu.ContextMenuInfo;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.View.OnCreateContextMenuListener;
@@ -17,25 +13,17 @@ import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
-import org.chromium.base.Callback;
-import org.chromium.base.CancelableRunnable;
-import org.chromium.base.TimeUtils;
-import org.chromium.base.metrics.RecordHistogram;
-import org.chromium.base.task.PostTask;
-import org.chromium.base.task.TaskTraits;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.native_page.ContextMenuManager;
-import org.chromium.chrome.browser.native_page.ContextMenuManager.ContextMenuItemId;
 import org.chromium.chrome.browser.offlinepages.OfflinePageBridge;
 import org.chromium.chrome.browser.offlinepages.OfflinePageItem;
 import org.chromium.chrome.browser.preloading.AndroidPrerenderManager;
 import org.chromium.chrome.browser.suggestions.SiteSuggestion;
-import org.chromium.chrome.browser.suggestions.SuggestionsMetrics;
 import org.chromium.chrome.browser.suggestions.SuggestionsOfflineModelObserver;
 import org.chromium.chrome.browser.suggestions.SuggestionsUiDelegate;
 import org.chromium.chrome.browser.suggestions.mostvisited.CustomLinkOperations;
 import org.chromium.chrome.browser.suggestions.mostvisited.MostVisitedSites;
-import org.chromium.ui.mojom.WindowOpenDisposition;
+import org.chromium.chrome.browser.suggestions.tile.tile_edit_dialog.CustomTileEditCoordinator;
 import org.chromium.url.GURL;
 
 import java.lang.annotation.Retention;
@@ -43,20 +31,59 @@ import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
 
 /** The model and controller for a group of site suggestion tiles. */
 public class TileGroup implements MostVisitedSites.Observer {
+
+    /**
+     * onSiteSuggestionsAvailable() is asynchronously called from two sources:
+     *
+     * <p>1. Backend updates, e.g., triggered by changes from other NTP.
+     *
+     * <p>2. Tile UI updates originating from the current NTP, involving API calls to {@link
+     * Delegate} or {@link CustomTileModificationDelegate}.
+     *
+     * <p>For (2), we'd like to pass data from pre-API calls to onSiteSuggestionsAvailable() and
+     * direct downstream flow (e.g., to call loadTiles()). One way to do this is to pass to the API
+     * and then received by onSiteSuggestionsAvailable() -- but the current code does not do this.
+     *
+     * <p>Instead, the "trans-API" data are stored as fields. This is simple but somewhat sloppy.
+     * This class marshalls these trans-API fields in one place. This also simplifies access from
+     * {@link Delegate} or {@link CustomTileModificationDelegate}.
+     */
+    public static class PendingChanges {
+        /** Most recently received tile data that has not been displayed yet. */
+        public @Nullable List<SiteSuggestion> tiles;
+
+        /**
+         * URL of the most recently removed tile. Used to identify when a tile removal is confirmed
+         * by the tile backend.
+         */
+        public @Nullable GURL removalUrl;
+
+        /**
+         * URL of the most recently added tile. Used to identify when a given tile's insertion is
+         * confirmed by the tile backend. This is relevant when a previously existing tile is
+         * removed, then the user undoes the action and wants that tile back.
+         */
+        public @Nullable GURL insertionUrl;
+
+        /** Flag to indicate that Custom Tiles are being changed. */
+        public boolean customTilesIndicator;
+    }
+
     /**
      * Performs work in other parts of the system that the {@link TileGroup} should not know about.
      */
     public interface Delegate extends CustomLinkOperations {
+
+        /** Setter to pass object to provide feedback to onSiteSuggestionsAvailable(). */
+        void setPendingChanges(PendingChanges pendingChanges);
+
         /**
          * @param tile The tile corresponding to the most visited item to remove.
-         * @param removalUndoneCallback The callback to invoke if the removal is reverted. The
-         *     callback's argument is the URL being restored.
          */
-        void removeMostVisitedItem(Tile tile, Callback<GURL> removalUndoneCallback);
+        void removeMostVisitedItem(Tile tile);
 
         void openMostVisitedItem(int windowDisposition, Tile tile);
 
@@ -80,6 +107,12 @@ public class TileGroup implements MostVisitedSites.Observer {
 
         /** Initialize AndroidPrerenderManager JNI interface. */
         void initAndroidPrerenderManager(AndroidPrerenderManager androidPrerenderManager);
+
+        /**
+         * @param originalTile The tile to edit, or null to add a new tile.
+         * @return A new CustomTileEditCoordinator instance.
+         */
+        CustomTileEditCoordinator createCustomTileEditCoordinator(@Nullable Tile originalTile);
 
         /**
          * To be called before this instance is abandoned to the garbage collector so it can do any
@@ -122,6 +155,9 @@ public class TileGroup implements MostVisitedSites.Observer {
          */
         TileInteractionDelegate createInteractionDelegate(Tile tile, View view);
 
+        /** Returns a delegate to handle Custom Tile modifications. */
+        CustomTileModificationDelegate getCustomTileModificationDelegate();
+
         /**
          * Returns a callback to be invoked when the icon for the provided tile is loaded. It will
          * be responsible for triggering the visual refresh.
@@ -146,6 +182,34 @@ public class TileGroup implements MostVisitedSites.Observer {
          * @param removeRunnable The {@link Runnable} to be executed when tile is removed.
          */
         void setOnRemoveRunnable(Runnable removeRunnable);
+    }
+
+    /** Delegate for handling interactions with custom tiles. Not tied to a particular Tile. */
+    public interface CustomTileModificationDelegate {
+        /**
+         * Opens the Custom Tile Edit Dialog (as "Add shortcut") to add a new Custom Tile. If add
+         * proceeds and is successful,refreshes the MVT.
+         */
+        void add();
+
+        /**
+         * Searches for an existing Most Visited Tile matching {@param suggestion}. If found,
+         * attempts to creates a Custom Tile from it. If successful, refreshes the MVT.
+         */
+        void convert(@Nullable SiteSuggestion suggestion);
+
+        /**
+         * Searches for an existing Custom Tile matching {@param suggestion}. If found, attempts to
+         * remove it. If successful, refreshes the MVT.
+         */
+        void remove(SiteSuggestion suggestion);
+
+        /**
+         * Searches for an existing Custom Tile matching {@param suggestion}. If found, opens the
+         * Custom Tile Edit Dialog (as "Edit shortcut"). If edit proceeds and is successful,
+         * refreshes the MVT.
+         */
+        void edit(SiteSuggestion suggestion);
     }
 
     /**
@@ -182,7 +246,8 @@ public class TileGroup implements MostVisitedSites.Observer {
     private final Delegate mTileGroupDelegate;
     private final Observer mObserver;
     private final TileRenderer mTileRenderer;
-    // Used in TileInteractionDelegateImpl.
+    private final CustomTileModificationDelegate mCustomTileModificationDelegate;
+    // Used for TileInteractionDelegateImpl.
     private final int mPrerenderDelay;
 
     /**
@@ -200,26 +265,13 @@ public class TileGroup implements MostVisitedSites.Observer {
      * Source of truth for the tile data. Avoid keeping a reference to a tile in long running
      * callbacks, as it might be thrown out before it is called. Use URL or site data to look it up
      * at the right time instead.
+     *
      * @see #findTile(SiteSuggestion)
      * @see #findTilesForUrl(String)
      */
     private SparseArray<List<Tile>> mTileSections = createEmptyTileData();
 
-    /** Most recently received tile data that has not been displayed yet. */
-    @Nullable private List<SiteSuggestion> mPendingTiles;
-
-    /**
-     * URL of the most recently removed tile. Used to identify when a tile removal is confirmed by
-     * the tile backend.
-     */
-    @Nullable private GURL mPendingRemovalUrl;
-
-    /**
-     * URL of the most recently added tile. Used to identify when a given tile's insertion is
-     * confirmed by the tile backend. This is relevant when a previously existing tile is removed,
-     * then the user undoes the action and wants that tile back.
-     */
-    @Nullable private GURL mPendingInsertionUrl;
+    private PendingChanges mPendingChanges = new PendingChanges();
 
     private boolean mHasReceivedData;
 
@@ -228,7 +280,18 @@ public class TileGroup implements MostVisitedSites.Observer {
             new TileSetupDelegate() {
                 @Override
                 public TileInteractionDelegate createInteractionDelegate(Tile tile, View view) {
-                    return new TileInteractionDelegateImpl(tile.getData(), view);
+                    return new TileInteractionDelegateImpl(
+                            mContextMenuManager,
+                            mTileGroupDelegate,
+                            mCustomTileModificationDelegate,
+                            mPrerenderDelay,
+                            tile,
+                            view);
+                }
+
+                @Override
+                public CustomTileModificationDelegate getCustomTileModificationDelegate() {
+                    return mCustomTileModificationDelegate;
                 }
 
                 @Override
@@ -268,7 +331,9 @@ public class TileGroup implements MostVisitedSites.Observer {
         mTileRenderer = tileRenderer;
         mOfflineModelObserver = new OfflineModelObserver(offlinePageBridge);
         mUiDelegate.addDestructionObserver(mOfflineModelObserver);
+        mCustomTileModificationDelegate = new CustomTileModificationDelegateImpl();
 
+        mTileGroupDelegate.setPendingChanges(mPendingChanges);
         mPrerenderDelay =
                 ChromeFeatureList.getFieldTrialParamByFeatureAsInt(
                         ChromeFeatureList.NEW_TAB_PAGE_ANDROID_TRIGGER_FOR_PRERENDER2,
@@ -281,30 +346,36 @@ public class TileGroup implements MostVisitedSites.Observer {
         // Only transforms the incoming tiles and stores them in a buffer for when we decide to
         // refresh the tiles in the UI.
 
-        boolean removalCompleted = mPendingRemovalUrl != null;
-        boolean insertionCompleted = mPendingInsertionUrl == null;
+        boolean removalCompleted = mPendingChanges.removalUrl != null;
+        boolean insertionCompleted = mPendingChanges.insertionUrl == null;
 
-        mPendingTiles = new ArrayList<>();
+        mPendingChanges.tiles = new ArrayList<>();
         for (SiteSuggestion suggestion : siteSuggestions) {
-            mPendingTiles.add(suggestion);
+            mPendingChanges.tiles.add(suggestion);
 
             // Only tiles in the personal section can be modified.
             if (suggestion.sectionType != TileSectionType.PERSONALIZED) continue;
-            if (suggestion.url.equals(mPendingRemovalUrl)) removalCompleted = false;
-            if (suggestion.url.equals(mPendingInsertionUrl)) insertionCompleted = true;
+            if (suggestion.url.equals(mPendingChanges.removalUrl)) removalCompleted = false;
+            if (suggestion.url.equals(mPendingChanges.insertionUrl)) insertionCompleted = true;
         }
 
         boolean expectedChangeCompleted = false;
-        if (mPendingRemovalUrl != null && removalCompleted) {
-            mPendingRemovalUrl = null;
+        if (mPendingChanges.removalUrl != null && removalCompleted) {
+            mPendingChanges.removalUrl = null;
             expectedChangeCompleted = true;
         }
-        if (mPendingInsertionUrl != null && insertionCompleted) {
-            mPendingInsertionUrl = null;
+        if (mPendingChanges.insertionUrl != null && insertionCompleted) {
+            mPendingChanges.insertionUrl = null;
+            expectedChangeCompleted = true;
+        }
+        if (mPendingChanges.customTilesIndicator) {
+            mPendingChanges.customTilesIndicator = false;
             expectedChangeCompleted = true;
         }
 
-        if (!mHasReceivedData || !mUiDelegate.isVisible() || expectedChangeCompleted) loadTiles();
+        if (!mHasReceivedData || !mUiDelegate.isVisible() || expectedChangeCompleted) {
+            loadTiles();
+        }
     }
 
     @Override
@@ -353,12 +424,13 @@ public class TileGroup implements MostVisitedSites.Observer {
 
     /**
      * To be called when the view displaying the tile group becomes visible.
+     *
      * @param trackLoadTask whether the delegate should be notified that the load is completed
-     *      through {@link Delegate#onLoadingComplete(List)}.
+     *     through {@link Delegate#onLoadingComplete(List)}.
      */
     public void onSwitchToForeground(boolean trackLoadTask) {
         if (trackLoadTask) addTask(TileTask.FETCH_DATA);
-        if (mPendingTiles != null) loadTiles();
+        if (mPendingChanges.tiles != null) loadTiles();
         if (trackLoadTask) removeTask(TileTask.FETCH_DATA);
     }
 
@@ -366,9 +438,9 @@ public class TileGroup implements MostVisitedSites.Observer {
         return mTileSetupDelegate;
     }
 
-    /** Loads tile data from {@link #mPendingTiles} and clears it afterwards. */
+    /** Loads tile data from {@link #mPendingChanges.tiles} and clears it afterwards. */
     private void loadTiles() {
-        assert mPendingTiles != null;
+        assert mPendingChanges.tiles != null;
 
         boolean isInitialLoad = !mHasReceivedData;
         mHasReceivedData = true;
@@ -378,12 +450,11 @@ public class TileGroup implements MostVisitedSites.Observer {
         int oldPersonalisedTilesCount = personalisedTiles == null ? 0 : personalisedTiles.size();
 
         SparseArray<List<Tile>> newSites = createEmptyTileData();
-        for (int i = 0; i < mPendingTiles.size(); ++i) {
-            SiteSuggestion suggestion = mPendingTiles.get(i);
-            Tile tile = findTile(suggestion);
-            if (tile == null) {
+        for (int i = 0; i < mPendingChanges.tiles.size(); ++i) {
+            SiteSuggestion suggestion = mPendingChanges.tiles.get(i);
+            if (findTile(suggestion) == null) {
+                // Don't reuse the Tile found, since index might change.
                 dataChanged = true;
-                tile = new Tile(suggestion, i);
             }
 
             List<Tile> sectionTiles = newSites.get(suggestion.sectionType);
@@ -392,14 +463,14 @@ public class TileGroup implements MostVisitedSites.Observer {
                 newSites.append(suggestion.sectionType, sectionTiles);
             }
 
-            // This is not supposed to happen but does. See https://crbug.com/703628
-            if (findTile(suggestion.url, sectionTiles) != null) continue;
+            // Duplicate should not exist but they may. See https://crbug.com/703628
+            if (findTileByUrl(suggestion.url, sectionTiles) != null) continue;
 
-            sectionTiles.add(tile);
+            sectionTiles.add(new Tile(suggestion, i));
         }
 
         mTileSections = newSites;
-        mPendingTiles = null;
+        mPendingChanges.tiles = null;
 
         // TODO(dgn): change these events, maybe introduce new ones or just change semantics? This
         // will depend on the UI to be implemented and the desired refresh behaviour.
@@ -434,7 +505,7 @@ public class TileGroup implements MostVisitedSites.Observer {
      * @param tiles The section to search in, represented by the contained list of tiles.
      * @return A tile matching the provided URL and section, or {@code null} if none is found.
      */
-    private Tile findTile(GURL url, @Nullable List<Tile> tiles) {
+    private Tile findTileByUrl(GURL url, @Nullable List<Tile> tiles) {
         if (tiles == null) return null;
         for (Tile tile : tiles) {
             if (tile.getUrl().equals(url)) return tile;
@@ -515,235 +586,76 @@ public class TileGroup implements MostVisitedSites.Observer {
         mOfflineModelObserver.onDestroy();
     }
 
-    private class TileInteractionDelegateImpl
-            implements TileInteractionDelegate, ContextMenuManager.Delegate, View.OnTouchListener {
-        private final SiteSuggestion mSuggestion;
-        private Runnable mOnClickRunnable;
-        private Runnable mOnRemoveRunnable;
-        private Long mTouchTimer;
-        private AndroidPrerenderManager mAndroidPrerenderManager;
-        private @Nullable CancelableRunnable mPrerenderRunnable;
-        private GURL mPrerenderedUrl;
-        private GURL mScheduldedPrerenderingUrl;
+    private class CustomTileModificationDelegateImpl implements CustomTileModificationDelegate {
+        public CustomTileModificationDelegateImpl() {}
 
-        private void maybeRecordTouchDuration(boolean taken) {
-            if (mTouchTimer == null) return;
-
-            long duration = TimeUtils.elapsedRealtimeMillis() - mTouchTimer;
-            mTouchTimer = null;
-            RecordHistogram.recordLongTimesHistogram(
-                    taken
-                            ? "Prerender.Experimental.NewTabPage.TouchDuration.Taken"
-                            : "Prerender.Experimental.NewTabPage.TouchDuration.NotTaken",
-                    duration);
-        }
-
-        public TileInteractionDelegateImpl(SiteSuggestion suggestion, View view) {
-            mSuggestion = suggestion;
-            view.setOnTouchListener(TileInteractionDelegateImpl.this);
-            mAndroidPrerenderManager = AndroidPrerenderManager.getAndroidPrerenderManager();
-            mTileGroupDelegate.initAndroidPrerenderManager(mAndroidPrerenderManager);
+        // CustomTileModificationDelegate implementation.
+        @Override
+        public void add() {
+            CustomTileEditCoordinator customTileEditCoordinator =
+                    mTileGroupDelegate.createCustomTileEditCoordinator(/* originalTile= */ null);
+            customTileEditCoordinator.show(
+                    this::addCustomLinkAndUpdateOnSuccess, mTileGroupDelegate::hasCustomLink);
         }
 
         @Override
-        public void onClick(View view) {
-            maybeRecordTouchDuration(true);
-            if (mSuggestion == null) return;
-
-            Tile tile = findTile(mSuggestion);
-            if (tile == null) return;
-
-            SuggestionsMetrics.recordTileTapped();
-            if (mOnClickRunnable != null) mOnClickRunnable.run();
-            mTileGroupDelegate.openMostVisitedItem(WindowOpenDisposition.CURRENT_TAB, tile);
-        }
-
-        private void maybePrerender(GURL url) {
-            if (!ChromeFeatureList.isEnabled(
-                    ChromeFeatureList.NEW_TAB_PAGE_ANDROID_TRIGGER_FOR_PRERENDER2)) {
-                return;
-            }
-
-            // Avoid resetting the delayed task if witness several MotionEvent.ACTION_DOWN in a
-            // row. If the URL has been scheduled to be prerendered or already prerendered, it
-            // should skipped.
-            if (Objects.equals(mScheduldedPrerenderingUrl, url)
-                    || Objects.equals(mPrerenderedUrl, url)) return;
-
-            assert mScheduldedPrerenderingUrl == null;
-            mScheduldedPrerenderingUrl = url;
-            mPrerenderRunnable =
-                    new CancelableRunnable(
-                            () -> {
-                                if (mAndroidPrerenderManager.startPrerendering(url)) {
-                                    mPrerenderedUrl = url;
-                                }
-                                mScheduldedPrerenderingUrl = null;
-                            });
-            PostTask.postDelayedTask(TaskTraits.UI_DEFAULT, mPrerenderRunnable, mPrerenderDelay);
-        }
-
-        // This function cancels scheduled prerendering or calls stopPrerendering to stop stale
-        // prerendering.
-        private void cancelPrerender() {
-            if (!ChromeFeatureList.isEnabled(
-                    ChromeFeatureList.NEW_TAB_PAGE_ANDROID_TRIGGER_FOR_PRERENDER2)) {
-                return;
-            }
-
-            if (mPrerenderRunnable != null) {
-                mPrerenderRunnable.cancel();
-                mPrerenderRunnable = null;
-            }
-
-            if (mPrerenderedUrl != null) {
-                mAndroidPrerenderManager.stopPrerendering();
-            }
-
-            mPrerenderedUrl = null;
-            mScheduldedPrerenderingUrl = null;
-        }
-
-        @Override
-        @SuppressLint("ClickableViewAccessibility")
-        public boolean onTouch(View view, MotionEvent event) {
-            if (event.getAction() == MotionEvent.ACTION_DOWN) {
-                mTouchTimer = TimeUtils.elapsedRealtimeMillis();
-
-                if (mSuggestion == null) return false;
-                Tile tile = findTile(mSuggestion);
-                if (tile == null) return false;
-                maybePrerender(tile.getUrl());
-            }
-            if (event.getAction() == MotionEvent.ACTION_CANCEL) {
-                maybeRecordTouchDuration(false);
-                cancelPrerender();
-            }
-
-            return false;
-        }
-
-        @Override
-        public void openItem(int windowDisposition) {
-            Tile tile = findTile(mSuggestion);
-            if (tile == null) return;
-
-            mTileGroupDelegate.openMostVisitedItem(windowDisposition, tile);
-        }
-
-        @Override
-        public void openItemInGroup(int windowDisposition) {
-            Tile tile = findTile(mSuggestion);
-            if (tile == null) return;
-
-            mTileGroupDelegate.openMostVisitedItemInGroup(windowDisposition, tile);
-        }
-
-        @Override
-        public void removeItem() {
-            Tile tile = findTile(mSuggestion);
-            if (tile == null) return;
-
-            if (mOnRemoveRunnable != null) mOnRemoveRunnable.run();
-
-            // Note: This does not track all the removals, but will track the most recent one. If
-            // that removal is committed, it's good enough for change detection.
-            mPendingRemovalUrl = mSuggestion.url;
-            mTileGroupDelegate.removeMostVisitedItem(tile, url -> mPendingInsertionUrl = url);
-        }
-
-        @Override
-        public void pinItem() {
-            @Nullable Tile tile = findTile(mSuggestion);
+        public void convert(@Nullable SiteSuggestion suggestion) {
+            @Nullable Tile tile = findTile(suggestion);
             if (tile == null) return;
 
             GURL url = tile.getUrl();
-            // TODO(crbug.com/397422235): Trigger reload by having onSiteSuggestionsAvailable()
-            // call loadTiles() if the operation below succeeds.
-            mTileGroupDelegate.assignCustomLink(url, tile.getTitle(), url);
+            assignCustomLinkAndUpdateOnSuccess(url, tile.getTitle(), url);
         }
 
         @Override
-        public void unpinItem() {
-            @Nullable Tile tile = findTile(mSuggestion);
+        public void remove(SiteSuggestion suggestion) {
+            @Nullable Tile tile = findTile(suggestion);
             if (tile == null) return;
 
-            // Unlike removeItem(), don't run {@link mOnRemoveRunnable}.
-
-            // TODO(crbug.com/397422235): Trigger reload by having onSiteSuggestionsAvailable()
-            // call loadTiles() if the operation below succeeds.
-            mTileGroupDelegate.deleteCustomLink(tile.getUrl());
+            deleteCustomLinkAndUpdateOnSuccess(tile.getUrl());
         }
 
         @Override
-        public void editItem() {
-            @Nullable Tile tile = findTile(mSuggestion);
+        public void edit(SiteSuggestion suggestion) {
+            @Nullable Tile tile = findTile(suggestion);
             if (tile == null) return;
 
-            // TODO(crbug.com/397422235): Show "Edit shortcut" dialog.
+            CustomTileEditCoordinator customTileEditCoordinator =
+                    mTileGroupDelegate.createCustomTileEditCoordinator(tile);
+            customTileEditCoordinator.show(
+                    (String name, GURL url) -> {
+                        return assignCustomLinkAndUpdateOnSuccess(tile.getUrl(), name, url);
+                    },
+                    mTileGroupDelegate::hasCustomLink);
         }
 
-        @Override
-        public GURL getUrl() {
-            return mSuggestion.url;
-        }
-
-        @Override
-        public String getContextMenuTitle() {
-            return null;
-        }
-
-        @Override
-        public boolean isItemSupported(@ContextMenuItemId int menuItemId) {
-            switch (menuItemId) {
-                case ContextMenuItemId.REMOVE:
-                    return !isCustomizationItemSupported(/* matchIsCustomLink= */ true);
-                case ContextMenuItemId.PIN_THIS_SHORTCUT:
-                    return isCustomizationItemSupported(/* matchIsCustomLink= */ false);
-                case ContextMenuItemId.EDIT_SHORTCUT: // Fall through.
-                case ContextMenuItemId.UNPIN:
-                    return isCustomizationItemSupported(/* matchIsCustomLink= */ true);
-                default:
-                    return true;
+        private boolean addCustomLinkAndUpdateOnSuccess(String name, GURL url) {
+            // On success, onSiteSuggestionsAvailable() triggers.
+            mPendingChanges.customTilesIndicator = true;
+            boolean success = mTileGroupDelegate.addCustomLink(name, url);
+            if (!success) {
+                mPendingChanges.customTilesIndicator = false;
             }
+            return success;
         }
 
-        @Override
-        public void onContextMenuCreated() {}
-
-        @Override
-        public void onCreateContextMenu(
-                ContextMenu contextMenu, View view, ContextMenuInfo contextMenuInfo) {
-            if (ChromeFeatureList.isEnabled(ChromeFeatureList.TILE_CONTEXT_MENU_REFACTOR)) return;
-
-            mContextMenuManager.createContextMenu(contextMenu, view, this);
-        }
-
-        @Override
-        public boolean onLongClick(View view) {
-            if (!ChromeFeatureList.isEnabled(ChromeFeatureList.TILE_CONTEXT_MENU_REFACTOR)) {
-                return false;
+        private boolean assignCustomLinkAndUpdateOnSuccess(
+                GURL keyUrl, String name, @Nullable GURL url) {
+            // On success, onSiteSuggestionsAvailable() triggers.
+            mPendingChanges.customTilesIndicator = true;
+            boolean success = mTileGroupDelegate.assignCustomLink(keyUrl, name, url);
+            if (!success) {
+                mPendingChanges.customTilesIndicator = false;
             }
-            return mContextMenuManager.showListContextMenu(view, this);
+            return success;
         }
 
-        @Override
-        public void setOnClickRunnable(Runnable clickRunnable) {
-            mOnClickRunnable = clickRunnable;
-        }
-
-        @Override
-        public void setOnRemoveRunnable(Runnable removeRunnable) {
-            mOnRemoveRunnable = removeRunnable;
-        }
-
-        boolean isCustomizationItemSupported(boolean matchIsCustomLink) {
-            if (!ChromeFeatureList.sMostVisitedTilesCustomization.isEnabled()
-                    || mSuggestion.sectionType != TileSectionType.PERSONALIZED) {
-                return false;
+        private void deleteCustomLinkAndUpdateOnSuccess(GURL url) {
+            // On success, onSiteSuggestionsAvailable() triggers.
+            mPendingChanges.customTilesIndicator = true;
+            if (!mTileGroupDelegate.deleteCustomLink(url)) {
+                mPendingChanges.customTilesIndicator = false;
             }
-            boolean isCustomLink = (mSuggestion.source == TileSource.CUSTOM_LINKS);
-            return isCustomLink == matchIsCustomLink;
         }
     }
 

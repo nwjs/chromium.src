@@ -28,6 +28,7 @@
 #include "chrome/browser/ui/chrome_select_file_policy.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/search/ntp_user_data_types.h"
+#include "chrome/browser/ui/views/side_panel/customize_chrome/customize_chrome_utils.h"
 #include "chrome/browser/ui/webui/new_tab_page/ntp_pref_names.h"
 #include "chrome/browser/ui/webui/side_panel/customize_chrome/customize_chrome_section.h"
 #include "chrome/common/pref_names.h"
@@ -129,6 +130,10 @@ CustomizeChromePageHandler::CustomizeChromePageHandler(
       prefs::kNtpHiddenModules,
       base::BindRepeating(&CustomizeChromePageHandler::UpdateModulesSettings,
                           base::Unretained(this)));
+  pref_change_registrar_.Add(
+      prefs::kNtpFooterVisible,
+      base::BindRepeating(&CustomizeChromePageHandler::UpdateFooterSettings,
+                          base::Unretained(this)));
 
   ntp_custom_background_service_observation_.Observe(
       ntp_custom_background_service_.get());
@@ -210,6 +215,7 @@ void CustomizeChromePageHandler::SetBackgroundImage(
   ntp_custom_background_service_->SetCustomBackgroundInfo(
       image_url, thumbnail_url, attribution_1, attribution_2, attribution_url,
       collection_id);
+  customize_chrome::MaybeDisableExtensionOverridingNtp(profile_);
 }
 
 void CustomizeChromePageHandler::SetDailyRefreshCollectionId(
@@ -220,6 +226,7 @@ void CustomizeChromePageHandler::SetDailyRefreshCollectionId(
       /* image_url */ GURL(), /* thumbnail_url */ GURL(),
       /* attribution_line_1= */ "", /* attribution_line_2= */ "",
       /* action_url= */ GURL(), collection_id);
+  customize_chrome::MaybeDisableExtensionOverridingNtp(profile_);
 }
 
 void CustomizeChromePageHandler::GetBackgroundCollections(
@@ -296,6 +303,7 @@ void CustomizeChromePageHandler::ChooseLocalCustomBackground(
 void CustomizeChromePageHandler::RemoveBackgroundImage() {
   if (ntp_custom_background_service_) {
     ntp_custom_background_service_->ResetCustomBackgroundInfo();
+    customize_chrome::MaybeDisableExtensionOverridingNtp(profile_);
   }
 }
 
@@ -461,6 +469,15 @@ void CustomizeChromePageHandler::SetMostVisitedSettings(
 
 void CustomizeChromePageHandler::UpdateMostVisitedSettings() {
   page_->SetMostVisitedSettings(IsCustomLinksEnabled(), IsShortcutsVisible());
+}
+
+void CustomizeChromePageHandler::SetFooterVisible(bool visible) {
+  profile_->GetPrefs()->SetBoolean(prefs::kNtpFooterVisible, visible);
+}
+
+void CustomizeChromePageHandler::UpdateFooterSettings() {
+  page_->SetFooterSettings(
+      profile_->GetPrefs()->GetBoolean(prefs::kNtpFooterVisible));
 }
 
 void CustomizeChromePageHandler::SetModulesVisible(bool visible) {
@@ -696,6 +713,7 @@ void CustomizeChromePageHandler::FileSelected(const ui::SelectedFileInfo& file,
 
     profile_->set_last_selected_directory(file.path().DirName());
     ntp_custom_background_service_->SelectLocalBackgroundImage(file.path());
+    customize_chrome::MaybeDisableExtensionOverridingNtp(profile_);
   }
   select_file_dialog_ = nullptr;
   LogEvent(NTP_BACKGROUND_UPLOAD_DONE);

@@ -9,7 +9,6 @@
 #import "base/test/metrics/histogram_tester.h"
 #import "base/test/scoped_feature_list.h"
 #import "base/test/scoped_mock_clock_override.h"
-#import "base/test/task_environment.h"
 #import "base/threading/thread_restrictions.h"
 #import "components/prefs/scoped_user_pref_update.h"
 #import "components/safe_browsing/core/common/safe_browsing_prefs.h"
@@ -38,6 +37,7 @@
 #import "ios/chrome/browser/tips_notifications/model/utils.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
 #import "ios/testing/scoped_block_swizzler.h"
+#import "ios/web/public/test/web_task_environment.h"
 #import "testing/gtest_mac.h"
 #import "testing/platform_test.h"
 #import "third_party/ocmock/OCMock/OCMock.h"
@@ -245,7 +245,7 @@ class TipsNotificationClientTest : public PlatformTest {
         local_state->GetInteger(kTipsNotificationsUserType));
   }
 
-  base::test::TaskEnvironment task_environment_;
+  web::WebTaskEnvironment task_environment_;
   const base::HistogramTester histogram_tester_;
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
   TestProfileManagerIOS profile_manager_;
@@ -407,6 +407,35 @@ TEST_F(TipsNotificationClientTest, WhatsNewProactiveRequest) {
   histogram_tester_.ExpectUniqueSample(
       "IOS.Notifications.Tips.Proactive.Dismissed",
       TipsNotificationType::kWhatsNew, 1);
+}
+
+// Tests that the client will not request a Proactive Whats New notification if
+// provisional notifications are disallowed by policy.
+TEST_F(TipsNotificationClientTest, ProvisionalDisallowedByPolicy) {
+  profile_->GetPrefs()->SetBoolean(
+      prefs::kProvisionalNotificationsAllowedByPolicy, false);
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(kIOSReactivationNotifications);
+  SetSentNotifications({TipsNotificationType::kLens,
+                        TipsNotificationType::kEnhancedSafeBrowsing});
+  [PushNotificationUtil
+      updateAuthorizationStatusPref:UNAuthorizationStatusProvisional];
+  // Simulate that the user has not opted-in.
+  GetApplicationContext()->GetLocalState()->ClearPref(
+      prefs::kAppLevelPushNotificationPermissions);
+
+  WriteFirstRunSentinel();
+  StubGetPendingRequests(nil);
+  OCMReject([mock_notification_center_ addNotificationRequest:[OCMArg any]
+                                        withCompletionHandler:[OCMArg any]]);
+
+  base::RunLoop run_loop;
+  client_->OnSceneActiveForegroundBrowserReady(run_loop.QuitClosure());
+  run_loop.Run();
+
+  EXPECT_OCMOCK_VERIFY(mock_notification_center_);
+  histogram_tester_.ExpectUniqueSample("IOS.Notifications.Tips.Proactive.Sent",
+                                       TipsNotificationType::kWhatsNew, 0);
 }
 
 // Tests that the client handles a Whats New notification response.

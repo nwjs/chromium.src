@@ -31,6 +31,11 @@ inline constexpr char kSyncInitialSyncFeatureSetupComplete[] =
     "sync.has_setup_completed";
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 
+// A boolean representing whether or not configuration has completed at least
+// once since the legacy sync-the-feature was turned on.
+inline constexpr char kFirstSyncCompletedInFullSyncMode[] =
+    "sync.first_full_sync_completed";
+
 // Boolean specifying whether to automatically sync all data types (including
 // future ones, as they're added).  If this is true, the following preferences
 // (kSyncBookmarks, kSyncPasswords, etc.) can all be ignored.
@@ -81,7 +86,6 @@ inline constexpr char kSyncPreferences[] = "sync.preferences";
 inline constexpr char kSyncProductComparison[] = "sync.product_comparison";
 inline constexpr char kSyncReadingList[] = "sync.reading_list";
 inline constexpr char kSyncSavedTabGroups[] = "sync.saved_tab_groups";
-inline constexpr char kSyncSharedTabGroupData[] = "sync.shared_tab_group_data";
 inline constexpr char kSyncTabs[] = "sync.tabs";
 inline constexpr char kSyncThemes[] = "sync.themes";
 

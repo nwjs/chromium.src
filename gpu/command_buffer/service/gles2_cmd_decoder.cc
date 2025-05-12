@@ -15,6 +15,7 @@
 #include <stdio.h>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <limits>
 #include <list>
@@ -1100,7 +1101,7 @@ class GLES2DecoderImpl : public GLES2Decoder,
                                           GLint src_y,
                                           GLsizei width,
                                           GLsizei height,
-                                          GLboolean flip_y,
+                                          GLboolean is_dst_origin_top_left,
                                           const volatile GLbyte* src_mailbox);
 
   void DoTraceEndCHROMIUM(void);
@@ -12499,52 +12500,108 @@ struct CompressedFormatInfo {
   GLenum decompressed_type;
 };
 
-const CompressedFormatInfo kCompressedFormatInfoArray[] = {
+const auto kCompressedFormatInfoArray = std::to_array<CompressedFormatInfo>({
     {
-        GL_COMPRESSED_R11_EAC, 4, 8, CheckETCFormatSupport,
-        angle::LoadEACR11ToR8, GL_R8, GL_RED, GL_UNSIGNED_BYTE,
-    },
-    {
-        GL_COMPRESSED_SIGNED_R11_EAC, 4, 8, CheckETCFormatSupport,
-        angle::LoadEACR11SToR8, GL_R8_SNORM, GL_RED, GL_BYTE,
-    },
-    {
-        GL_COMPRESSED_RG11_EAC, 4, 16, CheckETCFormatSupport,
-        angle::LoadEACRG11ToRG8, GL_RG8, GL_RG, GL_UNSIGNED_BYTE,
-    },
-    {
-        GL_COMPRESSED_SIGNED_RG11_EAC, 4, 16, CheckETCFormatSupport,
-        angle::LoadEACRG11SToRG8, GL_RG8_SNORM, GL_RG, GL_BYTE,
-    },
-    {
-        GL_COMPRESSED_RGB8_ETC2, 4, 8, CheckETCFormatSupport,
-        angle::LoadETC2RGB8ToRGBA8, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE,
-    },
-    {
-        GL_COMPRESSED_SRGB8_ETC2, 4, 8, CheckETCFormatSupport,
-        angle::LoadETC2SRGB8ToRGBA8, GL_SRGB8_ALPHA8, GL_SRGB_ALPHA,
+        GL_COMPRESSED_R11_EAC,
+        4,
+        8,
+        CheckETCFormatSupport,
+        angle::LoadEACR11ToR8,
+        GL_R8,
+        GL_RED,
         GL_UNSIGNED_BYTE,
     },
     {
-        GL_COMPRESSED_RGBA8_ETC2_EAC, 4, 16, CheckETCFormatSupport,
-        angle::LoadETC2RGBA8ToRGBA8, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE,
+        GL_COMPRESSED_SIGNED_R11_EAC,
+        4,
+        8,
+        CheckETCFormatSupport,
+        angle::LoadEACR11SToR8,
+        GL_R8_SNORM,
+        GL_RED,
+        GL_BYTE,
     },
     {
-        GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2, 4, 8,
-        CheckETCFormatSupport, angle::LoadETC2RGB8A1ToRGBA8, GL_RGBA8, GL_RGBA,
+        GL_COMPRESSED_RG11_EAC,
+        4,
+        16,
+        CheckETCFormatSupport,
+        angle::LoadEACRG11ToRG8,
+        GL_RG8,
+        GL_RG,
         GL_UNSIGNED_BYTE,
     },
     {
-        GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC, 4, 16, CheckETCFormatSupport,
-        angle::LoadETC2SRGBA8ToSRGBA8, GL_SRGB8_ALPHA8, GL_SRGB_ALPHA,
+        GL_COMPRESSED_SIGNED_RG11_EAC,
+        4,
+        16,
+        CheckETCFormatSupport,
+        angle::LoadEACRG11SToRG8,
+        GL_RG8_SNORM,
+        GL_RG,
+        GL_BYTE,
+    },
+    {
+        GL_COMPRESSED_RGB8_ETC2,
+        4,
+        8,
+        CheckETCFormatSupport,
+        angle::LoadETC2RGB8ToRGBA8,
+        GL_RGBA8,
+        GL_RGBA,
         GL_UNSIGNED_BYTE,
     },
     {
-        GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2, 4, 8,
-        CheckETCFormatSupport, angle::LoadETC2SRGB8A1ToRGBA8, GL_SRGB8_ALPHA8,
-        GL_SRGB_ALPHA, GL_UNSIGNED_BYTE,
+        GL_COMPRESSED_SRGB8_ETC2,
+        4,
+        8,
+        CheckETCFormatSupport,
+        angle::LoadETC2SRGB8ToRGBA8,
+        GL_SRGB8_ALPHA8,
+        GL_SRGB_ALPHA,
+        GL_UNSIGNED_BYTE,
     },
-};
+    {
+        GL_COMPRESSED_RGBA8_ETC2_EAC,
+        4,
+        16,
+        CheckETCFormatSupport,
+        angle::LoadETC2RGBA8ToRGBA8,
+        GL_RGBA8,
+        GL_RGBA,
+        GL_UNSIGNED_BYTE,
+    },
+    {
+        GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2,
+        4,
+        8,
+        CheckETCFormatSupport,
+        angle::LoadETC2RGB8A1ToRGBA8,
+        GL_RGBA8,
+        GL_RGBA,
+        GL_UNSIGNED_BYTE,
+    },
+    {
+        GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC,
+        4,
+        16,
+        CheckETCFormatSupport,
+        angle::LoadETC2SRGBA8ToSRGBA8,
+        GL_SRGB8_ALPHA8,
+        GL_SRGB_ALPHA,
+        GL_UNSIGNED_BYTE,
+    },
+    {
+        GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2,
+        4,
+        8,
+        CheckETCFormatSupport,
+        angle::LoadETC2SRGB8A1ToRGBA8,
+        GL_SRGB8_ALPHA8,
+        GL_SRGB_ALPHA,
+        GL_UNSIGNED_BYTE,
+    },
+});
 
 const CompressedFormatInfo* GetCompressedFormatInfo(GLenum format) {
   for (size_t i = 0; i < std::size(kCompressedFormatInfoArray); i++) {
@@ -16263,7 +16320,7 @@ void GLES2DecoderImpl::DoCopySharedImageToTextureINTERNAL(
     GLint src_y,
     GLsizei width,
     GLsizei height,
-    GLboolean flip_y,
+    GLboolean is_dst_origin_top_left,
     const volatile GLbyte* src_mailbox) {
   NOTIMPLEMENTED_LOG_ONCE();
 }

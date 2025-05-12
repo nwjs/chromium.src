@@ -10714,10 +10714,9 @@ class BlendStateCheckLayer : public LayerImpl {
 
     auto* test_blending_draw_quad =
         render_pass->CreateAndAppendDrawQuad<viz::TileDrawQuad>();
-    test_blending_draw_quad->SetNew(shared_quad_state, quad_rect_,
-                                    visible_quad_rect, needs_blending,
-                                    resource_id_, gfx::RectF(0, 0, 1, 1),
-                                    gfx::Size(1, 1), false, false, false);
+    test_blending_draw_quad->SetNew(
+        shared_quad_state, quad_rect_, visible_quad_rect, needs_blending,
+        resource_id_, gfx::RectF(0, 0, 1, 1), gfx::Size(1, 1), false, false);
 
     EXPECT_EQ(blend_, test_blending_draw_quad->ShouldDrawWithBlending());
     EXPECT_EQ(has_render_surface_,
@@ -12084,7 +12083,7 @@ TEST_F(CommitToPendingTreeLayerTreeHostImplTest,
 
   auto* fake_layer_tree_frame_sink =
       static_cast<FakeLayerTreeFrameSink*>(host_impl_->layer_tree_frame_sink());
-  host_impl_->NotifyInputEvent();
+  host_impl_->NotifyInputEvent(/*is_fling=*/false);
   host_impl_->SetFullViewportDamage();
   host_impl_->SetNeedsRedraw();
   auto args = viz::CreateBeginFrameArgsForTesting(
@@ -14663,7 +14662,10 @@ TEST_P(LayerTreeHostImplTest, JumpOnScrollbarClick) {
     InputHandlerPointerResult result = GetInputHandler().MouseDown(
         gfx::PointF(350, 400), /*jump_key_modifier*/ false);
     EXPECT_EQ(result.type, PointerResultType::kScrollbarScroll);
-    EXPECT_EQ(result.scroll_delta.y(), 525);
+    EXPECT_EQ(result.scroll_delta.y(),
+              std::max(viewport_size.height() * kMinFractionToStepWhenPaging,
+                       static_cast<float>(viewport_size.height() -
+                                          kMaxOverlapBetweenPages)));
     result = GetInputHandler().MouseUp(gfx::PointF(350, 400));
     EXPECT_EQ(result.type, PointerResultType::kScrollbarScroll);
     EXPECT_EQ(result.scroll_delta.y(), 0);
@@ -14702,7 +14704,10 @@ TEST_P(LayerTreeHostImplTest, JumpOnScrollbarClick) {
     InputHandlerPointerResult result = GetInputHandler().MouseDown(
         gfx::PointF(350, 400), /*jump_key_modifier*/ true);
     EXPECT_EQ(result.type, PointerResultType::kScrollbarScroll);
-    EXPECT_EQ(result.scroll_delta.y(), 525);
+    EXPECT_EQ(result.scroll_delta.y(),
+              std::max(viewport_size.height() * kMinFractionToStepWhenPaging,
+                       static_cast<float>(viewport_size.height() -
+                                          kMaxOverlapBetweenPages)));
     result = GetInputHandler().MouseUp(gfx::PointF(350, 400));
     EXPECT_EQ(result.type, PointerResultType::kScrollbarScroll);
     EXPECT_EQ(result.scroll_delta.y(), 0);
@@ -15126,7 +15131,10 @@ TEST_P(LayerTreeHostImplTest, MainThreadFallback) {
       GetInputHandler().MouseDown(gfx::PointF(350, 500),
                                   /*jump_key_modifier*/ false);
   GetInputHandler().MouseUp(gfx::PointF(350, 500));
-  EXPECT_EQ(compositor_threaded_scrolling_result.scroll_delta.y(), 525u);
+  EXPECT_EQ(compositor_threaded_scrolling_result.scroll_delta.y(),
+            std::max(viewport_size.height() * kMinFractionToStepWhenPaging,
+                     static_cast<float>(viewport_size.height() -
+                                        kMaxOverlapBetweenPages)));
   EXPECT_FALSE(GetScrollNode(scroll_layer)->main_thread_repaint_reasons);
 
   // Assign a main_thread_scrolling_reason to the scroll node.
@@ -15137,7 +15145,10 @@ TEST_P(LayerTreeHostImplTest, MainThreadFallback) {
   GetInputHandler().MouseUp(gfx::PointF(350, 500));
   // A scrollbar layer track click applies the scroll on the compositor thread
   // even though it has a main thread scrolling reason.
-  EXPECT_EQ(compositor_threaded_scrolling_result.scroll_delta.y(), 525u);
+  EXPECT_EQ(compositor_threaded_scrolling_result.scroll_delta.y(),
+            std::max(viewport_size.height() * kMinFractionToStepWhenPaging,
+                     static_cast<float>(viewport_size.height() -
+                                        kMaxOverlapBetweenPages)));
 
   // Tear down the LayerTreeHostImpl before the InputHandlerClient.
   host_impl_->ReleaseLayerTreeFrameSink();
@@ -18493,7 +18504,7 @@ TEST_P(LayerTreeHostImplTest, NonCompositedScrollUsesRaster) {
 
   // Draw the next frame of the scroll.
   {
-    host_impl_->NotifyInputEvent();
+    host_impl_->NotifyInputEvent(/*is_fling=*/false);
     host_impl_->SetFullViewportDamage();
     host_impl_->SetNeedsRedraw();
     TestFrameData frame;

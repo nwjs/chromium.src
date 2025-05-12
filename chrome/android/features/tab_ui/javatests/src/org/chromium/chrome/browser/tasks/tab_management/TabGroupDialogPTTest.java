@@ -63,7 +63,7 @@ public class TabGroupDialogPTTest {
     @Rule
     public ChromeRenderTestRule mRenderTestRule =
             ChromeRenderTestRule.Builder.withPublicCorpus()
-                    .setRevision(1)
+                    .setRevision(2)
                     .setBugComponent(ChromeRenderTestRule.Component.UI_BROWSER_MOBILE_TAB_GROUPS)
                     .build();
 
@@ -129,8 +129,7 @@ public class TabGroupDialogPTTest {
     public void testTabGroupNameChange() {
         WebPageStation firstPage = mCtaTestRule.startOnBlankPage();
         WebPageStation pageStation =
-                Journeys.prepareTabsWithThumbnails(
-                        firstPage, 3, 0, "about:blank", WebPageStation::newBuilder);
+                Journeys.prepareTabs(firstPage, 3, 0, "about:blank", WebPageStation::newBuilder);
 
         RegularTabSwitcherStation tabSwitcher = pageStation.openRegularTabSwitcher();
         TabSwitcherGroupCardFacility groupCard = Journeys.mergeAllTabsToNewGroup(tabSwitcher);

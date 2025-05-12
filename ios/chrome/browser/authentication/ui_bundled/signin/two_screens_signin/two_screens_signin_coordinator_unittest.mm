@@ -11,9 +11,10 @@
 #import "base/test/ios/wait_util.h"
 #import "base/test/metrics/histogram_tester.h"
 #import "base/test/metrics/user_action_tester.h"
+#import "ios/chrome/browser/authentication/ui_bundled/authentication_test_util.h"
+#import "ios/chrome/browser/authentication/ui_bundled/fullscreen_signin_screen/ui/fullscreen_signin_screen_view_controller.h"
 #import "ios/chrome/browser/authentication/ui_bundled/history_sync/history_sync_view_controller.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_constants.h"
-#import "ios/chrome/browser/first_run/ui_bundled/signin/signin_screen_view_controller.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
@@ -71,9 +72,11 @@ class TwoScreensSigninCoordinatorTest : public PlatformTest {
     coordinator_ = [[TwoScreensSigninCoordinator alloc]
         initWithBaseViewController:window_.rootViewController
                            browser:browser_.get()
+                      contextStyle:SigninContextStyle::kDefault
                        accessPoint:signin_metrics::AccessPoint::kSettings
                        promoAction:signin_metrics::PromoAction::
-                                       PROMO_ACTION_NO_SIGNIN_PROMO];
+                                       PROMO_ACTION_NO_SIGNIN_PROMO
+              continuationProvider:NotReachedContinuationProvider()];
     coordinator_.signinCompletion = ^(
         SigninCoordinatorResult signinResult,
         id<SystemIdentity> signinCompletionIdentity) {
@@ -151,8 +154,8 @@ TEST_F(TwoScreensSigninCoordinatorTest, PresentScreens) {
   StartTwoScreensSigninCoordinator(SigninCoordinatorResultInterrupted, nil);
   // Expect the signin screen to be presented.
   EXPECT_NE(PresentedViewController(), nil);
-  EXPECT_TRUE(
-      [TopViewController() isKindOfClass:[SigninScreenViewController class]]);
+  EXPECT_TRUE([TopViewController()
+      isKindOfClass:[FullscreenSigninScreenViewController class]]);
   SigninFakeIdentity();
 
   NextScreen();
@@ -162,11 +165,10 @@ TEST_F(TwoScreensSigninCoordinatorTest, PresentScreens) {
       [TopViewController() isKindOfClass:[HistorySyncViewController class]]);
 
   // Shut it down.
-  [coordinator_ interruptAnimated:YES];
   [coordinator_ stop];
   // Expect completion block to be run synchronously and be finished when
   // -stop returns.
-  EXPECT_TRUE(completion_block_done_);
+  EXPECT_FALSE(completion_block_done_);
   ExpectNoUpgradePromoHistogram(&histogram_tester);
   histogram_tester.ExpectUniqueSample<signin_metrics::AccessPoint>(
       "Signin.SignIn.Started", signin_metrics::AccessPoint::kSettings, 1);
@@ -183,7 +185,7 @@ TEST_F(TwoScreensSigninCoordinatorTest, StopWillInterrupt) {
 
   // Expect completion block to be run synchronously and be finished when
   // -stop returns.
-  EXPECT_TRUE(completion_block_done_);
+  EXPECT_FALSE(completion_block_done_);
 
   ExpectNoUpgradePromoHistogram(&histogram_tester);
 }
@@ -207,7 +209,7 @@ TEST_F(TwoScreensSigninCoordinatorTest, CanceledByUser) {
 // Tests that the user can swipe to dismiss and that a user action is recorded.
 TEST_F(TwoScreensSigninCoordinatorTest, SwipeToDismiss) {
   base::HistogramTester histogram_tester;
-  StartTwoScreensSigninCoordinator(SigninCoordinatorResultInterrupted, nil);
+  StartTwoScreensSigninCoordinator(SigninCoordinatorResultCanceledByUser, nil);
 
   // Simulate a swipe-to-dismiss.
   EXPECT_EQ(0, user_actions_.GetActionCount("Signin_TwoScreens_SwipeDismiss"));

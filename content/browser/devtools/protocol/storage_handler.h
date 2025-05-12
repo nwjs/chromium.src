@@ -173,6 +173,11 @@ class StorageHandler
       const std::string& request_id,
       const std::vector<std::string>& devtools_auction_ids);
 
+  Response SetProtectedAudienceKAnonymity(
+      const std::string& in_owner_origin,
+      const std::string& in_group_name,
+      std::unique_ptr<std::vector<Binary>> in_hashes) override;
+
  private:
   // See definition for lifetime information.
   class CacheStorageObserver;
@@ -212,13 +217,22 @@ class StorageHandler
                         const CreateReportResult&) override;
 
   void NotifySharedStorageAccessed(
-      const base::Time& access_time,
+      base::Time access_time,
       blink::SharedStorageAccessScope scope,
       SharedStorageRuntimeManager::SharedStorageObserverInterface::AccessMethod
           method,
       FrameTreeNodeId main_frame_id,
       const std::string& owner_origin,
       const SharedStorageEventParams& params);
+  void NotifySharedStorageWorkletOperationExecutionFinished(
+      base::Time finished_time,
+      base::TimeDelta execution_time,
+      SharedStorageRuntimeManager::SharedStorageObserverInterface::AccessMethod
+          method,
+      int operation_id,
+      int worklet_id,
+      std::optional<FrameTreeNodeId> main_frame_id,
+      const std::string& owner_origin);
 
   void NotifyCacheStorageListChanged(
       const storage::BucketLocator& bucket_locator);

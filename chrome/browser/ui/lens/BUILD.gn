@@ -11,13 +11,13 @@ source_set("lens") {
   # The public interface is intentionally minimal. There should be a small
   # number of entry points and publicly used headers.
   public = [
-    "lens_search_controller.h",
     "lens_overlay_controller.h",
     "lens_overlay_entry_point_controller.h",
     "lens_overlay_gen204_controller.h",
     "lens_overlay_image_helper.h",
     "lens_overlay_side_panel_navigation_throttle.h",
     "lens_overlay_untrusted_ui.h",
+    "lens_search_controller.h",
     "lens_side_panel_untrusted_ui.h",
   ]
   friend = [
@@ -38,10 +38,14 @@ source_set("lens") {
     "lens_overlay_request_id_generator.h",
     "lens_overlay_side_panel_coordinator.h",
     "lens_overlay_side_panel_web_view.h",
+    "lens_searchbox_controller.h",
     "lens_overlay_theme_utils.h",
+    "lens_overlay_translate_options.h",
     "lens_overlay_url_builder.h",
     "lens_permission_bubble_controller.h",
     "lens_preselection_bubble.h",
+    "lens_search_contextualization_controller.h",
+    "page_content_type_conversions.h",
     "ref_counted_lens_overlay_client_logs.h",
   ]
 
@@ -50,7 +54,7 @@ source_set("lens") {
     "//chrome/browser/companion/text_finder",
     "//chrome/browser/content_extraction",
     "//chrome/browser/lens/core/mojom:mojo_bindings",
-    "//chrome/browser/search_engines:search_engines",
+    "//chrome/browser/search_engines",
     "//chrome/browser/themes",
     "//chrome/browser/ui/exclusive_access",
     "//chrome/browser/ui/omnibox",
@@ -74,10 +78,8 @@ source_set("lens") {
 }
 
 source_set("impl") {
-  public = []
   sources = [
     "lens_overlay_blur_layer_delegate.cc",
-    "lens_search_controller.cc",
     "lens_overlay_controller.cc",
     "lens_overlay_entry_point_controller.cc",
     "lens_overlay_event_handler.cc",
@@ -90,15 +92,18 @@ source_set("impl") {
     "lens_overlay_side_panel_coordinator.cc",
     "lens_overlay_side_panel_navigation_throttle.cc",
     "lens_overlay_side_panel_web_view.cc",
+    "lens_searchbox_controller.cc",
     "lens_overlay_theme_utils.cc",
     "lens_overlay_untrusted_ui.cc",
     "lens_overlay_url_builder.cc",
     "lens_permission_bubble_controller.cc",
     "lens_preselection_bubble.cc",
+    "lens_search_contextualization_controller.cc",
+    "lens_search_controller.cc",
     "lens_side_panel_untrusted_ui.cc",
+    "page_content_type_conversions.cc",
   ]
 
-  public_deps = []
   deps = [
     ":lens",
     "//build:branding_buildflags",
@@ -121,6 +126,7 @@ source_set("impl") {
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/color:color_headers",
     "//chrome/browser/ui/hats",
+    "//chrome/browser/ui/user_education",
     "//chrome/browser/ui/views/bubble",
     "//chrome/browser/ui/views/page_action",
     "//chrome/browser/ui/views/toolbar",
@@ -152,7 +158,7 @@ source_set("impl") {
     "//components/web_modal:web_modal",
     "//components/zoom",
     "//google_apis",
-    "//google_apis/common:common",
+    "//google_apis/common",
     "//google_apis/common:request_util",
     "//mojo/public/cpp/bindings",
     "//net",
@@ -166,9 +172,9 @@ source_set("impl") {
     "//third_party/zlib/google:compression_utils",
     "//third_party/zstd:compress",
     "//ui/base:types",
-    "//ui/gfx:gfx",
-    "//ui/gfx/codec:codec",
-    "//ui/gfx/geometry:geometry",
+    "//ui/gfx",
+    "//ui/gfx/codec",
+    "//ui/gfx/geometry",
     "//ui/menus",
     "//ui/webui",
     "//url",
@@ -182,15 +188,24 @@ source_set("impl") {
   }
 }
 
-source_set("test_query_controller") {
+source_set("test_support") {
+  testonly = true
   sources = [
+    "test_lens_overlay_controller.cc",
+    "test_lens_overlay_controller.h",
     "test_lens_overlay_query_controller.cc",
     "test_lens_overlay_query_controller.h",
+    "test_lens_overlay_side_panel_coordinator.cc",
+    "test_lens_overlay_side_panel_coordinator.h",
+    "test_lens_search_controller.cc",
+    "test_lens_search_controller.h",
   ]
 
   deps = [
     ":lens",
+    "//base/test:test_support",
     "//google_apis/common",
+    "//testing/gtest",
   ]
 }
 
@@ -203,7 +218,7 @@ source_set("browser_tests") {
   ]
   deps = [
     ":lens",
-    ":test_query_controller",
+    ":test_support",
     "//base",
     "//base/test:test_support",
     "//chrome/browser",
@@ -264,7 +279,7 @@ source_set("interactive_ui_tests") {
   ]
   deps = [
     ":lens",
-    ":test_query_controller",
+    ":test_support",
     "//base/test:test_support",
     "//chrome/browser",
     "//chrome/browser/profiles:profile",
@@ -279,13 +294,15 @@ source_set("interactive_ui_tests") {
     "//components/feature_engagement/public",
     "//components/lens:enterprise_policy",
     "//components/lens:features",
-    "//components/pdf/browser:browser",
     "//components/prefs",
     "//components/search_engines",
     "//components/user_education/views",
     "//content/test:test_support",
     "//testing/gtest",
   ]
+  if (enable_pdf) {
+    deps += [ "//components/pdf/browser:browser" ]
+  }
 }
 
 source_set("unit_tests") {
@@ -302,7 +319,7 @@ source_set("unit_tests") {
   ]
   deps = [
     ":lens",
-    ":test_query_controller",
+    ":test_support",
     "//base",
     "//base/test:test_support",
     "//chrome/browser",

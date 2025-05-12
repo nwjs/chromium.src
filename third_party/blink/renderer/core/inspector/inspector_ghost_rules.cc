@@ -94,8 +94,7 @@ void InspectorGhostRules::ActivateTreeScope(TreeScope& tree_scope) {
     // Note that `alternative_stylesheets` contains the original vector at
     // this point. We keep track of it so we can restore it in the destructor.
     affected_tree_scopes.insert(&tree_scope,
-                                MakeGarbageCollected<ActiveStyleSheetVector>(
-                                    std::move(alternative_stylesheets)));
+                                std::move(alternative_stylesheets));
   }
 }
 
@@ -106,19 +105,59 @@ InspectorGhostRules::~InspectorGhostRules() {
   // Restore original active stylesheets.
   for (auto [tree_scope, active_stylesheet_vector] : affected_tree_scopes) {
     tree_scope->GetScopedStyleResolver()->QuietlySwapActiveStyleSheets(
-        *active_stylesheet_vector);
+        active_stylesheet_vector);
   }
 }
 
 namespace {
 
-template <typename T>
-bool HasNestedDeclarationsAtIndex(T& rule, wtf_size_t index) {
-  if (index == kNotFound || index >= rule.length()) {
+// CSSStyleRule should inherit from CSSGroupingRule [1], but unfortunately
+// we have not been able to make this change yet, so we need to dispatch
+// some function calls manually to CSSStyleRule/CSSGroupingRule.
+//
+// https://github.com/w3c/csswg-drafts/issues/8940
+
+void QuietlyInsertDummyRule(const ExecutionContext& execution_context,
+                            CSSRule& rule,
+                            wtf_size_t index) {
+  if (IsA<CSSStyleRule>(rule)) {
+    return To<CSSStyleRule>(rule).QuietlyInsertRule(&execution_context,
+                                                    "--dummy:1", index);
+  }
+  return To<CSSGroupingRule>(rule).QuietlyInsertRule(&execution_context,
+                                                     "--dummy:1", index);
+}
+
+void QuietlyDeleteRule(CSSRule& rule, wtf_size_t index) {
+  if (IsA<CSSStyleRule>(rule)) {
+    return To<CSSStyleRule>(rule).QuietlyDeleteRule(index);
+  }
+  return To<CSSGroupingRule>(rule).QuietlyDeleteRule(index);
+}
+
+wtf_size_t NumItems(CSSRule& rule) {
+  if (IsA<CSSStyleRule>(rule)) {
+    return To<CSSStyleRule>(rule).length();
+  }
+  return To<CSSGroupingRule>(rule).length();
+}
+
+CSSRule* ItemAt(CSSRule& rule, wtf_size_t index) {
+  if (auto* style_rule = DynamicTo<CSSStyleRule>(rule)) {
+    // These checks are for investigating https://crbug.com/389011795.
+    CHECK_EQ(style_rule->length(), style_rule->WrapperCountForDebugging());
+    CHECK_LE(index, style_rule->length());
+    CHECK_LE(index, style_rule->WrapperCountForDebugging());
+    return style_rule->ItemInternal(index);
+  }
+  return To<CSSGroupingRule>(rule).ItemInternal(index);
+}
+
+bool HasNestedDeclarationsAtIndex(CSSRule& rule, wtf_size_t index) {
+  if (index == kNotFound || index >= NumItems(rule)) {
     return false;
   }
-  return rule.ItemInternal(index)->GetType() ==
-         CSSRule::kNestedDeclarationsRule;
+  return ItemAt(rule, index)->GetType() == CSSRule::kNestedDeclarationsRule;
 }
 
 }  // namespace
@@ -126,16 +165,12 @@ bool HasNestedDeclarationsAtIndex(T& rule, wtf_size_t index) {
 void InspectorGhostRules::PopulateSheet(
     const ExecutionContext& execution_context,
     CSSStyleSheet& sheet) {
-  ForEachRule(sheet, [&](auto& rule) {
-    // This is just to document that the incoming 'auto' is either
-    // CSSStyleRule or CSSGroupingRule.
-    using Type = std::remove_reference<decltype(rule)>::type;
-    static_assert(std::is_same_v<Type, CSSStyleRule> ||
-                  std::is_same_v<Type, CSSGroupingRule>);
+  ForEachRule(sheet, [&](CSSRule& rule) {
+    CHECK(IsA<CSSStyleRule>(rule) || IsA<CSSGroupingRule>(rule));
 
     // Only "nested group rules" should be affected.
     // https://drafts.csswg.org/css-nesting-1/#nested-group-rules
-    if constexpr (std::is_same_v<Type, CSSGroupingRule>) {
+    if (IsA<CSSGroupingRule>(rule)) {
       if (!IsA<CSSStyleRule>(rule.parentRule())) {
         return;
       }
@@ -143,12 +178,12 @@ void InspectorGhostRules::PopulateSheet(
 
     // The end_index is '0' for style rules to account for the built-in
     // leading declaration block.
-    wtf_size_t end_index = std::is_same_v<Type, CSSStyleRule> ? 0 : kNotFound;
+    wtf_size_t end_index = IsA<CSSStyleRule>(rule) ? 0 : kNotFound;
 
     // Insert a ghost rule between any two adjacent non-CSSNestedDeclaration
     // rules, using reverse order to keep indices stable.
     static_assert((static_cast<wtf_size_t>(0) - 1) == kNotFound);
-    for (wtf_size_t i = rule.length(); i != end_index; --i) {
+    for (wtf_size_t i = NumItems(rule); i != end_index; --i) {
       if (HasNestedDeclarationsAtIndex(rule, i) ||
           HasNestedDeclarationsAtIndex(rule, i - 1)) {
         // Don't insert a ghost rule (i.e. a CSSNestedDeclarations rule) next to
@@ -160,8 +195,8 @@ void InspectorGhostRules::PopulateSheet(
 
       // It's not valid to insert an empty nested decl. rule, so we temporarily
       // insert --dummy, then remove it immediately.
-      rule.QuietlyInsertRule(&execution_context, "--dummy:1", i);
-      auto* inserted_rule = To<CSSNestedDeclarationsRule>(rule.ItemInternal(i));
+      QuietlyInsertDummyRule(execution_context, rule, i);
+      auto* inserted_rule = To<CSSNestedDeclarationsRule>(ItemAt(rule, i));
       inserted_rule->style()->QuietlyRemoveProperty("--dummy");
       inserted_rules_.insert(inserted_rule);
       inner_rules_.insert(To<CSSStyleRule>(inserted_rule->InnerCSSStyleRule()));
@@ -170,18 +205,16 @@ void InspectorGhostRules::PopulateSheet(
 }
 
 void InspectorGhostRules::DepopulateSheet(CSSStyleSheet& sheet) {
-  ForEachRule(sheet, [&](auto& rule) {
-    using Type = std::remove_reference<decltype(rule)>::type;
-    static_assert(std::is_same_v<Type, CSSStyleRule> ||
-                  std::is_same_v<Type, CSSGroupingRule>);
+  ForEachRule(sheet, [&](CSSRule& rule) {
+    CHECK(IsA<CSSStyleRule>(rule) || IsA<CSSGroupingRule>(rule));
 
     static_assert((static_cast<wtf_size_t>(0) - 1) == kNotFound);
-    for (wtf_size_t i = rule.length() - 1; i != kNotFound; --i) {
+    for (wtf_size_t i = NumItems(rule) - 1; i != kNotFound; --i) {
       auto* nested_declarations_rule =
-          DynamicTo<CSSNestedDeclarationsRule>(rule.ItemInternal(i));
+          DynamicTo<CSSNestedDeclarationsRule>(ItemAt(rule, i));
       if (nested_declarations_rule &&
           inserted_rules_.Contains(nested_declarations_rule)) {
-        rule.QuietlyDeleteRule(i);
+        QuietlyDeleteRule(rule, i);
       }
     }
   });

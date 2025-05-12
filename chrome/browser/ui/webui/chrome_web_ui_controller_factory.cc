@@ -88,7 +88,7 @@
 #include "ui/gfx/image/image_skia_rep.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
-#if !BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_DESKTOP_ANDROID)
+#if BUILDFLAG(ENABLE_DEVTOOLS_FRONTEND)
 #include "chrome/browser/devtools/devtools_ui_bindings.h"
 #include "chrome/browser/ui/webui/devtools/devtools_ui.h"
 #endif
@@ -133,13 +133,16 @@
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "chrome/browser/extensions/extension_web_ui.h"
-#include "chrome/browser/ui/webui/extensions/extensions_ui.h"
 #include "extensions/browser/extension_registry.h"  // nogncheck
 #include "extensions/browser/extension_system.h"    // nogncheck
 #include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/feature_switch.h"
 #include "extensions/common/manifest.h"
+#endif
+
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+#include "chrome/browser/ui/webui/extensions/extensions_ui.h"
 #endif
 
 using content::WebUI;
@@ -167,7 +170,7 @@ WebUIFactoryFunction GetWebUIFactoryFunction(WebUI* web_ui,
                                              const GURL& url) {
   // This will get called a lot to check all URLs, so do a quick check of other
   // schemes to filter out most URLs.
-#if !BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_DESKTOP_ANDROID)
+#if BUILDFLAG(ENABLE_DEVTOOLS_FRONTEND)
   if (!url.SchemeIs(content::kChromeDevToolsScheme)) {
     return nullptr;
   }
@@ -177,7 +180,7 @@ WebUIFactoryFunction GetWebUIFactoryFunction(WebUI* web_ui,
   return &NewWebUI<DevToolsUI>;
 #else
   return nullptr;
-#endif  // !BUILDFLAG(IS_ANDROID)
+#endif  // BUILDFLAG(ENABLE_DEVTOOLS_FRONTEND)
 }
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -443,6 +446,11 @@ base::RefCountedMemory* ChromeWebUIControllerFactory::GetFaviconResourceBytes(
     return ManagementUI::GetFaviconResourceBytes(scale_factor);
   }
 
+  // Tab Search hosts the split tab NTP and so leveraging the NTP favicon.
+  if (page_url.host_piece() == chrome::kChromeUITabSearchHost) {
+    return NewTabPageUI::GetFaviconResourceBytes(scale_factor);
+  }
+
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS)
   if (page_url.host_piece() == commerce::kChromeUICompareHost) {
@@ -451,13 +459,13 @@ base::RefCountedMemory* ChromeWebUIControllerFactory::GetFaviconResourceBytes(
   }
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS)
+#endif  // !BUILDFLAG(IS_ANDROID)
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   if (page_url.host_piece() == chrome::kChromeUIExtensionsHost) {
     return extensions::ExtensionsUI::GetFaviconResourceBytes(scale_factor);
   }
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
-#endif  // !BUILDFLAG(IS_ANDROID)
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
 #if BUILDFLAG(IS_CHROMEOS)
   if (page_url.host_piece() == chrome::kChromeUIOSSettingsHost) {

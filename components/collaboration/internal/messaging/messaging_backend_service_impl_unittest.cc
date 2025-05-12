@@ -47,6 +47,7 @@ using testing::Truly;
 namespace collaboration::messaging {
 
 namespace {
+
 bool PersistentMessagesHaveSameTypeAndEvent(const PersistentMessage& a,
                                             const PersistentMessage& b) {
   return a.collaboration_event == b.collaboration_event && a.type == b.type;
@@ -191,6 +192,9 @@ class MessagingBackendServiceImplTest : public testing::Test {
   void TearDown() override {}
 
   void CreateService() {
+    account_info_ = identity_test_env_.MakePrimaryAccountAvailable(
+        "test@foo.com", signin::ConsentLevel::kSync);
+
     auto tab_group_change_notifier =
         std::make_unique<MockTabGroupChangeNotifier>();
     unowned_tab_group_change_notifier_ = tab_group_change_notifier.get();
@@ -250,8 +254,7 @@ class MessagingBackendServiceImplTest : public testing::Test {
   }
 
   collaboration_pb::Message GetLastMessageFromDB() {
-    return unowned_messaging_backend_store_->GetLastMessageForTesting()
-        .value();
+    return unowned_messaging_backend_store_->GetLastMessageForTesting().value();
   }
 
   bool HasLastMessageFromDB() {
@@ -280,6 +283,7 @@ class MessagingBackendServiceImplTest : public testing::Test {
   base::test::SingleThreadTaskEnvironment task_environment_{
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   signin::IdentityTestEnvironment identity_test_env_;
+  AccountInfo account_info_;
 
   // Use default configuration unless we specify something else.
   MessagingBackendConfiguration configuration;
@@ -475,6 +479,14 @@ TEST_F(MessagingBackendServiceImplTest, TestActivityLogCollaborationEvents) {
       .WillRepeatedly(Return(CreatePartialMember(
           GaiaId("gaia_2"), "gaia2@gmail.com", "Display Name 2", "")));
 
+  tab_groups::SavedTabGroup tab_group =
+      CreateSharedTabGroup(collaboration_group_id);
+  std::vector<tab_groups::SavedTabGroup> all_groups = {tab_group};
+  EXPECT_CALL(*mock_tab_group_sync_service_, GetAllGroups())
+      .WillRepeatedly(Return(all_groups));
+  EXPECT_CALL(*mock_tab_group_sync_service_, GetGroup(tab_group.saved_guid()))
+      .WillRepeatedly(Return(tab_group));
+
   ActivityLogQueryParams params;
   params.collaboration_id = collaboration_group_id;
   std::vector<ActivityLogItem> activity_log = service_->GetActivityLog(params);
@@ -540,6 +552,9 @@ TEST_F(MessagingBackendServiceImplTest, TestTabActivityLogCollaborationEvents) {
           Return(CreatePartialMember(GaiaId("gaia_1"), "gaia1@gmail.com",
                                      "Display Name", "Given Name 1")));
 
+  std::vector<tab_groups::SavedTabGroup> all_groups = {tab_group};
+  EXPECT_CALL(*mock_tab_group_sync_service_, GetAllGroups())
+      .WillRepeatedly(Return(all_groups));
   EXPECT_CALL(*mock_tab_group_sync_service_, GetGroup(tab_group.saved_guid()))
       .WillRepeatedly(Return(tab_group));
 
@@ -709,6 +724,9 @@ TEST_F(MessagingBackendServiceImplTest, TestActivityLogTabGroupEvents) {
           Return(CreatePartialMember(GaiaId("gaia_2"), "gaia2@gmail.com",
                                      "Display Name", "Given Name 2")));
 
+  std::vector<tab_groups::SavedTabGroup> all_groups = {tab_group};
+  EXPECT_CALL(*mock_tab_group_sync_service_, GetAllGroups())
+      .WillRepeatedly(Return(all_groups));
   EXPECT_CALL(*mock_tab_group_sync_service_, GetGroup(tab_group.saved_guid()))
       .WillRepeatedly(Return(tab_group));
 
@@ -866,8 +884,8 @@ TEST_F(MessagingBackendServiceImplTest, TestReceivingTabEventsFromSync) {
                   expected_message_dot_tab_group)))
       .Times(1)
       .WillOnce(SaveArg<0>(&last_persistent_message_dot_tab_group));
-  tg_notifier_observer_->OnTabUpdated(*tab2, tab_groups::TriggerSource::REMOTE,
-                                      false);
+  tg_notifier_observer_->OnTabUpdated(*tab2, *tab2,
+                                      tab_groups::TriggerSource::REMOTE, false);
   message = GetLastMessageFromDB();
   VerifyGenericMessageData(message, collaboration_group_id.value(),
                            collaboration_pb::TAB_UPDATED,
@@ -1050,8 +1068,8 @@ TEST_F(MessagingBackendServiceImplTest, TestOnTabUpdatedFromLocal) {
 
   EXPECT_TRUE(GetDirtyMessageForTab(collaboration_group_id, tab2_sync_id,
                                     DirtyType::kDot));
-  tg_notifier_observer_->OnTabUpdated(*tab2, tab_groups::TriggerSource::LOCAL,
-                                      false);
+  tg_notifier_observer_->OnTabUpdated(*tab2, *tab2,
+                                      tab_groups::TriggerSource::LOCAL, false);
   EXPECT_FALSE(GetDirtyMessageForTab(collaboration_group_id, tab2_sync_id,
                                      DirtyType::kDot));
 
@@ -1112,6 +1130,171 @@ TEST_F(MessagingBackendServiceImplTest, TestOnTabRemovedFromLocal) {
                            now.ToTimeT());
 
   EXPECT_EQ(gaia2, GaiaId(message.triggering_user_gaia_id()));
+  EXPECT_EQ(tab3.saved_tab_guid().AsLowercaseString(),
+            message.tab_data().sync_tab_id());
+  EXPECT_EQ(tab3.saved_group_guid().AsLowercaseString(),
+            message.tab_data().sync_tab_group_id());
+  EXPECT_EQ(tab_group.saved_guid().AsLowercaseString(),
+            message.tab_data().sync_tab_group_id());
+  EXPECT_EQ(now.ToTimeT(), message.event_timestamp());
+}
+
+TEST_F(MessagingBackendServiceImplTest, TestOnTabAddedFromRemoteByYourself) {
+  CreateAndInitializeService();
+  AddPersistentMessageObserver();
+
+  data_sharing::GroupId collaboration_group_id =
+      data_sharing::GroupId("my group id");
+  base::Time now = base::Time::Now();
+
+  tab_groups::SavedTabGroup tab_group =
+      CreateSharedTabGroup(collaboration_group_id);
+
+  // Create a tab to check for addition from local.
+  base::Uuid tab1_sync_id = tab_group.saved_tabs().at(0).saved_tab_guid();
+  tab_groups::SavedTabGroupTab* tab1 = tab_group.GetTab(tab1_sync_id);
+  // Make creation and update GaiaId unique.
+  tab1->SetCreatedByAttribution(account_info_.gaia);
+  tab1->SetUpdatedByAttribution(account_info_.gaia);
+  // Make creation and update time unique.
+  tab1->SetUpdateTimeWindowsEpochMicros(now + base::Seconds(1));
+
+  EXPECT_CALL(*mock_tab_group_sync_service_, GetGroup(tab_group.saved_guid()))
+      .WillRepeatedly(Return(tab_group));
+
+  // Add a new tab locally.
+  // It should add a messages for this tab to the DB.
+  EXPECT_CALL(mock_persistent_message_observer_, DisplayPersistentMessage)
+      .Times(0);
+  EXPECT_FALSE(HasLastMessageFromDB());
+  tg_notifier_observer_->OnTabAdded(*tab1, tab_groups::TriggerSource::REMOTE);
+  EXPECT_TRUE(HasLastMessageFromDB());
+
+  // Verify that a message is created for local tab addition.
+  auto message = GetLastMessageFromDB();
+  VerifyGenericMessageData(message, "my group id", collaboration_pb::TAB_ADDED,
+                           DirtyType::kNone, now.ToTimeT());
+
+  EXPECT_EQ(account_info_.gaia, GaiaId(message.triggering_user_gaia_id()));
+  EXPECT_EQ(tab1->saved_tab_guid().AsLowercaseString(),
+            message.tab_data().sync_tab_id());
+  EXPECT_EQ(tab1->saved_group_guid().AsLowercaseString(),
+            message.tab_data().sync_tab_group_id());
+  EXPECT_EQ(tab_group.saved_guid().AsLowercaseString(),
+            message.tab_data().sync_tab_group_id());
+  EXPECT_EQ(now.ToTimeT(), message.event_timestamp());
+}
+
+TEST_F(MessagingBackendServiceImplTest, TestOnTabUpdatedFromRemoteByYourself) {
+  CreateAndInitializeService();
+  SetupInstantMessageDelegate();
+  AddPersistentMessageObserver();
+
+  data_sharing::GroupId collaboration_group_id =
+      data_sharing::GroupId("my group id");
+  base::Time now = base::Time::Now();
+
+  tab_groups::SavedTabGroup tab_group =
+      CreateSharedTabGroup(collaboration_group_id);
+
+  // Create a second tab to check for update from local.
+  base::Uuid tab2_sync_id = tab_group.saved_tabs().at(1).saved_tab_guid();
+  tab_groups::SavedTabGroupTab* tab2 = tab_group.GetTab(tab2_sync_id);
+  // Make creation and update GaiaId unique.
+  tab2->SetCreatedByAttribution(account_info_.gaia);
+  tab2->SetUpdatedByAttribution(account_info_.gaia);
+  // Make creation and update time unique.
+  tab2->SetUpdateTimeWindowsEpochMicros(now + base::Seconds(1));
+
+  EXPECT_CALL(*mock_tab_group_sync_service_, GetGroup(tab_group.saved_guid()))
+      .WillRepeatedly(Return(tab_group));
+
+  // Create dirty message for tab 2.
+  collaboration_pb::Message db_message = CreateStoredMessage(
+      collaboration_group_id, collaboration_pb::EventType::TAB_UPDATED,
+      DirtyType::kDot, base::Time::Now());
+  db_message.mutable_tab_data()->set_sync_tab_id(
+      tab2_sync_id.AsLowercaseString());
+  db_message.mutable_tab_data()->set_sync_tab_group_id(
+      tab_group.saved_guid().AsLowercaseString());
+  AddMessage(db_message);
+
+  // Update the selected tab from remote by the same user.
+  // Should clear any dirty message for the tab and hide any persistent message
+  // already showing. Also should not trigger instant message.
+  EXPECT_CALL(mock_persistent_message_observer_, HidePersistentMessage)
+      .Times(testing::AtLeast(1));
+  EXPECT_CALL(*mock_instant_message_delegate_, DisplayInstantaneousMessage)
+      .Times(0);
+
+  EXPECT_TRUE(GetDirtyMessageForTab(collaboration_group_id, tab2_sync_id,
+                                    DirtyType::kDot));
+  tg_notifier_observer_->OnTabUpdated(*tab2, *tab2,
+                                      tab_groups::TriggerSource::REMOTE, true);
+  task_environment_.FastForwardBy(base::Seconds(10));
+  EXPECT_FALSE(GetDirtyMessageForTab(collaboration_group_id, tab2_sync_id,
+                                     DirtyType::kDot));
+
+  // Verify that a message is created for local tab update.
+  auto message = GetLastMessageFromDB();
+  EXPECT_NE(db_message.uuid(), message.uuid());
+  VerifyGenericMessageData(message, "my group id",
+                           collaboration_pb::TAB_UPDATED, DirtyType::kNone,
+                           now.ToTimeT());
+
+  EXPECT_EQ(account_info_.gaia, GaiaId(message.triggering_user_gaia_id()));
+  EXPECT_EQ(tab2->saved_tab_guid().AsLowercaseString(),
+            message.tab_data().sync_tab_id());
+  EXPECT_EQ(tab2->saved_group_guid().AsLowercaseString(),
+            message.tab_data().sync_tab_group_id());
+  EXPECT_EQ(tab_group.saved_guid().AsLowercaseString(),
+            message.tab_data().sync_tab_group_id());
+}
+
+TEST_F(MessagingBackendServiceImplTest, TestOnTabRemovedFromRemoteByYourself) {
+  CreateAndInitializeService();
+  SetupInstantMessageDelegate();
+  AddPersistentMessageObserver();
+
+  data_sharing::GroupId collaboration_group_id =
+      data_sharing::GroupId("my group id");
+
+  base::Time now = base::Time::Now();
+  tab_groups::SavedTabGroup tab_group =
+      CreateSharedTabGroup(collaboration_group_id);
+
+  // Create a third tab to check for removal from sync.
+  base::Uuid tab3_sync_id = base::Uuid::GenerateRandomV4();
+  tab_groups::SavedTabGroupTab tab3(GURL("https://www.example3.com/"), u"Tab 3",
+                                    tab_group.saved_guid(), std::nullopt,
+                                    tab3_sync_id);
+  tab3.SetCreatedByAttribution(account_info_.gaia);
+  tab3.SetUpdatedByAttribution(account_info_.gaia);
+
+  EXPECT_CALL(*mock_tab_group_sync_service_, GetGroup(tab_group.saved_guid()))
+      .WillRepeatedly(Return(tab_group));
+
+  // Remove the selected tab from remote by the same user.
+  // Should clear any dirty message for the tab and hide any persistent or
+  // instant message already showing.
+  EXPECT_CALL(mock_persistent_message_observer_, HidePersistentMessage)
+      .Times(3);
+  EXPECT_CALL(*mock_instant_message_delegate_, DisplayInstantaneousMessage)
+      .Times(0);
+  EXPECT_FALSE(HasLastMessageFromDB());
+  tg_notifier_observer_->OnTabRemoved(tab3, tab_groups::TriggerSource::REMOTE,
+                                      true);
+  task_environment_.FastForwardBy(base::Seconds(10));
+
+  // Verify that a message is created for the tab removal even for the same
+  // user.
+  EXPECT_TRUE(HasLastMessageFromDB());
+  auto message = GetLastMessageFromDB();
+  VerifyGenericMessageData(message, "my group id",
+                           collaboration_pb::TAB_REMOVED, DirtyType::kNone,
+                           now.ToTimeT());
+
+  EXPECT_EQ(account_info_.gaia, GaiaId(message.triggering_user_gaia_id()));
   EXPECT_EQ(tab3.saved_tab_guid().AsLowercaseString(),
             message.tab_data().sync_tab_id());
   EXPECT_EQ(tab3.saved_group_guid().AsLowercaseString(),
@@ -1213,6 +1396,9 @@ TEST_F(MessagingBackendServiceImplTest, TestActivityLogTabEvents) {
                                             Eq(GaiaId("gaia_3"))))
       .WillRepeatedly(Return(std::nullopt));
 
+  std::vector<tab_groups::SavedTabGroup> all_groups = {tab_group};
+  EXPECT_CALL(*mock_tab_group_sync_service_, GetAllGroups())
+      .WillRepeatedly(Return(all_groups));
   EXPECT_CALL(*mock_tab_group_sync_service_, GetGroup(tab_group.saved_guid()))
       .WillRepeatedly(Return(tab_group));
 
@@ -1597,8 +1783,10 @@ TEST_F(MessagingBackendServiceImplTest, TestSelectedTabGetsUpdated) {
       .WillOnce(SaveArg<0>(&last_persistent_message));
 
   // Updating the currently selected tab should inform the delegate.
-  tg_notifier_observer_->OnTabUpdated(*tab1, tab_groups::TriggerSource::REMOTE,
-                                      true);
+  tab_groups::SavedTabGroupTab old_tab1 = *tab1;
+  old_tab1.SetURL(GURL("https://www.example3.com/"));
+  tg_notifier_observer_->OnTabUpdated(old_tab1, *tab1,
+                                      tab_groups::TriggerSource::REMOTE, true);
   task_environment_.FastForwardBy(base::Seconds(10));
 
   // We should have received a stored message about the updated tab.
@@ -1618,6 +1806,12 @@ TEST_F(MessagingBackendServiceImplTest, TestSelectedTabGetsUpdated) {
   // Verify instant message.
   EXPECT_EQ(CollaborationEvent::TAB_UPDATED, message.collaboration_event);
   EXPECT_EQ(InstantNotificationType::UNDEFINED, message.type);
+  EXPECT_EQ(1u, message.attributions.size());
+  EXPECT_TRUE(message.attributions[0].tab_metadata.has_value());
+  EXPECT_EQ(old_tab1.url().spec(),
+            message.attributions[0].tab_metadata->previous_url);
+  EXPECT_EQ(tab1->url().spec(),
+            message.attributions[0].tab_metadata->last_known_url);
 
   std::move(success_callback).Run(true);
   EXPECT_FALSE(unowned_messaging_backend_store_->HasAnyDirtyMessages(
@@ -1874,19 +2068,15 @@ TEST_F(MessagingBackendServiceImplTest,
   CreateAndInitializeService();
   SetupInstantMessageDelegate();
 
-  // Set up a collaboration as owner.
-  AccountInfo account_info = identity_test_env_.MakePrimaryAccountAvailable(
-      "test@foo.com", signin::ConsentLevel::kSync);
-
   data_sharing::GroupId collaboration_group_id =
       data_sharing::GroupId("my group id");
 
   data_sharing::GroupData group_data;
   group_data.group_token.group_id = collaboration_group_id;
   data_sharing::GroupMember member1;
-  member1.gaia_id = account_info.gaia;
-  member1.display_name = account_info.full_name;
-  member1.given_name = account_info.given_name;
+  member1.gaia_id = account_info_.gaia;
+  member1.display_name = account_info_.full_name;
+  member1.given_name = account_info_.given_name;
   member1.role = data_sharing::MemberRole::kOwner;
   group_data.members.emplace_back(member1);
   EXPECT_CALL(*mock_data_sharing_service_,
@@ -2372,6 +2562,114 @@ TEST_F(MessagingBackendServiceImplTest,
 
   tg_notifier_observer_->OnTabGroupOpened(tab_group);
   task_environment_.FastForwardBy(base::Seconds(10));
+}
+
+TEST_F(MessagingBackendServiceImplTest, OnTabLastSeenTimeChanged_Remote) {
+  CreateAndInitializeService();
+  AddPersistentMessageObserver();
+
+  // Create a group in the service with a local tab.
+  data_sharing::GroupId test_group("test_collab");
+  tab_groups::SavedTabGroup tab_group = CreateSharedTabGroup(test_group);
+  auto expected_tab_guid = tab_group.saved_tabs().front().saved_tab_guid();
+  auto expected_group_guid = tab_group.saved_guid();
+  EXPECT_CALL(*mock_tab_group_sync_service_, GetGroup(expected_group_guid))
+      .WillRepeatedly(Return(tab_group));
+  std::vector<tab_groups::SavedTabGroup> all_groups = {tab_group};
+  EXPECT_CALL(*mock_tab_group_sync_service_, GetAllGroups())
+      .WillRepeatedly(Return(all_groups));
+
+  // Create a message in the messaging backend.
+  collaboration_pb::Message message =
+      CreateStoredMessage(test_group, collaboration_pb::TAB_UPDATED,
+                          DirtyType::kDotAndChip, base::Time::Now());
+  message.mutable_tab_data()->set_sync_tab_id(
+      expected_tab_guid.AsLowercaseString());
+  message.mutable_tab_data()->set_sync_tab_group_id(
+      expected_group_guid.AsLowercaseString());
+  AddMessage(message);
+
+  ASSERT_TRUE(HasDirtyMessages());
+
+  PersistentMessage message1, message2, message3;
+  testing::InSequence sequence;
+  EXPECT_CALL(mock_persistent_message_observer_, HidePersistentMessage(_))
+      .WillOnce(SaveArg<0>(&message1));  // Capture the first message
+  EXPECT_CALL(mock_persistent_message_observer_, HidePersistentMessage(_))
+      .WillOnce(SaveArg<0>(&message2));  // Capture the second message
+  EXPECT_CALL(mock_persistent_message_observer_, HidePersistentMessage(_))
+      .WillOnce(SaveArg<0>(&message3));  // Capture the third message
+
+  // Perform a change notification
+  service_->OnTabLastSeenTimeChanged(expected_tab_guid,
+                                     tab_groups::TriggerSource::REMOTE);
+
+  // Expect that the dirty message was cleared.
+  auto dirty_message = GetDirtyMessageForTab(test_group, expected_tab_guid,
+                                             DirtyType::kDotAndChip);
+  EXPECT_FALSE(dirty_message.has_value());
+
+  // Verify the messages that were hidden.
+  // Chip message of tab.
+  EXPECT_TRUE(message1.attribution.tab_metadata.has_value());
+  EXPECT_TRUE(message1.attribution.tab_group_metadata.has_value());
+  EXPECT_EQ(CollaborationEvent::UNDEFINED, message1.collaboration_event);
+  EXPECT_EQ(tab_group.saved_guid(),
+            message1.attribution.tab_group_metadata->sync_tab_group_id.value());
+  EXPECT_EQ(PersistentNotificationType::CHIP, message1.type);
+
+  // Dirty dot of tab.
+  EXPECT_TRUE(message2.attribution.tab_metadata.has_value());
+  EXPECT_TRUE(message2.attribution.tab_group_metadata.has_value());
+  EXPECT_EQ(CollaborationEvent::UNDEFINED, message2.collaboration_event);
+  EXPECT_EQ(tab_group.saved_guid(),
+            message2.attribution.tab_group_metadata->sync_tab_group_id.value());
+  EXPECT_EQ(PersistentNotificationType::DIRTY_TAB, message2.type);
+
+  // Dirty dot of tab group.
+  EXPECT_FALSE(message3.attribution.tab_metadata.has_value());
+  EXPECT_TRUE(message3.attribution.tab_group_metadata.has_value());
+  EXPECT_EQ(CollaborationEvent::UNDEFINED, message3.collaboration_event);
+  EXPECT_EQ(PersistentNotificationType::DIRTY_TAB_GROUP, message3.type);
+  EXPECT_EQ(tab_group.saved_guid(),
+            message3.attribution.tab_group_metadata->sync_tab_group_id.value());
+}
+
+TEST_F(MessagingBackendServiceImplTest, OnTabLastSeenTimeChanged_NonRemote) {
+  CreateAndInitializeService();
+  AddPersistentMessageObserver();
+
+  // Create a group in the service with a local tab.
+  data_sharing::GroupId test_group("test_collab");
+  tab_groups::SavedTabGroup test_group_obj = CreateSharedTabGroup(test_group);
+  auto expected_tab_guid = test_group_obj.saved_tabs().front().saved_tab_guid();
+  auto expected_group_guid = test_group_obj.saved_guid();
+  std::vector<tab_groups::SavedTabGroup> all_groups = {test_group_obj};
+  EXPECT_CALL(*mock_tab_group_sync_service_, GetAllGroups())
+      .WillRepeatedly(Return(all_groups));
+
+  // Create a message in the messaging backend.
+  collaboration_pb::Message message =
+      CreateStoredMessage(test_group, collaboration_pb::TAB_UPDATED,
+                          DirtyType::kDotAndChip, base::Time::Now());
+  message.mutable_tab_data()->set_sync_tab_id(
+      expected_tab_guid.AsLowercaseString());
+  message.mutable_tab_data()->set_sync_tab_group_id(
+      expected_group_guid.AsLowercaseString());
+  AddMessage(message);
+
+  ASSERT_TRUE(HasDirtyMessages());
+
+  // Perform a change notification.
+  EXPECT_CALL(mock_persistent_message_observer_, HidePersistentMessage)
+      .Times(0);
+  service_->OnTabLastSeenTimeChanged(expected_tab_guid,
+                                     tab_groups::TriggerSource::LOCAL);
+
+  // Expect that the dirty message was not cleared.
+  auto dirty_message = GetDirtyMessageForTab(test_group, expected_tab_guid,
+                                             DirtyType::kDotAndChip);
+  EXPECT_TRUE(dirty_message.has_value());
 }
 
 }  // namespace collaboration::messaging

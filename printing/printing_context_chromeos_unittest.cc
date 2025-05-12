@@ -73,7 +73,7 @@ class PrintingContextTest : public testing::Test,
     EXPECT_CALL(*connection, GetPrinter(kPrinterName))
         .WillOnce(Return(ByMove(std::move(unique_printer))));
     printing_context_ = PrintingContextChromeos::CreateForTesting(
-        this, PrintingContext::ProcessBehavior::kOopDisabled,
+        this, PrintingContext::OutOfProcessBehavior::kDisabled,
         std::move(unique_connection));
     auto settings = std::make_unique<PrintSettings>();
     settings->set_device_name(kPrinterName16);
@@ -211,6 +211,26 @@ TEST_F(PrintingContextTest, SettingsToIPPOptions_MediaCol) {
   printable_area_ =
       gfx::Rect(2000, 1000, 297000 - (2000 + 3000), 420000 - (1000 + 4000));
   TestMediaColValue(gfx::Size(29700, 42000), 100, 200, 300, 400);
+}
+
+TEST_F(PrintingContextTest, SettingsToIPPOptions_MediaColCustomMargins) {
+  settings_.set_requested_media(
+      {gfx::Size(297000, 420000), "iso_a3_297x420mm"});
+  settings_.SetCustomMargins({0, 0, 50, 30, 40, 60});
+  printable_area_ =
+      gfx::Rect(2000, 1000, 297000 - (2000 + 3000), 420000 - (1000 + 4000));
+  TestMediaColValue(gfx::Size(29700, 42000), 6, 5, 3, 4);
+}
+
+TEST_F(PrintingContextTest, SettingsToIPPOptions_MediaColZeroMargins) {
+  settings_.set_requested_media(
+      {gfx::Size(297000, 420000), "iso_a3_297x420mm"});
+  // Set all margins to zero
+  settings_.SetCustomMargins({0, 0, 0, 0, 0, 0});
+  settings_.set_borderless(true);
+  printable_area_ = gfx::Rect(0, 0, 297000, 420000);
+  // All margins should be zero
+  TestMediaColValue(gfx::Size(29700, 42000), 0, 0, 0, 0);
 }
 
 TEST_F(PrintingContextTest, SettingsToIPPOptionsMediaColLandscape) {
@@ -386,6 +406,31 @@ TEST_F(PrintingContextTest, SettingsToIPPOptionsClientInfoEmpty) {
 
   settings_.set_client_infos({invalid_client_info});
   EXPECT_FALSE(HasAttribute(kIppClientInfo));
+}
+
+TEST_F(PrintingContextTest, SettingsToIPPOptionsPrintScaling) {
+  // Define test cases for print scaling
+  struct PrintScalingTestCase {
+    mojom::PrintScalingType scaling_type;
+    const char* expected_value;
+  } constexpr kTestCases[] = {
+      {mojom::PrintScalingType::kUnknownPrintScalingType, nullptr},
+      {mojom::PrintScalingType::kAuto, "auto"},
+      {mojom::PrintScalingType::kAutoFit, "auto-fit"},
+      {mojom::PrintScalingType::kFill, "fill"},
+      {mojom::PrintScalingType::kFit, "fit"},
+      {mojom::PrintScalingType::kNone, "none"},
+  };
+
+  for (const auto& test_case : kTestCases) {
+    settings_.set_print_scaling(test_case.scaling_type);
+    if (test_case.scaling_type ==
+        mojom::PrintScalingType::kUnknownPrintScalingType) {
+      EXPECT_FALSE(HasAttribute(kIppPrintScaling));
+    } else {
+      TestStringOptionValue(kIppPrintScaling, test_case.expected_value);
+    }
+  }
 }
 
 }  // namespace

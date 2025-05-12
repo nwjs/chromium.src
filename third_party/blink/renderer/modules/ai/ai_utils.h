@@ -14,6 +14,7 @@
 #include "third_party/blink/renderer/bindings/modules/v8/v8_rewriter_create_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_summarizer_create_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_writer_create_options.h"
+#include "third_party/blink/renderer/modules/ai/availability.h"
 
 namespace blink {
 
@@ -49,6 +50,59 @@ mojom::blink::AIRewriterCreateOptionsPtr ToMojoRewriterCreateOptions(
     const RewriterCreateOptions* options);
 mojom::blink::AIRewriterCreateOptionsPtr ToMojoRewriterCreateOptions(
     const RewriterCreateCoreOptions* core_options);
+
+// Implementation of LookupMatchingLocaleByBestFit
+// (https://tc39.es/ecma402/#sec-lookupmatchinglocalebybestfit) as
+// LookupMatchingLocaleByPrefix
+// (https://tc39.es/ecma402/#sec-lookupmatchinglocalebyprefix) assuming
+// `available_languages` contains no extension.
+template <typename SetType>
+std::optional<String> LookupMatchingLocaleByBestFit(
+    const SetType& available_languages,
+    const String& requested_language) {
+  String prefix = requested_language;
+  while (prefix != "") {
+    if (available_languages.contains(prefix.Ascii())) {
+      return prefix;
+    }
+    int pos = prefix.ReverseFind('-');
+    if (pos == -1) {
+      pos = 0;
+    }
+    prefix = prefix.Substring(0, pos);
+  }
+  return std::nullopt;
+}
+
+// Returns a set of language codes that best fit the `requested_languages` given
+// `available_languages`
+template <typename SetType>
+std::optional<Vector<String>> GetBestFitLanguages(
+    const SetType& available_languages,
+    const Vector<String>& requested_languages) {
+  Vector<String> languages;
+  for (const String& language : requested_languages) {
+    std::optional<String> best_match =
+        LookupMatchingLocaleByBestFit(available_languages, language);
+
+    if (!best_match) {
+      return std::nullopt;
+    }
+
+    // Insert if there's no duplicate.
+    if (!languages.Contains(*best_match)) {
+      languages.push_back(*std::move(best_match));
+    }
+  }
+  return languages;
+}
+
+// Validates and canonicalizes a list of BCP47 formatted language strings.
+// Returns nullopt if any of the languages are invalid, otherwise returns the
+// canonicalized languages.
+std::optional<Vector<String>> ValidateAndCanonicalizeBCP47Languages(
+    v8::Isolate* isolate,
+    const Vector<String>& languages);
 
 }  // namespace blink
 

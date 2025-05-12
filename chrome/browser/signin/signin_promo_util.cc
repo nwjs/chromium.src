@@ -4,10 +4,12 @@
 
 #include "chrome/browser/signin/signin_promo_util.h"
 
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/reauth_result.h"
 #include "chrome/browser/signin/signin_promo.h"
+#include "chrome/common/pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/base/signin_metrics.h"
@@ -40,6 +42,7 @@
 #include "components/sync/base/user_selectable_type.h"
 #include "components/sync/service/sync_service.h"
 #include "components/sync/service/sync_user_settings.h"
+#include "components/user_education/common/user_education_features.h"
 
 namespace {
 
@@ -293,9 +296,7 @@ bool ShouldShowAddressSignInPromo(Profile& profile,
 bool ShouldShowBookmarkSignInPromo(Profile& profile) {
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
   if (!base::FeatureList::IsEnabled(
-          switches::kSyncEnableBookmarksInTransportMode) ||
-      !base::FeatureList::IsEnabled(
-          switches::kSyncMinimizeDeletionsDuringBookmarkBatchUpload)) {
+          switches::kSyncEnableBookmarksInTransportMode)) {
     return false;
   }
 
@@ -414,6 +415,67 @@ void RecordSignInPromoShown(signin_metrics::AccessPoint access_point,
       return;
   }
 }
+
+SyncPromoIdentityPillManager::SyncPromoIdentityPillManager(Profile& profile)
+    : SyncPromoIdentityPillManager(
+          profile,
+          user_education::features::GetNewBadgeShowCount(),
+          user_education::features::GetNewBadgeFeatureUsedCount()) {}
+
+SyncPromoIdentityPillManager::SyncPromoIdentityPillManager(Profile& profile,
+                                                           int max_shown_count,
+                                                           int max_used_count)
+    : profile_(profile),
+      max_shown_count_(max_shown_count),
+      max_used_count_(max_used_count) {}
+
+bool SyncPromoIdentityPillManager::ShouldShowPromo() const {
+  const AccountInfo account = signin_ui_util::GetSingleAccountForPromos(
+      IdentityManagerFactory::GetForProfile(&profile_.get()));
+  if (account.gaia.empty()) {
+    // If there is no account available, the promo should not be shown (the sync
+    // promo should be shown only for signed in users).
+    return false;
+  }
+  if (!ArePromotionsEnabled()) {
+    return false;
+  }
+  const int show_count = SigninPrefs(*profile_->GetPrefs())
+                             .GetSyncPromoIdentityPillShownCount(account.gaia);
+  const int used_count = SigninPrefs(*profile_->GetPrefs())
+                             .GetSyncPromoIdentityPillUsedCount(account.gaia);
+  return show_count < max_shown_count_ && used_count < max_used_count_;
+}
+
+void SyncPromoIdentityPillManager::RecordPromoShown() {
+  const AccountInfo account = signin_ui_util::GetSingleAccountForPromos(
+      IdentityManagerFactory::GetForProfile(&profile_.get()));
+  if (account.gaia.empty()) {
+    // If there is no account available, there is nothing to record (the sync
+    // promo should be shown only for signed in users).
+    return;
+  }
+  SigninPrefs(*profile_->GetPrefs())
+      .IncrementSyncPromoIdentityPillShownCount(account.gaia);
+}
+
+void SyncPromoIdentityPillManager::RecordPromoUsed() {
+  const AccountInfo account = signin_ui_util::GetSingleAccountForPromos(
+      IdentityManagerFactory::GetForProfile(&profile_.get()));
+  if (account.gaia.empty()) {
+    // If there is no account available, there is nothing to record (the sync
+    // promo should be shown only for signed in users).
+    return;
+  }
+  SigninPrefs(*profile_->GetPrefs())
+      .IncrementSyncPromoIdentityPillUsedCount(account.gaia);
+}
+
+bool SyncPromoIdentityPillManager::ArePromotionsEnabled() const {
+  PrefService* local_state = g_browser_process->local_state();
+  return local_state && local_state->GetBoolean(prefs::kPromotionsEnabled);
+}
+
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 }  // namespace signin

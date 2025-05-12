@@ -128,14 +128,12 @@ class ScreenAIService : public mojom::ScreenAIServiceFactory,
       const SkBitmap& image);
 
   void OcrReceiverDisconnected();
-
-  // Calls `ShutDownIfNoClients` after a short delay.
-  void CheckIdleStateAfterDelay();
+  void MceReceiverDisconnected();
 
   // Last time the feature is used. A null value means never, it is set when the
   // feature is initialized, and each time it is used.
   base::TimeTicks ocr_last_used_;
-  base::TimeTicks main_content_extraction_last_used_;
+  base::TimeTicks mce_last_used_;
 
   std::unique_ptr<base::RepeatingTimer> idle_checking_timer_;
 
@@ -164,6 +162,9 @@ class ScreenAIService : public mojom::ScreenAIServiceFactory,
   // extractors.
   mojo::ReceiverSet<mojom::Screen2xMainContentExtractor>
       screen2x_main_content_extractors_;
+
+  // Task runner used to monitor unresponsiveness.
+  scoped_refptr<base::SequencedTaskRunner> background_task_runner_;
 
   base::WeakPtrFactory<ScreenAIService> weak_ptr_factory_{this};
 };

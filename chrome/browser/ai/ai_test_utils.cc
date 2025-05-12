@@ -77,7 +77,8 @@ AITestUtils::AITestBase::~AITestBase() = default;
 
 void AITestUtils::AITestBase::SetUp() {
   ChromeRenderViewHostTestHarness::SetUp();
-  ai_manager_ = std::make_unique<AIManager>(main_rfh()->GetBrowserContext());
+  ai_manager_ =
+      std::make_unique<AIManager>(main_rfh()->GetBrowserContext(), main_rfh());
 }
 
 void AITestUtils::AITestBase::TearDown() {
@@ -113,14 +114,6 @@ void AITestUtils::AITestBase::SetupMockSession() {
         return std::make_unique<
             testing::NiceMock<optimization_guide::MockSession>>(&session_);
       });
-  ON_CALL(session_, GetContextSizeInTokens(testing::_, testing::_))
-      .WillByDefault(
-          [&](optimization_guide::MultimodalMessageReadView request_metadata,
-              optimization_guide::OptimizationGuideModelSizeInTokenCallback
-                  callback) {
-            std::move(callback).Run(
-                blink::mojom::kWritingAssistanceMaxInputTokenSize);
-          });
   ON_CALL(session_, GetExecutionInputSizeInTokens(testing::_, testing::_))
       .WillByDefault(
           [&](optimization_guide::MultimodalMessageReadView request_metadata,
@@ -181,7 +174,8 @@ void AITestUtils::CheckWritingAssistanceApiRequest(
     const std::string& expected_context,
     const optimization_guide::proto::WritingAssistanceApiOptions&
         expected_options,
-    const std::string& expected_input) {
+    const std::string& expected_rewrite_text,
+    const std::string& expected_instructions) {
   const optimization_guide::proto::WritingAssistanceApiRequest* request =
       static_cast<
           const optimization_guide::proto::WritingAssistanceApiRequest*>(
@@ -193,7 +187,8 @@ void AITestUtils::CheckWritingAssistanceApiRequest(
             expected_options.output_format());
   EXPECT_EQ(request->options().output_length(),
             expected_options.output_length());
-  EXPECT_EQ(request->rewrite_text(), expected_input);
+  EXPECT_EQ(request->rewrite_text(), expected_rewrite_text);
+  EXPECT_EQ(request->instructions(), expected_instructions);
 }
 
 // static

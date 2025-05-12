@@ -44,6 +44,7 @@ chromium-metrics-reviews@google.com.
       summary="The context menu was shown for an image which is also a link."/>
   <variant name=".Link"
       summary="The context menu was shown for a (non-image) link"/>
+  <variant name=".Page" summary="The context menu was shown for a page."/>
   <variant name=".SharedHighlightingInteraction"
       summary="The context menu was shown from tap on highlighted text."/>
   <variant name=".Video" summary="The context menu was shown for a video"/>
@@ -65,6 +66,7 @@ chromium-metrics-reviews@google.com.
   <variant name=".LensOverlayUntrusted"/>
   <variant name=".LensSidePanelUntrusted"/>
   <variant name=".MakoUntrusted"/>
+  <variant name=".NewTabFooter"/>
   <variant name=".PerformanceSidePanel"/>
   <variant name=".ReadAnythingUntrusted"/>
   <variant name=".ReadingList"/>
@@ -364,9 +366,9 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="RenderViewContextMenu.OpenLinkAsProfile" enum="OpenLinkAs"
-    expires_after="2025-06-08">
-  <owner>gabolvr@google.com</owner>
+    expires_after="2025-10-12">
   <owner>droger@chromium.org</owner>
+  <owner>chrome-signin-team@google.com</owner>
   <summary>
     Count the clicks and displays of renderer view context menu item Open Link
     as Profile, as well as Open Link in Incognito Window for comparison. If Open
@@ -422,7 +424,7 @@ chromium-metrics-reviews@google.com.
 <histogram name="Toolbar.ChromeLabs.{State}LabAction"
     enum="ChromeLabsSelectedLab" expires_after="never">
 <!-- expires-never: Chrome Labs is a feature that allows teams to add their
-experiemntal features for users to try out and give feedback on before it is
+experimental features for users to try out and give feedback on before it is
 fully rolled out. We want teams that add their features to Chrome Labs to
 continue to have access to metrics on how many users enable (or disable) their
 features through Chrome Labs. -->
@@ -551,7 +553,7 @@ features through Chrome Labs. -->
 </histogram>
 
 <histogram name="WebUI.ColorsStylesheetServingDuration" units="ms"
-    expires_after="2025-07-27">
+    expires_after="2025-09-28">
   <owner>skau@chromium.org</owner>
   <owner>tluk@chromium.org</owner>
   <improvement direction="LOWER_IS_BETTER"/>
@@ -587,7 +589,7 @@ features through Chrome Labs. -->
 </histogram>
 
 <histogram name="WebUI.ShownUrl" enum="WebUIUrlHashes"
-    expires_after="2025-07-27">
+    expires_after="2025-09-28">
   <owner>kerenzhu@chromium.org</owner>
   <owner>dpapad@chromium.org</owner>
   <owner>chrome-webui@google.com</owner>
@@ -615,7 +617,7 @@ features through Chrome Labs. -->
 </histogram>
 
 <histogram name="WebUI.TopChrome.RequestToFCP{WebUIName}" units="ms"
-    expires_after="2025-08-10">
+    expires_after="2025-10-12">
   <owner>kerenzhu@chromium.org</owner>
   <owner>chrome-webui-for-features@google.com</owner>
   <summary>
@@ -628,7 +630,7 @@ features through Chrome Labs. -->
 </histogram>
 
 <histogram name="WebUI.TopChrome.RequestToLCP{WebUIName}" units="ms"
-    expires_after="2025-06-08">
+    expires_after="2025-10-12">
   <owner>kerenzhu@chromium.org</owner>
   <owner>chrome-webui-for-features@google.com</owner>
   <summary>
@@ -803,6 +805,7 @@ features through Chrome Labs. -->
     <variant name="Exit"/>
     <variant name="Feedback"/>
     <variant name="Find"/>
+    <variant name="FindExtensions"/>
     <variant name="HelpPage"/>
     <variant name="ImportSettings"/>
     <variant name="InstallPwa"/>

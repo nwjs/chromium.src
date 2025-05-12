@@ -88,17 +88,14 @@ void NativeAppWindowViews::Init(
   saved_size_constraints_ = size_constraints_;
   Observe(app_window_->web_contents());
 
-  // TODO(pbos): See if this can retain SetOwnedByWidget(true) and get deleted
-  // through WidgetDelegate::DeleteDelegate(). It's not clear to me how this
-  // ends up destructed, but the below preserves a previous DialogDelegate
-  // override that did not end with a direct `delete this;`.
-  SetOwnedByWidget(false);
-  RegisterDeleteDelegateCallback(base::BindOnce(
-      [](NativeAppWindowViews* dialog) {
-        dialog->widget_->RemoveObserver(dialog);
-        dialog->app_window_->OnNativeClose();
-      },
-      this));
+  // TODO(pbos): It's not clear to me how this ends up destructed.
+  RegisterDeleteDelegateCallback(RegisterDeleteCallbackPassKey(),
+                                 base::BindOnce(
+                                     [](NativeAppWindowViews* dialog) {
+                                       dialog->widget_->RemoveObserver(dialog);
+                                       dialog->app_window_->OnNativeClose();
+                                     },
+                                     this));
   web_view_ = AddChildView(std::make_unique<views::WebView>(nullptr));
   web_view_->SetWebContents(app_window_->web_contents());
 #if defined(OS_LINUX) || defined(OS_WIN)

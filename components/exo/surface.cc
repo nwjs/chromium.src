@@ -1819,9 +1819,6 @@ void Surface::AppendContentsToFrame(const gfx::PointF& parent_to_root_px,
           background_color,
           /* nearest*/ false, state_.basic_state.only_visible_on_secure_output,
           gfx::ProtectedVideoType::kClear);
-      if (current_resource_.is_overlay_candidate) {
-        texture_quad->set_resource_size_in_pixels(current_resource_.size);
-      }
 
       if (force_rgbx_for_opaque) {
         UMA_HISTOGRAM_BOOLEAN("Graphics.Exo.Surface.ForceRGBAForOpaque", true);
@@ -1845,12 +1842,10 @@ void Surface::AppendContentsToFrame(const gfx::PointF& parent_to_root_px,
       }
 #endif  // BUILDFLAG(USE_ARC_PROTECTED_MEDIA)
 
-      if (!damage_rect_px.IsEmpty()) {
-        texture_quad->damage_rect = gfx::ToEnclosedRect(damage_rect_px);
-        render_pass->has_per_quad_damage = true;
-        // Clear handled damage so it will not be added to the |render_pass|.
-        damage_rect_px = gfx::RectF();
-      }
+      texture_quad->damage_rect = gfx::ToEnclosedRect(damage_rect_px);
+      render_pass->has_per_quad_damage = true;
+      // Clear handled damage so it will not be added to the |render_pass|.
+      damage_rect_px = gfx::RectF();
     }
     frame->resource_list.push_back(current_resource_);
   } else if (state_.basic_state.alpha != 0.0f) {

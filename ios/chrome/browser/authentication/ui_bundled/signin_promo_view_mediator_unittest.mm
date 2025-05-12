@@ -12,10 +12,12 @@
 #import "components/pref_registry/pref_registry_syncable.h"
 #import "components/prefs/pref_service.h"
 #import "components/signin/public/base/signin_metrics.h"
+#import "components/signin/public/identity_manager/objc/identity_manager_observer_bridge.h"
 #import "components/sync/test/mock_sync_service.h"
 #import "components/sync_preferences/pref_service_mock_factory.h"
 #import "components/sync_preferences/pref_service_syncable.h"
 #import "ios/chrome/browser/authentication/ui_bundled/account_settings_presenter.h"
+#import "ios/chrome/browser/authentication/ui_bundled/authentication_test_util.h"
 #import "ios/chrome/browser/authentication/ui_bundled/cells/signin_promo_view.h"
 #import "ios/chrome/browser/authentication/ui_bundled/cells/signin_promo_view_configurator.h"
 #import "ios/chrome/browser/authentication/ui_bundled/cells/signin_promo_view_constants.h"
@@ -27,13 +29,13 @@
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
 #import "ios/chrome/browser/shared/model/prefs/browser_prefs.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
+#import "ios/chrome/browser/shared/model/profile/features.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service_factory.h"
-#import "ios/chrome/browser/signin/model/chrome_account_manager_service_observer_bridge.h"
 #import "ios/chrome/browser/signin/model/fake_authentication_service_delegate.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity_manager.h"
@@ -101,16 +103,17 @@ class SigninPromoViewMediatorTest : public PlatformTest {
     account_settings_presenter_ =
         OCMStrictProtocolMock(@protocol(AccountSettingsPresenter));
     mediator_ = [[SigninPromoViewMediator alloc]
-         initWithIdentityManager:IdentityManagerFactory::GetForProfile(
-                                     profile_.get())
-           accountManagerService:ChromeAccountManagerServiceFactory::
-                                     GetForProfile(profile_.get())
-                     authService:GetAuthenticationService()
-                     prefService:profile_.get()->GetPrefs()
-                     syncService:GetSyncService()
-                     accessPoint:access_point
-                 signinPresenter:signin_presenter_
-        accountSettingsPresenter:account_settings_presenter_];
+                  initWithIdentityManager:IdentityManagerFactory::GetForProfile(
+                                              profile_.get())
+                    accountManagerService:ChromeAccountManagerServiceFactory::
+                                              GetForProfile(profile_.get())
+                              authService:GetAuthenticationService()
+                              prefService:profile_.get()->GetPrefs()
+                              syncService:GetSyncService()
+                              accessPoint:access_point
+                          signinPresenter:signin_presenter_
+                 accountSettingsPresenter:account_settings_presenter_
+        changeProfileContinuationProvider:NotReachedContinuationProvider()];
     mediator_.consumer = consumer_;
 
     signin_promo_view_ = OCMStrictClassMock([SigninPromoView class]);
@@ -159,8 +162,7 @@ class SigninPromoViewMediatorTest : public PlatformTest {
   void TestSigninPromoWithAccount(SigninPromoViewStyle style) {
     // Expect to receive an update to the consumer with a configurator.
     ExpectConfiguratorNotification(/*identity_changed=*/YES);
-    if (base::FeatureList::IsEnabled(kUseAccountListFromIdentityManager) &&
-        !AreSeparateProfilesForManagedAccountsEnabled()) {
+    if (!AreSeparateProfilesForManagedAccountsEnabled()) {
       // With this feature configuration, AccountProfileMapper sends an extra
       // "account changed" notification when adding an account to the device.
       ExpectConfiguratorNotification(/*identity_changed=*/NO);
@@ -586,11 +588,11 @@ TEST_F(SigninPromoViewMediatorTest,
   [mediator_
       signinPromoViewDidTapPrimaryButtonWithDefaultAccount:signin_promo_view_];
   EXPECT_TRUE([mediator_
-      conformsToProtocol:@protocol(ChromeAccountManagerServiceObserver)]);
-  id<ChromeAccountManagerServiceObserver> accountManagerServiceObserver =
-      (id<ChromeAccountManagerServiceObserver>)mediator_;
+      conformsToProtocol:@protocol(IdentityManagerObserverBridgeDelegate)]);
+  id<IdentityManagerObserverBridgeDelegate> identityManagerObserver =
+      (id<IdentityManagerObserverBridgeDelegate>)mediator_;
   // Simulates an identity update.
-  [accountManagerServiceObserver identityUpdated:identity_];
+  [identityManagerObserver onExtendedAccountInfoUpdated:AccountInfo()];
   // Spins the run loop to wait for the profile image update.
   fake_system_identity_manager()->WaitForServiceCallbacksToComplete();
   // Finishs the sign-in.

@@ -324,12 +324,25 @@ GrContextType ParseGrContextType(const base::CommandLine* command_line) {
     [[maybe_unused]] auto value =
         command_line->GetSwitchValueASCII(switches::kSkiaGraphiteBackend);
 #if BUILDFLAG(SKIA_USE_DAWN)
-    if (value.empty() ||
-        base::StartsWith(value, switches::kSkiaGraphiteBackendDawn)) {
+#if !BUILDFLAG(IS_IOS)
+    // TODO(sunnyps): Temporarily use Graphite Metal as the default backend on
+    // iOS Blink until the Dawn backend can be brought up.
+    if (value.empty()) {
+      return GrContextType::kGraphiteDawn;
+    }
+#endif  // !BUILDFLAG(IS_IOS)
+    if (base::StartsWith(value, switches::kSkiaGraphiteBackendDawn)) {
       return GrContextType::kGraphiteDawn;
     }
 #endif  // BUILDFLAG(SKIA_USE_DAWN)
 #if BUILDFLAG(SKIA_USE_METAL)
+#if BUILDFLAG(IS_IOS)
+    // TODO(sunnyps): Temporarily use Graphite Metal as the default backend on
+    // iOS Blink until the Dawn backend can be brought up.
+    if (value.empty()) {
+      return GrContextType::kGraphiteMetal;
+    }
+#endif  // BUILDFLAG(IS_IOS)
     if (value == switches::kSkiaGraphiteBackendMetal) {
       return GrContextType::kGraphiteMetal;
     }
@@ -374,5 +387,38 @@ uint32_t GetTextureTargetForIOSurfaces() {
   return GL_TEXTURE_RECTANGLE_ARB;
 }
 #endif  // BUILDFLAG(IS_MAC)
+
+size_t UpdateShaderCacheSizeOnMemoryPressure(
+    size_t max_cache_size,
+    base::MemoryPressureListener::MemoryPressureLevel memory_pressure_level) {
+  switch (memory_pressure_level) {
+    case base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_NONE:
+      return max_cache_size;
+    case base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_MODERATE:
+      if (base::FeatureList::IsEnabled(
+              ::features::kAggressiveShaderCacheLimits)) {
+        // Ignore moderate memory pressure.
+      } else {
+        max_cache_size /= 4;
+      }
+      break;
+    case base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_CRITICAL:
+      if (base::FeatureList::IsEnabled(
+              ::features::kAggressiveShaderCacheLimits)) {
+#if BUILDFLAG(IS_ANDROID)
+        // On Android, critical memory pressure notifications are very common,
+        // and not necessarily tied to actual critical memory pressure. Ignore.
+        break;
+#else
+        max_cache_size /= 4;
+#endif
+      } else {
+        max_cache_size = 0;
+      }
+      break;
+  }
+
+  return max_cache_size;
+}
 
 }  // namespace gpu

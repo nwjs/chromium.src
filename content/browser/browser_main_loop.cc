@@ -716,6 +716,15 @@ void BrowserMainLoop::PostCreateMainMessageLoop() {
         discardable_memory::DiscardableSharedMemoryManager::Get());
   }
 
+
+  {
+    // The process-wide accessibility state must be created before we complete
+    // the initialization of main loop for the extra parts, who use it.
+    TRACE_EVENT0("startup",
+                 "BrowserMainLoop::Subsystem:BrowserAccessibilityStateImpl");
+    browser_accessibility_state_ = BrowserAccessibilityStateImpl::Create();
+  }
+
   if (parts_)
     parts_->PostCreateMainMessageLoop();
 
@@ -763,12 +772,6 @@ void BrowserMainLoop::PostCreateMainMessageLoop() {
   // Chrome Remote Desktop needs TransitionalURLLoaderFactoryOwner on ChromeOS.
   network::TransitionalURLLoaderFactoryOwner::DisallowUsageInProcess();
 #endif
-
-  {
-    TRACE_EVENT0("startup",
-                 "BrowserMainLoop::Subsystem:BrowserAccessibilityStateImpl");
-    browser_accessibility_state_ = BrowserAccessibilityStateImpl::Create();
-  }
 }
 
 void BrowserMainLoop::CreateMessageLoopForEarlyShutdown() {

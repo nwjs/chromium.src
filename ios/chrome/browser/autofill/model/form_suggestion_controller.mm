@@ -94,8 +94,8 @@ void RunSearchPipeline(NSArray<PipelineBlock>* blocks,
 }
 
 // Returns the default icon for the suggestion type.
-UIImage* defaultIconForType(autofill::SuggestionType type) {
-  switch (type) {
+UIImage* defaultIconForType(FormSuggestion* suggestion) {
+  switch (suggestion.type) {
     case autofill::SuggestionType::kGeneratePasswordEntry:
       return MakeSymbolMulticolor(
           CustomSymbolWithPointSize(kPasswordManagerSymbol, kSymbolPointSize));
@@ -104,9 +104,28 @@ UIImage* defaultIconForType(autofill::SuggestionType type) {
       BOOL isPlusAddressFeaturesEnabled = base::FeatureList::IsEnabled(
           plus_addresses::features::kPlusAddressesEnabled);
       return isPlusAddressFeaturesEnabled
-                 ? DefaultSymbolWithPointSize(kShieldedEnvelope,
-                                              kSymbolPointSize)
+          ? SymbolWithPalette(
+                DefaultSymbolWithPointSize(kShieldedEnvelope, kSymbolPointSize),
+                @[
+                  [UIColor colorNamed:kTextPrimaryColor],
+                ])
                  : nil;
+    }
+    case autofill::SuggestionType::kAddressEntry: {
+      switch (suggestion.suggestionIconType) {
+        case SuggestionIconType::kAccountHome:
+          return SymbolWithPalette(
+              DefaultSymbolWithPointSize(kHomeSymbol, kSymbolPointSize), @[
+                [UIColor colorNamed:kTextPrimaryColor],
+              ]);
+        case SuggestionIconType::kAccountWork:
+          return SymbolWithPalette(
+              DefaultSymbolWithPointSize(kWorkSymbol, kSymbolPointSize), @[
+                [UIColor colorNamed:kTextPrimaryColor],
+              ]);
+        default:
+          return nil;
+      }
     }
     case autofill::SuggestionType::kAutocompleteEntry:
     default:
@@ -472,7 +491,7 @@ bool IsRequestDedupingAllowed() {
         (suggestion.type == autofill::SuggestionType::kCreateNewPlusAddress) ||
         (suggestion.type == autofill::SuggestionType::kFillExistingPlusAddress);
 
-    UIImage* defaultIcon = defaultIconForType(suggestion.type);
+    UIImage* defaultIcon = defaultIconForType(suggestion);
 
     // If there are no icons, but we have a default icon for this suggestion,
     // copy the suggestion and add the default icon. If

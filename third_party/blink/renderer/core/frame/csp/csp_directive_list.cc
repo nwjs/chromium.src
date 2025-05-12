@@ -300,6 +300,7 @@ bool CheckDynamic(const network::mojom::blink::CSPSourceList* directive,
                   CSPDirectiveName effective_type) {
   // 'strict-dynamic' only applies to scripts
   if (effective_type != CSPDirectiveName::ScriptSrc &&
+      effective_type != CSPDirectiveName::ScriptSrcV2 &&
       effective_type != CSPDirectiveName::ScriptSrcAttr &&
       effective_type != CSPDirectiveName::ScriptSrcElem &&
       effective_type != CSPDirectiveName::WorkerSrc) {
@@ -529,6 +530,7 @@ void ReportViolationForCheckSource(
       prefix = prefix + "load plugin data from '";
       break;
     case CSPDirectiveName::ScriptSrc:
+    case CSPDirectiveName::ScriptSrcV2:
     case CSPDirectiveName::ScriptSrcAttr:
     case CSPDirectiveName::ScriptSrcElem:
       prefix = prefix + "load the script '";
@@ -548,7 +550,6 @@ void ReportViolationForCheckSource(
     case CSPDirectiveName::FrameSrc:
     case CSPDirectiveName::ReportTo:
     case CSPDirectiveName::ReportURI:
-    case CSPDirectiveName::RequireSRIFor:
     case CSPDirectiveName::RequireTrustedTypesFor:
     case CSPDirectiveName::Sandbox:
     case CSPDirectiveName::TreatAsPublicAddress:
@@ -863,6 +864,7 @@ CSPCheckResult CSPDirectiveListAllowFromSource(
          type == CSPDirectiveName::MediaSrc ||
          type == CSPDirectiveName::ObjectSrc ||
          type == CSPDirectiveName::ScriptSrc ||
+         type == CSPDirectiveName::ScriptSrcV2 ||
          type == CSPDirectiveName::ScriptSrcElem ||
          type == CSPDirectiveName::StyleSrc ||
          type == CSPDirectiveName::StyleSrcElem ||

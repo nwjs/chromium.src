@@ -4,10 +4,10 @@
 
 #import "ios/chrome/browser/omnibox/ui_bundled/popup/row/actions/omnibox_popup_actions_row_content_configuration.h"
 
-#import "ios/chrome/browser/omnibox/ui_bundled/popup/autocomplete_suggestion.h"
+#import "ios/chrome/browser/omnibox/model/autocomplete_suggestion.h"
+#import "ios/chrome/browser/omnibox/model/suggest_action.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/popup/row/actions/omnibox_popup_actions_row_content_view.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/popup/row/actions/omnibox_popup_actions_row_delegate.h"
-#import "ios/chrome/browser/omnibox/ui_bundled/popup/row/actions/suggest_action.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "net/base/apple/url_conversions.h"
 
@@ -61,37 +61,41 @@
 #pragma mark OmniboxKeyboardDelegate
 
 - (BOOL)canPerformKeyboardAction:(OmniboxKeyboardAction)keyboardAction {
+  using enum OmniboxKeyboardAction;
   switch (keyboardAction) {
-    case OmniboxKeyboardActionUpArrow: {
+    case kUpArrow: {
       if (self.isBackgroundHighlighted) {
         return NO;
       }
       return YES;
     }
-    case OmniboxKeyboardActionDownArrow: {
+    case kDownArrow: {
       if (self.highlightedActionIndex != NSNotFound) {
         return NO;
       }
       return YES;
     }
-    case OmniboxKeyboardActionLeftArrow:
-    case OmniboxKeyboardActionRightArrow:
+    case kLeftArrow:
+    case kRightArrow:
       return YES;
+    case kReturnKey:
+      return [self canPerformReturnKeyAction];
   }
 }
 
 - (void)performKeyboardAction:(OmniboxKeyboardAction)keyboardAction {
+  using enum OmniboxKeyboardAction;
   switch (keyboardAction) {
-    case OmniboxKeyboardActionUpArrow: {
+    case kUpArrow: {
       self.highlightedActionIndex = NSNotFound;
       break;
     }
-    case OmniboxKeyboardActionDownArrow: {
+    case kDownArrow: {
       self.highlightedActionIndex = 0;
       break;
     }
-    case OmniboxKeyboardActionLeftArrow:
-    case OmniboxKeyboardActionRightArrow: {
+    case kLeftArrow:
+    case kRightArrow: {
       if (self.isBackgroundHighlighted) {
         self.highlightedActionIndex = 0;
       } else {
@@ -101,11 +105,9 @@
             UIUserInterfaceLayoutDirectionRightToLeft;
 
         OmniboxKeyboardAction nextActionButton =
-            isRTL ? OmniboxKeyboardActionLeftArrow
-                  : OmniboxKeyboardActionRightArrow;
+            isRTL ? kLeftArrow : kRightArrow;
         OmniboxKeyboardAction previousActionButton =
-            isRTL ? OmniboxKeyboardActionRightArrow
-                  : OmniboxKeyboardActionLeftArrow;
+            isRTL ? kRightArrow : kLeftArrow;
 
         if (keyboardAction == nextActionButton) {
           if (self.highlightedActionIndex == self.actions.count - 1) {
@@ -121,18 +123,10 @@
       }
       break;
     }
+    case kReturnKey:
+      [self performReturnKeyAction];
+      break;
   }
-}
-
-#pragma mark - OmniboxReturnDelegate
-
-- (void)omniboxReturnPressed:(id)sender {
-  CHECK(self.highlightedActionIndex != NSNotFound);
-  CHECK(self.highlightedActionIndex < self.actions.count);
-
-  SuggestAction* action = self.actions[self.highlightedActionIndex];
-  [self.delegate omniboxPopupRowActionSelectedWithConfiguration:self
-                                                         action:action];
 }
 
 #pragma mark - UIContentConfiguration
@@ -181,6 +175,23 @@
   }
 
   return configuration;
+}
+
+#pragma mark - Private
+
+/// Whether the Return/Enter action can be performed.
+- (BOOL)canPerformReturnKeyAction {
+  return self.highlightedActionIndex != NSNotFound;
+}
+
+/// Performs Return/Enter action.
+- (void)performReturnKeyAction {
+  CHECK([self canPerformReturnKeyAction]);
+  CHECK(self.highlightedActionIndex < self.actions.count);
+
+  SuggestAction* action = self.actions[self.highlightedActionIndex];
+  [self.delegate omniboxPopupRowActionSelectedWithConfiguration:self
+                                                         action:action];
 }
 
 @end

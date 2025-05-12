@@ -151,6 +151,12 @@ void SharedStorageBrowserTestBase::ExpectAccessObserved(
   observer_->ExpectAccessObserved(expected_accesses);
 }
 
+void SharedStorageBrowserTestBase::ExpectOperationFinishedInfosObserved(
+    const std::vector<TestSharedStorageObserver::OperationFinishedInfo>&
+        expected_infos) {
+  observer_->ExpectOperationFinishedInfosObserved(expected_infos);
+}
+
 double SharedStorageBrowserTestBase::GetRemainingBudget(
     const url::Origin& origin) {
   base::test::TestFuture<SharedStorageWorkletHost::BudgetResult> future;
@@ -502,6 +508,12 @@ TestSharedStorageRuntimeManager&
 SharedStorageBrowserTestBase::test_runtime_manager() {
   DCHECK(test_runtime_manager_);
   return *test_runtime_manager_;
+}
+
+const std::vector<GURL>& SharedStorageBrowserTestBase::urn_uuids_observed()
+    const {
+  DCHECK(observer_);
+  return observer_->urn_uuids_observed();
 }
 
 SharedStorageBrowserTestBase::~SharedStorageBrowserTestBase() = default;

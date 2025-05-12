@@ -445,13 +445,13 @@ PlusAddressCreationDialogDelegate::PlusAddressCreationDialogDelegate(
                                   /*autosize=*/true),
       controller_(controller),
       web_contents_(web_contents) {
-  // This delegate is owned & deleted by the PlusAddressCreationController.
-  SetOwnedByWidget(false);
-  RegisterDeleteDelegateCallback(base::BindOnce(
-      [](base::WeakPtr<PlusAddressCreationController> controller) {
-        controller->OnDialogDestroyed();
-      },
-      controller));
+  RegisterDeleteDelegateCallback(
+      RegisterDeleteCallbackPassKey(),
+      base::BindOnce(
+          [](base::WeakPtr<PlusAddressCreationController> controller) {
+            controller->OnDialogDestroyed();
+          },
+          controller));
   SetModalType(ui::mojom::ModalType::kChild);
   set_fixed_width(views::LayoutProvider::Get()->GetDistanceMetric(
       views::DISTANCE_MODAL_DIALOG_PREFERRED_WIDTH));

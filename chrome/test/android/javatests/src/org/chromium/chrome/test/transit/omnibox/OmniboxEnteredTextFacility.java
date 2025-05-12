@@ -6,7 +6,7 @@ package org.chromium.chrome.test.transit.omnibox;
 
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
-import androidx.test.espresso.action.ViewActions;
+import android.view.View;
 
 import org.chromium.base.test.transit.Elements;
 import org.chromium.base.test.transit.Facility;
@@ -22,6 +22,8 @@ import org.chromium.base.test.transit.ViewElement;
 public class OmniboxEnteredTextFacility extends Facility<Station<?>> {
     private final OmniboxFacility mOmniboxFacility;
     private final String mText;
+    public ViewElement<View> urlBarElement;
+    public ViewElement<View> deleteButtonElement;
 
     public OmniboxEnteredTextFacility(OmniboxFacility omniboxFacility, String text) {
         mOmniboxFacility = omniboxFacility;
@@ -30,9 +32,10 @@ public class OmniboxEnteredTextFacility extends Facility<Station<?>> {
 
     @Override
     public void declareElements(Elements.Builder elements) {
-        elements.declareView(OmniboxFacility.URL_FIELD.and(withText(mText)));
-        elements.declareView(
-                OmniboxFacility.DELETE_BUTTON, ViewElement.displayingAtLeastOption(50));
+        urlBarElement = elements.declareView(OmniboxFacility.URL_FIELD.and(withText(mText)));
+        deleteButtonElement =
+                elements.declareView(
+                        OmniboxFacility.DELETE_BUTTON, ViewElement.displayingAtLeastOption(50));
         elements.declareNoView(OmniboxFacility.MIC_BUTTON);
     }
 
@@ -41,7 +44,7 @@ public class OmniboxEnteredTextFacility extends Facility<Station<?>> {
         return mHostStation.swapFacilitySync(
                 this,
                 new OmniboxEnteredTextFacility(mOmniboxFacility, textToExpect),
-                () -> OmniboxFacility.URL_FIELD.perform(ViewActions.typeText(textToType)));
+                urlBarElement.getTypeTextTrigger(textToType));
     }
 
     /** Simulate autocomplete suggestion received from the server. */
@@ -57,6 +60,6 @@ public class OmniboxEnteredTextFacility extends Facility<Station<?>> {
 
     /** Click the delete button to erase the text entered. */
     public void clickDelete() {
-        mHostStation.exitFacilitySync(this, OmniboxFacility.DELETE_BUTTON::forgivingClick);
+        mHostStation.exitFacilitySync(this, deleteButtonElement.getForgivingClickTrigger());
     }
 }

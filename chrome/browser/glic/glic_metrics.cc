@@ -12,7 +12,9 @@
 #include "chrome/browser/glic/glic_enabling.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/host/context/glic_focused_tab_manager.h"
+#include "chrome/browser/glic/host/glic_synthetic_trial_manager.h"
 #include "chrome/browser/glic/widget/glic_window_controller.h"
+#include "chrome/browser/global_features.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
@@ -24,6 +26,30 @@
 namespace glic {
 
 namespace {
+
+class DelegateImpl : public GlicMetrics::Delegate {
+ public:
+  explicit DelegateImpl(GlicWindowController* window_controller,
+                        GlicFocusedTabManager* focus_tab_manager)
+      : window_controller_(window_controller),
+        focus_tab_manager_(focus_tab_manager) {}
+  gfx::Size GetWindowSize() const override {
+    return window_controller_->GetSize();
+  }
+  bool IsWindowShowing() const override {
+    return window_controller_->IsShowing();
+  }
+  bool IsWindowAttached() const override {
+    return window_controller_->IsAttached();
+  }
+  FocusedTabData GetFocusedTabData() override {
+    return focus_tab_manager_->GetFocusedTabData();
+  }
+
+ private:
+  raw_ptr<GlicWindowController> window_controller_;
+  raw_ptr<GlicFocusedTabManager> focus_tab_manager_;
+};
 
 constexpr char kHistogramGlicPanelPresentationTime[] =
     "Glic.PanelPresentationTime2";
@@ -110,7 +136,7 @@ void GlicMetrics::OnResponseStarted() {
     return;
   }
 
-  if (!window_controller_->IsShowing()) {
+  if (!delegate_->IsWindowShowing()) {
     base::UmaHistogramEnumeration("Glic.Metrics.Error",
                                   Error::kResponseStartWhileHidingOrHidden);
     return;
@@ -144,7 +170,7 @@ void GlicMetrics::OnResponseStarted() {
   ++session_responses_;
 
   // More detailed metrics.
-  bool attached = window_controller_->IsAttached();
+  bool attached = delegate_->IsWindowAttached();
   base::UmaHistogramBoolean("Glic.Response.Attached", attached);
   base::UmaHistogramEnumeration("Glic.Response.InvocationSource",
                                 invocation_source_);
@@ -200,6 +226,15 @@ void GlicMetrics::OnGlicWindowOpen(bool attached,
   invocation_source_ = source;
   base::UmaHistogramBoolean("Glic.Session.Open.Attached", attached);
   base::UmaHistogramEnumeration("Glic.Session.Open.InvocationSource", source);
+
+  auto* synthetic_trial_manager =
+      g_browser_process->GetFeatures()->glic_synthetic_trial_manager();
+  if (synthetic_trial_manager) {
+    synthetic_trial_manager->SetSyntheticExperimentState(
+        "SyntheticGlicTieredRollout",
+        GlicEnabling::IsEligibleForGlicTieredRollout(profile_) ? "Enabled"
+                                                               : "Disabled");
+  }
 
   ukm::builders::Glic_WindowOpen(source_id_)
       .SetAttached(attached)
@@ -261,6 +296,26 @@ void GlicMetrics::OnGlicWindowResize() {
   base::RecordAction(base::UserMetricsAction("GlicPanelResized"));
 }
 
+void GlicMetrics::OnWidgetUserResizeStarted() {
+  base::RecordAction(base::UserMetricsAction("GlicPanelUserResizeStarted"));
+
+  gfx::Size size_on_user_resize_started = delegate_->GetWindowSize();
+  base::UmaHistogramCounts10000("Glic.PanelWebUi.UserResizeStarted.Width",
+                                size_on_user_resize_started.width());
+  base::UmaHistogramCounts10000("Glic.PanelWebUi.UserResizeStarted.Height",
+                                size_on_user_resize_started.height());
+}
+
+void GlicMetrics::OnWidgetUserResizeEnded() {
+  base::RecordAction(base::UserMetricsAction("GlicPanelUserResizeEnded"));
+
+  gfx::Size size_on_user_resize_ended = delegate_->GetWindowSize();
+  base::UmaHistogramCounts10000("Glic.PanelWebUi.UserResizeEnded.Width",
+                                size_on_user_resize_ended.width());
+  base::UmaHistogramCounts10000("Glic.PanelWebUi.UserResizeEnded.Height",
+                                size_on_user_resize_ended.height());
+}
+
 void GlicMetrics::OnGlicWindowClose() {
   base::RecordAction(base::UserMetricsAction("GlicSessionEnd"));
   base::UmaHistogramCounts1000("Glic.Session.ResponseCount",
@@ -301,15 +356,17 @@ void GlicMetrics::OnGlicWindowClose() {
 
 void GlicMetrics::SetControllers(GlicWindowController* window_controller,
                                  GlicFocusedTabManager* tab_manager) {
-  window_controller_ = window_controller;
-  tab_manager_ = tab_manager;
+  delegate_ = std::make_unique<DelegateImpl>(window_controller, tab_manager);
+}
+
+void GlicMetrics::SetDelegateForTesting(std::unique_ptr<Delegate> delegate) {
+  delegate_ = std::move(delegate);
 }
 
 void GlicMetrics::DidRequestContextFromFocusedTab() {
   did_request_context_ = true;
 
-  content::WebContents* web_contents =
-      tab_manager_->GetFocusedTabData().focus();
+  content::WebContents* web_contents = delegate_->GetFocusedTabData().focus();
   if (web_contents) {
     source_id_ = web_contents->GetPrimaryMainFrame()->GetPageUkmSourceId();
   } else {
@@ -360,7 +417,7 @@ void GlicMetrics::OnGlicWindowSizeTimerFired() {
   // A 4K screen is 3840 or 4096 pixels wide and 2160 tall. Doubling this and
   // rounding up to 10000 should give a reasonable upper bound on DIPs for
   // both directions.
-  gfx::Size currentSize = window_controller_->GetSize();
+  gfx::Size currentSize = delegate_->GetWindowSize();
   base::UmaHistogramCounts10000("Glic.PanelWebUi.Size.Width",
                                 currentSize.width());
   base::UmaHistogramCounts10000("Glic.PanelWebUi.Size.Height",

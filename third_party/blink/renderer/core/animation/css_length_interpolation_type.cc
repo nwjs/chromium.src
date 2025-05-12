@@ -93,7 +93,7 @@ InterpolationValue CSSLengthInterpolationType::MaybeConvertInherit(
 
 InterpolationValue CSSLengthInterpolationType::MaybeConvertValue(
     const CSSValue& value,
-    const StyleResolverState* state,
+    const StyleResolverState& state,
     ConversionCheckers& conversion_checkers) const {
   if (auto* identifier_value = DynamicTo<CSSIdentifierValue>(value)) {
     CSSValueID value_id = identifier_value->GetValueID();
@@ -101,8 +101,7 @@ InterpolationValue CSSLengthInterpolationType::MaybeConvertValue(
     if (LengthPropertyFunctions::CanAnimateKeyword(CssProperty(), value_id)) {
       return InterpolationValue(MakeGarbageCollected<InterpolableLength>(
           value_id,
-          state ? std::make_optional(state->StyleBuilder().InterpolateSize())
-                : std::nullopt));
+          std::make_optional(state.StyleBuilder().InterpolateSize())));
     }
 
     double pixels;
@@ -116,7 +115,7 @@ InterpolationValue CSSLengthInterpolationType::MaybeConvertValue(
 }
 
 InterpolationValue CSSLengthInterpolationType::MaybeConvertUnderlyingValue(
-    const InterpolationEnvironment& environment) const {
+    const CSSInterpolationEnvironment& environment) const {
   InterpolationValue result =
       CSSInterpolationType::MaybeConvertUnderlyingValue(environment);
 
@@ -125,9 +124,8 @@ InterpolationValue CSSLengthInterpolationType::MaybeConvertUnderlyingValue(
   // the style from the base style, but we want the style from the animation
   // controls style.
   if (auto* length = To<InterpolableLength>(result.interpolable_value.Get())) {
-    const auto& css_environment = To<CSSInterpolationEnvironment>(environment);
     length->SetInterpolateSize(
-        css_environment.AnimationControlsStyle().InterpolateSize());
+        environment.AnimationControlsStyle().InterpolateSize());
   }
 
   return result;
@@ -224,6 +222,12 @@ CSSLengthInterpolationType::MaybeConvertStandardPropertyUnderlyingValue(
       style.InterpolateSize()));
 }
 
+InterpolationValue
+CSSLengthInterpolationType::MaybeConvertCustomPropertyUnderlyingValue(
+    const CSSValue& value) const {
+  return InterpolationValue(InterpolableLength::MaybeConvertCSSValue(value));
+}
+
 const CSSValue* CSSLengthInterpolationType::CreateCSSValue(
     const InterpolableValue& interpolable_value,
     const NonInterpolableValue*,
@@ -257,7 +261,7 @@ void CSSLengthInterpolationType::ApplyStandardPropertyValue(
     const ComputedStyle* after_style = builder.CloneStyle();
     DCHECK(
         LengthPropertyFunctions::GetLength(CssProperty(), *after_style, after));
-    if (before.IsSpecified() && after.IsSpecified()) {
+    if (before.HasOnlyFixedAndPercent() && after.HasOnlyFixedAndPercent()) {
       // A relative error of 1/100th of a percent is likely not noticeable.
       // This check can be triggered with a tight tolerance such as 1e-6 for
       // suitably ill-conditioned animations (crbug.com/1204099).

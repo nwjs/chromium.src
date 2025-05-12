@@ -994,8 +994,10 @@ void LayerTreeImpl::PushPropertiesTo(LayerTreeImpl* target_tree) {
     target_tree->clear_delegated_ink_metadata();
   }
 
-  for (auto& request : TakeViewTransitionRequests())
+  for (auto& request : TakeViewTransitionRequests(
+           /*should_set_needs_update_draw_properties=*/true)) {
     target_tree->AddViewTransitionRequest(std::move(request));
+  }
 
   // Make sure that property tree based changes are moved to layers
   // and draw properties are invalidated.
@@ -3036,8 +3038,9 @@ void LayerTreeImpl::AddViewTransitionRequest(
 }
 
 std::vector<std::unique_ptr<ViewTransitionRequest>>
-LayerTreeImpl::TakeViewTransitionRequests() {
-  if (HasViewTransitionRequests()) {
+LayerTreeImpl::TakeViewTransitionRequests(
+    bool should_set_needs_update_draw_properties) {
+  if (HasViewTransitionRequests() && should_set_needs_update_draw_properties) {
     set_needs_update_draw_properties();
   }
   return std::move(view_transition_requests_);
@@ -3067,15 +3070,7 @@ LayerTreeImpl::GetCaptureViewTransitionTokens() const {
   }
 
   for (const auto& request : view_transition_requests_) {
-    // We need to gather all save directive tokens, with the exceptionm of
-    // subframe snapshot. For subframe snapshot, we actually want to display the
-    // capture frame via pseudo elements instead of the new frame (which can be
-    // blank in a lot of navigation cases. Since this is used for iframes only,
-    // there is no risk of unclipped/unfiltered contents leaking since the
-    // iframe itself will still participate in all those operations in its
-    // parent.
-    if (request->type() == ViewTransitionRequest::Type::kSave &&
-        !request->HasSubframeSnapshot()) {
+    if (request->type() == ViewTransitionRequest::Type::kSave) {
       result.insert(request->token());
     }
   }

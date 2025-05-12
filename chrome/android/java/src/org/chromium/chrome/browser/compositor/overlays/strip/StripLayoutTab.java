@@ -4,6 +4,8 @@
 
 package org.chromium.chrome.browser.compositor.overlays.strip;
 
+import static org.chromium.chrome.browser.tasks.tab_management.TabUiThemeUtil.FOLIO_FOOT_LENGTH_DP;
+
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.content.Context;
@@ -31,6 +33,7 @@ import org.chromium.chrome.browser.layouts.animation.CompositorAnimator;
 import org.chromium.chrome.browser.layouts.components.VirtualView;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiThemeUtil;
+import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.ui.base.LocalizationUtils;
 import org.chromium.ui.util.ColorUtils;
@@ -94,20 +97,6 @@ public class StripLayoutTab extends StripLayoutView {
                 }
             };
 
-    /** A property for animations to use for changing the trailingMargin of the tab. */
-    public static final FloatProperty<StripLayoutTab> TRAILING_MARGIN =
-            new FloatProperty<>("trailingMargin") {
-                @Override
-                public void setValue(StripLayoutTab object, float value) {
-                    object.setTrailingMargin(value);
-                }
-
-                @Override
-                public Float get(StripLayoutTab object) {
-                    return object.getTrailingMargin();
-                }
-            };
-
     /** A property for animations to use for changing the opacity of the tab. */
     public static final FloatProperty<StripLayoutTab> OPACITY =
             new FloatProperty<>("opacity") {
@@ -134,7 +123,6 @@ public class StripLayoutTab extends StripLayoutView {
     // Strip Tab Offset Constants
     protected static final float TOP_MARGIN_DP = 2.f;
     private static final float FOLIO_CONTENT_OFFSET_Y = 8.f;
-    protected static final float FOLIO_FOOT_LENGTH_DP = 16.f;
 
     // Visibility Constants.
     private static final float FAVICON_WIDTH = 16.f;
@@ -147,7 +135,6 @@ public class StripLayoutTab extends StripLayoutView {
     // Close button hover highlight alpha
     private static final float CLOSE_BUTTON_HOVER_BACKGROUND_PRESSED_OPACITY = 0.12f;
     private static final float CLOSE_BUTTON_HOVER_BACKGROUND_DEFAULT_OPACITY = 0.08f;
-    @VisibleForTesting static final float DIVIDER_FOLIO_LIGHT_OPACITY = 0.2f;
 
     // Tab's ID this view refers to.
     private int mTabId;
@@ -169,9 +156,6 @@ public class StripLayoutTab extends StripLayoutView {
     // For avoiding unnecessary accessibility description updates.
     private Optional<String> mCachedA11yDescriptionTitle = Optional.empty();
     private @StringRes int mCachedA11yTabstripIdentifierResId;
-
-    // Ideal intermediate parameters
-    private float mTrailingMargin;
 
     // Startup parameters
     private boolean mIsPlaceholder;
@@ -406,30 +390,21 @@ public class StripLayoutTab extends StripLayoutView {
     public @ColorInt int getTint(boolean foreground, boolean hovered) {
         // TODO(crbug.com/40888366): Avoid calculating every time. Instead, store the tab's
         //  color and only re-determine when the color could have changed (i.e. on selection).
-        return TabUiThemeUtil.getTabStripContainerColor(
-                mContext, isIncognito(), foreground, mIsPlaceholder, hovered);
+        if (foreground) {
+            return TabUiThemeUtil.getTabStripSelectedTabColor(mContext, isIncognito());
+        } else if (hovered) {
+            return TabUiThemeUtil.getHoveredTabContainerColor(mContext, isIncognito());
+        } else if (mIsPlaceholder) {
+            return TabUiThemeUtil.getTabStripStartupContainerColor(mContext);
+        }
+        return ChromeColors.getDefaultBgColor(mContext, isIncognito());
     }
 
     /**
      * @return The tint color resource for the tab divider.
      */
     public @ColorInt int getDividerTint() {
-        if (isIncognito()) {
-            return mContext.getColor(R.color.divider_line_bg_color_light);
-        }
-
-        if (!ColorUtils.inNightMode(mContext) && !isIncognito()) {
-            // This color will not be used at full opacity. We can't set this using the alpha
-            // component of the {@code @ColorInt}, since it is ignored when loading resources
-            // with a specified tint in the CC layer (instead retaining the alpha of the original
-            // image). Instead, this is reflected by setting the opacity of the divider itself.
-            // See https://crbug.com/1373634.
-            return ColorUtils.setAlphaComponentWithFloat(
-                    SemanticColorUtils.getDefaultIconColorAccent1(mContext),
-                    DIVIDER_FOLIO_LIGHT_OPACITY);
-        }
-
-        return SemanticColorUtils.getDividerLineBgColor(mContext);
+        return TabUiThemeUtil.getDividerTint(mContext, isIncognito());
     }
 
     /**
@@ -713,27 +688,10 @@ public class StripLayoutTab extends StripLayoutView {
     }
 
     /**
-     * This is used to help calculate the tab's position and is not used for rendering.
-     *
-     * @param trailingMargin The trailing margin of the tab (used for margins around tab groups when
-     *     reordering, etc.).
-     */
-    public void setTrailingMargin(float trailingMargin) {
-        mTrailingMargin = trailingMargin;
-    }
-
-    /**
-     * This is used to help calculate the tab's position and is not used for rendering.
-     * @return The trailing margin of the tab.
-     */
-    public float getTrailingMargin() {
-        return mTrailingMargin;
-    }
-
-    /**
      * This is used to determine if the tab is a placeholder or not. If it is a placeholder, it will
      * show as an empty tab on the tab strip (without tab contents, such as title & favicon,
      * generated).
+     *
      * @param isPlaceholder Whether or not the tab is a placeholder used on startup.
      */
     public void setIsPlaceholder(boolean isPlaceholder) {
@@ -813,6 +771,16 @@ public class StripLayoutTab extends StripLayoutView {
                 Math.round(getDrawY() * dpToPx),
                 Math.round((getDrawX() + getWidth()) * dpToPx),
                 Math.round((getDrawY() + getHeight()) * dpToPx));
+    }
+
+    /** {@return The keyboard focus ring's offset (how far it is inside the tab outline) in DP} */
+    public int getKeyboardFocusRingOffset() {
+        return TabUiThemeUtil.getFocusRingOffset(mContext);
+    }
+
+    /** {@return The width of the keyboard focus ring stroke and tab group color line in px} */
+    public int getLineWidth() {
+        return TabUiThemeUtil.getLineWidth(mContext);
     }
 
     // TODO(dtrainor): Don't animate this if we're selecting or deselecting this tab.

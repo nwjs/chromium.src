@@ -84,6 +84,9 @@ declare_args() {
   # only supported on iOS 64-bit architecture, but some project build //base
   # for 32-bit architecture.
   ios_stack_profiler_enabled = true
+
+  # Set to true to enable icu4x transliterator
+  enable_rust_translit = false
 }
 
 # Mutex priority inheritance is disabled by default due to security
@@ -250,6 +253,7 @@ component("base") {
     "containers/map_util.h",
     "containers/small_map.h",
     "containers/span.h",
+    "containers/span_forward_internal.h",
     "containers/span_or_size.h",
     "containers/span_reader.h",
     "containers/span_writer.h",
@@ -1234,6 +1238,7 @@ component("base") {
       "message_loop/message_pump_android.h",
       "os_compat_android.cc",
       "os_compat_android.h",
+      "power_monitor/energy_monitor_android.h",
       "process/process_android.cc",
       "profiler/native_unwinder_android_map_delegate.h",
       "profiler/native_unwinder_android_memory_regions_map.h",
@@ -1261,17 +1266,26 @@ component("base") {
       ":base_jni",
       ":base_shared_preferences_jni",
       ":build_info_jni",
+      ":bundle_utils_jni",
       ":callback_jni",
       ":content_uri_utils_jni",
+      ":features_jni",
+      ":file_utils_jni",
       ":jank_tracker_jni",
+      ":jni_android_jni",
       ":memory_jni",
       ":metrics_jni",
+      ":path_utils_jni",
       ":process_launcher_jni",
       ":sys_utils_jni",
       ":tasks_jni",
       "//third_party/ashmem",
       "//third_party/cpu_features:ndk_compat",
     ]
+
+    if (use_clang_profiling) {
+      deps += [ ":clang_profiler_jni" ]
+    }
 
     # Needs to be a public config so that dependent targets link against it as
     # well when doing a component build.
@@ -1521,8 +1535,6 @@ component("base") {
   # TODO(crbug.com/40511454) Use only boringssl when NaCl is removed.
   sources += [
     "hash/md5.h",
-    "hash/md5_constexpr.h",
-    "hash/md5_constexpr_internal.h",
     "hash/sha1.h",
   ]
   if (is_nacl) {
@@ -1954,6 +1966,7 @@ component("base") {
       "win/window_enumerator.h",
       "win/windows_defines.inc",
       "win/windows_h_disallowed.h",
+      "win/windows_handle_util.h",
       "win/windows_types.h",
       "win/windows_undefines.inc",
       "win/windows_version.cc",
@@ -2043,7 +2056,6 @@ component("base") {
       "apple/scoped_typeref.h",
       "file_version_info_apple.h",
       "file_version_info_apple.mm",
-      "files/drive_info_apple.mm",
       "files/file_util_apple.mm",
       "memory/platform_shared_memory_mapper_apple.cc",
       "memory/platform_shared_memory_region_apple.cc",
@@ -2077,9 +2089,12 @@ component("base") {
     sources += [
       "apple/mach_port_rendezvous.cc",
       "apple/mach_port_rendezvous.h",
+      "apple/mach_port_rendezvous_mac.cc",
+      "apple/mach_port_rendezvous_mac.h",
       "enterprise_util.cc",
       "enterprise_util.h",
       "enterprise_util_mac.mm",
+      "files/drive_info_mac.cc",
       "files/file_path_watcher_fsevents.cc",
       "files/file_path_watcher_fsevents.h",
       "files/file_path_watcher_kqueue.cc",
@@ -2154,7 +2169,6 @@ component("base") {
       "ApplicationServices.framework",
       "AppKit.framework",
       "CoreFoundation.framework",
-      "DiskArbitration.framework",
       "IOKit.framework",
       "OpenDirectory.framework",
     ]
@@ -2165,6 +2179,7 @@ component("base") {
     sources += [
       "base_paths_ios.h",
       "base_paths_ios.mm",
+      "files/drive_info_ios.cc",
       "ios/block_types.h",
       "ios/crb_protocol_observers.h",
       "ios/crb_protocol_observers.mm",
@@ -2175,7 +2190,6 @@ component("base") {
       "ios/ns_error_util.h",
       "ios/ns_error_util.mm",
       "ios/ns_range.h",
-      "power_monitor/power_monitor_device_source_ios.mm",
       "process/process_metrics_ios.cc",
       "process/process_metrics_posix.cc",
       "profiler/core_unwinders_ios.cc",
@@ -2193,8 +2207,6 @@ component("base") {
 
     if (use_blink) {
       sources += [
-        "apple/mach_port_rendezvous.cc",
-        "apple/mach_port_rendezvous.h",
         "files/file_path_watcher_kqueue.cc",
         "files/file_path_watcher_kqueue.h",
         "files/file_path_watcher_mac.cc",
@@ -2212,12 +2224,23 @@ component("base") {
         "synchronization/waitable_event_watcher_posix.cc",
       ]
 
-      if (target_platform == "tvos") {
-        # tvOS apps must be single-process. Build a Process version that does
-        # the bare minimum and does not use Mach ports.
-        sources += [ "process/process_tvos.cc" ]
+      if (target_platform == "iphoneos") {
+        sources += [
+          "apple/mach_port_rendezvous.cc",
+          "apple/mach_port_rendezvous.h",
+          "apple/mach_port_rendezvous_ios.cc",
+          "apple/mach_port_rendezvous_ios.h",
+          "power_monitor/power_monitor_device_source_ios.mm",
+          "process/process_mac.cc",
+        ]
       } else {
-        sources += [ "process/process_mac.cc" ]
+        sources += [
+          "power_monitor/power_monitor_device_source_stub.cc",
+
+          # tvOS apps must be single-process. Build a Process version that does
+          # the bare minimum and does not use Mach ports.
+          "process/process_tvos.cc",
+        ]
       }
 
       # We include launch_mac on simulator builds so unittests can fork. But,
@@ -2233,27 +2256,26 @@ component("base") {
       }
     } else {
       sources += [
+        "power_monitor/power_monitor_device_source_ios.mm",
         "process/launch_ios.cc",
         "process/memory_stubs.cc",
         "process/process_stubs.cc",
       ]
     }
 
-    if (is_cronet_build) {
+    if (is_cronet_build || target_platform == "tvos") {
       sources += [
         "message_loop/message_pump_io_ios.cc",
         "message_loop/message_pump_io_ios.h",
-      ]
-    } else if (use_blink) {
-      sources += [
-        "message_loop/message_pump_io_ios_libdispatch.cc",
-        "message_loop/message_pump_io_ios_libdispatch.h",
       ]
     } else {
       sources += [
         "message_loop/message_pump_kqueue.cc",
         "message_loop/message_pump_kqueue.h",
       ]
+      if (use_blink) {
+        frameworks += [ "BrowserEngineCore.framework" ]
+      }
     }
 
     if (ios_stack_profiler_enabled) {
@@ -2537,7 +2559,6 @@ rust_bindgen("logging_log_severity_bindgen") {
 rust_static_library("rust_logger") {
   allow_unsafe = true  # Unsafe needed for FFI.
   deps = [
-    ":debugging_buildflags",
     ":logging_log_severity_bindgen",
     ":tracing_buildflags",
     "//build:chromeos_buildflags",
@@ -2554,6 +2575,24 @@ rust_static_library("rust_logger") {
     # TODO(collinbaker): determine how to handle these cxx bindings-induced
     # circular dependencies more robustly.
     "//base/allocator/partition_allocator:raw_ptr",
+
+    # Needed because logging/rust_logger.rs contains:
+    #   include!("base/logging/rust_log_integration.h");
+    # rust_log_integration.h ends up transitively #including
+    # debug/debugging_buildflags.h, which is a generated header that needs to
+    # be written first.
+    #
+    # Technically it would be more correct to depend on :base, which is the
+    # target for rust_log_integration.h, but that's not possible due to circular
+    # dependencies.
+    #
+    # Note if this is removed the build may still work by accident because
+    # debug/debugging_buildflags.h still ends up being generated through a
+    # dependency chain via :logging_log_severity_bindgen. But we should not
+    # rely on that.
+    #
+    # See also https://crbug.com/406267472.
+    ":debugging_buildflags",
   ]
   visibility = [ ":base" ]
   sources = [ "logging/rust_logger.rs" ]
@@ -2815,6 +2854,34 @@ static_library("base_static") {
   }
 }
 
+buildflag_header("i18n_transliterator") {
+  header = "transliterator_buildflags.h"
+  header_dir = "base/i18n"
+  flags = [ "BUILD_RUST_TRANSLIT=$enable_rust_translit" ]
+}
+
+if (enable_rust_translit) {
+  rust_static_library("i18n_transliterator_ffi") {
+    allow_unsafe = true  # Needed for FFI that underpins the `cxx` crate.
+    crate_root = "i18n/transliterator.rs"
+    sources = [
+      "i18n/translit/custom_transliterator.rs",
+      "i18n/translit/mod.rs",
+      "i18n/transliterator.rs",
+    ]
+    cxx_bindings = [ "i18n/transliterator.rs" ]
+    visibility = [ ":i18n" ]
+    deps = [
+      "//third_party/rust/icu_casemap/v2:lib",
+      "//third_party/rust/icu_experimental/v0_3:lib",
+      "//third_party/rust/icu_locale_core/v2:lib",
+      "//third_party/rust/icu_normalizer/v2:lib",
+      "//third_party/rust/icu_properties/v2:lib",
+      "//third_party/rust/icu_provider/v2:lib",
+    ]
+  }
+}
+
 component("i18n") {
   output_name = "base_i18n"
   sources = [
@@ -2868,8 +2935,14 @@ component("i18n") {
     "//third_party/ced",
     "//third_party/icu",
   ]
-  deps = [ "//build:chromecast_buildflags" ]
+  deps = [
+    ":i18n_transliterator",
+    "//build:chromecast_buildflags",
+  ]
 
+  if (enable_rust_translit) {
+    deps += [ ":i18n_transliterator_ffi" ]
+  }
   if (!is_debug) {
     configs -= [ "//build/config/compiler:default_optimization" ]
     configs += [ "//build/config/compiler:optimize_max" ]
@@ -3142,7 +3215,7 @@ generated_file("generate_file_for_test") {
 if (is_ios) {
   bundle_data("base_test_proto_bundle_data") {
     testonly = true
-    public_deps = [ "//base/test:test_proto_descriptor" ]
+    public_deps = [ "//base/test:test_proto_descriptor_gen" ]
     sources = [ "$root_gen_dir/base/test/test_proto.descriptor" ]
     outputs = [ "{{bundle_resources_dir}}/gen/base/test/{{source_file_part}}" ]
   }
@@ -3327,6 +3400,7 @@ test("base_unittests") {
     "environment_unittest.cc",
     "feature_list_unittest.cc",
     "files/block_tests_writing_to_special_dirs_unittest.cc",
+    "files/drive_info_unittest.cc",
     "files/file_enumerator_unittest.cc",
     "files/file_error_or_unittest.cc",
     "files/file_path_unittest.cc",
@@ -3350,7 +3424,6 @@ test("base_unittests") {
     "gmock_unittest.cc",
     "hash/hash_unittest.cc",
     "hash/legacy_hash_unittest.cc",
-    "hash/md5_constexpr_unittest.cc",
     "hash/md5_unittest.cc",
     "hash/sha1_unittest.cc",
     "i18n/break_iterator_unittest.cc",
@@ -4043,10 +4116,8 @@ test("base_unittests") {
       bundle_deps +=
           [ "//testing/buildbot/filters:base_unittests_filters_bundle_data" ]
     }
-    if (is_cronet_build) {
+    if (is_cronet_build || target_platform == "tvos") {
       sources += [ "message_loop/message_pump_io_ios_unittest.cc" ]
-    } else if (use_blink) {
-      sources += [ "message_loop/message_pump_io_ios_libdispatch_unittest.cc" ]
     } else {
       sources += [ "message_loop/message_pump_kqueue_unittest.cc" ]
     }
@@ -4249,6 +4320,7 @@ test("base_unittests") {
     }
 
     deps += [
+      "//third_party/perfetto:perfetto_test_support",
       "//third_party/perfetto/include/perfetto/trace_processor:storage",
       "//third_party/perfetto/protos/perfetto/trace:lite",
       "//third_party/perfetto/protos/perfetto/trace/interned_data:lite",
@@ -4364,7 +4436,6 @@ if (is_android) {
       "android/java/src/org/chromium/base/IntStringCallback.java",
       "android/java/src/org/chromium/base/JNIUtils.java",
       "android/java/src/org/chromium/base/JavaExceptionReporter.java",
-      "android/java/src/org/chromium/base/JniAndroid.java",
       "android/java/src/org/chromium/base/JniCallbackUtils.java",
       "android/java/src/org/chromium/base/JniOnceCallback.java",
       "android/java/src/org/chromium/base/JniRepeatingCallback.java",
@@ -4380,30 +4451,18 @@ if (is_android) {
     sources = [
       "android/java/src/org/chromium/base/ApkAssets.java",
       "android/java/src/org/chromium/base/BaseFeatureMap.java",
-      "android/java/src/org/chromium/base/BundleUtils.java",
       "android/java/src/org/chromium/base/CpuFeatures.java",
       "android/java/src/org/chromium/base/EventLog.java",
-      "android/java/src/org/chromium/base/FeatureList.java",
-      "android/java/src/org/chromium/base/FeatureMap.java",
-      "android/java/src/org/chromium/base/Features.java",
       "android/java/src/org/chromium/base/FieldTrialList.java",
-      "android/java/src/org/chromium/base/FileUtils.java",
       "android/java/src/org/chromium/base/ImportantFileWriterAndroid.java",
       "android/java/src/org/chromium/base/InputHintChecker.java",
       "android/java/src/org/chromium/base/JavaHandlerThread.java",
       "android/java/src/org/chromium/base/LocaleUtils.java",
       "android/java/src/org/chromium/base/PathService.java",
-      "android/java/src/org/chromium/base/PathUtils.java",
       "android/java/src/org/chromium/base/PowerMonitor.java",
       "android/java/src/org/chromium/base/RadioUtils.java",
       "android/java/src/org/chromium/base/TimezoneUtils.java",
     ]
-
-    if (use_clang_profiling) {
-      sources += [
-        "test/android/javatests/src/org/chromium/base/test/ClangProfiler.java",
-      ]
-    }
 
     public_deps = [
       ":android_runtime_jni_headers",
@@ -4443,6 +4502,54 @@ if (is_android) {
 
   generate_jni("process_launcher_jni") {
     sources = [ "android/java/src/org/chromium/base/process_launcher/ChildProcessService.java" ]
+  }
+
+  generate_jni("clang_profiler_jni") {
+    sources = [
+      "test/android/javatests/src/org/chromium/base/test/ClangProfiler.java",
+    ]
+  }
+
+  android_library("clang_profiler_java") {
+    if (use_clang_profiling) {
+      srcjar_deps = [ ":clang_profiler_jni" ]
+      sources = [
+        "test/android/javatests/src/org/chromium/base/test/ClangProfiler.java",
+      ]
+    } else {
+      sources = [ "test/android/javatests/src/stub/org/chromium/base/test/ClangProfiler.java" ]
+    }
+    deps = [ "//third_party/jni_zero:jni_zero_java" ]
+  }
+
+  generate_jni("path_utils_jni") {
+    sources = [ "android/java/src/org/chromium/base/PathUtils.java" ]
+  }
+
+  android_library("path_utils_java") {
+    srcjar_deps = [ ":path_utils_jni" ]
+    sources = [ "android/java/src/org/chromium/base/PathUtils.java" ]
+    deps = [
+      ":log_java",
+      ":tasks_java",
+      "//third_party/androidx:androidx_annotation_annotation_java",
+      "//third_party/jni_zero:jni_zero_java",
+    ]
+  }
+
+  generate_jni("file_utils_jni") {
+    sources = [ "android/java/src/org/chromium/base/FileUtils.java" ]
+  }
+
+  android_library("file_utils_java") {
+    srcjar_deps = [ ":file_utils_jni" ]
+    sources = [ "android/java/src/org/chromium/base/FileUtils.java" ]
+    deps = [
+      ":file_provider_utils_java",
+      ":log_java",
+      "//third_party/androidx:androidx_annotation_annotation_java",
+      "//third_party/jni_zero:jni_zero_java",
+    ]
   }
 
   android_library("process_launcher_java") {
@@ -4490,48 +4597,32 @@ if (is_android) {
       "//third_party/jni_zero:jni_zero_java",
     ]
 
+    # New additions should have their own independent android_library. Please
+    # do no append to this list.
     sources = [
       "android/java/src/org/chromium/base/ApkAssets.java",
       "android/java/src/org/chromium/base/BaseFeatureMap.java",
       "android/java/src/org/chromium/base/BinderCallsListener.java",
-      "android/java/src/org/chromium/base/BundleUtils.java",
       "android/java/src/org/chromium/base/CallbackController.java",
       "android/java/src/org/chromium/base/CancelableRunnable.java",
       "android/java/src/org/chromium/base/CollectionUtil.java",
-      "android/java/src/org/chromium/base/CommandLineInitUtil.java",
       "android/java/src/org/chromium/base/CpuFeatures.java",
       "android/java/src/org/chromium/base/DiscardableReferencePool.java",
       "android/java/src/org/chromium/base/EventLog.java",
-      "android/java/src/org/chromium/base/FeatureList.java",
-      "android/java/src/org/chromium/base/FeatureMap.java",
-      "android/java/src/org/chromium/base/FeatureOverrides.java",
-      "android/java/src/org/chromium/base/FeatureParam.java",
-      "android/java/src/org/chromium/base/Features.java",
       "android/java/src/org/chromium/base/FieldTrialList.java",
-      "android/java/src/org/chromium/base/FileProviderUtils.java",
-      "android/java/src/org/chromium/base/FileUtils.java",
-      "android/java/src/org/chromium/base/Flag.java",
       "android/java/src/org/chromium/base/ImportantFileWriterAndroid.java",
       "android/java/src/org/chromium/base/InputHintChecker.java",
       "android/java/src/org/chromium/base/IntStringCallback.java",
       "android/java/src/org/chromium/base/IntentUtils.java",
-      "android/java/src/org/chromium/base/JNIUtils.java",
       "android/java/src/org/chromium/base/JavaExceptionReporter.java",
       "android/java/src/org/chromium/base/JavaHandlerThread.java",
-      "android/java/src/org/chromium/base/JniAndroid.java",
       "android/java/src/org/chromium/base/JniCallbackUtils.java",
       "android/java/src/org/chromium/base/JniOnceCallback.java",
       "android/java/src/org/chromium/base/JniRepeatingCallback.java",
       "android/java/src/org/chromium/base/LocaleUtils.java",
       "android/java/src/org/chromium/base/MathUtils.java",
-      "android/java/src/org/chromium/base/MutableBooleanParamWithSafeDefault.java",
-      "android/java/src/org/chromium/base/MutableFlagWithSafeDefault.java",
-      "android/java/src/org/chromium/base/MutableIntParamWithSafeDefault.java",
-      "android/java/src/org/chromium/base/MutableParamWithSafeDefault.java",
       "android/java/src/org/chromium/base/PackageManagerUtils.java",
       "android/java/src/org/chromium/base/PathService.java",
-      "android/java/src/org/chromium/base/PathUtils.java",
-      "android/java/src/org/chromium/base/PiiElider.java",
       "android/java/src/org/chromium/base/PostNativeFlag.java",
       "android/java/src/org/chromium/base/PowerMonitor.java",
       "android/java/src/org/chromium/base/PowerMonitorForQ.java",
@@ -4544,16 +4635,7 @@ if (is_android) {
       "android/java/src/org/chromium/base/UserData.java",
       "android/java/src/org/chromium/base/UserDataHost.java",
       "android/java/src/org/chromium/base/ValueChangedCallback.java",
-      "android/java/src/org/chromium/base/WrappedClassLoader.java",
     ]
-
-    if (use_clang_profiling) {
-      sources += [
-        "test/android/javatests/src/org/chromium/base/test/ClangProfiler.java",
-      ]
-    } else {
-      sources += [ "test/android/javatests/src/stub/org/chromium/base/test/ClangProfiler.java" ]
-    }
 
     resources_package = "org.chromium.base"
 
@@ -4573,14 +4655,24 @@ if (is_android) {
       ":base_minimal_jni_java",
       ":base_switches_java",
       ":build_info_java",
+      ":bundle_utils_java",
       ":callback_java",
+      ":clang_profiler_java",
+      ":command_line_init_utils_java",
       ":command_line_java",
+      ":features_java",
+      ":file_provider_utils_java",
+      ":file_utils_java",
       ":jank_tracker_java",
+      ":jni_android_java",
+      ":jni_utils_java",
       ":library_loader_java",
       ":lifetime_java",
       ":log_java",
       ":memory_java",
       ":metrics_java",
+      ":path_utils_java",
+      ":pii_elider_java",
       ":promise_java",
       ":resetters_java",
       ":stream_util_java",
@@ -4589,7 +4681,9 @@ if (is_android) {
       ":tasks_java",
       ":time_utils_java",
       ":unowned_user_data_java",
+      ":wrapped_class_loader_java",
     ]
+
     if (!is_cronet_build) {
       proguard_configs += [
         "android/proguard/chromium_apk.flags",
@@ -4609,9 +4703,102 @@ if (is_android) {
     sources = [ "metrics/histogram_base.h" ]
   }
 
+  generate_jni("jni_android_jni") {
+    sources = [ "android/java/src/org/chromium/base/JniAndroid.java" ]
+  }
+
+  android_library("pii_elider_java") {
+    sources = [ "android/java/src/org/chromium/base/PiiElider.java" ]
+    deps = [ ":tasks_java" ]
+  }
+
+  android_library("jni_android_java") {
+    srcjar_deps = [ ":jni_android_jni" ]
+    sources = [ "android/java/src/org/chromium/base/JniAndroid.java" ]
+    deps = [
+      ":log_java",
+      ":pii_elider_java",
+      "//third_party/androidx:androidx_annotation_annotation_java",
+      "//third_party/jni_zero:jni_zero_java",
+    ]
+  }
+
   android_library("metrics_ScopedSysTraceEvent_java") {
     sources = [
       "android/java/src/org/chromium/base/metrics/ScopedSysTraceEvent.java",
+    ]
+  }
+
+  android_library("command_line_init_utils_java") {
+    sources = [ "android/java/src/org/chromium/base/CommandLineInitUtil.java" ]
+    deps = [
+      ":build_info_java",
+      ":command_line_java",
+      ":supplier_java",
+      ":tasks_java",
+    ]
+  }
+  android_library("file_provider_utils_java") {
+    sources = [ "android/java/src/org/chromium/base/FileProviderUtils.java" ]
+  }
+  generate_jni("features_jni") {
+    sources = [
+      "android/java/src/org/chromium/base/FeatureList.java",
+      "android/java/src/org/chromium/base/FeatureMap.java",
+      "android/java/src/org/chromium/base/Features.java",
+    ]
+  }
+  android_library("features_java") {
+    srcjar_deps = [ ":features_jni" ]
+    sources = [
+      "android/java/src/org/chromium/base/FeatureList.java",
+      "android/java/src/org/chromium/base/FeatureMap.java",
+      "android/java/src/org/chromium/base/FeatureOverrides.java",
+      "android/java/src/org/chromium/base/FeatureParam.java",
+      "android/java/src/org/chromium/base/Features.java",
+      "android/java/src/org/chromium/base/Flag.java",
+      "android/java/src/org/chromium/base/MutableBooleanParamWithSafeDefault.java",
+      "android/java/src/org/chromium/base/MutableFlagWithSafeDefault.java",
+      "android/java/src/org/chromium/base/MutableIntParamWithSafeDefault.java",
+      "android/java/src/org/chromium/base/MutableParamWithSafeDefault.java",
+    ]
+    deps = [
+      ":library_loader_java",
+      ":resetters_java",
+      "//third_party/android_deps:com_google_code_findbugs_jsr305_java",
+      "//third_party/androidx:androidx_annotation_annotation_java",
+      "//third_party/jni_zero:jni_zero_java",
+    ]
+  }
+
+  android_library("wrapped_class_loader_java") {
+    sources = [ "android/java/src/org/chromium/base/WrappedClassLoader.java" ]
+  }
+
+  generate_jni("bundle_utils_jni") {
+    sources = [ "android/java/src/org/chromium/base/BundleUtils.java" ]
+  }
+  android_library("bundle_utils_java") {
+    srcjar_deps = [ ":bundle_utils_jni" ]
+    sources = [ "android/java/src/org/chromium/base/BundleUtils.java" ]
+    deps = [
+      ":log_java",
+      ":metrics_java",
+      ":resetters_java",
+      ":tasks_java",
+      ":wrapped_class_loader_java",
+      "//third_party/androidx:androidx_annotation_annotation_java",
+      "//third_party/jni_zero:jni_zero_java",
+    ]
+  }
+
+  android_library("jni_utils_java") {
+    sources = [ "android/java/src/org/chromium/base/JNIUtils.java" ]
+    deps = [
+      ":bundle_utils_java",
+      ":log_java",
+      "//third_party/androidx:androidx_annotation_annotation_java",
+      "//third_party/jni_zero:jni_zero_java",
     ]
   }
 
@@ -4831,6 +5018,16 @@ if (is_android) {
     sources = [
       "android/task_scheduler/task_runner_android.h",
       "android/task_scheduler/task_traits_android.h",
+    ]
+  }
+
+  # This is a separate target because it depends on guava.
+  android_library("task_executor_java") {
+    sources = [ "android/java/src/org/chromium/base/task/ChromiumExecutorServiceFactory.java" ]
+
+    deps = [
+      ":tasks_java",
+      "//third_party/android_deps:guava_android_java",
     ]
   }
 
@@ -5275,6 +5472,7 @@ if (is_android) {
       "test/android/javatests/src/org/chromium/base/test/util/InMemorySharedPreferencesContext.java",
       "test/android/javatests/src/org/chromium/base/test/util/IntegrationTest.java",
       "test/android/javatests/src/org/chromium/base/test/util/JniMocker.java",
+      "test/android/javatests/src/org/chromium/base/test/util/KeyUtils.java",
       "test/android/javatests/src/org/chromium/base/test/util/LooperUtils.java",
       "test/android/javatests/src/org/chromium/base/test/util/Manual.java",
       "test/android/javatests/src/org/chromium/base/test/util/MaxAndroidSdkLevel.java",
@@ -5430,6 +5628,7 @@ if (is_android) {
       "android/junit/src/org/chromium/base/supplier/UnownedUserDataSupplierTest.java",
       "android/junit/src/org/chromium/base/supplier/UnwrapObservableSupplierTest.java",
       "android/junit/src/org/chromium/base/task/AsyncTaskThreadTest.java",
+      "android/junit/src/org/chromium/base/task/ChromiumExecutorServiceFactoryTest.java",
       "android/junit/src/org/chromium/base/task/SequencedTaskRunnerTaskMigrationTest.java",
       "android/junit/src/org/chromium/base/util/GarbageCollectionTestUtilsUnitTest.java",
       "test/android/junit/src/org/chromium/base/test/SetUpStatementTest.java",
@@ -5456,6 +5655,7 @@ if (is_android) {
       ":base_java_test_support_uncommon",
       ":base_junit_test_support",
       ":base_shared_preferences_java",
+      ":task_executor_java",
       "//base/test:public_transit_robolectric_tests_java",
       "//base/test:test_support_java",
       "//testing/android/instrumentation:test_runner_java",

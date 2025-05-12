@@ -14,16 +14,22 @@
 #include "chrome/browser/glic/host/glic.mojom.h"
 #include "components/optimization_guide/proto/features/actions_data.pb.h"
 
+class Profile;
+
 namespace actor {
 class ActorCoordinator;
 }
+
+namespace tabs {
+class TabInterface;
+}  // namespace tabs
 
 namespace glic {
 
 // Controls the interaction with the actor to complete an action.
 class GlicActorController {
  public:
-  GlicActorController();
+  explicit GlicActorController(Profile* profile);
   GlicActorController(const GlicActorController&) = delete;
   GlicActorController& operator=(const GlicActorController&) = delete;
   ~GlicActorController();
@@ -34,7 +40,24 @@ class GlicActorController {
            const mojom::GetTabContextOptions& options,
            glic::mojom::WebClientHandler::ActInFocusedTabCallback callback);
 
+  void StopTask();
+
  private:
+  // Handles a new task being started, and then performs the action that
+  // initiated the task.
+  void OnTaskStarted(
+      const optimization_guide::proto::BrowserAction& action,
+      const mojom::GetTabContextOptions& options,
+      glic::mojom::WebClientHandler::ActInFocusedTabCallback callback,
+      base::WeakPtr<tabs::TabInterface> tab) const;
+
+  // Core logic to execute an action.
+  void ActImpl(
+      FocusedTabData focused_tab_data,
+      const optimization_guide::proto::BrowserAction& action,
+      const mojom::GetTabContextOptions& options,
+      glic::mojom::WebClientHandler::ActInFocusedTabCallback callback) const;
+
   // Handles the result of the action, returning new page context if necessary.
   void OnActionFinished(
       FocusedTabData focused_tab_data,
@@ -48,10 +71,10 @@ class GlicActorController {
       glic::mojom::WebClientHandler::GetContextFromFocusedTabCallback callback)
       const;
 
-  base::WeakPtr<GlicActorController> GetWeakPtr() {
-    return weak_ptr_factory_.GetWeakPtr();
-  }
+  base::WeakPtr<const GlicActorController> GetWeakPtr() const;
+  base::WeakPtr<GlicActorController> GetWeakPtr();
 
+  raw_ptr<Profile> profile_;
   std::unique_ptr<actor::ActorCoordinator> actor_coordinator_;
   base::WeakPtrFactory<GlicActorController> weak_ptr_factory_{this};
 };

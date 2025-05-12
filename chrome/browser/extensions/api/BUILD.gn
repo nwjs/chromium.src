@@ -41,9 +41,11 @@ group("api_implementations") {
       "//chrome/browser/extensions/api/command_line_private",
       "//chrome/browser/extensions/api/content_settings",
       "//chrome/browser/extensions/api/context_menus",
+      "//chrome/browser/extensions/api/debugger",
       "//chrome/browser/extensions/api/desktop_capture",
       "//chrome/browser/extensions/api/downloads_internal",
       "//chrome/browser/extensions/api/enterprise_hardware_platform",
+      "//chrome/browser/extensions/api/experimental_actor",
       "//chrome/browser/extensions/api/experimental_ai_data",
       "//chrome/browser/extensions/api/extension_action",
       "//chrome/browser/extensions/api/font_settings",
@@ -119,6 +121,7 @@ function_registration("api_registration") {
     "//components/policy/proto",
 
     # Different APIs include headers from these targets.
+    "//chrome/browser/ai",
     "//chrome/common",
     "//chrome/common:mojo_bindings",
     "//components/autofill/core/common/mojom:mojo_types",

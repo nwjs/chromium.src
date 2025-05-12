@@ -4,9 +4,12 @@
 
 package org.chromium.chrome.browser.omnibox;
 
+import static org.chromium.build.NullUtil.assumeNonNull;
+
 import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.text.TextUtils;
+import android.util.TypedValue;
 import android.view.ActionMode;
 
 import androidx.annotation.ColorInt;
@@ -15,6 +18,7 @@ import androidx.annotation.RequiresApi;
 import com.google.android.material.color.MaterialColors;
 
 import org.chromium.base.Callback;
+import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.browser.omnibox.UrlBarProperties.AutocompleteText;
 import org.chromium.chrome.browser.omnibox.UrlBarProperties.UrlBarTextState;
 import org.chromium.ui.modelutil.PropertyKey;
@@ -23,6 +27,7 @@ import org.chromium.ui.modelutil.PropertyModel;
 import java.util.Optional;
 
 /** Handles translating the UrlBar model data to the view state. */
+@NullMarked
 class UrlBarViewBinder {
     /**
      * @see PropertyModelChangeProcfessor.ViewBinder#bind(Object, Object, Object)
@@ -73,9 +78,20 @@ class UrlBarViewBinder {
                 } else if (state.selectionState == UrlBarCoordinator.SelectionState.SELECT_END) {
                     view.setSelection(view.getText().length());
                 }
+                // Move the accessibility focus to the Omnibox.
+                // This ensures the updated field is announced to the user, especially when the user
+                // recently interacted with Refine button.
+                view.requestAccessibilityFocus();
             }
         } else if (UrlBarProperties.TEXT_COLOR.equals(propertyKey)) {
             view.setTextColor(model.get(UrlBarProperties.TEXT_COLOR));
+        } else if (UrlBarProperties.USE_SMALL_TEXT.equals(propertyKey)) {
+            boolean useSmallText = model.get(UrlBarProperties.USE_SMALL_TEXT);
+            float textSize =
+                    useSmallText
+                            ? view.getResources().getDimension(R.dimen.text_size_small)
+                            : view.getResources().getDimension(R.dimen.location_bar_url_text_size);
+            view.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize);
         } else if (UrlBarProperties.HINT_TEXT_COLOR.equals(propertyKey)) {
             view.setHintTextColor(model.get(UrlBarProperties.HINT_TEXT_COLOR));
         } else if (UrlBarProperties.INCOGNITO_COLORS_ENABLED.equals(propertyKey)) {
@@ -136,10 +152,10 @@ class UrlBarViewBinder {
     private static void updateCursorAndSelectHandleColor(UrlBar view, boolean useIncognitoColors) {
         // These get* methods may fail on some devices, so we're calling all of them before
         // applying tint to any of the drawables. See https://crbug.com/1263630.
-        final Drawable textCursor = view.getTextCursorDrawable();
-        final Drawable textSelectHandle = view.getTextSelectHandle();
-        final Drawable textSelectHandleLeft = view.getTextSelectHandleLeft();
-        final Drawable textSelectHandleRight = view.getTextSelectHandleRight();
+        final Drawable textCursor = assumeNonNull(view.getTextCursorDrawable());
+        final Drawable textSelectHandle = assumeNonNull(view.getTextSelectHandle());
+        final Drawable textSelectHandleLeft = assumeNonNull(view.getTextSelectHandleLeft());
+        final Drawable textSelectHandleRight = assumeNonNull(view.getTextSelectHandleRight());
 
         final int color =
                 useIncognitoColors

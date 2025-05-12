@@ -10,6 +10,7 @@
 #include <optional>
 #include <string>
 
+#include "base/hash/hash.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/strings/string_split.h"
@@ -330,8 +331,6 @@ scoped_refptr<InputContext> AsInputContextInternal(
         break;
       case kTabParentId:
         if (tab_data) {
-          // TODO(crbug.com/397221723): Add a field for tab ID to trace tab
-          // relationship beyond parent.
           value = ProcessedValue::FromFloat(
               tab_data->last_active_tab.tab_metadata.parent_tab_id == -1
                   ? tab_data->last_active_tab.id
@@ -353,6 +352,25 @@ scoped_refptr<InputContext> AsInputContextInternal(
             tab_data->last_active_tab.tab_metadata.local_tab_group_id) {
           value = ProcessedValue(tab_data->last_active_tab.tab_metadata
                                      .local_tab_group_id->ToString());
+        }
+        break;
+      case kTabId:
+        if (tab_data) {
+          value = ProcessedValue::FromFloat(tab_data->last_active_tab.id);
+        }
+        break;
+      case kTabUrlOriginHash:
+        if (tab_data) {
+          GURL origin =
+              tab_data->last_active_tab.visit.url.DeprecatedGetOriginAsURL();
+          size_t hash = origin.is_empty() ? 0 : base::FastHash(origin.spec());
+          value = ProcessedValue::FromFloat(hash);
+        }
+        break;
+      case kTabUkmSourceId:
+        if (tab_data) {
+          value = ProcessedValue(
+              tab_data->last_active_tab.tab_metadata.ukm_source_id);
         }
         break;
     }

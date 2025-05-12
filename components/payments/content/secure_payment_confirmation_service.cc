@@ -26,6 +26,19 @@
 
 namespace payments {
 
+namespace {
+void OnIsUserVerifyingPlatformAuthenticatorAvailable(
+    SecurePaymentConfirmationService::
+        SecurePaymentConfirmationAvailabilityCallback callback,
+    bool is_user_verifying_platform_authenticator_available) {
+  std::move(callback).Run(
+      is_user_verifying_platform_authenticator_available
+          ? mojom::SecurePaymentConfirmationAvailabilityEnum::kAvailable
+          : mojom::SecurePaymentConfirmationAvailabilityEnum::
+                kUnavailableNoUserVerifyingPlatformAuthenticator);
+}
+}  // namespace
+
 SecurePaymentConfirmationService::SecurePaymentConfirmationService(
     content::RenderFrameHost& render_frame_host,
     mojo::PendingReceiver<mojom::SecurePaymentConfirmationService> receiver,
@@ -39,10 +52,11 @@ SecurePaymentConfirmationService::~SecurePaymentConfirmationService() {
   Reset();
 }
 
-void SecurePaymentConfirmationService::IsSecurePaymentConfirmationAvailable(
-    IsSecurePaymentConfirmationAvailableCallback callback) {
+void SecurePaymentConfirmationService::SecurePaymentConfirmationAvailability(
+    SecurePaymentConfirmationAvailabilityCallback callback) {
   if (!base::FeatureList::IsEnabled(::features::kSecurePaymentConfirmation)) {
-    std::move(callback).Run(false);
+    std::move(callback).Run(mojom::SecurePaymentConfirmationAvailabilityEnum::
+                                kUnavailableFeatureNotEnabled);
     return;
   }
 
@@ -63,26 +77,27 @@ void SecurePaymentConfirmationService::IsSecurePaymentConfirmationAvailable(
   // expected to be hit in production, as it is a debug flag only.
   if (base::FeatureList::IsEnabled(
           ::features::kSecurePaymentConfirmationDebug)) {
-    std::move(callback).Run(true);
+    std::move(callback).Run(
+        mojom::SecurePaymentConfirmationAvailabilityEnum::kAvailable);
     return;
   }
 
   if (!authenticator_) {
-    std::move(callback).Run(false);
+    std::move(callback).Run(mojom::SecurePaymentConfirmationAvailabilityEnum::
+                                kUnavailableUnknownReason);
     return;
   }
 
   if (base::FeatureList::IsEnabled(
           features::kSecurePaymentConfirmationUseCredentialStoreAPIs) &&
       !authenticator_->IsGetMatchingCredentialIdsSupported()) {
-    std::move(callback).Run(false);
+    std::move(callback).Run(mojom::SecurePaymentConfirmationAvailabilityEnum::
+                                kUnavailableUnknownReason);
     return;
   }
 
-  // At this point the only remaining check is that the user verifying
-  // authenticator is available, so we can pass our callback directly.
-  authenticator_->IsUserVerifyingPlatformAuthenticatorAvailable(
-      std::move(callback));
+  authenticator_->IsUserVerifyingPlatformAuthenticatorAvailable(base::BindOnce(
+      &OnIsUserVerifyingPlatformAuthenticatorAvailable, std::move(callback)));
 }
 
 void SecurePaymentConfirmationService::StorePaymentCredential(
@@ -130,10 +145,10 @@ void SecurePaymentConfirmationService::MakePaymentCredential(
           blink::features::kSecurePaymentConfirmationBrowserBoundKeys)) {
     relying_party_id = options->relying_party.id;
     if (!passkey_browser_binder_) {
-      if (std::unique_ptr<BrowserBoundKeyStore> key_store =
+      if (scoped_refptr<BrowserBoundKeyStore> key_store =
               GetBrowserBoundKeyStoreInstance()) {
         passkey_browser_binder_ = std::make_unique<PasskeyBrowserBinder>(
-            GetBrowserBoundKeyStoreInstance(), web_data_service_);
+            key_store, web_data_service_);
       }
     }
     if (passkey_browser_binder_) {

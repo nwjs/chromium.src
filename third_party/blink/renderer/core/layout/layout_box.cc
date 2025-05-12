@@ -79,7 +79,6 @@
 #include "third_party/blink/renderer/core/layout/forms/layout_text_control.h"
 #include "third_party/blink/renderer/core/layout/fragmentation_utils.h"
 #include "third_party/blink/renderer/core/layout/geometry/box_strut.h"
-#include "third_party/blink/renderer/core/layout/geometry/physical_offset.h"
 #include "third_party/blink/renderer/core/layout/geometry/physical_rect.h"
 #include "third_party/blink/renderer/core/layout/hit_test_result.h"
 #include "third_party/blink/renderer/core/layout/inline/inline_cursor.h"
@@ -118,6 +117,7 @@
 #include "third_party/blink/renderer/platform/geometry/contoured_rect.h"
 #include "third_party/blink/renderer/platform/geometry/float_rounded_rect.h"
 #include "third_party/blink/renderer/platform/geometry/length_functions.h"
+#include "third_party/blink/renderer/platform/geometry/physical_offset.h"
 #include "third_party/blink/renderer/platform/instrumentation/histogram.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/text/platform_locale.h"
@@ -299,7 +299,7 @@ LogicalSize ThemePartIntrinsicSize(const LayoutBox& box,
   PhysicalSize size(
       WebThemeEngineHelper::GetNativeThemeEngine()->GetSize(part));
   size.Scale(style.EffectiveZoom());
-  return size.ConvertToLogical(style.GetWritingMode());
+  return ToLogicalSize(size, style.GetWritingMode());
 }
 
 LayoutUnit ListBoxDefaultItemHeight(const LayoutBox& box) {
@@ -452,17 +452,6 @@ void RecalcFragmentScrollableOverflow(RecalcScrollableOverflowResult& result,
       RecalcFragmentScrollableOverflow(result, *child.get());
     }
   }
-}
-
-// Returns the logical offset in the LocationContainer() coordination system,
-// and its WritingMode.
-std::tuple<LogicalOffset, WritingMode> LogicalLocation(const LayoutBox& box) {
-  LayoutBox* container = box.LocationContainer();
-  WritingMode writing_mode = container->StyleRef().GetWritingMode();
-  WritingModeConverter converter({writing_mode, TextDirection::kLtr},
-                                 PhysicalSize(container->Size()));
-  return {converter.ToLogical(box.PhysicalLocation(), PhysicalSize(box.Size())),
-          writing_mode};
 }
 
 }  // namespace
@@ -834,18 +823,10 @@ void LayoutBox::UpdateGridPositionAfterStyleChange(
   // GridNG computes static positions for out-of-flow elements at layout time,
   // with alignment offsets baked in. So if alignment changes, we need to
   // schedule a layout.
-  if (is_out_of_flow && AlignmentChanged(old_style, StyleRef())) {
-    LayoutObject* grid_ng_ancestor = nullptr;
-    if (containing_block && containing_block->IsLayoutGrid()) {
-      grid_ng_ancestor = containing_block;
-    } else if (parent && parent->IsLayoutGrid()) {
-      grid_ng_ancestor = parent;
-    }
-
-    if (grid_ng_ancestor) {
-      grid_ng_ancestor->SetNeedsLayout(layout_invalidation_reason::kGridChanged,
-                                       kMarkContainerChain);
-    }
+  if (is_out_of_flow && parent && AlignmentChanged(old_style, StyleRef())) {
+    parent->SetNeedsLayout(
+        layout_invalidation_reason::kOutOfFlowAlignmentChanged,
+        kMarkContainerChain);
   }
 }
 
@@ -1314,6 +1295,9 @@ LayoutUnit LayoutBox::DefaultIntrinsicContentBlockSize() const {
   }
   if (const auto* select = DynamicTo<HTMLSelectElement>(GetNode())) {
     if (!select->UsesMenuList()) {
+      // TODO(crbug.com/357649033): Consider not doing this when in base
+      // appearance mode by using a presentational style for the size attribute
+      // instead.
       return ListBoxItemBlockSize(*select, *this) * select->ListBoxSize() -
              ComputeLogicalScrollbars().BlockSum();
     } else if (effective_appearance != AppearanceValue::kBaseSelect) {
@@ -1331,22 +1315,10 @@ LayoutUnit LayoutBox::DefaultIntrinsicContentBlockSize() const {
   return kIndefiniteSize;
 }
 
-LayoutUnit LayoutBox::LogicalLeft() const {
+LogicalRect LayoutBox::LogicalRectInContainer() const {
   NOT_DESTROYED();
-  auto [offset, container_writing_mode] = LogicalLocation(*this);
-  return IsParallelWritingMode(container_writing_mode,
-                               StyleRef().GetWritingMode())
-             ? offset.inline_offset
-             : offset.block_offset;
-}
-
-LayoutUnit LayoutBox::LogicalTop() const {
-  NOT_DESTROYED();
-  auto [offset, container_writing_mode] = LogicalLocation(*this);
-  return IsParallelWritingMode(container_writing_mode,
-                               StyleRef().GetWritingMode())
-             ? offset.block_offset
-             : offset.inline_offset;
+  return LocationContainer()->CreateWritingModeConverter().ToLogical(
+      PhysicalRect(PhysicalLocation(), Size()));
 }
 
 gfx::QuadF LayoutBox::AbsoluteContentQuad(MapCoordinatesFlags flags) const {
@@ -4294,11 +4266,13 @@ const LayoutObject* LayoutBox::FindTargetAnchor(
     return nullptr;
   }
 
+  AnchorScopedName* anchor_scoped_name = ToAnchorScopedName(anchor_name, *this);
+
   // Go through the already built PhysicalAnchorQuery to avoid tree traversal.
   const LayoutObject* anchor = nullptr;
   auto search_for_anchor = [&](const PhysicalAnchorQuery& anchor_query) {
     if (const LayoutObject* current =
-            anchor_query.AnchorLayoutObject(*this, &anchor_name)) {
+            anchor_query.AnchorLayoutObject(*this, anchor_scoped_name)) {
       if (!anchor ||
           (anchor != current && anchor->IsBeforeInPreOrder(*current))) {
         anchor = current;

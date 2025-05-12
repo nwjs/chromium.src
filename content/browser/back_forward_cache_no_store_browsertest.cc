@@ -20,6 +20,7 @@
 #include "content/public/test/content_browser_test_utils.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "content/shell/browser/shell.h"
+#include "net/base/features.h"
 #include "net/device_bound_sessions/test_support.h"
 #include "net/net_buildflags.h"
 #include "net/test/embedded_test_server/controllable_http_response.h"
@@ -2083,10 +2084,11 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_TRUE(device_bound_session_manager);
 
   base::RunLoop run_loop;
+  cached_rfh->SetDeviceBoundSessionTerminatedCallback(run_loop.QuitClosure());
   device_bound_session_manager->DeleteAllSessions(
       /*created_after_time=*/std::nullopt,
       /*created_before_time=*/std::nullopt,
-      /*filter=*/nullptr, run_loop.QuitClosure());
+      /*filter=*/nullptr, base::DoNothing());
   run_loop.Run();
 
   // 5) Go back. `cached_rfh` should not be restored from bfcache.
@@ -2165,10 +2167,11 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_TRUE(device_bound_session_manager);
 
   base::RunLoop run_loop;
+  cached_rfh->SetDeviceBoundSessionTerminatedCallback(run_loop.QuitClosure());
   device_bound_session_manager->DeleteAllSessions(
       /*created_after_time=*/std::nullopt,
       /*created_before_time=*/std::nullopt,
-      /*filter=*/nullptr, run_loop.QuitClosure());
+      /*filter=*/nullptr, base::DoNothing());
   run_loop.Run();
 
   // 5) Go back. `cached_rfh` should not be restored from bfcache.

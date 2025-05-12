@@ -21,6 +21,7 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/devtools_agent_host.h"
 #include "extensions/browser/blocklist_extension_prefs.h"
+#include "extensions/browser/delayed_install_manager.h"
 #include "extensions/browser/disable_reason.h"
 #include "extensions/browser/extension_host.h"
 #include "extensions/browser/extension_prefs.h"
@@ -28,6 +29,7 @@
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/extension_util.h"
+#include "extensions/browser/extensions_browser_client.h"
 #include "extensions/browser/lazy_context_id.h"
 #include "extensions/browser/lazy_context_task_queue.h"
 #include "extensions/browser/management_policy.h"
@@ -79,12 +81,29 @@ ExtensionRegistrar* ExtensionRegistrar::Get(content::BrowserContext* context) {
 void ExtensionRegistrar::Init(
     Delegate* delegate,
     bool extensions_enabled,
+    const base::CommandLine* command_line,
     const base::FilePath& install_directory,
     const base::FilePath& unpacked_install_directory) {
   delegate_ = delegate;
+  // Figure out if extension installation should be enabled.
+  if (ExtensionsBrowserClient::Get()->AreExtensionsDisabled(*command_line,
+                                                            browser_context_)) {
+    extensions_enabled = false;
+  }
+
   extensions_enabled_ = extensions_enabled;
   install_directory_ = install_directory;
   unpacked_install_directory_ = unpacked_install_directory;
+
+  // TODO(https://crbug.com/410635478): We can't put this in ctor because
+  // there's a KeyedService cycle between DelayedInstallManager and
+  // ExtensionRegistrar.
+  delayed_install_manager_ = DelayedInstallManager::Get(browser_context_);
+}
+
+bool ExtensionRegistrar::IsInitialized() const {
+  // The registrar is initialized if a delegate has been assigned.
+  return !!delegate_;
 }
 
 base::WeakPtr<ExtensionRegistrar> ExtensionRegistrar::GetWeakPtr() {
@@ -96,6 +115,7 @@ void ExtensionRegistrar::Shutdown() {
   // the `ExtensionSystem` keyed service is destroyed.
   extension_system_ = nullptr;
   delegate_ = nullptr;
+  delayed_install_manager_ = nullptr;
 }
 
 void ExtensionRegistrar::AddExtension(
@@ -117,7 +137,7 @@ void ExtensionRegistrar::AddExtension(
     NOTREACHED();
   }
 
-  if (!delegate_->CanAddExtension(extension.get())) {
+  if (!CanAddExtension(extension.get())) {
     return;
   }
 
@@ -152,6 +172,7 @@ void ExtensionRegistrar::AddExtension(
   UntrackTerminatedExtension(extension->id());
 
   // Notify the delegate we will add the extension.
+  CHECK(delegate_);
   delegate_->PreAddExtension(extension.get(), old);
 
   if (was_reloading) {
@@ -199,7 +220,7 @@ void ExtensionRegistrar::AddNewExtension(
     // of this class, and ExtensionService checks when loading installed
     // extensions.
     registry_->AddBlocklisted(extension);
-  } else if (delegate_->ShouldBlockExtension(extension.get())) {
+  } else if (ShouldBlockExtension(extension.get())) {
     DCHECK(!Manifest::IsComponentLocation(extension->location()));
     registry_->AddBlocked(extension);
   } else if (extension_prefs_->IsExtensionDisabled(extension->id())) {
@@ -208,6 +229,35 @@ void ExtensionRegistrar::AddNewExtension(
     registry_->AddEnabled(extension);
     ActivateExtension(extension.get(), true);
   }
+}
+
+void ExtensionRegistrar::AddNewOrUpdatedExtension(
+    const Extension* extension,
+    const base::flat_set<int>& disable_reasons,
+    int install_flags,
+    const syncer::StringOrdinal& page_ordinal,
+    const std::string& install_parameter,
+    base::Value::Dict ruleset_install_prefs) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  extension_prefs_->OnExtensionInstalled(
+      extension, disable_reasons, page_ordinal, install_flags,
+      install_parameter, std::move(ruleset_install_prefs));
+
+  delayed_install_manager_->Remove(extension->id());
+
+  delegate_->OnAddNewOrUpdatedExtension(extension);
+
+  FinishInstallation(extension);
+}
+
+void ExtensionRegistrar::OnExtensionInstalled(
+    const Extension* extension,
+    const syncer::StringOrdinal& page_ordinal,
+    int install_flags,
+    base::Value::Dict ruleset_install_prefs) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  delegate_->OnExtensionInstalled(extension, page_ordinal, install_flags,
+                                  std::move(ruleset_install_prefs));
 }
 
 void ExtensionRegistrar::RemoveExtension(const ExtensionId& extension_id,
@@ -301,6 +351,7 @@ void ExtensionRegistrar::DisableExtensionWithRawReasons(
   scoped_refptr<const Extension> extension =
       registry_->GetExtensionById(extension_id, ExtensionRegistry::EVERYTHING);
 
+  CHECK(delegate_);
   bool is_controlled_extension =
       !delegate_->CanDisableExtension(extension.get());
 
@@ -456,6 +507,31 @@ base::flat_set<int> ExtensionRegistrar::GetDisableReasonsOnInstalled(
   return {};
 }
 
+void ExtensionRegistrar::AddComponentExtension(const Extension* extension) {
+  extension_prefs_->ClearInapplicableDisableReasonsForComponentExtension(
+      extension->id());
+  const std::string old_version_string(
+      extension_prefs_->GetVersionString(extension->id()));
+  const base::Version old_version(old_version_string);
+
+  VLOG(1) << "AddComponentExtension " << extension->name();
+  if (!old_version.IsValid() || old_version != extension->version()) {
+    VLOG(1) << "Component extension " << extension->name() << " ("
+            << extension->id() << ") installing/upgrading from '"
+            << old_version_string << "' to "
+            << extension->version().GetString();
+
+    // TODO(crbug.com/40508457): If needed, add support for Declarative Net
+    // Request to component extensions and pass the ruleset install prefs here.
+    AddNewOrUpdatedExtension(extension, {}, kInstallFlagNone,
+                             syncer::StringOrdinal(), std::string(),
+                             /*ruleset_install_prefs=*/{});
+    return;
+  }
+
+  AddExtension(extension);
+}
+
 void ExtensionRegistrar::RemoveComponentExtension(
     const std::string& extension_id) {
   scoped_refptr<const Extension> extension(
@@ -516,80 +592,13 @@ std::vector<scoped_refptr<DevToolsAgentHost>> GetDevToolsAgentHostsFor(
 }
 }  // namespace
 
-void ExtensionRegistrar::ReloadExtension(
-    const ExtensionId extension_id,  // Passed by value because reloading can
-                                     // invalidate a reference to the ID.
-    LoadErrorBehavior load_error_behavior) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+void ExtensionRegistrar::ReloadExtension(const ExtensionId& extension_id) {
+  DoReloadExtension(extension_id, LoadErrorBehavior::kNoisy);
+}
 
-  base::FilePath path;
-
-  const Extension* disabled_extension =
-      registry_->disabled_extensions().GetByID(extension_id);
-
-  if (disabled_extension) {
-    path = disabled_extension->path();
-  }
-
-  // If the extension is already reloading, don't reload again.
-  if (extension_prefs_->HasDisableReason(extension_id,
-                                         disable_reason::DISABLE_RELOAD)) {
-    DCHECK(disabled_extension);
-    // If an unpacked extension previously failed to reload, it will still be
-    // marked as disabled, but we can try to reload it again - the developer
-    // may have fixed the issue.
-    if (failed_to_reload_unpacked_extensions_.count(path) == 0)
-      return;
-    failed_to_reload_unpacked_extensions_.erase(path);
-  }
-  // Ignore attempts to reload a blocklisted or blocked extension. Sometimes
-  // this can happen in a convoluted reload sequence triggered by the
-  // termination of a blocklisted or blocked extension and a naive attempt to
-  // reload it. For an example see http://crbug.com/373842.
-  if (registry_->blocklisted_extensions().Contains(extension_id) ||
-      registry_->blocked_extensions().Contains(extension_id)) {
-    return;
-  }
-
-  const Extension* enabled_extension =
-      registry_->enabled_extensions().GetByID(extension_id);
-
-  // Disable the extension if it's loaded. It might not be loaded if it crashed.
-  if (enabled_extension) {
-    // If the extension has an inspector open for its background page, detach
-    // the inspector and hang onto a cookie for it, so that we can reattach
-    // later.
-    // TODO(yoz): this is not incognito-safe!
-    ProcessManager* manager = ProcessManager::Get(browser_context_);
-    auto agent_hosts = GetDevToolsAgentHostsFor(manager, enabled_extension);
-    if (!agent_hosts.empty()) {
-      for (auto& host : agent_hosts) {
-        // Let DevTools know we'll be back once extension is reloaded.
-        host->DisconnectWebContents();
-      }
-      // Retain DevToolsAgentHosts for the extension being reloaded to prevent
-      // client disconnecting. We will re-attach later, when the extension is
-      // loaded.
-      // TODO(crbug.com/40196582): clean up upon failure to reload.
-      orphaned_dev_tools_[extension_id] = std::move(agent_hosts);
-    }
-    path = enabled_extension->path();
-    nw::ReloadExtensionHook(enabled_extension);
-
-    DisableExtension(extension_id, {disable_reason::DISABLE_RELOAD});
-
-    DCHECK(registry_->disabled_extensions().Contains(extension_id));
-    reloading_extensions_.insert(extension_id);
-  } else if (!disabled_extension) {
-    std::map<ExtensionId, base::FilePath>::const_iterator iter =
-        unloaded_extension_paths_.find(extension_id);
-    if (iter == unloaded_extension_paths_.end()) {
-      return;
-    }
-    path = unloaded_extension_paths_[extension_id];
-  }
-
-  delegate_->LoadExtensionForReload(extension_id, path, load_error_behavior);
+void ExtensionRegistrar::ReloadExtensionWithQuietFailure(
+    const ExtensionId& extension_id) {
+  DoReloadExtension(extension_id, LoadErrorBehavior::kQuiet);
 }
 
 bool ExtensionRegistrar::UninstallExtension(
@@ -659,7 +668,7 @@ bool ExtensionRegistrar::UninstallExtension(
 
   // Perform the necessary clean up work after extension un-installation event
   // has been notified to all observers.
-  delegate_->PostNotifyUninstallExtension(extension.get());
+  delayed_install_manager_->Remove(extension->id());
 
   extension_prefs_->OnExtensionUninstalled(
       extension->id(), extension->location(), external_uninstall);
@@ -708,7 +717,7 @@ void ExtensionRegistrar::FinishInstallation(const Extension* extension) {
   // Check extensions that may have been delayed only because this shared module
   // was not available.
   if (SharedModuleInfo::IsSharedModule(extension)) {
-    delegate_->FinishDelayedInstallationsIfAny();
+    delayed_install_manager_->MaybeFinishDelayedInstallations();
   }
 }
 
@@ -724,6 +733,11 @@ bool ExtensionRegistrar::CanBlockExtension(const Extension* extension) const {
 // locked. Extensions are no longer considered enabled or disabled. Blocklisted
 // extensions are now considered both blocklisted and locked.
 void ExtensionRegistrar::BlockAllExtensions() {
+  if (block_extensions_) {
+    return;
+  }
+  block_extensions_ = true;
+
   // Blocklisted extensions are already unloaded, need not be blocked.
   const ExtensionSet extensions = registry_->GenerateInstalledExtensionsSet(
       ExtensionRegistry::ENABLED | ExtensionRegistry::DISABLED |
@@ -741,7 +755,11 @@ void ExtensionRegistrar::BlockAllExtensions() {
   }
 }
 
+// All locked extensions should revert to being either enabled or disabled
+// as appropriate.
 void ExtensionRegistrar::UnblockAllExtensions() {
+  block_extensions_ = false;
+
   const ExtensionSet to_unblock =
       registry_->GenerateInstalledExtensionsSet(ExtensionRegistry::BLOCKED);
 
@@ -749,6 +767,10 @@ void ExtensionRegistrar::UnblockAllExtensions() {
     registry_->RemoveBlocked(extension->id());
     AddExtension(extension.get());
   }
+
+  // While extensions are blocked, we won't display any external install
+  // warnings. Now that they are unblocked, we should update the error.
+  delegate_->UpdateExternalExtensionAlert();
 }
 
 void ExtensionRegistrar::OnBlocklistStateRemoved(
@@ -863,6 +885,11 @@ void ExtensionRegistrar::GrantPermissionsAndEnableExtension(
   EnableExtension(extension.id());
 }
 
+void ExtensionRegistrar::AddDisableFlagExemptedExtension(
+    const ExtensionId& extension_id) {
+  disable_flag_exempted_extensions_.insert(extension_id);
+}
+
 void ExtensionRegistrar::TerminateExtension(const ExtensionId& extension_id) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
@@ -909,8 +936,9 @@ bool ExtensionRegistrar::IsExtensionEnabled(
     return false;
   }
 
-  if (delegate_->ShouldBlockExtension(nullptr))
+  if (ShouldBlockExtension(nullptr)) {
     return false;
+  }
 
   // If the extension hasn't been loaded yet, check the prefs for it. Assume
   // enabled unless otherwise noted.
@@ -980,6 +1008,90 @@ void ExtensionRegistrar::DeactivateExtension(const Extension* extension,
   DeactivateTaskQueueForExtension(browser_context_, extension);
 
   delegate_->PostDeactivateExtension(extension);
+}
+
+void ExtensionRegistrar::DoReloadExtension(
+    ExtensionId extension_id,
+    LoadErrorBehavior load_error_behavior) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+
+  base::FilePath path;
+
+  const Extension* disabled_extension =
+      registry_->disabled_extensions().GetByID(extension_id);
+
+  if (disabled_extension) {
+    path = disabled_extension->path();
+  }
+
+  // If the extension is already reloading, don't reload again.
+  if (extension_prefs_->HasDisableReason(extension_id,
+                                         disable_reason::DISABLE_RELOAD)) {
+    DCHECK(disabled_extension);
+    // If an unpacked extension previously failed to reload, it will still be
+    // marked as disabled, but we can try to reload it again - the developer
+    // may have fixed the issue.
+    if (failed_to_reload_unpacked_extensions_.count(path) == 0) {
+      return;
+    }
+    failed_to_reload_unpacked_extensions_.erase(path);
+  }
+  // Ignore attempts to reload a blocklisted or blocked extension. Sometimes
+  // this can happen in a convoluted reload sequence triggered by the
+  // termination of a blocklisted or blocked extension and a naive attempt to
+  // reload it. For an example see http://crbug.com/373842.
+  if (registry_->blocklisted_extensions().Contains(extension_id) ||
+      registry_->blocked_extensions().Contains(extension_id)) {
+    return;
+  }
+
+  const Extension* enabled_extension =
+      registry_->enabled_extensions().GetByID(extension_id);
+
+  // Disable the extension if it's loaded. It might not be loaded if it crashed.
+  if (enabled_extension) {
+    // If the extension has an inspector open for its background page, detach
+    // the inspector and hang onto a cookie for it, so that we can reattach
+    // later.
+    // TODO(yoz): this is not incognito-safe!
+    ProcessManager* manager = ProcessManager::Get(browser_context_);
+    auto agent_hosts = GetDevToolsAgentHostsFor(manager, enabled_extension);
+    if (!agent_hosts.empty()) {
+      for (auto& host : agent_hosts) {
+        // Let DevTools know we'll be back once extension is reloaded.
+        host->DisconnectWebContents();
+      }
+      // Retain DevToolsAgentHosts for the extension being reloaded to prevent
+      // client disconnecting. We will re-attach later, when the extension is
+      // loaded.
+      // TODO(crbug.com/40196582): clean up upon failure to reload.
+      orphaned_dev_tools_[extension_id] = std::move(agent_hosts);
+    }
+    path = enabled_extension->path();
+    nw::ReloadExtensionHook(enabled_extension);
+    DisableExtension(extension_id, {disable_reason::DISABLE_RELOAD});
+    DCHECK(registry_->disabled_extensions().Contains(extension_id));
+    reloading_extensions_.insert(extension_id);
+  } else if (!disabled_extension) {
+    std::map<ExtensionId, base::FilePath>::const_iterator iter =
+        unloaded_extension_paths_.find(extension_id);
+    if (iter == unloaded_extension_paths_.end()) {
+      return;
+    }
+    path = unloaded_extension_paths_[extension_id];
+  }
+
+  if (delayed_install_manager_->Contains(extension_id) &&
+      delayed_install_manager_->FinishDelayedInstallationIfReady(
+          extension_id, true /*install_immediately*/)) {
+    return;
+  }
+
+  if (load_error_behavior == LoadErrorBehavior::kQuiet) {
+    delegate_->LoadExtensionForReloadWithQuietFailure(extension_id, path);
+  } else {
+    delegate_->LoadExtensionForReload(extension_id, path);
+  }
 }
 
 void ExtensionRegistrar::UnregisterServiceWorkerWithRootScope(
@@ -1128,6 +1240,32 @@ void ExtensionRegistrar::OnStartedTrackingServiceWorkerInstance(
   // worker-based extensions is to keep the host around for the target
   // auto-attacher to do its job.
   orphaned_dev_tools_.erase(worker_id.extension_id);
+}
+
+bool ExtensionRegistrar::CanAddExtension(const Extension* extension) const {
+  // TODO(jstritar): We may be able to get rid of this branch by overriding the
+  // default extension state to DISABLED when the --disable-extensions flag
+  // is set (http://crbug.com/29067).
+  if (!extensions_enabled() &&
+      !Manifest::ShouldAlwaysLoadExtension(extension->location(),
+                                           extension->is_theme()) &&
+      disable_flag_exempted_extensions_.count(extension->id()) == 0) {
+    return false;
+  }
+  return true;
+}
+
+bool ExtensionRegistrar::ShouldBlockExtension(
+    const Extension* extension) const {
+  if (!block_extensions_) {
+    return false;
+  }
+
+  // Blocked extensions aren't marked as such in prefs, thus if
+  // `block_extensions_` is true then CanBlockExtension() must be called with an
+  // Extension object. If `extension` is not loaded, assume it should be
+  // blocked.
+  return !extension || CanBlockExtension(extension);
 }
 
 }  // namespace extensions

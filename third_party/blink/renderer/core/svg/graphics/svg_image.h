@@ -33,7 +33,7 @@
 #include "base/memory/weak_ptr.h"
 #include "third_party/blink/public/mojom/css/preferred_color_scheme.mojom-blink-forward.h"
 #include "third_party/blink/renderer/core/core_export.h"
-#include "third_party/blink/renderer/core/layout/geometry/physical_size.h"
+#include "third_party/blink/renderer/platform/geometry/physical_size.h"
 #include "third_party/blink/renderer/platform/graphics/image.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_record.h"
 #include "third_party/blink/renderer/platform/heap/member.h"
@@ -119,7 +119,9 @@ class CORE_EXPORT SVGImage final : public Image {
   // Service CSS and SMIL animations.
   void ServiceAnimations(base::TimeTicks monotonic_animation_start_time);
 
-  void UpdateUseCounters(const Document&) const;
+  // Update use counters for the given document after an image finishes loading
+  // in that document.
+  void UpdateUseCountersAfterLoad(const Document&) const;
 
   void MaybeRecordSvgImageProcessingTime(const Document&);
 

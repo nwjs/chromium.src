@@ -16,12 +16,12 @@
 #import "google_apis/gaia/gaia_id.h"
 #import "ios/chrome/app/change_profile_commands.h"
 #import "ios/chrome/browser/policy/model/policy_util.h"
+#import "ios/chrome/browser/shared/model/profile/features.h"
 #import "ios/chrome/browser/shared/model/profile/profile_attributes_ios.h"
 #import "ios/chrome/browser/shared/model/profile/profile_attributes_storage_ios.h"
 #import "ios/chrome/browser/shared/model/profile/profile_attributes_storage_observer_ios.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/model/profile/profile_manager_ios.h"
-#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/model/system_identity.h"
 #import "ios/chrome/browser/signin/model/system_identity_manager_observer.h"
 #import "net/base/backoff_entry.h"
@@ -96,6 +96,22 @@ ProfileNameToGaiaIds GetMappingFromProfileAttributes(
       base::BindRepeating(&ExtractAttachedGaiaIds, std::ref(result)));
 
   return result;
+}
+
+// Enum for `Signin.IOSHostedDomainFetchEvent` histogram.
+// Entries should not be renumbered and numeric values should never be reused.
+// LINT.IfChange(IOSHostedDomainFetchEvent)
+enum class HostedDomainFetchEvent {
+  kStarted = 0,
+  kFinishedWithSuccess = 1,
+  kFinishedWithErrorWillRetry = 2,
+  kFinishedWithErrorFinal = 3,
+  kMaxValue = kFinishedWithErrorFinal
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/signin/enums.xml:IOSHostedDomainFetchEvent)
+
+void RecordHostedDomainFetchEvent(HostedDomainFetchEvent event) {
+  base::UmaHistogramEnumeration("Signin.IOSHostedDomainFetchEvent", event);
 }
 
 }  // namespace
@@ -199,6 +215,8 @@ class AccountProfileMapper::Assigner
   // Called when the hosted domain for `identity` has been fetched
   // asynchronously. Triggers the assignment to an appropriate profile.
   void HostedDomainFetched(NSString* hosted_domain, NSError* error);
+  HostedDomainFetchEvent HostedDomainFetchedImpl(NSString* hosted_domain,
+                                                 NSError* error);
   // Ensure that each identity is fetched at least twice, and
   // kMinimalNumberOfRetry fetches are tried.
   void ResetNumberOfFetchTries();
@@ -572,7 +590,7 @@ void AccountProfileMapper::Assigner::DeleteProfileNamed(std::string_view name) {
   CHECK(is_updating_profile_attributes_storage_);
 
   if (handler_) {
-    [handler_ deleteProfile:name completion:base::DoNothing()];
+    [handler_ deleteProfile:name];
     return;
   }
 
@@ -663,6 +681,7 @@ void AccountProfileMapper::Assigner::FetchHostedDomainNow() {
       identity,
       base::BindOnce(&AccountProfileMapper::Assigner::HostedDomainFetched,
                      weak_ptr_factory_.GetWeakPtr()));
+  RecordHostedDomainFetchEvent(HostedDomainFetchEvent::kStarted);
 }
 
 void AccountProfileMapper::Assigner::FetchHostedDomain() {
@@ -676,23 +695,31 @@ void AccountProfileMapper::Assigner::FetchHostedDomain() {
 void AccountProfileMapper::Assigner::HostedDomainFetched(
     NSString* hosted_domain,
     NSError* error) {
+  HostedDomainFetchEvent outcome =
+      HostedDomainFetchedImpl(hosted_domain, error);
+  RecordHostedDomainFetchEvent(outcome);
+}
+
+HostedDomainFetchEvent AccountProfileMapper::Assigner::HostedDomainFetchedImpl(
+    NSString* hosted_domain,
+    NSError* error) {
   CHECK(AreSeparateProfilesForManagedAccountsEnabled());
   backoff_entry_.InformOfRequest(!error);
   if (error) {
     if (--number_of_remaining_tries_ > 0) {
       // Let’s try again.
       FetchHostedDomain();
-      return;
+      return HostedDomainFetchEvent::kFinishedWithErrorWillRetry;
     }
     // Each identity has failed to be fetched at least twice.
     // We had kMinimalNumberOfRetry consecutive fetch failures.
     // Let’s stop trying (until the next browser restart).
-    // TODO(crbug.com/331783685): Record metrics for how often this happens.
     for (id<SystemIdentity> identity : system_identities_to_fetch_) {
       [gaia_ids_failed_fetching_ addObject:identity.gaiaID];
     }
     [system_identities_to_fetch_ removeAllObjects];
-    return;
+
+    return HostedDomainFetchEvent::kFinishedWithErrorFinal;
   }
 
   id<SystemIdentity> identity = [system_identities_to_fetch_ firstObject];
@@ -707,6 +734,8 @@ void AccountProfileMapper::Assigner::HostedDomainFetched(
   }
 
   MaybeUpdateCachedMappingAndNotify();
+
+  return HostedDomainFetchEvent::kFinishedWithSuccess;
 }
 
 void AccountProfileMapper::Assigner::AssignIdentityToProfile(
@@ -801,8 +830,8 @@ AccountProfileMapper::AccountProfileMapper(
   }
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
-  widget_updater_ =
-      std::make_unique<AccountWidgetUpdater>(system_identity_manager_);
+  system_account_updater_ =
+      std::make_unique<SystemAccountUpdater>(system_identity_manager_);
 
   assigner_ = std::make_unique<Assigner>(
       system_identity_manager_, profile_manager_,

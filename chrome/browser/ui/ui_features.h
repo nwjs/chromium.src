@@ -28,16 +28,20 @@ BASE_DECLARE_FEATURE(kAllowEyeDropperWGCScreenCapture);
 
 BASE_DECLARE_FEATURE(kCloseOmniboxPopupOnInactiveAreaClick);
 
-BASE_DECLARE_FEATURE(kExtensionsMenuInAppMenu);
-bool IsExtensionMenuInRootAppMenu();
-
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 BASE_DECLARE_FEATURE(kFewerUpdateConfirmations);
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
+
 BASE_DECLARE_FEATURE(kLightweightExtensionOverrideConfirmations);
-#endif
+
+// Controls how extensions show up in the main menu. When enabled, if the
+// current profile has no extensions, instead of a full extensions submenu, only
+// the "Discover Chrome Extensions" item will be present.
+BASE_DECLARE_FEATURE(kExtensionsCollapseMainMenu);
+
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
 #if BUILDFLAG(IS_WIN)
 BASE_DECLARE_FEATURE(kOfferPinToTaskbarWhenSettingToDefault);
@@ -45,7 +49,9 @@ BASE_DECLARE_FEATURE(kOfferPinToTaskbarWhenSettingToDefault);
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
 BASE_DECLARE_FEATURE(kPdfInfoBar);
-#endif
+enum class PdfInfoBarTrigger { kPdfLoad = 0, kStartup = 1 };
+extern const base::FeatureParam<PdfInfoBarTrigger> kPdfInfoBarTrigger;
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
 
 BASE_DECLARE_FEATURE(kPreloadTopChromeWebUI);
 // This enum entry values must be in sync with
@@ -186,6 +192,7 @@ BASE_DECLARE_FEATURE(kPinnedCastButton);
 BASE_DECLARE_FEATURE(kEnterpriseProfileBadgingForAvatar);
 BASE_DECLARE_FEATURE(kEnterpriseProfileBadgingForMenu);
 BASE_DECLARE_FEATURE(kEnterpriseBadgingForNtpFooter);
+BASE_DECLARE_FEATURE(kNTPFooterBadgingPolicies);
 BASE_DECLARE_FEATURE(kEnterpriseProfileBadgingPolicies);
 BASE_DECLARE_FEATURE(kEnterpriseManagementDisclaimerUsesCustomLabel);
 BASE_DECLARE_FEATURE(kEnterpriseUpdatedProfileCreationScreen);
@@ -235,6 +242,9 @@ extern const base::FeatureParam<bool> kPageActionsMigrationTranslate;
 extern const base::FeatureParam<bool> kPageActionsMigrationIntentPicker;
 extern const base::FeatureParam<bool> kPageActionsMigrationZoom;
 extern const base::FeatureParam<bool> kPageActionsMigrationOfferNotification;
+extern const base::FeatureParam<bool> kPageActionsMigrationFileSystemAccess;
+extern const base::FeatureParam<bool> kPageActionsMigrationPwaInstall;
+extern const base::FeatureParam<bool> kPageActionsMigrationPriceInsights;
 
 // Controls whether browser tab loading animations are driven by the compositor
 // vs. a repeating timer.
@@ -242,6 +252,9 @@ BASE_DECLARE_FEATURE(kCompositorLoadingAnimations);
 
 // If enabled, the by date history will show in the side panel.
 BASE_DECLARE_FEATURE(kByDateHistoryInSidePanel);
+
+// Controls whether to use the TabStrip browser api's controller.
+BASE_DECLARE_FEATURE(kTabStripBrowserApi);
 
 }  // namespace features
 

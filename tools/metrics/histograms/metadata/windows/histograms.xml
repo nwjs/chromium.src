@@ -79,7 +79,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Windows.Enclave.{Type}.Available" enum="BooleanAvailable"
-    expires_after="2025-08-10">
+    expires_after="2025-10-12">
   <owner>ajgo@chromium.org</owner>
   <owner>wfh@chromium.org</owner>
   <summary>
@@ -133,7 +133,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Windows.HighResolutionTimerUsage" units="%"
-    expires_after="2025-06-22">
+    expires_after="2025-10-12">
   <owner>olivierli@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -225,6 +225,16 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
+<histogram name="Windows.OpenWithLauncherResult" enum="OpenWithLauncherResult"
+    expires_after="2026-03-28">
+  <owner>jessemckenna@google.com</owner>
+  <owner>davidbienvenu@chromium.org</owner>
+  <summary>
+    Records the result of opening the Settings app via the IOpenWithLauncher COM
+    interface.
+  </summary>
+</histogram>
+
 <histogram name="Windows.ParallelDllLoadingEnabled" enum="BooleanEnabled"
     expires_after="never">
 <!-- expires-never: Needed to measure third party incompatibilities on Windows which could happen at any time. -->
@@ -284,7 +294,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Windows.ProcessorFamily" enum="ProcessorFamily"
-    expires_after="2025-08-10">
+    expires_after="2025-10-12">
   <owner>rkc@chromium.org</owner>
   <owner>vnagarnaik@google.com</owner>
   <owner>rockot@chromium.org</owner>
@@ -341,7 +351,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Windows.Win11HardwareRequirements.{Type}Check"
-    enum="BooleanEnabled" expires_after="2025-08-03">
+    enum="BooleanEnabled" expires_after="2025-10-05">
   <owner>estalin@chromium.org</owner>
   <owner>davidbienvenu@chromium.org</owner>
   <summary>
@@ -358,7 +368,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Windows.Win11UpgradeEligible" enum="BooleanEnabled"
-    expires_after="2025-08-03">
+    expires_after="2025-10-05">
   <owner>estalin@chromium.org</owner>
   <owner>davidbienvenu@chromium.org</owner>
   <summary>

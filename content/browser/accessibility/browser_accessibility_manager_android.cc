@@ -9,6 +9,7 @@
 #include "base/check.h"
 #include "base/containers/contains.h"
 #include "base/i18n/char_iterator.h"
+#include "base/strings/utf_string_conversions.h"
 #include "content/browser/accessibility/browser_accessibility_android.h"
 #include "content/browser/accessibility/web_contents_accessibility_android.h"
 #include "content/public/common/content_features.h"
@@ -260,6 +261,10 @@ void BrowserAccessibilityManagerAndroid::FireGeneratedEvent(
   }
 
   switch (event_type) {
+    case ui::AXEventGenerator::Event::ACTIVE_DESCENDANT_CHANGED: {
+      wcax->HandleActiveDescendantChanged(android_node->GetUniqueId());
+      break;
+    }
     case ui::AXEventGenerator::Event::ALERT: {
       wcax->HandlePaneOpened(android_node->GetUniqueId());
       break;
@@ -269,13 +274,20 @@ void BrowserAccessibilityManagerAndroid::FireGeneratedEvent(
       if (android_node->GetRole() == ax::mojom::Role::kToggleButton ||
           android_node->GetRole() == ax::mojom::Role::kSwitch ||
           android_node->GetRole() == ax::mojom::Role::kRadioButton) {
-        wcax->HandleStateDescriptionChanged(android_node->GetUniqueId());
+        wcax->HandleWindowContentChange(
+            android_node->GetUniqueId(),
+            ANDROID_ACCESSIBILITY_EVENT_CONTENT_CHANGE_TYPE_STATE_DESCRIPTION);
       }
       break;
     case ui::AXEventGenerator::Event::DESCRIPTION_CHANGED: {
-      wcax->HandleDescriptionChangedSubtree(android_node->GetUniqueId());
-      if (android_node->GetRole() == ax::mojom::Role::kDialog) {
-        wcax->HandleDescriptionChangedPaneTitle(android_node->GetUniqueId());
+      wcax->HandleWindowContentChange(
+          android_node->GetUniqueId(),
+          ANDROID_ACCESSIBILITY_EVENT_CONTENT_CHANGE_TYPE_UNDEFINED);
+      if (android_node->GetRole() == ax::mojom::Role::kDialog ||
+          android_node->GetRole() == ax::mojom::Role::kAlertDialog) {
+        wcax->HandleWindowContentChange(
+            android_node->GetUniqueId(),
+            ANDROID_ACCESSIBILITY_EVENT_CONTENT_CHANGE_TYPE_PANE_TITLE);
       }
       break;
     }
@@ -295,10 +307,21 @@ void BrowserAccessibilityManagerAndroid::FireGeneratedEvent(
           GetFocus()->IsDescendantOf(android_node)) {
         wcax->HandlePaneOpened(android_node->GetUniqueId());
       }
+      wcax->HandleWindowContentChange(
+            android_node->GetUniqueId(),
+            ANDROID_ACCESSIBILITY_EVENT_CONTENT_CHANGE_TYPE_EXPANDED);
+      break;
+    }
+    case ui::AXEventGenerator::Event::COLLAPSED: {
+      wcax->HandleWindowContentChange(
+            android_node->GetUniqueId(),
+            ANDROID_ACCESSIBILITY_EVENT_CONTENT_CHANGE_TYPE_EXPANDED);
       break;
     }
     case ui::AXEventGenerator::Event::IMAGE_ANNOTATION_CHANGED: {
-      wcax->HandleImageAnnotationChanged(android_node->GetUniqueId());
+      wcax->HandleWindowContentChange(
+          android_node->GetUniqueId(),
+          ANDROID_ACCESSIBILITY_EVENT_CONTENT_CHANGE_TYPE_TEXT);
       break;
     }
     case ui::AXEventGenerator::Event::LIVE_REGION_NODE_CHANGED: {
@@ -325,7 +348,9 @@ void BrowserAccessibilityManagerAndroid::FireGeneratedEvent(
       // If this is a simple text element, also send an event to the framework.
       if (ui::IsText(android_node->GetRole()) ||
           android_node->IsAndroidTextView()) {
-        wcax->HandleTextContentChanged(android_node->GetUniqueId());
+        wcax->HandleWindowContentChange(
+            android_node->GetUniqueId(),
+            ANDROID_ACCESSIBILITY_EVENT_CONTENT_CHANGE_TYPE_TEXT);
       }
       break;
     }
@@ -343,6 +368,9 @@ void BrowserAccessibilityManagerAndroid::FireGeneratedEvent(
       // When a dialog is shown, we will send a SUBTREE_CREATED event.
       // When this happens, we want to generate a TYPE_WINDOW_STATE_CHANGED
       // event and populate the node's paneTitle with the dialog description.
+      // Note that kAlertDialog is not included in this condition because the
+      // pane opened event is already handled for kAlertDialog by the ALERT
+      // event.
       if (android_node->GetRole() == ax::mojom::Role::kDialog) {
         wcax->HandlePaneOpened(android_node->GetUniqueId());
       }
@@ -362,7 +390,6 @@ void BrowserAccessibilityManagerAndroid::FireGeneratedEvent(
     // Currently unused events on this platform.
     case ui::AXEventGenerator::Event::NONE:
     case ui::AXEventGenerator::Event::ACCESS_KEY_CHANGED:
-    case ui::AXEventGenerator::Event::ACTIVE_DESCENDANT_CHANGED:
     case ui::AXEventGenerator::Event::ARIA_CURRENT_CHANGED:
     case ui::AXEventGenerator::Event::ARIA_NOTIFICATIONS_POSTED:
     case ui::AXEventGenerator::Event::ATK_TEXT_OBJECT_ATTRIBUTE_CHANGED:
@@ -373,7 +400,6 @@ void BrowserAccessibilityManagerAndroid::FireGeneratedEvent(
     case ui::AXEventGenerator::Event::CARET_BOUNDS_CHANGED:
     case ui::AXEventGenerator::Event::CHECKED_STATE_DESCRIPTION_CHANGED:
     case ui::AXEventGenerator::Event::CHILDREN_CHANGED:
-    case ui::AXEventGenerator::Event::COLLAPSED:
     case ui::AXEventGenerator::Event::CONTROLS_CHANGED:
     case ui::AXEventGenerator::Event::DETAILS_CHANGED:
     case ui::AXEventGenerator::Event::DESCRIBED_BY_CHANGED:
@@ -471,7 +497,7 @@ bool BrowserAccessibilityManagerAndroid::NextAtGranularity(
     int32_t* end_index) {
   switch (granularity) {
     case ANDROID_ACCESSIBILITY_NODE_INFO_MOVEMENT_GRANULARITY_CHARACTER: {
-      std::u16string text = node->GetTextContentUTF16();
+      std::u16string text = node->GetAccessibleNameUTF16();
       if (cursor_index >= static_cast<int32_t>(text.length())) {
         return false;
       }
@@ -525,7 +551,7 @@ bool BrowserAccessibilityManagerAndroid::PreviousAtGranularity(
       if (cursor_index <= 0) {
         return false;
       }
-      std::u16string text = node->GetTextContentUTF16();
+      std::u16string text = node->GetAccessibleNameUTF16();
       base::i18n::UTF16CharIterator iter(text);
       int previous_index = 0;
       while (!iter.end() &&

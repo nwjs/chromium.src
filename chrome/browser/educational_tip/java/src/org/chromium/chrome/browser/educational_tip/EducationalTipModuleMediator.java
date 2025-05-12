@@ -56,7 +56,13 @@ public class EducationalTipModuleMediator {
 
         mEducationalTipCardProvider =
                 EducationalTipCardProviderFactory.createInstance(
-                        mModuleType, this::onCardClicked, mCallbackController, mActionDelegate);
+                        mModuleType,
+                        this::onCardClicked,
+                        mCallbackController,
+                        mActionDelegate,
+                        () -> {
+                            mModuleDelegate.removeModule(mModuleType);
+                        });
 
         mModel.set(
                 EducationalTipModuleProperties.MODULE_CONTENT_TITLE_STRING,
@@ -64,6 +70,9 @@ public class EducationalTipModuleMediator {
         mModel.set(
                 EducationalTipModuleProperties.MODULE_CONTENT_DESCRIPTION_STRING,
                 mEducationalTipCardProvider.getCardDescription());
+        mModel.set(
+                EducationalTipModuleProperties.MODULE_BUTTON_STRING,
+                mEducationalTipCardProvider.getCardButtonText());
         mModel.set(
                 EducationalTipModuleProperties.MODULE_CONTENT_IMAGE,
                 mEducationalTipCardProvider.getCardImage());

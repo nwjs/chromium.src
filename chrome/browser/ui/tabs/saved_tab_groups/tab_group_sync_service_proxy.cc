@@ -329,6 +329,11 @@ void TabGroupSyncServiceProxy::RecordTabGroupEvent(
   NOTIMPLEMENTED();
 }
 
+void TabGroupSyncServiceProxy::UpdateArchivalStatus(const base::Uuid& sync_id,
+                                                    bool success) {
+  NOTIMPLEMENTED();
+}
+
 TabGroupSyncMetricsLogger*
 TabGroupSyncServiceProxy::GetTabGroupSyncMetricsLogger() {
   return service_->GetTabGroupSyncMetricsLogger();
@@ -365,6 +370,9 @@ TabGroupSyncServiceProxy::TakeSharedTabGroupsAvailableAtStartupForMessaging() {
   // This method should only exist and be used in the underlying service.
   NOTREACHED();
 }
+
+void TabGroupSyncServiceProxy::OnLastTabClosed(
+    const SavedTabGroup& saved_tab_group) {}
 
 void TabGroupSyncServiceProxy::AddObserver(Observer* observer) {
   if (observers_.empty()) {

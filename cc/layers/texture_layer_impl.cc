@@ -149,7 +149,6 @@ void TextureLayerImpl::AppendQuads(const AppendQuadsContext& context,
                resource_id_, premultiplied_alpha_, uv_top_left_,
                uv_bottom_right_, bg_color, nearest_neighbor,
                /*secure_output=*/false, gfx::ProtectedVideoType::kClear);
-  quad->set_resource_size_in_pixels(transferable_resource_.size);
   quad->dynamic_range_limit = GetDynamicRangeLimit();
   ValidateQuadResources(quad);
 }
@@ -211,12 +210,17 @@ void TextureLayerImpl::SetUVBottomRight(const gfx::PointF& bottom_right) {
 
 void TextureLayerImpl::SetTransferableResource(
     const viz::TransferableResource& resource,
-    viz::ReleaseCallback release_callback) {
-  DCHECK_EQ(resource.is_empty(), !release_callback);
+    viz::ReleaseCallback release_callback,
+    bool own_resource) {
   FreeTransferableResource();
+
+  if (own_resource) {
+    DCHECK_EQ(resource.is_empty(), !release_callback);
+  }
+
   transferable_resource_ = resource;
   release_callback_ = std::move(release_callback);
-  own_resource_ = true;
+  own_resource_ = own_resource;
 }
 
 void TextureLayerImpl::FreeTransferableResource() {

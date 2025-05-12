@@ -27,13 +27,14 @@ import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncUtils;
+import org.chromium.chrome.browser.tab_ui.ActionConfirmationManager;
+import org.chromium.chrome.browser.tab_ui.ActionConfirmationManager.MaybeBlockingResult;
 import org.chromium.chrome.browser.tabmodel.TabClosureParams;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabGroupTitleUtils;
 import org.chromium.chrome.browser.tabmodel.TabList;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelActionListener;
-import org.chromium.chrome.browser.tasks.tab_management.ActionConfirmationManager.MaybeBlockingResult;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.browser_ui.widget.ActionConfirmationResult;
 import org.chromium.components.collaboration.CollaborationService;
@@ -315,6 +316,9 @@ public class TabUiUtils {
             String tabGroupDisplayName,
             @CollaborationServiceShareOrManageEntryPoint int entry) {
         Tab tab = filter.getTabModel().getTabById(tabId);
+        // The tab may have been closed in parallel with the share starting. Skip if this happens.
+        if (tab == null) return;
+
         LocalTabGroupId localTabGroupId = TabGroupSyncUtils.getLocalTabGroupId(tab);
 
         dataSharingTabManager.createOrManageFlow(

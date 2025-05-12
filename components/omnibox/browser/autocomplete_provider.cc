@@ -92,6 +92,8 @@ const char* AutocompleteProvider::TypeToString(Type type) {
       return "RecentlyClosedTabs";
     case TYPE_CONTEXTUAL_SEARCH:
       return "ContextualSearch";
+    case TYPE_TAB_GROUP:
+      return "TabGroup";
     default:
       DUMP_WILL_BE_NOTREACHED()
           << "Unhandled AutocompleteProvider::Type " << type;
@@ -181,7 +183,7 @@ AutocompleteProvider::AsOmniboxEventProviderType() const {
     case TYPE_MOST_VISITED_SITES:
       return metrics::OmniboxEventProto::MOST_VISITED_SITES;
     case TYPE_VERBATIM_MATCH:
-      return metrics::OmniboxEventProto::ZERO_SUGGEST;
+      return metrics::OmniboxEventProto::VERBATIM_MATCH;
     case TYPE_VOICE_SUGGEST:
       return metrics::OmniboxEventProto::SEARCH;
     case TYPE_HISTORY_FUZZY:
@@ -204,6 +206,8 @@ AutocompleteProvider::AsOmniboxEventProviderType() const {
       return metrics::OmniboxEventProto::RECENTLY_CLOSED_TABS;
     case TYPE_CONTEXTUAL_SEARCH:
       return metrics::OmniboxEventProto::CONTEXTUAL_SEARCH_PROVIDER;
+    case TYPE_TAB_GROUP:
+      return metrics::OmniboxEventProto::TAB_GROUP_PROVIDER;
     default:
       // TODO(crbug.com/40940012) This was a NOTREACHED that we converted to
       //   help debug crbug.com/1499235 since NOTREACHED's don't log their
@@ -242,7 +246,7 @@ AutocompleteProvider::~AutocompleteProvider() {
 AutocompleteProvider::AdjustedInputAndStarterPackKeyword
 AutocompleteProvider::AdjustInputForStarterPackKeyword(
     const AutocompleteInput& input,
-    TemplateURLService* turl_service) {
+    const TemplateURLService* turl_service) {
   if (input.prefer_keyword()) {
     AutocompleteInput keyword_input = input;
     const TemplateURL* template_url =

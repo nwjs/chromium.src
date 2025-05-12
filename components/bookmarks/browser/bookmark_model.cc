@@ -19,7 +19,6 @@
 #include "base/functional/callback_helpers.h"
 #include "base/i18n/string_compare.h"
 #include "base/memory/raw_ptr.h"
-#include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
 #include "base/observer_list.h"
 #include "base/strings/string_util.h"
@@ -143,6 +142,62 @@ class SortComparator {
   raw_ptr<icu::Collator> collator_;
 };
 
+// Returns std::nullopt if there are no bookmarks in the input nodes.
+std::optional<metrics::BookmarksExistInStorageType> ComputeCombinedStorageType(
+    const std::vector<const BookmarkPermanentNode*>& local_permanent_nodes,
+    const std::vector<const BookmarkPermanentNode*>& account_permanent_nodes) {
+  auto has_children = [](const BookmarkPermanentNode* node) {
+    return !node->children().empty();
+  };
+  const bool has_local_nodes =
+      std::ranges::any_of(local_permanent_nodes, has_children);
+  const bool has_account_nodes =
+      std::ranges::any_of(account_permanent_nodes, has_children);
+
+  if (has_local_nodes && has_account_nodes) {
+    return metrics::BookmarksExistInStorageType::kLocalAndAccount;
+  } else if (has_local_nodes) {
+    return metrics::BookmarksExistInStorageType::kLocalOnly;
+  } else if (has_account_nodes) {
+    return metrics::BookmarksExistInStorageType::kAccountOnly;
+  }
+
+  return std::nullopt;
+}
+
+// Records whether there are local and/or account bookmarks in Bookmark Bar and
+// All Bookmkarks.
+void RecordPermanentNodesLocalAndAccountStoragesMetrics(BookmarkModel* model) {
+  // Do not log any data if the account nodes do not exist - only checking one
+  // of the permanent nodes.
+  if (!model->account_bookmark_bar_node()) {
+    return;
+  }
+
+  // Bookmarks Bar:
+  std::optional<metrics::BookmarksExistInStorageType> bookmark_bar_storages =
+      ComputeCombinedStorageType(
+          /*local_permanent_nodes=*/{model->bookmark_bar_node()},
+          /*account_permanent_nodes=*/{model->account_bookmark_bar_node()});
+  if (bookmark_bar_storages.has_value()) {
+    metrics::RecordBookmarksExistInStorageType(
+        /*bookmark_bar_only=*/true, bookmark_bar_storages.value());
+  }
+
+  // All Bookmarks (without Managed Bookmarks)
+  std::optional<metrics::BookmarksExistInStorageType> all_bookmarks_storages =
+      ComputeCombinedStorageType(
+          /*local_permanent_nodes=*/{model->bookmark_bar_node(),
+                                     model->other_node(), model->mobile_node()},
+          /*account_permanent_nodes=*/{model->account_bookmark_bar_node(),
+                                       model->account_other_node(),
+                                       model->account_mobile_node()});
+  if (all_bookmarks_storages.has_value()) {
+    metrics::RecordBookmarksExistInStorageType(
+        /*bookmark_bar_only=*/false, all_bookmarks_storages.value());
+  }
+}
+
 }  // namespace
 
 // BookmarkModel --------------------------------------------------------------
@@ -182,8 +237,8 @@ BookmarkModel::~BookmarkModel() {
   // be reset before the observer list.
   client_.reset();
 
-  // Set raw_ptr values to null to avoid danling pointer detection when UrlIndex
-  // is destroyed.
+  // Set raw_ptr values to null to avoid dangling pointer detection when
+  // UrlIndex is destroyed.
   account_bookmark_bar_node_ = nullptr;
   account_other_node_ = nullptr;
   account_mobile_node_ = nullptr;
@@ -225,21 +280,21 @@ scoped_refptr<ModelLoader> BookmarkModel::model_loader() {
   return model_loader_;
 }
 
-const BookmarkNode* BookmarkModel::account_bookmark_bar_node() const {
+const BookmarkPermanentNode* BookmarkModel::account_bookmark_bar_node() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   // Must be null if the feature flag isn't enabled.
   CHECK(!account_bookmark_bar_node_ || AreFoldersForAccountStorageAllowed());
   return account_bookmark_bar_node_;
 }
 
-const BookmarkNode* BookmarkModel::account_other_node() const {
+const BookmarkPermanentNode* BookmarkModel::account_other_node() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   // Must be null if the feature flag isn't enabled.
   CHECK(!account_other_node_ || AreFoldersForAccountStorageAllowed());
   return account_other_node_;
 }
 
-const BookmarkNode* BookmarkModel::account_mobile_node() const {
+const BookmarkPermanentNode* BookmarkModel::account_mobile_node() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   // Must be null if the feature flag isn't enabled.
   CHECK(!account_mobile_node_ || AreFoldersForAccountStorageAllowed());
@@ -1237,6 +1292,11 @@ void BookmarkModel::DoneLoading(std::unique_ptr<BookmarkLoadDetails> details) {
 
   loaded_ = true;
 
+  client_->SchedulePersistentTimerForDailyMetrics(base::BindRepeating(
+      &RecordPermanentNodesLocalAndAccountStoragesMetrics,
+      // Unretained is safe here because this owns `client_`.
+      base::Unretained(this)));
+
   // Notify our direct observers.
   for (BookmarkModelObserver& observer : observers_) {
     observer.BookmarkModelLoaded(details->ids_reassigned());
@@ -1344,10 +1404,6 @@ void BookmarkModel::RemoveAccountPermanentFoldersImpl(bool notify_observers) {
     CHECK(!account_mobile_node_);
     return;
   }
-
-  base::ScopedUmaHistogramTimer scoped_timer(
-      "Bookmarks.RemoveAccountPermanentFoldersDuration",
-      base::ScopedUmaHistogramTimer::ScopedHistogramTiming::kMediumTimes);
 
   CHECK(account_other_node_);
   CHECK(account_mobile_node_);

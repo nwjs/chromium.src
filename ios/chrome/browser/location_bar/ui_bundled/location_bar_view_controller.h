@@ -16,6 +16,7 @@
 @protocol ActivityServiceCommands;
 @protocol ApplicationCommands;
 @protocol BadgeViewVisibilityDelegate;
+@protocol BrowserCoordinatorCommands;
 @protocol ContextualPanelEntrypointVisibilityDelegate;
 @protocol FakeboxButtonsSnapshotProvider;
 @protocol HelpCommands;
@@ -23,6 +24,7 @@
 @protocol LensOverlayCommands;
 @protocol LocationBarOffsetProvider;
 @protocol LoadQueryCommands;
+@protocol PageActionMenuCommands;
 @protocol TextFieldViewContaining;
 class PrefService;
 namespace feature_engagement {
@@ -85,6 +87,7 @@ class Tracker;
 // The dispatcher for the share button, voice search, and long press actions.
 @property(nonatomic, weak) id<ActivityServiceCommands,
                               ApplicationCommands,
+                              BrowserCoordinatorCommands,
                               LoadQueryCommands,
                               LensCommands,
                               LensOverlayCommands,
@@ -109,6 +112,9 @@ class Tracker;
 
 // The help command handler.
 @property(nonatomic, weak) id<HelpCommands> helpCommandsHandler;
+
+// The page action menu handler.
+@property(nonatomic, weak) id<PageActionMenuCommands> pageActionMenuHandler;
 
 // An object to provide a snapshot of the fakebox buttons to be used during
 // focus and defocus transitions.

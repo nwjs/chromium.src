@@ -4,7 +4,6 @@
 
 import './iframe.js';
 import './logo.js';
-import './footer.js';
 import '/strings.m.js';
 import 'chrome://resources/cr_components/searchbox/searchbox.js';
 import 'chrome://resources/cr_elements/cr_button/cr_button.js';
@@ -15,7 +14,7 @@ import type {CrToastElement} from 'chrome://resources/cr_elements/cr_toast/cr_to
 import type {ClickInfo} from 'chrome://resources/js/browser_command.mojom-webui.js';
 import {Command} from 'chrome://resources/js/browser_command.mojom-webui.js';
 import {BrowserCommandProxy} from 'chrome://resources/js/browser_command/browser_command_proxy.js';
-import {hexColorToSkColor} from 'chrome://resources/js/color_utils.js';
+import {hexColorToSkColor, skColorToRgba} from 'chrome://resources/js/color_utils.js';
 import {EventTracker} from 'chrome://resources/js/event_tracker.js';
 import {FocusOutlineManager} from 'chrome://resources/js/focus_outline_manager.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
@@ -36,7 +35,7 @@ import type {PageCallbackRouter, PageHandlerRemote, Theme} from './new_tab_page.
 import {CustomizeChromeSection, IphFeature, NtpBackgroundImageSource} from './new_tab_page.mojom-webui.js';
 import {NewTabPageProxy} from './new_tab_page_proxy.js';
 import type {MicrosoftAuthUntrustedDocumentRemote} from './ntp_microsoft_auth_shared_ui.mojom-webui.js';
-import {$$, rgbaOrInherit} from './utils.js';
+import {$$} from './utils.js';
 import {Action as VoiceAction, recordVoiceAction} from './voice_search_overlay.js';
 import {WindowProxy} from './window_proxy.js';
 
@@ -170,6 +169,9 @@ export class AppElement extends AppElementBase {
         type: Boolean,
       },
 
+      backgroundImageAttribution1_: {type: String},
+      backgroundImageAttribution2_: {type: String},
+      backgroundImageAttributionUrl_: {type: String},
       backgroundColor_: {type: Object},
 
       // Used in cr-searchbox component via host-context.
@@ -246,48 +248,53 @@ export class AppElement extends AppElementBase {
     };
   }
 
-  protected oneGoogleBarIframeOrigin_: string = OGB_IFRAME_ORIGIN;
-  protected oneGoogleBarIframePath_: string;
-  protected oneGoogleBarLoaded_: boolean;
-  protected theme_?: Theme;
-  protected showCustomize_: boolean;
-  protected showCustomizeChromeText_: boolean;
-  protected showWallpaperSearch_: boolean = false;
-  private selectedCustomizeDialogPage_: string|null;
-  protected showVoiceSearchOverlay_: boolean = false;
-  protected showBackgroundImage_: boolean;
-  protected backgroundColor_: SkColor|null;
-  protected colorSourceIsBaseline: boolean;
-  protected logoColor_: SkColor|null = null;
-  protected singleColoredLogo_: boolean;
-  realboxCanShowSecondarySide: boolean;
-  realboxHadSecondarySide: boolean;
-  protected realboxShown_: boolean;
-  protected showLensUploadDialog_: boolean = false;
-  protected logoEnabled_: boolean = loadTimeData.getBoolean('logoEnabled');
-  protected oneGoogleBarEnabled_: boolean =
+  protected accessor oneGoogleBarIframeOrigin_: string = OGB_IFRAME_ORIGIN;
+  protected accessor oneGoogleBarIframePath_: string;
+  protected accessor oneGoogleBarLoaded_: boolean;
+  protected accessor theme_: Theme|undefined;
+  protected accessor showCustomize_: boolean;
+  protected accessor showCustomizeChromeText_: boolean;
+  protected accessor showWallpaperSearch_: boolean = false;
+  private accessor selectedCustomizeDialogPage_: string|null;
+  protected accessor showVoiceSearchOverlay_: boolean = false;
+  protected accessor showBackgroundImage_: boolean;
+  protected accessor backgroundImageAttribution1_: string;
+  protected accessor backgroundImageAttribution2_: string;
+  protected accessor backgroundImageAttributionUrl_: string;
+  protected accessor backgroundColor_: SkColor|null;
+  protected accessor colorSourceIsBaseline: boolean;
+  protected accessor logoColor_: SkColor|null = null;
+  protected accessor singleColoredLogo_: boolean;
+  accessor realboxCanShowSecondarySide: boolean;
+  accessor realboxHadSecondarySide: boolean;
+  protected accessor realboxShown_: boolean;
+  protected accessor showLensUploadDialog_: boolean = false;
+  protected accessor logoEnabled_: boolean =
+      loadTimeData.getBoolean('logoEnabled');
+  protected accessor oneGoogleBarEnabled_: boolean =
       loadTimeData.getBoolean('oneGoogleBarEnabled');
-  protected shortcutsEnabled_: boolean =
+  protected accessor shortcutsEnabled_: boolean =
       loadTimeData.getBoolean('shortcutsEnabled');
   private modulesFreShown: boolean;
-  protected middleSlotPromoEnabled_: boolean =
+  protected accessor middleSlotPromoEnabled_: boolean =
       loadTimeData.getBoolean('middleSlotPromoEnabled');
-  protected modulesEnabled_: boolean =
+  protected accessor modulesEnabled_: boolean =
       loadTimeData.getBoolean('modulesEnabled');
-  private middleSlotPromoLoaded_: boolean = false;
-  private modulesLoaded_: boolean = false;
-  protected modulesShownToUser: boolean;
-  protected microsoftModuleEnabled_: boolean =
+  private accessor middleSlotPromoLoaded_: boolean = false;
+  private accessor modulesLoaded_: boolean = false;
+  protected accessor modulesShownToUser: boolean;
+  protected accessor microsoftModuleEnabled_: boolean =
       loadTimeData.getBoolean('microsoftModuleEnabled');
-  protected microsoftAuthIframePath_: string = MSAL_IFRAME_ORIGIN;
-  protected promoAndModulesLoaded_: boolean = false;
-  protected lazyRender_: boolean;
-  protected scrolledToTop_: boolean = document.documentElement.scrollTop <= 0;
-  private wallpaperSearchButtonAnimationEnabled_: boolean =
+  protected accessor microsoftAuthIframePath_: string = MSAL_IFRAME_ORIGIN;
+  protected accessor promoAndModulesLoaded_: boolean = false;
+  protected accessor lazyRender_: boolean;
+  protected accessor scrolledToTop_: boolean =
+      document.documentElement.scrollTop <= 0;
+  private accessor wallpaperSearchButtonAnimationEnabled_: boolean =
       loadTimeData.getBoolean('wallpaperSearchButtonAnimationEnabled');
-  protected wallpaperSearchButtonEnabled_: boolean =
+  protected accessor wallpaperSearchButtonEnabled_: boolean =
       loadTimeData.getBoolean('wallpaperSearchButtonEnabled');
-  protected showWallpaperSearchButton_: boolean;
+  protected accessor showWallpaperSearchButton_: boolean;
 
   private callbackRouter_: PageCallbackRouter;
   private pageHandler_: PageHandlerRemote;
@@ -485,6 +492,12 @@ export class AppElement extends AppElementBase {
 
     if (changedPrivateProperties.has('theme_')) {
       this.showBackgroundImage_ = this.computeShowBackgroundImage_();
+      this.backgroundImageAttribution1_ =
+          this.computeBackgroundImageAttribution1_();
+      this.backgroundImageAttribution2_ =
+          this.computeBackgroundImageAttribution2_();
+      this.backgroundImageAttributionUrl_ =
+          this.computeBackgroundImageAttributionUrl_();
       this.colorSourceIsBaseline = this.computeColorSourceIsBaseline();
       this.logoColor_ = this.computeLogoColor_();
       this.singleColoredLogo_ = this.computeSingleColoredLogo_();
@@ -522,7 +535,7 @@ export class AppElement extends AppElementBase {
 
     if (changedPrivateProperties.has('logoColor_')) {
       this.style.setProperty(
-          '--ntp-logo-color', rgbaOrInherit(this.logoColor_));
+          '--ntp-logo-color', this.rgbaOrInherit_(this.logoColor_));
     }
 
     if (changedPrivateProperties.has('showBackgroundImage_')) {
@@ -557,6 +570,20 @@ export class AppElement extends AppElementBase {
       return false;
     }
     return !this.showBackgroundImage_;
+  }
+
+  private computeBackgroundImageAttribution1_(): string {
+    return this.theme_ && this.theme_.backgroundImageAttribution1 || '';
+  }
+
+  private computeBackgroundImageAttribution2_(): string {
+    return this.theme_ && this.theme_.backgroundImageAttribution2 || '';
+  }
+
+  private computeBackgroundImageAttributionUrl_(): string {
+    return this.theme_ && this.theme_.backgroundImageAttributionUrl ?
+        this.theme_.backgroundImageAttributionUrl.url :
+        '';
   }
 
   private computeRealboxShown_(): boolean {
@@ -664,6 +691,10 @@ export class AppElement extends AppElementBase {
     }
   }
 
+  private rgbaOrInherit_(skColor: SkColor|null): string {
+    return skColor ? skColorToRgba(skColor) : 'inherit';
+  }
+
   private computeShowBackgroundImage_(): boolean {
     return !!this.theme_ && !!this.theme_.backgroundImage;
   }
@@ -676,8 +707,11 @@ export class AppElement extends AppElementBase {
     if (this.theme_) {
       this.backgroundManager_.setBackgroundColor(this.theme_.backgroundColor);
       this.style.setProperty(
+          '--color-new-tab-page-attribution-foreground',
+          this.rgbaOrInherit_(this.theme_.textColor));
+      this.style.setProperty(
           '--color-new-tab-page-most-visited-foreground',
-          rgbaOrInherit(this.theme_.textColor));
+          this.rgbaOrInherit_(this.theme_.textColor));
     }
     this.updateBackgroundImagePath_();
   }

@@ -1417,6 +1417,8 @@ bool RenderWidgetHostViewAndroid::OnTouchEvent(
   // lead to unexpected behavior in touch sequence handling. Do not modify the
   // position of this check without careful consideration.
   if (event.GetAction() == ui::MotionEventAndroid::Action::DOWN) {
+    // Reset this every time we start a new scroll sequence.
+    is_sequence_overscrolling_ = false;
     // If this event has been generated due to input handling being transferred
     // back to browser from the VizCompositorThread mid-sequence, we drop the
     // event.
@@ -1474,6 +1476,12 @@ bool RenderWidgetHostViewAndroid::OnTouchEvent(
   }
 
   if (overscroll_controller_ && overscroll_controller_->OnTouchEvent(event)) {
+    // Call ResetGestureDetection when OverscrollController consumes first input
+    // event to reset the state on browser and renderer's input handling stack.
+    if (!is_sequence_overscrolling_) {
+      ResetGestureDetection();
+    }
+    is_sequence_overscrolling_ = true;
     return true;
   }
 
@@ -1487,8 +1495,17 @@ bool RenderWidgetHostViewAndroid::OnTouchEvent(
   // when a touch sequence is handled on Browser, as it will try to compare a
   // lingering transferred event's touch id and touch id of acked event that the
   // Browser is now handling.
-  if (input_transfer_handler_ && input_transfer_handler_->OnTouchEvent(event)) {
-    return true;
+  if (input_transfer_handler_) {
+    if (input_transfer_handler_->OnTouchEvent(event)) {
+      return true;
+    } else if (event.GetAction() == ui::MotionEvent::Action::DOWN) {
+      // Stop any ongoing fling on VizCompositorThread if the new input sequence
+      // is going to be handled on the Browser.
+      if (auto* remote =
+              host()->delegate()->GetRenderInputRouterDelegateRemote()) {
+        remote->StopFlingingOnViz(host()->GetFrameSinkId());
+      }
+    }
   }
 
   ui::FilteredGestureProvider::TouchHandlingResult result =
@@ -2538,8 +2555,15 @@ void RenderWidgetHostViewAndroid::DidOverscroll(
   if (!view_.parent() || !is_showing_)
     return;
 
-  if (overscroll_controller_)
+  if (overscroll_controller_) {
     overscroll_controller_->OnOverscrolled(params);
+    // Request input back from VizCompositorThread if OverscrollController is
+    // going to consume the rest of the input sequence.
+    if (overscroll_controller_->IsHandlingInputSequence() &&
+        input_transfer_handler_) {
+      input_transfer_handler_->RequestInputBack();
+    }
+  }
 }
 
 const viz::FrameSinkId& RenderWidgetHostViewAndroid::GetFrameSinkId() const {

@@ -340,6 +340,7 @@ ci.builder(
     gn_args = gn_args.config(
         configs = [
             "android_builder",
+            "android_with_static_analysis",
             "release_builder",
             "minimal_symbols",
             "strip_debug_info",
@@ -400,6 +401,7 @@ ci.builder(
     gn_args = gn_args.config(
         configs = [
             "android_builder_without_codecs",
+            "android_with_static_analysis",
             "clang_tot",
             "shared",
             "debug",
@@ -442,6 +444,7 @@ ci.builder(
     gn_args = gn_args.config(
         configs = [
             "android_builder_without_codecs",
+            "android_with_static_analysis",
             "clang_tot",
             "shared",
             "release",
@@ -496,6 +499,7 @@ ci.builder(
     gn_args = gn_args.config(
         configs = [
             "android_builder_without_codecs",
+            "android_with_static_analysis",
             "clang_tot",
             "shared",
             "release",
@@ -539,6 +543,7 @@ ci.builder(
     gn_args = gn_args.config(
         configs = [
             "android_builder_without_codecs",
+            "android_with_static_analysis",
             "clang_tot",
             "shared",
             "release",
@@ -583,6 +588,7 @@ ci.builder(
     gn_args = gn_args.config(
         configs = [
             "android_builder_without_codecs",
+            "android_with_static_analysis",
             "clang_tot",
             "release",
             "arm64",
@@ -905,7 +911,6 @@ clang_tot_linux_builder(
     targets = targets.bundle(
         targets = [
             "clang_tot_gtests",
-            "chrome_sizes_suite",
         ],
         additional_compile_targets = [
             "all",
@@ -944,7 +949,6 @@ clang_tot_linux_builder(
     ),
     targets = targets.bundle(
         targets = [
-            "chrome_sizes_suite",
         ],
         additional_compile_targets = [
             "all",
@@ -1034,7 +1038,6 @@ clang_tot_linux_builder(
     ),
     targets = targets.bundle(
         targets = [
-            "chrome_sizes_suite",
         ],
         additional_compile_targets = [
             "all",
@@ -1092,7 +1095,6 @@ clang_tot_linux_builder(
     targets = targets.bundle(
         targets = [
             "clang_tot_gtests",
-            "chrome_sizes_suite",
         ],
         additional_compile_targets = [
             "all",
@@ -1173,7 +1175,6 @@ clang_tot_linux_builder(
     targets = targets.bundle(
         targets = [
             "clang_tot_gtests",
-            "chrome_sizes_suite",
         ],
         additional_compile_targets = [
             "all",
@@ -1213,7 +1214,6 @@ clang_tot_linux_builder(
     targets = targets.bundle(
         targets = [
             "clang_tot_gtests",
-            "chrome_sizes_suite",
         ],
         additional_compile_targets = [
             "all",
@@ -1302,7 +1302,6 @@ ci.builder(
             "clang_tot_gtests",
             # Doesn't run win_specific_isolated_scripts because the mini
             # installer isn't hooked up in 32-bit debug builds.
-            "chrome_sizes_suite",
         ],
         additional_compile_targets = [
             "all",
@@ -1905,7 +1904,6 @@ clang_mac_builder(
     targets = targets.bundle(
         targets = [
             "clang_tot_gtests",
-            "chrome_sizes_suite",
         ],
         additional_compile_targets = [
             "all",

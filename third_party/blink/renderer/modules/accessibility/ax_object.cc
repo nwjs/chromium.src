@@ -948,6 +948,23 @@ Node* AXObject::GetParentNodeForComputeParent(AXObjectCacheImpl& cache,
 
   Node* parent = nullptr;
 
+  // ::scroll-button and ::scroll-marker-group elements have a node parent that
+  // is the originating element. However, they are constructed as siblings of
+  // the originating element. This matches the layout relationship. So, for
+  // these specific elements, use the layout parent's node.
+  if ((node->IsScrollButtonPseudoElement() ||
+       node->IsScrollMarkerGroupPseudoElement()) &&
+      node->GetLayoutObject()) {
+    LayoutObject* parent_object = node->GetLayoutObject()->Parent();
+    // Find the nearest non-anonymous layout object ancestor.
+    while (parent_object && parent_object->IsAnonymous()) {
+      parent_object = parent_object->Parent();
+    }
+    if (parent_object) {
+      parent = parent_object->GetNode();
+    }
+  }
+
   // Use LayoutTreeBuilderTraversal::Parent(), which handles pseudo content.
   // This can return nullptr for a node that is never visited by
   // LayoutTreeBuilderTraversal's child traversal. For example, while an element
@@ -2810,7 +2827,7 @@ AXObject* AXObject::GetInterestTargetForInvoker() const {
     return nullptr;
   }
 
-  Element* popover = GetElement()->interestTargetElement();
+  Element* popover = GetElement()->InterestTargetElement();
   if (ElementTraversal::NextSkippingChildren(*GetElement()) == popover) {
     // The next element is already the popover.
     return nullptr;
@@ -2892,7 +2909,7 @@ AXObject* AXObject::GetControlsListboxForTextfieldCombobox() const {
   // normal purpose because a textfield cannot have children. This code allows
   // the textfield's invalid aria-owns to be remapped to aria-controls.
   DCHECK(GetElement());
-  const HeapVector<Member<Element>>* owned_elements =
+  const GCedHeapVector<Member<Element>>* owned_elements =
       ElementsFromAttributeOrInternals(GetElement(), html_names::kAriaOwnsAttr);
   AXObject* listbox_candidate = nullptr;
   if (owned_elements && owned_elements->size() > 0) {
@@ -3513,10 +3530,6 @@ bool AXObject::IsLoaded() const {
 }
 
 bool AXObject::IsMultiSelectable() const {
-  return false;
-}
-
-bool AXObject::ComputeIsOffScreen() const {
   return false;
 }
 
@@ -5243,7 +5256,7 @@ String AXObject::AriaTextAlternative(
 
     Element* element = GetElement();
     if (element) {
-      const HeapVector<Member<Element>>* elements_from_attribute =
+      const GCedHeapVector<Member<Element>>* elements_from_attribute =
           ElementsFromAttributeOrInternals(element, attr);
 
       const AtomicString& aria_labelledby = AriaAttribute(attr);
@@ -5348,7 +5361,7 @@ void AXObject::CheckSubtreeIsForLabelOrDescription(const AXObject* obj) const {
 String AXObject::TextFromElements(
     bool in_aria_labelledby_traversal,
     AXObjectSet& visited,
-    const HeapVector<Member<Element>>& elements,
+    base::span<const Member<Element>> elements,
     AXRelatedObjectVector* related_objects) const {
   StringBuilder accumulated_text;
   bool found_valid_element = false;
@@ -5384,37 +5397,13 @@ String AXObject::TextFromElements(
 }
 
 // static
-const HeapVector<Member<Element>>* AXObject::ElementsFromAttributeOrInternals(
-    const Element* from,
-    const QualifiedName& attribute) {
+const GCedHeapVector<Member<Element>>*
+AXObject::ElementsFromAttributeOrInternals(const Element* from,
+                                           const QualifiedName& attribute) {
   if (!from)
     return nullptr;
 
-  const HeapVector<Member<Element>>* attr_associated_elements =
-      from->GetAttrAssociatedElements(attribute,
-                                      /*resolve_reference_target=*/true);
-  if (attr_associated_elements) {
-    if (attr_associated_elements->empty()) {
-      return nullptr;
-    }
-    return attr_associated_elements;
-  }
-
-  const ElementInternals* element_internals = from->GetElementInternals();
-  if (!element_internals) {
-    return nullptr;
-  }
-
-  const FrozenArray<Element>* element_internals_attr_elements =
-      element_internals->GetElementArrayAttribute(attribute);
-
-  if (!element_internals_attr_elements ||
-      element_internals_attr_elements->empty()) {
-    return nullptr;
-  }
-
-  return MakeGarbageCollected<HeapVector<Member<Element>>>(
-      element_internals_attr_elements->AsVector());
+  return from->ElementsFromAttributeOrInternals(attribute);
 }
 
 // static
@@ -5454,13 +5443,13 @@ Element* AXObject::ElementFromAttributeOrInternals(
 // static
 bool AXObject::HasAriaLabelledbyElements(Element* from) {
   // Try both spellings, but prefer aria-labelledby, which is the official spec.
-  const HeapVector<Member<Element>>* aria_labelledby_elements =
+  const GCedHeapVector<Member<Element>>* aria_labelledby_elements =
       ElementsFromAttributeOrInternals(from, html_names::kAriaLabelledbyAttr);
   if (aria_labelledby_elements && aria_labelledby_elements->size() > 0) {
     return true;
   }
 
-  const HeapVector<Member<Element>>* aria_labeledby_elements =
+  const GCedHeapVector<Member<Element>>* aria_labeledby_elements =
       ElementsFromAttributeOrInternals(from, html_names::kAriaLabeledbyAttr);
   return aria_labeledby_elements && aria_labeledby_elements->size() > 0;
 }

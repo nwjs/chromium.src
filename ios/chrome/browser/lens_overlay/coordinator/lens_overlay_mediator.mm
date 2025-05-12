@@ -22,7 +22,7 @@
 #import "ios/chrome/browser/lens_overlay/model/lens_overlay_url_utils.h"
 #import "ios/chrome/browser/lens_overlay/public/lens_overlay_constants.h"
 #import "ios/chrome/browser/lens_overlay/ui/lens_toolbar_consumer.h"
-#import "ios/chrome/browser/omnibox/ui_bundled/omnibox_coordinator.h"
+#import "ios/chrome/browser/omnibox/coordinator/omnibox_coordinator.h"
 #import "ios/chrome/browser/orchestrator/ui_bundled/edit_view_animatee.h"
 #import "ios/chrome/browser/search_engines/model/search_engine_observer_bridge.h"
 #import "ios/chrome/browser/search_engines/model/search_engines_util.h"
@@ -231,7 +231,7 @@ typedef NS_ENUM(NSUInteger, LensOverlayFilterState) {
     // Navigation in between modes are not supported. Reset the navigation
     // stack.
     if (switchToTranslate || switchToSelection) {
-      [self resetNavigation];
+      [self clearNavigations];
     }
 
     if (switchToTranslate) {
@@ -239,15 +239,15 @@ typedef NS_ENUM(NSUInteger, LensOverlayFilterState) {
       // bottom sheet hidden, as no auto selection happens at this stage.
       [self.lensHandler resetSelectionAreaToInitialPosition:^{
       }];
-      [self.presentationDelegate hideBottomSheet];
+      [self.presentationDelegate
+          showInfoMessage:LensOverlayBottomSheetInfoMessageType::
+                              kImageTranslatedIndication];
     } else if (noSelectionInTranslate) {
       // A missing selection without a switch in modes indicates the user
       // intended to dismiss the current selection.
-      [self.presentationDelegate hideBottomSheet];
-    } else if (switchToSelection || willUseTranslate) {
-      // When transitioning to selection the bottom sheet might be hidden. As
-      // auto selection might be on we need to restore it if hidden.
-      [self.presentationDelegate revealBottomSheetIfHidden];
+      [self.presentationDelegate
+          showInfoMessage:LensOverlayBottomSheetInfoMessageType::
+                              kImageTranslatedIndication];
     }
   }
 
@@ -258,8 +258,22 @@ typedef NS_ENUM(NSUInteger, LensOverlayFilterState) {
 
 // The lens overlay search request produced an error.
 - (void)lensOverlayDidReceiveError:(id<ChromeLensOverlay>)lensOverlay {
-  [self.resultConsumer handleSearchRequestErrored];
+  __weak id<LensOverlayResultConsumer> weakResultConsumer = self.resultConsumer;
+  auto completion = ^{
+    [weakResultConsumer handleSearchRequestErrored];
+  };
   [self.toolbarConsumer setOmniboxEnabled:YES];
+  // Make sure the bottom sheet is dismissed before triggering any alert.
+  if (self.presentationDelegate) {
+    [self.presentationDelegate hideBottomSheetWithCompletion:completion];
+  } else {
+    completion();
+  }
+}
+
+- (void)lensOverlayDidFailDetectingTranslatableText:
+    (id<ChromeLensOverlay>)lensOverlay {
+  [_delegate lensOverlayMediatorDidFailDetectingTranslatableText];
 }
 
 // The lens overlay search request produced a valid result.
@@ -383,9 +397,10 @@ typedef NS_ENUM(NSUInteger, LensOverlayFilterState) {
 
 #pragma mark - Private
 
-- (void)resetNavigation {
-  _navigationManager = std::make_unique<LensOverlayNavigationManager>(self);
-  [self.toolbarConsumer setCanGoBack:NO];
+- (void)clearNavigations {
+  if (_navigationManager) {
+    _navigationManager->ClearNavigations();
+  }
 }
 
 /// Updates the UI for lens `result`.

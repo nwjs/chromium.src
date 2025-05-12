@@ -5,10 +5,8 @@
 #ifndef CHROME_BROWSER_PRIVACY_SANDBOX_NOTICE_NOTICE_MODEL_H_
 #define CHROME_BROWSER_PRIVACY_SANDBOX_NOTICE_NOTICE_MODEL_H_
 
-#include <absl/container/flat_hash_map.h>
-
-#include "components/privacy_sandbox/privacy_sandbox_notice.mojom.h"
-#include "components/privacy_sandbox/privacy_sandbox_notice_storage.h"
+#include "base/memory/raw_ptr.h"
+#include "chrome/browser/privacy_sandbox/notice/notice.mojom.h"
 
 namespace privacy_sandbox {
 class NoticeApi;
@@ -20,36 +18,55 @@ enum class NoticeType {
 };
 
 // The different surface types a notice can be shown on.
-enum SurfaceType {
+enum class SurfaceType {
   kDesktopNewTab,
   kClankBrApp,      // Clank Browser App.
   kClankCustomTab,  // Clank CCT.
+};
+
+// Levels of eligibility required for a notice.
+enum class EligibilityLevel {
+  kNotEligible,
+  kEligibleNotice,
+  kEligibleConsent,
 };
 
 using NoticeId = std::pair<notice::mojom::PrivacySandboxNotice, SurfaceType>;
 class Notice {
   // TODO(crbug.com/392612108): Include view group information.
  public:
-  explicit Notice(NoticeId notice_id, const base::Feature*);
-  Notice(const Notice& other);
+  explicit Notice(NoticeId notice_id);
+  // Delete copy constructor and copy assignment operator
+  Notice(const Notice&) = delete;
+  Notice& operator=(const Notice&) = delete;
+
+  // Delete move constructor and move assignment operator
+  Notice(Notice&&) = delete;
+  Notice& operator=(Notice&&) = delete;
+
   virtual ~Notice();
 
   // Sets Apis that need to be eligible or previously fulfilled to see this
   // notice.
   Notice* SetTargetApis(const std::vector<NoticeApi*>& apis);
   Notice* SetPreReqApis(const std::vector<NoticeApi*>& apis);
+  Notice* SetFeature(const base::Feature* feature);
 
-  // TODO(crbug.com/392612108): Implement a function to check if this
-  // notice was ever fulfilled.
+  bool WasFulfilled();
 
   // Accessors.
   const std::vector<raw_ptr<NoticeApi>>& GetTargetApis();
   const std::vector<raw_ptr<NoticeApi>>& GetPreReqApis();
   NoticeId GetNoticeId();
-  const base::Feature* GetFeature();
+  const base::Feature* GetFeature() const;
+  const char* GetStorageName() const;
 
   // Gets the type of notice.
   virtual NoticeType GetNoticeType();
+
+  // Performs post-processing on relevant target apis based on an `event`
+  // performed on this notice.
+  void UpdateTargetApiResults(notice::mojom::PrivacySandboxNoticeEvent event);
 
   // TODO(crbug.com/392612108) NoticeViews should also implement a function to
   // guard against a notice showing in certain conditions, even if it is the
@@ -57,7 +74,16 @@ class Notice {
   // notice showing for the wrong group of users: Over 18 for example.
 
  private:
-  virtual std::vector<NoticeEvent> FulfillmentEvents() const;
+  // Evaluates the outcome of a notice event.
+  // Return value semantics:
+  // - `has_value()` is true if the event is a fulfillment event.
+  // - `value()` is `true` for positive actions (Ack/OptIn) and `false` for
+  // negative (OptOut).
+  // - `std::nullopt` is returned for non-fulfillment events.
+  // Asserts (NOTREACHED) if the event is unexpected for the Notice.
+  virtual std::optional<bool> EvaluateNoticeEvent(
+      notice::mojom::PrivacySandboxNoticeEvent event);
+
   NoticeId notice_id_;
   std::vector<raw_ptr<NoticeApi>> target_apis_;
   std::vector<raw_ptr<NoticeApi>> pre_req_apis_;
@@ -66,23 +92,31 @@ class Notice {
 
 class Consent : public Notice {
  public:
-  explicit Consent(NoticeId notice_id, const base::Feature* feature);
+  explicit Consent(NoticeId notice_id);
   NoticeType GetNoticeType() override;
 
  private:
-  std::vector<NoticeEvent> FulfillmentEvents() const override;
+  std::optional<bool> EvaluateNoticeEvent(
+      notice::mojom::PrivacySandboxNoticeEvent event) override;
 };
 
 class NoticeApi {
  public:
   NoticeApi();
-  NoticeApi(const NoticeApi& other);
-  ~NoticeApi();
+  // Delete copy constructor and copy assignment operator
+  NoticeApi(const NoticeApi&) = delete;
+  NoticeApi& operator=(const NoticeApi&) = delete;
+
+  // Delete move constructor and move assignment operator
+  NoticeApi(NoticeApi&&) = delete;
+  NoticeApi& operator=(NoticeApi&&) = delete;
+
+  virtual ~NoticeApi();
 
   // Accessors.
   const std::vector<Notice*>& GetLinkedNotices();
-
-  // TODO(crbug.com/392612108): Add required callbacks.
+  EligibilityLevel GetEligibilityLevel();
+  void UpdateResult(bool enabled);
 
   // TODO(crbug.com/392612108): Have enablement of an api set by a feature
   // flag.
@@ -90,54 +124,18 @@ class NoticeApi {
   // Sets a notice this Api can be fulfilled by.
   void CanBeFulfilledBy(Notice* notice);
 
-  // TODO(crbug.com/392612108): Implement a function to check whether the Api
-  // requirement is fulfilled. This should check eligibility & if a notice was
-  // found to successfully fulfill this api's requirements.
+  // Returns whether the api was fulfilled.
+  bool IsFulfilled();
+
+  // Callbacks.
+  NoticeApi* SetEligibilityCallback(
+      base::RepeatingCallback<EligibilityLevel()> callback);
+  NoticeApi* SetResultCallback(base::OnceCallback<void(bool)> callback);
 
  private:
   std::vector<Notice*> linked_notices_;
-};
-
-using NoticeMap = absl::flat_hash_map<NoticeId, std::unique_ptr<Notice>>;
-class NoticeCatalog {
- public:
-  NoticeCatalog();
-  ~NoticeCatalog();
-
-  // Accessors.
-  const std::vector<std::unique_ptr<NoticeApi>>& GetNoticeApis();
-  const NoticeMap& GetNoticeMap();
-
-  // Registers a new notice api.
-  NoticeApi* RegisterAndRetrieveNewApi();
-
-  // Template implementation needs to be inline to bypass linkage issues, other
-  // classes need access to the template implementation source.
-  // Registers a new notice.
-  template <typename T>
-  Notice* RegisterAndRetrieveNewNotice(NoticeId notice_id,
-                                       const base::Feature* feature) {
-    notices_.emplace(notice_id, std::make_unique<T>(T(notice_id, feature)));
-    return notices_[notice_id].get();
-  }
-
-  // Registers a group of notices with the same requirements to be shown (for
-  // ex. Topics can have TopicsClankBrApp, TopicsDesktop and TopicsClankCCT)
-  template <typename T>
-  void RegisterNoticeGroup(
-      std::vector<std::pair<NoticeId, const base::Feature*>>&& notice_ids,
-      std::vector<NoticeApi*>&& target_apis,
-      std::vector<NoticeApi*>&& pre_req_apis = {}) {
-    for (auto notice_id : notice_ids) {
-      RegisterAndRetrieveNewNotice<T>(notice_id.first, notice_id.second)
-          ->SetTargetApis(target_apis)
-          ->SetPreReqApis(pre_req_apis);
-    }
-  }
-
- private:
-  std::vector<std::unique_ptr<NoticeApi>> apis_;
-  NoticeMap notices_;
+  base::RepeatingCallback<EligibilityLevel()> eligibility_callback_;
+  base::OnceCallback<void(bool)> result_callback_;
 };
 
 }  // namespace privacy_sandbox

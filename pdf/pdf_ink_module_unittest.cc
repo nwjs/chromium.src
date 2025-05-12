@@ -15,6 +15,7 @@
 #include "base/containers/span.h"
 #include "base/containers/to_vector.h"
 #include "base/files/file_path.h"
+#include "base/strings/to_string.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
@@ -372,18 +373,21 @@ class FakeClient : public PdfInkModuleClient {
   std::vector<gfx::Rect> invalidations_;
 };
 
-class PdfInkModuleTest : public testing::TestWithParam<bool> {
+class PdfInkModuleTest : public testing::TestWithParam<InkTestVariation> {
  public:
   void SetUp() override {
     feature_list_.InitAndEnableFeatureWithParameters(
         chrome_pdf::features::kPdfInk2,
-        {{features::kPdfInk2TextHighlighting.name,
+        {{features::kPdfInk2TextAnnotations.name,
+          base::ToString(UseTextAnnotations())},
+         {features::kPdfInk2TextHighlighting.name,
           base::ToString(UseTextHighlighting())}});
     ink_module_ = std::make_unique<PdfInkModule>(client_);
   }
 
  protected:
-  bool UseTextHighlighting() const { return GetParam(); }
+  bool UseTextAnnotations() const { return GetParam().use_text_annotations; }
+  bool UseTextHighlighting() const { return GetParam().use_text_highlighting; }
 
   void EnableAnnotationMode() {
     EXPECT_TRUE(
@@ -647,12 +651,12 @@ TEST_P(PdfInkModuleTest, HandleSetAnnotationModeMessage) {
   EXPECT_FALSE(ink_module().enabled());
   EXPECT_TRUE(ink_module().loaded_v2_shapes_.empty());
 
-  message.Set("enable", true);
+  message.Set("mode", "draw");
   EXPECT_TRUE(ink_module().OnMessage(message));
   EXPECT_TRUE(ink_module().enabled());
   EXPECT_THAT(ink_module().loaded_v2_shapes_, kShapeMapMatcher);
 
-  message.Set("enable", false);
+  message.Set("mode", "off");
   EXPECT_TRUE(ink_module().OnMessage(message));
   EXPECT_FALSE(ink_module().enabled());
   EXPECT_THAT(ink_module().loaded_v2_shapes_, kShapeMapMatcher);
@@ -670,7 +674,7 @@ TEST_P(PdfInkModuleTest, MaybeSetCursorWhenTogglingAnnotationMode) {
   EXPECT_TRUE(ink_module().OnMessage(message));
   EXPECT_TRUE(ink_module().enabled());
 
-  message.Set("enable", false);
+  message.Set("mode", "off");
   EXPECT_TRUE(ink_module().OnMessage(message));
   EXPECT_FALSE(ink_module().enabled());
 }
@@ -3026,12 +3030,20 @@ TEST_P(PdfInkModuleMetricsTest, StrokeInputDevicePen) {
                                 StrokeMetricInputDeviceType::kPen, 2);
 }
 
-INSTANTIATE_TEST_SUITE_P(All, PdfInkModuleTest, testing::Bool());
-INSTANTIATE_TEST_SUITE_P(All, PdfInkModuleStrokeTest, testing::Bool());
-INSTANTIATE_TEST_SUITE_P(All, PdfInkModuleUndoRedoTest, testing::Bool());
+INSTANTIATE_TEST_SUITE_P(All,
+                         PdfInkModuleTest,
+                         testing::ValuesIn(GetAllInkTestVariations()));
+INSTANTIATE_TEST_SUITE_P(All,
+                         PdfInkModuleStrokeTest,
+                         testing::ValuesIn(GetAllInkTestVariations()));
+INSTANTIATE_TEST_SUITE_P(All,
+                         PdfInkModuleUndoRedoTest,
+                         testing::ValuesIn(GetAllInkTestVariations()));
 INSTANTIATE_TEST_SUITE_P(All,
                          PdfInkModuleGetVisibleStrokesTest,
-                         testing::Bool());
-INSTANTIATE_TEST_SUITE_P(All, PdfInkModuleMetricsTest, testing::Bool());
+                         testing::ValuesIn(GetAllInkTestVariations()));
+INSTANTIATE_TEST_SUITE_P(All,
+                         PdfInkModuleMetricsTest,
+                         testing::ValuesIn(GetAllInkTestVariations()));
 
 }  // namespace chrome_pdf

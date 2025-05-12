@@ -39,7 +39,12 @@ REMOTE_COCOA_APP_SHIM_EXPORT
 // Notify that the system colors changed.
 - (void)onSystemColorsChanged:(NSNotification*)notification;
 
+// Notify that a screen's active space changes.
+// This subscribes to NSWorkspaceActiveSpaceDidChangeNotification.
+- (void)onActiveSpaceChanged:(NSNotification*)notification;
+
 - (void)onWindowWillStartLiveResize:(NSNotification*)notification;
+
 // Set the aspect ratio of the window. Window resizes will be constrained in an
 // attempt to maintain the aspect ratio.
 // Cocoa provides this functionality via the [NSWindow aspectRatio] property,

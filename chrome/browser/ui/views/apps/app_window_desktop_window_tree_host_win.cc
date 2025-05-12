@@ -27,7 +27,7 @@ AppWindowDesktopWindowTreeHostWin::~AppWindowDesktopWindowTreeHostWin() =
 
 bool AppWindowDesktopWindowTreeHostWin::GetClientAreaInsets(
     gfx::Insets* insets,
-    HMONITOR monitor) const {
+    int frame_thickness) const {
 #if 1
   return false;
 #else
@@ -38,7 +38,7 @@ bool AppWindowDesktopWindowTreeHostWin::GetClientAreaInsets(
     return false;
   }
 
-  *insets = app_window_->frame_view()->GetClientAreaInsets(monitor);
+  *insets = app_window_->frame_view()->GetClientAreaInsets(frame_thickness);
 
   return true;
 #endif

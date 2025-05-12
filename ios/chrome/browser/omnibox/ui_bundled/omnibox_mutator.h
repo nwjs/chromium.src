@@ -19,11 +19,17 @@
 /// Clears the Omnibox text.
 - (void)clearText;
 
+/// Accepts the current input / default suggestion.
+- (void)acceptInput;
+
 /// Prepares the omnibox for scribble.
 - (void)prepareForScribble;
 
 /// Cleans up the omnibox after scribble.
 - (void)cleanupAfterScribble;
+
+/// Called when the text input mode changed.
+- (void)onTextInputModeChange;
 
 #pragma mark - Textfield delegate forwaring
 

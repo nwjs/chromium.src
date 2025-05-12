@@ -38,6 +38,37 @@ chromium-metrics-reviews@google.com.
                or decrease is necessarily good."/>
 </variants>
 
+<!-- LINT.IfChange(KeywordType) -->
+
+<variants name="KeywordType">
+  <variant name="" summary="aggregated across all keyword types"/>
+  <variant name=".DefaultSearchEngineSetByPolicy"
+      summary="Default Search keywords set by policy."/>
+  <variant name=".DefaultSearchEngineSetByUser"
+      summary="Default Search keywords set by user"/>
+  <variant name=".FeaturedSiteSearchSetByPolicy"
+      summary="featured SiteSearch keywords set by an enterprise admin
+               through policy"/>
+  <variant name=".NonFeaturedSiteSearchSetByPolicy"
+      summary="non-featured SiteSearch keywords set by an enterprise admin
+               through policy"/>
+  <variant name=".NonSubstitutingSiteSearchSetByUser"
+      summary="featured and non-featured SiteSearch keywords set by the user
+               that support replacement. (e.g. 'x.com/q=%s')"/>
+  <variant name=".Prepopulated" summary="prepopulated keywords"/>
+  <variant name=".SearchAggregatorSetByPolicy"
+      summary="featured EnterpriseSearchAggregator keywords set by an
+               enterprise admin through policy"/>
+  <variant name=".SearchEngineSetByExtension"
+      summary="keywords created by an extension."/>
+  <variant name=".StarterPack" summary="starter pack keywords"/>
+  <variant name=".SubstitutingSiteSearchSetByUser"
+      summary="featured and non-featured SiteSearch keywords set by the user
+               that do not support replacement (e.g. 'x.com')"/>
+</variants>
+
+<!-- LINT.ThenChange(//components/search_engines/template_url_service.h:KeywordType) -->
+
 <variants name="NavigationOrSuggestionPrefetch">
   <variant name="NavigationPrefetch"
       summary="Recorded for prefetches where Chrome is relatively confident
@@ -153,7 +184,9 @@ Keep consistent with active providers. Doesn't need to include every provider in
   <variant name="Builtin"/>
   <variant name="Calculator"/>
   <variant name="Clipboard"/>
+  <variant name="ContextualSearch"/>
   <variant name="Document"/>
+  <variant name="EnterpriseSearchAggregator"/>
   <variant name="FeaturedSearch"/>
   <variant name="HistoryCluster"/>
   <variant name="HistoryEmbeddings"/>
@@ -166,8 +199,10 @@ Keep consistent with active providers. Doesn't need to include every provider in
   <variant name="OnDeviceHead"/>
   <variant name="OpenTab"/>
   <variant name="QueryTile"/>
+  <variant name="RecentlyClosedTabs"/>
   <variant name="Search"/>
   <variant name="Shortcuts"/>
+  <variant name="UnscopedExtension"/>
   <variant name="VerbatimMatch"/>
   <variant name="VoiceSuggest"/>
   <variant name="ZeroSuggest"/>
@@ -498,7 +533,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.AutocompletionTime.UpdateResult{Slice}"
-    units="microseconds" expires_after="2025-07-13">
+    units="microseconds" expires_after="2025-10-05">
   <owner>manukh@chromium.org</owner>
   <owner>jdonnelly@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
@@ -761,7 +796,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.CutOrCopyAllText" units="count"
-    expires_after="2025-08-10">
+    expires_after="2025-10-12">
   <owner>jdonnelly@chromium.org</owner>
   <owner>mpearson@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
@@ -1113,7 +1148,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 
 <histogram
     name="Omnibox.FocusToOpenTimeAnyPopupState3.ByPageContext.{OmniboxPageContext}"
-    units="ms" expires_after="2025-06-23">
+    units="ms" expires_after="2025-10-05">
   <owner>khalidpeer@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -1404,6 +1439,23 @@ Keep consistent with active providers. Doesn't need to include every provider in
     regardless, in order to be consistent with how user actions and histograms
     are handled.
   </summary>
+</histogram>
+
+<histogram name="Omnibox.KeywordCount{KeywordType}" units="count"
+    expires_after="2025-08-10">
+  <owner>mahmadi@chromium.org</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    `TemplateURLs` that are active at load time (usually on start up) are logged
+    in this histogram. Each active keyword should fall into exactly 1 slice (in
+    addition to the aggregate unsliced histogram). This only gets logged once
+    each time the search engines are loaded from the database. If a user changes
+    the active status of a search engine during the same browser session, the
+    keyword counts do not get logged again.
+
+    This slice counts the number of {KeywordType}.
+  </summary>
+  <token key="KeywordType" variants="KeywordType"/>
 </histogram>
 
 <histogram name="Omnibox.KeywordModeUsageByEngineType.{Usage}"
@@ -2024,7 +2076,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.SearchSuggest.Requests"
-    enum="SearchSuggestRequestEvent" expires_after="2025-08-10">
+    enum="SearchSuggestRequestEvent" expires_after="2025-10-12">
   <owner>mpearson@chromium.org</owner>
   <owner>jdonnelly@chromium.org</owner>
   <owner>cch@chromium.org</owner>
@@ -2051,7 +2103,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.SuggestionShown.ClientSummarizedResultType"
-    enum="ClientSummarizedResultType" expires_after="2025-06-24">
+    enum="ClientSummarizedResultType" expires_after="2025-10-19">
   <owner>khalidpeer@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -2096,7 +2148,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 
 <histogram
     name="Omnibox.SuggestionShown.{OmniboxZeroPrefixState}.ClientSummarizedResultType"
-    enum="ClientSummarizedResultType" expires_after="2025-06-24">
+    enum="ClientSummarizedResultType" expires_after="2025-10-19">
   <owner>khalidpeer@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -2459,7 +2511,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.SuggestionUsed.URL.NavigationToFirstContentfulPaint"
-    units="ms" expires_after="2025-08-17">
+    units="ms" expires_after="2025-10-19">
   <owner>jdonnelly@chromium.org</owner>
   <owner>mpearson@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
@@ -2506,7 +2558,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.SuggestRequestsSent" enum="RemoteRequestType"
-    expires_after="2025-08-10">
+    expires_after="2025-10-12">
   <owner>mahmadi@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -2521,8 +2573,24 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram
+    name="Omnibox.SuggestRequestsSent.HttpResponseCode.{OmniboxPageContext}{RemoteRequestType}"
+    enum="HttpResponseCode" expires_after="2025-10-12">
+  <owner>mahmadi@chromium.org</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    The number of responses from the omnibox suggest backends, sliced by the
+    request type and the page context (a.k.a. page classification) and bucketed
+    by the HTTP response code. Recorded once per response received, which is at
+    most one time per Omnibox.SuggestRequestsSent is recorded, since some
+    requests are cancelled.
+  </summary>
+  <token key="OmniboxPageContext" variants="OmniboxPageContext"/>
+  <token key="RemoteRequestType" variants="RemoteRequestType"/>
+</histogram>
+
+<histogram
     name="Omnibox.SuggestRequestsSent.HttpResponseCode{RemoteRequestType}"
-    enum="HttpResponseCode" expires_after="2025-08-10">
+    enum="HttpResponseCode" expires_after="2025-10-12">
   <owner>mahmadi@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -2532,6 +2600,23 @@ Keep consistent with active providers. Doesn't need to include every provider in
     is recorded, since some requests are cancelled.
   </summary>
   <token key="RemoteRequestType" variants="RemoteRequestType"/>
+</histogram>
+
+<histogram
+    name="Omnibox.SuggestRequestsSent.ResponseTime.{OmniboxPageContext}{RemoteRequestType}{RemoteRequestSuccess}"
+    units="ms" expires_after="2025-08-10">
+  <owner>mahmadi@chromium.org</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    How long it took in milliseconds to receive responses from the omnibox
+    suggest backends for completed requests only, sliced by the request type,
+    response success status, and the page context (a.k.a. page classification).
+    Recorded once per response received, which is at most one time per
+    Omnibox.SuggestRequestsSent is recorded, since some requests are cancelled.
+  </summary>
+  <token key="OmniboxPageContext" variants="OmniboxPageContext"/>
+  <token key="RemoteRequestType" variants="RemoteRequestType"/>
+  <token key="RemoteRequestSuccess" variants="RemoteRequestSuccess"/>
 </histogram>
 
 <histogram
@@ -2551,18 +2636,18 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram
-    name="Omnibox.SuggestRequestsSent.ResponseTime{OmniboxPageContext}{RemoteRequestType}{RemoteRequestSuccess}"
+    name="Omnibox.SuggestRequestsSent.ResponseTime{RemoteRequestType}{RemoteRequestSuccess}"
     units="ms" expires_after="2025-08-10">
+  <owner>khalidpeer@chromium.org</owner>
   <owner>mahmadi@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
     How long it took in milliseconds to receive a responses from the omnibox
     suggest backends for completed requests only, sliced by the request type,
-    response success status, and the page context (a.k.a. page classification).
-    Recorded once per response received, which is at most one time per
-    Omnibox.SuggestRequestsSent is recorded, since some requests are cancelled.
+    and response success status. Recorded once per response received, which is
+    at most one time per Omnibox.SuggestRequestsSent is recorded, since some
+    requests are cancelled.
   </summary>
-  <token key="OmniboxPageContext" variants="OmniboxPageContext"/>
   <token key="RemoteRequestType" variants="RemoteRequestType"/>
   <token key="RemoteRequestSuccess" variants="RemoteRequestSuccess"/>
 </histogram>
@@ -2583,6 +2668,23 @@ Keep consistent with active providers. Doesn't need to include every provider in
     <variant name=".People" summary="Number of people suggestions"/>
     <variant name=".Query" summary="Number of query suggestions"/>
   </token>
+</histogram>
+
+<histogram name="Omnibox.SuggestRequestsSent.{OmniboxPageContext}"
+    enum="RemoteRequestType" expires_after="2025-10-12">
+  <owner>mahmadi@chromium.org</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    The number of requests sent by the omnibox to its suggest backends, bucketed
+    by the request type, sliced by the page context (a.k.a. page
+    classification). Recorded when the request starts, i.e., after obtaining the
+    OAuth token if applicable, at most once per omnibox autocompletion cycle as
+    the user types or has focused or cleared the omnibox but has not typed in
+    yet (aka zero-suggest); In other words, at most once per each time the user
+    changes the omnibox input. For zero-suggest prefetching requests, this may
+    be recorded on page load and on tab switch events for eligible pages.
+  </summary>
+  <token key="OmniboxPageContext" variants="OmniboxPageContext"/>
 </histogram>
 
 <histogram name="Omnibox.SuggestTiles.DeletedTileIndex" units="position"
@@ -3053,7 +3155,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.ZeroSuggest.Precision" enum="Boolean"
-    expires_after="2025-06-22">
+    expires_after="2025-10-12">
   <owner>khalidpeer@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -3079,7 +3181,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 
 <histogram
     name="Omnibox.ZeroSuggest.Precision.ByPageContext.{OmniboxPageContext}"
-    enum="Boolean" expires_after="2025-06-22">
+    enum="Boolean" expires_after="2025-10-19">
   <owner>khalidpeer@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -3118,7 +3220,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.ZeroSuggest.Recall" enum="Boolean"
-    expires_after="2025-06-22">
+    expires_after="2025-10-19">
   <owner>khalidpeer@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -3176,7 +3278,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.ZeroSuggest.Usage" enum="Boolean"
-    expires_after="2025-06-22">
+    expires_after="2025-10-19">
   <owner>khalidpeer@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -3197,7 +3299,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
 </histogram>
 
 <histogram name="Omnibox.ZeroSuggest.Usage.ByPageContext.{OmniboxPageContext}"
-    enum="Boolean" expires_after="2025-06-22">
+    enum="Boolean" expires_after="2025-10-19">
   <owner>khalidpeer@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -3542,6 +3644,36 @@ Keep consistent with active providers. Doesn't need to include every provider in
 
     See ShortcutsProvider.DatabaseSize.OldEntries for additional details on how
     and why this is recorded.
+  </summary>
+</histogram>
+
+<histogram
+    name="ShortcutsProvider.DeletedOrInactiveKeywordEntryDeletions.OnInit"
+    units="units" expires_after="2026-04-04">
+  <owner>manukh@chromium.org</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    The number of entries in `ShortcutsBackend`'s database that were deleted due
+    to the associated keyword being deleted from the `TemplateURLService` or
+    inactive. Recorded once on profile load.
+
+    See also
+    ShortcutsProvider.DeletedOrInactiveKeywordEntryDeletions.OnKeywordChange.
+  </summary>
+</histogram>
+
+<histogram
+    name="ShortcutsProvider.DeletedOrInactiveKeywordEntryDeletions.OnKeywordChange"
+    units="units" expires_after="2026-04-04">
+  <owner>manukh@chromium.org</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    The number of entries in `ShortcutsBackend`'s database that were deleted due
+    to the associated keyword being deleted from the `TemplateURLService` or
+    inactive. Recorded each time an `OnTemplateURLServiceChanged` notification
+    from `TemplateURLService` is received by `ShortcutsBackend`.
+
+    See also ShortcutsProvider.DeletedOrInactiveKeywordEntryDeletions.OnInit.
   </summary>
 </histogram>
 

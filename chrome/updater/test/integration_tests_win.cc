@@ -65,6 +65,7 @@
 #include "chrome/updater/app/server/win/updater_idl.h"
 #include "chrome/updater/app/server/win/updater_internal_idl.h"
 #include "chrome/updater/app/server/win/updater_legacy_idl.h"
+#include "chrome/updater/branded_constants.h"
 #include "chrome/updater/constants.h"
 #include "chrome/updater/external_constants_builder.h"
 #include "chrome/updater/persisted_data.h"
@@ -158,26 +159,7 @@ HRESULT CreateLocalServer(GUID clsid,
 }
 
 [[nodiscard]] bool IsServiceGone(const std::wstring& service_name) {
-  ScopedScHandle scm(::OpenSCManager(
-      nullptr, nullptr, SC_MANAGER_CONNECT | SC_MANAGER_CREATE_SERVICE));
-  if (!scm.IsValid()) {
-    return false;
-  }
-
-  ScopedScHandle service(
-      ::OpenService(scm.Get(), service_name.c_str(),
-                    SERVICE_QUERY_CONFIG | SERVICE_CHANGE_CONFIG));
-  bool is_service_gone = !service.IsValid();
-  if (!is_service_gone) {
-    if (!::ChangeServiceConfig(service.Get(), SERVICE_NO_CHANGE,
-                               SERVICE_NO_CHANGE, SERVICE_NO_CHANGE, nullptr,
-                               nullptr, nullptr, nullptr, nullptr, nullptr,
-                               nullptr)) {
-      is_service_gone = ::GetLastError() == ERROR_SERVICE_MARKED_FOR_DELETE;
-    }
-  }
-
-  return is_service_gone &&
+  return !IsServicePresent(service_name) &&
          !base::win::RegKey(HKEY_LOCAL_MACHINE, UPDATER_KEY, Wow6432(KEY_READ))
               .HasValue(service_name.c_str());
 }
@@ -1594,7 +1576,9 @@ void ExpectPolicyStatusValues(
   EXPECT_EQ(has_conflict, expected_has_conflict);
 }
 
-void ExpectLegacyPolicyStatusSucceeds(UpdaterScope scope) {
+void ExpectLegacyPolicyStatusSucceeds(
+    UpdaterScope scope,
+    const base::Version& expected_updater_version) {
   Microsoft::WRL::ComPtr<IUnknown> policy_status_server;
   ASSERT_HRESULT_SUCCEEDED(CreateLocalServer(
       IsSystemInstall(scope) ? __uuidof(PolicyStatusSystemClass)
@@ -1611,7 +1595,8 @@ void ExpectLegacyPolicyStatusSucceeds(UpdaterScope scope) {
   base::win::ScopedBstr updater_version;
   ASSERT_HRESULT_SUCCEEDED(
       policy_status2->get_updaterVersion(updater_version.Receive()));
-  EXPECT_STREQ(updater_version.Get(), kUpdaterVersionUtf16);
+  EXPECT_EQ(updater_version.Get(),
+            base::UTF8ToWide(expected_updater_version.GetString()));
 
   DATE last_checked = 0;
   EXPECT_HRESULT_SUCCEEDED(policy_status2->get_lastCheckedTime(&last_checked));

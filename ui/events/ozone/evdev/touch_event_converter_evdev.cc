@@ -16,6 +16,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include <array>
 #include <cmath>
 #include <limits>
 #include <optional>
@@ -456,8 +457,10 @@ void TouchEventConverterEvdev::OnFileCanReadWithoutBlocking(int fd) {
                "TouchEventConverterEvdev::OnFileCanReadWithoutBlocking", "fd",
                fd);
 
-  input_event inputs[kNumTouchEvdevSlots * 6 + 1];
-  ssize_t read_size = read(fd, inputs, sizeof(inputs));
+  std::array<input_event, kNumTouchEvdevSlots * 6 + 1> inputs;
+  ssize_t read_size =
+      read(fd, inputs.data(),
+           (inputs.size() * sizeof(decltype(inputs)::value_type)));
   if (read_size < 0) {
     if (errno == EINTR || errno == EAGAIN)
       return;
@@ -467,7 +470,7 @@ void TouchEventConverterEvdev::OnFileCanReadWithoutBlocking(int fd) {
     return;
   }
 
-  for (unsigned i = 0; i < read_size / sizeof(*inputs); i++) {
+  for (unsigned i = 0; i < read_size / sizeof(inputs[0]); i++) {
     if (!has_mt_) {
       // Emulate the device as an MT device with only 1 slot by inserting extra
       // MT protocol events in the stream.
@@ -687,8 +690,9 @@ void TouchEventConverterEvdev::ReportTouchEvent(
                              /* twist */ 0, event.tilt_x, event.tilt_y);
   int flags = event.stylus_button ? ui::EF_LEFT_MOUSE_BUTTON : 0;
   dispatcher_->DispatchTouchEvent(TouchEventParams(
-      input_device_.id, event.slot, event_type, gfx::PointF(event.x, event.y),
-      details, timestamp, flags));
+      input_device_.id, event.slot, event_type,
+      gfx::PointF(event.x - x_min_tuxels_, event.y - y_min_tuxels_), details,
+      timestamp, flags));
 }
 
 bool TouchEventConverterEvdev::MaybeCancelAllTouches() {

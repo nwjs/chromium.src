@@ -15,7 +15,7 @@
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "components/back_forward_cache/back_forward_cache_disable.h"
-#include "components/tab_collections/public/tab_interface.h"
+#include "components/tabs/public/tab_interface.h"
 #include "components/web_modal/modal_dialog_host.h"
 #include "components/web_modal/web_contents_modal_dialog_host.h"
 #include "content/public/browser/back_forward_cache.h"
@@ -148,11 +148,18 @@ void UpdateModalDialogPosition(views::Widget* widget,
     return;
   }
 
+  auto* host_view_widget = host_browser_window->TopContainer()->GetWidget();
+
+  // If the host view's widget is minimized, don't update any positions.
+  if (host_view_widget && host_view_widget->IsMinimized()) {
+    return;
+  }
+
   // If the host view is not backed by a Views::Widget, just update the widget
   // size. This can happen on MacViews under the Cocoa browser where the window
   // modal dialogs are displayed as sheets, and their position is managed by a
   // ConstrainedWindowSheetController instance.
-  if (!host_browser_window->TopContainer()->GetWidget()) {
+  if (!host_view_widget) {
     widget->SetSize(size);
     return;
   }

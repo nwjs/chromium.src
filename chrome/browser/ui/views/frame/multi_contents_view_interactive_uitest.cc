@@ -2,8 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/numerics/clamped_math.h"
 #include "base/test/scoped_feature_list.h"
+#include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/tabs/split_tab_collection.h"
+#include "chrome/browser/ui/tabs/split_tab_visual_data.h"
+#include "chrome/browser/ui/tabs/test/split_tabs_interactive_test_mixin.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/multi_contents_resize_area.h"
@@ -14,60 +19,29 @@
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "third_party/blink/public/common/input/web_mouse_event.h"
+#include "ui/events/base_event_utils.h"
 #include "ui/events/event_modifiers.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/views/test/views_test_utils.h"
 
 DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kNewTab);
+DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kSecondTab);
 
-class MultiContentsViewUiTest : public InteractiveBrowserTest {
- public:
-  void SetUpCommandLine(base::CommandLine* command_line) override {
-    scoped_feature_list_.InitWithFeatures({features::kSideBySide}, {});
-  }
-
+class MultiContentsViewUiTest
+    : public SplitTabsInteractiveTestMixin<InteractiveBrowserTest> {
  protected:
-  BrowserView* browser_view() {
-    return BrowserView::GetBrowserViewForBrowser(browser());
-  }
-
   TabStripModel* tab_strip_model() { return browser()->tab_strip_model(); }
 
-  MultiContentsView* multi_contents_view() {
-    return browser_view()->multi_contents_view_for_testing();
-  }
-
-  auto EnterSplitView() {
-    // MultiContentsView overrides Layout, causing an edge case where the
-    // resize area gets set to visible but doesn't gain nonzero size until the
-    // next layout pass. Use PollView and WaitForState to wait for a nonzero
-    // size, rather than just visible = true.
-    using ResizeAreaLoadObserver =
-        views::test::PollingViewObserver<bool, MultiContentsResizeArea>;
-    DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(ResizeAreaLoadObserver,
-                                        kResizeLoadObserver);
-
+  auto CreateTabsAndEnterSplitView() {
     auto result = Steps(
         AddInstrumentedTab(kNewTab, GURL(chrome::kChromeUISettingsURL), 0),
-        Check([=, this]() { return tab_strip_model()->count() == 2u; }),
-        Do([&]() {
-          content::WebContents* inactive_contents =
-              tab_strip_model()->GetWebContentsAt(1);
-          multi_contents_view()->SetWebContents(inactive_contents, false);
-        }),
-        PollView(kResizeLoadObserver,
-                 MultiContentsResizeArea::kMultiContentsResizeAreaElementId,
-                 [](const MultiContentsResizeArea* resize_area) -> bool {
-                   return resize_area->size().width() > 0 &&
-                          resize_area->size().height() > 0;
-                 }),
-        WaitForState(kResizeLoadObserver, true));
-    AddDescriptionPrefix(result, "EnterSplitView()");
+        CheckResult([=, this]() { return tab_strip_model()->count(); }, 2u),
+        EnterSplitView(0, 1));
+    AddDescriptionPrefix(result, "CreateTabsAndEnterSplitView()");
     return result;
   }
 
-  auto CheckResizeKey(ui::KeyboardCode key_code,
-                      base::RepeatingCallback<bool(double, double)> check) {
+  auto CheckResizeValues(base::RepeatingCallback<bool(double, double)> check) {
     // MultiContentsView overrides Layout, causing an edge case where resizes
     // don't take effect until the next layout pass. Use PollView and
     // WaitForState to wait for the expected layout pass to be completed.
@@ -77,30 +51,81 @@ class MultiContentsViewUiTest : public InteractiveBrowserTest {
                                         kMultiContentsViewLayoutObserver);
 
     auto result = Steps(
-        FocusElement(
-            MultiContentsResizeHandle::kMultiContentsResizeHandleElementId),
-        SendKeyPress(
-            MultiContentsResizeHandle::kMultiContentsResizeHandleElementId,
-            key_code),
         PollView(kMultiContentsViewLayoutObserver,
                  MultiContentsView::kMultiContentsViewElementId,
                  [check](const MultiContentsView* multi_contents_view) -> bool {
                    double start_width =
                        multi_contents_view->start_contents_view_for_testing()
+                           ->parent()
                            ->size()
                            .width();
                    double end_width =
                        multi_contents_view->end_contents_view_for_testing()
+                           ->parent()
                            ->size()
                            .width();
                    return check.Run(start_width, end_width);
                  }),
         WaitForState(kMultiContentsViewLayoutObserver, true));
+    AddDescriptionPrefix(result, "CheckResizeValues()");
+    return result;
+  }
+
+  // Perform a check on the contents view sizes following a direct resize call
+  auto CheckResize(int resize_amount,
+                   base::RepeatingCallback<bool(double, double)> check) {
+    auto result = Steps(Do([resize_amount, this]() {
+                          multi_contents_view()->OnResize(resize_amount, true);
+                        }),
+                        CheckResizeValues(check));
+    AddDescriptionPrefix(result, "CheckResize()");
+    return result;
+  }
+
+  // Perform a check on the contents view sizes following a keyboard-triggered
+  // resize
+  auto CheckResizeKey(ui::KeyboardCode key_code,
+                      base::RepeatingCallback<bool(double, double)> check) {
+    auto result = Steps(
+        FocusElement(
+            MultiContentsResizeHandle::kMultiContentsResizeHandleElementId),
+        SendKeyPress(
+            MultiContentsResizeHandle::kMultiContentsResizeHandleElementId,
+            key_code),
+        CheckResizeValues(check));
     AddDescriptionPrefix(result, "CheckResizeKey()");
     return result;
   }
 
-  base::test::ScopedFeatureList scoped_feature_list_;
+  auto ResizeWindow(int width) {
+    auto result = Steps(Do([width, this]() {
+      BrowserView::GetBrowserViewForBrowser(browser())->SetContentsSize(
+          gfx::Size(width, 1000));
+    }));
+    AddDescriptionPrefix(result, "ResizeWindow()");
+    return result;
+  }
+
+  auto SetMinWidth(int width) {
+    auto result = Steps(Do([width, this]() {
+      multi_contents_view()->SetMinWidthForTesting(width);
+    }));
+    AddDescriptionPrefix(result, "SetMinWidth()");
+    return result;
+  }
+
+  auto CheckTabIsActive(int index) {
+    return CheckResult([this]() { return tab_strip_model()->active_index(); },
+                       index);
+  }
+
+  auto CheckActiveContentsHasFocus() {
+    return CheckView(
+        MultiContentsView::kMultiContentsViewElementId,
+        [](MultiContentsView* multi_contents_view) -> bool {
+          return multi_contents_view->GetActiveContentsView()->HasFocus();
+        });
+  }
 };
 
 // Check that MultiContentsView exists when the side by side flag is enabled
@@ -109,20 +134,84 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, ExistsWithFlag) {
       EnsurePresent(MultiContentsView::kMultiContentsViewElementId));
 }
 
-// Check that MultiContentsView executes its callback on inactive view mouse
-// down.
-IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, ActivatesInactiveView) {
+// Create a new split and exit the split view and ensure only 1 contents view is
+// visible
+IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, EnterAndExitSplitViews) {
   RunTestSequence(
-      EnterSplitView(),
-      Check([=, this]() { return tab_strip_model()->active_index() == 0; }),
-      Do([&]() {
-        // Simulate a mouse click event on the inactive contents, which should
-        // trigger the activation callback.
-        content::SimulateMouseClick(
-            multi_contents_view()->GetInactiveContentsView()->GetWebContents(),
-            0, blink::WebPointerProperties::Button::kLeft);
-      }),
-      Check([&]() { return tab_strip_model()->active_index() == 1; }));
+      CreateTabsAndEnterSplitView(), CheckTabIsActive(0), ExitSplitView(0),
+      CheckTabIsActive(0),
+      CheckResult([this]() { return tab_strip_model()->count(); }, 2u));
+}
+
+// Check that MultiContentsView changes its active view when inactive view is
+// focused using mouse click.
+IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest,
+                       ActivatesInactiveViewUsingMouseClick) {
+  RunTestSequence(CreateTabsAndEnterSplitView(), CheckTabIsActive(0),
+                  FocusInactiveTabInSplit(), CheckTabIsActive(1),
+                  CheckActiveContentsHasFocus());
+}
+
+// Check that MultiContentsView changes its active view when inactive view is
+// focused using keyboard.
+IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest,
+                       ActivatesInactiveViewUsingKeyboard) {
+  RunTestSequence(
+      CreateTabsAndEnterSplitView(), CheckTabIsActive(0),
+      // The second contents view should be next in the focus order after
+      // the resize handle so send a TAB key event to move focus to inactive tab
+      FocusElement(
+          MultiContentsResizeHandle::kMultiContentsResizeHandleElementId),
+      SendKeyPress(
+          MultiContentsResizeHandle::kMultiContentsResizeHandleElementId,
+          ui::VKEY_TAB),
+      CheckTabIsActive(1), CheckActiveContentsHasFocus());
+}
+
+// Check focus for the MultiContentView when in split view
+IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, ActiveContentsViewHasFocus) {
+  RunTestSequence(
+      AddInstrumentedTab(kNewTab, GURL(chrome::kChromeUISettingsURL), 1),
+      FocusWebContents(kNewTab),
+      AddInstrumentedTab(kSecondTab, GURL(chrome::kChromeUISettingsURL), 2),
+      FocusWebContents(kSecondTab),
+      CheckResult([this]() { return tab_strip_model()->count(); }, 3u),
+      EnterSplitView(2, 0), CheckTabIsActive(2), CheckActiveContentsHasFocus());
+}
+
+IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, ResizesToMinWidth) {
+  RunTestSequence(
+      CreateTabsAndEnterSplitView(), ResizeWindow(1000),
+      // Artificially lower min width so that testing on smaller devices does
+      // not affect results.
+      SetMinWidth(60),
+      CheckResize(10000,
+                  base::BindRepeating([](double start_width, double end_width) {
+                    // On large window, uses flat min width.
+                    return end_width ==
+                           60 - MultiContentsView::contents_inset_for_testing();
+                  })));
+}
+
+// TODO(crbug.com/399212996): Flaky on linux_chromium_asan_rel_ng, linux-rel
+// and linux-chromeos-rel.
+#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS))
+#define MAYBE_ResizesToMinWidthPercentage DISABLED_ResizesToMinWidthPercentage
+#else
+#define MAYBE_ResizesToMinWidthPercentage ResizesToMinWidthPercentage
+#endif
+IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest,
+                       MAYBE_ResizesToMinWidthPercentage) {
+  RunTestSequence(
+      CreateTabsAndEnterSplitView(), ResizeWindow(500), SetMinWidth(60),
+      CheckResize(
+          10000, base::BindRepeating([](double start_width, double end_width) {
+            // On small window, uses percentage of window size vs. flat width
+            // for min. Don't check exact number to avoid rounding issues.
+            return end_width <
+                       (60 - MultiContentsView::contents_inset_for_testing()) &&
+                   end_width > 0;
+          })));
 }
 
 // TODO(crbug.com/399212996): Flaky on linux_chromium_asan_rel_ng and
@@ -137,7 +226,7 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, ActivatesInactiveView) {
 // end contents views via left and right key events.
 IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, MAYBE_ResizesViaKeyboard) {
   RunTestSequence(
-      EnterSplitView(), Check([&]() {
+      CreateTabsAndEnterSplitView(), Check([&]() {
         double start_width = multi_contents_view()
                                  ->start_contents_view_for_testing()
                                  ->size()
@@ -176,7 +265,7 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, InsetsOnlyInSplit) {
                    ->bounds()
                    .width() == multi_contents_view()->bounds().width();
       }),
-      EnterSplitView(), Check([&]() {
+      CreateTabsAndEnterSplitView(), Check([&]() {
         int contents_and_resize_width =
             multi_contents_view()->GetActiveContentsView()->bounds().width() +
             multi_contents_view()->GetInactiveContentsView()->bounds().width() +
@@ -184,4 +273,83 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, InsetsOnlyInSplit) {
         return contents_and_resize_width <
                multi_contents_view()->bounds().width();
       }));
+}
+
+IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest,
+                       ActivatesMostRecentlyActiveTabInSplit) {
+  RunTestSequence(
+      CreateTabsAndEnterSplitView(), CheckTabIsActive(0),
+      AddInstrumentedTab(kSecondTab, GURL(chrome::kChromeUISettingsURL), 2),
+      CheckTabIsActive(2),
+      // Since tab 0 and 1 are part of a split view and tab 0 was the most
+      // recently focused half of the split it should become the active tab, but
+      // both tabs will be visible.
+      SelectTab(kTabStripElementId, 1, InputType::kMouse, 0),
+      CheckTabIsActive(0),
+      // Select another tab in the split view and ensure the active index
+      // doesn't change since it isn't the currently focused tab.
+      SelectTab(kTabStripElementId, 1, InputType::kMouse, 0),
+      CheckTabIsActive(0));
+}
+
+IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest,
+                       ResizeDoubleClickSwapsSplitViews) {
+  using MultiContentsViewSwapObserver =
+      views::test::PollingViewObserver<bool, MultiContentsView>;
+  DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(MultiContentsViewSwapObserver,
+                                      kMultiContentsViewSwapObserver);
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kWebContentsId);
+  RunTestSequence(
+      // Create a split view with and verify web contents are as expected and
+      // the active index is correct.
+      InstrumentTab(kWebContentsId),
+      NavigateWebContents(kWebContentsId, GURL(chrome::kChromeUINewTabURL)),
+      CreateTabsAndEnterSplitView(), Check([&]() {
+        return multi_contents_view()
+                   ->start_contents_view_for_testing()
+                   ->GetWebContents()
+                   ->GetVisibleURL() == GURL(chrome::kChromeUISettingsURL);
+      }),
+      Check([&]() {
+        return multi_contents_view()
+                   ->end_contents_view_for_testing()
+                   ->GetWebContents()
+                   ->GetVisibleURL() == GURL(chrome::kChromeUINewTabURL);
+      }),
+      CheckResult([this]() { return tab_strip_model()->active_index(); }, 0),
+      // Simulate a double click on the resize area to trigger the split tabs to
+      // swap.
+      Do([&]() {
+        auto* resize_area = multi_contents_view()->resize_area_for_testing();
+        gfx::Point center(resize_area->width() / 2, resize_area->height() / 2);
+        ui::MouseEvent press_event(
+            ui::EventType::kMousePressed, center, center, ui::EventTimeForNow(),
+            ui::EF_LEFT_MOUSE_BUTTON, ui::EF_LEFT_MOUSE_BUTTON);
+        ui::MouseEvent release_event(ui::EventType::kMouseReleased, center,
+                                     center, ui::EventTimeForNow(),
+                                     ui::EF_LEFT_MOUSE_BUTTON,
+                                     ui::EF_LEFT_MOUSE_BUTTON);
+        press_event.SetClickCount(2);
+        release_event.SetClickCount(2);
+        resize_area->OnMousePressed(press_event);
+        resize_area->OnMouseReleased(release_event);
+      }),
+      // Verify the web contents in the split have swapped and the active index
+      // is correct.
+      PollView(kMultiContentsViewSwapObserver,
+               MultiContentsView::kMultiContentsViewElementId,
+               [&](const MultiContentsView* multi_contents_view) -> bool {
+                 bool first_web_contents_set =
+                     multi_contents_view->start_contents_view_for_testing()
+                         ->GetWebContents()
+                         ->GetVisibleURL() == GURL(chrome::kChromeUINewTabURL);
+                 bool second_web_contents_set =
+                     multi_contents_view->end_contents_view_for_testing()
+                         ->GetWebContents()
+                         ->GetVisibleURL() ==
+                     GURL(chrome::kChromeUISettingsURL);
+                 return first_web_contents_set && second_web_contents_set;
+               }),
+      WaitForState(kMultiContentsViewSwapObserver, true),
+      CheckResult([this]() { return tab_strip_model()->active_index(); }, 1));
 }

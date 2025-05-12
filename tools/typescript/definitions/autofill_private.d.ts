@@ -215,6 +215,7 @@ declare global {
         typeNameAsString: string;
         addEntityTypeString: string;
         editEntityTypeString: string;
+        deleteEntityTypeString: string;
       }
 
       export interface DateValue {
@@ -246,6 +247,7 @@ declare global {
         instrumentId?: string;
         displayName?: string;
         imageSrc?: string;
+        imageSrcDark?: string;
       }
 
       export function getAccountInfo(): Promise<AccountInfo|undefined>;

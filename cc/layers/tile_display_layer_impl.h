@@ -31,25 +31,16 @@ namespace cc {
 // layer down to Viz, and this layer uses that information to draw tile quads.
 class CC_EXPORT TileDisplayLayerImpl : public LayerImpl {
  public:
-  class CC_EXPORT Client {
-   public:
-    virtual ~Client() = default;
-    virtual void DidAppendQuadsWithResources(
-        const std::vector<viz::TransferableResource>& resource) = 0;
-  };
-
   struct NoContents {};
 
   struct CC_EXPORT TileResource {
     TileResource(const viz::TransferableResource& resource,
-                 bool is_premultiplied,
                  bool is_checkered);
     TileResource(const TileResource&);
     TileResource& operator=(const TileResource&);
     ~TileResource();
 
     viz::TransferableResource resource;
-    bool is_premultiplied;
     bool is_checkered;
   };
 
@@ -57,11 +48,9 @@ class CC_EXPORT TileDisplayLayerImpl : public LayerImpl {
 
   class CC_EXPORT Tile {
    public:
-    Tile();
-    explicit Tile(const TileContents& contents);
-    Tile(Tile&&);
-    Tile& operator=(Tile&&);
+    explicit Tile(TileDisplayLayerImpl& layer, const TileContents& contents);
     ~Tile();
+    Tile(Tile&&);
 
     const TileContents& contents() const { return contents_; }
 
@@ -83,6 +72,7 @@ class CC_EXPORT TileDisplayLayerImpl : public LayerImpl {
     bool IsReadyToDraw() const { return true; }
 
    private:
+    const raw_ref<TileDisplayLayerImpl> layer_;
     TileContents contents_;
   };
 
@@ -115,7 +105,9 @@ class CC_EXPORT TileDisplayLayerImpl : public LayerImpl {
     void SetRasterTransform(const gfx::AxisTransform2d& transform);
     void SetTileSize(const gfx::Size& size);
     void SetTilingRect(const gfx::Rect& rect);
-    void SetTileContents(const TileIndex& key, const TileContents& contents);
+    void SetTileContents(const TileIndex& key,
+                         const TileContents& contents,
+                         bool is_incremental_update);
 
     CoverageIterator Cover(const gfx::Rect& coverage_rect,
                            float coverage_scale) const;
@@ -134,7 +126,7 @@ class CC_EXPORT TileDisplayLayerImpl : public LayerImpl {
     using TilingCoverageIterator<Tiling>::TilingCoverageIterator;
   };
 
-  TileDisplayLayerImpl(Client& client, LayerTreeImpl& tree, int id);
+  TileDisplayLayerImpl(LayerTreeImpl& tree, int id);
   ~TileDisplayLayerImpl() override;
 
   Tiling& GetOrCreateTilingFromScaleKey(float scale_key);
@@ -155,13 +147,22 @@ class CC_EXPORT TileDisplayLayerImpl : public LayerImpl {
   void GetContentsResourceId(viz::ResourceId* resource_id,
                              gfx::Size* resource_size,
                              gfx::SizeF* resource_uv_size) const override;
+  gfx::Rect GetDamageRect() const override;
+  void ResetChangeTracking() override;
+
+  void RecordDamage(const gfx::Rect& damage_rect);
+
+  void ImportResource(viz::TransferableResource resource);
+  void DiscardResource(viz::ResourceId resource);
 
  private:
-  raw_ref<Client> client_;
-  std::vector<std::unique_ptr<Tiling>> tilings_;
-  std::vector<viz::TransferableResource> discarded_resources_;
   std::optional<SkColor4f> solid_color_;
   bool is_backdrop_filter_mask_ = false;
+
+  // Denotes an area that is damaged and needs redraw. This is in the layer's
+  // space.
+  gfx::Rect damage_rect_;
+  std::vector<std::unique_ptr<Tiling>> tilings_;
 };
 
 }  // namespace cc

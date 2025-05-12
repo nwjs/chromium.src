@@ -11,7 +11,7 @@
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/password_manager/chrome_password_manager_client.h"
 #include "chrome/browser/password_manager/password_change/change_form_submission_verifier.h"
-#include "chrome/browser/password_manager/password_change/change_password_form_waiter.h"
+#include "chrome/browser/password_manager/password_change/change_password_form_finder.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/passwords/manage_passwords_ui_controller.h"
 #include "components/autofill/core/browser/logging/log_manager.h"
@@ -37,7 +37,7 @@
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "components/tab_collections/public/tab_interface.h"
+#include "components/tabs/public/tab_interface.h"
 #endif
 
 namespace {
@@ -101,14 +101,17 @@ void NotifyPasswordChangeFinishedSuccessfully(
 void DisplayChangePasswordBubbleAutomatically(
     base::WeakPtr<content::WebContents> original_tab,
     base::WeakPtr<content::WebContents> tab_with_password_change) {
-  content::WebContents* contents = IsActive(original_tab) ? original_tab.get()
-                                   : IsActive(tab_with_password_change)
-                                       ? tab_with_password_change.get()
-                                       : nullptr;
-  if (contents) {
-    ManagePasswordsUIController::FromWebContents(contents)
-        ->ShowChangePasswordBubble();
+#if !BUILDFLAG(IS_ANDROID)
+  for (auto web_content : {original_tab, tab_with_password_change}) {
+    if (!web_content) {
+      continue;
+    }
+    if (auto* manage_controller =
+            ManagePasswordsUIController::FromWebContents(web_content.get())) {
+      manage_controller->ShowChangePasswordBubble();
+    }
   }
+#endif
 }
 
 std::unique_ptr<BrowserSavePasswordProgressLogger> GetLoggerIfAvailable(
@@ -196,16 +199,16 @@ void PasswordChangeDelegateImpl::StartPasswordChange() {
   }
   executor_ = new_tab->GetWeakPtr();
 
-  form_waiter_ = std::make_unique<ChangePasswordFormWaiter>(
+  form_finder_ = std::make_unique<ChangePasswordFormFinder>(
       executor_.get(),
-      base::BindOnce(&PasswordChangeDelegateImpl::OnPasswordChangeFormParsed,
+      base::BindOnce(&PasswordChangeDelegateImpl::OnPasswordChangeFormFound,
                      weak_ptr_factory_.GetWeakPtr()));
   Observe(executor_.get());
 }
 
-void PasswordChangeDelegateImpl::OnPasswordChangeFormParsed(
+void PasswordChangeDelegateImpl::OnPasswordChangeFormFound(
     password_manager::PasswordFormManager* form_manager) {
-  form_waiter_.reset();
+  form_finder_.reset();
 
   LogPasswordFormDetectedMetric(/*form_detected=*/form_manager,
                                 base::Time::Now() - flow_start_time_);
@@ -272,6 +275,25 @@ void PasswordChangeDelegateImpl::OnPasswordFormSubmission(
   if (submission_verifier_) {
     submission_verifier_->OnPasswordFormSubmission(web_contents);
   }
+}
+
+void PasswordChangeDelegateImpl::OnOtpFieldDetected(
+    content::WebContents* web_contents) {
+  if (!executor_ || web_contents != executor_.get()) {
+    return;
+  }
+
+  // OTP is relevant only when the change password flow is "ongoing", other
+  // states should be disregarded.
+  if (current_state_ != State::kChangingPassword &&
+      current_state_ != State::kWaitingForChangePasswordForm) {
+    return;
+  }
+
+  form_finder_.reset();
+  submission_verifier_.reset();
+
+  UpdateState(State::kOtpDetected);
 }
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -348,6 +370,7 @@ void PasswordChangeDelegateImpl::UpdateState(
     case State::kOfferingPasswordChange:
     case State::kWaitingForAgreement:
     case State::kPasswordChangeFailed:
+    case State::kOtpDetected:
       DisplayChangePasswordBubbleAutomatically(originator_, executor_);
       break;
   }

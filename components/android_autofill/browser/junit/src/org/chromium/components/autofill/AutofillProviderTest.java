@@ -54,7 +54,9 @@ import java.util.Collections;
 /** The unit tests for AutofillProvider. */
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
-@Features.EnableFeatures({AndroidAutofillFeatures.ANDROID_AUTOFILL_BOTTOM_SHEET_WORKAROUND_NAME})
+@Features.EnableFeatures({
+    AndroidAutofillFeatures.ANDROID_AUTOFILL_VIRTUAL_VIEW_STRUCTURE_ANDROID_IN_CCT_NAME
+})
 public class AutofillProviderTest {
     private static final float EXPECTED_DIP_SCALE = 2;
     private static final int SCROLL_X = 15;

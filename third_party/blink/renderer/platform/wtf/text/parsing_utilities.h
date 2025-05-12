@@ -36,20 +36,11 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_PLATFORM_WTF_TEXT_PARSING_UTILITIES_H_
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_WTF_TEXT_PARSING_UTILITIES_H_
 
+#include <string_view>
+
 #include "base/containers/span.h"
 
 namespace WTF {
-
-template <typename CharType>
-bool SkipExactly(const CharType*& position,
-                 const CharType* end,
-                 CharType delimiter) {
-  if (position < end && *position == delimiter) {
-    ++position;
-    return true;
-  }
-  return false;
-}
 
 template <typename CharType>
 bool SkipExactly(base::span<const CharType> chars,
@@ -99,6 +90,19 @@ bool SkipToken(const CharType*& position,
 }
 
 template <typename CharType>
+bool SkipToken(base::span<const CharType>& chars, std::string_view token) {
+  if (chars.size() < token.size()) {
+    return false;
+  }
+  if (chars.first(token.size()) != base::span(token)) {
+    return false;
+  }
+
+  chars = chars.subspan(token.size());
+  return true;
+}
+
+template <typename CharType>
 void SkipUntil(const CharType*& position,
                const CharType* end,
                CharType delimiter) {
@@ -119,12 +123,6 @@ template <typename CharType, bool predicate(CharType)>
     ++position;
   }
   return position;
-}
-
-template <typename CharType, bool characterPredicate(CharType)>
-void SkipWhile(const CharType*& position, const CharType* end) {
-  while (position < end && characterPredicate(*position))
-    ++position;
 }
 
 template <typename CharType, bool predicate(CharType)>

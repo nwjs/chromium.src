@@ -3,20 +3,20 @@
 // found in the LICENSE file.
 
 import {assert} from 'chrome://resources/js/assert.js';
-import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {PromiseResolver} from 'chrome://resources/js/promise_resolver.js';
 import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import type {Policies} from '../native_layer.js';
 import {BackgroundGraphicsModeRestriction} from '../native_layer.js';
 
-import type {CapabilityWithReset, Cdd, CddCapabilities, ColorOption, DpiOption, DuplexOption, MediaSizeOption, MediaTypeOption} from './cdd.js';
+import type {CapabilityWithReset, Cdd, CddCapabilities, ColorOption, DpiOption, DuplexOption, MediaSizeOption} from './cdd.js';
 import {DuplexType} from './cdd.js';
 import type {Destination, RecentDestination} from './destination.js';
 import {DestinationOrigin, PrinterType} from './destination.js';
 import type {DocumentSettings} from './document_info.js';
 import type {Margins, MarginsSetting} from './margins.js';
 import {CustomMarginsOrientation, MarginsType} from './margins.js';
+import {Observable} from './observable.js';
 import {ScalingType} from './scaling.js';
 import type {Size} from './size.js';
 
@@ -49,8 +49,6 @@ export interface Settings {
   color: Setting;
   customMargins: Setting;
   mediaSize: Setting;
-  borderless: Setting;
-  mediaType: Setting;
   margins: Setting;
   dpi: Setting;
   scaling: Setting;
@@ -74,8 +72,6 @@ export interface SerializedSettings {
   recentDestinations?: RecentDestination[];
   dpi?: DpiOption;
   mediaSize?: MediaSizeOption;
-  borderless?: boolean;
-  mediaType?: MediaTypeOption;
   marginsType?: MarginsType;
   customMargins?: MarginsSetting;
   isColorEnabled?: boolean;
@@ -107,7 +103,6 @@ export interface PolicySettings {
   headerFooter?: PolicyEntry;
   cssBackground?: PolicyEntry;
   mediaSize?: PolicyEntry;
-  sheets?: PolicyEntry;
   color?: PolicyEntry;
   duplex?: PolicyEntry;
   pin?: PolicyEntry;
@@ -138,7 +133,6 @@ export interface MediaSizeValue {
   imageable_area_bottom_microns?: number;
   imageable_area_right_microns?: number;
   imageable_area_top_microns?: number;
-  has_borderless_variant?: boolean;
 }
 
 export interface Ticket {
@@ -161,8 +155,6 @@ export interface Ticket {
   scalingType: ScalingType;
   shouldPrintBackgrounds: boolean;
   shouldPrintSelectionOnly: boolean;
-  borderless?: boolean;
-  mediaType?: string;
   advancedSettings?: object;
   capabilities?: string;
   marginsCustom?: MarginsSetting;
@@ -207,7 +199,6 @@ export function whenReady(): Promise<void> {
  */
 const STICKY_SETTING_NAMES: Array<keyof Settings> = [
   'recentDestinations',
-  'borderless',
   'collate',
   'color',
   'cssBackground',
@@ -219,7 +210,6 @@ const STICKY_SETTING_NAMES: Array<keyof Settings> = [
   'layout',
   'margins',
   'mediaSize',
-  'mediaType',
   'scaling',
   'scalingType',
   'scalingTypePdf',
@@ -301,26 +291,6 @@ function createSettings(): Settings {
       setFromUi: false,
       key: 'mediaSize',
       updatesPreview: true,
-    },
-    borderless: {
-      value: false,
-      unavailableValue: false,
-      valid: true,
-      available: false,
-      setByGlobalPolicy: false,
-      setFromUi: false,
-      key: 'borderless',
-      updatesPreview: true,
-    },
-    mediaType: {
-      value: '',
-      unavailableValue: '',
-      valid: true,
-      available: false,
-      setByGlobalPolicy: false,
-      setFromUi: false,
-      key: 'mediaType',
-      updatesPreview: false,
     },
     margins: {
       value: MarginsType.DEFAULT,
@@ -521,7 +491,6 @@ export class PrintPreviewModelElement extends PolymerElement {
       settings: {
         type: Object,
         notify: true,
-        value: () => createSettings(),
       },
 
       settingsManaged: {
@@ -537,12 +506,6 @@ export class PrintPreviewModelElement extends PolymerElement {
       margins: Object,
 
       pageSize: Object,
-
-      maxSheets: {
-        type: Number,
-        value: 0,
-        notify: true,
-      },
     };
   }
 
@@ -550,7 +513,7 @@ export class PrintPreviewModelElement extends PolymerElement {
     return [
       'updateSettingsFromDestination_(destination.capabilities)',
       'updateSettingsAvailabilityFromDocumentSettings_(' +
-          'documentSettings.isModifiable, documentSettings.isFromArc,' +
+          'documentSettings.isModifiable,' +
           'documentSettings.allPagesHaveCustomSize,' +
           'documentSettings.allPagesHaveCustomOrientation,' +
           'documentSettings.hasSelection)',
@@ -560,18 +523,24 @@ export class PrintPreviewModelElement extends PolymerElement {
     ];
   }
 
-  settings: Settings;
-  settingsManaged: boolean;
-  destination: Destination;
-  documentSettings: DocumentSettings;
-  margins: Margins;
-  pageSize: Size;
-  maxSheets: number;
+  declare settings: Settings;
+  declare settingsManaged: boolean;
+  declare destination: Destination;
+  declare documentSettings: DocumentSettings;
+  declare margins: Margins;
+  declare pageSize: Size;
 
+  observable: Observable<Settings>;
   private initialized_: boolean = false;
   private stickySettings_: SerializedSettings|null = null;
   private policySettings_: PolicySettings|null = null;
   private lastDestinationCapabilities_: Cdd|null = null;
+
+  constructor() {
+    super();
+    this.observable = new Observable<Settings>(createSettings());
+    this.settings = this.observable.getProxy();
+  }
 
   override connectedCallback() {
     super.connectedCallback();
@@ -586,6 +555,8 @@ export class PrintPreviewModelElement extends PolymerElement {
 
     instance = null;
     whenReadyResolver = new PromiseResolver();
+
+    this.observable.removeAllObservers();
   }
 
   private fire_(eventName: string, detail?: any) {
@@ -594,7 +565,7 @@ export class PrintPreviewModelElement extends PolymerElement {
   }
 
   getSetting(settingName: keyof Settings): Setting {
-    const setting = (this.get(settingName, this.settings) as Setting);
+    const setting = this.observable.getTarget()[settingName];
     assert(setting, 'Setting is missing: ' + settingName);
     return setting;
   }
@@ -760,8 +731,7 @@ export class PrintPreviewModelElement extends PolymerElement {
     const knownSizeToSaveAsPdf = isSaveAsPDF &&
         (!this.documentSettings.isModifiable ||
          this.documentSettings.allPagesHaveCustomSize);
-    const scalingAvailable =
-        !knownSizeToSaveAsPdf && !this.documentSettings.isFromArc;
+    const scalingAvailable = !knownSizeToSaveAsPdf;
     this.setSettingPath_('scaling.available', scalingAvailable);
     this.setSettingPath_(
         'scalingType.available',
@@ -776,16 +746,9 @@ export class PrintPreviewModelElement extends PolymerElement {
         'mediaSize.available',
         !!caps && !!caps.media_size && !knownSizeToSaveAsPdf);
     this.setSettingPath_(
-        'borderless.available', this.isBorderlessAvailable_(caps));
-    this.setSettingPath_(
-        'mediaType.available',
-        loadTimeData.getBoolean('isBorderlessPrintingEnabled') && !!caps &&
-            !!caps.media_type && !!caps.media_type.option &&
-            caps.media_type.option.length > 1);
-    this.setSettingPath_(
         'dpi.available',
-        !this.documentSettings.isFromArc && !!caps && !!caps.dpi &&
-            !!caps.dpi.option && caps.dpi.option.length > 1);
+        !!caps && !!caps.dpi && !!caps.dpi.option &&
+            caps.dpi.option.length > 1);
     this.setSettingPath_('layout.available', this.isLayoutAvailable_(caps));
   }
 
@@ -795,27 +758,18 @@ export class PrintPreviewModelElement extends PolymerElement {
     }
 
     this.setSettingPath_(
-        'pagesPerSheet.available', !this.documentSettings.isFromArc);
+        'margins.available', this.documentSettings.isModifiable);
     this.setSettingPath_(
-        'margins.available',
-        !this.documentSettings.isFromArc && this.documentSettings.isModifiable);
+        'customMargins.available', this.documentSettings.isModifiable);
     this.setSettingPath_(
-        'customMargins.available',
-        !this.documentSettings.isFromArc && this.documentSettings.isModifiable);
-    this.setSettingPath_(
-        'cssBackground.available',
-        !this.documentSettings.isFromArc && this.documentSettings.isModifiable);
+        'cssBackground.available', this.documentSettings.isModifiable);
     this.setSettingPath_(
         'selectionOnly.available',
-        !this.documentSettings.isFromArc &&
-            this.documentSettings.isModifiable &&
+        this.documentSettings.isModifiable &&
             this.documentSettings.hasSelection);
     this.setSettingPath_(
-        'headerFooter.available',
-        !this.documentSettings.isFromArc && this.isHeaderFooterAvailable_());
-    this.setSettingPath_(
-        'rasterize.available',
-        !this.documentSettings.isFromArc && this.isRasterizeAvailable_());
+        'headerFooter.available', this.isHeaderFooterAvailable_());
+    this.setSettingPath_('rasterize.available', this.isRasterizeAvailable_());
     this.setSettingPath_(
         'otherOptions.available',
         this.settings.cssBackground.available ||
@@ -901,8 +855,7 @@ export class PrintPreviewModelElement extends PolymerElement {
 
   private isLayoutAvailable_(caps: CddCapabilities|null): boolean {
     if (!caps || !caps.page_orientation || !caps.page_orientation.option ||
-        (!this.documentSettings.isModifiable &&
-         !this.documentSettings.isFromArc) ||
+        !this.documentSettings.isModifiable ||
         this.documentSettings.allPagesHaveCustomOrientation) {
       return false;
     }
@@ -914,16 +867,6 @@ export class PrintPreviewModelElement extends PolymerElement {
       hasLandscapeOption = hasLandscapeOption || option.type === 'LANDSCAPE';
     });
     return hasLandscapeOption && hasAutoOrPortraitOption;
-  }
-
-  /**
-   * @return Whether the borderless setting should be available.
-   */
-  private isBorderlessAvailable_(caps: CddCapabilities|null): boolean {
-    return loadTimeData.getBoolean('isBorderlessPrintingEnabled') && !!caps &&
-        !!caps.media_size?.option?.find(o => {
-          return o.has_borderless_variant;
-        });
   }
 
   private updateSettingsValues_() {
@@ -947,32 +890,6 @@ export class PrintPreviewModelElement extends PolymerElement {
             currentMediaSize.width_microns, currentMediaSize.height_microns);
       }
       this.setSetting('mediaSize', matchingOption || defaultOption, true);
-    }
-
-    if (this.settings.borderless.available) {
-      this.setSetting(
-          'borderless',
-          this.settings.borderless.setFromUi &&
-              this.getSettingValue('borderless'),
-          true);
-    }
-
-    if (this.settings.mediaType.available) {
-      const defaultOption = caps.media_type!.option.find(o => !!o.is_default) ||
-          caps.media_type!.option[0];
-      let matchingOption = null;
-      if (this.settings.mediaType.setFromUi) {
-        matchingOption = this.destination.getMediaType(
-            this.getSettingValue('mediaType').vendor_id);
-      }
-      this.setSetting('mediaType', matchingOption || defaultOption, true);
-    } else if (
-        caps.media_type && caps.media_type.option &&
-        caps.media_type.option.length > 0) {
-      const unavailableValue =
-          caps.media_type.option.find(o => !!o.is_default) ||
-          caps.media_type.option[0];
-      this.setSettingPath_('mediaType.unavailableValue', unavailableValue);
     }
 
     if (this.settings.dpi.available) {
@@ -1393,14 +1310,6 @@ export class PrintPreviewModelElement extends PolymerElement {
       }
     }
 
-    if (this.settings.mediaType.available) {
-      assert(loadTimeData.getBoolean('isBorderlessPrintingEnabled'));
-      const cddDefault = this.getResetValue_(caps['media_type']!);
-      if (cddDefault) {
-        this.set('settings.mediaType.value', cddDefault);
-      }
-    }
-
     if (this.settings.color.available) {
       const cddDefault = this.getResetValue_(caps['color']!) as ColorOption;
       if (cddDefault) {
@@ -1517,10 +1426,6 @@ export class PrintPreviewModelElement extends PolymerElement {
         'scalingType';
     const ticket: PrintTicket = {
       mediaSize: this.getSettingValue('mediaSize') as MediaSizeValue,
-      borderless: loadTimeData.getBoolean('isBorderlessPrintingEnabled') &&
-          this.getSettingValue('mediaSize')?.has_borderless_variant &&
-          this.getSettingValue('borderless'),
-      mediaType: this.getSettingValue('mediaType')?.vendor_id,
       pageCount: this.getSettingValue('pages').length,
       landscape: this.getSettingValue('layout'),
       color: destination.getNativeColorModel(

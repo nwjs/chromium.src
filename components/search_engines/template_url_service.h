@@ -112,6 +112,7 @@ class TemplateURLService final : public WebDataServiceConsumer,
       "Search.SearchPolicyConflict.HasConflictWith.WithFeatured";
   static constexpr char kSearchPolicyHasConflictWithNonFeaturedHistogramName[] =
       "Search.SearchPolicyConflict.HasConflictWith.WithNonFeatured";
+  static constexpr char kKeywordCountHistogramName[] = "Omnibox.KeywordCount";
 
   // Struct used for initializing the data store with fake data.
   // Each initializer is mapped to a TemplateURL.
@@ -137,12 +138,15 @@ class TemplateURLService final : public WebDataServiceConsumer,
   // search engines created by policy and search engines the user manually
   // edited. Keep in sync with `SearchPolicyConflictType` in
   // tools/metrics/histograms/enums.xml.
+
+  // LINT.IfChange(SearchPolicyConflictType)
   enum class SearchPolicyConflictType {
     kNone = 0,
     kWithFeatured = 1,
     kWithNonFeatured = 2,
     kMaxValue = kWithNonFeatured,
   };
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/search/enums.xml:SearchPolicyConflictType)
 
   TemplateURLService(
       PrefService& prefs,
@@ -866,8 +870,10 @@ class TemplateURLService final : public WebDataServiceConsumer,
 
   // Emits the UMA Histogram for the number of search engines that are active
   // and inactive at load time.
-  void EmitTemplateURLActiveOnStartupHistogram(
-      OwnedTemplateURLVector* template_urls);
+  void LogActiveTemplateUrlsOnStartup(OwnedTemplateURLVector* template_urls);
+
+  // Log the number of each type of template url that exists at load time.
+  void LogTemplateUrlTypesOnStartup(OwnedTemplateURLVector* template_urls);
 
   // Returns an instance of |EnterpriseSearchManager|.
   std::unique_ptr<EnterpriseSearchManager> GetEnterpriseSearchManager(

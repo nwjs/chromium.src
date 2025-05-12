@@ -392,6 +392,8 @@ void ItemStatePrefsChangedObserver::OnWillDispatchEvent(const Event& event) {
 
 }  // namespace
 
+// TODO(crbug.com/408458901): Port these tests to desktop Android when we have
+// a testing base class for extensions that doesn't use ExtensionService.
 class DeveloperPrivateApiUnitTest : public ExtensionServiceTestWithInstall {
  public:
   DeveloperPrivateApiUnitTest(const DeveloperPrivateApiUnitTest&) = delete;
@@ -491,8 +493,9 @@ const Extension* DeveloperPrivateApiUnitTest::LoadUnpackedExtension() {
       R"({
            "name": "foo",
            "version": "1.0",
-           "manifest_version": 2,
-           "permissions": ["*://*/*"]
+           "manifest_version": 3,
+           "permissions": ["userScripts"],
+           "host_permissions": ["*://*/*"]
          })";
 
   test_extension_dirs_.emplace_back();
@@ -733,7 +736,7 @@ TEST_F(DeveloperPrivateApiUnitTest,
       extension_system->user_script_manager();
   ASSERT_TRUE(user_script_manager);
   auto user_scripts_enabled = [&]() {
-    return user_script_manager->IsUserScriptPrefEnabled(id);
+    return user_script_manager->IsUserScriptPrefEnabledForTesting(id);
   };
   TestExtensionPrefSetting(base::BindLambdaForTesting(user_scripts_enabled),
                            "userScriptsAccess", id,
@@ -3272,24 +3275,9 @@ TEST_F(DeveloperPrivateApiAllowlistUnitTest,
 }
 
 class DeveloperPrivateApiSupervisedUserUnitTest
-    : public DeveloperPrivateApiUnitTest,
-      public testing::WithParamInterface<bool> {
+    : public DeveloperPrivateApiUnitTest {
  public:
-  DeveloperPrivateApiSupervisedUserUnitTest() {
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
-    if (extensions_permissions_for_supervised_users_on_desktop()) {
-      feature_list_.InitAndEnableFeature(
-          supervised_user::
-              kEnableExtensionsPermissionsForSupervisedUsersOnDesktop);
-
-    } else {
-      feature_list_.InitAndDisableFeature(
-          supervised_user::
-              kEnableExtensionsPermissionsForSupervisedUsersOnDesktop);
-    }
-#endif
-  }
-
+  DeveloperPrivateApiSupervisedUserUnitTest() = default;
   DeveloperPrivateApiSupervisedUserUnitTest(
       const DeveloperPrivateApiSupervisedUserUnitTest&) = delete;
   DeveloperPrivateApiSupervisedUserUnitTest& operator=(
@@ -3298,23 +3286,15 @@ class DeveloperPrivateApiSupervisedUserUnitTest
   ~DeveloperPrivateApiSupervisedUserUnitTest() override = default;
 
   bool ProfileIsSupervised() const override { return true; }
-
-  bool extensions_permissions_for_supervised_users_on_desktop() const {
-    return GetParam();
-  }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
 };
 
 // Tests trying to call loadUnpacked when the profile shouldn't be allowed to.
-TEST_P(DeveloperPrivateApiSupervisedUserUnitTest,
+TEST_F(DeveloperPrivateApiSupervisedUserUnitTest,
        LoadUnpackedFailsForSupervisedUsers) {
   std::unique_ptr<content::WebContents> web_contents(
       content::WebContentsTester::CreateTestWebContents(profile(), nullptr));
   base::FilePath path = data_dir().AppendASCII("simple_with_popup");
 
-  if (extensions_permissions_for_supervised_users_on_desktop()) {
     EXPECT_TRUE(supervised_user::AreExtensionsPermissionsEnabled(profile()));
     auto function =
         base::MakeRefCounted<api::DeveloperPrivateLoadUnpackedFunction>();
@@ -3322,25 +3302,7 @@ TEST_P(DeveloperPrivateApiSupervisedUserUnitTest,
     std::string error = api_test_utils::RunFunctionAndReturnError(
         function.get(), "[]", profile());
     EXPECT_THAT(error, testing::HasSubstr("Child account"));
-  } else {
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS)
-    EXPECT_TRUE(supervised_user::AreExtensionsPermissionsEnabled(profile()));
-    auto function =
-        base::MakeRefCounted<api::DeveloperPrivateLoadUnpackedFunction>();
-    function->SetRenderFrameHost(web_contents->GetPrimaryMainFrame());
-    std::string error = api_test_utils::RunFunctionAndReturnError(
-        function.get(), "[]", profile());
-    EXPECT_THAT(error, testing::HasSubstr("Child account"));
-#else
-    EXPECT_FALSE(supervised_user::AreExtensionsPermissionsEnabled(profile()));
-#endif
-  }
 }
-
-INSTANTIATE_TEST_SUITE_P(
-    ExtensionsPermissionsForSupervisedUsersOnDesktopFeature,
-    DeveloperPrivateApiSupervisedUserUnitTest,
-    testing::Bool());
 
 // Test suite for cases where the user is in the  MV2 deprecation "warning"
 // experiment phase.

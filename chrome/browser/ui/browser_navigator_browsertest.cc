@@ -718,7 +718,7 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest, Disposition_NewPopupTabModal) {
   params.disposition = WindowOpenDisposition::NEW_POPUP;
   params.is_tab_modal_popup = true;
   params.window_features.bounds = gfx::Rect(0, 0, 200, 200);
-  // Wait for new popup to to load and gain focus.
+  // Wait for new popup to load and gain focus.
   ui_test_utils::NavigateToURL(&params);
 
   // Add a new tab.
@@ -735,6 +735,9 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest, Disposition_NewPopupTabModal) {
 
   // Verify the popup window is visible again.
   EXPECT_TRUE(params.browser->window()->IsVisible());
+
+  // Verify the popup window is set as tab model popup.
+  EXPECT_TRUE(params.browser->window()->IsTabModalPopup());
 }
 
 // This test verifies that navigating with WindowOpenDisposition = NEW_WINDOW
@@ -1966,75 +1969,6 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
   LocationBar* location_bar = browser()->window()->GetLocationBar();
   OmniboxView* omnibox_view = location_bar->GetOmniboxView();
   EXPECT_EQ(base::UTF8ToUTF16(expected_url), omnibox_view->GetText());
-}
-
-// Test that main frame navigations generate a NavigationUIData with the
-// correct disposition.
-IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest, MainFrameNavigationUIData) {
-  ASSERT_TRUE(embedded_test_server()->Start());
-
-  {
-    const GURL url = embedded_test_server()->GetURL("/title1.html");
-    TestNavigationUIDataObserver observer(url);
-
-    NavigateParams params(MakeNavigateParams());
-    params.url = url;
-    params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
-    ui_test_utils::NavigateToURL(&params);
-    observer.WaitForNavigationFinished();
-
-    EXPECT_EQ(WindowOpenDisposition::NEW_FOREGROUND_TAB,
-              observer.last_navigation_ui_data()->window_open_disposition());
-  }
-
-  {
-    const GURL url = embedded_test_server()->GetURL("/title2.html");
-    TestNavigationUIDataObserver observer(url);
-
-    NavigateParams params(MakeNavigateParams());
-    params.url = url;
-    params.disposition = WindowOpenDisposition::NEW_BACKGROUND_TAB;
-    ui_test_utils::NavigateToURL(&params);
-    observer.WaitForNavigationFinished();
-
-    EXPECT_EQ(WindowOpenDisposition::NEW_BACKGROUND_TAB,
-              observer.last_navigation_ui_data()->window_open_disposition());
-  }
-}
-
-// TODO(crbug.com/40806044): Reactivate the test.
-// Test that subframe navigations generate a NavigationUIData with no
-// disposition.
-IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest, SubFrameNavigationUIData) {
-  ASSERT_TRUE(embedded_test_server()->Start());
-
-  WebContents* tab = browser()->tab_strip_model()->GetActiveWebContents();
-
-  // Load page with iframe.
-  const GURL url1 = embedded_test_server()->GetURL("/iframe.html");
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url1));
-
-  // Retrieve the iframe.
-  content::RenderFrameHost* main_frame = tab->GetPrimaryMainFrame();
-  content::RenderFrameHost* iframe = ChildFrameAt(main_frame, 0);
-  ASSERT_TRUE(iframe);
-
-  // Navigate the iframe with a disposition.
-  NavigateParams params(browser(),
-                        embedded_test_server()->GetURL("/simple.html"),
-                        ui::PAGE_TRANSITION_LINK);
-  params.frame_tree_node_id = iframe->GetFrameTreeNodeId();
-  params.disposition = WindowOpenDisposition::NEW_BACKGROUND_TAB;
-
-  TestNavigationUIDataObserver observer(
-      embedded_test_server()->GetURL("/simple.html"));
-  ui_test_utils::NavigateToURL(&params);
-  observer.WaitForNavigationFinished();
-
-  // The disposition passed to NavigateToURL should be ignored for sub frame
-  // navigations.
-  EXPECT_EQ(WindowOpenDisposition::CURRENT_TAB,
-            observer.last_navigation_ui_data()->window_open_disposition());
 }
 
 IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,

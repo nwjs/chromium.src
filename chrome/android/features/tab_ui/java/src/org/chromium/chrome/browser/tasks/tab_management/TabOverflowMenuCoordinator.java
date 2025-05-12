@@ -9,6 +9,7 @@ import android.content.ComponentCallbacks;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.database.DataSetObserver;
+import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -274,10 +275,19 @@ public abstract class TabOverflowMenuCoordinator<T> {
 
     /** Returns menu background drawable. */
     public static Drawable getMenuBackground(Context context, boolean isIncognito) {
+        // LINT.IfChange
         final @DrawableRes int bgDrawableId =
                 isIncognito ? R.drawable.menu_bg_tinted_on_dark_bg : R.drawable.menu_bg_tinted;
 
         return AppCompatResources.getDrawable(context, bgDrawableId);
+        // Lint.ThenChange cannot handle multiline comments.
+        // LINT.ThenChange(//components/browser_ui/widget/android/java/res/values/dimens.xml|//components/browser_ui/widget/android/java/res/values-night/dimens.xml)
+    }
+
+    private static void offsetPopupRect(Context context, boolean isIncognito, Rect rect) {
+        if (isIncognito) return;
+        rect.offset(
+                0, -context.getResources().getDimensionPixelSize(R.dimen.popup_menu_shadow_length));
     }
 
     // TODO(crbug.com/357878838): Pass the activity through constructor and setup test to test this
@@ -297,15 +307,11 @@ public abstract class TabOverflowMenuCoordinator<T> {
     }
 
     /**
-     * Creates a menu view and renders it within an {@link AnchoredPopupWindow}
+     * See {@link #createAndShowMenu(RectProvider, Object, boolean, boolean, int, int, Activity,
+     * boolean)}.
      *
-     * @param anchorViewRectProvider Rect provider for view to anchor the menu.
-     * @param id ID of the object the menu needs to be shown for.
-     * @param horizontalOverlapAnchor If true, horizontally overlaps menu with the anchor view.
-     * @param verticalOverlapAnchor If true, vertically overlaps menu with the anchor view.
-     * @param animStyle Animation style to apply for menu show/hide.
-     * @param horizontalOrientation {@link HorizontalOrientation} to use for the menu position.
-     * @param activity Activity to get resources and decorView for menu.
+     * <p>This overload acquires the incognito status from the tab model supplier provided to this
+     * class.
      */
     protected void createAndShowMenu(
             RectProvider anchorViewRectProvider,
@@ -315,8 +321,39 @@ public abstract class TabOverflowMenuCoordinator<T> {
             @StyleRes int animStyle,
             @HorizontalOrientation int horizontalOrientation,
             @NonNull Activity activity) {
+        createAndShowMenu(
+                anchorViewRectProvider,
+                id,
+                horizontalOverlapAnchor,
+                verticalOverlapAnchor,
+                animStyle,
+                horizontalOrientation,
+                activity,
+                /* isIncognito= */ mTabModelSupplier.get().isIncognitoBranded());
+    }
+
+    /**
+     * Creates a menu view and renders it within an {@link AnchoredPopupWindow}
+     *
+     * @param anchorViewRectProvider Rect provider for view to anchor the menu.
+     * @param id ID of the object the menu needs to be shown for.
+     * @param horizontalOverlapAnchor If true, horizontally overlaps menu with the anchor view.
+     * @param verticalOverlapAnchor If true, vertically overlaps menu with the anchor view.
+     * @param animStyle Animation style to apply for menu show/hide.
+     * @param horizontalOrientation {@link HorizontalOrientation} to use for the menu position.
+     * @param activity Activity to get resources and decorView for menu.
+     * @param isIncognito Whether to theme the overflow menu with incognito colors.
+     */
+    protected void createAndShowMenu(
+            RectProvider anchorViewRectProvider,
+            T id,
+            boolean horizontalOverlapAnchor,
+            boolean verticalOverlapAnchor,
+            @StyleRes int animStyle,
+            @HorizontalOrientation int horizontalOrientation,
+            @NonNull Activity activity,
+            boolean isIncognito) {
         assert mMenuHolder == null;
-        boolean isIncognito = mTabModelSupplier.get().isIncognitoBranded();
         @Nullable String collaborationId = getCollaborationIdOrNull(id);
         Drawable menuBackground = getMenuBackground(activity, isIncognito);
         // Initialize the model before creating the adapter so that
@@ -327,6 +364,8 @@ public abstract class TabOverflowMenuCoordinator<T> {
         // dividers.
         ModelList modelList = new ModelList();
         configureMenuItems(modelList, id);
+        // Apply offset from the background.
+        offsetPopupRect(mContext, isIncognito, anchorViewRectProvider.getRect());
         mMenuHolder =
                 new OverflowMenuHolder<>(
                         anchorViewRectProvider,
@@ -403,5 +442,12 @@ public abstract class TabOverflowMenuCoordinator<T> {
             buildCollaborationMenuItems(
                     modelList, mCollaborationService.getCurrentUserRoleForGroup(collaborationId));
         }
+    }
+
+    public void destroyMenuForTesting() {
+        // This is needed because mMenuHolder#destroy is usually called as an onDismissListener.
+        // However, in Robolectric tests, the onDismissListener may not be called, so the menu won't
+        // be destroyed, and the test will report a lifecycle error.
+        if (mMenuHolder != null) mMenuHolder.destroy();
     }
 }

@@ -24,8 +24,14 @@ class BabelOrcaSpeechRecognizerImpl : public BabelOrcaSpeechRecognizer,
                                       public ash::SystemLiveCaptionService {
  public:
   explicit BabelOrcaSpeechRecognizerImpl(Profile* profile,
-                                         PrefService* global_prefs,
-                                         const std::string& application_locale);
+                                         SodaInstaller* soda_installer,
+                                         const std::string& application_locale,
+                                         const std::string& caption_language);
+
+  BabelOrcaSpeechRecognizerImpl(const BabelOrcaSpeechRecognizerImpl&) = delete;
+  BabelOrcaSpeechRecognizerImpl& operator=(
+      const BabelOrcaSpeechRecognizerImpl&) = delete;
+
   ~BabelOrcaSpeechRecognizerImpl() override;
 
   // SystemLiveCaptionService
@@ -46,11 +52,23 @@ class BabelOrcaSpeechRecognizerImpl : public BabelOrcaSpeechRecognizer,
           language_identification_callback) override;
   void RemoveSpeechRecognitionObservation() override;
 
+ protected:
+  media::mojom::RecognizerClientType GetRecognizerClientType() override;
+
  private:
-  SodaInstaller soda_installer_;
+  // SystemLiveCaptionService:
+  std::string GetPrimaryLanguageCode() const override;
+
+  void OnSpeechRecognitionAvailabilityChanged(
+      SodaInstaller::InstallationStatus status);
+
+  bool started_ = false;
+  // installer is owned by manager, which owns this class.
+  raw_ptr<SodaInstaller> soda_installer_;
   SpeechRecognitionEventHandler speech_recognition_event_handler_;
   raw_ptr<Profile> primary_profile_;
-  base::WeakPtrFactory<SystemLiveCaptionService> service_ptr_factory_{this};
+  std::string caption_language_;
+  base::WeakPtrFactory<BabelOrcaSpeechRecognizerImpl> weak_ptr_factory_{this};
 };
 
 }  // namespace ash::babelorca

@@ -23,11 +23,11 @@
 #import "components/prefs/pref_service.h"
 #import "components/saved_tab_groups/public/tab_group_sync_service.h"
 #import "components/tab_groups/tab_group_visual_data.h"
+#import "ios/chrome/browser/bubble/model/tab_based_iph_browser_agent.h"
 #import "ios/chrome/browser/collaboration/model/collaboration_service_factory.h"
 #import "ios/chrome/browser/commerce/model/shopping_persisted_data_tab_helper.h"
 #import "ios/chrome/browser/default_browser/model/utils.h"
 #import "ios/chrome/browser/drag_and_drop/model/drag_item_util.h"
-#import "ios/chrome/browser/iph_for_new_chrome_user/model/tab_based_iph_browser_agent.h"
 #import "ios/chrome/browser/menu/ui_bundled/action_factory.h"
 #import "ios/chrome/browser/reading_list/model/reading_list_browser_agent.h"
 #import "ios/chrome/browser/saved_tab_groups/model/ios_tab_group_action_context.h"
@@ -1172,18 +1172,19 @@ void LogPriceDropMetrics(web::WebState* web_state) {
                  sourceView:(UIView*)sourceView {
   DCHECK(IsTabGroupSyncEnabled());
   [self.tabGroupsHandler
-      showTabGroupConfirmationForAction:TabGroupActionType::kLeaveSharedTabGroup
-                                  group:group
-                             sourceView:sourceView];
+      startLeaveOrDeleteSharedGroup:group
+                          forAction:TabGroupActionType::kLeaveSharedTabGroup
+                         sourceView:sourceView];
 }
 
 - (void)deleteSharedTabGroup:(base::WeakPtr<const TabGroup>)group
                   sourceView:(UIView*)sourceView {
   DCHECK(IsTabGroupSyncEnabled());
-  [self.tabGroupsHandler showTabGroupConfirmationForAction:
-                             TabGroupActionType::kDeleteSharedTabGroup
-                                                     group:group
-                                                sourceView:sourceView];
+
+  [self.tabGroupsHandler
+      startLeaveOrDeleteSharedGroup:group
+                          forAction:TabGroupActionType::kDeleteSharedTabGroup
+                         sourceView:sourceView];
 }
 
 - (void)closeTabGroup:(base::WeakPtr<const TabGroup>)group {
@@ -1988,7 +1989,7 @@ void LogPriceDropMetrics(web::WebState* web_state) {
   }
 }
 
-- (UIViewController*)facePileViewControllerForItem:(GridItemIdentifier*)itemID {
+- (UIView*)facePileViewForItem:(GridItemIdentifier*)itemID {
   // Only implemented by the "RegularGridMediator".
   return nil;
 }

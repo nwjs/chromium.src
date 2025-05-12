@@ -7,6 +7,7 @@
 #include <algorithm>
 
 #include "base/auto_reset.h"
+#include "base/check_is_test.h"
 #include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/i18n/case_conversion.h"
@@ -234,7 +235,7 @@ ExtensionsMenuView::CreateExtensionButtonsContainer() {
     header->SetHorizontalAlignment(gfx::ALIGN_LEFT);
     header->SetBorder(views::CreateEmptyBorder(
         gfx::Insets::TLBR(ChromeLayoutProvider::Get()->GetDistanceMetric(
-                              DISTANCE_CONTROL_LIST_VERTICAL),
+                              views::DISTANCE_CONTROL_LIST_VERTICAL),
                           0, 0, 0)));
     container->AddChildView(std::move(header));
 
@@ -494,8 +495,20 @@ void ExtensionsMenuView::OnToolbarPinnedActionsChanged() {
   }
 }
 
+base::flat_set<raw_ptr<ExtensionMenuItemView, CtnExperimental>>
+ExtensionsMenuView::extensions_menu_items_for_testing() {
+  CHECK_IS_TEST();
+  return extensions_menu_items_;
+}
+
+views::Button* ExtensionsMenuView::manage_extensions_button_for_testing() {
+  CHECK_IS_TEST();
+  return manage_extensions_button_;
+}
+
 // static
 base::AutoReset<bool> ExtensionsMenuView::AllowInstancesForTesting() {
+  CHECK_IS_TEST();
   return base::AutoReset<bool>(&g_allow_testing_dialogs, true);
 }
 

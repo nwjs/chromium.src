@@ -33,6 +33,7 @@ import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
@@ -66,10 +67,7 @@ import java.util.Collections;
 /** Unit tests for {@link StaticLayout}. */
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
-@EnableFeatures({
-    ChromeFeatureList.AVOID_SELECTED_TAB_FOCUS_ON_LAYOUT_DONE_SHOWING,
-    ChromeFeatureList.REMOVE_TAB_FOCUS_ON_SHOWING_AND_SELECT
-})
+@EnableFeatures({ChromeFeatureList.REMOVE_TAB_FOCUS_ON_SHOWING_AND_SELECT})
 public class StaticLayoutUnitTest {
 
     private static final int TAB1_ID = 0;
@@ -99,7 +97,7 @@ public class StaticLayoutUnitTest {
     @Mock private TabContentManager mTabContentManager;
 
     @Mock private TabModelSelector mTabModelSelector;
-    @Mock private TabModel mTabModel;
+    @Spy private TabModel mTabModel;
     @Captor private ArgumentCaptor<TabModelObserver> mTabModelObserverCaptor;
 
     @Mock private BrowserControlsStateProvider mBrowserControlsStateProvider;

@@ -5,6 +5,7 @@
 #include "chrome/browser/glic/widget/glic_window_animator.h"
 
 #include "chrome/browser/glic/widget/glic_view.h"
+#include "chrome/browser/glic/widget/glic_widget.h"
 #include "chrome/browser/glic/widget/glic_window_controller.h"
 #include "chrome/browser/glic/widget/glic_window_resize_animation.h"
 #include "ui/compositor/layer.h"
@@ -19,7 +20,6 @@ namespace {
 
 constexpr static int kResizeAnimationDurationMs = 300;
 constexpr static int kAttachedWidgetOpacityDurationMs = 150;
-constexpr static int kDetachedWidgetOpacityDurationMs = 100;
 
 }  // namespace
 
@@ -127,20 +127,6 @@ void GlicWindowAnimator::RunOpenAttachedAnimation(GlicButton* glic_button,
                 std::move(callback));
 }
 
-void GlicWindowAnimator::RunOpenDetachedAnimation(base::OnceClosure callback,
-                                                  int animate_down_distance) {
-  gfx::Rect target_bounds =
-      window_controller_->GetGlicWidget()->GetWindowBoundsInScreen();
-  // Only set the detached Y position if there isn't a browser.
-  target_bounds.set_y(target_bounds.y() + animate_down_distance);
-
-  // Fade in widget while animating down.
-  AnimateWindowOpacity(0.0f, 1.0f,
-                       base::Milliseconds(kDetachedWidgetOpacityDurationMs));
-  AnimateBounds(target_bounds, base::Milliseconds(kResizeAnimationDurationMs),
-                std::move(callback));
-}
-
 void GlicWindowAnimator::RunCloseAnimation(GlicButton* glic_button,
                                            base::OnceClosure callback) {
   // The widget is going away so it's fine to replace any existing animation.
@@ -191,24 +177,27 @@ void GlicWindowAnimator::AnimateBounds(const gfx::Rect& target_bounds,
     duration = base::Seconds(60);
   }
 
+  auto* glic_widget = window_controller_->GetGlicWidget();
+  gfx::Rect widget_target_bounds =
+      glic_widget->VisibleToWidgetBounds(target_bounds);
+
   if (window_resize_animation_) {
     // Update the ongoing animation with the new bounds and new duration.
-    window_resize_animation_->UpdateTargetBounds(target_bounds,
+    window_resize_animation_->UpdateTargetBounds(widget_target_bounds,
                                                  std::move(callback));
     window_resize_animation_->SetDuration(
         std::max(window_resize_animation_->duration_left(), duration));
   } else {
     window_resize_animation_ = std::make_unique<GlicWindowResizeAnimation>(
-        window_controller_, this, target_bounds, duration, std::move(callback));
+        window_controller_, this, widget_target_bounds, duration,
+        std::move(callback));
   }
 }
 
 void GlicWindowAnimator::AnimateSize(const gfx::Size& target_size,
                                      base::TimeDelta duration,
                                      base::OnceClosure callback) {
-
   last_target_size_ = target_size;
-  // Maintain the top-right corner whether there's an ongoing animation or not.
   gfx::Rect target_bounds = GetCurrentTargetBounds();
   target_bounds.set_size(target_size);
   AnimateBounds(target_bounds, duration, std::move(callback));
@@ -224,11 +213,14 @@ void GlicWindowAnimator::AnimatePosition(const gfx::Point& target_position,
 }
 
 gfx::Rect GlicWindowAnimator::GetCurrentTargetBounds() {
+  auto* glic_widget = window_controller_->GetGlicWidget();
   if (window_resize_animation_) {
     // Get the ongoing animation's target bounds if they exist.
-    return window_resize_animation_->target_bounds();
+    return glic_widget->WidgetToVisibleBounds(
+        window_resize_animation_->target_bounds());
   } else {
-    return window_controller_->GetGlicWidget()->GetWindowBoundsInScreen();
+    return glic_widget->WidgetToVisibleBounds(
+        glic_widget->GetWindowBoundsInScreen());
   }
 }
 

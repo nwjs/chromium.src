@@ -9,9 +9,12 @@
 #include "third_party/blink/public/mojom/ai/ai_manager.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/ai/ai_manager.mojom-shared.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
+#include "third_party/blink/renderer/core/execution_context/execution_context.h"
+#include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/platform/bindings/exception_code.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/bindings/script_state.h"
+#include "third_party/blink/renderer/platform/wtf/casting.h"
 
 namespace blink {
 
@@ -19,6 +22,7 @@ const char kExceptionMessageExecutionContextInvalid[] =
     "The execution context is not valid.";
 const char kExceptionMessageServiceUnavailable[] =
     "Model execution service is not available.";
+const char kExceptionMessageDocumentNotActive[] = "The document is not active.";
 
 const char kExceptionMessagePermissionDenied[] =
     "A user permission error occurred, such as not signed-in or not "
@@ -47,7 +51,8 @@ const char kExceptionMessageInvalidTopK[] =
 const char kExceptionMessageInvalidTemperature[] =
     "The temperature value provided is invalid.";
 const char kExceptionMessageUnableToCreateSession[] =
-    "The session cannot be created.";
+    "The device is unable to create a session to run the model. "
+    "Please check the result of availability() first.";
 const char kExceptionMessageUnableToCloneSession[] =
     "The session cannot be cloned.";
 const char kExceptionMessageUnableToCalculateUsage[] =
@@ -60,10 +65,20 @@ const char kExceptionMessageSystemPromptIsNotTheFirst[] =
     "initialPrompts.";
 const char kExceptionMessageUnsupportedLanguages[] =
     "The specified languages are not supported.";
+const char kExceptionMessageInvalidResponseJsonSchema[] =
+    "Response json schema is invalid - it should be an object that can be "
+    "stringified into a JSON string.";
+const char kExceptionMessageCrossOriginAccess[] =
+    "Access denied from cross-origin iframes.";
 
 void ThrowInvalidContextException(ExceptionState& exception_state) {
   exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
                                     kExceptionMessageExecutionContextInvalid);
+}
+
+void ThrowDocumentNotActiveException(ExceptionState& exception_state) {
+  exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
+                                    kExceptionMessageDocumentNotActive);
 }
 
 void ThrowSessionDestroyedException(ExceptionState& exception_state) {
@@ -103,6 +118,54 @@ bool HandleAbortSignal(AbortSignal* signal,
   }
 
   return false;
+}
+
+bool ValidateScriptState(ScriptState* script_state,
+                         ExceptionState& exception_state,
+                         bool permit_workers) {
+  if (!script_state->ContextIsValid()) {
+    ThrowInvalidContextException(exception_state);
+    return false;
+  }
+
+  ExecutionContext* context = ExecutionContext::From(script_state);
+
+  if (context->IsServiceWorkerGlobalScope()) {
+    return permit_workers;
+  }
+
+  LocalDOMWindow* window = DynamicTo<LocalDOMWindow>(context);
+
+  // Realm’s global object must be a Window object.
+  CHECK(window);
+
+  // If document is not fully active, then return a promise rejected with an
+  // "InvalidStateError" DOMException.
+  Document* document = window->document();
+  CHECK(document);
+  if (!document->IsActive()) {
+    ThrowDocumentNotActiveException(exception_state);
+    return false;
+  }
+
+  return true;
+}
+
+String ValidateAndStringifyObject(const ScriptValue& input,
+                                  ScriptState* script_state,
+                                  ExceptionState& exception_state) {
+  v8::Local<v8::String> value;
+  if (!input.V8Value()->IsObject() ||
+      !v8::JSON::Stringify(script_state->GetContext(),
+                           input.V8Value().As<v8::Object>())
+           .ToLocal(&value)) {
+    exception_state.ThrowDOMException(
+        DOMExceptionCode::kNotSupportedError,
+        kExceptionMessageInvalidResponseJsonSchema);
+    return WTF::String();
+  }
+  return ToBlinkString<String>(script_state->GetIsolate(), value,
+                               kDoNotExternalize);
 }
 
 namespace {
@@ -217,6 +280,9 @@ WTF::String ConvertModelAvailabilityCheckResultToDebugString(
         kUnavailableFeatureExecutionNotEnabled:
       return "Model execution for this feature was not enabled.";
     case mojom::blink::ModelAvailabilityCheckResult::
+        kUnavailableModelAdaptationNotAvailable:
+      return "Model capability is not available.";
+    case mojom::blink::ModelAvailabilityCheckResult::
         kUnavailableValidationPending:
       return "Model validation is still pending.";
     case mojom::blink::ModelAvailabilityCheckResult::
@@ -232,11 +298,13 @@ WTF::String ConvertModelAvailabilityCheckResultToDebugString(
     case mojom::blink::ModelAvailabilityCheckResult::
         kUnavailableTranslationNotEligible:
       return "The on-device translation is not available.";
+    case mojom::blink::ModelAvailabilityCheckResult::
+        kUnavailableEnterprisePolicyDisabled:
+      return "The on-device model is not available because the enterprise "
+             "policy disables the feature.";
     case mojom::blink::ModelAvailabilityCheckResult::kAvailable:
     case mojom::blink::ModelAvailabilityCheckResult::kDownloadable:
     case mojom::blink::ModelAvailabilityCheckResult::kDownloading:
-    case mojom::blink::ModelAvailabilityCheckResult::
-        kUnavailableModelAdaptationNotAvailable:
       NOTREACHED();
   }
   NOTREACHED();

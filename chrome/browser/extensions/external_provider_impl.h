@@ -12,11 +12,14 @@
 #include <vector>
 
 #include "base/memory/raw_ptr.h"
-#include "base/memory/ref_counted.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/values.h"
 #include "chrome/browser/extensions/external_loader.h"
 #include "extensions/browser/external_provider_interface.h"
+#include "extensions/buildflags/buildflags.h"
 #include "extensions/common/manifest.h"
+
+static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
 
 class Profile;
 
@@ -57,14 +60,6 @@ class ExternalProviderImpl : public ExternalProviderInterface {
       Profile* profile,
       ProviderCollection* provider_list);
 
-  // Sets underlying prefs and notifies provider. Only to be called by the
-  // owned ExternalLoader instance.
-  virtual void SetPrefs(base::Value::Dict prefs);
-
-  // Updates the underlying prefs and notifies provider.
-  // Only to be called by the owned ExternalLoader instance.
-  void UpdatePrefs(base::Value::Dict prefs);
-
   // ExternalProvider implementation:
   void ServiceShutdown() override;
   void VisitRegisteredExtension() override;
@@ -79,6 +74,8 @@ class ExternalProviderImpl : public ExternalProviderInterface {
 
   bool IsReady() const override;
   void TriggerOnExternalExtensionFound() override;
+  void SetPrefs(base::Value::Dict prefs) override;
+  void UpdatePrefs(base::Value::Dict prefs) override;
 
   static const char kExternalCrx[];
   static const char kExternalVersion[];

@@ -133,8 +133,8 @@ void GcmRegisterFunction::CompleteFunctionWithResult(
   Respond(succeeded
               ? ArgumentList(std::move(result))
               // TODO(lazyboy): We shouldn't be using |result| in case of error.
-              : ErrorWithArguments(std::move(result),
-                                   GcmResultToError(gcm_result)));
+              : ErrorWithArgumentsDoNotUse(std::move(result),
+                                           GcmResultToError(gcm_result)));
 }
 
 GcmUnregisterFunction::GcmUnregisterFunction() = default;
@@ -191,8 +191,8 @@ void GcmSendFunction::CompleteFunctionWithResult(
   Respond(succeeded
               ? ArgumentList(std::move(result))
               // TODO(lazyboy): We shouldn't be using |result| in case of error.
-              : ErrorWithArguments(std::move(result),
-                                   GcmResultToError(gcm_result)));
+              : ErrorWithArgumentsDoNotUse(std::move(result),
+                                           GcmResultToError(gcm_result)));
 }
 
 bool GcmSendFunction::ValidateMessageData(const gcm::MessageData& data) const {

@@ -62,6 +62,7 @@ public class AuxiliarySearchUtilsUnitTest {
     }
 
     @Test
+    @EnableFeatures("AndroidAppIntegrationWithFavicon:use_large_favicon/false")
     public void testGetFaviconSize_small() {
         Resources resources = ContextUtils.getApplicationContext().getResources();
         int faviconSizeSmall =
@@ -259,5 +260,17 @@ public class AuxiliarySearchUtilsUnitTest {
                         /* score= */ 0);
         assertEquals(
                 MetaDataVersion.MULTI_TYPE_V2, AuxiliarySearchUtils.getMetadataVersion(dataEntry));
+    }
+
+    @Test
+    public void testSchemaVersion() {
+        var sharedPreference = ChromeSharedPreferences.getInstance();
+        sharedPreference.removeKey(ChromePreferenceKeys.AUXILIARY_SEARCH_SCHEMA_VERSION);
+
+        assertEquals(0, AuxiliarySearchUtils.getSchemaVersion());
+
+        int version = 10;
+        AuxiliarySearchUtils.setSchemaVersion(version);
+        assertEquals(version, AuxiliarySearchUtils.getSchemaVersion());
     }
 }

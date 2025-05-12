@@ -69,7 +69,7 @@ export class PrintPreviewAppElement extends PrintPreviewAppElementBase {
       controlsManaged_: {
         type: Boolean,
         computed: 'computeControlsManaged_(destinationsManaged_, ' +
-            'settingsManaged_, maxSheets_)',
+            'settingsManaged_)',
       },
 
       destination_: Object,
@@ -111,31 +111,22 @@ export class PrintPreviewAppElement extends PrintPreviewAppElementBase {
         type: Object,
         value: null,
       },
-
-      maxSheets_: Number,
-      /** @private {boolean} */
-      isInNWPrintMode_: {
-        type: Boolean,
-        notify: true,
-        value: false,
-      },
     };
   }
 
-  state: State;
-  private controlsManaged_: boolean;
-  private destination_: Destination;
-  private destinationsManaged_: boolean;
-  private destinationState_: DestinationState;
-  private documentSettings_: DocumentSettings;
-  private error_: Error;
-  private margins_: Margins;
-  private pageSize_: Size;
-  private previewState_: PreviewAreaState;
-  private printableArea_: PrintableArea;
-  private settingsManaged_: boolean;
-  private measurementSystem_: MeasurementSystem|null;
-  private maxSheets_: number;
+  declare state: State;
+  declare private controlsManaged_: boolean;
+  declare private destination_: Destination;
+  declare private destinationsManaged_: boolean;
+  declare private destinationState_: DestinationState;
+  declare private documentSettings_: DocumentSettings;
+  declare private error_: Error;
+  declare private margins_: Margins;
+  declare private pageSize_: Size;
+  declare private previewState_: PreviewAreaState;
+  declare private printableArea_: PrintableArea;
+  declare private settingsManaged_: boolean;
+  declare private measurementSystem_: MeasurementSystem|null;
 
   private nativeLayer_: NativeLayer|null = null;
   private tracker_: EventTracker = new EventTracker();
@@ -293,8 +284,8 @@ export class PrintPreviewAppElement extends PrintPreviewAppElementBase {
     }
     this.whenReady_.then(() => {
       this.$.documentInfo.init(
-          settings.previewModifiable, settings.previewIsFromArc,
-          settings.documentTitle, settings.documentHasSelection);
+          settings.previewModifiable, settings.documentTitle,
+          settings.documentHasSelection);
       this.$.model.setStickySettings(settings.serializedAppStateStr);
       this.$.model.setPolicySettings(settings.policies);
       this.measurementSystem_ = new MeasurementSystem(
@@ -324,9 +315,7 @@ export class PrintPreviewAppElement extends PrintPreviewAppElementBase {
    *     are managed.
    */
   private computeControlsManaged_(): boolean {
-    // If |this.maxSheets_| equals to 0, no sheets limit policy is present.
-    return this.destinationsManaged_ || this.settingsManaged_ ||
-        this.maxSheets_ > 0;
+    return this.destinationsManaged_ || this.settingsManaged_;
   }
 
   private onDestinationStateChange_() {

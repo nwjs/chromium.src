@@ -105,7 +105,6 @@
 <translation id="234869673307233423">Chrome ei saa teie paroole kontrollida. Proovige hiljem uuesti.</translation>
 <translation id="235650106824528204">Kõik Chrome'i andmed, mis luuakse selle profiili kasutamise ajal (nt järjehoidjad, ajalugu, paroolid ja muud seaded), saab tööprofiili administraator eemaldada. <ph name="LEARN_MORE" /></translation>
 <translation id="2359808026110333948">Jätka</translation>
-<translation id="2401189691232800402">ChromeOS-i süsteem</translation>
 <translation id="2403703063067034158">Käivitamisviga: praegu käitatakse seadistuse teist eksemplari, proovige hiljem uuesti.</translation>
 <translation id="2409816192575564775">{NUM_DEVICES,plural, =0{Üks või mitu Chrome'i laiendust kasutasid juurdepääsu ühele HID-seadmele}=1{Üks või mitu Chrome'i laiendust kasutasid juurdepääsu ühele HID-seadmele}other{Üks või mitu Chrome'i laiendust kasutasid juurdepääsu # HID-seadmele}}</translation>
 <translation id="2424440923901031101">Laiendus rikub Chrome'i veebipoe eeskirju ja see võib olla ebaturvaline. Eemaldage see Chrome'ist, et see ei saaks enam näha ja muuta teie andmeid saitidel, mida külastate, sealhulgas teie isiklikku teavet.</translation>
@@ -619,7 +618,6 @@ Mõned funktsioonid ei pruugi saadaval olla. Määrake muu profiilikataloog või
 <translation id="8999208279178790196">{0,plural, =0{Chrome'i värskendus on saadaval}=1{Chrome'i värskendus on saadaval}other{Chrome'i värskendus on # päeva saadaval olnud}}</translation>
 <translation id="9014771989710951291">Chrome'i haldab mitu organisatsiooni</translation>
 <translation id="9024318700713112071">Määrake Chrome vaikebrauseriks</translation>
-<translation id="9053892488859122171">Chrome OS Flexi süsteem</translation>
 <translation id="9090566250983691233">Vaadake, miks Chrome mõned failid blokeerib</translation>
 <translation id="9106236359747881194">Valige otsimiseks tekst</translation>
 <translation id="911206726377975832">Kas kustutada ka teie sirvimisandmed?</translation>

@@ -11,6 +11,7 @@
 #include "base/i18n/case_conversion.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/strings/utf_string_conversions.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/image_fetcher/image_decoder_impl.h"
 #include "chrome/browser/ui/browser_finder.h"
@@ -109,7 +110,7 @@ class ContinueButton : public views::MdTextButton {
     }
 
     const SkColor dialog_background_color =
-        bubble_view_->background_color().ConvertToSkColor(GetColorProvider());
+        bubble_view_->background_color().ResolveToSkColor(GetColorProvider());
     if (color_utils::GetContrastRatio(dialog_background_color,
                                       *brand_background_color_) <
         color_utils::kMinimumVisibleContrastRatio) {

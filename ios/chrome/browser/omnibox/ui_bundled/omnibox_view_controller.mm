@@ -13,12 +13,11 @@
 #import "components/omnibox/browser/omnibox_field_trial.h"
 #import "components/open_from_clipboard/clipboard_recent_content.h"
 #import "components/strings/grit/components_strings.h"
+#import "ios/chrome/browser/omnibox/public/omnibox_constants.h"
 #import "ios/chrome/browser/omnibox/public/omnibox_ui_features.h"
-#import "ios/chrome/browser/omnibox/ui_bundled/omnibox_constants.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/omnibox_container_view.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/omnibox_keyboard_delegate.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/omnibox_mutator.h"
-#import "ios/chrome/browser/omnibox/ui_bundled/omnibox_text_change_delegate.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/omnibox_text_field_delegate.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
@@ -264,19 +263,13 @@ using base::UserMetricsAction;
   self.forwardingOnDidChange = NO;
 }
 
-// Delegate method for UITextField, called when user presses the "go" button.
 - (BOOL)textFieldShouldReturn:(UITextField*)textField {
-  if (!self.returnKeyDelegate) {
-    // This can happen when the view controller is still alive but the model is
-    // already deconstructed on shutdown.
-    return YES;
+  // Forward kReturnKey action to the keyboard handler.
+  if ([self canPerformKeyboardAction:OmniboxKeyboardAction::kReturnKey]) {
+    [self performKeyboardAction:OmniboxKeyboardAction::kReturnKey];
+    return NO;
   }
-  if ([self textFieldIsBlank]) {
-    // Do not proceed when input is blank.
-    return YES;
-  }
-  [self.returnKeyDelegate omniboxReturnPressed:self];
-  return NO;
+  return YES;
 }
 
 // Always update the text field colors when we start editing.  It's possible
@@ -416,6 +409,10 @@ using base::UserMetricsAction;
   [self.pasteDelegate didTapPasteToSearchButton:itemProviders];
 }
 
+- (void)textFieldDidAcceptInput:(OmniboxTextFieldIOS*)textField {
+  [self.mutator acceptInput];
+}
+
 #pragma mark - OmniboxKeyboardDelegate
 
 - (BOOL)canPerformKeyboardAction:(OmniboxKeyboardAction)keyboardAction {
@@ -452,8 +449,15 @@ using base::UserMetricsAction;
   [self.view setThumbnailImage:image];
   // Cancel any pending image removal if a new selection is made.
   self.view.thumbnailButton.selected = NO;
-  self.textField.allowsReturnKeyWithEmptyText = !!image;
   self.textField.placeholder = [self placeholderText];
+  [self updateReturnKeyAvailability];
+}
+
+- (void)updateReturnKeyAvailability {
+  self.textField.allowsReturnKeyWithEmptyText =
+      !!self.view.thumbnailImage ||
+      [self.popupKeyboardDelegate
+          canPerformKeyboardAction:OmniboxKeyboardAction::kReturnKey];
 }
 
 #pragma mark - EditViewAnimatee
@@ -505,13 +509,6 @@ using base::UserMetricsAction;
   self.isUpdatingCachedClipboardState = NO;
 }
 
-- (BOOL)textFieldIsBlank {
-  NSString* trimmedText = [self.textField.text
-      stringByTrimmingCharactersInSet:[NSCharacterSet
-                                          whitespaceAndNewlineCharacterSet]];
-  return [trimmedText length] == 0;
-}
-
 #pragma mark notification callbacks
 
 // Called on UITextInputCurrentInputModeDidChangeNotification for self.textField
@@ -524,7 +521,7 @@ using base::UserMetricsAction;
   [self.textField updateTextDirection];
   self.semanticContentAttribute = [self.textField bestSemanticContentAttribute];
 
-  [self.textInputDelegate omniboxViewControllerTextInputModeDidChange:self];
+  [self.mutator onTextInputModeChange];
 }
 
 - (void)updateCachedClipboardState {
@@ -649,7 +646,8 @@ using base::UserMetricsAction;
 
 /// Handles interaction with the thumbnail button. (tap or keyboard delete)
 - (void)didTapThumbnailButton {
-  if (!self.view.thumbnailButton.selected) {
+  if (!self.view.thumbnailButton.selected &&
+      !self.view.thumbnailButton.accessibilityElementIsFocused) {
     self.view.thumbnailButton.selected = YES;
   } else {
     [self.mutator removeThumbnail];
@@ -668,7 +666,7 @@ using base::UserMetricsAction;
 
   if (self.view.thumbnailImage) {
     return l10n_util::GetNSString(IDS_IOS_OMNIBOX_PLACEHOLDER_IMAGE_SEARCH);
-  } else if (self.isSearchOnlyUI) {
+  } else if (self.searchOnlyUI) {
     return l10n_util::GetNSStringF(IDS_IOS_OMNIBOX_PLACEHOLDER_SEARCH_ONLY,
                                    self.searchProviderName);
   } else {

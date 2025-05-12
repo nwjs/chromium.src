@@ -511,6 +511,7 @@ bool AutofillPopupControllerImpl::RemoveSuggestion(
     case FillingProduct::kCompose:
     case FillingProduct::kPlusAddresses:
     case FillingProduct::kAutofillAi:
+    case FillingProduct::kIdentityCredential:
       break;
   }
 
@@ -639,9 +640,6 @@ void AutofillPopupControllerImpl::FireControlsChangedEvent(bool is_show) {
 
   ui::AXPlatformNodeDelegate* root_platform_node_delegate =
       root_platform_node->GetDelegate();
-  if (!root_platform_node_delegate) {
-    return;
-  }
 
   // Now get the target node from its tree ID and node ID.
   ui::AXPlatformNode* target_node =

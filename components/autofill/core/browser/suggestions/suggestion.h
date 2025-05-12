@@ -162,16 +162,16 @@ struct Suggestion {
     // The account ID as defined here:
     // https://w3c-fedid.github.io/FedCM/#dom-identityprovideraccount-id
     std::string account_id;
+    // The field values of the account profile available to autofill.
+    std::map<FieldType, std::u16string> fields;
   };
 
   using IsLoading = base::StrongAlias<class IsLoadingTag, bool>;
   using InstrumentId = base::StrongAlias<class InstrumentIdTag, uint64_t>;
-  using ValueToFill = base::StrongAlias<struct ValueToFill, std::u16string>;
   using Payload = std::variant<Guid,
                                InstrumentId,
                                AutofillProfilePayload,
                                GURL,
-                               ValueToFill,
                                PasswordSuggestionDetails,
                                PlusAddressPayload,
                                AutofillAiPayload,
@@ -394,12 +394,10 @@ struct Suggestion {
       case SuggestionType::kSeePromoCodeDetails:
         return std::holds_alternative<GURL>(payload);
       case SuggestionType::kIbanEntry:
-        return std::holds_alternative<ValueToFill>(payload) ||
-               std::holds_alternative<Guid>(payload) ||
+        return std::holds_alternative<Guid>(payload) ||
                std::holds_alternative<InstrumentId>(payload);
       case SuggestionType::kFillAutofillAi:
-        return std::holds_alternative<ValueToFill>(payload) ||
-               std::holds_alternative<AutofillAiPayload>(payload);
+        return std::holds_alternative<AutofillAiPayload>(payload);
       case SuggestionType::kCreditCardEntry:
       case SuggestionType::kVirtualCreditCardEntry:
         // TODO(crbug.com/367434234): Use `PaymentsPayload` for all credit card
@@ -459,9 +457,6 @@ struct Suggestion {
   // submenus.
   std::vector<Suggestion> children;
 #if BUILDFLAG(IS_ANDROID)
-  // On Android, the icon can be at the start of the suggestion before the label
-  // or at the end of the label.
-  bool is_icon_at_start = false;
   // TODO(crbug.com/346469807): Remove once strings are passed directly.
   std::u16string iph_description_text;
 #endif  // BUILDFLAG(IS_ANDROID)

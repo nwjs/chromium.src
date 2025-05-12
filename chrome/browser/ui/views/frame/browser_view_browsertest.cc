@@ -27,6 +27,7 @@
 #include "chrome/browser/ui/tab_ui_helper.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/split_tab_collection.h"
+#include "chrome/browser/ui/tabs/split_tab_visual_data.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_user_gesture_details.h"
 #include "chrome/browser/ui/test/test_browser_ui.h"
@@ -34,6 +35,7 @@
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view_observer.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/frame/multi_contents_view.h"
 #include "chrome/browser/ui/views/frame/scrim_view.h"
 #include "chrome/browser/ui/views/side_panel/side_panel.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
@@ -478,15 +480,15 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest, ScrimForBrowserWindowModal) {
   child_widget->Init(std::move(params));
 
   child_widget->Show();
-  EXPECT_TRUE(browser_view()->window_scrim_view_for_testing()->GetVisible());
+  EXPECT_TRUE(browser_view()->window_scrim_view()->GetVisible());
   child_widget->Hide();
-  EXPECT_FALSE(browser_view()->window_scrim_view_for_testing()->GetVisible());
+  EXPECT_FALSE(browser_view()->window_scrim_view()->GetVisible());
   child_widget->Show();
-  EXPECT_TRUE(browser_view()->window_scrim_view_for_testing()->GetVisible());
+  EXPECT_TRUE(browser_view()->window_scrim_view()->GetVisible());
   // Destroy the child widget, the parent should be notified about child modal
   // visibility change.
   child_widget.reset();
-  EXPECT_FALSE(browser_view()->window_scrim_view_for_testing()->GetVisible());
+  EXPECT_FALSE(browser_view()->window_scrim_view()->GetVisible());
 }
 #endif  // !BUILDFLAG(IS_MAC)
 
@@ -510,8 +512,7 @@ class SideBySideBrowserViewTest : public InProcessBrowserTest {
 
 // Tests that GetInactiveSplitTabIndex returns correctly with two adjacent
 // splits.
-IN_PROC_BROWSER_TEST_F(SideBySideBrowserViewTest,
-                       SplitViewInactiveIndexReturnsCorrectly) {
+IN_PROC_BROWSER_TEST_F(SideBySideBrowserViewTest, SplitViewActiveIndexTest) {
   // Add enough tabs to create two split views.
   chrome::AddTabAt(browser(), GURL(), -1, true);
   chrome::AddTabAt(browser(), GURL(), -1, true);
@@ -519,20 +520,36 @@ IN_PROC_BROWSER_TEST_F(SideBySideBrowserViewTest,
   // Add tabs to splits.
   browser()->tab_strip_model()->ActivateTabAt(0);
   browser()->tab_strip_model()->AddToNewSplit(
-      {1}, tabs::SplitTabLayout::kHorizontal);
+      {1}, split_tabs::SplitTabLayout::kVertical);
+
   browser()->tab_strip_model()->ActivateTabAt(2);
   browser()->tab_strip_model()->AddToNewSplit(
-      {3}, tabs::SplitTabLayout::kHorizontal);
-  // Verify GetInactiveSplitTabIndex() correctly returns the inactive tab if
-  // each index is activated.
+      {3}, split_tabs::SplitTabLayout::kVertical);
+
   browser()->tab_strip_model()->ActivateTabAt(0);
-  EXPECT_EQ(browser_view()->GetInactiveSplitTabIndex(), 1);
-  browser()->tab_strip_model()->ActivateTabAt(1);
-  EXPECT_EQ(browser_view()->GetInactiveSplitTabIndex(), 0);
+  EXPECT_TRUE(browser_view()->multi_contents_view_for_testing());
+  EXPECT_EQ(browser_view()
+                ->multi_contents_view_for_testing()
+                ->GetActiveContentsView(),
+            browser_view()
+                ->multi_contents_view_for_testing()
+                ->start_contents_view_for_testing());
+
   browser()->tab_strip_model()->ActivateTabAt(2);
-  EXPECT_EQ(browser_view()->GetInactiveSplitTabIndex(), 3);
+  EXPECT_EQ(browser_view()
+                ->multi_contents_view_for_testing()
+                ->GetActiveContentsView(),
+            browser_view()
+                ->multi_contents_view_for_testing()
+                ->start_contents_view_for_testing());
+
   browser()->tab_strip_model()->ActivateTabAt(3);
-  EXPECT_EQ(browser_view()->GetInactiveSplitTabIndex(), 2);
+  EXPECT_EQ(browser_view()
+                ->multi_contents_view_for_testing()
+                ->GetActiveContentsView(),
+            browser_view()
+                ->multi_contents_view_for_testing()
+                ->end_contents_view_for_testing());
 }
 
 namespace {

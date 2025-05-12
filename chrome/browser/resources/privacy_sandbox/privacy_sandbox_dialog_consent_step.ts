@@ -63,10 +63,10 @@ export class PrivacySandboxDialogConsentStepElement extends
     };
   }
 
-  private expanded_: boolean;
-  private hideConsentNoticePage_: boolean;
-  private shouldShowAdTopicsContentParity_: boolean;
-  private consentContentV2FirstDescription_: string;
+  declare private expanded_: boolean;
+  declare private hideConsentNoticePage_: boolean;
+  declare private shouldShowAdTopicsContentParity_: boolean;
+  declare private consentContentV2FirstDescription_: string;
 
   override ready() {
     super.ready();
@@ -106,10 +106,6 @@ export class PrivacySandboxDialogConsentStepElement extends
 
   private onPrivacyPolicyLinkClicked_() {
     this.hideConsentNoticePage_ = true;
-  }
-
-  private getButtonsClass_() {
-    return this.equalizedButtons() ? 'tonal-button' : '';
   }
 
   private computeConsentContentV2FirstDescription_(): string {

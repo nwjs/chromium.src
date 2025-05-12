@@ -104,9 +104,13 @@ void HeadlessProtocolBrowserTest::RunDevTooledTest() {
   }
 
   // Expose DevTools protocol to the target.
-  browser_devtools_client_.SendCommand("Target.exposeDevToolsProtocol",
-                                       Param("targetId", agent_host->GetId()));
+  browser_devtools_client_.SendCommand(
+      "Target.exposeDevToolsProtocol", Param("targetId", agent_host->GetId()),
+      base::BindOnce(&HeadlessProtocolBrowserTest::OnceSetUp,
+                     base::Unretained(this)));
+}
 
+void HeadlessProtocolBrowserTest::OnceSetUp(base::Value::Dict) {
   // Navigate to test harness page
   GURL page_url = embedded_test_server()->GetURL(
       "harness.test", "/protocol/inspector-protocol-test.html");
@@ -360,6 +364,12 @@ HEADLESS_PROTOCOL_TEST(ShowFilePickerInterception,
 // cover `window.*` JS APIs.
 HEADLESS_PROTOCOL_TEST(ChangeWindowSize, "sanity/change-window-size.js")
 HEADLESS_PROTOCOL_TEST(ChangeWindowState, "sanity/change-window-state.js")
+HEADLESS_PROTOCOL_TEST(HiddenTargetCreate, "sanity/hidden-target-create.js")
+HEADLESS_PROTOCOL_TEST(HiddenTargetClose, "sanity/hidden-target-close.js")
+HEADLESS_PROTOCOL_TEST(HiddenTargetCreateInvalidParams,
+                       "sanity/hidden-target-create-invalid-params.js")
+HEADLESS_PROTOCOL_TEST(HiddenTargetPageEnable,
+                       "sanity/hidden-target-page-enable.js")
 HEADLESS_PROTOCOL_TEST(WindowOuterSize, "sanity/window-outer-size.js")
 HEADLESS_PROTOCOL_TEST(WindowResizeTo, "sanity/window-resize-to.js")
 

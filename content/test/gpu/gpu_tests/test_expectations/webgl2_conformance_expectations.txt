@@ -29,9 +29,10 @@
 # GPU
 # tags: [ amd amd-0x6613 amd-0x679e amd-0x67ef amd-0x6821 amd-0x7340 amd-0x7480
 #         amd64
-#         apple apple-apple-m1 apple-apple-m2
+#         apple apple-apple-m1 apple-apple-m2 apple-apple-m3
 #             apple-angle-metal-renderer:-apple-m1
 #             apple-angle-metal-renderer:-apple-m2
+#             apple-angle-metal-renderer:-apple-m3
 #         arm
 #         google google-0xffff google-0xc0de
 #         imagination
@@ -489,6 +490,9 @@ crbug.com/891953 [ android ] WebglExtension_OVR_multiview2 [ Failure ]
 # Conformance expectations
 # ========================
 
+# Test needs to be revised for new mipmap/texture completeness rules.
+crbug.com/angleproject/42267266 [ passthrough ] conformance2/textures/misc/immutable-tex-render-feedback.html [ Failure ]
+
 # Failing new updated tests
 crbug.com/406187744 conformance/offscreencanvas/offscreencanvas-transfer-image-bitmap.html [ Failure ]
 crbug.com/406187744 conformance2/offscreencanvas/offscreencanvas-transfer-image-bitmap.html [ Failure ]
@@ -528,7 +532,6 @@ crbug.com/365680830 [ mac angle-metal apple ] deqp/functional/gles3/occlusionque
 
 crbug.com/angleproject/4417 [ win angle-d3d11 ] conformance2/rendering/framebuffer-render-to-layer-angle-issue.html [ Failure ]
 crbug.com/angleproject/1465 [ win angle-d3d11 ] conformance2/glsl3/tricky-loop-conditions.html [ Failure ]
-crbug.com/angleproject/389733590 [ amd-0x7340 angle-d3d11 release-x64 target-cpu-64 win10 ] conformance/extensions/khr-parallel-shader-compile.html [ RetryOnFailure ]
 crbug.com/angleproject/389733590 [ angle-d3d11 nvidia-0x2184 nvidia_lt_535.183.01 win10 ] conformance/extensions/khr-parallel-shader-compile.html [ RetryOnFailure ]
 
 ## Win / NVIDIA ##
@@ -581,6 +584,9 @@ crbug.com/41496352 [ win11 qualcomm-0x41333430 angle-d3d11 ] deqp/functional/gle
 crbug.com/329211596 [ win11 qualcomm-0x41333430 angle-d3d11 ] deqp/functional/gles3/shaderprecision_int.html [ Failure ]
 crbug.com/329211596 [ win11 qualcomm-0x41333430 angle-d3d11 ] deqp/functional/gles3/shaderprecision_uint.html [ Failure ]
 crbug.com/373852610 [ win11 qualcomm-0x41333430 angle-d3d11 ] conformance/rendering/rendering-stencil-large-viewport.html [ Failure ]
+crbug.com/407945675 [ win11 qualcomm-0x41333430 angle-d3d11 ] conformance2/wasm/texsubimage2d-16gb-wasm-memory.html [ Failure ]
+crbug.com/408364836 [ win11 qualcomm-0x41333430 angle-d3d11 ] deqp/data/gles3/shaders/linkage.html [ RetryOnFailure ]
+crbug.com/373852610 [ win11 qualcomm-0x41333430 angle-d3d11 ] conformance2/wasm/getbuffersubdata-16gb-wasm-memory.html [ RetryOnFailure ]
 
 # Graphite
 crbug.com/332745399 [ win graphite-enabled ] conformance2/extensions/webgl-shader-pixel-local-storage.html [ Failure ]
@@ -632,6 +638,14 @@ crbug.com/328100306 [ amd angle-metal graphite-enabled sonoma ] conformance/glsl
 
 crbug.com/angleproject/6430 [ angle-metal intel mac passthrough ] deqp/functional/gles3/readpixel.html [ Failure ]
 
+## Metal Apple ##
+
+crbug.com/412955603 [ mac apple-angle-metal-renderer:-apple-m3 ] conformance2/wasm/bufferdata-16gb-wasm-memory.html [ Failure ]
+crbug.com/412955603 [ mac apple-angle-metal-renderer:-apple-m3 ] conformance2/wasm/buffersubdata-16gb-wasm-memory.html [ Failure ]
+crbug.com/412955603 [ mac apple-angle-metal-renderer:-apple-m3 ] conformance2/wasm/getbuffersubdata-16gb-wasm-memory.html [ Failure ]
+crbug.com/412955603 [ mac apple-angle-metal-renderer:-apple-m3 ] conformance2/wasm/teximage2d-16gb-wasm-memory.html [ Failure ]
+crbug.com/412955603 [ mac apple-angle-metal-renderer:-apple-m3 ] conformance2/wasm/texsubimage2d-16gb-wasm-memory.html [ Failure ]
+
 ######################################################################
 # Mac failures (mainly OpenGL; some need to be reevaluated on Metal) #
 ######################################################################
@@ -651,7 +665,7 @@ crbug.com/630800 [ nvidia mac ] conformance2/rendering/framebuffer-completeness-
 crbug.com/630800 [ angle-opengl intel mac ] deqp/functional/gles3/fbocompleteness.html [ Failure ]
 crbug.com/630800 [ nvidia mac ] deqp/functional/gles3/fbocompleteness.html [ Failure ]
 crbug.com/1289803 [ angle-opengl mac-x86_64 sonoma ] conformance2/extensions/webgl-multi-draw-instanced-base-vertex-base-instance.html [ Failure ]
-
+crbug.com/407622671 [ mac asan graphite-disabled ] deqp/functional/gles3/clipping.html [ RetryOnFailure ]
 
 ## Mac Retina NVIDIA ##
 
@@ -720,7 +734,6 @@ crbug.com/354627705 [ mac amd-0x7340 angle-metal ] deqp/functional/gles3/fbomult
 crbug.com/354627705 [ mac amd-0x7340 angle-opengl ] deqp/functional/gles3/instancedrendering.html [ Failure ]
 crbug.com/328102507 [ mac amd angle-opengl graphite-disabled asan ] conformance/renderbuffers/stencil-renderbuffer-initialization.html [ Failure ]
 
-crbug.com/372295133 [ amd-0x679e angle-metal monterey passthrough ] deqp/functional/gles3/textureshadow/2d_array_linear_mipmap_linear_equal.html [ Failure ]
 crbug.com/372295133 [ amd-0x679e angle-metal monterey passthrough ] deqp/functional/gles3/textureshadow/2d_array_linear_mipmap_nearest_less_or_equal.html [ Failure ]
 crbug.com/374696517 [ mac amd-0x7340 angle-metal ] deqp/functional/gles3/uniformbuffers/random.html [ RetryOnFailure ]
 crbug.com/406424259 [ mac amd-0x7340 graphite-disabled ] conformance2/rendering/vertex-id-large-count.html [ Failure ]
@@ -778,6 +791,15 @@ crbug.com/1130119 [ mac apple passthrough angle-opengl ] conformance2/rendering/
 crbug.com/1130119 [ mac apple passthrough angle-opengl ] conformance2/rendering/framebuffer-render-to-layer.html [ Failure ]
 crbug.com/1130119 [ mac apple passthrough angle-opengl ] deqp/functional/gles3/fbocompleteness.html [ Failure ]
 
+## Mac / M3 / OpenGL ##
+
+crbug.com/412955603 [ mac apple-apple-m3 angle-opengl ] conformance2/wasm/bufferdata-16gb-wasm-memory.html [ Failure ]
+crbug.com/412955603 [ mac apple-apple-m3 angle-opengl ] conformance2/wasm/buffersubdata-16gb-wasm-memory.html [ Failure ]
+crbug.com/412955603 [ mac apple-apple-m3 angle-opengl ] conformance2/wasm/getbuffersubdata-16gb-wasm-memory.html [ Failure ]
+crbug.com/412955603 [ mac apple-apple-m3 angle-opengl ] conformance2/wasm/teximage2d-16gb-wasm-memory.html [ Failure ]
+crbug.com/412955603 [ mac apple-apple-m3 angle-opengl ] conformance2/wasm/texsubimage2d-16gb-wasm-memory.html [ Failure ]
+crbug.com/413035866 [ mac apple-apple-m3 angle-opengl ] conformance2/canvas/drawingbuffer-storage-test.html [ Failure ]
+
 # Newly added tests on NVIDIA passthrough
 crbug.com/982292 [ mac nvidia angle-opengl passthrough ] conformance/extensions/webgl-multi-draw.html [ Failure ]
 crbug.com/982292 [ mac nvidia angle-opengl passthrough ] conformance2/glsl3/tricky-loop-conditions.html [ Failure ]
@@ -787,6 +809,9 @@ crbug.com/982292 [ mac nvidia angle-opengl passthrough ] deqp/functional/gles3/i
 
 # Flaky glyph cache miss
 crbug.com/396434680 [ asan mac amd-0x7340 passthrough ] deqp/functional/gles3/fbocolorbuffer/tex2darray_02.html [ Failure ]
+
+# Flaky failure due to possible synchronization issues
+crbug.com/412679364 [ mac mac-arm64 ] conformance/textures/canvas/tex-2d-alpha-alpha-unsigned_byte.html [ RetryOnFailure ]
 
 ####################
 # Linux failures   #
@@ -996,6 +1021,7 @@ crbug.com/352104898 [ fuchsia fuchsia-board-qemu-x64 ] deqp/functional/gles3/fbo
 crbug.com/352104898 [ fuchsia fuchsia-board-qemu-x64 ] deqp/functional/gles3/shaderoperator/unary_operator_00.html [ Failure ]
 crbug.com/352104898 [ fuchsia fuchsia-board-qemu-x64 passthrough ] WebglExtension_EXT_render_snorm [ Failure ]
 crbug.com/352104898 [ fuchsia fuchsia-board-qemu-x64 passthrough ] WebglExtension_EXT_texture_mirror_clamp_to_edge [ Failure ]
+crbug.com/352104898 [ fuchsia fuchsia-board-qemu-x64 passthrough ] WebglExtension_EXT_texture_norm16 [ Failure ]
 crbug.com/352104898 [ fuchsia fuchsia-board-qemu-x64 passthrough ] WebglExtension_WEBGL_blend_func_extended [ Failure ]
 crbug.com/352104898 [ fuchsia fuchsia-board-qemu-x64 passthrough angle-swiftshader ] WebglExtension_WEBGL_render_shared_exponent [ Failure ]
 

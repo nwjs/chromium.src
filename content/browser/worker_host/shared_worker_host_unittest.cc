@@ -87,7 +87,8 @@ class SharedWorkerHostTest : public testing::Test {
         network::mojom::CredentialsMode::kSameOrigin, "name",
         blink::StorageKey::CreateFirstParty(url::Origin::Create(kWorkerUrl)),
         blink::mojom::SharedWorkerCreationContextType::kSecure,
-        blink::mojom::SharedWorkerSameSiteCookies::kAll);
+        blink::mojom::SharedWorkerSameSiteCookies::kAll,
+        /*extended_lifetime=*/false);
     auto host = std::make_unique<SharedWorkerHost>(
         &service_, instance, site_instance_,
         std::vector<network::mojom::ContentSecurityPolicyPtr>(),
@@ -379,7 +380,8 @@ TEST_F(SharedWorkerHostTest,
       blink::StorageKey::CreateWithNonce(url::Origin::Create(kWorkerUrl),
                                          nonce),
       blink::mojom::SharedWorkerCreationContextType::kSecure,
-      blink::mojom::SharedWorkerSameSiteCookies::kNone);
+      blink::mojom::SharedWorkerSameSiteCookies::kNone,
+      /*extended_lifetime=*/false);
   auto host = std::make_unique<SharedWorkerHost>(
       &service_, instance, site_instance_,
       std::vector<network::mojom::ContentSecurityPolicyPtr>(),
@@ -423,7 +425,8 @@ TEST_F(SharedWorkerHostTestWithPNAEnabled,
       network::mojom::CredentialsMode::kSameOrigin, "name",
       blink::StorageKey::CreateFirstParty(url::Origin::Create(kWorkerUrl)),
       blink::mojom::SharedWorkerCreationContextType::kSecure,
-      blink::mojom::SharedWorkerSameSiteCookies::kAll);
+      blink::mojom::SharedWorkerSameSiteCookies::kAll,
+      /*extended_lifetime=*/false);
   PolicyContainerPolicies policies;
   policies.cross_origin_embedder_policy.value =
       network::mojom::CrossOriginEmbedderPolicyValue::kRequireCorp;

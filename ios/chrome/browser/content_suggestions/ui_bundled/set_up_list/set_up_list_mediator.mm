@@ -128,6 +128,8 @@ bool DefaultBrowserPromoCompleted() {
       _deviceSwitcherResultDispatcher;
   // User segment retrieved by the Segmentation Platform.
   segmentation_platform::DefaultBrowserUserSegment _userSegment;
+  // YES if price tracking is enabled for the current user.
+  BOOL _priceTrackingEnabled;
 }
 
 #pragma mark - Public
@@ -142,7 +144,8 @@ bool DefaultBrowserPromoCompleted() {
                     (segmentation_platform::SegmentationPlatformService*)
                         segmentationService
      deviceSwitcherResultDispatcher:
-         (segmentation_platform::DeviceSwitcherResultDispatcher*)dispatcher {
+         (segmentation_platform::DeviceSwitcherResultDispatcher*)dispatcher
+               priceTrackingEnabled:(BOOL)priceTrackingEnabled {
   self = [super init];
   if (self) {
     _prefService = prefService;
@@ -166,14 +169,10 @@ bool DefaultBrowserPromoCompleted() {
     _prefObserverBridge->ObserveChangesForPreference(
         prefs::kIosDefaultBrowserPromoLastAction,
         &_localStatePrefChangeRegistrar);
-    _prefObserverBridge->ObserveChangesForPreference(
-        set_up_list_prefs::kDisabled, &_localStatePrefChangeRegistrar);
 
-    if (IsHomeCustomizationEnabled()) {
-      _prefObserverBridge->ObserveChangesForPreference(
-          prefs::kHomeCustomizationMagicStackSetUpListEnabled,
-          &_prefChangeRegistrar);
-    }
+    _prefObserverBridge->ObserveChangesForPreference(
+        prefs::kHomeCustomizationMagicStackSetUpListEnabled,
+        &_prefChangeRegistrar);
 
     if (IsIOSTipsNotificationsEnabled()) {
       _prefObserverBridge->ObserveChangesForPreference(
@@ -223,6 +222,7 @@ bool DefaultBrowserPromoCompleted() {
 
     _consumers = [SetUpListConsumerList
         observersWithProtocol:@protocol(SetUpListConsumer)];
+    _priceTrackingEnabled = priceTrackingEnabled;
   }
   return self;
 }
@@ -264,6 +264,7 @@ bool DefaultBrowserPromoCompleted() {
     if (IsSegmentedDefaultBrowserPromoEnabled()) {
       [item setUserSegment:_userSegment];
     }
+    item.priceTrackingEnabled = _priceTrackingEnabled;
     [allItems addObject:item];
   }
   return allItems;
@@ -274,8 +275,7 @@ bool DefaultBrowserPromoCompleted() {
 }
 
 - (void)disableModule {
-  set_up_list_prefs::DisableSetUpList(
-      IsHomeCustomizationEnabled() ? _prefService : _localState);
+  set_up_list_prefs::DisableSetUpList(_prefService);
 }
 
 - (BOOL)shouldShowSetUpList {
@@ -427,9 +427,6 @@ bool DefaultBrowserPromoCompleted() {
   } else if (preferenceName == prefs::kIosDefaultBrowserPromoLastAction &&
              DefaultBrowserPromoCompleted()) {
     [self markSetUpListItemPrefComplete:SetUpListItemType::kDefaultBrowser];
-  } else if (preferenceName == set_up_list_prefs::kDisabled &&
-             set_up_list_prefs::IsSetUpListDisabled(_localState)) {
-    [self hideSetUpList];
   } else if (preferenceName == prefs::kAppLevelPushNotificationPermissions ||
              preferenceName == prefs::kFeaturePushNotificationPermissions) {
     CHECK(IsIOSTipsNotificationsEnabled());
@@ -440,7 +437,6 @@ bool DefaultBrowserPromoCompleted() {
                  prefs::kHomeCustomizationMagicStackSetUpListEnabled &&
              !_prefService->GetBoolean(
                  prefs::kHomeCustomizationMagicStackSetUpListEnabled)) {
-    CHECK(IsHomeCustomizationEnabled());
     [self hideSetUpList];
   } else if (preferenceName == prefs::kBottomOmnibox) {
     [self markSetUpListItemPrefComplete:SetUpListItemType::kAddressBar];
@@ -507,6 +503,7 @@ bool DefaultBrowserPromoCompleted() {
     if (IsSegmentedDefaultBrowserPromoEnabled()) {
       [item setUserSegment:_userSegment];
     }
+    item.priceTrackingEnabled = _priceTrackingEnabled;
     [items addObject:item];
   }
 
@@ -522,6 +519,7 @@ bool DefaultBrowserPromoCompleted() {
     if (IsSegmentedDefaultBrowserPromoEnabled()) {
       [item setUserSegment:_userSegment];
     }
+    item.priceTrackingEnabled = _priceTrackingEnabled;
     [items addObject:item];
   }
   return items;

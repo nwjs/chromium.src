@@ -49,7 +49,8 @@ class DataSharingService : public KeyedService, public base::SupportsUserData {
     kUnknown = 0,
     kPermissionDenied = 1,
     kGroupFull = 2,
-    kOtherFailure = 3
+    kGroupClosedByOrganizationPolicy = 3,
+    kOtherFailure = 4
   };
 
   // GENERATED_JAVA_ENUM_PACKAGE: (
@@ -240,10 +241,10 @@ class DataSharingService : public KeyedService, public base::SupportsUserData {
   // observer that were created after DataSharingService was started.
   virtual std::vector<GroupEvent> GetGroupEventsSinceStartup() = 0;
 
-  // Check if the given URL should be intercepted.
+  // DEPRECATED: Check if the given URL should be intercepted.
   virtual bool ShouldInterceptNavigationForShareURL(const GURL& url) = 0;
 
-  // Called when a data sharing type URL has been intercepted.
+  // DEPRECATED: Called when a data sharing type URL has been intercepted.
   virtual void HandleShareURLNavigationIntercepted(
       const GURL& url,
       std::unique_ptr<ShareURLInterceptionContext> context) = 0;

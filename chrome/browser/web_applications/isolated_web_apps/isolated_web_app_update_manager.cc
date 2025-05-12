@@ -41,9 +41,9 @@
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_update_apply_task.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_update_apply_waiter.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_update_discovery_task.h"
-#include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_update_manager.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
 #include "chrome/browser/web_applications/isolated_web_apps/policy/isolated_web_app_external_install_options.h"
+#include "chrome/browser/web_applications/isolated_web_apps/policy/isolated_web_app_policy_manager.h"
 #include "chrome/browser/web_applications/web_app_command_scheduler.h"
 #include "chrome/browser/web_applications/web_app_install_manager.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
@@ -164,24 +164,16 @@ IwaBundleIdToUpdateOptionsMap GetForceInstalledPolicyIsolatedWebApps(
     Profile* profile) {
   IwaBundleIdToUpdateOptionsMap result;
 
-  const base::Value::List& iwa_force_install_list =
-      profile->GetPrefs()->GetList(prefs::kIsolatedWebAppInstallForceList);
-  for (const base::Value& policy_entry : iwa_force_install_list) {
-    base::expected<IsolatedWebAppExternalInstallOptions, std::string> options =
-        IsolatedWebAppExternalInstallOptions::FromPolicyPrefValue(policy_entry);
-    if (!options.has_value()) {
-      LOG(ERROR) << "IsolatedWebAppUpdateManager: "
-                 << "Could not parse IWA force-install policy: "
-                 << options.error();
-      continue;
-    }
-
-    result.emplace(options->web_bundle_id(),
-                   IsolatedWebAppUpdateOptions(options->update_manifest_url(),
-                                               options->update_channel(),
-                                               options->allow_downgrades(),
-                                               options->pinned_version()));
+  for (const auto& install_options :
+       IsolatedWebAppPolicyManager::GetIwaInstallForceList(*profile)) {
+    result.emplace(
+        install_options.web_bundle_id(),
+        IsolatedWebAppUpdateOptions(install_options.update_manifest_url(),
+                                    install_options.update_channel(),
+                                    install_options.allow_downgrades(),
+                                    install_options.pinned_version()));
   }
+
   return result;
 }
 
@@ -358,7 +350,7 @@ void IsolatedWebAppUpdateManager::Start() {
         std::make_unique<ScopedKeepAlive>(
             KeepAliveOrigin::ISOLATED_WEB_APP_UPDATE,
             KeepAliveRestartOption::DISABLED),
-        std::move(profile_keep_alive), provider_->scheduler()));
+        std::move(profile_keep_alive), provider_->scheduler(), &*profile_));
   }
 
   content::GetUIThreadTaskRunner({base::TaskPriority::BEST_EFFORT})
@@ -722,7 +714,7 @@ void IsolatedWebAppUpdateManager::OnUpdateApplyWaiterFinished(
 
   task_queue_.Push(std::make_unique<IsolatedWebAppUpdateApplyTask>(
       url_info, std::move(keep_alive), std::move(profile_keep_alive),
-      provider_->scheduler()));
+      provider_->scheduler(), &*profile_));
   std::move(on_update_apply_task_created).Run();
 
   task_queue_.MaybeStartNextTask();

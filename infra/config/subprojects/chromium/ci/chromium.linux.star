@@ -540,8 +540,8 @@ ci.thin_tester(
                 # crbug.com/1473501
                 retry_only_failed_tests = True,
             ),
-            "webdriver_wpt_tests": targets.remove(
-                reason = "https://crbug.com/929689, https://crbug.com/936557",
+            "webdriver_wpt_tests": targets.mixin(
+                ci_only = True,
             ),
         },
     ),
@@ -640,6 +640,12 @@ ci.thin_tester(
                     "--xvfb",
                     "--jobs=1",
                 ],
+            ),
+            "unit_tests": targets.mixin(
+                # The suite runs signficantly slower on linux dbg, so increase shards.
+                swarming = targets.swarming(
+                    shards = 2,
+                ),
             ),
             "webdriver_wpt_tests": targets.mixin(
                 args = [
@@ -781,6 +787,8 @@ ci.thin_tester(
             target_platform = builder_config.target_platform.LINUX,
         ),
         build_gs_bucket = "chromium-linux-archive",
+        # TODO(crbug.com/401284929): Remove this when noble pool is increased
+        run_tests_serially = True,
     ),
     targets = targets.bundle(
         targets = [
@@ -798,6 +806,12 @@ ci.thin_tester(
             "isolate_profile_data",
         ],
         per_test_modifications = {
+            "content_browsertests": targets.mixin(
+                # Only retry the individual failed tests instead of rerunning
+                # entire shards.
+                # crbug.com/1473501
+                retry_only_failed_tests = True,
+            ),
             "interactive_ui_tests": targets.mixin(
                 # https://crbug.com/1192997
                 args = [

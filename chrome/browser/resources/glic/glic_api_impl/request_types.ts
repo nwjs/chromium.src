@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 import {type WebClientInitialState} from '../glic.mojom-webui.js';
-import type {ActInFocusedTabParams, ActInFocusedTabResult, AnnotatedPageData, ChromeVersion, DraggableArea, ErrorReasonTypes, ErrorWithReason, FocusedTabDataHasFocus, FocusedTabDataHasNoFocus, OpenPanelInfo, OpenSettingsOptions, PageMetadata, PanelOpeningData, PanelState, PdfDocumentData, Screenshot, ScrollToParams, TabContextOptions, TabContextResult, TabData, UserProfileInfo} from '../glic_api/glic_api.js';
+import type {ActInFocusedTabParams, ActInFocusedTabResult, AnnotatedPageData, ChromeVersion, DraggableArea, ErrorReasonTypes, ErrorWithReason, FocusedTabDataHasFocus, FocusedTabDataHasNoFocus, OpenPanelInfo, OpenSettingsOptions, PageMetadata, PanelOpeningData, PanelState, PdfDocumentData, Screenshot, ScrollToParams, TabContextOptions, TabContextResult, TabData, UserProfileInfo, ZeroStateSuggestions} from '../glic_api/glic_api.js';
 
 /*
 This file defines messages sent over postMessage in-between the Glic WebUI
@@ -78,6 +78,7 @@ export declare interface HostRequestTypes {
       actInFocusedTabResult: ActInFocusedTabResultPrivate,
     },
   };
+  glicBrowserStopActorTask: {};
   glicBrowserCaptureScreenshot: {
     response: {
       screenshot: Screenshot,
@@ -177,6 +178,14 @@ export declare interface HostRequestTypes {
       enabled: boolean,
     },
   };
+  glicBrowserGetZeroStateSuggestionsForFocusedTab: {
+    request: {
+      isFirstRun?: boolean,
+    },
+    response: {
+      suggestions?: ZeroStateSuggestions,
+    },
+  };
 }
 
 // Types of requests to the GlicWebClient.
@@ -269,6 +278,7 @@ type HostRequestEnumNamesType = {
     ShowProfilePicker: 0,
     GetContextFromFocusedTab: 0,
     ActInFocusedTab: 0,
+    StopActorTask: 0,
     CaptureScreenshot: 0,
     ResizeWindow: 0,
     EnableDragResize: 0,
@@ -292,6 +302,7 @@ type HostRequestEnumNamesType = {
     SetSyntheticExperimentState: 0,
     OpenOsPermissionSettingsMenu: 0,
     GetOsMicrophonePermissionStatus: 0,
+    GetZeroStateSuggestionsForFocusedTab: 0,
   };
   return apiRequestTypes;
   // LINT.ThenChange(//tools/metrics/histograms/metadata/glic/histograms.xml:ApiRequestType)
@@ -370,13 +381,11 @@ export type WebClientInitialStatePrivate =
       panelState: PanelState,
       chromeVersion: ChromeVersion,
       focusedTabData: FocusedTabDataPrivate,
-      scrollToEnabled: boolean,
-      actInFocusedTabEnabled: boolean,
       loggingEnabled: boolean,
       // Whether or not the web client should resize the content to fit the
       // window size.
       fitWindow: boolean,
-      dragResizeEnabled: boolean,
+      enableZeroStateSuggestions: boolean,
     }>;
 
 // TabData format for postMessage transport.

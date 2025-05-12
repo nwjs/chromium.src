@@ -86,14 +86,20 @@ void ReadAloudAppModel::ResetGranularityIndex() {
   processed_granularity_index_ = 0;
 }
 
-void ReadAloudAppModel::InitAXPositionWithNode(ui::AXNode* ax_node) {
-  // If instance is Null or Empty, create the next AxPosition
-  if (ax_node != nullptr && (!ax_position_ || ax_position_->IsNullPosition())) {
+void ReadAloudAppModel::InitAXPositionWithNode(
+    ui::AXNode* ax_node,
+    const ui::AXTreeID& active_tree_id) {
+  // If instance is Null or Empty, create the next AxPosition. Don't create a
+  // new position if the node's manager is missing, as that means we've
+  // received incorrect data somewhere.
+  if (ax_node != nullptr && (!ax_position_ || ax_position_->IsNullPosition()) &&
+      ax_node->GetManager()) {
     ax_position_ =
         ui::AXNodePosition::CreateTreePositionAtStartOfAnchor(*ax_node);
     current_text_index_ = 0;
     processed_granularity_index_ = 0;
     processed_granularities_on_current_page_.clear();
+    active_tree_id_ = active_tree_id;
   }
 }
 void ReadAloudAppModel::MovePositionToNextGranularity() {
@@ -349,7 +355,7 @@ a11y::ReadAloudCurrentGranularity ReadAloudAppModel::GetNextNodes(
 
 bool ReadAloudAppModel::NoValidTextRemainingInCurrentNode(bool is_pdf,
                                                           bool is_docs) const {
-  ui::AXNode* anchor_node = GetNextNodeFromPosition(ax_position_);
+  ui::AXNode* anchor_node = GetAnchorNode(ax_position_);
   std::u16string text = a11y::GetTextContent(anchor_node, is_docs, is_pdf);
   std::u16string text_substr = text.substr(current_text_index_);
   int prev_index = current_text_index_;
@@ -429,7 +435,7 @@ a11y::TraversalState ReadAloudAppModel::AddTextFromStartOfNode(
     bool is_pdf,
     bool is_docs,
     a11y::ReadAloudCurrentGranularity& current_granularity) {
-  ui::AXNode* anchor_node = GetNextNodeFromPosition(ax_position_);
+  ui::AXNode* anchor_node = GetAnchorNode(ax_position_);
 
   std::u16string base_text = a11y::GetTextContent(anchor_node, is_docs, is_pdf);
 
@@ -469,7 +475,7 @@ a11y::TraversalState ReadAloudAppModel::AddTextFromStartOfNode(
   //    be added to the current sentence.
   if (((int)current_granularity.text.length() < combined_sentence_index) &&
       !is_opening_punctuation) {
-    anchor_node = GetNextNodeFromPosition(ax_position_);
+    anchor_node = GetAnchorNode(ax_position_);
     // Calculate the new sentence index.
     int index_in_new_node =
         combined_sentence_index - current_granularity.text.length();
@@ -505,7 +511,7 @@ a11y::TraversalState ReadAloudAppModel::AddTextFromMiddleOfNode(
     bool is_docs,
     a11y::ReadAloudCurrentGranularity& current_granularity) {
   // Add the next granularity piece within the current node.
-  ui::AXNode* anchor_node = GetNextNodeFromPosition(ax_position_);
+  ui::AXNode* anchor_node = GetAnchorNode(ax_position_);
   std::u16string text = a11y::GetTextContent(anchor_node, is_docs, is_pdf);
   int prev_index = current_text_index_;
   std::u16string text_substr = text.substr(current_text_index_);
@@ -571,21 +577,29 @@ ReadAloudAppModel::GetNextValidPositionFromCurrentPosition(
         new_position->CreateNextSentenceStartPosition(
             sentence_movement_options_);
 
-    // If the new position and the previous position are the same, try moving
-    // to the next line position instead. This seems to happen on pdfs sometimes
-    // where next sentence returns the same position and next paragraph skips
-    // some text.
+    // If the new position and the previous position are the same, try different
+    // granularities for the next position instead. Otherwise, we can get stuck
+    // in an infinite loop of calling CreateNextSentenceStartPosition, as it
+    // will always return the same position.
+    if (ArePositionsEqual(possible_new_position, new_position)) {
+      possible_new_position =
+          new_position->CreateNextWordStartPosition(sentence_movement_options_);
+    }
+
+    if (ArePositionsEqual(possible_new_position, new_position)) {
+      possible_new_position =
+          new_position->CreateNextCharacterPosition(sentence_movement_options_);
+    }
+    // If the new position and the previous position are still the same, try
+    // moving to the next line position instead. This seems to happen on pdfs
+    // sometimes where next sentence returns the same position and next
+    // paragraph skips some text.
     // TODO(crbug.com/40927698): Investigate whether this is helpful beyond pdfs
     if (is_pdf && ArePositionsEqual(possible_new_position, new_position)) {
       possible_new_position =
           new_position->CreateNextLineStartPosition(sentence_movement_options_);
     }
 
-    // If the new position and the previous position are the same, try moving
-    // to the next paragraph position instead. This happens rarely, but when
-    // it does, we can get stuck in an infinite loop of calling
-    // CreateNextSentenceStartPosition, as it will always return the same
-    // position.
     if (possible_new_position->IsNullPosition() ||
         ArePositionsEqual(possible_new_position, new_position)) {
       possible_new_position = new_position->CreateNextParagraphStartPosition(
@@ -604,9 +618,9 @@ ReadAloudAppModel::GetNextValidPositionFromCurrentPosition(
     }
 
     // If the new position is still the same as the old position after trying
-    // both line and paragraph positions, go ahead and return a null position
-    // instead, as ending speech early is preferable to getting stuck in an
-    // infinite loop.
+    // multiple different ways of getting a new position, go ahead and return
+    // a null position instead, as ending speech early is preferable to getting
+    // stuck in an infinite loop.
     if (ArePositionsEqual(possible_new_position, new_position)) {
       return ui::AXNodePosition::AXPosition::CreateNullPosition();
     }
@@ -699,12 +713,17 @@ bool ReadAloudAppModel::IsValidAXPosition(
     return false;
   }
 
+  // AXPosition returns nodes that aren't part of the active tree, but
+  // reading mode only displays nodes that are part of the active tree.
+  bool on_active_tree = anchor_node->tree()->GetAXTreeID() == active_tree_id_;
   bool was_previously_spoken =
       NodeBeenOrWillBeSpoken(current_granularity, anchor_node->id());
   bool is_text_node = a11y::IsTextForReadAnything(anchor_node, is_pdf, is_docs);
   bool contains_node = base::Contains(*current_nodes, anchor_node->id());
+  bool is_ignored = a11y::IsIgnored(anchor_node, is_pdf);
 
-  return !was_previously_spoken && is_text_node && contains_node;
+  return !is_ignored && !was_previously_spoken && is_text_node &&
+         contains_node && on_active_tree;
 }
 
 std::vector<ReadAloudTextSegment>

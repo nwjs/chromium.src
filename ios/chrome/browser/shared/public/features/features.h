@@ -476,6 +476,8 @@ int SafetyCheckNotificationsImpressionLimit();
 
 // Feature flag enabling Choose from Drive.
 BASE_DECLARE_FEATURE(kIOSChooseFromDrive);
+// Feature flag enabling support for simulated clicks in Choose from Drive.
+BASE_DECLARE_FEATURE(kIOSChooseFromDriveSimulatedClick);
 
 // Feature flag enabling a fix for the Download manager mediator.
 BASE_DECLARE_FEATURE(kIOSDownloadNoUIUpdateInBackground);
@@ -821,12 +823,6 @@ bool IsSaveToPhotosTitleImprovementEnabled();
 // Returns true if the Save to Photos account picker improvement is enabled.
 bool IsSaveToPhotosAccountPickerImprovementEnabled();
 
-// Feature that enables personalization of the Home surface.
-BASE_DECLARE_FEATURE(kHomeCustomization);
-
-// Returns true if Home Customization is enabled.
-bool IsHomeCustomizationEnabled();
-
 // Feature flag to enable app background refresh.
 // Use IsAppBackgroundRefreshEnabled() instead of this constant directly.
 BASE_DECLARE_FEATURE(kEnableAppBackgroundRefresh);
@@ -864,23 +860,14 @@ BASE_DECLARE_FEATURE(kBlueDotOnToolsMenuButton);
 // Returns whether `kBlueDotOnToolsMenuButton` is enabled.
 bool IsBlueDotOnToolsMenuButtoneEnabled();
 
-// Feature flag to use IdentityManager APIs instead of
-// ChromeAccountManagerService APIs for getting the list of accounts, and for
-// listening to account changes.
-BASE_DECLARE_FEATURE(kUseAccountListFromIdentityManager);
-
-// Returns whether the feature to use IdentityManager APIs instead of
-// ChromeAccountManagerService APIs is enabled.
-bool IsUseAccountListFromIdentityManagerEnabled();
-
 // Feature flag to assign each managed account to its own separate profile.
 // DO NOT CHECK DIRECTLY, use AreSeparateProfilesForManagedAccountsEnabled()!
 BASE_DECLARE_FEATURE(kSeparateProfilesForManagedAccounts);
 
-// Returns whether the feature to put each managed account into its own separate
-// profile is enabled. This is the case if `kSeparateProfilesForManagedAccounts`
-// is enabled *and* the iOS version is >= 17 (required for multiprofile).
-bool AreSeparateProfilesForManagedAccountsEnabled();
+// Kill switch to turn off `kSeparateProfilesForManagedAccounts`, even if
+// multiple profiles already exist.
+// DO NOT CHECK DIRECTLY, use AreSeparateProfilesForManagedAccountsEnabled()!
+BASE_DECLARE_FEATURE(kSeparateProfilesForManagedAccountsKillSwitch);
 
 // Feature to control resyncing the omaha ping timer on foregrounding.
 BASE_DECLARE_FEATURE(kOmahaResyncTimerOnForeground);
@@ -983,6 +970,22 @@ BASE_DECLARE_FEATURE(kIOSPasskeysM2);
 
 // Helper function returning the status of `kIOSPasskeysM2`.
 bool IOSPasskeysM2Enabled();
+
+// Enables Profile-specific push notification handling logic. When enabled, this
+// routes incoming notifications to the PushNotificationClientManager associated
+// with the current Profile, rather than using a single global manager. This
+// flag is disabled by default while the refactor is ongoing.
+//
+// TODO(crbug.com/407594420): Enable this by default once the
+// multi-Profile push notification refactor is code complete. It will then
+// serve as a killswitch to revert to the legacy (non-Profile-aware) behavior if
+// issues arise.
+BASE_DECLARE_FEATURE(kIOSPushNotificationMultiProfile);
+
+// Returns true if Profile-specific push notification handling logic is
+// enabled via the kIOSPushNotificationMultiProfile feature
+// flag.
+bool IsIOSMultiProfilePushNotificationHandlingEnabled();
 
 extern const char kFullscreenTransitionSlower[];
 extern const char kFullscreenTransitionDefaultSpeed[];
@@ -1112,5 +1115,18 @@ BASE_DECLARE_FEATURE(kRunDefaultStatusCheck);
 
 // Returns whether `kRunDefaultStatusCheck` is enabled.
 bool IsRunDefaultStatusCheckEnabled();
+
+// Feature flag to have the tab group visually contained.
+BASE_DECLARE_FEATURE(kContainedTabGroup);
+
+// Whether the feature associated with contained tab group is enabled.
+bool IsContainedTabGroupEnabled();
+
+// Feature flag to highlight the app's features during the FRE.
+BASE_DECLARE_FEATURE(kBestOfAppFRE);
+
+// Whether the feature to highlight the app's features during the FRE is
+// enabled.
+bool IsBestOfAppFREEnabled();
 
 #endif  // IOS_CHROME_BROWSER_SHARED_PUBLIC_FEATURES_FEATURES_H_

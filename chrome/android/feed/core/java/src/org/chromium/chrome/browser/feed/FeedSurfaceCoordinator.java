@@ -17,6 +17,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -117,7 +118,8 @@ public class FeedSurfaceCoordinator
     private FrameLayout mRootView;
     private boolean mIsActive;
     private int mHeaderCount;
-    private int mSectionHeaderIndex;
+    private int mHeaderIndex;
+    private View mHeaderView;
     private int mToolbarHeight;
 
     // Used when Feed is enabled.
@@ -127,7 +129,6 @@ public class FeedSurfaceCoordinator
     // Feed header fields.
     private @Nullable PropertyModel mSectionHeaderModel;
     private @Nullable ViewGroup mViewportView;
-    private SectionHeaderView mSectionHeaderView;
     private @Nullable ListModelChangeProcessor<
                     PropertyListModel<PropertyModel, PropertyKey>, SectionHeaderView, PropertyKey>
             mSectionHeaderListModelChangeProcessor;
@@ -189,6 +190,14 @@ public class FeedSurfaceCoordinator
 
         @Override
         public boolean onInterceptTouchEvent(MotionEvent ev) {
+            // This is for caching the last touch position on the NTP. {@link
+            // ViewGroup#onInterceptTouchEvent} is called for every motion event that will be
+            // consumed by this view or any of its child views. This location allows us to cache
+            // the last touch before any views actually perform an intercept or handle the touch
+            // event. Placing this call later in the method would mean at least a subset of events
+            // would be missed.
+            mDelegate.sendMotionEventForInputTracking(ev);
+
             if (super.onInterceptTouchEvent(ev)) return true;
             if (mMediator != null && !mMediator.getTouchEnabled()) return true;
 
@@ -344,13 +353,14 @@ public class FeedSurfaceCoordinator
         public void run() {
             // The feed header may not be visible for smaller screens or landscape mode. Scroll
             // to show the header after showing the IPH.
-            mMediator.scrollToViewIfNecessary(getSectionHeaderPosition());
+            mMediator.scrollToViewIfNecessary(getHeaderPosition());
         }
     }
 
-    // Returns the index of the section header (for you and following tab header).
-    int getSectionHeaderPosition() {
-        return mSectionHeaderIndex;
+    // Returns the index of the header if it is visible. Otherwise returns the index after the
+    // invisible header.
+    int getHeaderPosition() {
+        return mHeaderIndex + (mHeaderView.getVisibility() != View.VISIBLE ? 1 : 0);
     }
 
     boolean useStaggeredLayout() {
@@ -428,7 +438,7 @@ public class FeedSurfaceCoordinator
         mActionDelegate = actionDelegate;
         mEmbeddingSurfaceCreatedTimeNs = embeddingSurfaceCreatedTimeNs;
         mWebFeedHasContent = false;
-        mSectionHeaderIndex = 0;
+        mHeaderIndex = 0;
         mToolbarHeight = toolbarHeight;
         mTabStripHeightSupplier = tabStripHeightSupplier;
         mUseStaggeredLayout = DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivity);
@@ -464,40 +474,55 @@ public class FeedSurfaceCoordinator
         mHandler = new Handler(Looper.getMainLooper());
 
         // MVC setup for feed header.
-        if (WebFeedBridge.isWebFeedEnabled()) {
-            mSectionHeaderView =
-                    (SectionHeaderView)
-                            LayoutInflater.from(mActivity)
-                                    .inflate(R.layout.new_tab_page_multi_feed_header, null, false);
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.FEED_HEADER_REMOVAL)) {
+            String treatment =
+                    ChromeFeatureList.getFieldTrialParamByFeature(
+                            ChromeFeatureList.FEED_HEADER_REMOVAL, "treatment");
+            mHeaderView =
+                    LayoutInflater.from(mActivity)
+                            .inflate(R.layout.new_tab_page_feed_header, null, false);
+            mHeaderView.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
+            if (treatment.equals("none")) {
+                mHeaderView.setVisibility(View.GONE);
+            }
         } else {
-            mSectionHeaderView =
-                    (SectionHeaderView)
-                            LayoutInflater.from(mActivity)
-                                    .inflate(
-                                            R.layout.new_tab_page_feed_v2_expandable_header,
-                                            null,
-                                            false);
+            if (WebFeedBridge.isWebFeedEnabled()) {
+                mHeaderView =
+                        LayoutInflater.from(mActivity)
+                                .inflate(R.layout.new_tab_page_multi_feed_header, null, false);
+            } else {
+                mHeaderView =
+                        LayoutInflater.from(mActivity)
+                                .inflate(
+                                        R.layout.new_tab_page_feed_v2_expandable_header,
+                                        null,
+                                        false);
+            }
         }
-        mSectionHeaderModel = SectionHeaderListProperties.create(toolbarHeight);
-
-        SectionHeaderViewBinder binder = new SectionHeaderViewBinder();
-        mSectionHeaderModelChangeProcessor =
-                PropertyModelChangeProcessor.create(
-                        mSectionHeaderModel, mSectionHeaderView, binder);
-        mSectionHeaderListModelChangeProcessor =
-                new ListModelChangeProcessor<>(
-                        mSectionHeaderModel.get(SectionHeaderListProperties.SECTION_HEADERS_KEY),
-                        mSectionHeaderView,
-                        binder);
-        mSectionHeaderModel
-                .get(SectionHeaderListProperties.SECTION_HEADERS_KEY)
-                .addObserver(mSectionHeaderListModelChangeProcessor);
 
         FeedOptionsCoordinator optionsCoordinator = new FeedOptionsCoordinator(mActivity);
 
-        mSectionHeaderModel.set(
-                SectionHeaderListProperties.EXPANDING_DRAWER_VIEW_KEY,
-                optionsCoordinator.getView());
+        if (mHeaderView != null && mHeaderView instanceof SectionHeaderView) {
+            mSectionHeaderModel = SectionHeaderListProperties.create(toolbarHeight);
+
+            SectionHeaderViewBinder binder = new SectionHeaderViewBinder();
+            mSectionHeaderModelChangeProcessor =
+                    PropertyModelChangeProcessor.create(
+                            mSectionHeaderModel, (SectionHeaderView) mHeaderView, binder);
+            mSectionHeaderListModelChangeProcessor =
+                    new ListModelChangeProcessor<>(
+                            mSectionHeaderModel.get(
+                                    SectionHeaderListProperties.SECTION_HEADERS_KEY),
+                            (SectionHeaderView) mHeaderView,
+                            binder);
+            mSectionHeaderModel
+                    .get(SectionHeaderListProperties.SECTION_HEADERS_KEY)
+                    .addObserver(mSectionHeaderListModelChangeProcessor);
+
+            mSectionHeaderModel.set(
+                    SectionHeaderListProperties.EXPANDING_DRAWER_VIEW_KEY,
+                    optionsCoordinator.getView());
+        }
 
         if (mNtpHeader != null && ChromeFeatureList.isEnabled(ChromeFeatureList.FEED_CONTAINMENT)) {
             int bottomPadding =
@@ -571,18 +596,6 @@ public class FeedSurfaceCoordinator
         toolbar.setBrowsingModeHairlineVisibility(isVisible);
     }
 
-    /**
-     * @return the position of the in-feed header, or an error value Integer.MAX_VALUE when
-     *     mScrollableContainerDelegate isn't initialized successfully.
-     */
-    int getFeedHeaderPosition() {
-        if (mScrollableContainerDelegate != null) {
-            return mScrollableContainerDelegate.getTopPositionRelativeToContainerView(
-                    mSectionHeaderView);
-        }
-        return Integer.MAX_VALUE;
-    }
-
     @Override
     public void hasContentChanged(@StreamKind int kind, boolean hasContent) {
         if (kind == StreamKind.FOLLOWING) {
@@ -598,12 +611,14 @@ public class FeedSurfaceCoordinator
     }
 
     public void maybeShowWebFeedAwarenessIph() {
-        if (mWebFeedHasContent
+        if (mHeaderView != null
+                && mHeaderView instanceof SectionHeaderView
+                && mWebFeedHasContent
                 && FeedFeatures.shouldUseWebFeedAwarenessIph()
                 && !FeedFeatures.isFeedFollowUiUpdateEnabled()) {
             UserEducationHelper helper = new UserEducationHelper(mActivity, mProfile, mHandler);
-            mSectionHeaderView.showWebFeedAwarenessIph(
-                    helper, StreamTabId.FOLLOWING, new Scroller());
+            ((SectionHeaderView) mHeaderView)
+                    .showWebFeedAwarenessIph(helper, StreamTabId.FOLLOWING, new Scroller());
         }
     }
 
@@ -794,11 +809,6 @@ public class FeedSurfaceCoordinator
         mMediator.restoreSavedInstanceState(state);
     }
 
-    /** Sets the {@link StreamTabId} of the feed given a {@link NewTabPageLaunchOrigin}. */
-    public void setTabIdFromLaunchOrigin(@NewTabPageLaunchOrigin int launchOrigin) {
-        mMediator.setTabId(getTabIdFromLaunchOrigin(launchOrigin));
-    }
-
     /**
      * Gets the appropriate {@link StreamTabId} for the given {@link NewTabPageLaunchOrigin}.
      *
@@ -946,7 +956,7 @@ public class FeedSurfaceCoordinator
             mActionDelegate.onStreamCreated();
             mFeedSurfaceLifecycleManager =
                     mDelegate.createStreamLifecycleManager(mActivity, this, mProfile);
-            headerList.add(mSectionHeaderView);
+            headerList.add(mHeaderView);
             if (mSwipeRefreshLayout != null) {
                 mSwipeRefreshLayout.enableSwipe(mScrollableContainerDelegate);
             }
@@ -998,10 +1008,10 @@ public class FeedSurfaceCoordinator
 
             if (header instanceof NewTabPageLayout) {
                 lateralPaddingsPx = 0;
-            } else if (header == mSectionHeaderView) {
+            } else if (header == mHeaderView) {
                 lateralPaddingsPx = 0;
                 if (!ChromeFeatureList.isEnabled(ChromeFeatureList.FEED_CONTAINMENT)) {
-                    mSectionHeaderView.setBackgroundColor(
+                    mHeaderView.setBackgroundColor(
                             ContextCompat.getColor(
                                     mActivity, R.color.home_surface_background_color));
                 }
@@ -1021,6 +1031,18 @@ public class FeedSurfaceCoordinator
                                 ChromeFeatureList.isEnabled(ChromeFeatureList.FEED_CONTAINMENT)
                                         ? R.drawable.home_surface_background_rounded
                                         : R.drawable.home_surface_ui_background);
+
+                if (ChromeFeatureList.isEnabled(ChromeFeatureList.FEED_HEADER_REMOVAL)) {
+                    int topPadding =
+                            mActivity
+                                    .getResources()
+                                    .getDimensionPixelSize(R.dimen.feed_header_top_margin);
+                    mSigninPromoView.setPadding(
+                            mSigninPromoView.getPaddingLeft(),
+                            topPadding,
+                            mSigninPromoView.getPaddingRight(),
+                            mSigninPromoView.getPaddingBottom());
+                }
             }
 
             FeedListContentManager.NativeViewContent content =
@@ -1034,7 +1056,7 @@ public class FeedSurfaceCoordinator
         }
         // The section header is the last header to be added, excluding sign-in promo, save its
         // index.
-        mSectionHeaderIndex = headerViews.size() - (hasSigninPromoView ? 2 : 1);
+        mHeaderIndex = headerViews.size() - (hasSigninPromoView ? 2 : 1);
     }
 
     /**
@@ -1069,13 +1091,29 @@ public class FeedSurfaceCoordinator
             headers.add(mNtpHeader);
         }
 
-        headers.add(mSectionHeaderView);
+        headers.add(mHeaderView);
 
         if (signinPromoView != null) {
             mSigninPromoView = signinPromoView;
             headers.add(signinPromoView);
         }
         setHeaders(headers);
+    }
+
+    void updateHeaderText(String headerText) {
+        if (headerText == null) {
+            mHeaderView.setVisibility(View.GONE);
+        } else {
+            mHeaderView.setVisibility(View.VISIBLE);
+            TextView titleView = (TextView) mHeaderView.findViewById(R.id.header_title);
+            if (titleView != null) {
+                titleView.setText(headerText);
+            }
+        }
+    }
+
+    public boolean isHeaderVisible() {
+        return mHeaderView.getVisibility() == View.VISIBLE;
     }
 
     public FeedSurfaceMediator getMediatorForTesting() {
@@ -1086,8 +1124,8 @@ public class FeedSurfaceCoordinator
         mMediator = mediator;
     }
 
-    public View getSectionHeaderViewForTesting() {
-        return mSectionHeaderView;
+    public View getHeaderViewForTesting() {
+        return mHeaderView;
     }
 
     /**
@@ -1123,7 +1161,7 @@ public class FeedSurfaceCoordinator
                         () -> {
                             UserEducationHelper helper =
                                     new UserEducationHelper(mActivity, mProfile, mHandler);
-                            mSectionHeaderView.showMenuIph(helper);
+                            ((SectionHeaderView) mHeaderView).showMenuIph(helper);
                         });
         mScrollableContainerDelegate.addScrollListener(mHeaderIphScrollListener);
     }
@@ -1181,8 +1219,7 @@ public class FeedSurfaceCoordinator
                 : "Max position fraction should be ranging between 0.0 and 1.0";
 
         int topPosInStream =
-                mScrollableContainerDelegate.getTopPositionRelativeToContainerView(
-                        mSectionHeaderView);
+                mScrollableContainerDelegate.getTopPositionRelativeToContainerView(mHeaderView);
         if (topPosInStream < 0) return false;
         if (topPosInStream
                 > headerMaxPosFraction * mScrollableContainerDelegate.getRootViewHeight()) {

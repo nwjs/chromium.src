@@ -120,10 +120,10 @@ class ShelfBubble;
 class TestBubbleDialogDelegateView;
 class TestBubbleDialogDelegate;
 class TrayBubbleView;
-FORWARD_DECLARE_TEST(OverviewSessionTest, HideBubbleTransient);
+FORWARD_DECLARE_TEST(OverviewSessionTest, DoNotHideBubbleTransient);
 FORWARD_DECLARE_TEST(ResizeShadowAndCursorTest,
                      DefaultCursorOnBubbleWidgetCorners);
-FORWARD_DECLARE_TEST(SnapGroupOverviewTest, HideBubbleTransientInOverview);
+FORWARD_DECLARE_TEST(SnapGroupOverviewTest, BubbleTransientIsVisibleInOverview);
 FORWARD_DECLARE_TEST(
     SnapGroupDesksTest,
     NoCrashWhenDraggingOverviewGroupItemWithBubbleToAnotherDesk);
@@ -286,10 +286,10 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   // bubble is active, and will optionally resize itself to fit within the
   // anchor widget if the anchor widget's size changes.
   //
-  // The anchor widget is implied by the anchor view - bubbles with no anchor
-  // view cannot be anchored to a widget.
-
+  // The anchor widget can be explicitly set, or is implied by the anchor view.
+  void SetAnchorWidget(views::Widget* anchor_widget);
   Widget* anchor_widget() { return anchor_widget_; }
+  const Widget* anchor_widget() const { return anchor_widget_; }
 
   //////////////////////////////////////////////////////////////////////////////
   // The arrow:
@@ -848,11 +848,12 @@ class VIEWS_EXPORT BubbleDialogDelegateView : public View,
   friend class ::ash::TestBubbleDialogDelegateView;
   friend class ::ash::TestBubbleDialogDelegate;
   friend class ::ash::TrayBubbleView;
-  FRIEND_TEST_ALL_PREFIXES(::ash::OverviewSessionTest, HideBubbleTransient);
+  FRIEND_TEST_ALL_PREFIXES(::ash::OverviewSessionTest,
+                           DoNotHideBubbleTransient);
   FRIEND_TEST_ALL_PREFIXES(::ash::ResizeShadowAndCursorTest,
                            DefaultCursorOnBubbleWidgetCorners);
   FRIEND_TEST_ALL_PREFIXES(::ash::SnapGroupOverviewTest,
-                           HideBubbleTransientInOverview);
+                           BubbleTransientIsVisibleInOverview);
   FRIEND_TEST_ALL_PREFIXES(
       ::ash::SnapGroupDesksTest,
       NoCrashWhenDraggingOverviewGroupItemWithBubbleToAnotherDesk);

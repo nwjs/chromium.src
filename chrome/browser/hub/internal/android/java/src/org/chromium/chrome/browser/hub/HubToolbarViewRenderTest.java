@@ -33,6 +33,8 @@ import org.chromium.base.test.BaseActivityTestRule;
 import org.chromium.base.test.BaseJUnit4ClassRunner;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.Feature;
+import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.toolbar.TabSwitcherDrawable;
 import org.chromium.chrome.browser.toolbar.TabSwitcherDrawable.TabSwitcherDrawableLocation;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
@@ -56,7 +58,7 @@ public class HubToolbarViewRenderTest {
     public ChromeRenderTestRule mRenderTestRule =
             ChromeRenderTestRule.Builder.withPublicCorpus()
                     .setBugComponent(ChromeRenderTestRule.Component.UI_BROWSER_MOBILE_HUB)
-                    .setRevision(11)
+                    .setRevision(12)
                     .build();
 
     @Mock private TabSwitcherDrawable.Observer mTabSwitcherDrawableObserver;
@@ -74,6 +76,13 @@ public class HubToolbarViewRenderTest {
         mActivityTestRule.launchActivity(null);
         mActivity = mActivityTestRule.getActivity();
         mActivity.setTheme(R.style.Theme_BrowserUI_DayNight);
+        if (ChromeFeatureList.sGridTabSwitcherUpdate.isEnabled()) {
+            mActivity.getTheme().applyStyle(R.style.HubToolbarActionButtonStyleOverlay_Fill, true);
+        } else {
+            mActivity
+                    .getTheme()
+                    .applyStyle(R.style.HubToolbarActionButtonStyleOverlay_Baseline, true);
+        }
         ThreadUtils.runOnUiThreadBlocking(this::setUpOnUi);
     }
 
@@ -161,6 +170,47 @@ public class HubToolbarViewRenderTest {
     @Test
     @MediumTest
     @Feature({"RenderTest"})
+    @EnableFeatures({ChromeFeatureList.GRID_TAB_SWITCHER_UPDATE})
+    public void testActionButtonWithGTSUpdate() throws Exception {
+        FullButtonData enabledButtonData = enabledButtonData(R.drawable.new_tab_icon);
+        FullButtonData disabledButtonData = disabledButtonData(R.drawable.new_tab_icon);
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mPropertyModel.set(HubToolbarProperties.ACTION_BUTTON_DATA, enabledButtonData);
+                });
+        mRenderTestRule.render(mToolbar, "actionButtonOnlyImageWithGTSUpdate");
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () ->
+                        mPropertyModel.set(
+                                HubToolbarProperties.ACTION_BUTTON_DATA, disabledButtonData));
+        mRenderTestRule.render(mToolbar, "disabledButtonOnlyImageWithGTSUpdate");
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> mPropertyModel.set(HubToolbarProperties.ACTION_BUTTON_DATA, null));
+        mRenderTestRule.render(mToolbar, "noActionButtonWithGTSUpdate");
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mPropertyModel.set(HubToolbarProperties.ACTION_BUTTON_DATA, enabledButtonData);
+                    mPropertyModel.set(HubToolbarProperties.MENU_BUTTON_VISIBLE, true);
+                    mPane = mock();
+                    when(mPane.getColorScheme()).thenReturn(HubColorScheme.INCOGNITO);
+                    mFocusedPaneSupplier.set(mPane);
+                });
+        mRenderTestRule.render(mToolbar, "actionButtonIncognitoWithGTSUpdate");
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mPropertyModel.set(HubToolbarProperties.ACTION_BUTTON_DATA, disabledButtonData);
+                });
+        mRenderTestRule.render(mToolbar, "disabledActionButtonIncognitoWithGTSUpdate");
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"RenderTest"})
     public void testPaneSwitcher() throws Exception {
         FullButtonData actionButtonData = enabledButtonData(R.drawable.new_tab_icon);
         List<FullButtonData> paneSwitcherButtonData = new ArrayList<>();
@@ -188,6 +238,39 @@ public class HubToolbarViewRenderTest {
                     mFocusedPaneSupplier.set(mPane);
                 });
         mRenderTestRule.render(mToolbar, "paneSwitcherIncognito");
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"RenderTest"})
+    @EnableFeatures({ChromeFeatureList.GRID_TAB_SWITCHER_UPDATE})
+    public void testPaneSwitcherWithGtsUpdate() throws Exception {
+        FullButtonData actionButtonData = enabledButtonData(R.drawable.new_tab_icon);
+        List<FullButtonData> paneSwitcherButtonData = new ArrayList<>();
+        paneSwitcherButtonData.add(enabledButtonData(R.drawable.new_tab_icon));
+        paneSwitcherButtonData.add(enabledButtonData(R.drawable.incognito_small));
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mPropertyModel.set(HubToolbarProperties.ACTION_BUTTON_DATA, actionButtonData);
+                    mPropertyModel.set(HubToolbarProperties.MENU_BUTTON_VISIBLE, true);
+                    mPropertyModel.set(HubToolbarProperties.PANE_SWITCHER_INDEX, 0);
+                    mPropertyModel.set(
+                            HubToolbarProperties.PANE_SWITCHER_BUTTON_DATA, paneSwitcherButtonData);
+                });
+        mRenderTestRule.render(mToolbar, "paneSwitcherWithGtsUpdate");
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> mPropertyModel.set(HubToolbarProperties.PANE_SWITCHER_INDEX, 1));
+        mRenderTestRule.render(mToolbar, "paneSwitcherSelectedIndexWithGtsUpdate");
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mPane = mock();
+                    when(mPane.getColorScheme()).thenReturn(HubColorScheme.INCOGNITO);
+                    mFocusedPaneSupplier.set(mPane);
+                });
+        mRenderTestRule.render(mToolbar, "paneSwitcherIncognitoWithGtsUpdate");
     }
 
     @Test

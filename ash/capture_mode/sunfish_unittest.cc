@@ -770,7 +770,8 @@ TEST_F(SunfishTest, CaptureLabelView) {
   // select a capture region phase.
   EXPECT_FALSE(capture_button->GetVisible());
   EXPECT_TRUE(capture_label->GetVisible());
-  EXPECT_EQ(u"Drag to select an area to search", capture_label->GetText());
+  EXPECT_EQ(u"Drag or press Space to select an area to search",
+            capture_label->GetText());
 
   // Tests it can drag and select a region.
   auto* event_generator = GetEventGenerator();
@@ -868,7 +869,8 @@ TEST_F(SunfishTest, ResetCaptureRegion) {
   CaptureModeSessionTestApi test_api(controller->capture_mode_session());
   auto* capture_label = test_api.GetCaptureLabelInternalView();
   EXPECT_TRUE(capture_label->GetVisible());
-  EXPECT_EQ(u"Drag to select an area to search", capture_label->GetText());
+  EXPECT_EQ(u"Drag or press Space to select an area to search",
+            capture_label->GetText());
 }
 
 // Tests the sunfish capture mode bar view.
@@ -1131,7 +1133,8 @@ TEST_F(SunfishTest, StartRecordingThenStartSunfish) {
   auto* capture_label = test_api.GetCaptureLabelInternalView();
   EXPECT_FALSE(capture_button->GetVisible());
   EXPECT_TRUE(capture_label->GetVisible());
-  EXPECT_EQ(u"Drag to select an area to search", capture_label->GetText());
+  EXPECT_EQ(u"Drag or press Space to select an area to search",
+            capture_label->GetText());
 
   // Test we can select a region and show the search results panel.
   SelectCaptureModeRegion(GetEventGenerator(), gfx::Rect(100, 100, 600, 500),
@@ -2535,6 +2538,37 @@ TEST_F(SunfishTest, PressingSearchButtonShowsErrorIfOffline) {
       session_test_api.GetActionContainerErrorView();
   ASSERT_TRUE(error_view);
   EXPECT_TRUE(error_view->GetVisible());
+}
+
+// Tests that if there is a lens web error when pressing the search button, we
+// exit capture mode.
+TEST_F(SunfishTest, PressingSearchButtonExitsIfLensError) {
+  // Start default capture mode.
+  CaptureModeController* controller =
+      StartCaptureSession(CaptureModeSource::kRegion, CaptureModeType::kImage);
+
+  // Simulate a lens web error when pressing the search button.
+  auto* test_delegate =
+      static_cast<TestCaptureModeDelegate*>(controller->delegate_for_testing());
+  test_delegate->set_force_lens_web_error(true);
+
+  SelectCaptureModeRegion(GetEventGenerator(), gfx::Rect(100, 100, 600, 500),
+                          /*release_mouse=*/true, /*verify_region=*/true);
+  WaitForCaptureModeWidgetsVisible();
+
+  // Press the search button.
+  auto* session =
+      static_cast<CaptureModeSession*>(controller->capture_mode_session());
+  CaptureModeSessionTestApi session_test_api(session);
+  ActionButtonView* search_button = session_test_api.GetActionButtonByViewId(
+      ActionButtonViewID::kSearchButton);
+  LeftClickOn(search_button);
+
+  // The session should no longer be active.
+  base::RunLoop run_loop;
+  test_delegate->set_on_session_state_changed_callback(run_loop.QuitClosure());
+  run_loop.Run();
+  ASSERT_FALSE(controller->IsActive());
 }
 
 TEST_F(SunfishTest, PinnedWindowExitSession) {

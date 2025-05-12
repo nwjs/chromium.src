@@ -11696,6 +11696,12 @@ TEST_P(HttpNetworkTransactionTest, NTLMOverHttp2) {
 
   const char kUrl[] = "https://server/kids/login.aspx";
 
+  const SpdySessionKey kSpdySessionKey(
+      HostPortPair("server", 443), PRIVACY_MODE_DISABLED, ProxyChain::Direct(),
+      SessionUsage::kDestination, SocketTag(), NetworkAnonymizationKey(),
+      SecureDnsPolicy::kAllow,
+      /*disable_cert_verification_network_fetches=*/false);
+
   HttpRequestInfo request;
   request.method = "GET";
   request.url = GURL(kUrl);
@@ -11717,6 +11723,12 @@ TEST_P(HttpNetworkTransactionTest, NTLMOverHttp2) {
   // Stream 1 is closed.
   spdy_util_.UpdateWithStreamDestruction(1);
 
+  // GOAWAY is sent.
+  spdy::SpdySerializedFrame go_away(spdy_util_.ConstructSpdyGoAway(
+      /*last_good_stream_id=*/0,
+      MapNetErrorToGoAwayStatus(ERR_HTTP_1_1_REQUIRED),
+      std::string(SpdySession::kHTTP11RequiredErrorMessage)));
+
   // Generate the NTLM messages based on known test data.
   std::string negotiate_msg = base::Base64Encode(std::string_view(
       reinterpret_cast<const char*>(ntlm::test::kExpectedNegotiateMsg),
@@ -11729,7 +11741,8 @@ TEST_P(HttpNetworkTransactionTest, NTLMOverHttp2) {
           ntlm::test::kExpectedAuthenticateMsgEmptyChannelBindingsV2),
       std::size(ntlm::test::kExpectedAuthenticateMsgEmptyChannelBindingsV2)));
 
-  MockWrite writes0[] = {CreateMockWrite(request0, 0)};
+  MockWrite writes0[] = {CreateMockWrite(request0, 0),
+                         CreateMockWrite(go_away, 3)};
   MockRead reads0[] = {CreateMockRead(resp, 1),
                        MockRead(SYNCHRONOUS, ERR_IO_PENDING, 2)};
 
@@ -11797,6 +11810,9 @@ TEST_P(HttpNetworkTransactionTest, NTLMOverHttp2) {
 
   rv = callback1.WaitForResult();
   EXPECT_THAT(rv, IsOk());
+  EXPECT_TRUE(session->spdy_session_pool()->HasAvailableSession(
+      kSpdySessionKey,
+      /*enable_ip_based_pooling=*/true, /*is_websocket=*/false));
 
   EXPECT_FALSE(trans.IsReadyToRestartForAuth());
 
@@ -11845,6 +11861,9 @@ TEST_P(HttpNetworkTransactionTest, NTLMOverHttp2) {
 
   EXPECT_TRUE(session->http_server_properties()->RequiresHTTP11(
       url::SchemeHostPort(request.url), NetworkAnonymizationKey()));
+  EXPECT_FALSE(session->spdy_session_pool()->HasAvailableSession(
+      kSpdySessionKey,
+      /*enable_ip_based_pooling=*/true, /*is_websocket=*/false));
 }
 
 // Same as above, but with a host mapping in place. The mapped host is the one
@@ -11857,6 +11876,12 @@ TEST_P(HttpNetworkTransactionTest, NTLMOverHttp2WithHostMapping) {
   const char kMappedUrl[] = "https://server2:12345/kids/login.aspx";
   session_deps_.host_mapping_rules.AddRuleFromString(
       "MAP server server2:12345");
+
+  const SpdySessionKey kMappedSpdySessionKey(
+      HostPortPair("server2", 12345), PRIVACY_MODE_DISABLED,
+      ProxyChain::Direct(), SessionUsage::kDestination, SocketTag(),
+      NetworkAnonymizationKey(), SecureDnsPolicy::kAllow,
+      /*disable_cert_verification_network_fetches=*/false);
 
   HttpRequestInfo request;
   request.method = "GET";
@@ -11879,6 +11904,12 @@ TEST_P(HttpNetworkTransactionTest, NTLMOverHttp2WithHostMapping) {
   // Stream 1 is closed.
   spdy_util_.UpdateWithStreamDestruction(1);
 
+  // GOAWAY is sent.
+  spdy::SpdySerializedFrame go_away(spdy_util_.ConstructSpdyGoAway(
+      /*last_good_stream_id=*/0,
+      MapNetErrorToGoAwayStatus(ERR_HTTP_1_1_REQUIRED),
+      std::string(SpdySession::kHTTP11RequiredErrorMessage)));
+
   // Generate the NTLM messages based on known test data.
   std::string negotiate_msg = base::Base64Encode(std::string_view(
       reinterpret_cast<const char*>(ntlm::test::kExpectedNegotiateMsg),
@@ -11891,7 +11922,8 @@ TEST_P(HttpNetworkTransactionTest, NTLMOverHttp2WithHostMapping) {
           ntlm::test::kExpectedAuthenticateMsgEmptyChannelBindingsV2),
       std::size(ntlm::test::kExpectedAuthenticateMsgEmptyChannelBindingsV2)));
 
-  MockWrite writes0[] = {CreateMockWrite(request0, 0)};
+  MockWrite writes0[] = {CreateMockWrite(request0, 0),
+                         CreateMockWrite(go_away, 3)};
   MockRead reads0[] = {CreateMockRead(resp, 1),
                        MockRead(SYNCHRONOUS, ERR_IO_PENDING, 2)};
 
@@ -11959,6 +11991,9 @@ TEST_P(HttpNetworkTransactionTest, NTLMOverHttp2WithHostMapping) {
 
   rv = callback1.WaitForResult();
   EXPECT_THAT(rv, IsOk());
+  EXPECT_TRUE(session->spdy_session_pool()->HasAvailableSession(
+      kMappedSpdySessionKey,
+      /*enable_ip_based_pooling=*/true, /*is_websocket=*/false));
 
   EXPECT_FALSE(trans.IsReadyToRestartForAuth());
 
@@ -12009,6 +12044,9 @@ TEST_P(HttpNetworkTransactionTest, NTLMOverHttp2WithHostMapping) {
       url::SchemeHostPort(request.url), NetworkAnonymizationKey()));
   EXPECT_TRUE(session->http_server_properties()->RequiresHTTP11(
       url::SchemeHostPort(GURL(kMappedUrl)), NetworkAnonymizationKey()));
+  EXPECT_FALSE(session->spdy_session_pool()->HasAvailableSession(
+      kMappedSpdySessionKey,
+      /*enable_ip_based_pooling=*/true, /*is_websocket=*/false));
 }
 
 #if BUILDFLAG(ENABLE_WEBSOCKETS)
@@ -12017,6 +12055,13 @@ TEST_P(HttpNetworkTransactionTest, NTLMOverHttp2WithHostMapping) {
 TEST_P(HttpNetworkTransactionTest, NTLMOverHttp2WithWebsockets) {
   const GURL kInitialUrl("https://server/");
   const GURL kWebSocketUrl("wss://server/");
+
+  const SpdySessionKey kSpdySessionKey(
+      HostPortPair("server", 443), PRIVACY_MODE_DISABLED, ProxyChain::Direct(),
+      SessionUsage::kDestination, SocketTag(), NetworkAnonymizationKey(),
+      SecureDnsPolicy::kAllow,
+      /*disable_cert_verification_network_fetches=*/false);
+
   HttpAuthNtlmMechanism::ScopedProcSetter proc_setter(
       MockGetMSTime, MockGenerateRandom, MockGetHostName);
 
@@ -12062,10 +12107,15 @@ TEST_P(HttpNetworkTransactionTest, NTLMOverHttp2WithWebsockets) {
       spdy_util_.ConstructSpdyResponseHeaders(
           3, std::move(auth_challenge_headers), true));
 
-  MockWrite writes0[] = {CreateMockWrite(initial_request, 0),
-                         CreateMockWrite(settings_ack, 2),
-                         CreateMockWrite(websocket_request, 4),
-                         MockWrite(SYNCHRONOUS, ERR_IO_PENDING, 7)};
+  // GOAWAY is sent.
+  spdy::SpdySerializedFrame go_away(spdy_util_.ConstructSpdyGoAway(
+      /*last_good_stream_id=*/0,
+      MapNetErrorToGoAwayStatus(ERR_HTTP_1_1_REQUIRED),
+      std::string(SpdySession::kHTTP11RequiredErrorMessage)));
+
+  MockWrite writes0[] = {
+      CreateMockWrite(initial_request, 0), CreateMockWrite(settings_ack, 2),
+      CreateMockWrite(websocket_request, 4), CreateMockWrite(go_away, 7)};
   MockRead reads0[] = {CreateMockRead(settings_frame, 1),
                        CreateMockRead(initial_response, 3),
                        CreateMockRead(websocket_auth_challenge, 5),
@@ -12189,6 +12239,9 @@ TEST_P(HttpNetworkTransactionTest, NTLMOverHttp2WithWebsockets) {
   rv = websocket_trans.Start(&websocket_request_info,
                              websocket_callback.callback(), NetLogWithSource());
   EXPECT_THAT(websocket_callback.GetResult(rv), IsOk());
+  EXPECT_TRUE(session->spdy_session_pool()->HasAvailableSession(
+      kSpdySessionKey,
+      /*enable_ip_based_pooling=*/true, /*is_websocket=*/true));
 
   EXPECT_FALSE(websocket_trans.IsReadyToRestartForAuth());
 
@@ -12216,6 +12269,9 @@ TEST_P(HttpNetworkTransactionTest, NTLMOverHttp2WithWebsockets) {
   // WSS.
   EXPECT_TRUE(session->http_server_properties()->RequiresHTTP11(
       url::SchemeHostPort(kInitialUrl), NetworkAnonymizationKey()));
+  EXPECT_FALSE(session->spdy_session_pool()->HasAvailableSession(
+      kSpdySessionKey,
+      /*enable_ip_based_pooling=*/true, /*is_websocket=*/true));
 }
 
 #endif  // BUILDFLAG(ENABLE_WEBSOCKETS)
@@ -18041,7 +18097,7 @@ TEST_P(HttpNetworkTransactionTest, GenerateAuthToken) {
     int first_generate_server_token_rv;
     int num_auth_rounds;
     int first_ssl_round;
-    TestRound rounds[4];
+    std::array<TestRound, 4> rounds;
   } test_configs[] = {
       // Non-authenticating HTTP server with a direct connection.
       {__LINE__,
@@ -27705,6 +27761,9 @@ class IpProtectionProxyDelegate : public TestProxyDelegate {
     }
 
     result->UseProxyList(proxy_list);
+
+    // Emulate delegate with a PRT header value.
+    result->set_prt_header_value(":serializedPRT:");
   }
 
   static std::string GetAuthorizationHeaderValue(
@@ -28030,6 +28089,252 @@ TEST_P(HttpNetworkTransactionTest,
 
   SSLSocketDataProvider ssl2(ASYNC, OK);
   session_deps_.socket_factory->AddSSLSocketDataProvider(&ssl2);
+
+  TestCompletionCallback callback;
+
+  HttpNetworkTransaction trans(DEFAULT_PRIORITY, session.get());
+
+  int rv = trans.Start(&request, callback.callback(),
+                       NetLogWithSource::Make(NetLogSourceType::NONE));
+  EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
+
+  rv = callback.WaitForResult();
+  EXPECT_THAT(rv, IsOk());
+
+  const HttpResponseInfo* response = trans.GetResponseInfo();
+  ASSERT_TRUE(response);
+  ASSERT_TRUE(response->headers);
+  EXPECT_EQ("HTTP/1.1 200", response->headers->GetStatusLine());
+}
+
+// Test that for requests sent through an IP Protection proxy, the
+// 'Sec-Probabilistic-Reveal-Token' header is sent as expected when the
+// corresponding feature is enabled.
+TEST_P(HttpNetworkTransactionTest,
+       HttpsNestedProxyProbabilisticRevealTokenRequestHeaderAddedWhenEnabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeaturesAndParameters(
+      /*enabled_features=*/
+      {{features::kEnableIpProtectionProxy, {}},
+       {features::kEnableProbabilisticRevealTokens,
+        {{features::kProbabilisticRevealTokensAddHeaderToProxiedRequests.name,
+          "true"}}}
+
+      },
+      /*disabled_features=*/{});
+
+  HttpRequestInfo request;
+  request.method = "GET";
+  request.url = GURL("https://www.example.org/");
+  request.traffic_annotation =
+      MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
+
+  session_deps_.proxy_resolution_service =
+      ConfiguredProxyResolutionService::CreateFixedForTest(
+          "https://not-used:70", TRAFFIC_ANNOTATION_FOR_TESTS);
+  session_deps_.proxy_delegate = std::make_unique<IpProtectionProxyDelegate>();
+  auto* proxy_delegate = static_cast<IpProtectionProxyDelegate*>(
+      session_deps_.proxy_delegate.get());
+  proxy_delegate->set_proxy_chain(nested_proxy_chain_);
+  session_deps_.proxy_resolution_service->SetProxyDelegate(proxy_delegate);
+  session_deps_.net_log = NetLog::Get();
+  std::unique_ptr<HttpNetworkSession> session(CreateSession(&session_deps_));
+
+  const std::string kProxyServer1AuthHeaderValue =
+      IpProtectionProxyDelegate::GetAuthorizationHeaderValue(proxy_server_1_);
+  const std::string kProxyServer2AuthHeaderValue =
+      IpProtectionProxyDelegate::GetAuthorizationHeaderValue(proxy_server_2_);
+
+  const std::string kProxyServer2Connect = base::StringPrintf(
+      "CONNECT proxy2.test:71 HTTP/1.1\r\n"
+      "Host: proxy2.test:71\r\n"
+      "Proxy-Connection: keep-alive\r\n"
+      "User-Agent: test-ua\r\n"
+      "Authorization: %s\r\n\r\n",
+      kProxyServer1AuthHeaderValue.c_str());
+  const std::string kEndpointConnect = base::StringPrintf(
+      "CONNECT www.example.org:443 HTTP/1.1\r\n"
+      "Host: www.example.org:443\r\n"
+      "Proxy-Connection: keep-alive\r\n"
+      "User-Agent: test-ua\r\n"
+      "Authorization: %s\r\n\r\n",
+      kProxyServer2AuthHeaderValue.c_str());
+
+  MockWrite data_writes[] = {
+      MockWrite(kProxyServer2Connect.c_str()),
+      MockWrite(kEndpointConnect.c_str()),
+      MockWrite("GET / HTTP/1.1\r\n"
+                "Host: www.example.org\r\n"
+                "Connection: keep-alive\r\n"
+                // IpProtectionProxyDelegate defined above hard
+                // codes following serialized PRT value
+                "Sec-Probabilistic-Reveal-Token: :serializedPRT:\r\n\r\n"),
+  };
+
+  MockRead data_reads[] = {
+      MockRead("HTTP/1.1 200 Connection Established\r\n\r\n"),
+      MockRead("HTTP/1.1 200 Connection Established\r\n\r\n"),
+      MockRead("HTTP/1.1 200\r\n\r\n"),
+      MockRead(SYNCHRONOUS, OK),
+  };
+
+  StaticSocketDataProvider data(data_reads, data_writes);
+  session_deps_.socket_factory->AddSocketDataProvider(&data);
+
+  SSLSocketDataProvider ssl(ASYNC, OK);
+  session_deps_.socket_factory->AddSSLSocketDataProvider(&ssl);
+
+  SSLSocketDataProvider ssl2(ASYNC, OK);
+  session_deps_.socket_factory->AddSSLSocketDataProvider(&ssl2);
+
+  SSLSocketDataProvider ssl3(ASYNC, OK);
+  session_deps_.socket_factory->AddSSLSocketDataProvider(&ssl3);
+
+  TestCompletionCallback callback;
+
+  HttpNetworkTransaction trans(DEFAULT_PRIORITY, session.get());
+
+  int rv = trans.Start(&request, callback.callback(),
+                       NetLogWithSource::Make(NetLogSourceType::NONE));
+  EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
+
+  rv = callback.WaitForResult();
+  EXPECT_THAT(rv, IsOk());
+
+  const HttpResponseInfo* response = trans.GetResponseInfo();
+  ASSERT_TRUE(response);
+  ASSERT_TRUE(response->headers);
+  EXPECT_EQ("HTTP/1.1 200", response->headers->GetStatusLine());
+}
+
+// Test that the 'Sec-Probabilistic-Reveal-Token' header is not sent for
+// requests that are not sent through an IP Protection proxy.
+TEST_P(
+    HttpNetworkTransactionTest,
+    HttpsNestedProxyProbabilisticRevealTokenRequestHeaderNotAddedForNonProxiedRequests) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeaturesAndParameters(
+      /*enabled_features=*/
+      {{features::kEnableIpProtectionProxy,
+        {{features::kIpPrivacyDirectOnly.name, "true"}}},
+       {features::kEnableProbabilisticRevealTokens,
+        {{features::kProbabilisticRevealTokensAddHeaderToProxiedRequests.name,
+          "true"},
+         {features::kEnableProbabilisticRevealTokensForNonProxiedRequests.name,
+          "false"}}}},
+      /*disabled_features=*/{});
+
+  HttpRequestInfo request;
+  request.method = "GET";
+  request.url = GURL("https://www.example.org/");
+  request.traffic_annotation =
+      MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
+
+  const auto kIpProtectionDirectChain =
+      ProxyChain::ForIpProtection(std::vector<ProxyServer>());
+
+  session_deps_.proxy_resolution_service =
+      ConfiguredProxyResolutionService::CreateFixedForTest(
+          "https://not-used:70", TRAFFIC_ANNOTATION_FOR_TESTS);
+  session_deps_.proxy_delegate = std::make_unique<IpProtectionProxyDelegate>();
+  auto* proxy_delegate = static_cast<IpProtectionProxyDelegate*>(
+      session_deps_.proxy_delegate.get());
+  proxy_delegate->set_proxy_chain(kIpProtectionDirectChain);
+  session_deps_.proxy_resolution_service->SetProxyDelegate(proxy_delegate);
+  session_deps_.net_log = NetLog::Get();
+  std::unique_ptr<HttpNetworkSession> session(CreateSession(&session_deps_));
+
+  MockWrite data_writes[] = {
+      MockWrite("GET / HTTP/1.1\r\n"
+                "Host: www.example.org\r\n"
+                "Connection: keep-alive\r\n\r\n"),
+  };
+
+  MockRead data_reads[] = {
+      MockRead("HTTP/1.1 200\r\n\r\n"),
+      MockRead(SYNCHRONOUS, OK),
+  };
+
+  StaticSocketDataProvider data(data_reads, data_writes);
+  session_deps_.socket_factory->AddSocketDataProvider(&data);
+
+  SSLSocketDataProvider ssl(ASYNC, OK);
+  session_deps_.socket_factory->AddSSLSocketDataProvider(&ssl);
+
+  TestCompletionCallback callback;
+
+  HttpNetworkTransaction trans(DEFAULT_PRIORITY, session.get());
+
+  int rv = trans.Start(&request, callback.callback(),
+                       NetLogWithSource::Make(NetLogSourceType::NONE));
+  EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
+
+  rv = callback.WaitForResult();
+  EXPECT_THAT(rv, IsOk());
+
+  const HttpResponseInfo* response = trans.GetResponseInfo();
+  ASSERT_TRUE(response);
+  ASSERT_TRUE(response->headers);
+  EXPECT_EQ("HTTP/1.1 200", response->headers->GetStatusLine());
+}
+
+// Test that the 'Sec-Probabilistic-Reveal-Token' header is sent for
+// requests that are not sent through an IP Protection proxy if the
+// corresponding feature is enabled.
+TEST_P(
+    HttpNetworkTransactionTest,
+    HttpsNestedProxyProbabilisticRevealTokenRequestHeaderAddedForNonProxiedRequestsWhenFeatureEnabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeaturesAndParameters(
+      /*enabled_features=*/
+      {{features::kEnableIpProtectionProxy,
+        {{features::kIpPrivacyDirectOnly.name, "true"}}},
+       {features::kEnableProbabilisticRevealTokens,
+        {{features::kProbabilisticRevealTokensAddHeaderToProxiedRequests.name,
+          "true"},
+         {features::kEnableProbabilisticRevealTokensForNonProxiedRequests.name,
+          "true"}}}},
+      /*disabled_features=*/{});
+
+  HttpRequestInfo request;
+  request.method = "GET";
+  request.url = GURL("https://www.example.org/");
+  request.traffic_annotation =
+      MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
+
+  const auto kIpProtectionDirectChain =
+      ProxyChain::ForIpProtection(std::vector<ProxyServer>());
+
+  session_deps_.proxy_resolution_service =
+      ConfiguredProxyResolutionService::CreateFixedForTest(
+          "https://not-used:70", TRAFFIC_ANNOTATION_FOR_TESTS);
+  session_deps_.proxy_delegate = std::make_unique<IpProtectionProxyDelegate>();
+  auto* proxy_delegate = static_cast<IpProtectionProxyDelegate*>(
+      session_deps_.proxy_delegate.get());
+  proxy_delegate->set_proxy_chain(kIpProtectionDirectChain);
+  session_deps_.proxy_resolution_service->SetProxyDelegate(proxy_delegate);
+  session_deps_.net_log = NetLog::Get();
+  std::unique_ptr<HttpNetworkSession> session(CreateSession(&session_deps_));
+
+  MockWrite data_writes[] = {
+      MockWrite("GET / HTTP/1.1\r\n"
+                "Host: www.example.org\r\n"
+                "Connection: keep-alive\r\n"
+                // IpProtectionProxyDelegate defined above hard
+                // codes following serialized PRT value
+                "Sec-Probabilistic-Reveal-Token: :serializedPRT:\r\n\r\n"),
+  };
+
+  MockRead data_reads[] = {
+      MockRead("HTTP/1.1 200\r\n\r\n"),
+      MockRead(SYNCHRONOUS, OK),
+  };
+
+  StaticSocketDataProvider data(data_reads, data_writes);
+  session_deps_.socket_factory->AddSocketDataProvider(&data);
+
+  SSLSocketDataProvider ssl(ASYNC, OK);
+  session_deps_.socket_factory->AddSSLSocketDataProvider(&ssl);
 
   TestCompletionCallback callback;
 

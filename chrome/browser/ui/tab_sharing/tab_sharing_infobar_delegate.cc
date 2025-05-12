@@ -29,6 +29,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "content/public/common/content_features.h"
+#include "media/capture/capture_switches.h"
 #include "net/base/url_util.h"
 #include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -226,9 +227,7 @@ class TabSharingInfoBarDelegate::CscIndicatorButton
   const base::WeakPtr<content::WebContents> web_contents_;
 };
 
-namespace {
-
-bool IsCapturedTab(TabRole role) {
+bool TabSharingInfoBarDelegate::IsCapturedTab(TabRole role) {
   switch (role) {
     case TabRole::kCapturingTab:
     case TabRole::kOtherTab:
@@ -240,7 +239,17 @@ bool IsCapturedTab(TabRole role) {
   NOTREACHED();
 }
 
-}  // namespace
+bool TabSharingInfoBarDelegate::IsCapturingTab(TabRole role) {
+  switch (role) {
+    case TabRole::kCapturingTab:
+    case TabRole::kSelfCapturingTab:
+      return true;
+    case TabRole::kCapturedTab:
+    case TabRole::kOtherTab:
+      return false;
+  }
+  NOTREACHED();
+}
 
 // static
 infobars::InfoBar* TabSharingInfoBarDelegate::Create(
@@ -370,7 +379,9 @@ bool TabSharingInfoBarDelegate::IsCloseable() const {
 }
 
 const gfx::VectorIcon& TabSharingInfoBarDelegate::GetVectorIcon() const {
-  return vector_icons::kScreenShareIcon;
+  return base::FeatureList::IsEnabled(features::kTabCaptureInfobarLinks)
+             ? vector_icons::kScreenShareIcon
+             : vector_icons::kScreenShareOldIcon;
 }
 
 const TabSharingInfoBarDelegateButton& TabSharingInfoBarDelegate::GetButton(

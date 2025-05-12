@@ -2,10 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'chrome://print/print_preview.js';
+
 import type {PrintPreviewModelElement, PrintPreviewScalingSettingsElement} from 'chrome://print/print_preview.js';
 import {ScalingType} from 'chrome://print/print_preview.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
-import {fakeDataBind} from 'chrome://webui-test/polymer_test_util.js';
+import {microtasksFinished} from 'chrome://webui-test/test_util.js';
 
 import {selectOption, triggerInputEvent} from './print_preview_test_utils.js';
 
@@ -20,10 +22,8 @@ suite('ScalingSettingsTest', function() {
     document.body.appendChild(model);
 
     scalingSection = document.createElement('print-preview-scaling-settings');
-    scalingSection.settings = model.settings;
     scalingSection.disabled = false;
     setDocumentPdf(false);
-    fakeDataBind(model, scalingSection, 'settings');
     document.body.appendChild(scalingSection);
   });
 
@@ -31,16 +31,16 @@ suite('ScalingSettingsTest', function() {
       'ShowCorrectDropdownOptions', function() {
         // Not a PDF document -> No fit to page or fit to paper options.
         const fitToPageOption =
-            scalingSection.shadowRoot!.querySelector<HTMLOptionElement>(
+            scalingSection.shadowRoot.querySelector<HTMLOptionElement>(
                 `[value="${ScalingType.FIT_TO_PAGE}"]`)!;
         const fitToPaperOption =
-            scalingSection.shadowRoot!.querySelector<HTMLOptionElement>(
+            scalingSection.shadowRoot.querySelector<HTMLOptionElement>(
                 `[value="${ScalingType.FIT_TO_PAPER}"]`)!;
         const defaultOption =
-            scalingSection.shadowRoot!.querySelector<HTMLOptionElement>(
+            scalingSection.shadowRoot.querySelector<HTMLOptionElement>(
                 `[value="${ScalingType.DEFAULT}"]`)!;
         const customOption =
-            scalingSection.shadowRoot!.querySelector<HTMLOptionElement>(
+            scalingSection.shadowRoot.querySelector<HTMLOptionElement>(
                 `[value="${ScalingType.CUSTOM}"]`)!;
         assertTrue(fitToPageOption.hidden && fitToPageOption.disabled);
         assertTrue(fitToPaperOption.hidden && fitToPaperOption.disabled);
@@ -75,14 +75,14 @@ suite('ScalingSettingsTest', function() {
 
     // Validate UI values that are set by JS.
     const scalingInput =
-        scalingSection.shadowRoot!
+        scalingSection.shadowRoot
             .querySelector('print-preview-number-settings-section')!.getInput();
     const expectedCollapseOpened =
         (scalingSection.getSettingValue('scalingType') ===
          ScalingType.CUSTOM) ||
         (scalingSection.getSettingValue('scalingTypePdf') ===
          ScalingType.CUSTOM);
-    const collapse = scalingSection.shadowRoot!.querySelector('cr-collapse')!;
+    const collapse = scalingSection.shadowRoot.querySelector('cr-collapse')!;
     assertEquals(!valid, scalingInput.invalid);
     assertEquals(scalingDisplayValue, scalingInput.value);
     assertEquals(expectedCollapseOpened, collapse.opened);
@@ -102,7 +102,7 @@ suite('ScalingSettingsTest', function() {
   test('SetScaling', async () => {
     // Default is 100
     const scalingCrInput =
-        scalingSection.shadowRoot!
+        scalingSection.shadowRoot
             .querySelector(
                 'print-preview-number-settings-section')!.$.userValue;
     const scalingInput = scalingCrInput.inputElement;
@@ -110,7 +110,7 @@ suite('ScalingSettingsTest', function() {
     setDocumentPdf(true);
 
     // Default is 100
-    await scalingCrInput.updateComplete;
+    await microtasksFinished();
     validateState('100', true, ScalingType.DEFAULT, ScalingType.DEFAULT, '100');
     assertFalse(scalingSection.getSetting('scaling').setFromUi);
     assertFalse(scalingSection.getSetting('scalingType').setFromUi);
@@ -147,7 +147,7 @@ suite('ScalingSettingsTest', function() {
 
     // Select fit to page. Should clear the invalid value.
     await selectOption(scalingSection, ScalingType.FIT_TO_PAGE.toString());
-    await scalingCrInput.updateComplete;
+    await microtasksFinished();
     validateState(
         '105', true, ScalingType.CUSTOM, ScalingType.FIT_TO_PAGE, '105');
 
@@ -162,7 +162,7 @@ suite('ScalingSettingsTest', function() {
 
     // Pick default scaling. This should clear the error.
     await selectOption(scalingSection, ScalingType.DEFAULT.toString());
-    await scalingCrInput.updateComplete;
+    await microtasksFinished();
     validateState('105', true, ScalingType.DEFAULT, ScalingType.DEFAULT, '105');
 
     // Custom scaling should set to last valid.
@@ -181,7 +181,7 @@ suite('ScalingSettingsTest', function() {
   // setting changes.
   test(
       'InputNotDisabledOnValidityChange', async () => {
-        const numberSection = scalingSection.shadowRoot!.querySelector(
+        const numberSection = scalingSection.shadowRoot.querySelector(
             'print-preview-number-settings-section')!;
         const input = numberSection.getInput();
 

@@ -299,6 +299,14 @@ BASE_FEATURE(kPauseBackgroundMutedAudio,
              "PauseBackgroundMutedAudio",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// We plan to remove the background pause timer feature from WebMediaPlayerImpl.
+// We received reports that suggest that this feature's codepath hasn't been
+// exercised for a long time. This is a finch killswitch to rollback to the
+// previous behavior if we find any problems while disabling this feature.
+BASE_FEATURE(kPauseBackgroundTimer,
+             "PauseBackgroundTimer",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 #if !BUILDFLAG(IS_ANDROID)
 // Enables tracking the position of picture-in-picture windows to know when they
 // occlude certain widgets.
@@ -446,6 +454,13 @@ BASE_FEATURE(kContextMenuSearchForVideoFrame,
 BASE_FEATURE(kChromeWideEchoCancellation,
              "ChromeWideEchoCancellation",
              base::FEATURE_ENABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+BASE_FEATURE(kSystemLoopbackAsAecReference,
+             "SystemLoopbackAsAecReference",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<int> kAddedProcessingDelay{
+    &kSystemLoopbackAsAecReference, "added_delay_ms", 100};
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
 #endif
 
 #if (BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN))
@@ -540,6 +555,13 @@ BASE_FEATURE(kCrOSEnforceMonoAudioCapture,
 // releasing stale data from MSE buffers.
 BASE_FEATURE(kMemoryPressureBasedSourceBufferGC,
              "MemoryPressureBasedSourceBufferGC",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Forces SuggestProviderState() to only suggest deferring when range requests
+// aren't supported and the underlying provider considers itself stale. The
+// stale state is set if the provider has been in a deferred state for > 1 sec.
+BASE_FEATURE(kMultiBufferNeverDefer,
+             "MultiBufferNeverDefer",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls whether the Mirroring Service will fetch, analyze, and store
@@ -738,33 +760,14 @@ BASE_FEATURE(kVaapiLowPowerEncoderGen9x,
              "VaapiLowPowerEncoderGen9x",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Reject creation of encode/decode VAContexts when the requested resolution is
-// outside the enumerated minimum and maximum. TODO(b/171041334): Remove and
-// enable by default once the ARC++ hw codecs issue is fixed.
-BASE_FEATURE(kVaapiEnforceVideoMinMaxResolution,
-             "VaapiEnforceVideoMinMaxResolution",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Ensure the advertised minimum supported resolution is larger than or equal to
 // a given one (likely QVGA + 1) for certain codecs/modes and platforms, for
 // performance reasons. This does not affect JPEG decoding.
+//
+// NOTE: This feature is default-enabled, but selectively disabled by tests
+// so they can test resolutions below the threshold.  See crbug.com/40650027
 BASE_FEATURE(kVaapiVideoMinResolutionForPerformance,
              "VaapiVideoMinResolutionForPerformance",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enable VA-API hardware encode acceleration for VP8.
-BASE_FEATURE(kVaapiVP8Encoder,
-             "VaapiVP8Encoder",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enable VA-API hardware encode acceleration for VP9.
-BASE_FEATURE(kVaapiVP9Encoder,
-             "VaapiVP9Encoder",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enable VA-API hardware encode acceleration for AV1.
-BASE_FEATURE(kVaapiAV1Encoder,
-             "VaapiAV1Encoder",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enable global VA-API lock. Disable this to use lock-free VA-API function
@@ -774,19 +777,11 @@ BASE_FEATURE(kGlobalVaapiLock,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if defined(ARCH_CPU_X86_FAMILY) && BUILDFLAG(IS_CHROMEOS)
-// Enable H264 temporal layer encoding with HW encoder on ChromeOS.
-BASE_FEATURE(kVaapiH264TemporalLayerHWEncoding,
-             "VaapiH264TemporalLayerEncoding",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 // Enable software bitrate controller for H264 temporal layer encoding with HW
 // encoder on ChromeOS.
 BASE_FEATURE(kVaapiH264SWBitrateController,
              "VaapiH264SWBitrateController",
              base::FEATURE_DISABLED_BY_DEFAULT);
-// Enable VP8 temporal layer encoding with HW encoder on ChromeOS.
-BASE_FEATURE(kVaapiVp8TemporalLayerHWEncoding,
-             "VaapiVp8TemporalLayerEncoding",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 // Enable AV1 temporal layer encoding with HW encoder on ChromeOS.
 BASE_FEATURE(kVaapiAV1TemporalLayerHWEncoding,
              "VaapiAv1TemporalLayerEncoding",
@@ -849,12 +844,6 @@ BASE_FEATURE(kExternalClearKeyForTesting,
 // Specifies the path to the MediaFoundation Clear Key CDM for testing.
 const base::FeatureParam<std::string> kMediaFoundationClearKeyCdmPathForTesting{
     &kExternalClearKeyForTesting, "media_foundation_cdm_path", ""};
-
-// Enables the use of a faulty GPU for MediaFoundation. This is used for testing
-// purposes only.
-BASE_FEATURE(kEnableFaultyGPUForMediaFoundation,
-             "EnableFaultyGPUForMediaFoundation",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN)
 
 // Enables the On-Device Web Speech feature on supported devices.
@@ -1137,21 +1126,11 @@ BASE_FEATURE(kBuiltInHlsPlayer,
 #endif
 );
 
-BASE_FEATURE(kBuiltInHlsMP4,
-             "BuiltInHlsMP4",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kBuiltInHlsMP4, "BuiltInHlsMP4", base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kMediaPlayerHlsStatistics,
-             "MediaPlayerHlsStatistics",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(ENABLE_HLS_DEMUXER)
 
 #if BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
-// Enable hardware AV1 decoder on ChromeOS.
-BASE_FEATURE(kChromeOSHWAV1Decoder,
-             "ChromeOSHWAV1Decoder",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enable Variable Bitrate encoding with hardware accelerated encoders on
 // ChromeOS.
 BASE_FEATURE(kChromeOSHWVBREncoding,
@@ -1711,12 +1690,35 @@ BASE_FEATURE(kSupportMappableSharedImageOverMojo,
              "SupportMappableSharedImageOverMojo",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Controls headless Live Caption experiment, which is likely unstable.
+BASE_FEATURE(kHeadlessLiveCaption,
+             "HeadlessLiveCaption",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 bool IsChromeWideEchoCancellationEnabled() {
 #if BUILDFLAG(CHROME_WIDE_ECHO_CANCELLATION)
   return base::FeatureList::IsEnabled(kChromeWideEchoCancellation) &&
          !IsSystemEchoCancellationEnforced();
 #else
   return false;
+#endif
+}
+
+bool IsSystemLoopbackAsAecReferenceEnabled() {
+#if BUILDFLAG(CHROME_WIDE_ECHO_CANCELLATION) && \
+    (BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC))
+  return base::FeatureList::IsEnabled(kSystemLoopbackAsAecReference);
+#else
+  return false;
+#endif
+}
+
+std::optional<base::TimeDelta> GetAecAddedDelay() {
+#if BUILDFLAG(CHROME_WIDE_ECHO_CANCELLATION) && \
+    (BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC))
+  return base::Milliseconds(kAddedProcessingDelay.Get());
+#else
+  return std::nullopt;
 #endif
 }
 

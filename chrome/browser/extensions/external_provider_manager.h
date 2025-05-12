@@ -13,6 +13,9 @@
 #include "base/memory/weak_ptr.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "extensions/browser/external_provider_interface.h"
+#include "extensions/buildflags/buildflags.h"
+
+static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
 
 namespace content {
 class BrowserContext;
@@ -108,6 +111,9 @@ class ExternalProviderManager
   void InstallationFromExternalFileFinished(
       const std::string& extension_id,
       const std::optional<CrxInstallError>& error);
+
+  // Are we expecting a reinstall of the extension due to corruption?
+  bool IsReinstallForCorruptionExpected(const ExtensionId& id) const;
 
   // The BrowserContext with which the manager is associated.
   raw_ptr<content::BrowserContext> context_;

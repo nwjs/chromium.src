@@ -138,7 +138,8 @@ bool BrowserFrame::InitBrowserFrame() {
   bool got_saved_bounds = false;
   native_browser_frame_ =
       NativeBrowserFrameFactory::CreateNativeBrowserFrame(this, browser_view_);
-  views::Widget::InitParams params = native_browser_frame_->GetWidgetParams();
+  views::Widget::InitParams params = native_browser_frame_->GetWidgetParams(
+      views::Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET);
   params.name = "BrowserFrame";
   if (frameless_)
     params.remove_standard_frame = true;

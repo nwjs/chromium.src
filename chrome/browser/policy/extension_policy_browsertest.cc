@@ -33,6 +33,7 @@
 #include "chrome/browser/extensions/forced_extensions/install_stage_tracker.h"
 #include "chrome/browser/extensions/install_verifier.h"
 #include "chrome/browser/extensions/load_error_waiter.h"
+#include "chrome/browser/extensions/scoped_test_mv2_enabler.h"
 #include "chrome/browser/extensions/shared_module_service.h"
 #include "chrome/browser/extensions/unpacked_installer.h"
 #include "chrome/browser/extensions/updater/extension_updater.h"
@@ -305,6 +306,10 @@ class ExtensionPolicyTest : public ExtensionPolicyTestBase {
     return extensions::ExtensionUpdater::Get(browser()->profile());
   }
 
+  extensions::SharedModuleService* shared_module_service() {
+    return extensions::SharedModuleService::Get(browser()->profile());
+  }
+
   web_app::WebAppProvider* web_app_provider() {
     return web_app::WebAppProvider::GetForTest(browser()->profile());
   }
@@ -317,12 +322,12 @@ class ExtensionPolicyTest : public ExtensionPolicyTestBase {
   void UninstallExtension(const std::string& id, bool expect_success) {
     if (expect_success) {
       extensions::TestExtensionRegistryObserver observer(extension_registry());
-      extension_service()->UninstallExtension(
+      extension_registrar()->UninstallExtension(
           id, extensions::UNINSTALL_REASON_FOR_TESTING, nullptr);
       observer.WaitForExtensionUninstalled();
     } else {
       extensions::TestExtensionRegistryObserver observer(extension_registry());
-      extension_service()->UninstallExtension(
+      extension_registrar()->UninstallExtension(
           id, extensions::UNINSTALL_REASON_FOR_TESTING, nullptr);
       observer.WaitForExtensionUninstallationDenied();
     }
@@ -377,6 +382,9 @@ class ExtensionPolicyTest : public ExtensionPolicyTestBase {
 
  private:
   web_app::OsIntegrationManager::ScopedSuppressForTesting os_hooks_suppress_;
+
+  // TODO(https://crbug.com/40804030): Remove this when updated to use MV3.
+  extensions::ScopedTestMV2Enabler mv2_enabler_;
 };
 
 }  // namespace
@@ -387,7 +395,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionPolicyTest,
                        ExtensionInstallBlocklistComponentApps) {
   // Load all component extensions.
   extensions::ComponentLoader::EnableBackgroundExtensionsForTesting();
-  extension_service()->component_loader()->AddDefaultComponentExtensions(false);
+  auto* loader = extensions::ComponentLoader::Get(browser()->profile());
+  loader->AddDefaultComponentExtensions(false);
   base::RunLoop().RunUntilIdle();
 
   extensions::ExtensionRegistry* registry = extension_registry();
@@ -543,7 +552,6 @@ IN_PROC_BROWSER_TEST_F(ExtensionPolicyTest,
   extensions::ScopedCurrentChannel channel(version_info::Channel::DEV);
 
   // Verify that the extensions are not installed initially.
-  extensions::ExtensionService* service = extension_service();
   extensions::ExtensionRegistry* registry = extension_registry();
   ASSERT_FALSE(registry->GetExtensionById(
       kImporterId, extensions::ExtensionRegistry::EVERYTHING));
@@ -587,7 +595,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionPolicyTest,
 
   // Verify the dependency.
   std::unique_ptr<extensions::ExtensionSet> set =
-      service->shared_module_service()->GetDependentExtensions(shared_module);
+      shared_module_service()->GetDependentExtensions(shared_module);
   ASSERT_TRUE(set);
   EXPECT_EQ(1u, set->size());
   EXPECT_TRUE(set->Contains(importer->id()));
@@ -1024,7 +1032,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionPolicyTest, ExtensionInstallForcelist) {
   UninstallExtension(kGoodCrxId, false);
 
   scoped_refptr<extensions::UnpackedInstaller> installer =
-      extensions::UnpackedInstaller::Create(extension_service());
+      extensions::UnpackedInstaller::Create(browser()->profile());
 
   // The user is not allowed to load an unpacked extension with the
   // same ID as a force-installed extension.
@@ -2563,6 +2571,9 @@ class ExtensionPolicyTest2Contexts : public PolicyTest {
   raw_ptr<extensions::ExtensionRegistrar> registrar2_ = nullptr;
   raw_ptr<extensions::ExtensionRegistry> registry1_ = nullptr;
   raw_ptr<extensions::ExtensionRegistry> registry2_ = nullptr;
+
+  // TODO(https://crbug.com/40804030): Remove this when updated to use MV3.
+  extensions::ScopedTestMV2Enabler mv2_enabler_;
 };
 
 // Verifies that default policy host block/allow settings are applied as

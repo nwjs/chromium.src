@@ -12,6 +12,8 @@ import com.google.flatbuffers.FlatBufferBuilder;
 import org.chromium.base.Log;
 import org.chromium.base.Token;
 import org.chromium.base.metrics.RecordHistogram;
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabState;
 import org.chromium.chrome.browser.tab.TabUserAgent;
@@ -26,6 +28,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.nio.ByteBuffer;
 
 /** {@link TabStateSerializer} backed by a FlatBuffer */
+@NullMarked
 public class FlatBufferTabStateSerializer implements TabStateSerializer {
     private static final String TAG = "FBTSS";
     private static final String NULL_OPENER_APP_ID = " ";
@@ -97,7 +100,7 @@ public class FlatBufferTabStateSerializer implements TabStateSerializer {
     }
 
     @Override
-    public TabState deserialize(ByteBuffer bytes) {
+    public @Nullable TabState deserialize(ByteBuffer bytes) {
         try {
             TabStateFlatBufferV1 tabStateFlatBuffer =
                     TabStateFlatBufferV1.getRootAsTabStateFlatBufferV1(bytes);
@@ -219,6 +222,10 @@ public class FlatBufferTabStateSerializer implements TabStateSerializer {
                 return TabLaunchType.FROM_COLLABORATION_BACKGROUND_IN_GROUP;
             case TabLaunchTypeAtCreation.FROM_BOOKMARK_BAR_BACKGROUND:
                 return TabLaunchType.FROM_BOOKMARK_BAR_BACKGROUND;
+            case TabLaunchTypeAtCreation.FROM_HISTORY_NAVIGATION_BACKGROUND:
+                return TabLaunchType.FROM_HISTORY_NAVIGATION_BACKGROUND;
+            case TabLaunchTypeAtCreation.FROM_HISTORY_NAVIGATION_FOREGROUND:
+                return TabLaunchType.FROM_HISTORY_NAVIGATION_FOREGROUND;
             case TabLaunchTypeAtCreation.SIZE:
                 return TabLaunchType.SIZE;
             case TabLaunchTypeAtCreation.UNKNOWN:
@@ -291,6 +298,10 @@ public class FlatBufferTabStateSerializer implements TabStateSerializer {
                 return TabLaunchTypeAtCreation.FROM_BOOKMARK_BAR_BACKGROUND;
             case TabLaunchType.FROM_REPARENTING_BACKGROUND:
                 return TabLaunchTypeAtCreation.FROM_REPARENTING_BACKGROUND;
+            case TabLaunchType.FROM_HISTORY_NAVIGATION_BACKGROUND:
+                return TabLaunchTypeAtCreation.FROM_HISTORY_NAVIGATION_BACKGROUND;
+            case TabLaunchType.FROM_HISTORY_NAVIGATION_FOREGROUND:
+                return TabLaunchTypeAtCreation.FROM_HISTORY_NAVIGATION_FOREGROUND;
             case TabLaunchType.SIZE:
                 return TabLaunchTypeAtCreation.SIZE;
             default:

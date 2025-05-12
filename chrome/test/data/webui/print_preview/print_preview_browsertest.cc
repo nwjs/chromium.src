@@ -54,10 +54,6 @@ IN_PROC_BROWSER_TEST_F(PrintPreviewTest, MediaSizeSettings) {
   RunTest("print_preview/media_size_settings_test.js", "mocha.run()");
 }
 
-IN_PROC_BROWSER_TEST_F(PrintPreviewTest, MediaTypeSettings) {
-  RunTest("print_preview/media_type_settings_test.js", "mocha.run()");
-}
-
 IN_PROC_BROWSER_TEST_F(PrintPreviewTest, ModelSettingsAvailability) {
   RunTest("print_preview/model_settings_availability_test.js", "mocha.run()");
 }
@@ -74,8 +70,16 @@ IN_PROC_BROWSER_TEST_F(PrintPreviewTest, SelectMixin) {
   RunTest("print_preview/select_mixin_test.js", "mocha.run()");
 }
 
+IN_PROC_BROWSER_TEST_F(PrintPreviewTest, SelectMixinLit) {
+  RunTest("print_preview/select_mixin_lit_test.js", "mocha.run()");
+}
+
 IN_PROC_BROWSER_TEST_F(PrintPreviewTest, SettingsSelect) {
   RunTest("print_preview/settings_select_test.js", "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(PrintPreviewTest, Observable) {
+  RunTest("print_preview/observable_test.js", "mocha.run()");
 }
 
 class PrintPreviewAppTest : public PrintPreviewBrowserTest {
@@ -117,14 +121,6 @@ class PrintPreviewSidebarTest : public PrintPreviewBrowserTest {
 IN_PROC_BROWSER_TEST_F(PrintPreviewSidebarTest,
                        SettingsSectionsVisibilityChange) {
   RunTestCase("SettingsSectionsVisibilityChange");
-}
-
-IN_PROC_BROWSER_TEST_F(PrintPreviewSidebarTest, SheetCountWithDuplex) {
-  RunTestCase("SheetCountWithDuplex");
-}
-
-IN_PROC_BROWSER_TEST_F(PrintPreviewSidebarTest, SheetCountWithCopies) {
-  RunTestCase("SheetCountWithCopies");
 }
 
 class PrintPreviewPagesSettingsTest : public PrintPreviewBrowserTest {
@@ -347,6 +343,10 @@ IN_PROC_BROWSER_TEST_F(PrintPreviewModelTest, CustomMarginsAreNotNegative) {
 
 IN_PROC_BROWSER_TEST_F(PrintPreviewModelTest, CustomMarginsAreNotStrings) {
   RunTestCase("CustomMarginsAreNotStrings");
+}
+
+IN_PROC_BROWSER_TEST_F(PrintPreviewModelTest, GetSettingValueReturnsRawArray) {
+  RunTestCase("GetSettingValueReturnsRawArray");
 }
 
 class PrintPreviewPreviewGenerationTest : public PrintPreviewBrowserTest {
@@ -728,6 +728,14 @@ IN_PROC_BROWSER_TEST_F(PrintPreviewHeaderTest, HeaderChangesForState) {
 
 IN_PROC_BROWSER_TEST_F(PrintPreviewHeaderTest, EnterprisePolicy) {
   RunTestCase("EnterprisePolicy");
+}
+
+IN_PROC_BROWSER_TEST_F(PrintPreviewHeaderTest, SheetCountWithDuplex) {
+  RunTestCase("SheetCountWithDuplex");
+}
+
+IN_PROC_BROWSER_TEST_F(PrintPreviewHeaderTest, SheetCountWithCopies) {
+  RunTestCase("SheetCountWithCopies");
 }
 
 class PrintPreviewButtonStripTest : public PrintPreviewBrowserTest {

@@ -32,6 +32,7 @@
 #include "components/policy/core/common/device_local_account_type.h"
 #include "components/policy/core/common/external_data_fetcher.h"
 #include "components/policy/core/common/external_data_manager.h"
+#include "components/policy/core/common/features.h"
 #include "components/policy/core/common/policy_map.h"
 #include "components/policy/core/common/policy_types.h"
 #include "components/policy/core/common/schema.h"
@@ -737,6 +738,25 @@ base::Value::Dict DecodeDeviceLocalAccountInfoProto(
                      entry.isolated_kiosk_app().update_manifest_url());
     }
   }
+  if (policy::features::IsHeliumArcvmKioskEnabled()) {
+    if (entry.arcvm_kiosk_app().has_package_name()) {
+      entry_dict.Set(ash::kAccountsPrefDeviceLocalAccountsKeyArcvmKioskPackage,
+                     entry.arcvm_kiosk_app().package_name());
+    }
+    if (entry.arcvm_kiosk_app().has_class_name()) {
+      entry_dict.Set(ash::kAccountsPrefDeviceLocalAccountsKeyArcvmKioskClass,
+                     entry.arcvm_kiosk_app().class_name());
+    }
+    if (entry.arcvm_kiosk_app().has_action()) {
+      entry_dict.Set(ash::kAccountsPrefDeviceLocalAccountsKeyArcvmKioskAction,
+                     entry.arcvm_kiosk_app().action());
+    }
+    if (entry.arcvm_kiosk_app().has_display_name()) {
+      entry_dict.Set(
+          ash::kAccountsPrefDeviceLocalAccountsKeyArcvmKioskDisplayName,
+          entry.arcvm_kiosk_app().display_name());
+    }
+  }
   return entry_dict;
 }
 
@@ -1363,6 +1383,18 @@ void DecodeAccessibilityPolicies(const em::ChromeDeviceSettingsProto& policy,
       }
     }
 
+    if (container.has_login_screen_face_gaze_enabled()) {
+      auto policy_level =
+          GetPolicyLevel(container.has_login_screen_face_gaze_enabled_options(),
+                         container.login_screen_face_gaze_enabled_options());
+      if (policy_level) {
+        policies->Set(
+            key::kDeviceLoginScreenFaceGazeEnabled, policy_level.value(),
+            POLICY_SCOPE_MACHINE, POLICY_SOURCE_CLOUD,
+            base::Value(container.login_screen_face_gaze_enabled()), nullptr);
+      }
+    }
+
     if (container.has_login_screen_shortcuts_enabled()) {
       auto policy_level =
           GetPolicyLevel(container.has_login_screen_shortcuts_enabled_options(),
@@ -1859,6 +1891,16 @@ void DecodeGenericPolicies(const em::ChromeDeviceSettingsProto& policy,
                   ash::tpm_firmware_update::DecodeSettingsProto(
                       policy.tpm_firmware_update_settings()),
                   nullptr);
+  }
+  if (policy.has_deviceuserinitiatedfirmwareupdatesenabled()) {
+    const em::BooleanPolicyProto& container(
+        policy.deviceuserinitiatedfirmwareupdatesenabled());
+    if (container.has_value()) {
+      policies->Set(key::kDeviceUserInitiatedFirmwareUpdatesEnabled,
+                    POLICY_LEVEL_MANDATORY, POLICY_SCOPE_MACHINE,
+                    POLICY_SOURCE_CLOUD, base::Value(container.value()),
+                    nullptr);
+    }
   }
 
   if (policy.has_device_minimum_version()) {

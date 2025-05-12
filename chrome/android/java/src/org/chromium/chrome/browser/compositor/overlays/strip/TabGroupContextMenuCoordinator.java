@@ -31,13 +31,13 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
+import org.chromium.chrome.browser.tab_ui.ActionConfirmationManager;
 import org.chromium.chrome.browser.tabmodel.TabGroupColorUtils;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilterObserver;
 import org.chromium.chrome.browser.tabmodel.TabGroupTitleUtils;
 import org.chromium.chrome.browser.tabmodel.TabGroupUtils;
 import org.chromium.chrome.browser.tabmodel.TabModel;
-import org.chromium.chrome.browser.tasks.tab_management.ActionConfirmationManager;
 import org.chromium.chrome.browser.tasks.tab_management.ColorPickerCoordinator;
 import org.chromium.chrome.browser.tasks.tab_management.ColorPickerCoordinator.ColorPickerLayoutType;
 import org.chromium.chrome.browser.tasks.tab_management.ColorPickerType;
@@ -262,7 +262,7 @@ public class TabGroupContextMenuCoordinator extends TabGroupOverflowMenuCoordina
      *     coordinates.
      * @param tabGroupId The tab group ID of the interacting tab group.
      */
-    protected void showMenu(RectProvider anchorViewRectProvider, Token tabGroupId) {
+    public void showMenu(RectProvider anchorViewRectProvider, Token tabGroupId) {
         mTabGroupId = tabGroupId;
         mGroupRootId = mTabGroupModelFilter.getRootIdFromTabGroupId(tabGroupId);
         createAndShowMenu(
@@ -298,9 +298,6 @@ public class TabGroupContextMenuCoordinator extends TabGroupOverflowMenuCoordina
                 BrowserUiListMenuUtils.buildMenuListItemWithIncognitoBranding(
                         R.string.open_new_tab_in_group_context_menu_item,
                         R.id.open_new_tab_in_group,
-                        R.drawable.ic_open_new_tab_in_group_24dp,
-                        R.color.default_icon_color_light_tint_list,
-                        R.style.TextAppearance_TextLarge_Primary_Baseline_Light,
                         isIncognito,
                         /* enabled= */ true));
 
@@ -309,9 +306,6 @@ public class TabGroupContextMenuCoordinator extends TabGroupOverflowMenuCoordina
                     BrowserUiListMenuUtils.buildMenuListItemWithIncognitoBranding(
                             R.string.ungroup_tab_group_menu_item,
                             R.id.ungroup_tab,
-                            R.drawable.ic_ungroup_tabs_24dp,
-                            R.color.default_icon_color_light_tint_list,
-                            R.style.TextAppearance_TextLarge_Primary_Baseline_Light,
                             isIncognito,
                             /* enabled= */ true));
         }
@@ -324,7 +318,7 @@ public class TabGroupContextMenuCoordinator extends TabGroupOverflowMenuCoordina
                     BrowserUiListMenuUtils.buildMenuListItem(
                             R.string.share_tab_group_context_menu_item,
                             R.id.share_group,
-                            R.drawable.ic_group_24dp,
+                            /* startIconId= */ 0,
                             /* enabled= */ true));
         }
 
@@ -332,9 +326,6 @@ public class TabGroupContextMenuCoordinator extends TabGroupOverflowMenuCoordina
                 BrowserUiListMenuUtils.buildMenuListItemWithIncognitoBranding(
                         R.string.tab_grid_dialog_toolbar_close_group,
                         R.id.close_tab_group,
-                        R.drawable.ic_tab_close_24dp,
-                        R.color.default_icon_color_light_tint_list,
-                        R.style.TextAppearance_TextLarge_Primary_Baseline_Light,
                         isIncognito,
                         /* enabled= */ true));
 
@@ -345,7 +336,7 @@ public class TabGroupContextMenuCoordinator extends TabGroupOverflowMenuCoordina
                     BrowserUiListMenuUtils.buildMenuListItem(
                             R.string.tab_grid_dialog_toolbar_delete_group,
                             R.id.delete_tab_group,
-                            R.drawable.material_ic_delete_24dp,
+                            /* startIconId= */ 0,
                             /* enabled= */ true));
         }
     }
@@ -359,14 +350,14 @@ public class TabGroupContextMenuCoordinator extends TabGroupOverflowMenuCoordina
                     BrowserUiListMenuUtils.buildMenuListItem(
                             R.string.tab_grid_dialog_toolbar_manage_sharing,
                             R.id.manage_sharing,
-                            R.drawable.ic_group_24dp,
+                            /* startIconId= */ 0,
                             /* enabled= */ true));
             itemList.add(
                     insertionIndex++,
                     BrowserUiListMenuUtils.buildMenuListItem(
                             R.string.tab_grid_dialog_toolbar_recent_activity,
                             R.id.recent_activity,
-                            R.drawable.ic_update_24dp,
+                            /* startIconId= */ 0,
                             /* enabled= */ true));
         }
 
@@ -376,7 +367,7 @@ public class TabGroupContextMenuCoordinator extends TabGroupOverflowMenuCoordina
                     BrowserUiListMenuUtils.buildMenuListItem(
                             R.string.tab_grid_dialog_toolbar_delete_group,
                             R.id.delete_shared_group,
-                            R.drawable.material_ic_delete_24dp,
+                            /* startIconId= */ 0,
                             /* enabled= */ true));
         } else if (memberRole == MemberRole.MEMBER) {
             itemList.add(getDivider());
@@ -384,7 +375,7 @@ public class TabGroupContextMenuCoordinator extends TabGroupOverflowMenuCoordina
                     BrowserUiListMenuUtils.buildMenuListItem(
                             R.string.tab_grid_dialog_toolbar_leave_group,
                             R.id.leave_group,
-                            R.drawable.material_ic_delete_24dp,
+                            /* startIconId= */ 0,
                             /* enabled= */ true));
         }
         resizeMenu();
@@ -566,6 +557,10 @@ public class TabGroupContextMenuCoordinator extends TabGroupOverflowMenuCoordina
                         .with(
                                 ListSectionDividerProperties.RIGHT_PADDING_DIMEN_ID,
                                 R.dimen.list_menu_item_horizontal_padding);
+        if (mTabModelSupplier.get().isIncognitoBranded()) {
+            builder.with(
+                    ListSectionDividerProperties.COLOR_ID, R.color.divider_line_bg_color_light);
+        }
         return new ListItem(ListMenuItemType.DIVIDER, builder.build());
     }
 

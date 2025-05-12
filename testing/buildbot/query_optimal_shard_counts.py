@@ -73,10 +73,14 @@ If this is the first time you run the script, do the following steps:
 
 def _query_overheads(lookback_start_date, lookback_end_date):
   query_file = os.path.join(os.path.dirname(__file__), 'autosharder_sql',
-                            'query_test_overheads.sql')
+                            'query_test_overheads.sql.tmpl')
   with open(query_file, 'r') as f:
     query_str = f.read()
   query = query_str.format(
+      builds_project='cr-buildbucket',
+      builds_dataset='chromium',
+      tasks_project='chromium-swarm',
+      tasks_dataset='swarming',
       lookback_start_date=lookback_start_date,
       lookback_end_date=lookback_end_date,
   )
@@ -89,10 +93,14 @@ def _query_overheads(lookback_start_date, lookback_end_date):
 def _query_suite_durations(lookback_start_date, lookback_end_date, percentile,
                            ignore_cl_owner):
   query_file = os.path.join(os.path.dirname(__file__), 'autosharder_sql',
-                            'query_suite_durations.sql')
+                            'query_suite_durations.sql.tmpl')
   with open(query_file, 'r') as f:
     query_str = f.read()
   query = query_str.format(
+      builds_project='cr-buildbucket',
+      builds_dataset='chromium',
+      tasks_project='chromium-swarm',
+      tasks_dataset='swarming',
       lookback_start_date=lookback_start_date,
       lookback_end_date=lookback_end_date,
       percentile=percentile,
@@ -107,10 +115,12 @@ def _query_suite_durations(lookback_start_date, lookback_end_date, percentile,
 
 def _query_avg_num_builds_per_hour(lookback_start_date, lookback_end_date):
   query_file = os.path.join(os.path.dirname(__file__), 'autosharder_sql',
-                            'query_average_number_builds_per_hour.sql')
+                            'query_average_number_builds_per_hour.sql.tmpl')
   with open(query_file, 'r') as f:
     query_str = f.read()
   query = query_str.format(
+      builds_project='cr-buildbucket',
+      builds_dataset='chromium',
       lookback_start_date=lookback_start_date,
       lookback_end_date=lookback_end_date,
   )
@@ -277,9 +287,12 @@ def _meets_optimal_shard_count_and_simulated_duration_requirements(
 
 def _prune_builders(data):
   query_file = os.path.join(os.path.dirname(__file__), 'autosharder_sql',
-                            'query_cq_builders.sql')
+                            'query_cq_builders.sql.tmpl')
   with open(query_file, 'r') as f:
-    query = f.read()
+    query = f.read().format(
+        builders_project='chrome-trooper-analytics',
+        builders_dataset='metrics',
+    )
 
   rows = _run_query([
       'bq', 'query', '--project_id=' + _CLOUD_PROJECT_ID, '--format=json',
@@ -291,7 +304,7 @@ def _prune_builders(data):
   for builder_group_name, builder_group in data_copy.items():
     for ci_builder_name, ci_builder in builder_group.items():
       for test_suite_name, test_suite in ci_builder.items():
-        try_builder = test_suite['debug']['try_builder']
+        try_builder = test_suite['try_builder']
         if try_builder not in cq_builders:
           del data[builder_group_name][ci_builder_name][test_suite_name]
       if len(data[builder_group_name][ci_builder_name]) == 0:
@@ -454,6 +467,7 @@ def main(args):
     shard_dict = {
         test_suite: {
             'shards': r['optimal_shard_count'],
+            'try_builder': r['try_builder'],
         },
     }
     if opts.verbose:
@@ -474,8 +488,6 @@ def main(args):
           int(r['shard_count']),
           'simulated_max_shard_duration':
           r['simulated_max_shard_duration'],
-          'try_builder':
-          r['try_builder'],
           'test_overhead_min':
           r['test_overhead_min'],
       }

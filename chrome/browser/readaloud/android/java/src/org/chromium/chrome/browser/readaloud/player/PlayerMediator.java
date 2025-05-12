@@ -3,6 +3,8 @@
 // found in the LICENSE file.
 
 package org.chromium.chrome.browser.readaloud.player;
+
+import static org.chromium.build.NullUtil.assumeNonNull;
 import static org.chromium.chrome.modules.readaloud.PlaybackListener.State.BUFFERING;
 import static org.chromium.chrome.modules.readaloud.PlaybackListener.State.ERROR;
 import static org.chromium.chrome.modules.readaloud.PlaybackListener.State.PAUSED;
@@ -15,9 +17,12 @@ import android.widget.SeekBar.OnSeekBarChangeListener;
 import androidx.annotation.Nullable;
 
 import org.chromium.base.Callback;
+import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.browser.readaloud.ReadAloudMetrics;
 import org.chromium.chrome.browser.readaloud.ReadAloudPrefs;
 import org.chromium.chrome.modules.readaloud.Playback;
+import org.chromium.chrome.modules.readaloud.PlaybackArgs.PlaybackMode;
+import org.chromium.chrome.modules.readaloud.PlaybackArgs.PlaybackModeSelectionEnablementStatus;
 import org.chromium.chrome.modules.readaloud.PlaybackArgs.PlaybackVoice;
 import org.chromium.chrome.modules.readaloud.PlaybackListener;
 import org.chromium.chrome.modules.readaloud.contentjs.Highlighter.Mode;
@@ -28,6 +33,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /** Mediator class in charge of updating player UI property model. */
+@NullMarked
 class PlayerMediator implements InteractionHandler {
     private static final long SEEK_BACK_NANOS = -10 * 1_000_000_000L;
     private static final long SEEK_FORWARD_NANOS = 10 * 1_000_000_000L;
@@ -58,6 +64,12 @@ class PlayerMediator implements InteractionHandler {
             new PlaybackListener() {
                 @Override
                 public void onPlaybackDataChanged(PlaybackData data) {
+                  // Due to a race, sometimes a STOPPED state is received after the playback is null (e.g. if it was received in favor of creating a new playback).
+                  // In these cases, we don't propagate the state event.
+                  if (mPlayback == null) {
+                    return;
+                  }
+
                     if (!isHiddenAndPlaying()) {
                         mModel.set(PlayerProperties.ELAPSED_NANOS, data.absolutePositionNanos());
                         mModel.set(PlayerProperties.DURATION_NANOS, data.totalDurationNanos());
@@ -142,9 +154,10 @@ class PlayerMediator implements InteractionHandler {
     private final Callback<List<PlaybackVoice>> mVoiceListObserver = this::setVoices;
     private final Callback<String> mVoiceIdObserver = this::setVoice;
 
-    private final Callback<Boolean> mPlaybackModeSelectionEnabledObserver = this::setPlaybackModeSelectionEnabled;
+    private final Callback<PlaybackModeSelectionEnablementStatus>
+            mPlaybackModeSelectionEnabledObserver = this::setPlaybackModeSelectionEnabled;
 
-    private Playback mPlayback;
+    @Nullable private Playback mPlayback;
     @Nullable Playback mVoicePreviewPlayback;
 
     PlayerMediator(
@@ -177,17 +190,17 @@ class PlayerMediator implements InteractionHandler {
         mPlayback = playback;
         if (mPlayback != null) {
             mPlayback.addListener(mPlaybackListener);
-            mModel.set(PlayerProperties.TITLE, mPlayback.getMetadata().title());
-            mModel.set(PlayerProperties.PUBLISHER, mPlayback.getMetadata().publisher());
+            Playback.Metadata metadata = mPlayback.getMetadata();
+            assumeNonNull(metadata);
+            mModel.set(PlayerProperties.TITLE, metadata.title());
+            mModel.set(PlayerProperties.PUBLISHER, metadata.publisher());
             onSpeedChange(ReadAloudPrefs.getSpeed(mDelegate.getPrefService()));
             mModel.set(
                     PlayerProperties.HIGHLIGHTING_ENABLED,
-                    mDelegate.getHighlightingEnabledSupplier().get());
+                    assumeNonNull(mDelegate.getHighlightingEnabledSupplier().get()));
             mModel.set(
                     PlayerProperties.HIGHLIGHTING_SUPPORTED, mDelegate.isHighlightingSupported());
-            mModel.set(
-                PlayerProperties.PLAYBACK_MODE,
-                mPlayback.getMetadata().playbackMode().getValue());
+            mModel.set(PlayerProperties.PLAYBACK_MODE, metadata.playbackMode().getValue());
 
             mTotalTimeMillis = 0;
             mLastStartTimeMillis = mClock.currentTimeMillis();
@@ -228,6 +241,11 @@ class PlayerMediator implements InteractionHandler {
     }
 
     // InteractionHandler implementation
+    @Override
+    public void onPlaybackModeChanged(PlaybackMode playbackMode) {
+        mDelegate.setPlaybackModeAndApplyToPlayback(playbackMode);
+    }
+
     @Override
     public void onPlayPauseClick() {
         if (mPlayback == null) {
@@ -387,8 +405,8 @@ class PlayerMediator implements InteractionHandler {
         }
     }
 
-    private void setPlaybackModeSelectionEnabled(boolean enabled) {
-        mModel.set(PlayerProperties.PLAYBACK_MODE_SELECTION_ENABLED, enabled);
+    private void setPlaybackModeSelectionEnabled(PlaybackModeSelectionEnablementStatus status) {
+        mModel.set(PlayerProperties.PLAYBACK_MODE_SELECTION_ENABLED, status.getValue());
     }
 
     private void setVoices(List<PlaybackVoice> voices) {

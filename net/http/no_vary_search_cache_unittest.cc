@@ -27,6 +27,7 @@
 #include "net/base/schemeful_site.h"
 #include "net/http/http_cache.h"
 #include "net/http/http_response_headers.h"
+#include "net/http/no_vary_search_cache_test_utils.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
@@ -34,6 +35,8 @@
 namespace net {
 
 namespace {
+
+namespace nvs_test = no_vary_search_cache_test_utils;
 
 using ::testing::_;
 using ::testing::EndsWith;
@@ -55,62 +58,43 @@ class NoVarySearchCacheTest : public ::testing::TestWithParam<bool> {
 
   // Generates a URL with the query `query`.
   static GURL TestURL(std::string_view query = {}) {
-    GURL url("https://example.com/");
-    if (query.empty()) {
-      return url;
-    }
-
-    GURL::Replacements replacements;
-    replacements.SetQueryStr(query);
-    return url.ReplaceComponents(replacements);
+    return nvs_test::CreateTestURL(query);
   }
 
   // Generates an HttpRequestInfo object containing a URL that has the query
   // `query`.
   static HttpRequestInfo TestRequest(std::string_view query = {}) {
-    return TestRequest(TestURL(query));
+    return nvs_test::CreateTestRequest(query);
   }
 
   // Generates an HttpRequestInfo object with the URL `url`.
   static HttpRequestInfo TestRequest(const GURL& url) {
-    SchemefulSite site(url);
-    return TestRequest(url, NetworkIsolationKey(site, site));
+    return nvs_test::CreateTestRequest(url);
   }
 
   // Generates an HttpRequestInfo object with the given `url` and `nik`.
   static HttpRequestInfo TestRequest(const GURL& url,
                                      const NetworkIsolationKey& nik) {
-    // Only fill in the fields that GenerateCacheKeyForRequest() looks at.
-    HttpRequestInfo request;
-    request.url = url;
-    request.network_isolation_key = nik;
-    request.is_subframe_document_resource = false;
-    request.is_main_frame_navigation = true;
-    CHECK(!request.upload_data_stream);
-    request.load_flags = LOAD_NORMAL;
-    CHECK(!request.initiator);
-    return request;
+    return nvs_test::CreateTestRequest(url, nik);
   }
 
   // Returns a reference to an HttpResponseHeaders object with a No-Vary-Search
   // header with the value `no_vary_search`.
   const HttpResponseHeaders& TestHeaders(std::string_view no_vary_search) {
     response_header_storage_.push_back(
-        HttpResponseHeaders::Builder({1, 1}, "200 OK")
-            .AddHeader("No-Vary-Search", no_vary_search)
-            .Build());
+        nvs_test::CreateTestHeaders(no_vary_search));
     return *response_header_storage_.back();
   }
 
   // Inserts a URL with query `query` into cache with a No-Vary-Search header
   // value of `no_vary_search`.
   void Insert(std::string_view query, std::string_view no_vary_search) {
-    cache_.MaybeInsert(TestRequest(query), TestHeaders(no_vary_search));
+    nvs_test::Insert(cache_, query, no_vary_search);
   }
 
   // Returns true if TestURL(query) exists in cache.
   bool Exists(std::string_view query) {
-    return cache_.Lookup(TestRequest(query)).has_value();
+    return nvs_test::Exists(cache_, query);
   }
 
   // Returns true if inserting a request with query `insert` results in a lookup
@@ -898,23 +882,23 @@ TEST_P(NoVarySearchCacheTest, TruncatedPickle) {
   }
 }
 
-// An Observer that registers and deregisters itself automatically.
-class ScopedObserver : public NoVarySearchCache::Observer {
+// A Journal that registers and deregisters itself automatically.
+class ScopedJournal : public NoVarySearchCache::Journal {
  public:
-  explicit ScopedObserver(NoVarySearchCache& cache) : cache_(cache) {
-    cache.SetObserver(this);
+  explicit ScopedJournal(NoVarySearchCache& cache) : cache_(cache) {
+    cache.SetJournal(this);
   }
 
-  ~ScopedObserver() override { cache_->SetObserver(nullptr); }
+  ~ScopedJournal() override { cache_->SetJournal(nullptr); }
 
  private:
   raw_ref<NoVarySearchCache> cache_;
 };
 
-// An Observer object implemented by GoogleMock.
-class ScopedMockObserver : public ScopedObserver {
+// A Journal object implemented by GoogleMock.
+class ScopedMockJournal : public ScopedJournal {
  public:
-  using ScopedObserver::ScopedObserver;
+  using ScopedJournal::ScopedJournal;
 
   MOCK_METHOD(void,
               OnInsert,
@@ -935,118 +919,118 @@ class ScopedMockObserver : public ScopedObserver {
 const auto IsKeyOrder =
     Eq(HttpNoVarySearchData::CreateFromNoVaryParams({}, false));
 
-TEST_P(NoVarySearchCacheTest, ObserveNewInsert) {
-  ScopedMockObserver observer(cache());
+TEST_P(NoVarySearchCacheTest, JournalNewInsert) {
+  ScopedMockJournal journal(cache());
 
   const base::Time now = base::Time::Now();
 
   // This assumes that cache keys end with the URL as-is, which is currently
   // true with all partitioning schemes.
-  EXPECT_CALL(observer, OnInsert(EndsWith("https://example.com/"), IsKeyOrder,
-                                 Optional(Eq("a=0")), Ge(now)));
+  EXPECT_CALL(journal, OnInsert(EndsWith("https://example.com/"), IsKeyOrder,
+                                Optional(Eq("a=0")), Ge(now)));
 
   Insert("a=0", "key-order");
 }
 
-TEST_P(NoVarySearchCacheTest, ObserveRefresh) {
+TEST_P(NoVarySearchCacheTest, JournalRefresh) {
   Insert("a=1", "key-order");
 
-  // Start observing now.
-  ScopedMockObserver observer(cache());
+  // Start journalling now.
+  ScopedMockJournal journal(cache());
 
   const base::Time now = base::Time::Now();
 
-  EXPECT_CALL(observer, OnInsert(EndsWith("https://example.com/"), IsKeyOrder,
-                                 Optional(Eq("a=1")), Ge(now)));
+  EXPECT_CALL(journal, OnInsert(EndsWith("https://example.com/"), IsKeyOrder,
+                                Optional(Eq("a=1")), Ge(now)));
 
   Insert("a=1", "key-order");
 }
 
-TEST_P(NoVarySearchCacheTest, ObserveReplacement) {
+TEST_P(NoVarySearchCacheTest, JournalReplacement) {
   Insert("a=2&k=1", "params=(\"k\")");
 
-  ScopedMockObserver observer(cache());
+  ScopedMockJournal journal(cache());
 
   const auto params_k =
       HttpNoVarySearchData::CreateFromNoVaryParams({"k"}, true);
 
   const base::Time now = base::Time::Now();
 
-  EXPECT_CALL(observer, OnInsert(EndsWith("https://example.com/"), Eq(params_k),
-                                 Optional(Eq("a=2&k=2")), Ge(now)));
-  EXPECT_CALL(observer, OnErase).Times(0);
+  EXPECT_CALL(journal, OnInsert(EndsWith("https://example.com/"), Eq(params_k),
+                                Optional(Eq("a=2&k=2")), Ge(now)));
+  EXPECT_CALL(journal, OnErase).Times(0);
 
   // This one replaces the one inserted earlier, but OnErase() is not called to
   // reflect that the old one was removed.
   Insert("a=2&k=2", "params=(\"k\")");
 }
 
-TEST_P(NoVarySearchCacheTest, ObserveErase) {
+TEST_P(NoVarySearchCacheTest, JournalErase) {
   Insert("a=3", "key-order");
 
   auto [original_url, erase_handle] =
       cache().Lookup(TestRequest("a=3")).value();
 
-  ScopedMockObserver observer(cache());
+  ScopedMockJournal journal(cache());
 
-  EXPECT_CALL(observer, OnErase(EndsWith("https://example.com/"), IsKeyOrder,
-                                Optional(Eq("a=3"))));
+  EXPECT_CALL(journal, OnErase(EndsWith("https://example.com/"), IsKeyOrder,
+                               Optional(Eq("a=3"))));
 
   cache().Erase(std::move(erase_handle));
 }
 
-TEST_P(NoVarySearchCacheTest, DontObserveEviction) {
-  ScopedMockObserver observer(cache());
+TEST_P(NoVarySearchCacheTest, DontJournalEviction) {
+  ScopedMockJournal journal(cache());
 
-  EXPECT_CALL(observer, OnInsert(EndsWith("https://example.com/"), _, _, _))
+  EXPECT_CALL(journal, OnInsert(EndsWith("https://example.com/"), _, _, _))
       .Times(kMaxSize + 1);
 
   // Eviction does not result in a call to OnErase().
-  EXPECT_CALL(observer, OnErase).Times(0);
+  EXPECT_CALL(journal, OnErase).Times(0);
 
   for (size_t i = 0; i < kMaxSize + 1; ++i) {
     Insert(QueryWithIParameter(i), "key-order");
   }
 }
 
-TEST_P(NoVarySearchCacheTest, DontObserveNonInsertion) {
-  ScopedMockObserver observer(cache());
+TEST_P(NoVarySearchCacheTest, DontJournalNonInsertion) {
+  ScopedMockJournal journal(cache());
 
-  EXPECT_CALL(observer, OnInsert).Times(0);
+  EXPECT_CALL(journal, OnInsert).Times(0);
 
   // This No-Vary-Search value is equivalent to the default, so doesn't get
   // inserted into the cache.
   Insert("a=5", "params=()");
 }
 
-TEST_P(NoVarySearchCacheTest, DontObserveClearData) {
+TEST_P(NoVarySearchCacheTest, DontJournalClearData) {
   Insert("a=6", "key-order");
 
-  ScopedMockObserver observer(cache());
+  ScopedMockJournal journal(cache());
 
-  EXPECT_CALL(observer, OnErase).Times(0);
+  EXPECT_CALL(journal, OnErase).Times(0);
 
   // Matches everything.
   cache().ClearData(UrlFilterType::kFalseIfMatches, {}, {}, base::Time(),
                     base::Time::Max());
 }
 
-TEST_P(NoVarySearchCacheTest, DontObserveLookup) {
+TEST_P(NoVarySearchCacheTest, DontJournalLookup) {
   Insert("a=6", "key-order");
 
-  ScopedMockObserver observer(cache());
+  ScopedMockJournal journal(cache());
 
-  EXPECT_CALL(observer, OnInsert).Times(0);
-  EXPECT_CALL(observer, OnErase).Times(0);
+  EXPECT_CALL(journal, OnInsert).Times(0);
+  EXPECT_CALL(journal, OnErase).Times(0);
 
   cache().Lookup(TestRequest("a=6"));
 }
 
-// An Observer that clones all changes into a target NoVarySearchCache object.
-class CloningObserver : public ScopedObserver {
+// A Journal that clones all changes into a target NoVarySearchCache object.
+class CloningJournal : public ScopedJournal {
  public:
-  CloningObserver(NoVarySearchCache& source, NoVarySearchCache& target)
-      : ScopedObserver(source), target_(target) {}
+  CloningJournal(NoVarySearchCache& source, NoVarySearchCache& target)
+      : ScopedJournal(source), target_(target) {}
 
   void OnInsert(const std::string& base_url_cache_key,
                 const HttpNoVarySearchData& nvs_data,
@@ -1068,10 +1052,10 @@ class CloningObserver : public ScopedObserver {
 
 struct CloneMaker {
   NoVarySearchCache clone;
-  CloningObserver observer;
+  CloningJournal journal;
 
   explicit CloneMaker(NoVarySearchCache& source)
-      : clone(kMaxSize), observer(source, clone) {}
+      : clone(kMaxSize), journal(source, clone) {}
 };
 
 class NoVarySearchCacheReplayTest : public NoVarySearchCacheTest {

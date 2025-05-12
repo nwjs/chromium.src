@@ -12,6 +12,8 @@ import androidx.annotation.ColorInt;
 import org.chromium.base.Callback;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.cc.input.BrowserControlsState;
 import org.chromium.cc.input.OffsetTag;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsOffsetTagsInfo;
@@ -32,11 +34,12 @@ import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.modelutil.PropertyModel;
 
 /** The business logic for controlling the top toolbar's cc texture. */
+@NullMarked
 public class TopToolbarOverlayMediator {
     // Forced testing params.
-    private static Boolean sIsTabletForTesting;
-    private static Integer sToolbarBackgroundColorForTesting;
-    private static Integer sUrlBarColorForTesting;
+    private static @Nullable Boolean sIsTabletForTesting;
+    private static @Nullable Integer sToolbarBackgroundColorForTesting;
+    private static @Nullable Integer sUrlBarColorForTesting;
 
     /** An Android Context. */
     private final Context mContext;
@@ -65,6 +68,7 @@ public class TopToolbarOverlayMediator {
     private final PropertyModel mModel;
 
     private final ObservableSupplier<Integer> mBottomToolbarControlsOffsetSupplier;
+    private final ObservableSupplier<Boolean> mSuppressToolbarSceneLayerSupplier;
 
     /** Whether visibility is controlled internally or manually by the feature. */
     private boolean mIsVisibilityManuallyControlled;
@@ -84,8 +88,8 @@ public class TopToolbarOverlayMediator {
     private ObservableSupplier<Tab> mTabSupplier;
     private float mViewportHeight;
 
-    private OffsetTag mTopControlsOffsetTag;
-    private OffsetTag mBottomControlsOffsetTag;
+    private @Nullable OffsetTag mTopControlsOffsetTag;
+    private @Nullable OffsetTag mBottomControlsOffsetTag;
     private @ControlsPosition int mControlsPosition;
 
     TopToolbarOverlayMediator(
@@ -97,6 +101,7 @@ public class TopToolbarOverlayMediator {
             BrowserControlsStateProvider browserControlsStateProvider,
             TopUiThemeColorProvider topUiThemeColorProvider,
             ObservableSupplier<Integer> bottomToolbarControlsOffsetSupplier,
+            ObservableSupplier<Boolean> suppressToolbarSceneLayerSupplier,
             int layoutsToShowOn,
             boolean manualVisibilityControl) {
         mContext = context;
@@ -106,7 +111,9 @@ public class TopToolbarOverlayMediator {
         mTopUiThemeColorProvider = topUiThemeColorProvider;
         mModel = model;
         mBottomToolbarControlsOffsetSupplier = bottomToolbarControlsOffsetSupplier;
+        mSuppressToolbarSceneLayerSupplier = suppressToolbarSceneLayerSupplier;
         mBottomToolbarControlsOffsetSupplier.addObserver((unused) -> updateContentOffset());
+        mSuppressToolbarSceneLayerSupplier.addObserver((suppress) -> updateVisibility());
         mIsVisibilityManuallyControlled = manualVisibilityControl;
         mIsOnValidLayout = (mLayoutStateProvider.getActiveLayoutType() & layoutsToShowOn) > 0;
         mTabSupplier = tabSupplier;
@@ -350,7 +357,8 @@ public class TopToolbarOverlayMediator {
     /** Update the visibility of the overlay. */
     private void updateVisibility() {
         Tab tab = mTabSupplier.get();
-        if (tab != null && tab.isNativePage() && tab.isDisplayingBackForwardAnimation()) {
+        if (mSuppressToolbarSceneLayerSupplier.get()
+                || (tab != null && tab.isNativePage() && tab.isDisplayingBackForwardAnimation())) {
             // TODO(crbug.com/365818512): Add a screenshot capture test to cover this case.
             mModel.set(TopToolbarOverlayProperties.VISIBLE, false);
         } else if (mIsVisibilityManuallyControlled) {

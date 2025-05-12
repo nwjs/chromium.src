@@ -127,7 +127,7 @@ OneCopyRasterBufferProvider::OneCopyRasterBufferProvider(
     int max_copy_texture_chromium_size,
     bool use_partial_raster,
     int max_staging_buffer_usage_in_bytes,
-    const RasterCapabilities& raster_caps)
+    bool is_overlay_candidate)
     : compositor_context_provider_(compositor_context_provider),
       worker_context_provider_(worker_context_provider),
       max_bytes_per_copy_operation_(
@@ -137,15 +137,13 @@ OneCopyRasterBufferProvider::OneCopyRasterBufferProvider(
               : kMaxBytesPerCopyOperation),
       use_partial_raster_(use_partial_raster),
       bytes_scheduled_since_last_flush_(0),
-      tile_format_(raster_caps.tile_format),
-      tile_overlay_candidate_(raster_caps.tile_overlay_candidate),
+      tile_overlay_candidate_(is_overlay_candidate),
       staging_pool_(std::move(task_runner),
                     worker_context_provider,
                     use_partial_raster,
                     max_staging_buffer_usage_in_bytes) {
   DCHECK(compositor_context_provider);
   DCHECK(worker_context_provider);
-  DCHECK(!tile_format_.IsCompressed());
 }
 
 OneCopyRasterBufferProvider::~OneCopyRasterBufferProvider() = default;
@@ -171,16 +169,6 @@ void OneCopyRasterBufferProvider::Flush() {
   // is needed to ensure the work is sent for those queries to get the right
   // answer.
   compositor_context_provider_->ContextSupport()->FlushPendingWork();
-}
-
-viz::SharedImageFormat OneCopyRasterBufferProvider::GetFormat() const {
-  return tile_format_;
-}
-
-bool OneCopyRasterBufferProvider::IsResourcePremultiplied() const {
-  // TODO(ericrk): Handle unpremultiply/dither in one-copy case as well.
-  // https://crbug.com/789153
-  return true;
 }
 
 bool OneCopyRasterBufferProvider::CanPartialRasterIntoProvidedResource() const {

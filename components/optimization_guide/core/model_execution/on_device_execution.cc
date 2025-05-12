@@ -92,35 +92,12 @@ std::string GenerateExecutionId() {
 
 }  // namespace
 
-void InvokeStreamingCallbackWithRemoteResult(
-    OptimizationGuideModelExecutionResultStreamingCallback callback,
-    OptimizationGuideModelExecutionResult result,
-    std::unique_ptr<ModelQualityLogEntry> log_entry) {
-  OptimizationGuideModelStreamingExecutionResult streaming_result;
-  if (log_entry) {
-    // TODO: crbug.com/372535824 - This function should just get execution info.
-    if (log_entry->log_ai_data_request() &&
-        log_entry->log_ai_data_request()->has_model_execution_info()) {
-      streaming_result.execution_info =
-          std::make_unique<proto::ModelExecutionInfo>(
-              log_entry->log_ai_data_request()->model_execution_info());
-    }
-    ModelQualityLogEntry::Drop(std::move(log_entry));
-  }
-  if (result.response.has_value()) {
-    streaming_result.response = base::ok(
-        StreamingResponse{.response = *result.response, .is_complete = true});
-  } else {
-    streaming_result.response = base::unexpected(result.response.error());
-  }
-  callback.Run(std::move(streaming_result));
-}
-
 OnDeviceExecution::OnDeviceExecution(
     ModelBasedCapabilityKey feature,
     OnDeviceOptions opts,
     ExecuteRemoteFn execute_remote_fn,
     MultimodalMessage message,
+    on_device_model::mojom::ResponseConstraintPtr constraint,
     std::unique_ptr<ResultLogger> logger,
     OptimizationGuideModelExecutionResultStreamingCallback callback,
     base::OnceCallback<void(bool)> cleanup_callback)
@@ -128,6 +105,7 @@ OnDeviceExecution::OnDeviceExecution(
       opts_(std::move(opts)),
       execute_remote_fn_(execute_remote_fn),
       last_message_(std::move(message)),
+      constraint_(std::move(constraint)),
       histogram_logger_(std::move(logger)),
       callback_(std::move(callback)),
       cleanup_callback_(std::move(cleanup_callback)) {
@@ -210,6 +188,7 @@ void OnDeviceExecution::BeginExecution(OnDeviceContext& context) {
 
   auto options = on_device_model::mojom::GenerateOptions::New();
   options->max_output_tokens = opts_.token_limits.max_output_tokens;
+  options->constraint = std::move(constraint_);
 
   opts_.safety_checker->RunRequestChecks(
       last_message_,

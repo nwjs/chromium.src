@@ -207,12 +207,8 @@ shell_integration::DefaultWebClientState GetIsDefaultWebClient(
 #if 1
 std::string GetDesktopBaseName(const std::string& desktop_file_name) {
   static const char kDesktopExtension[] = ".desktop";
-  if (base::EndsWith(desktop_file_name, kDesktopExtension,
-                     base::CompareCase::SENSITIVE)) {
-    return desktop_file_name.substr(
-        0, desktop_file_name.length() - strlen(kDesktopExtension));
-  }
-  return desktop_file_name;
+  auto remainder = base::RemoveSuffix(desktop_file_name, kDesktopExtension);
+  return remainder ? std::string(*remainder) : desktop_file_name;
 }
 #endif
 
@@ -402,8 +398,10 @@ std::string GetWMClassFromAppName(std::string app_name) {
 
 std::string GetXdgAppIdForWebApp(std::string app_name,
                                  const base::FilePath& profile_path) {
-  if (base::StartsWith(app_name, web_app::kCrxAppPrefix))
-    app_name = app_name.substr(strlen(web_app::kCrxAppPrefix));
+  auto remainder = base::RemovePrefix(app_name, web_app::kCrxAppPrefix);
+  if (remainder) {
+    app_name = std::string(*remainder);
+  }
   return GetDesktopBaseName(
       web_app::GetAppDesktopShortcutFilename(profile_path, app_name)
           .AsUTF8Unsafe());
@@ -433,9 +431,11 @@ bool GetNoDisplayFromDesktopFile(const std::string& shortcut_contents) {
 base::FilePath GetChromeExePath() {
   // Try to get the name of the wrapper script that launched Chrome.
   std::unique_ptr<base::Environment> environment(base::Environment::Create());
-  std::string wrapper_script;
-  if (environment->GetVar("CHROME_WRAPPER", &wrapper_script))
-    return base::FilePath(wrapper_script);
+  std::optional<std::string> wrapper_script =
+      environment->GetVar("CHROME_WRAPPER");
+  if (wrapper_script.has_value()) {
+    return base::FilePath(wrapper_script.value());
+  }
 
   // Just return the name of the executable path for Chrome.
   base::FilePath chrome_exe_path;

@@ -84,7 +84,6 @@ export class ViewerToolbarElement extends CrLitElement {
       },
 
       pageNo: {type: Number},
-      pdfCr23Enabled: {type: Boolean},
 
       rotated: {type: Boolean},
       strings: {type: Object},
@@ -98,6 +97,7 @@ export class ViewerToolbarElement extends CrLitElement {
         reflect: true,
       },
 
+      displayAnnotations_: {type: Boolean},
       fittingType_: {type: Number},
       pdfAnnotationsEnabled_: {type: Boolean},
       printingEnabled_: {type: Boolean},
@@ -125,47 +125,46 @@ export class ViewerToolbarElement extends CrLitElement {
     };
   }
 
-  docTitle: string = '';
-  docLength: number = 0;
-  embeddedViewer: boolean = false;
-  hasEdits: boolean = false;
-  hasEnteredAnnotationMode: boolean = false;
-  formFieldFocus: FormFieldFocusType = FormFieldFocusType.NONE;
-  loadProgress: number = 0;
-  pageNo: number = 0;
-  pdfCr23Enabled: boolean = false;
-  rotated: boolean = false;
-  strings?: LoadTimeDataRaw;
-  viewportZoom: number = 0;
-  zoomBounds: {min: number, max: number} = {min: 0, max: 0};
-  sidenavCollapsed: boolean = false;
-  twoUpViewEnabled: boolean = false;
-  protected displayAnnotations_: boolean = true;
-  private fittingType_: FittingType = FittingType.FIT_TO_PAGE;
-  protected moreMenuOpen_: boolean = false;
-  protected loading_: boolean = true;
-  private pdfAnnotationsEnabled_: boolean = false;
-  protected printingEnabled_: boolean = false;
-  private viewportZoomPercent_: number = 0;
+  accessor docTitle: string = '';
+  accessor docLength: number = 0;
+  accessor embeddedViewer: boolean = false;
+  accessor hasEdits: boolean = false;
+  accessor hasEnteredAnnotationMode: boolean = false;
+  accessor formFieldFocus: FormFieldFocusType = FormFieldFocusType.NONE;
+  accessor loadProgress: number = 0;
+  accessor pageNo: number = 0;
+  accessor rotated: boolean = false;
+  accessor strings: LoadTimeDataRaw|undefined;
+  accessor viewportZoom: number = 0;
+  accessor zoomBounds: {min: number, max: number} = {min: 0, max: 0};
+  accessor sidenavCollapsed: boolean = false;
+  accessor twoUpViewEnabled: boolean = false;
+  protected accessor displayAnnotations_: boolean = true;
+  private accessor fittingType_: FittingType = FittingType.FIT_TO_PAGE;
+  protected accessor moreMenuOpen_: boolean = false;
+  protected accessor loading_: boolean = true;
+  private accessor pdfAnnotationsEnabled_: boolean = false;
+  protected accessor printingEnabled_: boolean = false;
+  private accessor viewportZoomPercent_: number = 0;
 
   // <if expr="enable_ink or enable_pdf_ink2">
   // Reactive properties common to ink and ink2
-  annotationAvailable: boolean = false;
-  annotationMode: AnnotationMode = AnnotationMode.NONE;
+  accessor annotationAvailable: boolean = false;
+  accessor annotationMode: AnnotationMode = AnnotationMode.OFF;
   // </if>
 
   // <if expr="enable_ink">
   // Ink reactive properties
-  protected showAnnotationsModeDialog_: boolean = false;
+  protected accessor showAnnotationsModeDialog_: boolean = false;
   // </if>
 
   // <if expr="enable_pdf_ink2">
   // Ink2 reactive properties
-  hasInk2Edits: boolean = false;
-  pdfInk2Enabled: boolean = false;
-  protected canRedoAnnotation_: boolean = false;
-  protected canUndoAnnotation_: boolean = false;
-  protected pdfTextAnnotationsEnabled_: boolean = false;
+  accessor hasInk2Edits: boolean = false;
+  accessor pdfInk2Enabled: boolean = false;
+  protected accessor canRedoAnnotation_: boolean = false;
+  protected accessor canUndoAnnotation_: boolean = false;
+  protected accessor pdfTextAnnotationsEnabled_: boolean = false;
 
   // Ink2 class members
   private currentStroke: number = 0;
@@ -229,28 +228,10 @@ export class ViewerToolbarElement extends CrLitElement {
     this.dispatchEvent(new CustomEvent('sidenav-toggle-click'));
   }
 
-  protected iconsetName_(): string {
-    return this.pdfCr23Enabled ? 'pdf-cr23' : 'pdf';
-  }
-
   protected fitToButtonIcon_(): string {
-    return this.iconsetName_() +
+    return 'pdf' +
         (this.fittingType_ === FittingType.FIT_TO_PAGE ? ':fit-to-height' :
                                                          ':fit-to-width');
-  }
-
-  // TODO(crbug.com/360265881): Remove conditional icons after the UI refresh
-  // fully launches.
-  protected menuIcon_(): string {
-    return this.pdfCr23Enabled ? 'pdf-cr23:menu' : 'cr20:menu';
-  }
-
-  protected moreIcon_(): string {
-    return this.pdfCr23Enabled ? 'pdf-cr23:more' : 'cr:more-vert';
-  }
-
-  protected printIcon_(): string {
-    return this.pdfCr23Enabled ? 'pdf-cr23:print' : 'cr:print';
   }
 
   /** @return The appropriate tooltip for the current state. */
@@ -316,7 +297,7 @@ export class ViewerToolbarElement extends CrLitElement {
     // <if expr="enable_ink">
     if (!this.displayAnnotations_ &&
         this.annotationMode === AnnotationMode.DRAW) {
-      this.setAnnotationMode(AnnotationMode.NONE);
+      this.setAnnotationMode(AnnotationMode.OFF);
     }
     // </if>
   }
@@ -442,7 +423,7 @@ export class ViewerToolbarElement extends CrLitElement {
   protected onDialogClose_() {
     // The dialog should only show if we are not in annotation mode and the
     // user wants to transition to drawing annotations.
-    assert(this.annotationMode === AnnotationMode.NONE);
+    assert(this.annotationMode === AnnotationMode.OFF);
     const confirmed =
         this.shadowRoot.querySelector(
                            'viewer-annotations-mode-dialog')!.wasConfirmed();
@@ -462,7 +443,7 @@ export class ViewerToolbarElement extends CrLitElement {
 
   protected onAnnotationClick_() {
     const newAnnotationMode = this.annotationMode === AnnotationMode.DRAW ?
-        AnnotationMode.NONE :
+        AnnotationMode.OFF :
         AnnotationMode.DRAW;
 
     // <if expr="enable_pdf_ink2">
@@ -493,7 +474,7 @@ export class ViewerToolbarElement extends CrLitElement {
     }
     // </if> enable_pdf_ink2
 
-    if (annotationMode !== AnnotationMode.NONE && !this.displayAnnotations_) {
+    if (annotationMode !== AnnotationMode.OFF && !this.displayAnnotations_) {
       this.toggleDisplayAnnotations_();
     }
   }
@@ -502,7 +483,7 @@ export class ViewerToolbarElement extends CrLitElement {
   // <if expr="enable_pdf_ink2">
   protected onTextAnnotationClick_() {
     this.setAnnotationMode(
-        this.annotationMode === AnnotationMode.TEXT ? AnnotationMode.NONE :
+        this.annotationMode === AnnotationMode.TEXT ? AnnotationMode.OFF :
                                                       AnnotationMode.TEXT);
   }
 
@@ -598,7 +579,7 @@ export class ViewerToolbarElement extends CrLitElement {
    */
   protected presentationModeAvailable_(): boolean {
     // <if expr="enable_ink">
-    return this.annotationMode === AnnotationMode.NONE && !this.embeddedViewer;
+    return this.annotationMode === AnnotationMode.OFF && !this.embeddedViewer;
     // </if>
     // <if expr="not enable_ink">
     return !this.embeddedViewer;

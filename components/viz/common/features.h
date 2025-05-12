@@ -51,13 +51,12 @@ extern const VIZ_COMMON_EXPORT base::FeatureParam<DelegatedCompositingMode>
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kDCompSurfacesForDelegatedInk);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kRemoveRedirectionBitmap);
 #endif
-VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kRenderPassDrawnRect);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kRecordSkPicture);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kUseDrmBlackFullscreenOptimization);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kUseFrameIntervalDecider);
 #if BUILDFLAG(IS_ANDROID)
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(
-    kUseFrameIntervalDeciderNewAndroidFeatures);
+    kUseFrameIntervalDeciderAdaptiveFrameRate);
 #endif
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(
     kTemporalSkipOverlaysWithRootCopyOutputRequests);
@@ -93,13 +92,15 @@ VIZ_COMMON_EXPORT extern const base::FeatureParam<int>
 
 #if BUILDFLAG(IS_MAC)
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kVSyncAlignedPresent);
+VIZ_COMMON_EXPORT extern const base::FeatureParam<std::string> kTargetForVSync;
+VIZ_COMMON_EXPORT extern const char kTargetForVSyncAllFrames[];
+VIZ_COMMON_EXPORT extern const char kTargetForVSyncAnimation[];
+VIZ_COMMON_EXPORT extern const char kTargetForVSyncInteraction[];
 #endif
 
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kAllowUndamagedNonrootRenderPassToSkip);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(
     kAllowForceMergeRenderPassWithRequireOverlayQuads);
-VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kOcclusionCullingForTextureQuads);
-VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kOnBeginFrameAcks);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kOnBeginFrameThrottleVideo);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kAdpf);
 VIZ_COMMON_EXPORT extern const base::FeatureParam<std::string>
@@ -160,8 +161,7 @@ VIZ_COMMON_EXPORT bool UseWebViewNewInvalidateHeuristic();
 VIZ_COMMON_EXPORT bool UseSurfaceLayerForVideo();
 VIZ_COMMON_EXPORT int MaxOverlaysConsidered();
 VIZ_COMMON_EXPORT bool ShouldOnBeginFrameThrottleVideo();
-VIZ_COMMON_EXPORT bool IsOnBeginFrameAcksEnabled();
-VIZ_COMMON_EXPORT bool IsOcclusionCullingForTextureQuadsEnabled();
+VIZ_COMMON_EXPORT bool IsComplexOccluderForQuadsWithRoundedCornersEnabled();
 VIZ_COMMON_EXPORT bool ShouldDrawImmediatelyWhenInteractive();
 VIZ_COMMON_EXPORT bool IsVSyncAlignedPresentEnabled();
 VIZ_COMMON_EXPORT bool ShouldLogFrameQuadInfo();

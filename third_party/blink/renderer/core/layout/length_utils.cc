@@ -959,7 +959,7 @@ LogicalSize ComputeDefaultNaturalSize(const BlockNode& node) {
   const auto& style = node.Style();
   PhysicalSize natural_size(LayoutUnit(300), LayoutUnit(150));
   natural_size.Scale(style.EffectiveZoom());
-  return natural_size.ConvertToLogical(style.GetWritingMode());
+  return ToLogicalSize(natural_size, style.GetWritingMode());
 }
 
 // This takes the aspect-ratio, and natural-sizes and normalizes them returning
@@ -1293,7 +1293,7 @@ LogicalSize ComputeReplacedSize(const BlockNode& node,
   PhysicalSize container_size(svg_root->GetContainerSize());
   if (!container_size.IsEmpty()) {
     LogicalSize size =
-        container_size.ConvertToLogical(node.Style().GetWritingMode());
+        ToLogicalSize(container_size, node.Style().GetWritingMode());
     size.inline_size += border_padding.InlineSum();
     size.block_size += border_padding.BlockSum();
     return size;
@@ -1342,7 +1342,11 @@ int ResolveUsedColumnCount(int computed_count,
                            LayoutUnit used_gap,
                            LayoutUnit available_size) {
   if (computed_size == kIndefiniteSize) {
-    DCHECK(computed_count);
+    if (!computed_count) {
+      // Both `column-width` and `column-count` are auto. We're here because
+      // `column-height` is non-auto. Set column count to 1.
+      return 1;
+    }
     return computed_count;
   }
   DCHECK_GT(computed_size, LayoutUnit());
@@ -1379,7 +1383,7 @@ LayoutUnit ResolveUsedColumnInlineSize(int computed_count,
 LayoutUnit ResolveUsedColumnInlineSize(const ComputedStyle& style,
                                        LayoutUnit available_size) {
   // Should only attempt to resolve this if columns != auto.
-  DCHECK(!style.HasAutoColumnCount() || !style.HasAutoColumnWidth());
+  DCHECK(style.SpecifiesColumns());
 
   LayoutUnit computed_size =
       style.HasAutoColumnWidth()
@@ -1672,7 +1676,7 @@ FragmentGeometry CalculateInitialFragmentGeometry(
     }
 
     const auto size = node.InitialContainingBlockSize();
-    return {size.ConvertToLogical(style.GetWritingMode()), {}, {}, {}};
+    return {ToLogicalSize(size, style.GetWritingMode()), {}, {}, {}};
   }
 
   const auto border = ComputeBorders(space, node);
@@ -1881,7 +1885,7 @@ LayoutUnit ClampIntrinsicBlockSize(
 
   // Apply the "fills viewport" quirk if needed.
   if (!IsBreakInside(break_token) && node.IsQuirkyAndFillsViewport() &&
-      style.LogicalHeight().HasAuto() &&
+      style.LogicalHeight().IsAuto() &&
       space.AvailableSize().block_size != kIndefiniteSize) {
     DCHECK_EQ(node.IsBody() && !node.CreatesNewFormattingContext(),
               body_margin_block_sum.has_value());

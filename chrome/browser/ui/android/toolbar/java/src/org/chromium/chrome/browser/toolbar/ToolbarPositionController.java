@@ -11,15 +11,16 @@ import android.view.View;
 import android.widget.FrameLayout;
 
 import androidx.annotation.IntDef;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.coordinatorlayout.widget.CoordinatorLayout;
 import androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams;
 
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.browser_controls.BottomControlsLayer;
 import org.chromium.chrome.browser.browser_controls.BottomControlsStacker;
 import org.chromium.chrome.browser.browser_controls.BottomControlsStacker.LayerScrollBehavior;
@@ -39,6 +40,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
 /** Class responsible for managing the position (top, bottom) of the browsing mode toolbar. */
+@NullMarked
 public class ToolbarPositionController implements OnSharedPreferenceChangeListener {
 
     @IntDef({
@@ -65,20 +67,20 @@ public class ToolbarPositionController implements OnSharedPreferenceChangeListen
     // User-configured, or, otherwise, default Toolbar placement; may be null, if target placement
     // has not been determined yet. Prefer `isToolbarConfiguredToShowOnTop()` call when querying
     // intended placement.
-    private static Boolean sToolbarShouldShowOnTop;
+    private static @Nullable Boolean sToolbarShouldShowOnTop;
 
     private final BrowserControlsSizer mBrowserControlsSizer;
     private final ObservableSupplier<Boolean> mIsNtpShowingSupplier;
     private final ObservableSupplier<Boolean> mIsTabSwitcherFinishedShowingSupplier;
     private final ObservableSupplier<Boolean> mIsOmniboxFocusedSupplier;
     private final ObservableSupplier<Boolean> mIsFormFieldFocusedSupplier;
-    @NonNull private final ObservableSupplier<Boolean> mIsFindInPageShowingSupplier;
+    private final ObservableSupplier<Boolean> mIsFindInPageShowingSupplier;
     private final ControlContainer mControlContainer;
     private final BottomControlsStacker mBottomControlsStacker;
     private final ObservableSupplierImpl<Integer> mBrowserControlsOffsetSupplier;
-    @NonNull private final View mToolbarProgressBarContainer;
-    @NonNull private final KeyboardVisibilityDelegate mKeyboardVisibilityDelegate;
-    @NonNull private final Context mContext;
+    private final View mToolbarProgressBarContainer;
+    private final KeyboardVisibilityDelegate mKeyboardVisibilityDelegate;
+    private final Context mContext;
     @LayerVisibility private int mLayerVisibility;
     private final BottomControlsLayer mBottomToolbarLayer;
     private final BottomControlsLayer mProgressBarLayer;
@@ -105,19 +107,19 @@ public class ToolbarPositionController implements OnSharedPreferenceChangeListen
      *     the bottom toolbar with other bottom-anchored UI.
      */
     public ToolbarPositionController(
-            @NonNull BrowserControlsSizer browserControlsSizer,
-            @NonNull SharedPreferences sharedPreferences,
-            @NonNull ObservableSupplier<Boolean> isNtpShowingSupplier,
-            @NonNull ObservableSupplier<Boolean> isTabSwitcherFinishedShowingSupplier,
-            @NonNull ObservableSupplier<Boolean> isOmniboxFocusedSupplier,
-            @NonNull ObservableSupplier<Boolean> isFormFieldFocusedSupplier,
-            @NonNull ObservableSupplier<Boolean> isFindInPageShowingSupplier,
-            @NonNull KeyboardVisibilityDelegate keyboardVisibilityDelegate,
-            @NonNull ControlContainer controlContainer,
-            @NonNull BottomControlsStacker bottomControlsStacker,
-            @NonNull ObservableSupplierImpl<Integer> browserControlsOffsetSupplier,
-            @NonNull View toolbarProgressBarContainer,
-            @NonNull Context context) {
+            BrowserControlsSizer browserControlsSizer,
+            SharedPreferences sharedPreferences,
+            ObservableSupplier<Boolean> isNtpShowingSupplier,
+            ObservableSupplier<Boolean> isTabSwitcherFinishedShowingSupplier,
+            ObservableSupplier<Boolean> isOmniboxFocusedSupplier,
+            ObservableSupplier<Boolean> isFormFieldFocusedSupplier,
+            ObservableSupplier<Boolean> isFindInPageShowingSupplier,
+            KeyboardVisibilityDelegate keyboardVisibilityDelegate,
+            ControlContainer controlContainer,
+            BottomControlsStacker bottomControlsStacker,
+            ObservableSupplierImpl<Integer> browserControlsOffsetSupplier,
+            View toolbarProgressBarContainer,
+            Context context) {
         mBrowserControlsSizer = browserControlsSizer;
         mIsNtpShowingSupplier = isNtpShowingSupplier;
         mIsTabSwitcherFinishedShowingSupplier = isTabSwitcherFinishedShowingSupplier;
@@ -221,6 +223,7 @@ public class ToolbarPositionController implements OnSharedPreferenceChangeListen
             Context context, boolean isCustomTab) {
         return !isCustomTab
                 && ChromeFeatureList.sAndroidBottomToolbar.isEnabled()
+                && !DeviceInfo.isAutomotive()
                 && !DeviceFormFactor.isNonMultiDisplayContextOnTablet(context);
     }
 
@@ -379,12 +382,13 @@ public class ToolbarPositionController implements OnSharedPreferenceChangeListen
             boolean isFormFieldFocusedWithKeyboardVisible,
             boolean doesUserPreferTopToolbar,
             @ControlsPosition int currentPosition) {
+        boolean miniOriginBarEnabled = ChromeFeatureList.sMiniOriginBar.isEnabled();
         @ControlsPosition int newControlsPosition;
         if (ntpShowing
                 || tabSwitcherShowing
                 || isOmniboxFocused
                 || isFindInPageShowing
-                || isFormFieldFocusedWithKeyboardVisible
+                || (isFormFieldFocusedWithKeyboardVisible && !miniOriginBarEnabled)
                 || doesUserPreferTopToolbar) {
             newControlsPosition = ControlsPosition.TOP;
         } else {

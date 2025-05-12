@@ -127,7 +127,6 @@ void AXTreeFormatterAuraLinux::RecursiveBuildTree(
   DCHECK(platform_node);
 
   AXPlatformNodeDelegate* node = platform_node->GetDelegate();
-  DCHECK(node);
 
   if (!ShouldDumpNode(*node))
     return;
@@ -510,7 +509,6 @@ void AXTreeFormatterAuraLinux::AddProperties(AtkObject* atk_object,
   DCHECK(platform_node);
 
   AXPlatformNodeDelegate* node = platform_node->GetDelegate();
-  DCHECK(node);
 
   dict->Set("id", node->GetId());
 

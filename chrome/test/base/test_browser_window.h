@@ -85,6 +85,7 @@ class TestBrowserWindow : public BrowserWindow {
   void SetZOrderLevel(ui::ZOrderLevel order) override {}
   gfx::NativeWindow GetNativeWindow() const override;
   bool IsOnCurrentWorkspace() const override;
+  bool IsVisibleOnScreen() const override;
   void SetTopControlsShownRatio(content::WebContents* web_contents,
                                 float ratio) override;
   bool DoBrowserControlsShrinkRendererSize(
@@ -138,6 +139,7 @@ class TestBrowserWindow : public BrowserWindow {
   bool UpdateToolbarSecurityState() override;
   void UpdateCustomTabBarVisibility(bool visible, bool animate) override {}
   void SetContentScrimVisibility(bool visible) override {}
+  void SetDevToolsScrimVisibility(bool visible) override {}
   void ResetToolbarTabState(content::WebContents* contents) override {}
   void FocusToolbar() override {}
   ExtensionsContainer* GetExtensionsContainer() override;
@@ -280,6 +282,8 @@ class TestBrowserWindow : public BrowserWindow {
   user_education::DisplayNewBadge MaybeShowNewBadgeFor(
       const base::Feature& new_badge_feature) override;
   void NotifyNewBadgeFeatureUsed(const base::Feature& feature) override;
+  bool IsTabModalPopup() const override;
+  void SetIsTabModalPopup(bool is_tab_modal_popup) override;
 
   // Sets the controller returned by GetFeaturePromoController().
   // Deletes the existing one, if any.
@@ -340,6 +344,7 @@ class TestBrowserWindow : public BrowserWindow {
   bool is_active_ = false;
   bool is_closed_ = false;
   bool is_tab_strip_editable_ = true;
+  bool is_tab_modal_popup_ = false;
 
   std::unique_ptr<user_education::FeaturePromoController>
       feature_promo_controller_;

@@ -45,6 +45,11 @@ void SetAutofillFormFeatureFlags(WebFrame* web_frame) {
                          features::kAutofillAcrossIframesIosThrottling));
 
   AutofillFormFeaturesJavaScriptFeature::GetInstance()
+      ->SetAutofillDisallowSlashDotLabels(
+          web_frame, base::FeatureList::IsEnabled(
+                         features::kAutofillDisallowSlashDotLabels));
+
+  AutofillFormFeaturesJavaScriptFeature::GetInstance()
       ->SetAutofillIsolatedContentWorld(
           web_frame,
           base::FeatureList::IsEnabled(kAutofillIsolatedWorldForJavascriptIos));
@@ -58,6 +63,16 @@ void SetAutofillFormFeatureFlags(WebFrame* web_frame) {
       ->SetAutofillCorrectUserEditedBitInParsedField(
           web_frame, base::FeatureList::IsEnabled(
                          kAutofillCorrectUserEditedBitInParsedField));
+
+  AutofillFormFeaturesJavaScriptFeature::GetInstance()
+      ->SetAutofillAllowDefaultPreventedFormSubmission(
+          web_frame, base::FeatureList::IsEnabled(
+                         kAutofillAllowDefaultPreventedSubmission));
+
+  AutofillFormFeaturesJavaScriptFeature::GetInstance()
+      ->SetAutofillDedupeFormSubmission(
+          web_frame,
+          base::FeatureList::IsEnabled(kAutofillDedupeFormSubmission));
 }
 
 AutofillFormFeaturesInjector::~AutofillFormFeaturesInjector() = default;

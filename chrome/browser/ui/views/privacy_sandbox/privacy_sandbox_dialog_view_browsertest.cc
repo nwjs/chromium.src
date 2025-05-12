@@ -17,6 +17,7 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/test/test_browser_dialog.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/privacy_sandbox/dialog_origin_marker.h"
 #include "components/privacy_sandbox/privacy_sandbox_features.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
@@ -116,6 +117,7 @@ std::string ClickLearnMoreButton3TimesScript() {
 class PrivacySandboxDialogViewBrowserTest : public DialogBrowserTest {
  public:
   PrivacySandboxDialogViewBrowserTest() {
+    set_baseline("crrev.com/c/6391455");
     scoped_feature_list_.InitAndDisableFeature(
         privacy_sandbox::kPrivacySandboxAdsApiUxEnhancements);
   }
@@ -153,8 +155,15 @@ class PrivacySandboxDialogViewBrowserTest : public DialogBrowserTest {
     views::NamedWidgetShownWaiter waiter(
         views::test::AnyWidgetTestPasskey{},
         PrivacySandboxDialogView::kViewClassName);
-    ShowPrivacySandboxDialog(browser(), prompt_type);
-    waiter.WaitIfNeededAndGet();
+    PrivacySandboxDialog::Show(browser(), prompt_type);
+    views::Widget* dialog_widget = waiter.WaitIfNeededAndGet();
+    auto* privacy_sandbox_dialog_view = static_cast<PrivacySandboxDialogView*>(
+        dialog_widget->widget_delegate()->GetContentsView());
+    // Verify that the DialogOriginMarker is present for WebContents created
+    // within the dialog view context.
+    ASSERT_NE(privacy_sandbox::DialogOriginMarker::FromWebContents(
+                  privacy_sandbox_dialog_view->GetWebContentsForTesting()),
+              nullptr);
   }
 
   MockPrivacySandboxService* mock_service() { return mock_service_; }
@@ -298,13 +307,18 @@ class PrivacySandboxDialogViewPrivacyPolicyBrowserTest
     views::NamedWidgetShownWaiter waiter(
         views::test::AnyWidgetTestPasskey{},
         PrivacySandboxDialogView::kViewClassName);
-    ShowPrivacySandboxDialog(browser(), prompt_type);
+    PrivacySandboxDialog::Show(browser(), prompt_type);
     views::Widget* dialog_widget = waiter.WaitIfNeededAndGet();
     views::test::WidgetVisibleWaiter(dialog_widget).Wait();
     ASSERT_TRUE(dialog_widget->IsVisible());
 
     auto* privacy_sandbox_dialog_view = static_cast<PrivacySandboxDialogView*>(
         dialog_widget->widget_delegate()->GetContentsView());
+    // Verify that the DialogOriginMarker is present for WebContents created
+    // within the dialog view context.
+    ASSERT_NE(privacy_sandbox::DialogOriginMarker::FromWebContents(
+                  privacy_sandbox_dialog_view->GetWebContentsForTesting()),
+              nullptr);
 
     // Click expand button.
     EXPECT_TRUE(
@@ -382,8 +396,7 @@ class PrivacySandboxDialogViewAdsApiUxEnhancementsLearnMoreBrowserTest
         // Enabled Features
         {privacy_sandbox::kPrivacySandboxAdsApiUxEnhancements},
         // Disabled Features
-        {privacy_sandbox::kPrivacySandboxAdTopicsContentParity,
-         privacy_sandbox::kPrivacySandboxEqualizedPromptButtons});
+        {privacy_sandbox::kPrivacySandboxAdTopicsContentParity});
   }
 
   // DialogBrowserTest:
@@ -395,13 +408,18 @@ class PrivacySandboxDialogViewAdsApiUxEnhancementsLearnMoreBrowserTest
     views::NamedWidgetShownWaiter waiter(
         views::test::AnyWidgetTestPasskey{},
         PrivacySandboxDialogView::kViewClassName);
-    ShowPrivacySandboxDialog(browser(), GetPromptType(name));
+    PrivacySandboxDialog::Show(browser(), GetPromptType(name));
     views::Widget* dialog_widget = waiter.WaitIfNeededAndGet();
     views::test::WidgetVisibleWaiter(dialog_widget).Wait();
     ASSERT_TRUE(dialog_widget->IsVisible());
 
     auto* privacy_sandbox_dialog_view = static_cast<PrivacySandboxDialogView*>(
         dialog_widget->widget_delegate()->GetContentsView());
+    // Verify that the DialogOriginMarker is present for WebContents created
+    // within the dialog view context.
+    ASSERT_NE(privacy_sandbox::DialogOriginMarker::FromWebContents(
+                  privacy_sandbox_dialog_view->GetWebContentsForTesting()),
+              nullptr);
 
     auto [primary_selector, secondary_selector] =
         GetDialogElementSelector(name);

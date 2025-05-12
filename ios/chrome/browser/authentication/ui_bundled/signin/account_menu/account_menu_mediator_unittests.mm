@@ -12,6 +12,7 @@
 #import "components/sync/test/test_sync_service.h"
 #import "ios/chrome/browser/authentication/ui_bundled/authentication_flow/authentication_flow.h"
 #import "ios/chrome/browser/authentication/ui_bundled/cells/table_view_account_item.h"
+#import "ios/chrome/browser/authentication/ui_bundled/signin/account_menu/account_menu_constants.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/account_menu/account_menu_consumer.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/account_menu/account_menu_mediator_delegate.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/account_menu/account_menu_view_controller.h"
@@ -44,6 +45,8 @@
 
 namespace {
 
+using ::testing::IsNull;
+
 const FakeSystemIdentity* kPrimaryIdentity = [FakeSystemIdentity fakeIdentity1];
 const FakeSystemIdentity* kSecondaryIdentity =
     [FakeSystemIdentity fakeIdentity2];
@@ -51,17 +54,10 @@ const FakeSystemIdentity* kSecondaryIdentity2 =
     [FakeSystemIdentity fakeIdentity3];
 
 enum FeaturesState {
-  // Using APIs from ChromeAccountManagerService to retrieve accounts, and with
-  // all accounts being assigned to the same single profile.
-  kOldApiWithoutSeparateProfiles,
-  // Using APIs from IdentityManager to retrieve accounts, and with all accounts
-  // being assigned to the same single profile.
-  kNewApiWithoutSeparateProfiles,
-  // Using APIs from IdentityManager to retrieve accounts, and with managed
-  // accounts being assigned into their own separate profiles.
-  kNewApiWithSeparateProfiles
-  // Note: "SeparateProfiles" depends on "NewApi", so there's no
-  // "OldAPiWithSeparateProfiles" variant.
+  // With all accounts being assigned to the same single profile.
+  kWithoutSeparateProfiles,
+  // With managed accounts being assigned into their own separate profiles.
+  kWithSeparateProfiles
 };
 }  // namespace
 
@@ -74,21 +70,12 @@ class AccountMenuMediatorTest
   AccountMenuMediatorTest() {
     base::flat_map<base::test::FeatureRef, bool> feature_states;
     switch (GetParam()) {
-      case kOldApiWithoutSeparateProfiles:
-        feature_states[kUseAccountListFromIdentityManager] = false;
+      case kWithoutSeparateProfiles:
         feature_states[kSeparateProfilesForManagedAccounts] = false;
         break;
-      case kNewApiWithoutSeparateProfiles:
-        feature_states[kUseAccountListFromIdentityManager] = true;
-        feature_states[kSeparateProfilesForManagedAccounts] = false;
-        break;
-      case kNewApiWithSeparateProfiles:
-        feature_states[kUseAccountListFromIdentityManager] = true;
+      case kWithSeparateProfiles:
         feature_states[kSeparateProfilesForManagedAccounts] = true;
         break;
-        // Note: `kSeparateProfilesForManagedAccounts` depends on
-        // `kUseAccountListFromIdentityManager`, so there's no "false + true"
-        // case.
     }
     feature_list_.InitWithFeatureStates(feature_states);
   }
@@ -134,7 +121,8 @@ class AccountMenuMediatorTest
         accountManagerService:account_manager_service_
                   authService:authentication_service_
               identityManager:identity_manager_
-                        prefs:profile_->GetPrefs()];
+                        prefs:profile_->GetPrefs()
+                  accessPoint:AccountMenuAccessPoint::kNewTabPage];
     mediator_.delegate = delegate_mock_;
     mediator_.consumer = consumer_mock_;
     authentication_flow_mock_ = OCMStrictClassMock([AuthenticationFlow class]);
@@ -239,7 +227,7 @@ class AccountMenuMediatorTest
 // consumer.
 TEST_P(AccountMenuMediatorTest, TestAddSecondaryIdentity) {
   if (!@available(iOS 17, *)) {
-    if (GetParam() == kNewApiWithSeparateProfiles) {
+    if (GetParam() == kWithSeparateProfiles) {
       // Separate profiles are only available in iOS 17+.
       return;
     }
@@ -249,10 +237,9 @@ TEST_P(AccountMenuMediatorTest, TestAddSecondaryIdentity) {
   thirdIdentity.userFullName = nil;
   thirdIdentity.userGivenName = nil;
   switch (GetParam()) {
-    case kOldApiWithoutSeparateProfiles:
-    case kNewApiWithSeparateProfiles:
+    case kWithSeparateProfiles:
       break;
-    case kNewApiWithoutSeparateProfiles:
+    case kWithoutSeparateProfiles:
       OCMExpect([consumer_mock_
           updateAccountListWithGaiaIDsToAdd:@[]
                             gaiaIDsToRemove:@[]
@@ -282,7 +269,7 @@ TEST_P(AccountMenuMediatorTest, TestAddSecondaryIdentity) {
 // consumer.
 TEST_P(AccountMenuMediatorTest, TestRemoveSecondaryIdentity) {
   if (!@available(iOS 17, *)) {
-    if (GetParam() == kNewApiWithSeparateProfiles) {
+    if (GetParam() == kWithSeparateProfiles) {
       // Separate profiles are only available in iOS 17+.
       return;
     }
@@ -300,7 +287,7 @@ TEST_P(AccountMenuMediatorTest, TestRemoveSecondaryIdentity) {
     base::RepeatingClosure closure = run_loop.QuitClosure();
     fake_system_identity_manager_->ForgetIdentity(
         kSecondaryIdentity, base::BindOnce(^(NSError* error) {
-          EXPECT_THAT(error, testing::IsNull());
+          EXPECT_THAT(error, IsNull());
           closure.Run();
         }));
     run_loop.Run();
@@ -313,7 +300,7 @@ TEST_P(AccountMenuMediatorTest, TestRemoveSecondaryIdentity) {
 // consumer.
 TEST_P(AccountMenuMediatorTest, TestRemovePrimaryIdentity) {
   if (!@available(iOS 17, *)) {
-    if (GetParam() == kNewApiWithSeparateProfiles) {
+    if (GetParam() == kWithSeparateProfiles) {
       // Separate profiles are only available in iOS 17+.
       return;
     }
@@ -333,7 +320,7 @@ TEST_P(AccountMenuMediatorTest, TestRemovePrimaryIdentity) {
 // Tests the result of secondaryAccountsGaiaIDs.
 TEST_P(AccountMenuMediatorTest, TestSecondaryAccountsGaiaID) {
   if (!@available(iOS 17, *)) {
-    if (GetParam() == kNewApiWithSeparateProfiles) {
+    if (GetParam() == kWithSeparateProfiles) {
       // Separate profiles are only available in iOS 17+.
       return;
     }
@@ -347,7 +334,7 @@ TEST_P(AccountMenuMediatorTest, TestSecondaryAccountsGaiaID) {
 // Tests the result of nameForGaiaID.
 TEST_P(AccountMenuMediatorTest, nameForGaiaID) {
   if (!@available(iOS 17, *)) {
-    if (GetParam() == kNewApiWithSeparateProfiles) {
+    if (GetParam() == kWithSeparateProfiles) {
       // Separate profiles are only available in iOS 17+.
       return;
     }
@@ -359,7 +346,7 @@ TEST_P(AccountMenuMediatorTest, nameForGaiaID) {
 // Tests the result of emailForGaiaID.
 TEST_P(AccountMenuMediatorTest, emailForGaiaID) {
   if (!@available(iOS 17, *)) {
-    if (GetParam() == kNewApiWithSeparateProfiles) {
+    if (GetParam() == kWithSeparateProfiles) {
       // Separate profiles are only available in iOS 17+.
       return;
     }
@@ -371,7 +358,7 @@ TEST_P(AccountMenuMediatorTest, emailForGaiaID) {
 // Tests the result of imageForGaiaID.
 TEST_P(AccountMenuMediatorTest, imageForGaiaID) {
   if (!@available(iOS 17, *)) {
-    if (GetParam() == kNewApiWithSeparateProfiles) {
+    if (GetParam() == kWithSeparateProfiles) {
       // Separate profiles are only available in iOS 17+.
       return;
     }
@@ -385,7 +372,7 @@ TEST_P(AccountMenuMediatorTest, imageForGaiaID) {
 // Tests the result of primaryAccountEmail.
 TEST_P(AccountMenuMediatorTest, TestPrimaryAccountEmail) {
   if (!@available(iOS 17, *)) {
-    if (GetParam() == kNewApiWithSeparateProfiles) {
+    if (GetParam() == kWithSeparateProfiles) {
       // Separate profiles are only available in iOS 17+.
       return;
     }
@@ -396,7 +383,7 @@ TEST_P(AccountMenuMediatorTest, TestPrimaryAccountEmail) {
 // Tests the result of primaryAccountUserFullName.
 TEST_P(AccountMenuMediatorTest, TestPrimaryAccountUserFullName) {
   if (!@available(iOS 17, *)) {
-    if (GetParam() == kNewApiWithSeparateProfiles) {
+    if (GetParam() == kWithSeparateProfiles) {
       // Separate profiles are only available in iOS 17+.
       return;
     }
@@ -408,7 +395,7 @@ TEST_P(AccountMenuMediatorTest, TestPrimaryAccountUserFullName) {
 // Tests the result of primaryAccountAvatar.
 TEST_P(AccountMenuMediatorTest, TestPrimaryAccountAvatar) {
   if (!@available(iOS 17, *)) {
-    if (GetParam() == kNewApiWithSeparateProfiles) {
+    if (GetParam() == kWithSeparateProfiles) {
       // Separate profiles are only available in iOS 17+.
       return;
     }
@@ -422,18 +409,18 @@ TEST_P(AccountMenuMediatorTest, TestPrimaryAccountAvatar) {
 // Tests the result of TestError when there is no error.
 TEST_P(AccountMenuMediatorTest, TestNoError) {
   if (!@available(iOS 17, *)) {
-    if (GetParam() == kNewApiWithSeparateProfiles) {
+    if (GetParam() == kWithSeparateProfiles) {
       // Separate profiles are only available in iOS 17+.
       return;
     }
   }
-  EXPECT_THAT([mediator_ accountErrorUIInfo], testing::IsNull());
+  EXPECT_THAT([mediator_ accountErrorUIInfo], IsNull());
 }
 
 // Tests the result of TestError when passphrase is required.
 TEST_P(AccountMenuMediatorTest, TestError) {
   if (!@available(iOS 17, *)) {
-    if (GetParam() == kNewApiWithSeparateProfiles) {
+    if (GetParam() == kWithSeparateProfiles) {
       // Separate profiles are only available in iOS 17+.
       return;
     }
@@ -461,7 +448,7 @@ TEST_P(AccountMenuMediatorTest, TestError) {
 // when sign-out fail.
 TEST_P(AccountMenuMediatorTest, TestAccountTapedSignoutFailed) {
   if (!@available(iOS 17, *)) {
-    if (GetParam() == kNewApiWithSeparateProfiles) {
+    if (GetParam() == kWithSeparateProfiles) {
       // Separate profiles are only available in iOS 17+.
       return;
     }
@@ -472,22 +459,21 @@ TEST_P(AccountMenuMediatorTest, TestAccountTapedSignoutFailed) {
   // and one part for the initial part of the run.
 
   // Testing the part before the callback.
-  // This variable will contain the callback that should be executed once
-  // sign-out ends.
-  __block signin_ui::SignoutCompletionCallback signoutCallback = nil;
-  __block signin_ui::SigninCompletionCallback signinCallback = nil;
   const CGRect target = CGRect();
   OCMExpect([consumer_mock_ switchingStarted]);
   OCMExpect([consumer_mock_ setUserInteractionsEnabled:NO]);
-  OCMExpect([delegate_mock_
-                triggerSigninWithSystemIdentity:kSecondaryIdentity
-                                     anchorRect:target
-                                     completion:[OCMArg checkWithBlock:^BOOL(
-                                                            id value) {
-                                       signinCallback = value;
-                                       return true;
-                                     }]])
+
+  OCMExpect([delegate_mock_ authenticationFlow:kSecondaryIdentity
+                                    anchorRect:target])
       .andReturn(authentication_flow_mock_);
+  __block id<AuthenticationFlowRequestHelper>
+      authentication_flow_request_helper = nil;
+  OCMExpect([authentication_flow_mock_
+      setRequestHelper:[OCMArg checkWithBlock:^(id value) {
+        authentication_flow_request_helper = value;
+        return mediator_ == value;
+      }]]);
+  OCMExpect([authentication_flow_mock_ startSignIn]);
   [mediator_ accountTappedWithGaiaID:kSecondaryIdentity.gaiaID
                           targetRect:target];
   VerifyMock();
@@ -495,15 +481,16 @@ TEST_P(AccountMenuMediatorTest, TestAccountTapedSignoutFailed) {
   OCMExpect([consumer_mock_ switchingStopped]);
   OCMExpect([consumer_mock_ setUserInteractionsEnabled:YES]);
   // Simulate AuthenticationFlow failure.
-  signinCallback(SigninCoordinatorResultCanceledByUser);
-  EXPECT_EQ(signoutCallback, nil);
+  [authentication_flow_request_helper
+      authenticationFlowDidSignInInSameProfileWithResult:
+          SigninCoordinatorResultCanceledByUser];
 }
 
 // Tests the result of accountTappedWithGaiaID:targetRect:
 // when sign-in fail.
 TEST_P(AccountMenuMediatorTest, TestAccountTapedSignInFailed) {
   if (!@available(iOS 17, *)) {
-    if (GetParam() == kNewApiWithSeparateProfiles) {
+    if (GetParam() == kWithSeparateProfiles) {
       // Separate profiles are only available in iOS 17+.
       return;
     }
@@ -514,33 +501,33 @@ TEST_P(AccountMenuMediatorTest, TestAccountTapedSignInFailed) {
   // callback, and one part for the initial part of the run.
 
   // Testing the part before the callback.
-  // This variable will contain the callback that should be executed once
-  // sign-out ends.
-  __block signin_ui::SigninCompletionCallback signinCallback = nil;
   const CGRect target = CGRect();
   OCMExpect([consumer_mock_ switchingStarted]);
   OCMExpect([consumer_mock_ setUserInteractionsEnabled:NO]);
-
   // Simulate a sign-out success.
   // This variable will contain the callback that should be executed once
   // sign-in ended.
-  OCMExpect([delegate_mock_
-                triggerSigninWithSystemIdentity:kSecondaryIdentity
-                                     anchorRect:target
-                                     completion:[OCMArg checkWithBlock:^BOOL(
-                                                            id value) {
-                                       signinCallback = value;
-                                       return true;
-                                     }]])
+  OCMExpect([delegate_mock_ authenticationFlow:kSecondaryIdentity
+                                    anchorRect:target])
       .andReturn(authentication_flow_mock_);
+  __block id<AuthenticationFlowRequestHelper>
+      authentication_flow_request_helper = nil;
+  OCMExpect([authentication_flow_mock_
+      setRequestHelper:[OCMArg checkWithBlock:^(id value) {
+        authentication_flow_request_helper = value;
+        return mediator_ == value;
+      }]]);
   // Simulate account switching.
+  OCMExpect([authentication_flow_mock_ startSignIn]);
   [mediator_ accountTappedWithGaiaID:kSecondaryIdentity.gaiaID
                           targetRect:target];
 
   // Expect that the consumer unlocks the UI.
   OCMExpect([consumer_mock_ switchingStopped]);
   OCMExpect([consumer_mock_ setUserInteractionsEnabled:YES]);
-  signinCallback(SigninCoordinatorResult::SigninCoordinatorResultInterrupted);
+  [authentication_flow_request_helper
+      authenticationFlowDidSignInInSameProfileWithResult:
+          SigninCoordinatorResult::SigninCoordinatorResultInterrupted];
 
   // Checks the user is signed-back in.
   ASSERT_EQ(kPrimaryIdentity, authentication_service_->GetPrimaryIdentity(
@@ -551,7 +538,7 @@ TEST_P(AccountMenuMediatorTest, TestAccountTapedSignInFailed) {
 // when switch is successful.
 TEST_P(AccountMenuMediatorTest, TestAccountTapedWithSuccessfulSwitch) {
   if (!@available(iOS 17, *)) {
-    if (GetParam() == kNewApiWithSeparateProfiles) {
+    if (GetParam() == kWithSeparateProfiles) {
       // Separate profiles are only available in iOS 17+.
       return;
     }
@@ -561,22 +548,21 @@ TEST_P(AccountMenuMediatorTest, TestAccountTapedWithSuccessfulSwitch) {
   // and one part for the initial part of the run.
 
   // Testing the part before the callback.
-  // This variable will contain the callback that should be executed once
-  // sign-out ends.
-  __block signin_ui::SigninCompletionCallback signinCallback = nil;
   const CGRect target = CGRect();
   OCMExpect([consumer_mock_ switchingStarted]);
   OCMExpect([consumer_mock_ setUserInteractionsEnabled:NO]);
   // Simulate account switching.
-  OCMExpect([delegate_mock_
-                triggerSigninWithSystemIdentity:kSecondaryIdentity
-                                     anchorRect:target
-                                     completion:[OCMArg checkWithBlock:^BOOL(
-                                                            id value) {
-                                       signinCallback = value;
-                                       return true;
-                                     }]])
+  OCMExpect([delegate_mock_ authenticationFlow:kSecondaryIdentity
+                                    anchorRect:target])
       .andReturn(authentication_flow_mock_);
+  __block id<AuthenticationFlowRequestHelper>
+      authentication_flow_request_helper = nil;
+  OCMExpect([authentication_flow_mock_
+      setRequestHelper:[OCMArg checkWithBlock:^(id value) {
+        authentication_flow_request_helper = value;
+        return mediator_ == value;
+      }]]);
+  OCMExpect([authentication_flow_mock_ startSignIn]);
   [mediator_ accountTappedWithGaiaID:kSecondaryIdentity.gaiaID
                           targetRect:target];
   VerifyMock();
@@ -585,13 +571,15 @@ TEST_P(AccountMenuMediatorTest, TestAccountTapedWithSuccessfulSwitch) {
                       withResult:SigninCoordinatorResultSuccess
                   signedIdentity:kSecondaryIdentity
                  userTappedClose:NO]);
-  signinCallback(SigninCoordinatorResultSuccess);
+  [authentication_flow_request_helper
+      authenticationFlowDidSignInInSameProfileWithResult:
+          SigninCoordinatorResultSuccess];
 }
 
 // Tests the result of didTapErrorButton when a passphrase is required.
 TEST_P(AccountMenuMediatorTest, TestTapErrorButtonPassphrase) {
   if (!@available(iOS 17, *)) {
-    if (GetParam() == kNewApiWithSeparateProfiles) {
+    if (GetParam() == kWithSeparateProfiles) {
       // Separate profiles are only available in iOS 17+.
       return;
     }
@@ -612,7 +600,7 @@ TEST_P(AccountMenuMediatorTest, TestTapErrorButtonPassphrase) {
 // Tests the effect of didTapManageYourGoogleAccount.
 TEST_P(AccountMenuMediatorTest, TestDidTapManageYourGoogleAccount) {
   if (!@available(iOS 17, *)) {
-    if (GetParam() == kNewApiWithSeparateProfiles) {
+    if (GetParam() == kWithSeparateProfiles) {
       // Separate profiles are only available in iOS 17+.
       return;
     }
@@ -624,7 +612,7 @@ TEST_P(AccountMenuMediatorTest, TestDidTapManageYourGoogleAccount) {
 // Tests the effect of didTapManageAccounts.
 TEST_P(AccountMenuMediatorTest, TestDidTapEditAccountList) {
   if (!@available(iOS 17, *)) {
-    if (GetParam() == kNewApiWithSeparateProfiles) {
+    if (GetParam() == kWithSeparateProfiles) {
       // Separate profiles are only available in iOS 17+.
       return;
     }
@@ -636,7 +624,7 @@ TEST_P(AccountMenuMediatorTest, TestDidTapEditAccountList) {
 // Tests the effect of didTapAddAccount.
 TEST_P(AccountMenuMediatorTest, TestDidTapAddAccount) {
   if (!@available(iOS 17, *)) {
-    if (GetParam() == kNewApiWithSeparateProfiles) {
+    if (GetParam() == kWithSeparateProfiles) {
       // Separate profiles are only available in iOS 17+.
       return;
     }
@@ -658,14 +646,14 @@ TEST_P(AccountMenuMediatorTest, TestDidTapAddAccount) {
 // Tests the effect of signOutFromTargetRect.
 TEST_P(AccountMenuMediatorTest, TestSignoutFromTargetRect) {
   if (!@available(iOS 17, *)) {
-    if (GetParam() == kNewApiWithSeparateProfiles) {
+    if (GetParam() == kWithSeparateProfiles) {
       // Separate profiles are only available in iOS 17+.
       return;
     }
   }
   CGRect rect = CGRectMake(0, 0, 40, 24);
 
-  __block void (^completion)(BOOL) = nil;
+  __block signin_ui::SignoutCompletionCallback completion = nil;
   OCMExpect([delegate_mock_
       signOutFromTargetRect:rect
                  completion:[OCMArg checkWithBlock:^BOOL(id value) {
@@ -679,20 +667,20 @@ TEST_P(AccountMenuMediatorTest, TestSignoutFromTargetRect) {
                       withResult:SigninCoordinatorResultCanceledByUser
                   signedIdentity:nil
                  userTappedClose:NO]);
-  completion(YES);
+  completion(YES, nil);
 }
 
 // Tests tapping on the close button just after the sign-out button.
 // This is a regression test for crbug.com/371046656.
 TEST_P(AccountMenuMediatorTest, TestSignoutAndClose) {
   if (!@available(iOS 17, *)) {
-    if (GetParam() == kNewApiWithSeparateProfiles) {
+    if (GetParam() == kWithSeparateProfiles) {
       // Separate profiles are only available in iOS 17+.
       return;
     }
   }
   CGRect rect = CGRectMake(0, 0, 40, 24);
-  __block void (^completion)(BOOL) = nil;
+  __block signin_ui::SignoutCompletionCallback completion = nil;
   OCMExpect([delegate_mock_
       signOutFromTargetRect:rect
                  completion:[OCMArg checkWithBlock:^BOOL(id value) {
@@ -703,14 +691,14 @@ TEST_P(AccountMenuMediatorTest, TestSignoutAndClose) {
   [mediator_ signOutFromTargetRect:rect];
   [mediator_ disconnect];
   OCMExpect([consumer_mock_ setUserInteractionsEnabled:YES]);
-  completion(NO);
+  completion(NO, nil);
 }
 
 // Tests tapping on the close button just after the sign-out button.
 // This is a regression test for crbug.com/371046656.
 TEST_P(AccountMenuMediatorTest, TestViewControllerWantToBeClosed) {
   if (!@available(iOS 17, *)) {
-    if (GetParam() == kNewApiWithSeparateProfiles) {
+    if (GetParam() == kWithSeparateProfiles) {
       // Separate profiles are only available in iOS 17+.
       return;
     }
@@ -725,18 +713,58 @@ TEST_P(AccountMenuMediatorTest, TestViewControllerWantToBeClosed) {
       viewControllerWantsToBeClosed:(AccountMenuViewController*)consumer_mock_];
 }
 
+// Tests that the consumer is not notified to update the error section multiple
+// times if the underlying error does not change.
+TEST_P(AccountMenuMediatorTest, TestErrorSectionUptadedOnceForSameError) {
+  if (!@available(iOS 17, *)) {
+    if (GetParam() == kWithSeparateProfiles) {
+      // Separate profiles are only available in iOS 17+.
+      return;
+    }
+  }
+
+  SignInAndSetPassphraseRequired();
+
+  // The error has not changed. The consumer should not be notified again.
+  OCMReject([consumer_mock_ updateErrorSection:[OCMArg any]]);
+  test_sync_service_->FireStateChanged();
+}
+
+// Tests that the consumer is notified to update the error section if the
+// underlying error is resolved.
+TEST_P(AccountMenuMediatorTest, TestErrorSectionUpdatedWhenErrorCleared) {
+  if (!@available(iOS 17, *)) {
+    if (GetParam() == kWithSeparateProfiles) {
+      // Separate profiles are only available in iOS 17+.
+      return;
+    }
+  }
+  test_sync_service_->SetSignedIn(signin::ConsentLevel::kSignin);
+  constexpr char kSyncPassphrase[] = "passphrase";
+  test_sync_service_->GetUserSettings()->SetPassphraseRequired(kSyncPassphrase);
+
+  OCMExpect([consumer_mock_ updateErrorSection:[OCMArg any]]);
+  test_sync_service_->FireStateChanged();
+  EXPECT_EQ([mediator_ accountErrorUIInfo].errorType,
+            syncer::SyncService::UserActionableError::kNeedsPassphrase);
+
+  // Resolve the error. The consumer should be notified.
+  OCMExpect([consumer_mock_ updateErrorSection:[OCMArg any]]);
+  test_sync_service_->GetUserSettings()->SetDecryptionPassphrase(
+      kSyncPassphrase);
+  test_sync_service_->FireStateChanged();
+  EXPECT_THAT([mediator_ accountErrorUIInfo], IsNull());
+}
+
 INSTANTIATE_TEST_SUITE_P(,
                          AccountMenuMediatorTest,
-                         testing::ValuesIn({kOldApiWithoutSeparateProfiles,
-                                            kNewApiWithoutSeparateProfiles,
-                                            kNewApiWithSeparateProfiles}),
+                         testing::ValuesIn({kWithoutSeparateProfiles,
+                                            kWithSeparateProfiles}),
                          [](const testing::TestParamInfo<FeaturesState>& info) {
                            switch (info.param) {
-                             case kOldApiWithoutSeparateProfiles:
-                               return "OldApiWithoutSeparateProfile";
-                             case kNewApiWithoutSeparateProfiles:
-                               return "NewApiWithoutSeparateProfiles";
-                             case kNewApiWithSeparateProfiles:
-                               return "NewApiWithSeparateProfiles";
+                             case kWithoutSeparateProfiles:
+                               return "WithoutSeparateProfiles";
+                             case kWithSeparateProfiles:
+                               return "WithSeparateProfiles";
                            }
                          });

@@ -85,6 +85,7 @@
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/wtf/casting.h"
+#include "third_party/blink/renderer/platform/wtf/text/strcat.h"
 
 namespace blink {
 
@@ -297,9 +298,9 @@ bool ContainerNode::EnsurePreInsertionValidity(
     if (!ChildTypeAllowed(child->getNodeType())) {
       exception_state.ThrowDOMException(
           DOMExceptionCode::kHierarchyRequestError,
-          "Nodes of type '" + child->nodeName() +
-              "' may not be inserted inside nodes of type '" + nodeName() +
-              "'.");
+          WTF::StrCat({"Nodes of type '", child->nodeName(),
+                       "' may not be inserted inside nodes of type '",
+                       nodeName(), "'."}));
       return false;
     }
     return true;
@@ -556,7 +557,7 @@ void ContainerNode::InsertBeforeCommon(Node& next_child, Node& new_child) {
     DCHECK(firstChild() == next_child);
     SetFirstChild(&new_child);
   }
-  new_child.SetParentOrShadowHostNode(this);
+  new_child.SetParentNode(this);
   new_child.SetPreviousSibling(prev);
   new_child.SetNextSibling(&next_child);
 }
@@ -567,7 +568,7 @@ void ContainerNode::AppendChildCommon(Node& child) {
 #endif
   DCHECK(ScriptForbiddenScope::IsScriptForbidden());
 
-  child.SetParentOrShadowHostNode(this);
+  child.SetParentNode(this);
   if (last_child_) {
     child.SetPreviousSibling(last_child_);
     last_child_->SetNextSibling(&child);
@@ -1029,7 +1030,7 @@ void ContainerNode::RemoveBetween(Node* previous_child,
 
   old_child.SetPreviousSibling(nullptr);
   old_child.SetNextSibling(nullptr);
-  old_child.SetParentOrShadowHostNode(nullptr);
+  old_child.SetParentNode(nullptr);
 
   GetDocument().AdoptIfNeeded(old_child);
 }

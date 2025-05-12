@@ -125,7 +125,6 @@ void AddChromeColorMixer(ui::ColorProvider* provider,
       kColorAvatarButtonHighlightNormal};
   mixer[kColorAvatarButtonHighlightExplicitText] = {
       kColorAvatarButtonHighlightNormal};
-  mixer[kColorAvatarStrokeLight] = {SK_ColorWHITE};
   mixer[kColorAvatarStroke] = {kColorToolbarButtonIcon};
   mixer[kColorAvatarFillForContrast] = {kColorToolbar};
   mixer[kColorBookmarkBarBackground] = {kColorToolbar};
@@ -216,6 +215,8 @@ void AddChromeColorMixer(ui::ColorProvider* provider,
   mixer[kColorExtensionMenuPinButtonIconDisabled] = ui::SetAlpha(
       kColorExtensionMenuPinButtonIcon, gfx::kDisabledControlAlpha);
   mixer[kColorExtensionsMenuContainerBackground] = {ui::kColorSysSurface3};
+  mixer[kColorFeatureFirstRunInfoContainerBackground] = {ui::kColorSysSurface3};
+  mixer[kColorFeatureFirstRunIconColor] = {ui::kColorSysOnSurfaceSubtle};
   mixer[kColorFeaturePromoBubbleBackground] = {gfx::kGoogleBlue700};
   mixer[kColorFeaturePromoBubbleButtonBorder] = {gfx::kGoogleGrey300};
   mixer[kColorFeaturePromoBubbleCloseButtonInkDrop] = {gfx::kGoogleBlue300};
@@ -244,6 +245,13 @@ void AddChromeColorMixer(ui::ColorProvider* provider,
       ui::GetColorWithMaxContrast({ui::kColorFrameInactive});
 
   mixer[kColorGlicBackground] = {ui::kColorBubbleBackground};
+  // Invert modal colors w.r.t. Chrome dark mode.
+  mixer[kColorGlicModalBackground] = {dark_mode
+                                          ? SkColorSetRGB(0xE3, 0xE3, 0xE3)
+                                          : SkColorSetRGB(0x30, 0x30, 0x30)};
+  mixer[kColorGlicModalForeground] = {dark_mode
+                                          ? SkColorSetRGB(0x30, 0x30, 0x30)
+                                          : SkColorSetRGB(0xF2, 0xF2, 0xF2)};
 
   mixer[kColorInfoBarBackground] = {kColorToolbar};
   mixer[kColorInfoBarButtonIcon] = {kColorToolbarButtonIcon};
@@ -376,7 +384,6 @@ void AddChromeColorMixer(ui::ColorProvider* provider,
   mixer[kColorPipWindowSkipAdButtonBackground] = {gfx::kGoogleGrey700};
   mixer[kColorPipWindowSkipAdButtonBorder] = {kColorPipWindowForeground};
   mixer[kColorProfileMenuBackground] = {ui::kColorDialogBackground};
-  mixer[kColorProfileMenuSyncInfoBackground] = {ui::kColorSyncInfoBackground};
   // TODO(crbug.com/40833357): stop forcing the light theme once the
   // reauth dialog supports the dark mode.
   mixer[kColorProfilesReauthDialogBorder] = {SK_ColorWHITE};

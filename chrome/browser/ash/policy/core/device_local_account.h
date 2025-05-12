@@ -54,6 +54,32 @@ struct IsolatedWebAppKioskBasicInfo {
   std::string update_manifest_url_;
 };
 
+struct ArcvmKioskAppBasicInfo {
+  ArcvmKioskAppBasicInfo(const std::string& package_name,
+                         const std::string& class_name,
+                         const std::string& action,
+                         const std::string& display_name);
+  ArcvmKioskAppBasicInfo();
+  ~ArcvmKioskAppBasicInfo();
+  ArcvmKioskAppBasicInfo(const ArcvmKioskAppBasicInfo& other);
+  ArcvmKioskAppBasicInfo& operator=(const ArcvmKioskAppBasicInfo&);
+
+  [[nodiscard]] const std::string& package_name() const {
+    return package_name_;
+  }
+  [[nodiscard]] const std::string& class_name() const { return class_name_; }
+  [[nodiscard]] const std::string& action() const { return action_; }
+  [[nodiscard]] const std::string& display_name() const {
+    return display_name_;
+  }
+
+ private:
+  std::string package_name_;
+  std::string class_name_;
+  std::string action_;
+  std::string display_name_;
+};
+
 // This must match DeviceLocalAccountInfoProto.AccountType in
 // chrome_device_policy.proto.
 struct DeviceLocalAccount {
@@ -85,6 +111,10 @@ struct DeviceLocalAccount {
                      const IsolatedWebAppKioskBasicInfo& kiosk_iwa_info,
                      const std::string& account_id);
 
+  DeviceLocalAccount(EphemeralMode ephemeral_mode,
+                     const ArcvmKioskAppBasicInfo& arcvm_kiosk_app_info,
+                     const std::string& account_id);
+
   DeviceLocalAccount(const DeviceLocalAccount& other);
   ~DeviceLocalAccount();
 
@@ -114,6 +144,7 @@ struct DeviceLocalAccount {
 
   WebKioskAppBasicInfo web_kiosk_app_info;
   IsolatedWebAppKioskBasicInfo kiosk_iwa_info;
+  ArcvmKioskAppBasicInfo arcvm_kiosk_app_info;
 };
 
 // Retrieves a list of device-local accounts from `cros_settings`.

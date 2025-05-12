@@ -8,6 +8,8 @@
 #import "base/feature_list.h"
 #import "base/metrics/field_trial_params.h"
 
+// Features that are exclusive to iOS go here in alphabetical order.
+
 // Feature flag to control whether the Add Address Manually bottom sheet is
 // enabled.
 BASE_DECLARE_FEATURE(kAddAddressManually);
@@ -15,9 +17,20 @@ BASE_DECLARE_FEATURE(kAddAddressManually);
 // Returns true if the AddAddressManually feature is enabled
 bool IsAddAddressManuallyEnabled();
 
+// Allows detecting form submissions that are `defaultPrevented` by the page
+// content.
+BASE_DECLARE_FEATURE(kAutofillAllowDefaultPreventedSubmission);
+
 // Enables correctly setting the is_user_edited bit in the parsed form fields
 // instead of using true by default.
 BASE_DECLARE_FEATURE(kAutofillCorrectUserEditedBitInParsedField);
+
+// Dedupes form submission by only allowing one submission per form element.
+// This feature is meant to be used when preventDefault()ed submit events are
+// allowed (i.e. AutofillAllowDefaultPreventedSubmission enabled) which can
+// allow submitting the form multiple times as post-submit navigation can be
+// prevented.
+BASE_DECLARE_FEATURE(kAutofillDedupeFormSubmission);
 
 // Controls whether to dynamically load the address input fields in the save
 // flow and settings based on the country value.

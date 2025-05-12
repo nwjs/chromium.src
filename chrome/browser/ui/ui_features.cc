@@ -35,16 +35,6 @@ BASE_FEATURE(kCloseOmniboxPopupOnInactiveAreaClick,
              "CloseOmniboxPopupOnInactiveAreaClick",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Create new Extensions app menu option (removing "More Tools -> Extensions")
-// with submenu to manage extensions and visit chrome web store.
-BASE_FEATURE(kExtensionsMenuInAppMenu,
-             "ExtensionsMenuInAppMenu",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-bool IsExtensionMenuInRootAppMenu() {
-  return base::FeatureList::IsEnabled(kExtensionsMenuInAppMenu);
-}
-
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 // Enables the feature to remove the last confirmation dialog when relaunching
 // to update Chrome.
@@ -54,24 +44,36 @@ BASE_FEATURE(kFewerUpdateConfirmations,
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
+
 // Controls whether we use a different UX for simple extensions overriding
 // settings.
 BASE_FEATURE(kLightweightExtensionOverrideConfirmations,
              "LightweightExtensionOverrideConfirmations",
              base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
+
+BASE_FEATURE(kExtensionsCollapseMainMenu,
+             "ExtensionsCollapseMainMenu",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
 #if BUILDFLAG(IS_WIN)
 BASE_FEATURE(kOfferPinToTaskbarWhenSettingToDefault,
              "OfferPinToTaskbarWhenSettingDefault",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
 // Shows an infobar on PDFs offering to become the default PDF viewer if Chrome
 // isn't the default already.
-BASE_FEATURE(kPdfInfoBar, "kPdfInfoBar", base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
+BASE_FEATURE(kPdfInfoBar, "PdfInfoBar", base::FEATURE_DISABLED_BY_DEFAULT);
+constexpr base::FeatureParam<PdfInfoBarTrigger>::Option
+    kPdfInfoBarTriggerOptions[] = {{PdfInfoBarTrigger::kPdfLoad, "pdf-load"},
+                                   {PdfInfoBarTrigger::kStartup, "startup"}};
+constexpr base::FeatureParam<PdfInfoBarTrigger> kPdfInfoBarTrigger = {
+    &kPdfInfoBar, "trigger", PdfInfoBarTrigger::kPdfLoad,
+    &kPdfInfoBarTriggerOptions};
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
 
 // Preloads a WebContents with a Top Chrome WebUI on BrowserView initialization,
 // so that it can be shown instantly at a later time when necessary.
@@ -121,7 +123,7 @@ BASE_FEATURE(kPressAndHoldEscToExitBrowserFullscreen,
 // is not interactable.
 BASE_FEATURE(kScrimForBrowserWindowModal,
              "ScrimForBrowserWindowModal",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, a scrim is shown behind tab modal dialogs to cover the content
 // area. This gives user a visual cue that the content area is not interactable.
@@ -247,7 +249,7 @@ BASE_FEATURE(kTearOffWebAppTabOpensWebAppWindow,
 #if !defined(ANDROID)
 BASE_FEATURE(kPinnedCastButton,
              "PinnedCastButton",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 // Enables enterprise profile badging for managed profiles on the toolbar
@@ -275,8 +277,15 @@ BASE_FEATURE(kEnterpriseProfileBadgingPolicies,
 // On managed browsers, a building icon and "Managed by <domain>" string will be
 // shown in the footer, unless the icon and label are customized by the admin.
 BASE_FEATURE(kEnterpriseBadgingForNtpFooter,
-             "EnterpriseProfileBadgingForNtpFooter",
+             "EnterpriseBadgingForNtpFooter",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables the management notice in the NTP footer if the custom policies are
+// set. This acts as a kill switch for "EnterpriseCustomLabelForBrowser" and
+// "EnterpriseLogoUrlForBrowser".
+BASE_FEATURE(kNTPFooterBadgingPolicies,
+             "NTPFooterBadgingPolicies",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables showing the EnterpriseCustomLabel` instead of the cloud policy
 // manager in the managed disclaimer "Managed by..." in the profile and app
@@ -365,6 +374,12 @@ const base::FeatureParam<bool> kPageActionsMigrationZoom{&kPageActionsMigration,
                                                          "zoom", false};
 const base::FeatureParam<bool> kPageActionsMigrationOfferNotification{
     &kPageActionsMigration, "offer_notification", false};
+const base::FeatureParam<bool> kPageActionsMigrationFileSystemAccess{
+    &kPageActionsMigration, "file_system_access", false};
+const base::FeatureParam<bool> kPageActionsMigrationPwaInstall{
+    &kPageActionsMigration, "pwa_install", false};
+const base::FeatureParam<bool> kPageActionsMigrationPriceInsights{
+    &kPageActionsMigration, "price_insights", false};
 
 BASE_FEATURE(kCompositorLoadingAnimations,
              "CompositorLoadingAnimations",
@@ -372,6 +387,10 @@ BASE_FEATURE(kCompositorLoadingAnimations,
 
 BASE_FEATURE(kByDateHistoryInSidePanel,
              "ByDateHistoryInSidePanel",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kTabStripBrowserApi,
+             "TabStripBrowserApi",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace features

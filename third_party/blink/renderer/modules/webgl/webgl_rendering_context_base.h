@@ -604,7 +604,8 @@ class MODULES_EXPORT WebGLRenderingContextBase : public ScriptWrappable,
 
   void MarkLayerComposited() override;
 
-  sk_sp<SkData> PaintRenderingResultsToDataArray(SourceDrawingBuffer) override;
+  sk_sp<SkData> PaintRenderingResultsToRGBADataArray(
+      SourceDrawingBuffer) override;
 
   unsigned MaxVertexAttribs() const { return max_vertex_attribs_; }
 
@@ -910,8 +911,13 @@ class MODULES_EXPORT WebGLRenderingContextBase : public ScriptWrappable,
 
    private:
     void BubbleToFront(wtf_size_t idx);
+    const wtf_size_t capacity_;
     const CacheType type_;
     Vector<std::unique_ptr<CanvasResourceProvider>> resource_providers_;
+    // The returned CanvasResourceProvider may have a different format from the
+    // one requested (e.g, BGRA vs RGBA). Ensure this doesn't cause cache
+    // misses by recording also the requested format.
+    Vector<viz::SharedImageFormat> requested_formats_;
   };
   LRUCanvasResourceProviderCache generated_image_cache_{
       4, LRUCanvasResourceProviderCache::CacheType::kImage};
@@ -1254,6 +1260,20 @@ class MODULES_EXPORT WebGLRenderingContextBase : public ScriptWrappable,
     GLint unpack_skip_rows = 0;
     GLint unpack_skip_images = 0;
 
+    // Returns sub rect of the source based on `unpack_*` params above. This
+    // rect is always in top-left coordinate space.
+    gfx::Rect GetSourceRect(gfx::Size source_size) const;
+
+    // Returns GrSurfaceOrigin of the destination texture for this operation.
+    // Note, that textures don't have persistent orientation (e.g unlike
+    // SharedImages), so this value doesn't affect the data in the texture
+    // before the operation, only operation itself. This is helper because
+    // everything else operates in terms of GrSurfaceOrigin.
+    GrSurfaceOrigin GetDestinationOrigin() const;
+
+    // Returns desired alpha type of the uploaded data.
+    SkAlphaType GetDestinationAlphaType() const;
+
     // The source's height for 3D copies. If we are doing a 3D copy, then we
     // interpret the 2D source as 3D by treating it as vertical sequence of
     // images with this height.
@@ -1268,9 +1288,7 @@ class MODULES_EXPORT WebGLRenderingContextBase : public ScriptWrappable,
   virtual void GetCurrentUnpackState(TexImageParams& params);
 
   // Upload `image` to the specified texture.
-  void TexImageSkImage(TexImageParams params,
-                       sk_sp<SkImage> image,
-                       bool image_has_flip_y);
+  void TexImageSkImage(TexImageParams params, sk_sp<SkImage> image);
 
   // Call the underlying Tex[Sub]Image{2D|3D} function. Always replace
   // `params.internalformat` with the result from ConvertTexInternalFormat.
@@ -1282,7 +1300,6 @@ class MODULES_EXPORT WebGLRenderingContextBase : public ScriptWrappable,
   // using TexImageSkImage.
   void TexImageStaticBitmapImage(TexImageParams params,
                                  StaticBitmapImage* image,
-                                 bool image_has_flip_y,
                                  bool allow_copy_via_gpu);
   template <typename T>
   gfx::Rect GetTextureSourceSize(T* texture_source) {

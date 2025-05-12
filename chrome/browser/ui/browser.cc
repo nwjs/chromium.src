@@ -46,6 +46,7 @@
 #include "base/threading/thread.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/time/time.h"
+#include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/app_mode/app_mode_utils.h"
@@ -208,7 +209,7 @@
 #include "components/sessions/core/session_types.h"
 #include "components/sessions/core/tab_restore_service.h"
 #include "components/startup_metric_utils/browser/startup_metric_utils.h"
-#include "components/tab_collections/public/tab_interface.h"
+#include "components/tabs/public/tab_interface.h"
 #include "components/user_manager/user_manager.h"
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
 #include "components/zoom/zoom_controller.h"
@@ -1327,6 +1328,14 @@ bool Browser::IsMinimized() const {
   return window_->IsMinimized();
 }
 
+bool Browser::IsVisibleOnScreen() const {
+  return window_->IsVisibleOnScreen();
+}
+
+bool Browser::IsVisible() const {
+  return window_->IsVisible();
+}
+
 base::WeakPtr<BrowserWindowInterface> Browser::GetWeakPtr() {
   return AsWeakPtr();
 }
@@ -1414,6 +1423,18 @@ Browser* Browser::GetBrowserForMigrationOnly() {
   return this;
 }
 
+bool Browser::IsTabModalPopup() const {
+  return is_tab_modal_popup_;
+}
+
+bool Browser::CanShowCallToAction() const {
+  return !showing_call_to_action_;
+}
+
+std::unique_ptr<ScopedWindowCallToAction> Browser::ShowCallToAction() {
+  return std::make_unique<ScopedWindowCallToActionImpl>(this);
+}
+
 void Browser::DidBecomeActive() {
   if (!is_active_) {
     is_active_ = true;
@@ -1442,6 +1463,15 @@ void Browser::SetLockedForOnTask(bool locked) {
 #endif
 
 void Browser::OnWindowClosing() {
+  // There may be situations where async tasks, such as
+  // UnloadController::ProcessPendingTabs, may call into OnWindowClosing() after
+  // deletion has already been scheduled and closed notifications have been
+  // propagated. No-op in such cases to avoid duplicating browser-closed
+  // handling.
+  if (is_delete_scheduled_) {
+    return;
+  }
+
   if (const auto closing_status = HandleBeforeClose();
       closing_status != BrowserClosingStatus::kPermitted) {
     BrowserList::NotifyBrowserCloseCancelled(this, closing_status);
@@ -2408,6 +2438,10 @@ bool Browser::ShouldFocusLocationBarByDefault(WebContents* source) {
          virtual_url.host_piece() == chrome::kChromeUINewTabHost)) {
       return true;
     }
+
+    if (url.spec() == chrome::kChromeUISplitViewNewTabPageURL) {
+      return true;
+    }
   }
 
   return search::NavEntryIsInstantNTP(source, entry);
@@ -2955,6 +2989,11 @@ void Browser::SetWebContentsBlocked(content::WebContents* web_contents,
     // Removal of tabs from the TabStripModel can cause observer callbacks to
     // invoke this method. The WebContents may no longer exist in the
     // TabStripModel.
+    // If the WebContents has a DevTools window,
+    // the call is meant for the DevTools area.
+    if (DevToolsWindow::AsDevToolsWindow(web_contents)) {
+      window_->SetDevToolsScrimVisibility(blocked);
+    }
     return;
   }
 
@@ -3991,4 +4030,15 @@ BackgroundContents* Browser::CreateBackgroundContents(
       std::string());  // No extra headers.
 
   return contents;
+}
+
+Browser::ScopedWindowCallToActionImpl::ScopedWindowCallToActionImpl(
+    Browser* browser)
+    : browser_(browser->weak_factory_.GetWeakPtr()) {
+  DCHECK(!browser_->showing_call_to_action_);
+  browser_->showing_call_to_action_ = true;
+}
+
+Browser::ScopedWindowCallToActionImpl::~ScopedWindowCallToActionImpl() {
+  browser_->showing_call_to_action_ = false;
 }

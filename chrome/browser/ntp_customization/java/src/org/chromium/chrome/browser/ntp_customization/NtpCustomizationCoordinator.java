@@ -4,7 +4,7 @@
 
 package org.chromium.chrome.browser.ntp_customization;
 
-import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinator.BottomSheetType.DISCOVER_FEED;
+import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinator.BottomSheetType.FEED;
 import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinator.BottomSheetType.MAIN;
 import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinator.BottomSheetType.NTP_CARDS;
 import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationViewProperties.LAYOUT_TO_DISPLAY;
@@ -18,7 +18,10 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ViewFlipper;
 
+import org.chromium.base.supplier.Supplier;
+import org.chromium.chrome.browser.ntp_customization.feed.FeedSettingsCoordinator;
 import org.chromium.chrome.browser.ntp_customization.ntp_cards.NtpCardsCoordinator;
+import org.chromium.chrome.browser.profiles.ProfileProvider;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -36,31 +39,47 @@ public class NtpCustomizationCoordinator {
     private final BottomSheetDelegate mDelegate;
 
     private final Context mContext;
+    private final Supplier<ProfileProvider> mProfileSupplier;
     private NtpCustomizationMediator mMediator;
     private NtpCardsCoordinator mNtpCardsCoordinator;
+    private FeedSettingsCoordinator mFeedSettingsCoordinator;
     private ViewFlipper mViewFlipperView;
 
-    @IntDef({BottomSheetType.MAIN, BottomSheetType.NTP_CARDS, BottomSheetType.DISCOVER_FEED})
+    @IntDef({BottomSheetType.MAIN, BottomSheetType.NTP_CARDS, BottomSheetType.FEED})
     @Retention(RetentionPolicy.SOURCE)
     public @interface BottomSheetType {
         int MAIN = 0;
         int NTP_CARDS = 1;
-        int DISCOVER_FEED = 2;
+        int FEED = 2;
+        int NUM_ENTRIES = 3;
+    }
+
+    @IntDef({EntryPointType.MAIN_MENU, EntryPointType.TOOL_BAR})
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface EntryPointType {
+        int MAIN_MENU = 0;
+        int TOOL_BAR = 1;
+        int NUM_ENTRIES = 2;
     }
 
     public NtpCustomizationCoordinator(
-            Context context, BottomSheetController bottomSheetController) {
+            Context context,
+            BottomSheetController bottomSheetController,
+            Supplier<ProfileProvider> profileSupplier) {
         mContext = context;
+        mProfileSupplier = profileSupplier;
         View contentView =
                 LayoutInflater.from(mContext)
                         .inflate(R.layout.ntp_customization_bottom_sheet, /* root= */ null);
         mViewFlipperView = contentView.findViewById(R.id.ntp_customization_view_flipper);
+        contentView.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_ASSERTIVE);
 
         NtpCustomizationBottomSheetContent bottomSheetContent =
                 new NtpCustomizationBottomSheetContent(
                         contentView,
                         /* backPressRunnable= */ () -> mMediator.backPressOnCurrentBottomSheet(),
-                        this::destroy);
+                        this::destroy,
+                        () -> mMediator.getCurrentBottomSheetType());
 
         // The containerPropertyModel is responsible for managing a BottomSheetDelegate which
         // provides list content and event handlers to a list container view in the bottom sheet.
@@ -84,7 +103,8 @@ public class NtpCustomizationCoordinator {
                         bottomSheetController,
                         bottomSheetContent,
                         viewFlipperPropertyModel,
-                        containerPropertyModel);
+                        containerPropertyModel,
+                        mProfileSupplier);
         mMediator.registerBottomSheetLayout(MAIN);
 
         mDelegate = createBottomSheetDelegate();
@@ -92,6 +112,7 @@ public class NtpCustomizationCoordinator {
         // The click listener for each list item in the main bottom sheet should be registered
         // before calling renderListContent().
         mMediator.registerClickListener(NTP_CARDS, getOptionClickListener(NTP_CARDS));
+        mMediator.registerClickListener(FEED, getOptionClickListener(FEED));
         mMediator.renderListContent();
     }
 
@@ -112,10 +133,19 @@ public class NtpCustomizationCoordinator {
                     if (mNtpCardsCoordinator == null) {
                         mNtpCardsCoordinator = new NtpCardsCoordinator(mContext, mDelegate);
                     }
-                    mMediator.showBottomSheet(BottomSheetType.NTP_CARDS);
+                    mMediator.showBottomSheet(NTP_CARDS);
                 };
-            case DISCOVER_FEED:
-                return null;
+            case FEED:
+                return v -> {
+                    if (mFeedSettingsCoordinator == null) {
+                        mFeedSettingsCoordinator =
+                                new FeedSettingsCoordinator(
+                                        mContext,
+                                        mDelegate,
+                                        mProfileSupplier.get().getOriginalProfile());
+                    }
+                    mMediator.showBottomSheet(FEED);
+                };
             default:
                 assert false : "Bottom sheet type not supported!";
                 return null;
@@ -161,6 +191,9 @@ public class NtpCustomizationCoordinator {
         mMediator.destroy();
         if (mNtpCardsCoordinator != null) {
             mNtpCardsCoordinator.destroy();
+        }
+        if (mFeedSettingsCoordinator != null) {
+            mFeedSettingsCoordinator.destroy();
         }
     }
 

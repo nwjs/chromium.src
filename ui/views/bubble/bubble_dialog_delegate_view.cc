@@ -444,7 +444,6 @@ BubbleDialogDelegate::BubbleDialogDelegate(View* anchor_view,
       close_on_deactivate_pins_(std::make_unique<CloseOnDeactivatePin::Pins>()),
       bubble_created_time_(base::TimeTicks::Now()) {
   bubble_uma_logger().set_delegate(this);
-  SetOwnedByWidget(true);
   SetAnchorView(anchor_view);
   SetArrow(arrow);
   SetShowCloseButton(false);
@@ -513,7 +512,9 @@ Widget* BubbleDialogDelegate::CreateBubble(
 
   bubble_delegate->Init();
   // Get the latest anchor widget from the anchor view at bubble creation time.
-  bubble_delegate->SetAnchorView(bubble_delegate->GetAnchorView());
+  if (auto* anchor_view = bubble_delegate->GetAnchorView()) {
+    bubble_delegate->SetAnchorView(anchor_view);
+  }
   Widget* const bubble_widget =
       CreateBubbleWidget(bubble_delegate_unique.release(), ownership);
 
@@ -538,7 +539,6 @@ BubbleDialogDelegateView::BubbleDialogDelegateView(View* anchor_view,
                                                    bool autosize)
     : BubbleDialogDelegate(anchor_view, arrow, shadow, autosize) {
   bubble_uma_logger().set_bubble_view(this);
-  SetOwnedByWidget(false);
 }
 
 BubbleDialogDelegateView::~BubbleDialogDelegateView() {
@@ -1007,6 +1007,22 @@ gfx::Size BubbleDialogDelegateView::GetMinimumSize() const {
 
 gfx::Size BubbleDialogDelegateView::GetMaximumSize() const {
   return gfx::Size();
+}
+
+void BubbleDialogDelegate::SetAnchorWidget(views::Widget* anchor_widget) {
+  if (anchor_widget_ == anchor_widget) {
+    return;
+  }
+  // Reset the anchor view.
+  SetAnchorView(nullptr);
+  if (anchor_widget_) {
+    anchor_widget_observer_.reset();
+  }
+  anchor_widget_ = anchor_widget;
+  if (anchor_widget_) {
+    anchor_widget_observer_ =
+        std::make_unique<AnchorWidgetObserver>(this, anchor_widget_);
+  }
 }
 
 void BubbleDialogDelegate::SetAnchorView(View* anchor_view) {

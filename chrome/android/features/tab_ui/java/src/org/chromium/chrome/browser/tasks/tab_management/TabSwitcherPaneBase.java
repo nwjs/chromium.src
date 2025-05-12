@@ -63,6 +63,7 @@ import org.chromium.chrome.browser.user_education.UserEducationHelper;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.browser_ui.widget.MenuOrKeyboardActionController.MenuOrKeyboardActionHandler;
+import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.ui.base.DeviceFormFactor;
 
@@ -116,6 +117,9 @@ public abstract class TabSwitcherPaneBase implements Pane, TabSwitcher, TabSwitc
                     } else if (id == R.id.new_tab_group_menu_id) {
                         mUiFlow.newTabGroupFlow();
                         RecordUserAction.record("MobileMenuNewTabGroup");
+                        if (mTracker != null) {
+                            mTracker.notifyEvent("tab_switcher_add_to_group_clicked");
+                        }
                         return true;
                     }
                     return false;
@@ -132,7 +136,7 @@ public abstract class TabSwitcherPaneBase implements Pane, TabSwitcher, TabSwitc
     private final TabSwitcherPaneCoordinatorFactory mFactory;
     private final boolean mIsIncognito;
     private final DoubleConsumer mOnToolbarAlphaChange;
-    private final TabGroupCreationUiFlow mUiFlow;
+    private final TabGroupCreationUiDelegate mUiFlow;
     private final HubLayoutAnimationListener mAnimationListener =
             new HubLayoutAnimationListener() {
                 @Override
@@ -155,6 +159,7 @@ public abstract class TabSwitcherPaneBase implements Pane, TabSwitcher, TabSwitc
                 }
             };
 
+    protected @Nullable Tracker mTracker;
     private boolean mNativeInitialized;
     private @Nullable PaneHubController mPaneHubController;
     private @Nullable Long mWaitForTabStateInitializedStartTimeMs;
@@ -167,7 +172,7 @@ public abstract class TabSwitcherPaneBase implements Pane, TabSwitcher, TabSwitc
      * @param userEducationHelper Used for showing IPHs.
      * @param edgeToEdgeSupplier Supplier to the {@link EdgeToEdgeController} instance.
      * @param compositorViewHolderSupplier Supplier to the {@link CompositorViewHolder} instance.
-     * @param tabGroupCreationUiFlow Orchestrates the tab group creation UI flow.
+     * @param tabGroupCreationUiDelegate Orchestrates the tab group creation UI flow.
      */
     TabSwitcherPaneBase(
             @NonNull Context context,
@@ -177,7 +182,7 @@ public abstract class TabSwitcherPaneBase implements Pane, TabSwitcher, TabSwitc
             @NonNull UserEducationHelper userEducationHelper,
             @NonNull ObservableSupplier<EdgeToEdgeController> edgeToEdgeSupplier,
             @NonNull ObservableSupplier<CompositorViewHolder> compositorViewHolderSupplier,
-            @NonNull TabGroupCreationUiFlow tabGroupCreationUiFlow) {
+            @NonNull TabGroupCreationUiDelegate tabGroupCreationUiDelegate) {
         mFactory = factory;
         mIsIncognito = isIncognito;
 
@@ -189,7 +194,7 @@ public abstract class TabSwitcherPaneBase implements Pane, TabSwitcher, TabSwitc
         mUserEducationHelper = userEducationHelper;
         mEdgeToEdgeSupplier = edgeToEdgeSupplier;
         mCompositorViewHolderSupplier = compositorViewHolderSupplier;
-        mUiFlow = tabGroupCreationUiFlow;
+        mUiFlow = tabGroupCreationUiDelegate;
     }
 
     @Override

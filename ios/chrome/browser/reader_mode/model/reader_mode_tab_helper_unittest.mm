@@ -11,6 +11,7 @@
 #import "components/dom_distiller/core/extraction_utils.h"
 #import "components/ukm/ios/ukm_url_recorder.h"
 #import "components/ukm/test_ukm_recorder.h"
+#import "ios/chrome/browser/dom_distiller/model/distiller_service_factory.h"
 #import "ios/chrome/browser/reader_mode/model/constants.h"
 #import "ios/chrome/browser/reader_mode/model/features.h"
 #import "ios/chrome/browser/reader_mode/model/reader_mode_java_script_feature.h"
@@ -59,7 +60,7 @@ class ReaderModeTabHelperTest : public PlatformTest {
     web_client->SetJavaScriptFeatures(
         {ReaderModeJavaScriptFeature::GetInstance()});
 
-    ReaderModeTabHelper::CreateForWebState(web_state_.get());
+    CreateTabHelperForWebState(web_state_.get());
     ukm::InitializeSourceUrlRecorderForWebState(web_state());
   }
 
@@ -71,6 +72,12 @@ class ReaderModeTabHelperTest : public PlatformTest {
           web_state()->GetPageWorldWebFramesManager();
       return frames_manager->GetMainWebFrame() != nullptr;
     }));
+  }
+
+  void CreateTabHelperForWebState(web::WebState* web_state) {
+    ReaderModeTabHelper::CreateForWebState(
+        web_state, DistillerServiceFactory::GetForProfile(profile_.get()),
+        profile_->GetPrefs());
   }
 
   ReaderModeTabHelper* reader_mode_tab_helper() {
@@ -127,7 +134,7 @@ class ReaderModeTabHelperTest : public PlatformTest {
 // metrics on page load.
 TEST_F(ReaderModeTabHelperTest, TriggerHeuristicOnPageLoaded) {
   scoped_feature_list_.InitAndEnableFeatureWithParameters(
-      kEnableReaderModeDistillerHeuristic,
+      kEnableReaderModeDistillerHeuristicForMetrics,
       {
           {kReaderModeDistillerPageLoadProbabilityName, "1.0"},
           {kReaderModeDistillerPageLoadDelayDurationStringName, "0"},
@@ -145,7 +152,7 @@ TEST_F(ReaderModeTabHelperTest, TriggerHeuristicOnPageLoaded) {
 // heuristic.
 TEST_F(ReaderModeTabHelperTest, TriggerHeuristicMisconfiguredProbabilityLow) {
   scoped_feature_list_.InitAndEnableFeatureWithParameters(
-      kEnableReaderModeDistillerHeuristic,
+      kEnableReaderModeDistillerHeuristicForMetrics,
       {
           {kReaderModeDistillerPageLoadProbabilityName, "0.0"},
           {kReaderModeDistillerPageLoadDelayDurationStringName, "0"},
@@ -163,7 +170,7 @@ TEST_F(ReaderModeTabHelperTest, TriggerHeuristicMisconfiguredProbabilityLow) {
 // heuristic.
 TEST_F(ReaderModeTabHelperTest, TriggerHeuristicMisconfiguredProbabilityHigh) {
   scoped_feature_list_.InitAndEnableFeatureWithParameters(
-      kEnableReaderModeDistillerHeuristic,
+      kEnableReaderModeDistillerHeuristicForMetrics,
       {
           {kReaderModeDistillerPageLoadProbabilityName, "1.1"},
           {kReaderModeDistillerPageLoadDelayDurationStringName, "0"},
@@ -181,7 +188,7 @@ TEST_F(ReaderModeTabHelperTest, TriggerHeuristicMisconfiguredProbabilityHigh) {
 // records metrics from the latest navigation.
 TEST_F(ReaderModeTabHelperTest, TriggerHeuristicSkippedOnNewNavigation) {
   scoped_feature_list_.InitAndEnableFeatureWithParameters(
-      kEnableReaderModeDistillerHeuristic,
+      kEnableReaderModeDistillerHeuristicForMetrics,
       {
           {kReaderModeDistillerPageLoadProbabilityName, "1.0"},
           {kReaderModeDistillerPageLoadDelayDurationStringName, "10s"},
@@ -218,12 +225,12 @@ TEST_F(ReaderModeTabHelperTest, TriggerHeuristicSkippedOnNewNavigation) {
 TEST_F(ReaderModeTabHelperTest, TriggerDistillerJs) {
   scoped_feature_list_.InitWithFeaturesAndParameters(
       /*enabled_features=*/
-      {{kEnableReaderModeDistillerHeuristic,
+      {{kEnableReaderModeDistillerHeuristicForMetrics,
         {
             {kReaderModeDistillerPageLoadProbabilityName, "1.0"},
             {kReaderModeDistillerPageLoadDelayDurationStringName, "0"},
         }},
-       {kEnableReaderModeDistiller, {}}},
+       {kEnableReaderModeDistillerForMetrics, {}}},
       /*disabled_features=*/{});
 
   auto test_web_state = std::make_unique<web::FakeWebState>();
@@ -241,7 +248,7 @@ TEST_F(ReaderModeTabHelperTest, TriggerDistillerJs) {
   web::FakeWebFrame* main_frame_ptr = main_frame.get();
   frames_manager_ptr->AddWebFrame(std::move(main_frame));
 
-  ReaderModeTabHelper::CreateForWebState(test_web_state.get());
+  CreateTabHelperForWebState(test_web_state.get());
   ukm::InitializeSourceUrlRecorderForWebState(test_web_state.get());
 
   // Record committed navigation so the UKM URL recorder works.

@@ -6,6 +6,7 @@
 #define CHROMEOS_ASH_COMPONENTS_BOCA_BOCA_METRICS_UTIL_H_
 
 #include "base/time/time.h"
+#include "google_apis/common/api_error_codes.h"
 
 namespace ash::boca {
 inline constexpr char kBocaActionOfStudentJoinedSession[] =
@@ -16,6 +17,18 @@ inline constexpr char kBocaNumOfStudentsJoinedViaCodeDuringSession[] =
     "Ash.Boca.NumberOfStudentsJoinedViaCodeDuringSession";
 inline constexpr char kBocaBabelorcaActionOfStudentSwitchLanguage[] =
     "Ash.Boca.Babelorca.StudentSwitchLanguage";
+inline constexpr char kBocaOnTaskActionOfStudentNavigateBack[] =
+    "Ash.Boca.OnTask.StudentNavigateBack";
+inline constexpr char kBocaOnTaskActionOfStudentNavigateForward[] =
+    "Ash.Boca.OnTask.StudentNavigateForward";
+inline constexpr char kBocaOnTaskActionOfStudentReloadPage[] =
+    "Ash.Boca.OnTask.StudentReloadPage";
+inline constexpr char kBocaOnTaskActionOfStudentToggleTabStripVisibility[] =
+    "Ash.Boca.OnTask.StudentToggleTabStripVisibility";
+inline constexpr char kBocaOnTaskActionOfStudentSetSnapLocationToLeft[] =
+    "Ash.Boca.OnTask.StudentSetSnapLocationToLeft";
+inline constexpr char kBocaOnTaskActionOfStudentSetSnapLocationToRight[] =
+    "Ash.Boca.OnTask.StudentSetSnapLocationToRight";
 inline constexpr char kBocaBabelorcaTargetLanguage[] =
     "Accessibility.LiveTranslate.Ash.Boca.Babelorca.TargetLanguage";
 inline constexpr char kBocaOnTaskLockedSessionDurationPercentage[] =
@@ -26,6 +39,15 @@ inline constexpr char kBocaOnTaskNumOfTabsWhenSessionEnded[] =
     "Ash.Boca.OnTask.NumberOfTabsWhenSessionEnded";
 inline constexpr char kBocaOnTaskMaxNumOfTabsDuringSession[] =
     "Ash.Boca.OnTask.MaxNumberOfTabsDuringSession";
+inline constexpr char kBocaSpotlightGoogleApiCallErrorCodeTemplate[] =
+    "Ash.Boca.Spotlight.$1.ErrorCode";
+inline constexpr char kBocaSpotlightOnRegisterScreenRequestSent[] =
+    "RegisterScreen";
+inline constexpr char kBocaGoogleApiCallErrorCodeTemplate[] =
+    "Ash.Boca.$1.ErrorCode";
+inline constexpr char kBocaUpdateStudentActivities[] =
+    "UpdateStudentActivities";
+inline constexpr char kBocaStudentHeartbeat[] = "StudentHeartbeat";
 
 // Records the percentage of the duration that a session was in a particular
 // locked or unlocked state.
@@ -55,6 +77,42 @@ void RecordBabelOrcaTranslationLanguage(const std::string& language);
 
 // Records the action of a student translates the live caption.
 void RecordBabelOrcaTranslationLanguageSwitched();
+
+// Records the action of a student clicks navigate back button in OnTask pod.
+void RecordOnTaskPodNavigateBackClicked();
+
+// Records the action of a student clicks navigate forward button in OnTask pod.
+void RecordOnTaskPodNavigateForwardClicked();
+
+// Records the action of a student clicks reload page button in OnTask pod.
+void RecordOnTaskPodReloadPageClicked();
+
+// Records the action of a student clicks toggle tab strip visibility button in
+// OnTask pod.
+void RecordOnTaskPodToggleTabStripVisibilityClicked();
+
+// Records the action of a student clicks move left or move right buttons in
+// OnTask pod.
+void RecordOnTaskPodSetSnapLocationClicked(bool is_left);
+
+// Records the error code of the spotlight OnRegisterScreenRequestSent calls.
+void RecordOnRegisterScreenRequestSentErrorCode(
+    google_apis::ApiErrorCode error_code);
+
+// Records the error code of the spotlight Google Api calls.
+void RecordSpotlightGoogleApiErrorCode(const std::string& name,
+                                       google_apis::ApiErrorCode error_code);
+
+// Records the error code of the UpdateStudentActivities calls.
+void RecordUpdateStudentActivitiesErrorCode(
+    google_apis::ApiErrorCode error_code);
+
+// Records the error code of the StudentHeartBeat calls.
+void RecordStudentHeartBeatErrorCode(google_apis::ApiErrorCode error_code);
+
+// Records the error code of the Google Api calls.
+void RecordGoogleApiErrorCode(const std::string& name,
+                              google_apis::ApiErrorCode error_code);
 
 }  // namespace ash::boca
 

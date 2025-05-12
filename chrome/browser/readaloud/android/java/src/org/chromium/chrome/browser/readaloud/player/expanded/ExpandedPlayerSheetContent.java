@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 
 package org.chromium.chrome.browser.readaloud.player.expanded;
-
 import android.content.Context;
 import android.content.res.Configuration;
 import android.content.res.Resources;
@@ -24,16 +23,20 @@ import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Log;
+import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.browser.readaloud.player.Colors;
 import org.chromium.chrome.browser.readaloud.player.InteractionHandler;
 import org.chromium.chrome.browser.readaloud.player.PlayerProperties;
 import org.chromium.chrome.browser.readaloud.player.R;
 import org.chromium.chrome.browser.readaloud.player.TouchDelegateUtil;
+import org.chromium.chrome.modules.readaloud.PlaybackArgs.PlaybackMode;
+import org.chromium.chrome.modules.readaloud.PlaybackArgs.PlaybackModeSelectionEnablementStatus;
 import org.chromium.chrome.modules.readaloud.PlaybackListener;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.ui.modelutil.PropertyModel;
 
+@NullMarked
 public class ExpandedPlayerSheetContent implements BottomSheetContent {
     private static final String TAG = "RAPlayerSheet";
     // Note: if these times need to change, the "back 10" and "forward 10" icons
@@ -47,14 +50,23 @@ public class ExpandedPlayerSheetContent implements BottomSheetContent {
     private final SeekBar mSeekBar;
     private final ScrollView mScrollView;
     private final LinearLayout mPlayerControls;
+    private ImageView mModeSelectorButton;
+    private boolean mIsModeActive;
     private View mContentView;
     // Effectively final and non null, can be null only in tests
     private OptionsMenuSheetContent mOptionsMenu;
     private SpeedMenuSheetContent mSpeedMenu;
     private TextView mSpeedButton;
 
-    private LinearLayout mNormalLayout;
-    private LinearLayout mErrorLayout;
+    private final TextView mLoadingTextView;
+
+    private final ImageView mPlayPauseButton;
+    private final ImageView mRewindButton;
+    private final ImageView mForwardButton;
+
+    private final LinearLayout mNormalLayout;
+    private final LinearLayout mErrorLayout;
+    private final LinearLayout mLoadingLayout;
 
     public ExpandedPlayerSheetContent(
             Context context, BottomSheetController bottomSheetController, PropertyModel model) {
@@ -64,12 +76,6 @@ public class ExpandedPlayerSheetContent implements BottomSheetContent {
                 LayoutInflater.from(context)
                         .inflate(R.layout.readaloud_expanded_player_layout, null),
                 model);
-        mOptionsMenu =
-                new OptionsMenuSheetContent(
-                        mContext, /* parent= */ this, mBottomSheetController, mModel);
-        mSpeedMenu =
-                new SpeedMenuSheetContent(
-                        mContext, /* parent= */ this, mBottomSheetController, mModel);
     }
 
     @VisibleForTesting
@@ -90,10 +96,26 @@ public class ExpandedPlayerSheetContent implements BottomSheetContent {
         mContentView
                 .findViewById(R.id.readaloud_seek_forward_button)
                 .setContentDescription(res.getString(R.string.readaloud_forward, FORWARD_SECONDS));
+
+        mOptionsMenu =
+                new OptionsMenuSheetContent(
+                        mContext, /* parent= */ this, mBottomSheetController, mModel);
+        mSpeedMenu =
+                new SpeedMenuSheetContent(
+                        mContext, /* parent= */ this, mBottomSheetController, mModel);
         mNormalLayout = (LinearLayout) mContentView.findViewById(R.id.normal_layout);
+        mLoadingLayout = (LinearLayout) mContentView.findViewById(R.id.readaloud_loading_overlay);
         mErrorLayout = (LinearLayout) mContentView.findViewById(R.id.error_layout);
         mSeekBar = (SeekBar) mContentView.findViewById(R.id.readaloud_expanded_player_seek_bar);
         mScrollView = (ScrollView) mContentView.findViewById(R.id.scroll_view);
+        mModeSelectorButton = mContentView.findViewById(R.id.readaloud_mode_selector);
+        mModeSelectorButton.setSelected(mIsModeActive);
+
+        mLoadingTextView = mContentView.findViewById(R.id.readaloud_loading_text);
+
+        mPlayPauseButton = mContentView.findViewById(R.id.readaloud_play_pause_button);
+        mRewindButton = mContentView.findViewById(R.id.readaloud_seek_back_button);
+        mForwardButton = mContentView.findViewById(R.id.readaloud_seek_forward_button);
 
         View publisherButton = mContentView.findViewById(R.id.readaloud_player_publisher_button);
         publisherButton.addOnLayoutChangeListener(
@@ -136,22 +158,62 @@ public class ExpandedPlayerSheetContent implements BottomSheetContent {
     }
 
     public void onPlaybackStateChanged(@PlaybackListener.State int state) {
-        setPlaying(state == PlaybackListener.State.PLAYING);
-        if (state == PlaybackListener.State.ERROR) {
-            showOnly(mErrorLayout);
-        } else {
-            showOnly(mNormalLayout);
-        }
+      setPlaying(state == PlaybackListener.State.PLAYING);
+      switch (state) {
+        case PlaybackListener.State.ERROR:
+          showErrorLayout();
+          break;
+         case PlaybackListener.State.BUFFERING:
+           showLoadingLayout();
+           break;
+        default:
+          showNormalLayout();
+          break;
+      }
     }
 
-    // Show `layout` and hide the other layouts.
-    private void showOnly(LinearLayout layout) {
-        setVisibleIfMatch(mNormalLayout, layout);
-        setVisibleIfMatch(mErrorLayout, layout);
+    private void showLoadingLayout() {
+      mErrorLayout.setVisibility(View.GONE);
+      mLoadingLayout.setVisibility(View.VISIBLE);
+      mNormalLayout.setAlpha(0.3f);
+
+      mSpeedButton.setVisibility(View.GONE);
+      mLoadingTextView.setVisibility(View.VISIBLE);
+
+      setPlaybackControlsEnabled(false);
     }
 
-    private static void setVisibleIfMatch(LinearLayout a, LinearLayout b) {
-        a.setVisibility(a == b ? View.VISIBLE : View.GONE);
+    private void showErrorLayout() {
+      mNormalLayout.setVisibility(View.GONE);
+      mLoadingLayout.setVisibility(View.GONE);
+      mErrorLayout.setVisibility(View.VISIBLE);
+      mLoadingTextView.setVisibility(View.GONE);
+    }
+
+    private void showNormalLayout() {
+      mNormalLayout.setVisibility(View.VISIBLE);
+      mLoadingLayout.setVisibility(View.GONE);
+      mErrorLayout.setVisibility(View.GONE);
+      mLoadingTextView.setVisibility(View.GONE);
+
+      mNormalLayout.setAlpha(1f);
+
+      mSpeedButton.setVisibility(View.VISIBLE);
+      setPlaybackControlsEnabled(true);
+    }
+
+    private void setPlaybackControlsEnabled(boolean enabled) {
+      mModeSelectorButton.setEnabled(enabled);
+      mModeSelectorButton.setClickable(enabled);
+      mSeekBar.setEnabled(enabled);
+
+      mPlayPauseButton.setEnabled(enabled);
+      mPlayPauseButton.setClickable(enabled);
+
+      mRewindButton.setEnabled(enabled);
+      mRewindButton.setClickable(enabled);
+      mForwardButton.setEnabled(enabled);
+      mForwardButton.setClickable(enabled);
     }
 
     public void show() {
@@ -162,6 +224,27 @@ public class ExpandedPlayerSheetContent implements BottomSheetContent {
 
     public void hide() {
         mBottomSheetController.hideContent(this, /* animate= */ true);
+    }
+
+    void setPlaybackMode(PlaybackMode playbackMode) {
+      TextView chromeNowPlaying = mContentView.findViewById(R.id.chrome_now_playing_text);
+      if (playbackMode == PlaybackMode.OVERVIEW) {
+            mIsModeActive = true;
+            mModeSelectorButton.setSelected(true);
+            chromeNowPlaying.setText(mContext.getString(R.string.readaloud_chrome_now_playing_audio_overview));
+        } else {
+            mIsModeActive = false;
+            mModeSelectorButton.setSelected(false);
+            chromeNowPlaying.setText(mContext.getString(R.string.readaloud_chrome_now_playing));
+        }
+    }
+
+    void setPlaybackModeSelectionEnabled(PlaybackModeSelectionEnablementStatus status) {
+        if (status == PlaybackModeSelectionEnablementStatus.MODE_SELECTION_ENABLED) {
+          mModeSelectorButton.setVisibility(View.VISIBLE);
+        } else {
+          mModeSelectorButton.setVisibility(View.GONE);
+        }
     }
 
     void setTitle(String title) {
@@ -199,6 +282,7 @@ public class ExpandedPlayerSheetContent implements BottomSheetContent {
         setOnClickListener(R.id.readaloud_expanded_player_publisher, handler::onPublisherClick);
         setOnClickListener(R.id.readaloud_playback_speed, this::showSpeedMenu);
         setOnClickListener(R.id.readaloud_more_button, this::showOptionsMenu);
+        setOnClickListener(R.id.readaloud_mode_selector, () -> onPlaybackModeChangeClick(handler));
 
         SeekBar seekBar =
                 (SeekBar) mContentView.findViewById(R.id.readaloud_expanded_player_seek_bar);
@@ -246,6 +330,17 @@ public class ExpandedPlayerSheetContent implements BottomSheetContent {
     @Nullable
     OptionsMenuSheetContent getOptionsMenu() {
         return mOptionsMenu;
+    }
+
+    private void onPlaybackModeChangeClick(InteractionHandler interactionHandler) {
+        mIsModeActive = !mIsModeActive;
+        mModeSelectorButton.setSelected(mIsModeActive);
+
+        if (mIsModeActive) {
+            interactionHandler.onPlaybackModeChanged(PlaybackMode.OVERVIEW);
+        } else {
+            interactionHandler.onPlaybackModeChanged(PlaybackMode.CLASSIC);
+        }
     }
 
     public void showOptionsMenu() {

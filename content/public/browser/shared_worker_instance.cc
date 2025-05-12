@@ -18,7 +18,8 @@ SharedWorkerInstance::SharedWorkerInstance(
     const std::string& name,
     const blink::StorageKey& storage_key,
     blink::mojom::SharedWorkerCreationContextType creation_context_type,
-    blink::mojom::SharedWorkerSameSiteCookies same_site_cookies)
+    blink::mojom::SharedWorkerSameSiteCookies same_site_cookies,
+    bool extended_lifetime)
     :
       is_node_js_(is_node_js), root_path_(root_path),
       url_(url),
@@ -30,7 +31,8 @@ SharedWorkerInstance::SharedWorkerInstance(
       renderer_origin_(url.SchemeIs(url::kDataScheme) ? url::Origin()
                                                       : storage_key_.origin()),
       creation_context_type_(creation_context_type),
-      same_site_cookies_(same_site_cookies) {
+      same_site_cookies_(same_site_cookies),
+      extended_lifetime_(extended_lifetime) {
   // Ensure the same-origin policy is enforced correctly.
   DCHECK(url.SchemeIs(url::kDataScheme) ||
          GetContentClient()->browser()->DoesSchemeAllowCrossOriginSharedWorker(

@@ -123,7 +123,8 @@ class IntegrationTestCommands
   virtual void CopyLog(const std::string& infix) const = 0;
   virtual void SetupFakeUpdaterHigherVersion() const = 0;
   virtual void SetupFakeUpdaterLowerVersion() const = 0;
-  virtual void SetupRealUpdater(const base::FilePath& updater_path) const = 0;
+  virtual void SetupRealUpdater(const base::FilePath& updater_path,
+                                const base::Value::List& switches) const = 0;
   virtual void SetExistenceCheckerPath(const std::string& app_id,
                                        const base::FilePath& path) const = 0;
   virtual void SetServerStarts(int value) const = 0;
@@ -172,7 +173,8 @@ class IntegrationTestCommands
       const std::string& command_id,
       const base::Value::List& parameters,
       int expected_exit_code) const = 0;
-  virtual void ExpectLegacyPolicyStatusSucceeds() const = 0;
+  virtual void ExpectLegacyPolicyStatusSucceeds(
+      const base::Version& updater_version) const = 0;
   virtual void LegacyInstallApp(const std::string& app_id,
                                 const base::Version& version) const = 0;
   virtual void RunUninstallCmdLine() const = 0;
@@ -202,7 +204,11 @@ class IntegrationTestCommands
       const base::FilePath& xc_path,
       std::optional<UpdaterScope> store_flag,
       std::optional<std::string> want_tag) const = 0;
-#endif  // BUILDFLAG(IS_WIN)
+  virtual void ExpectKSAdminXattrBrand(
+      bool elevate,
+      const base::FilePath& path,
+      std::optional<std::string> want_brand) const = 0;
+#endif  // BUILDFLAG(IS_MAC)
   virtual void ExpectLegacyUpdaterMigrated() const = 0;
   virtual void RunRecoveryComponent(const std::string& app_id,
                                     const base::Version& version) const = 0;

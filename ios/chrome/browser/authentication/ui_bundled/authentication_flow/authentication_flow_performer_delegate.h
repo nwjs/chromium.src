@@ -7,6 +7,7 @@
 
 #import <Foundation/Foundation.h>
 
+#import "base/functional/callback_forward.h"
 #import "base/ios/block_types.h"
 #import "components/policy/core/browser/signin/profile_separation_policies.h"
 #import "components/sync/base/data_type.h"
@@ -21,9 +22,6 @@ class Browser;
 // Indicates that a profile was signed out, after calling
 // `signOutForAccountSwitchWithProfile`.
 - (void)didSignOutForAccountSwitch;
-
-// Indicates that browsing data finished clearing.
-- (void)didClearData;
 
 // Called after `-[AuthenticationFlowPerformer
 // fetchUnsyncedDataWithSyncService:]`, to return the list of data types
@@ -59,7 +57,9 @@ class Browser;
 - (void)didFailToSwitchToProfile;
 
 // Indicates that switching to a different profile was completed.
-- (void)didSwitchToProfileWithNewProfileBrowser:(Browser*)newProfileBrowser;
+// The continuation must be executed with `completion`.
+- (void)didSwitchToProfileWithNewProfileBrowser:(Browser*)newProfileBrowser
+                                     completion:(base::OnceClosure)completion;
 
 // Indicates the account of the user was registered for user policy. `dmToken`
 // is empty when registration failed.
@@ -74,6 +74,9 @@ class Browser;
 
 // Indicates that the personal profile was converted to a managed one.
 - (void)didMakePersonalProfileManaged;
+
+// Indicates that account capabilities have been fetched.
+- (void)didFetchAccountCapabilities;
 
 @end
 

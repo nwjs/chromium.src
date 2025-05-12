@@ -6,6 +6,7 @@
 
 #include <optional>
 
+#include "ash/constants/ash_features.h"
 #include "base/functional/callback_helpers.h"
 #include "chrome/browser/ash/accessibility/live_caption/system_live_caption_service.h"
 #include "chromeos/ash/components/boca/babelorca/babel_orca_speech_recognizer.h"
@@ -17,26 +18,18 @@
 
 namespace ash::babelorca {
 
-namespace {
-void UnwrapSodaInstallationStatus(
-    base::OnceCallback<void(bool)> availabililty_callback,
-    SodaInstaller::InstallationStatus status) {
-  std::move(availabililty_callback)
-      .Run(status == SodaInstaller::InstallationStatus::kReady);
-}
-}  // namespace
-
 BabelOrcaSpeechRecognizerImpl::BabelOrcaSpeechRecognizerImpl(
     Profile* profile,
-    PrefService* global_prefs,
-    const std::string& application_locale)
+    SodaInstaller* soda_installer,
+    const std::string& application_locale,
+    const std::string& caption_language)
     : ash::SystemLiveCaptionService(
           profile,
           ash::SystemLiveCaptionService::AudioSource::kUserMicrophone),
-      soda_installer_(global_prefs, profile->GetPrefs(), application_locale),
+      soda_installer_(soda_installer),
       speech_recognition_event_handler_(application_locale),
-      primary_profile_(profile) {
-}
+      primary_profile_(profile),
+      caption_language_(caption_language) {}
 BabelOrcaSpeechRecognizerImpl::~BabelOrcaSpeechRecognizerImpl() = default;
 
 void BabelOrcaSpeechRecognizerImpl::OnSpeechResult(
@@ -52,15 +45,15 @@ void BabelOrcaSpeechRecognizerImpl::OnLanguageIdentificationEvent(
 }
 
 void BabelOrcaSpeechRecognizerImpl::Start() {
-  // TODO(384026579): Notify Producer of error, then retry or alert user.
-  soda_installer_.InstallSoda(base::BindOnce(
-      &UnwrapSodaInstallationStatus,
-      base::BindOnce(
-          &SystemLiveCaptionService::SpeechRecognitionAvailabilityChanged,
-          service_ptr_factory_.GetWeakPtr())));
+  // If already installed, will immediately begin recognizing.
+  started_ = true;
+  soda_installer_->InstallSoda(base::BindOnce(
+      &BabelOrcaSpeechRecognizerImpl::OnSpeechRecognitionAvailabilityChanged,
+      weak_ptr_factory_.GetWeakPtr()));
 }
 
 void BabelOrcaSpeechRecognizerImpl::Stop() {
+  started_ = false;
   SpeechRecognitionAvailabilityChanged(false);
 }
 
@@ -76,6 +69,26 @@ void BabelOrcaSpeechRecognizerImpl::ObserveSpeechRecognition(
 
 void BabelOrcaSpeechRecognizerImpl::RemoveSpeechRecognitionObservation() {
   speech_recognition_event_handler_.RemoveSpeechRecognitionObservation();
+}
+
+media::mojom::RecognizerClientType
+BabelOrcaSpeechRecognizerImpl::GetRecognizerClientType() {
+  return features::IsBocaClientTypeForSpeechRecognitionEnabled()
+             ? media::mojom::RecognizerClientType::kSchoolTools
+             : SystemLiveCaptionService::GetRecognizerClientType();
+}
+
+std::string BabelOrcaSpeechRecognizerImpl::GetPrimaryLanguageCode() const {
+  return caption_language_;
+}
+
+void BabelOrcaSpeechRecognizerImpl::OnSpeechRecognitionAvailabilityChanged(
+    SodaInstaller::InstallationStatus status) {
+  if (!started_) {
+    return;
+  }
+  SpeechRecognitionAvailabilityChanged(
+      status == SodaInstaller::InstallationStatus::kReady);
 }
 
 }  // namespace ash::babelorca

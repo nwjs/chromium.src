@@ -70,11 +70,14 @@ WebNNGraphImpl::ComputeResourceInfo::ComputeResourceInfo(
     base::flat_map<std::string, OperandDescriptor> output_names_to_descriptors,
     base::flat_map<uint64_t, base::flat_set<size_t>>
         operand_to_dependent_operations,
+    base::flat_map<uint64_t, size_t> operand_to_producing_operation,
     base::PassKey<WebNNGraphBuilderImpl> pass_key)
     : input_names_to_descriptors(std::move(input_names_to_descriptors)),
       output_names_to_descriptors(std::move(output_names_to_descriptors)),
       operand_to_dependent_operations(
-          std::move(operand_to_dependent_operations)) {}
+          std::move(operand_to_dependent_operations)),
+      operand_to_producing_operation(
+          std::move(operand_to_producing_operation)) {}
 
 WebNNGraphImpl::ComputeResourceInfo::ComputeResourceInfo(
     ComputeResourceInfo&&) = default;
@@ -83,23 +86,33 @@ WebNNGraphImpl::ComputeResourceInfo::operator=(ComputeResourceInfo&&) = default;
 
 WebNNGraphImpl::ComputeResourceInfo::~ComputeResourceInfo() = default;
 
-WebNNGraphImpl::WebNNGraphImpl(WebNNContextImpl* context,
-                               ComputeResourceInfo compute_resource_info)
+WebNNGraphImpl::WebNNGraphImpl(
+    mojo::PendingAssociatedReceiver<mojom::WebNNGraph> receiver,
+    WebNNContextImpl* context,
+    ComputeResourceInfo compute_resource_info)
     : compute_resource_info_(std::move(compute_resource_info)),
-      context_(context) {
+      context_(context),
+      receiver_(this, std::move(receiver)) {
   CHECK(context_);
 #if DCHECK_IS_ON()
   context_->AssertCalledOnValidSequence();
 #endif
+  // Safe to use base::Unretained because `this` owns `receiver_`.
+  receiver_.set_disconnect_handler(base::BindOnce(
+      &WebNNGraphImpl::OnConnectionError, base::Unretained(this)));
 }
 
 WebNNGraphImpl::~WebNNGraphImpl() = default;
+
+void WebNNGraphImpl::OnConnectionError() {
+  context_->DisconnectAndDestroyWebNNGraphImpl(handle());
+}
 
 void WebNNGraphImpl::Dispatch(
     const base::flat_map<std::string, blink::WebNNTensorToken>& named_inputs,
     const base::flat_map<std::string, blink::WebNNTensorToken>& named_outputs) {
   if (!ValidateWebNNTensorsUsage(named_inputs, named_outputs)) {
-    mojo::ReportBadMessage(kBadMessageInvalidTensor);
+    receiver_.ReportBadMessage(kBadMessageInvalidTensor);
     return;
   }
 
@@ -121,7 +134,7 @@ void WebNNGraphImpl::Dispatch(
   if (!ValidateWebNNTensors(
           name_to_input_tensor_map,
           compute_resource_info_.input_names_to_descriptors)) {
-    mojo::ReportBadMessage(kBadMessageInvalidTensor);
+    receiver_.ReportBadMessage(kBadMessageInvalidTensor);
     return;
   }
 
@@ -144,7 +157,7 @@ void WebNNGraphImpl::Dispatch(
   if (!ValidateWebNNTensors(
           name_to_output_tensor_map,
           compute_resource_info_.output_names_to_descriptors)) {
-    mojo::ReportBadMessage(kBadMessageInvalidTensor);
+    receiver_.ReportBadMessage(kBadMessageInvalidTensor);
     return;
   }
 

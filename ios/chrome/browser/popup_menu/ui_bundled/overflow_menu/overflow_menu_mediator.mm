@@ -33,6 +33,7 @@
 #import "components/translate/core/browser/translate_manager.h"
 #import "components/translate/core/browser/translate_prefs.h"
 #import "ios/chrome/browser/bookmarks/model/bookmark_model_bridge_observer.h"
+#import "ios/chrome/browser/bubble/model/tab_based_iph_browser_agent.h"
 #import "ios/chrome/browser/commerce/model/push_notification/push_notification_feature.h"
 #import "ios/chrome/browser/default_browser/model/default_browser_interest_signals.h"
 #import "ios/chrome/browser/find_in_page/model/abstract_find_tab_helper.h"
@@ -41,7 +42,6 @@
 #import "ios/chrome/browser/follow/model/follow_tab_helper.h"
 #import "ios/chrome/browser/follow/model/follow_util.h"
 #import "ios/chrome/browser/intents/model/intents_donation_helper.h"
-#import "ios/chrome/browser/iph_for_new_chrome_user/model/tab_based_iph_browser_agent.h"
 #import "ios/chrome/browser/lens_overlay/coordinator/lens_overlay_availability.h"
 #import "ios/chrome/browser/ntp/shared/metrics/feed_metrics_recorder.h"
 #import "ios/chrome/browser/overlays/model/public/overlay_presenter.h"
@@ -58,6 +58,7 @@
 #import "ios/chrome/browser/popup_menu/ui_bundled/overflow_menu/overflow_menu_orderer.h"
 #import "ios/chrome/browser/popup_menu/ui_bundled/overflow_menu/overflow_menu_swift.h"
 #import "ios/chrome/browser/popup_menu/ui_bundled/popup_menu_constants.h"
+#import "ios/chrome/browser/reader_mode/model/features.h"
 #import "ios/chrome/browser/reading_list/model/offline_url_utils.h"
 #import "ios/chrome/browser/reading_list/ui_bundled/reading_list_utils.h"
 #import "ios/chrome/browser/search_engines/model/search_engine_observer_bridge.h"
@@ -81,6 +82,7 @@
 #import "ios/chrome/browser/shared/public/commands/popup_menu_commands.h"
 #import "ios/chrome/browser/shared/public/commands/price_tracked_items_commands.h"
 #import "ios/chrome/browser/shared/public/commands/quick_delete_commands.h"
+#import "ios/chrome/browser/shared/public/commands/reader_mode_commands.h"
 #import "ios/chrome/browser/shared/public/commands/reading_list_add_command.h"
 #import "ios/chrome/browser/shared/public/commands/reminder_notifications_commands.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
@@ -225,6 +227,7 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
 @property(nonatomic, strong) OverflowMenuAction* openNewWindowAction;
 
 @property(nonatomic, strong) OverflowMenuAction* clearBrowsingDataAction;
+@property(nonatomic, strong) OverflowMenuAction* readerModeAction;
 @property(nonatomic, strong) OverflowMenuAction* followAction;
 @property(nonatomic, strong) OverflowMenuAction* addBookmarkAction;
 @property(nonatomic, strong) OverflowMenuAction* editBookmarkAction;
@@ -339,8 +342,8 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
   [self updateModel];
 }
 
-- (void)setIsIncognito:(BOOL)isIncognito {
-  _isIncognito = isIncognito;
+- (void)setIncognito:(BOOL)incognito {
+  _incognito = incognito;
   [self updateModel];
 }
 
@@ -695,6 +698,10 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
     self.AIPrototypeAction = [self openAIPrototypeAction];
   }
 
+  if (IsReaderModeAvailable()) {
+    self.readerModeAction = [self openReaderModeAction];
+  }
+
   if (send_tab_to_self::
           IsSendTabIOSPushNotificationsEnabledWithTabReminders()) {
     self.setTabReminderAction = [self newSetTabReminderAction];
@@ -733,6 +740,23 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
     self.appActionsGroup, self.pageActionsGroup, self.editActionsGroup,
     self.helpActionsGroup
   ];
+}
+
+- (OverflowMenuAction*)openReaderModeAction {
+  // TODO(crbug.com/409935686): Dynamically update the Reader mode overflow menu
+  // string to "Exit Reader Mode" if Reader mode is already enabled.
+  __weak __typeof(self) weakSelf = self;
+  return [self
+      createOverflowMenuActionWithNameID:IDS_IOS_TOOLS_MENU_READER_MODE
+                              actionType:overflow_menu::ActionType::ReaderMode
+                              symbolName:kReaderModeSymbol
+                            systemSymbol:YES
+                        monochromeSymbol:NO
+                         accessibilityID:kToolsMenuOpenReaderMode
+                            hideItemText:nil
+                                 handler:^{
+                                   [weakSelf toggleReaderMode];
+                                 }];
 }
 
 - (OverflowMenuAction*)newFollowAction {
@@ -821,9 +845,6 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
 // Creates the "Set a Reminder" action for the overflow menu.
 // This action allows users to set a reminder for a tab.
 - (OverflowMenuAction*)newSetTabReminderAction {
-  CHECK(
-      send_tab_to_self::IsSendTabIOSPushNotificationsEnabledWithTabReminders());
-
   NSString* hideItemText = l10n_util::GetNSString(
       IDS_IOS_REMINDER_NOTIFICATIONS_HIDE_SET_A_REMINDER);
 
@@ -1863,7 +1884,7 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
     case overflow_menu::Destination::Bookmarks:
       return self.bookmarksDestination;
     case overflow_menu::Destination::History:
-      return (self.isIncognito) ? nil : self.historyDestination;
+      return (self.incognito) ? nil : self.historyDestination;
     case overflow_menu::Destination::ReadingList:
       // Set badges if necessary.
       if (self.engagementTracker &&
@@ -1878,7 +1899,7 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
     case overflow_menu::Destination::Downloads:
       return self.downloadsDestination;
     case overflow_menu::Destination::RecentTabs:
-      return self.isIncognito ? nil : self.recentTabsDestination;
+      return self.incognito ? nil : self.recentTabsDestination;
     case overflow_menu::Destination::SiteInfo:
       return ([self currentWebPageSupportsSiteInfo]) ? self.siteInfoDestination
                                                      : nil;
@@ -1987,6 +2008,10 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
     actions.push_back(overflow_menu::ActionType::AIPrototype);
   }
 
+  if (IsReaderModeAvailable()) {
+    actions.push_back(overflow_menu::ActionType::ReaderMode);
+  }
+
   return actions;
 }
 
@@ -2031,7 +2056,7 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
       return self.readLaterAction;
     case overflow_menu::ActionType::ClearBrowsingData:
       // Showing the Clear Browsing Data Action would be confusing in incognito.
-      return (self.isIncognito) ? nil : self.clearBrowsingDataAction;
+      return (self.incognito) ? nil : self.clearBrowsingDataAction;
     case overflow_menu::ActionType::Translate:
       return self.translateAction;
     case overflow_menu::ActionType::DesktopSite:
@@ -2055,7 +2080,12 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
     case overflow_menu::ActionType::AIPrototype:
       return self.AIPrototypeAction;
     case overflow_menu::ActionType::SetTabReminder:
-      return self.setTabReminderAction;
+      return send_tab_to_self::
+                     IsSendTabIOSPushNotificationsEnabledWithTabReminders()
+                 ? self.setTabReminderAction
+                 : nil;
+    case overflow_menu::ActionType::ReaderMode:
+      return self.readerModeAction;
   }
 }
 
@@ -2098,6 +2128,8 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
       return [self openAIPrototypeAction];
     case overflow_menu::ActionType::SetTabReminder:
       return [self newSetTabReminderAction];
+    case overflow_menu::ActionType::ReaderMode:
+      return [self openReaderModeAction];
   }
 }
 
@@ -2328,6 +2360,12 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
       showSetTabReminderUI:SetTabReminderEntryPoint::kOverflowMenu];
 }
 
+// Opens or closes the Reader mode UI.
+- (void)toggleReaderMode {
+  [self dismissMenu];
+  [self.readerModeHandler toggleReaderMode];
+}
+
 #pragma mark - Destinations Handlers
 
 // Dismisses the menu and opens bookmarks.
@@ -2384,8 +2422,8 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
 - (void)openDownloads {
   [self dismissMenu];
   profile_metrics::BrowserProfileType type =
-      self.isIncognito ? profile_metrics::BrowserProfileType::kIncognito
-                       : profile_metrics::BrowserProfileType::kRegular;
+      self.incognito ? profile_metrics::BrowserProfileType::kIncognito
+                     : profile_metrics::BrowserProfileType::kRegular;
   UmaHistogramEnumeration("Download.OpenDownloadsFromMenu.PerProfileType",
                           type);
   [self.browserCoordinatorHandler showDownloadsFolder];
@@ -2425,8 +2463,8 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
 
   [self dismissMenu];
   profile_metrics::BrowserProfileType type =
-      self.isIncognito ? profile_metrics::BrowserProfileType::kIncognito
-                       : profile_metrics::BrowserProfileType::kRegular;
+      self.incognito ? profile_metrics::BrowserProfileType::kIncognito
+                     : profile_metrics::BrowserProfileType::kRegular;
   UmaHistogramEnumeration("Settings.OpenSettingsFromMenu.PerProfileType", type);
   [self.applicationHandler
       showSettingsFromViewController:self.baseViewController

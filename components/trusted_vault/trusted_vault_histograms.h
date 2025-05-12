@@ -11,6 +11,8 @@
 
 namespace trusted_vault {
 
+enum class LocalRecoveryFactorType;
+
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused.
 // LINT.IfChange(TrustedVaultHintDegradedRecoverabilityChangedReason)
@@ -70,6 +72,7 @@ enum class TrustedVaultURLFetchReasonForUMA {
 // Used to provide UMA metric breakdowns.
 enum class RecoveryKeyStoreURLFetchReasonForUMA {
   kUpdateRecoveryKeyStore,
+  kListRecoveryKeyStores,
 };
 
 // These values are persisted to logs. Entries should not be renumbered and
@@ -96,6 +99,19 @@ enum class TrustedVaultDownloadKeysStatusForUMA {
   kMaxValue = kNetworkError
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/trusted_vault/enums.xml:TrustedVaultDownloadKeysStatus)
+
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+// LINT.IfChange(TrustedVaultRecoverKeysOutcome)
+enum class TrustedVaultRecoverKeysOutcomeForUMA {
+  kSuccess = 0,
+  kNoNewKeys = 1,
+  kFailure = 2,
+  kNoPrimaryAccount = 3,
+  kAborted = 4,
+  kMaxValue = kAborted
+};
+// LINT.ThenChange(/tools/metrics/histograms/metadata/trusted_vault/enums.xml:TrustedVaultRecoverKeysOutcome)
 
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused.
@@ -132,10 +148,12 @@ void RecordTrustedVaultDeviceRegistrationState(
     TrustedVaultDeviceRegistrationStateForUMA registration_state);
 
 void RecordTrustedVaultDeviceRegistrationState(
+    LocalRecoveryFactorType local_recovery_factor_type,
     SecurityDomainId security_domain_id,
     TrustedVaultDeviceRegistrationStateForUMA registration_state);
 
 void RecordTrustedVaultDeviceRegistrationOutcome(
+    LocalRecoveryFactorType local_recovery_factor_type,
     SecurityDomainId security_domain_id,
     TrustedVaultDeviceRegistrationOutcomeForUMA registration_outcome);
 
@@ -159,6 +177,7 @@ void RecordRecoveryKeyStoreURLFetchResponse(
 
 // Records the outcome of trying to download keys from the server.
 void RecordTrustedVaultDownloadKeysStatus(
+    LocalRecoveryFactorType local_recovery_factor_type,
     SecurityDomainId security_domain_id,
     TrustedVaultDownloadKeysStatusForUMA status);
 
@@ -166,6 +185,10 @@ void RecordTrustedVaultDownloadKeysStatus(
 // downstream) and delete this one.
 void RecordTrustedVaultDownloadKeysStatus(
     TrustedVaultDownloadKeysStatusForUMA status);
+
+void RecordTrustedVaultRecoverKeysOutcome(
+    SecurityDomainId security_domain_id,
+    TrustedVaultRecoverKeysOutcomeForUMA status);
 
 void RecordTrustedVaultFileReadStatus(SecurityDomainId security_domain_id,
                                       TrustedVaultFileReadStatusForUMA status);
@@ -189,6 +212,22 @@ void RecordCallToJsSetClientEncryptionKeysWithSecurityDomainToUma(
 void RecordTrustedVaultListSecurityDomainMembersPinStatus(
     SecurityDomainId security_domain_id,
     TrustedVaultListSecurityDomainMembersPinStatus status);
+
+// Returns a recovery factor name suitable for using in histograms. When
+// including this in a histogram, its name in the XML should have
+// "{LocalRecoveryFactorType}" where the returned string will be inserted (which
+// will include a leading period). For example:
+//   name="TrustedVault.Foo{LocalRecoveryFactorType}"
+// Will match a histogram name like:
+//   TrustedVault.Foo.PhysicalDevice
+//
+// Then there needs to be a <token> element in the XML entry like:
+//   <token key="LocalRecoveryFactorType" variants="LocalRecoveryFactorType"/>
+//
+// See
+// https://chromium.googlesource.com/chromium/src.git/+/HEAD/tools/metrics/histograms/README.md#patterned-histograms
+std::string GetLocalRecoveryFactorNameForUma(
+    LocalRecoveryFactorType local_recovery_factor_type);
 
 // Returns a security domain name suitable for using in histograms. When
 // including this in a histogram, its name in the XML should have

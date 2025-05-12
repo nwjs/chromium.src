@@ -55,7 +55,8 @@ ModuleMap::Entry::Entry(ModuleMap* map) : map_(map) {
 }
 
 void ModuleMap::AddToMap(const KURL& url, ModuleScript* script) {
-  MapImpl::AddResult result = map_.insert(std::make_pair(url, ModuleType::kJavaScript), nullptr);
+  MapImpl::AddResult result = map_.insert(
+      std::make_pair(url, ModuleType::kJavaScriptOrWasm), nullptr);
   Member<Entry>& entry = result.stored_value->value;
   entry = MakeGarbageCollected<Entry>(this);
   entry->module_script_ = script;

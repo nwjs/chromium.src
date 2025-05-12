@@ -33,6 +33,7 @@
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/session_service_tab_group_sync_observer.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/shared_tab_group_feedback_controller.h"
+#include "chrome/browser/ui/tabs/tab_strip_api/tab_strip_controller_impl.h"
 #include "chrome/browser/ui/toasts/toast_controller.h"
 #include "chrome/browser/ui/toasts/toast_features.h"
 #include "chrome/browser/ui/toasts/toast_service.h"
@@ -43,13 +44,15 @@
 #include "chrome/browser/ui/views/download/bubble/download_toolbar_ui_controller.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
+#include "chrome/browser/ui/views/location_bar/cookie_controls/cookie_controls_bubble_coordinator.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/browser/ui/views/media_router/cast_browser_controller.h"
 #include "chrome/browser/ui/views/send_tab_to_self/send_tab_to_self_toolbar_bubble_controller.h"
+#include "chrome/browser/ui/views/side_panel/bookmarks/bookmarks_side_panel_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/extensions/extension_side_panel_manager.h"
 #include "chrome/browser/ui/views/side_panel/history/history_side_panel_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
-#include "chrome/browser/ui/views/tabs/glic_button.h"
+#include "chrome/browser/ui/views/tabs/tab_strip_action_container.h"
 #include "chrome/browser/ui/views/toolbar/chrome_labs/chrome_labs_coordinator.h"
 #include "chrome/browser/ui/views/translate/translate_bubble_controller.h"
 #include "chrome/common/chrome_features.h"
@@ -61,12 +64,17 @@
 #include "components/profile_metrics/browser_profile_type.h"
 #include "components/saved_tab_groups/public/features.h"
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+#include "chrome/browser/ui/pdf/infobar/pdf_infobar_controller.h"
+#endif
+
 #if BUILDFLAG(ENABLE_GLIC)
 #include "chrome/browser/glic/browser_ui/glic_button_controller.h"
 #include "chrome/browser/glic/browser_ui/glic_iph_controller.h"
 #include "chrome/browser/glic/glic_enabling.h"
 #include "chrome/browser/glic/glic_keyed_service_factory.h"
 #endif
+
 namespace {
 
 // This is the generic entry point for test code to stub out browser window
@@ -160,11 +168,25 @@ void BrowserWindowFeatures::Init(BrowserWindowInterface* browser) {
 
   tab_strip_model_ = browser->GetTabStripModel();
 
+  if (base::FeatureList::IsEnabled(features::kTabStripBrowserApi)) {
+    tab_strip_controller_ =
+        std::make_unique<TabStripControllerImpl>(browser, tab_strip_model_);
+  }
+
   memory_saver_bubble_controller_ =
       std::make_unique<memory_saver::MemorySaverBubbleController>(browser);
 
-  //translate_bubble_controller_ = std::make_unique<TranslateBubbleController>(
-  //browser->GetActions()->root_action_item());
+  //  translate_bubble_controller_ = std::make_unique<TranslateBubbleController>(
+  //    browser->GetActions()->root_action_item());
+
+  cookie_controls_bubble_coordinator_ =
+      std::make_unique<CookieControlsBubbleCoordinator>();
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+  if (base::FeatureList::IsEnabled(features::kPdfInfoBar)) {
+    pdf_infobar_controller_ = std::make_unique<PdfInfoBarController>(browser);
+  }
+#endif
 }
 
 void BrowserWindowFeatures::InitPostWindowConstruction(Browser* browser) {
@@ -239,12 +261,16 @@ void BrowserWindowFeatures::InitPostBrowserViewConstruction(
   // unified_side_panel_.
   side_panel_coordinator_ =
       std::make_unique<SidePanelCoordinator>(browser_view);
-  side_panel_coordinator_->Init(browser_view->browser());
 
   if (HistorySidePanelCoordinator::IsSupported()) {
     history_side_panel_coordinator_ =
         std::make_unique<HistorySidePanelCoordinator>(browser_view->browser());
   }
+
+  bookmarks_side_panel_coordinator_ =
+      std::make_unique<BookmarksSidePanelCoordinator>();
+
+  side_panel_coordinator_->Init(browser_view->browser());
 
   extension_side_panel_manager_ =
       std::make_unique<extensions::ExtensionSidePanelManager>(
@@ -260,7 +286,7 @@ void BrowserWindowFeatures::InitPostBrowserViewConstruction(
             browser_view->browser()->profile())) {
       glic_button_controller_ = std::make_unique<glic::GlicButtonController>(
           browser_view->GetProfile(),
-          browser_view->tab_strip_region_view()->GetGlicButton(),
+          browser_view->tab_strip_region_view()->GetTabStripActionContainer(),
           glic::GlicKeyedServiceFactory::GetGlicKeyedService(
               browser_view->GetProfile()));
     }

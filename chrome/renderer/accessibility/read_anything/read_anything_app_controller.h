@@ -219,7 +219,7 @@ class ReadAnythingAppController
   void OnSelectionChange(ui::AXNodeID anchor_node_id,
                          int anchor_offset,
                          ui::AXNodeID focus_node_id,
-                         int focus_offset) const;
+                         int focus_offset);
   void OnCollapseSelection() const;
   bool IsGoogleDocs() const;
   bool IsReadAloudEnabled() const;
@@ -245,6 +245,7 @@ class ReadAnythingAppController
   std::vector<std::string> GetAllFonts() const;
   void OnScrolledToBottom();
   bool IsDocsLoadMoreButtonVisible() const;
+  void OnNoTextContent();
 
   // The language code that should be used to determine which voices are
   // supported for speech.
@@ -360,6 +361,10 @@ class ReadAnythingAppController
   // Signals that the side panel has finished loading and it's safe to show
   // the UI to avoid loading artifacts.
   void ShouldShowUI();
+
+  // Helper for forwarding various updates to the webui based on the latest
+  // processed accessibility events.
+  void SendEventUpdates();
 
   // Records the number of selections that occurred for the active page. Called
   // when the active tree changes.

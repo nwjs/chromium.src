@@ -26,6 +26,7 @@ import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
+import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.R;
@@ -177,6 +178,10 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
             Action.SAVE_PAGE,
             Action.SHARE_PAGE,
             Action.PRINT_PAGE,
+            Action.BACK,
+            Action.FORWARD,
+            Action.RELOAD,
+            Action.INSPECT_ELEMENT,
         })
         @Retention(RetentionPolicy.SOURCE)
         public @interface Action {
@@ -224,7 +229,11 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
             int SAVE_PAGE = 41;
             int SHARE_PAGE = 42;
             int PRINT_PAGE = 43;
-            int NUM_ENTRIES = 44;
+            int BACK = 44;
+            int FORWARD = 45;
+            int RELOAD = 46;
+            int INSPECT_ELEMENT = 47;
+            int NUM_ENTRIES = 48;
         }
     }
 
@@ -284,9 +293,15 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
     @VisibleForTesting
     boolean shouldShowEmptySpaceContextMenu() {
         return DeviceFormFactor.isDesktop()
-                && DeviceInput.supportsAlphabeticKeyboard()
                 && DeviceInput.supportsPrecisionPointer()
                 && ChromeFeatureList.isEnabled(ChromeFeatureList.CONTEXT_MENU_EMPTY_SPACE);
+    }
+
+    @VisibleForTesting
+    boolean shouldShowDeveloperMenu() {
+        return DeviceFormFactor.isDesktop()
+                && DeviceInput.supportsAlphabeticKeyboard()
+                && DeviceInput.supportsPrecisionPointer();
     }
 
     @Override
@@ -296,6 +311,15 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
         List<Pair<Integer, ModelList>> groupedItems = new ArrayList<>();
 
         if (mParams.isPage() && shouldShowEmptySpaceContextMenu()) {
+            ModelList pageNavigationGroup = new ModelList();
+            pageNavigationGroup.add(
+                    createListItem(Item.BACK, false, mItemDelegate.canCurrentTabGoBack()));
+            pageNavigationGroup.add(
+                    createListItem(Item.FORWARD, false, mItemDelegate.canCurrentTabGoForward()));
+            pageNavigationGroup.add(createListItem(Item.RELOAD, false, true));
+            groupedItems.add(
+                    new Pair<>(R.string.contextmenu_page_navigation_title, pageNavigationGroup));
+
             ModelList pageGroup = new ModelList();
             // TODO(crbug.com/405842034): investigate supporting downloads in incognito mode.
             if (!mItemDelegate.isIncognito()
@@ -311,15 +335,19 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
             }
             groupedItems.add(new Pair<>(R.string.contextmenu_page_title, pageGroup));
         }
-
         if (mParams.isAnchor()) {
             ModelList linkGroup = new ModelList();
             if (FirstRunStatus.getFirstRunFlowComplete()
                     && !isEmptyUrl(mParams.getUrl())
                     && UrlUtilities.isAcceptedScheme(mParams.getUrl())) {
                 if (mMode == ContextMenuMode.NORMAL) {
-                    linkGroup.add(createListItem(Item.OPEN_IN_NEW_TAB_IN_GROUP));
-                    linkGroup.add(createListItem(Item.OPEN_IN_NEW_TAB));
+                    if (ChromeFeatureList.sSwapNewTabAndNewTabInGroupAndroid.isEnabled()) {
+                        linkGroup.add(createListItem(Item.OPEN_IN_NEW_TAB));
+                        linkGroup.add(createListItem(Item.OPEN_IN_NEW_TAB_IN_GROUP));
+                    } else {
+                        linkGroup.add(createListItem(Item.OPEN_IN_NEW_TAB_IN_GROUP));
+                        linkGroup.add(createListItem(Item.OPEN_IN_NEW_TAB));
+                    }
                     if (!mItemDelegate.isIncognito() && mItemDelegate.isIncognitoSupported()) {
                         linkGroup.add(createListItem(Item.OPEN_IN_INCOGNITO_TAB));
                     }
@@ -512,6 +540,11 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
             }
         }
 
+        if (shouldShowDeveloperMenu()) {
+            ModelList developerGroup = new ModelList();
+            developerGroup.add(createListItem(Item.INSPECT_ELEMENT));
+            groupedItems.add(new Pair<>(R.string.contextmenu_developer_title, developerGroup));
+        }
         return groupedItems;
     }
 
@@ -541,8 +574,18 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
 
     @Override
     public boolean onItemSelected(int itemId) {
-        if (itemId == R.id.contextmenu_open_in_new_tab) {
+        if (itemId == R.id.contextmenu_back) {
+            recordContextMenuSelection(ContextMenuUma.Action.BACK);
+            mItemDelegate.onCurrentTabGoBack();
+        } else if (itemId == R.id.contextmenu_forward) {
+            recordContextMenuSelection(ContextMenuUma.Action.FORWARD);
+            mItemDelegate.onCurrentTabGoForward();
+        } else if (itemId == R.id.contextmenu_reload) {
+            recordContextMenuSelection(ContextMenuUma.Action.RELOAD);
+            mItemDelegate.onReloadCurrentTab();
+        } else if (itemId == R.id.contextmenu_open_in_new_tab) {
             recordContextMenuSelection(ContextMenuUma.Action.OPEN_IN_NEW_TAB);
+            RecordUserAction.record("TabContextMenu.OpenInNewTab");
             mItemDelegate.onOpenInNewTab(
                     mParams.getUrl(),
                     mParams.getReferrer(),
@@ -550,6 +593,7 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
                     mParams.getAdditionalNavigationParams());
         } else if (itemId == R.id.contextmenu_open_in_new_tab_in_group) {
             recordContextMenuSelection(ContextMenuUma.Action.OPEN_IN_NEW_TAB_IN_GROUP);
+            RecordUserAction.record("TabContextMenu.OpenInNewTabInGroup");
             mItemDelegate.onOpenInNewTabInGroup(mParams.getUrl(), mParams.getReferrer());
         } else if (itemId == R.id.contextmenu_open_in_incognito_tab) {
             recordContextMenuSelection(ContextMenuUma.Action.OPEN_IN_INCOGNITO_TAB);
@@ -755,6 +799,10 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
                     mParams.getReferrer(),
                     /* navigateToTab= */ true,
                     /* additionalNavigationParams= */ null);
+        } else if (itemId == R.id.contextmenu_inspect_element) {
+            recordContextMenuSelection(ContextMenuUma.Action.INSPECT_ELEMENT);
+            mNativeDelegate.inspectElement(
+                    mParams.getTriggeringTouchXDp(), mParams.getTriggeringTouchYDp());
         } else {
             assert false;
         }

@@ -10,10 +10,12 @@ import android.content.Context;
 import android.content.res.Configuration;
 import android.graphics.Insets;
 import android.graphics.Rect;
+import android.graphics.RectF;
 import android.os.Build;
 import android.os.Build.VERSION;
 import android.os.Build.VERSION_CODES;
 import android.util.DisplayMetrics;
+import android.util.Pair;
 import android.util.TypedValue;
 import android.view.WindowInsets;
 import android.view.WindowManager;
@@ -286,6 +288,19 @@ public abstract class DisplayUtil {
         return xrUiScaleFactor.getFloat();
     }
 
+    /** Returns the scaling factor for the current device. */
+    public static float getCurrentUiScalingFactor(Context context) {
+        if (!isUiScaled()) return 1;
+        if (BuildInfo.getInstance().isAutomotive) {
+            return sUiScalingFactorForAutomotiveOverride != null
+                    ? sUiScalingFactorForAutomotiveOverride
+                    : getTargetScalingFactorForAutomotive(context);
+        }
+        return sUiScalingFactorForXrOverride != null
+                ? sUiScalingFactorForXrOverride
+                : getUiScalingFactorForXrFromResource(context);
+    }
+
     /** Get the density base on the UI scaling factor on XR devices. */
     public static int getUiDensityForXr(Context context, int baseDensity) {
         float uiScalingFactor =
@@ -334,5 +349,30 @@ public abstract class DisplayUtil {
                         + configuration.screenWidthDp
                         + ", heightDp="
                         + configuration.screenHeightDp);
+    }
+
+    /**
+     * Translates rectangles between global work area coordinates (as in Web API spec) and local
+     * coordinates (display ID and pixel coordinates relative to the origin of the display).
+     * Currently it uses only the current display which has to be explicitly provided as an
+     * argument. This additional argument will be removed when proper multi-display support is
+     * landed in Android as we will use solely global coordinates provided to determine the target
+     * display.
+     *
+     * @param globalCoordinatesDp Global coordinates in dp.
+     * @param targetDisplay Target display of the resulting local coordinates.
+     * @return A pair of display ID and local coordinates in px.
+     */
+    public static Pair<Integer, Rect> getLocalCoordinatesPx(
+            RectF globalCoordinatesDp, DisplayAndroid targetDisplay) {
+        float displayDensity = targetDisplay.getDipScale();
+        int targetDisplayId = targetDisplay.getDisplayId();
+
+        int leftPx = Math.round(globalCoordinatesDp.left * displayDensity);
+        int topPx = Math.round(globalCoordinatesDp.top * displayDensity);
+        int rightPx = Math.round(globalCoordinatesDp.right * displayDensity);
+        int bottomPx = Math.round(globalCoordinatesDp.bottom * displayDensity);
+
+        return Pair.create(targetDisplayId, new Rect(leftPx, topPx, rightPx, bottomPx));
     }
 }

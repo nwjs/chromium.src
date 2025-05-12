@@ -22,18 +22,23 @@
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "components/services/storage/indexed_db/locks/partitioned_lock_id.h"
+#include "components/services/storage/indexed_db/locks/partitioned_lock_manager.h"
+#include "components/services/storage/privileged/mojom/indexed_db_client_state_checker.mojom.h"
+#include "components/services/storage/privileged/mojom/indexed_db_internals_types.mojom-forward.h"
 #include "content/browser/indexed_db/indexed_db_database_error.h"
 #include "content/browser/indexed_db/indexed_db_external_object_storage.h"
 #include "content/browser/indexed_db/instance/backing_store.h"
-#include "content/browser/indexed_db/instance/connection.h"
+#include "content/browser/indexed_db/instance/bucket_context_handle.h"
+#include "content/browser/indexed_db/status.h"
 #include "content/common/content_export.h"
 #include "mojo/public/cpp/bindings/associated_receiver.h"
-#include "third_party/blink/public/mojom/indexeddb/indexeddb.mojom-forward.h"
+#include "third_party/blink/public/mojom/indexeddb/indexeddb.mojom.h"
 
 namespace content::indexed_db {
 
+class Connection;
 class Cursor;
-class DatabaseCallbacks;
+class Database;
 
 // Corresponds to the IndexedDB API notion of transaction and has a 1:1
 // relationship with IDBTransaction in Blink.
@@ -52,12 +57,14 @@ class CONTENT_EXPORT Transaction : public blink::mojom::IDBTransaction {
 
   static void DisableInactivityTimeoutForTesting();
 
-  Transaction(int64_t id,
-              Connection* connection,
-              const std::set<int64_t>& object_store_ids,
-              blink::mojom::IDBTransactionMode mode,
-              BucketContextHandle bucket_context,
-              BackingStore::Transaction* backing_store_transaction);
+  Transaction(
+      int64_t id,
+      Connection* connection,
+      const std::set<int64_t>& object_store_ids,
+      blink::mojom::IDBTransactionMode mode,
+      blink::mojom::IDBTransactionDurability durability,
+      BucketContextHandle bucket_context,
+      std::unique_ptr<BackingStore::Transaction> backing_store_transaction);
   ~Transaction() override;
 
   void BindReceiver(
@@ -140,7 +147,6 @@ class CONTENT_EXPORT Transaction : public blink::mojom::IDBTransaction {
   }
   int64_t id() const { return id_; }
 
-  DatabaseCallbacks* callbacks() const { return connection()->callbacks(); }
   Connection* connection() const { return connection_.get(); }
   bool is_commit_pending() const { return is_commit_pending_; }
   int64_t num_errors_sent() const { return num_errors_sent_; }
@@ -229,6 +235,7 @@ class CONTENT_EXPORT Transaction : public blink::mojom::IDBTransaction {
   const int64_t id_;
   const std::set<int64_t> object_store_ids_;
   const blink::mojom::IDBTransactionMode mode_;
+  const blink::mojom::IDBTransactionDurability durability_;
 
   bool used_ = false;
   State state_ = CREATED;

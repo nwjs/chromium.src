@@ -553,9 +553,6 @@ enum class TipsNotificationType;
 // Returns whether the UseLensToSearchForImage feature is enabled.
 + (BOOL)isUseLensToSearchForImageEnabled;
 
-// Returns whether the Web Channels feature is enabled.
-+ (BOOL)isWebChannelsEnabled;
-
 // Returns whether Tab Group Sync is enabled.
 + (BOOL)isTabGroupSyncEnabled;
 
@@ -696,6 +693,9 @@ enum class TipsNotificationType;
 
 // Copies `text` into the clipboard from the app's perspective.
 + (void)copyTextToPasteboard:(NSString*)text;
+
+// Copies `link` into pasteboard as a NSURL.
++ (void)copyLinkAsURLToPasteBoard:(NSString*)link;
 
 #pragma mark - Watcher utilities
 

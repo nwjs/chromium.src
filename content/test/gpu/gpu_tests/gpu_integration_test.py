@@ -673,10 +673,28 @@ class GpuIntegrationTest(
     """Verifies that the browser's enabled features match expectations."""
     assert cls.browser
     gpu_info = cls.browser.GetSystemInfo().gpu
+    cls._VerifyNoInProcessGpu(gpu_info)
     cls._VerifyGLBackend(gpu_info)
     cls._VerifyANGLEBackend(gpu_info)
     cls._VerifyCommandDecoder(gpu_info)
     cls._VerifySkiaGraphite(gpu_info)
+
+  @classmethod
+  def _VerifyNoInProcessGpu(cls, gpu_info: telemetry_gpu_info.GPUInfo) -> None:
+    """Verifies that Chrome is not running with an in-process GPU.
+
+    This should never happen under normal circumstances, and use of it is
+    indicative of an unrecoverable issue.
+    """
+    # The initialization_time check is to distinguish between when this happens
+    # expectedly or not - Android Webview has in_process_gpu set to True, but
+    # still reports an initialization time.
+    if (gpu_info.aux_attributes.get('in_process_gpu')
+        and gpu_info.aux_attributes.get('initialization_time', 1) == 0):
+      raise RuntimeError(
+          'Browser reported in_process_gpu with no initialization time, which '
+          'should never happen during testing. Something probably crashed '
+          'during browser startup.')
 
   @classmethod
   def _VerifyGLBackend(cls, gpu_info: telemetry_gpu_info.GPUInfo) -> None:
@@ -1194,7 +1212,7 @@ class GpuIntegrationTest(
       gpu_tags.append(gpu_helper.GetTargetCpuStatus(gpu_info))
       gpu_tags.append(gpu_helper.GetSkiaGraphiteStatus(gpu_info))
       if gpu_info and gpu_info.devices:
-        for ii in range(0, len(gpu_info.devices)):
+        for ii in range(len(gpu_info.devices)):
           gpu_vendor = gpu_helper.GetGpuVendorString(gpu_info, ii)
           gpu_device_id = gpu_helper.GetGpuDeviceId(gpu_info, ii)
           # The gpu device id tag will contain both the vendor and device id
@@ -1207,11 +1225,14 @@ class GpuIntegrationTest(
             # if the device id is not an integer it will be added as
             # a string to the tag.
             gpu_device_tag = f'{gpu_vendor}-{gpu_device_id}'
-          if ii == 0 or gpu_vendor != 'intel':
+
+          is_intel = gpu_vendor == 'intel'
+          if ii == 0 or not is_intel:
             gpu_tags.extend([gpu_vendor, gpu_device_tag])
           # This acts as a way to add expectations for Intel GPUs without
-          # resorting to the more generic "intel" tag.
-          if ii == 0 and gpu_vendor == 'intel':
+          # resorting to the more generic "intel" tag. Int check is due to
+          # IsIntelGenX() only working with ints.
+          if ii == 0 and is_intel and isinstance(gpu_device_id, int):
             if gpu_helper.IsIntelGen9(gpu_device_id):
               gpu_tags.extend(['intel-gen-9'])
             elif gpu_helper.IsIntelGen12(gpu_device_id):

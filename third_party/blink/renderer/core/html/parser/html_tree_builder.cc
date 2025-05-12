@@ -738,6 +738,14 @@ void HTMLTreeBuilder::ProcessStartTagForInBody(AtomicHTMLToken* token) {
           HTMLSelectElement::SelectParserRelaxationEnabled(
               tree_.CurrentNode())) {
         if (tree_.OpenElements()->InScope(HTMLTag::kSelect)) {
+          bool parent_select = IsA<HTMLSelectElement>(tree_.CurrentNode());
+          if (parent_select) {
+            UseCounter::Count(tree_.CurrentNode()->GetDocument(),
+                              WebFeature::kInputParsedParentSelect);
+          } else {
+            UseCounter::Count(tree_.CurrentNode()->GetDocument(),
+                              WebFeature::kInputParsedAncestorSelect);
+          }
           ProcessFakeEndTag(HTMLTag::kSelect);
         }
       }
@@ -1035,15 +1043,6 @@ void HTMLTreeBuilder::ProcessStartTagForInBody(AtomicHTMLToken* token) {
     case HTMLTag::kTr:
       ParseError(token);
       break;
-    case HTMLTag::kPermissionOrUnknown:
-      if (RuntimeEnabledFeatures::PermissionElementEnabled(
-              tree_.OwnerDocumentForCurrentNode().GetExecutionContext())) {
-        tree_.ReconstructTheActiveFormattingElements();
-        tree_.InsertSelfClosingHTMLElementDestroyingToken(token);
-        frameset_ok_ = false;
-        break;
-      }
-      [[fallthrough]];
     default:
       if (token->GetName() == mathml_names::kMathTag.LocalName()) {
         tree_.ReconstructTheActiveFormattingElements();

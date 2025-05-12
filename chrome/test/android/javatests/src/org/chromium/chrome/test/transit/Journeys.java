@@ -35,8 +35,6 @@ public class Journeys {
      * Make Chrome have {@code numRegularTabs} of regular Tabs and {@code numIncognitoTabs} of
      * incognito tabs with {@code url} loaded.
      *
-     * <p>Ensures tab thumbnails are captured to disk.
-     *
      * @param <T> specific type of PageStation for all opened tabs.
      * @param startingStation The current active station.
      * @param numRegularTabs The number of regular tabs.
@@ -45,12 +43,47 @@ public class Journeys {
      * @param pageStationFactory A factory method to create the PageStations for each tab.
      * @return the last opened tab's PageStation.
      */
+    public static <T extends PageStation> T prepareTabs(
+            PageStation startingStation,
+            int numRegularTabs,
+            int numIncognitoTabs,
+            String url,
+            Supplier<PageStation.Builder<T>> pageStationFactory) {
+        return doPrepareTabs(
+                startingStation,
+                numRegularTabs,
+                numIncognitoTabs,
+                url,
+                pageStationFactory,
+                /* captureThumbnails= */ false);
+    }
+
+    /**
+     * Same as {@link #prepareTabs(PageStation, int, int, String, Supplier)}, but ensures tab
+     * thumbnails are captured to disk.
+     */
     public static <T extends PageStation> T prepareTabsWithThumbnails(
             PageStation startingStation,
             int numRegularTabs,
             int numIncognitoTabs,
             String url,
             Supplier<PageStation.Builder<T>> pageStationFactory) {
+        return doPrepareTabs(
+                startingStation,
+                numRegularTabs,
+                numIncognitoTabs,
+                url,
+                pageStationFactory,
+                /* captureThumbnails= */ true);
+    }
+
+    private static <T extends PageStation> T doPrepareTabs(
+            PageStation startingStation,
+            int numRegularTabs,
+            int numIncognitoTabs,
+            String url,
+            Supplier<PageStation.Builder<T>> pageStationFactory,
+            boolean captureThumbnails) {
         assert numRegularTabs >= 1;
         assert url != null;
         TabModelSelector tabModelSelector =
@@ -64,29 +97,29 @@ public class Journeys {
         // One tab already exists.
         if (numRegularTabs > 1) {
             station =
-                    createTabsWithThumbnails(
+                    doCreateTabs(
                             station,
                             numRegularTabs - 1,
                             url,
                             /* isIncognito= */ false,
-                            pageStationFactory);
+                            pageStationFactory,
+                            captureThumbnails);
         }
         if (numIncognitoTabs > 0) {
             station =
-                    createTabsWithThumbnails(
+                    doCreateTabs(
                             station,
                             numIncognitoTabs,
                             url,
                             /* isIncognito= */ true,
-                            pageStationFactory);
+                            pageStationFactory,
+                            captureThumbnails);
         }
         return station;
     }
 
     /**
      * Create {@code numTabs} of {@link Tab}s with {@code url} loaded to Chrome.
-     *
-     * <p>Ensures tab thumbnails are captured to disk.
      *
      * @param <T> specific type of PageStation for all opened tabs.
      * @param startingPage The current active station.
@@ -96,12 +129,47 @@ public class Journeys {
      * @param pageStationFactory A factory method to create the PageStations for each tab.
      * @return the last opened tab's PageStation.
      */
+    public static <T extends PageStation> T createTabs(
+            final PageStation startingPage,
+            int numTabs,
+            String url,
+            boolean isIncognito,
+            Supplier<PageStation.Builder<T>> pageStationFactory) {
+        return doCreateTabs(
+                startingPage,
+                numTabs,
+                url,
+                isIncognito,
+                pageStationFactory,
+                /* captureThumbnails= */ false);
+    }
+
+    /**
+     * Same as {@link #createTabs(PageStation, int, String, boolean, Supplier)}, but ensures tab
+     * thumbnails are captured to disk.
+     */
     public static <T extends PageStation> T createTabsWithThumbnails(
             final PageStation startingPage,
             int numTabs,
             String url,
             boolean isIncognito,
             Supplier<PageStation.Builder<T>> pageStationFactory) {
+        return doCreateTabs(
+                startingPage,
+                numTabs,
+                url,
+                isIncognito,
+                pageStationFactory,
+                /* captureThumbnails= */ true);
+    }
+
+    private static <T extends PageStation> T doCreateTabs(
+            final PageStation startingPage,
+            int numTabs,
+            String url,
+            boolean isIncognito,
+            Supplier<PageStation.Builder<T>> pageStationFactory,
+            boolean captureThumbnails) {
         assert numTabs > 0;
 
         TabModelSelector tabModelSelector = startingPage.getActivity().getTabModelSelector();
@@ -109,16 +177,20 @@ public class Journeys {
         PageStation currentPage = startingPage;
         for (int i = 0; i < numTabs; i++) {
             PageStation previousPage = currentPage;
-            Tab previousTab = previousPage.getLoadedTab();
+            Tab previousTab = previousPage.loadedTabElement.get();
             currentPage =
                     isIncognito
                             ? currentPage.openNewIncognitoTabFast()
                             : currentPage.openNewTabFast();
             currentPage = currentPage.loadPageProgrammatically(url, pageStationFactory.get());
+
+            if (!captureThumbnails) {
+                continue;
+            }
+
             boolean tryToFixThumbnail = false;
             try {
-                Condition.runAndWaitFor(
-                        null,
+                Condition.waitFor(
                         TabThumbnailCondition.etc1(tabModelSelector, previousTab),
                         TabThumbnailCondition.jpeg(tabModelSelector, previousTab));
             } catch (TravelException e) {
@@ -133,13 +205,12 @@ public class Journeys {
                         i,
                         previousTab.getId());
 
-                Tab tabToComeBackTo = currentPage.getLoadedTab();
+                Tab tabToComeBackTo = currentPage.loadedTabElement.get();
                 PageStation previousPageAgain =
                         currentPage.selectTabFast(previousTab, PageStation::newGenericBuilder);
                 currentPage = previousPageAgain.selectTabFast(tabToComeBackTo, pageStationFactory);
 
-                Condition.runAndWaitFor(
-                        null,
+                Condition.waitFor(
                         TabThumbnailCondition.etc1(tabModelSelector, previousTab),
                         TabThumbnailCondition.jpeg(tabModelSelector, previousTab));
             }
@@ -155,7 +226,7 @@ public class Journeys {
      */
     public static TabSwitcherGroupCardFacility mergeAllTabsToNewGroup(
             TabSwitcherStation tabSwitcher) {
-        TabModel tabModel = tabSwitcher.getTabModelSelectorSupplier().get().getCurrentModel();
+        TabModel tabModel = tabSwitcher.tabModelSelectorElement.get().getCurrentModel();
         List<Tab> tabs = TabModelUtils.convertTabListToListOfTabs(tabModel);
         return mergeTabsToNewGroup(tabSwitcher, tabs);
     }
@@ -171,7 +242,7 @@ public class Journeys {
     public static TabSwitcherGroupCardFacility mergeTabsToNewGroup(
             TabSwitcherStation tabSwitcher, List<Tab> tabs) {
         assert !tabs.isEmpty();
-        TabModel currentModel = tabSwitcher.getTabModelSelectorSupplier().get().getCurrentModel();
+        TabModel currentModel = tabSwitcher.tabModelSelectorElement.get().getCurrentModel();
         TabSwitcherListEditorFacility editor = tabSwitcher.openAppMenu().clickSelectTabs();
 
         TabBinList tabBinList = TabBinningUtil.binTabsByCard(currentModel);

@@ -51,7 +51,6 @@
 #include "chrome/browser/extensions/menu_manager.h"
 #include "chrome/browser/extensions/pref_mapping.h"
 #include "chrome/browser/extensions/tab_helper.h"
-#include "chrome/browser/extensions/updater/chrome_update_client_config.h"
 #include "chrome/browser/external_protocol/external_protocol_handler.h"
 #include "chrome/browser/media/webrtc/media_device_salt_service_factory.h"
 #include "chrome/browser/net/system_network_context_manager.h"
@@ -107,6 +106,7 @@
 #include "extensions/common/features/feature_channel.h"
 #include "extensions/common/mojom/view_type.mojom.h"
 #include "extensions/common/permissions/permission_set.h"
+#include "extensions/common/switches.h"
 #include "ipc/ipc_message.h"
 #include "url/gurl.h"
 #include "url/origin.h"
@@ -135,16 +135,13 @@ namespace extensions {
 
 namespace {
 
-const char kCrxUrlPath[] = "/service/update2/crx";
-const char kJsonUrlPath[] = "/service/update2/json";
-
 // If true, the extensions client will behave as though there is always a
 // new chrome update.
 bool g_did_chrome_update_for_testing = false;
 
 bool ExtensionsDisabled(const base::CommandLine& command_line) {
-  return command_line.HasSwitch(::switches::kDisableExtensions) ||
-         command_line.HasSwitch(::switches::kDisableExtensionsExcept);
+  return command_line.HasSwitch(extensions::switches::kDisableExtensions) ||
+         command_line.HasSwitch(extensions::switches::kDisableExtensionsExcept);
 }
 
 class UpdaterKeepAlive : public ScopedExtensionUpdaterKeepAlive {
@@ -656,17 +653,7 @@ void ChromeExtensionsBrowserClient::AttachExtensionTaskManagerTag(
 scoped_refptr<update_client::UpdateClient>
 ChromeExtensionsBrowserClient::CreateUpdateClient(
     content::BrowserContext* context) {
-  std::optional<GURL> override_url;
-  GURL update_url = extension_urls::GetWebstoreUpdateUrl();
-  if (update_url != extension_urls::GetDefaultWebstoreUpdateUrl()) {
-    if (update_url.path() == kCrxUrlPath) {
-      override_url = update_url.GetWithEmptyPath().Resolve(kJsonUrlPath);
-    } else {
-      override_url = update_url;
-    }
-  }
-  return update_client::UpdateClientFactory(
-      ChromeUpdateClientConfig::Create(context, override_url));
+  return util::CreateUpdateClient(context);
 }
 
 std::unique_ptr<ScopedExtensionUpdaterKeepAlive>

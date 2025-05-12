@@ -19,7 +19,6 @@ import android.os.SystemClock;
 import android.text.TextUtils;
 
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.fragment.app.FragmentActivity;
 
@@ -34,6 +33,8 @@ import org.chromium.base.ContextUtils;
 import org.chromium.base.DeviceInfo;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.Supplier;
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.loading_modal.LoadingModalDialogCoordinator;
 import org.chromium.chrome.browser.password_manager.CredentialManagerLauncher.CredentialManagerBackendException;
@@ -60,6 +61,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.util.Optional;
 
 /** A helper class for showing PasswordSettings. TODO(crbug.com/40853413): Split up this class */
+@NullMarked
 public class PasswordManagerHelper {
     // Key for the argument with which PasswordsSettings will be launched. The value for
     // this argument should be part of the ManagePasswordsReferrer enum, which contains
@@ -127,7 +129,7 @@ public class PasswordManagerHelper {
         int NUM_ENTRIES = 4;
     }
 
-    private static ProfileKeyedMap<PasswordManagerHelper> sProfileMap;
+    private static @Nullable ProfileKeyedMap<PasswordManagerHelper> sProfileMap;
 
     private final Profile mProfile;
 
@@ -321,10 +323,14 @@ public class PasswordManagerHelper {
                 return;
             }
 
-            String accountName =
-                    (syncService != null)
-                            ? CoreAccountInfo.getEmailFrom(syncService.getAccountInfo())
-                            : "";
+            String accountName = "";
+            if (syncService != null) {
+                CoreAccountInfo accountInfo = syncService.getAccountInfo();
+                if (accountInfo != null) {
+                    accountName = CoreAccountInfo.getEmailFrom(accountInfo);
+                }
+            }
+
             // TODO(crbug.com/40948486): Find an alternative to account settings intent.
             credentialManagerLauncher.getAccountSettingsIntent(
                     accountName,
@@ -425,8 +431,8 @@ public class PasswordManagerHelper {
      */
     public void runPasswordCheckupInBackground(
             @PasswordCheckReferrer int referrer,
-            String accountName,
-            Callback<Void> successCallback,
+            @Nullable String accountName,
+            Callback<@Nullable Void> successCallback,
             Callback<Exception> failureCallback) {
         PasswordCheckupClientMetricsRecorder passwordCheckupMetricsRecorder =
                 new PasswordCheckupClientMetricsRecorder(
@@ -464,7 +470,7 @@ public class PasswordManagerHelper {
      */
     public void getBreachedCredentialsCount(
             @PasswordCheckReferrer int referrer,
-            String accountName,
+            @Nullable String accountName,
             Callback<Integer> successCallback,
             Callback<Exception> failureCallback) {
         PasswordCheckupClientMetricsRecorder passwordCheckupMetricsRecorder =
@@ -613,7 +619,7 @@ public class PasswordManagerHelper {
     @VisibleForTesting
     public void launchTheCredentialManager(
             @ManagePasswordsReferrer int referrer,
-            SyncService syncService,
+            @Nullable SyncService syncService,
             LoadingModalDialogCoordinator loadingDialogCoordinator,
             Supplier<ModalDialogManager> modalDialogManagerSupplier,
             Context context,

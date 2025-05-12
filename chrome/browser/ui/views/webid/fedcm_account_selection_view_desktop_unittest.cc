@@ -32,16 +32,6 @@ using TokenError = content::IdentityCredentialTokenError;
 using DismissReason = content::IdentityRequestDialogController::DismissReason;
 class FedCmAccountSelectionViewDesktopTest;
 
-namespace {
-
-constexpr char kTopFrameEtldPlusOne[] = "top-frame-example.com";
-constexpr char kIdpEtldPlusOne[] = "idp-example.com";
-constexpr char kConfigUrl[] = "https://idp-example.com/fedcm.json";
-constexpr char kLoginUrl[] = "https://idp-example.com/login";
-
-constexpr char kAccountId1[] = "account_id1";
-constexpr char kAccountId2[] = "account_id2";
-
 // Mock AccountSelectionViewBase which tracks state.
 class TestAccountSelectionView : public AccountSelectionViewBase,
                                  public views::WidgetDelegate {
@@ -52,7 +42,7 @@ class TestAccountSelectionView : public AccountSelectionViewBase,
                                  /*rp_for_display=*/std::u16string()) {
     // This matches behavior of the production code, which implicitly passes
     // ownership of the view to the widget via DialogDelegate superclass.
-    SetOwnedByWidget(/*delete_self=*/true);
+    SetOwnedByWidget(OwnedByWidgetPassKey());
   }
   enum class SheetType {
     kAccountPicker,
@@ -126,6 +116,16 @@ class TestAccountSelectionView : public AccountSelectionViewBase,
   std::optional<SheetType> sheet_type_{SheetType::kLoading};
   std::vector<std::string> account_ids_;
 };
+
+namespace {
+
+constexpr char kTopFrameEtldPlusOne[] = "top-frame-example.com";
+constexpr char kIdpEtldPlusOne[] = "idp-example.com";
+constexpr char kConfigUrl[] = "https://idp-example.com/fedcm.json";
+constexpr char kLoginUrl[] = "https://idp-example.com/login";
+
+constexpr char kAccountId1[] = "account_id1";
+constexpr char kAccountId2[] = "account_id2";
 
 // Mock version of FedCmModalDialogView for injection during tests.
 class MockFedCmModalDialogView : public FedCmModalDialogView {
@@ -313,7 +313,7 @@ class FedCmAccountSelectionViewDesktopTest : public ChromeViewsTestBase {
       LoginState browser_trusted_login_state = LoginState::kSignUp,
       std::string account_id = kAccountId1) {
     IdentityRequestAccountPtr account = base::MakeRefCounted<Account>(
-        account_id, "", "", "", "", "", GURL(),
+        account_id, "", "", "", "", "", GURL(), "", "",
         /*login_hints=*/std::vector<std::string>(),
         /*domain_hints=*/std::vector<std::string>(),
         /*labels=*/std::vector<std::string>(),
@@ -329,7 +329,7 @@ class FedCmAccountSelectionViewDesktopTest : public ChromeViewsTestBase {
     std::vector<IdentityRequestAccountPtr> accounts;
     for (const auto& account_info : account_infos) {
       accounts.emplace_back(base::MakeRefCounted<Account>(
-          account_info.first, "", "", "", "", "", GURL(),
+          account_info.first, "", "", "", "", "", GURL(), "", "",
           /*login_hints=*/std::vector<std::string>(),
           /*domain_hints=*/std::vector<std::string>(),
           /*labels=*/std::vector<std::string>(),

@@ -514,6 +514,93 @@ class Dictionary:
     return result
 
 
+class Event:
+  """Represents an API event and processes the details of it.
+
+  Given an IDLNode of class Attribute for an event, extracts out the details of
+  the associated event callback and converts it to a Python dictionary
+  representing it.
+  TODO(crbug.com/340297705): Add in processing for event descriptions.
+
+  Attributes:
+    node: The IDLNode for the Attribute definition for this event.
+  """
+
+  def __init__(self, node: IDLNode) -> None:
+    self.node = node
+
+  def process(self, parent: IDLNode) -> dict:
+    # Double check that the parent passed in is the top level 'File' class node.
+    assert parent.GetClass() == 'File'
+
+    properties = OrderedDict()
+    properties['name'] = self.node.GetName()
+
+    # Events just store the details of the event callback function, hence the
+    # type is considered 'function'.
+    properties['type'] = 'function'
+
+    # Getting at the arguments for the event listener Callback definition
+    # requires some bouncing around the parsed IDL. The Attribute exposing the
+    # event has a Typeref which should be defined as an Interface on the top
+    # level of the IDL file. This Interface in turn lists the functions for
+    # adding/removing listeners. To find the listener arguments, we look for the
+    # 'addListener' Operation and then look for the Typeref defined in the
+    # Arguments for it which will be a Callback, which we can then look for
+    # defined on the top level of the IDL file.
+    interface_name = GetTypeName(self.node)
+    event_interface = GetChildWithName(parent, interface_name)
+    if event_interface is None or event_interface.GetClass() != 'Interface':
+      raise SchemaCompilerError(
+          'Could not find Interface definition for event.', self.node)
+    self._VerifyEventDefinition(event_interface)
+    add_listener_operation = GetChildWithName(event_interface, 'addListener')
+    callback_name = GetTypeName(
+        add_listener_operation.GetOneOf('Arguments').GetOneOf('Argument'))
+    callback_node = GetChildWithName(parent, callback_name)
+
+    parameters = []
+    arguments_node = callback_node.GetOneOf('Arguments')
+    for argument in arguments_node.GetListOf('Argument'):
+      parameters.append(FunctionArgument(argument, None).Process())
+    properties['parameters'] = parameters
+
+    return properties
+
+  def _VerifyEventDefinition(self, event: IDLNode) -> None:
+    """Verifies the event has the expected Operations and inheritance.
+
+    Used to verify that an event definition in the IDL file has all the required
+    Operation definitions on it and inherits from ExtensionEvent, raising an
+    exception if anything is wrong. Intended primarily to catch mistakes in IDL
+    API definitions.
+
+    Args:
+      event: The IDLNode for the event Interface to validate.
+
+    Raises:
+      SchemaCompilerError if any of the required definitions are not present.
+    """
+
+    inherit_node = GetChildWithName(event, 'ExtensionEvent')
+    if inherit_node is None or inherit_node.GetClass() != 'Inherit':
+      raise SchemaCompilerError(
+          'Event Interface missing ExtensionEvent Inheritance.', event)
+
+    add_listener = GetChildWithName(event, 'addListener')
+    if add_listener is None or add_listener.GetClass() != 'Operation':
+      raise SchemaCompilerError(
+          'Event Interface missing addListener Operation definition.', event)
+    remove_listener = GetChildWithName(event, 'removeListener')
+    if remove_listener is None or remove_listener.GetClass() != 'Operation':
+      raise SchemaCompilerError(
+          'Event Interface missing removeListener Operation definition.', event)
+    has_listener = GetChildWithName(event, 'hasListener')
+    if has_listener is None or has_listener.GetClass() != 'Operation':
+      raise SchemaCompilerError(
+          'Event Interface missing hasListener Operation definition.', event)
+
+
 class Namespace:
   """Represents an API namespace and processes individual details of it.
 
@@ -541,18 +628,24 @@ class Namespace:
   def process(self) -> dict:
     functions = []
     types = []
+    events = []
     description = ProcessNodeDescription(self.namespace).description
     nodoc = False
     platforms = None
 
+    # Functions are defined as Operations on the API Interface definition.
     for node in self.namespace.GetListOf('Operation'):
       functions.append(Operation(node).process())
 
-    # Types are defined as dictionaries at the top level of the IDL file, which
-    # are found on the parent node of the Interface being processed for this
-    # namespace.
+    # Types are defined as Dictionaries at the top level of the IDL file, which
+    # are found on the parent node of the API Interface definition.
     for node in self.namespace.GetParent().GetListOf('Dictionary'):
       types.append(Dictionary(node).process())
+
+    # Events are defined as Attributes on the API Interface definition, which
+    # use types that are defined as Interfaces on the top level of the IDL file.
+    for node in self.namespace.GetListOf('Attribute'):
+      events.append(Event(node).process(self.namespace.GetParent()))
 
     for extended_attribute in GetExtendedAttributes(self.namespace):
       attribute_name = extended_attribute.GetName()
@@ -569,6 +662,7 @@ class Namespace:
         'namespace': self.name,
         'functions': functions,
         'types': types,
+        'events': events,
         'nodoc': nodoc,
         'description': description,
         'platforms': platforms

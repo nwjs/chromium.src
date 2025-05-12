@@ -101,6 +101,12 @@ BASE_FEATURE(kAttributionDebugReportingCookieDeprecationTesting,
              "AttributionDebugReportingCookieDeprecationTesting",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+#if BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kPrivacySandboxAttestationsLoadFromAPKAsset,
+             "PrivacySandboxAttestationsLoadFromAPKAsset",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_ANDROID)
+
 BASE_FEATURE(kPrivateAggregationDebugReportingCookieDeprecationTesting,
              "PrivateAggregationDebugReportingCookieDeprecationTesting",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -117,10 +123,6 @@ BASE_FEATURE(kRelatedWebsiteSetsDevUI,
              "RelatedWebsiteSetsDevUI",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kAddLimit3pcsSetting,
-             "AddLimit3pcsSetting",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kAlwaysBlock3pcsIncognito,
              "AlwaysBlock3pcsIncognito",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -135,10 +137,6 @@ BASE_FEATURE(kIpProtectionUx,
 
 BASE_FEATURE(kActUserBypassUx,
              "ActUserBypassUx",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kTrackingProtectionContentSettingInSettings,
-             "TrackingProtectionContentSettingInSettings",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kTrackingProtectionContentSettingUbControl,
@@ -205,10 +203,6 @@ BASE_FEATURE(kPrivacySandboxAdTopicsContentParity,
              "PrivacySandboxAdTopicsContentParity",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kPrivacySandboxPrivacyPolicy,
-             "PrivacySandboxPrivacyPolicy",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kPrivacySandboxNoticeQueue,
              "PrivacySandboxNoticeQueue",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -263,7 +257,7 @@ const base::FeatureParam<int>
 
 BASE_FEATURE(kPrivacySandboxNoticeActionDebouncingAndroid,
              "PrivacySandboxNoticeActionDebouncingAndroid",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 const base::FeatureParam<int> kPrivacySandboxDebouncingDelayMilliseconds{
     &kPrivacySandboxNoticeActionDebouncingAndroid, "debouncing-delay-ms", 200};
@@ -277,13 +271,9 @@ BASE_FEATURE(kPrivacySandboxAllowPromptForBlocked3PCookies,
              "PrivacySandboxAllowPromptForBlocked3PCookies",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kPrivacySandboxEqualizedPromptButtons,
-             "PrivacySandboxEqualizedPromptButtons",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kPrivacySandboxMigratePrefsToSchemaV2,
              "PrivacySandboxMigratePrefsToSchemaV2",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kPrivacySandboxFirstTimeNoticeV2,
              "PrivacySandboxFirstTimeNoticeV2",

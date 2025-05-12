@@ -35,6 +35,7 @@ class Profile;
 class AutocompleteResult;
 
 namespace content {
+class PreloadingData;
 class WebContents;
 }
 
@@ -279,7 +280,7 @@ class SearchPrefetchService : public KeyedService,
   std::map<GURL, std::unique_ptr<base::OneShotTimer>> prefetch_expiry_timers_;
 
   // The time of the last prefetch network/server error.
-  base::TimeTicks last_error_time_ticks_;
+  base::TimeTicks last_error_time_ticks_ = base::TimeTicks::Min();
 
   // The current state of the DSE.
   std::optional<TemplateURLData> template_url_service_data_;
@@ -308,5 +309,7 @@ GURL GetPrefetchUrlFromMatch(
 GURL GetPrerenderUrlFromMatch(
     const TemplateURLRef::SearchTermsArgs& search_terms_args_from_match,
     TemplateURLService& template_url_service);
+
+void SetIsNavigationInDomainCallback(content::PreloadingData* preloading_data);
 
 #endif  // CHROME_BROWSER_PRELOADING_PREFETCH_SEARCH_PREFETCH_SEARCH_PREFETCH_SERVICE_H_

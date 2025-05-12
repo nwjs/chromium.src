@@ -851,8 +851,9 @@ class AutofillMetrics {
 
   // Logs the image fetching result for one image in AutofillImageFetcher.
   static void LogImageFetchResult(bool succeeded);
-  // Logs the roundtrip latency for fetching an image in AutofillImageFetcher.
-  static void LogImageFetcherRequestLatency(base::TimeDelta latency);
+  // Logs the overall image fetching result for a credit card art image in
+  // AutofillImageFetcher after a maximum preset number of attempts.
+  static void LogImageFetchOverallResult(bool succeeded);
 
   // Logs a field's (PredictionState, AutocompleteState) pair on form submit.
   static void LogAutocompletePredictionCollisionState(

@@ -18,6 +18,7 @@
 #include "base/trace_event/trace_event.h"
 #include "chrome/browser/android/preferences/autofill/settings_navigation_helper.h"
 #include "chrome/browser/autofill/personal_data_manager_factory.h"
+#include "chrome/browser/autofill/valuables_data_manager_factory.h"
 #include "chrome/browser/keyboard_accessory/android/manual_filling_controller.h"
 #include "chrome/browser/keyboard_accessory/android/manual_filling_utils.h"
 #include "chrome/browser/profiles/profile.h"
@@ -25,6 +26,7 @@
 #include "components/autofill/content/browser/content_autofill_driver.h"
 #include "components/autofill/core/browser/autofill_browser_util.h"
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
+#include "components/autofill/core/browser/data_manager/valuables/valuables_data_manager.h"
 #include "components/autofill/core/browser/data_model/payments/credit_card.h"
 #include "components/autofill/core/browser/data_model/payments/iban.h"
 #include "components/autofill/core/browser/foundations/browser_autofill_manager.h"
@@ -100,18 +102,20 @@ void AddCardDetailsToUserInfo(const CreditCard& card,
 
 UserInfo TranslateCard(const CreditCard* data, bool enabled) {
   DCHECK(data);
-
   UserInfo user_info(data->network(), GetCardArtUrl(*data));
 
   std::u16string obfuscated_number =
       data->CardIdentifierStringForManualFilling();
+  std::u16string obfuscated_number_a11y_description =
+      obfuscated_number + u" " + data->NetworkForDisplay();
   // The `text_to_fill` field is set to an empty string as we're populating the
   // `id` of the `UserInfoField` which would be used to determine the type of
   // the card and fill the form accordingly.
   user_info.add_field(
       AccessorySheetField::Builder()
           .SetSuggestionType(AccessorySuggestionType::kCreditCardNumber)
-          .SetDisplayText(obfuscated_number)
+          .SetDisplayText(std::move(obfuscated_number))
+          .SetA11yDescription(std::move(obfuscated_number_a11y_description))
           .SetId(data->guid())
           .SetSelectable(enabled)
           .Build());
@@ -126,12 +130,14 @@ UserInfo TranslateCachedCard(const CachedServerCardInfo* data, bool enabled) {
   const CreditCard& card = data->card;
   UserInfo user_info(card.network(), GetCardArtUrl(card));
   std::u16string card_number = card.GetRawInfo(CREDIT_CARD_NUMBER);
+  std::u16string card_number_a11y_description =
+      card_number + u" " + card.NetworkForDisplay();
   user_info.add_field(
       AccessorySheetField::Builder()
           .SetSuggestionType(AccessorySuggestionType::kCreditCardNumber)
           .SetDisplayText(card.FullDigitsForDisplay())
-          .SetTextToFill(card_number)
-          .SetA11yDescription(card_number)
+          .SetTextToFill(std::move(card_number))
+          .SetA11yDescription(std::move(card_number_a11y_description))
           .SetSelectable(enabled)
           .Build());
   AddCardDetailsToUserInfo(card, &user_info, data->cvc, enabled);
@@ -240,6 +246,12 @@ PaymentMethodAccessoryControllerImpl::GetSheetData() const {
     data.add_iban_info(TranslateIban(iban));
   }
 
+  for (const LoyaltyCard& loyalty_card : GetLoyaltyCards()) {
+    data.add_loyalty_card_info(
+        LoyaltyCardInfo(loyalty_card.merchant_name(),
+                        base::UTF8ToUTF16(loyalty_card.loyalty_card_number())));
+  }
+
   if (has_suggestions && !allow_filling && autofill_manager) {
     data.set_warning(
         l10n_util::GetStringUTF16(IDS_AUTOFILL_WARNING_INSECURE_CONNECTION));
@@ -320,10 +332,10 @@ void PaymentMethodAccessoryControllerImpl::RefreshSuggestions() {
   TRACE_EVENT0("passwords",
                "PaymentMethodAccessoryControllerImpl::RefreshSuggestions");
   CHECK(source_observer_);
-  source_observer_.Run(this,
-                       IsFillingSourceAvailable(!GetAllCreditCards().empty() ||
-                                                !GetPromoCodeOffers().empty() ||
-                                                !GetIbans().empty()));
+  source_observer_.Run(
+      this, IsFillingSourceAvailable(
+                !GetAllCreditCards().empty() || !GetPromoCodeOffers().empty() ||
+                !GetIbans().empty() || !GetLoyaltyCards().empty()));
 }
 
 base::WeakPtr<PaymentMethodAccessoryController>
@@ -363,6 +375,7 @@ void PaymentMethodAccessoryControllerImpl::CreateForWebContentsForTesting(
     content::WebContents* web_contents,
     base::WeakPtr<ManualFillingController> mf_controller,
     PaymentsDataManager* payments_data_manager,
+    ValuablesDataManager* valuables_data_manager,
     BrowserAutofillManager* af_manager,
     AutofillDriver* af_driver) {
   DCHECK(web_contents) << "Need valid WebContents to attach controller to!";
@@ -370,9 +383,10 @@ void PaymentMethodAccessoryControllerImpl::CreateForWebContentsForTesting(
   DCHECK(mf_controller);
 
   web_contents->SetUserData(
-      UserDataKey(), base::WrapUnique(new PaymentMethodAccessoryControllerImpl(
-                         web_contents, std::move(mf_controller),
-                         payments_data_manager, af_manager, af_driver)));
+      UserDataKey(),
+      base::WrapUnique(new PaymentMethodAccessoryControllerImpl(
+          web_contents, std::move(mf_controller), payments_data_manager,
+          valuables_data_manager, af_manager, af_driver)));
 }
 
 PaymentMethodAccessoryControllerImpl::PaymentMethodAccessoryControllerImpl(
@@ -384,12 +398,18 @@ PaymentMethodAccessoryControllerImpl::PaymentMethodAccessoryControllerImpl(
               web_contents->GetBrowserContext())) {
     paydm_observation_.Observe(&pdm->payments_data_manager());
   }
+  if (ValuablesDataManager* valuables_data_manager =
+          ValuablesDataManagerFactory::GetForProfile(
+              Profile::FromBrowserContext(web_contents->GetBrowserContext()))) {
+    valuables_data_manager_observation_.Observe(valuables_data_manager);
+  }
 }
 
 PaymentMethodAccessoryControllerImpl::PaymentMethodAccessoryControllerImpl(
     content::WebContents* web_contents,
     base::WeakPtr<ManualFillingController> mf_controller,
     PaymentsDataManager* payments_data_manager,
+    ValuablesDataManager* valuables_data_manager,
     BrowserAutofillManager* af_manager,
     AutofillDriver* af_driver)
     : content::WebContentsUserData<PaymentMethodAccessoryControllerImpl>(
@@ -399,6 +419,9 @@ PaymentMethodAccessoryControllerImpl::PaymentMethodAccessoryControllerImpl(
       af_driver_for_testing_(af_driver) {
   if (payments_data_manager) {
     paydm_observation_.Observe(payments_data_manager);
+  }
+  if (valuables_data_manager) {
+    valuables_data_manager_observation_.Observe(valuables_data_manager);
   }
 }
 
@@ -464,6 +487,15 @@ std::vector<Iban> PaymentMethodAccessoryControllerImpl::GetIbans() const {
   }
 
   return paydm()->GetOrderedIbansToSuggest();
+}
+
+base::span<const LoyaltyCard>
+PaymentMethodAccessoryControllerImpl::GetLoyaltyCards() const {
+  if (!valuables_data_manager()) {
+    return {};
+  }
+
+  return valuables_data_manager()->GetLoyaltyCards();
 }
 
 base::WeakPtr<ManualFillingController>
@@ -555,6 +587,10 @@ bool PaymentMethodAccessoryControllerImpl::FetchIfIban(
           base::BindOnce(&PaymentMethodAccessoryControllerImpl::ApplyToField,
                          weak_ptr_factory_.GetWeakPtr()));
   return true;
+}
+
+void PaymentMethodAccessoryControllerImpl::OnValuablesDataChanged() {
+  RefreshSuggestions();
 }
 
 WEB_CONTENTS_USER_DATA_KEY_IMPL(PaymentMethodAccessoryControllerImpl);

@@ -15,7 +15,6 @@
 #include <optional>
 #include <string_view>
 #include <tuple>
-#include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -199,6 +198,7 @@
 #include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/media_device_id.h"
 #include "content/public/browser/network_service_util.h"
+#include "content/public/browser/permission_descriptor_util.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/runtime_feature_state/runtime_feature_state_document_data.h"
@@ -256,6 +256,8 @@
 #include "services/network/public/mojom/web_sandbox_flags.mojom-shared.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
 #include "storage/browser/blob/blob_url_store_impl.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_registry.h"
 #include "third_party/blink/public/common/chrome_debug_urls.h"
@@ -445,24 +447,20 @@ bool g_allow_injecting_javascript = false;
 
 const char kDotGoogleDotCom[] = ".google.com";
 
-typedef std::unordered_map<GlobalRenderFrameHostId,
-                           RenderFrameHostImpl*,
-                           GlobalRenderFrameHostIdHasher>
-    RoutingIDFrameMap;
+using RoutingIDFrameMap =
+    absl::flat_hash_map<GlobalRenderFrameHostId, RenderFrameHostImpl*>;
 base::LazyInstance<RoutingIDFrameMap>::DestructorAtExit g_routing_id_frame_map =
     LAZY_INSTANCE_INITIALIZER;
 
 // A global set of all sandboxed RenderFrameHosts that could be isolated from
 // the rest of their SiteInstance.
-typedef std::unordered_set<GlobalRenderFrameHostId,
-                           GlobalRenderFrameHostIdHasher>
-    RoutingIDIsolatableSandboxedIframesSet;
+using RoutingIDIsolatableSandboxedIframesSet =
+    absl::flat_hash_set<GlobalRenderFrameHostId>;
 base::LazyInstance<RoutingIDIsolatableSandboxedIframesSet>::DestructorAtExit
     g_routing_id_isolatable_sandboxed_iframes_set = LAZY_INSTANCE_INITIALIZER;
 
-using TokenFrameMap = std::unordered_map<blink::LocalFrameToken,
-                                         RenderFrameHostImpl*,
-                                         blink::LocalFrameToken::Hasher>;
+using TokenFrameMap =
+    absl::flat_hash_map<blink::LocalFrameToken, RenderFrameHostImpl*>;
 base::LazyInstance<TokenFrameMap>::Leaky g_token_frame_map =
     LAZY_INSTANCE_INITIALIZER;
 
@@ -1000,6 +998,24 @@ GURL GetLastDocumentURL(
   return params.url;
 }
 
+// Return true when `mode` is enabled for kAvoidUnnecessaryBeforeUnloadCheckSync
+// feature (see: https://crbug.com/396998476).
+bool IsAvoidUnnecessaryBeforeUnloadCheckSyncEnabledFor(
+    features::AvoidUnnecessaryBeforeUnloadCheckSyncMode mode) {
+  if (!GetContentClient()
+           ->browser()
+           ->SupportsAvoidUnnecessaryBeforeUnloadCheckSync()) {
+    return false;
+  }
+
+  if (!base::FeatureList::IsEnabled(
+          features::kAvoidUnnecessaryBeforeUnloadCheckSync)) {
+    return false;
+  }
+
+  return features::kAvoidUnnecessaryBeforeUnloadCheckSyncMode.Get() == mode;
+}
+
 // Returns true if `host` has the Window Management permission granted.
 bool IsWindowManagementGranted(RenderFrameHost* host) {
   content::PermissionController* permission_controller =
@@ -1007,8 +1023,10 @@ bool IsWindowManagementGranted(RenderFrameHost* host) {
   DCHECK(permission_controller);
 
   return permission_controller->GetPermissionStatusForCurrentDocument(
-             blink::PermissionType::WINDOW_MANAGEMENT, host) ==
-         blink::mojom::PermissionStatus::GRANTED;
+             content::PermissionDescriptorUtil::
+                 CreatePermissionDescriptorForPermissionType(
+                     blink::PermissionType::WINDOW_MANAGEMENT),
+             host) == blink::mojom::PermissionStatus::GRANTED;
 }
 
 bool IsOpenGraphMetadataValid(const blink::mojom::OpenGraphMetadata* metadata) {
@@ -1602,23 +1620,25 @@ class DiscardedRFHProcessHelper : public base::SupportsUserData::Data,
 // with this function.
 void RecordNavigationTraceEventsAndMetrics(
     const NavigationRequest::Timeline& timeline,
-    const GURL& url) {
+    const GURL& url,
+    bool is_primary_main_frame,
+    bool is_same_document_navigation) {
+  DCHECK(!timeline.start.is_null());
+
   // Record these trace events in a global "Navigations" track, so that it can
   // be found under "Global Track Events". Since this contains events from
   // both the browser and renderer processes, this is preferable to nesting
   // the track under a particular process.
   constexpr uint64_t kGlobalInstantTrackId = 0;
-  static perfetto::NamedTrack track(
-      "Navigations", base::trace_event::GetNextGlobalTraceId(),
+  static const perfetto::NamedTrack track1(
+      "Navigation: Timelines", base::trace_event::GetNextGlobalTraceId(),
       perfetto::Track::Global(kGlobalInstantTrackId));
-
-  DCHECK(!timeline.start.is_null());
 
   // Define a helper to log both a trace event slice and a corresponding metric
   // for one stage of a navigation.
   auto log_trace_event_and_uma =
-      [&](const std::string& name, const base::TimeTicks& begin_time,
-          const base::TimeTicks& end_time,
+      [&](const std::string& name, const perfetto::NamedTrack track,
+          const base::TimeTicks& begin_time, const base::TimeTicks& end_time,
           const std::string& histogram_name = std::string()) {
         if (begin_time.is_null() || end_time.is_null()) {
           return;
@@ -1631,6 +1651,14 @@ void RecordNavigationTraceEventsAndMetrics(
         // validate (and possibly adjust) the renderer-provided timestamps and
         // then convert this to a CHECK.
         if (begin_time < timeline.start || end_time > timeline.finish) {
+          return;
+        }
+
+        // Note that some cases in practice (e.g., prefetch, headless virtual
+        // time) may cause end_time to be before begin_time. This can happen in
+        // unit tests or due to compromised renderers as well. Skip trace events
+        // and metrics in these ill-defined cases.
+        if (end_time < begin_time) {
           return;
         }
 
@@ -1657,102 +1685,196 @@ void RecordNavigationTraceEventsAndMetrics(
   // show up under it. Do not include `url` in the histogram name. Note that
   // `url` is the committing URL, which might differ from the starting URL, e.g.
   // due to redirects.
+  // TODO(crbug.com/405437928): Overlapping navigations may incorrectly appear
+  // to be nested, using the wrong end times.
   std::string top_level_trace_event_name = "Navigation: " + url.spec();
-  log_trace_event_and_uma(top_level_trace_event_name, timeline.start,
+  log_trace_event_and_uma(top_level_trace_event_name, track1, timeline.start,
                           timeline.finish, /*histogram_name=*/"Total");
 
-  // It's possible that there was no CommitNavigation IPC sent. This can happen
-  // for synchronous renderer commits (e.g., renderer-initiated same-document
-  // navigations), where browser only finds out about the navigation from the
-  // DidCommit IPC and creates a NavigationRequest at that time, as well as for
-  // page activations (e.g., restoring from back-forward cache). In those cases,
-  // breaking the navigation down into finer-grained slices is not yet supported
-  // and potentially less useful, so just return early after logging a top-level
-  // event for the navigation above.
-  //
-  // TODO(alexmos): Record a better renderer-side start time for synchronous
-  // renderer commits and create an additional tracing slice for the
-  // renderer-side work involved in synchronous navigations.
-  if (timeline.commit_ipc_sent.is_null()) {
-    return;
-  }
+  if (!timeline.begin_navigation.is_null()) {
+    // Most navigations (other than synchronous renderer commits) go through
+    // BeginNavigation and the phases below. This includes page activations like
+    // bfcache and prerender, which do not send commit IPCs.
 
-  log_trace_event_and_uma("StartToNavigationRequestCreation", timeline.start,
-                          timeline.navigation_request_creation);
-
-  if (!timeline.beforeunload_start.is_null()) {
-    log_trace_event_and_uma("NavigationRequestToBeforeUnload",
-                            timeline.navigation_request_creation,
-                            timeline.beforeunload_start);
-    log_trace_event_and_uma("BeforeUnloadToBeginNavigation",
-                            timeline.beforeunload_start,
-                            timeline.begin_navigation);
-  } else {
-    log_trace_event_and_uma("NavigationRequestToBeginNavigation",
-                            timeline.navigation_request_creation,
-                            timeline.begin_navigation);
-  }
-
-  // For navigations that don't use a URLLoader, such as about:blank
-  // navigations, record a single interval from BeginNavigation to sending the
-  // CommitNavigation IPC, which will include choosing the target SiteInstance
-  // WillCommitWithoutUrlLoader throttle processing, etc. Do the same for
-  // navigations that encounter an error and never see a response from the
-  // loader. Otherwise, break down the URL loading into several finer-grained
-  // intervals.
-  if (timeline.loader_start.is_null() || timeline.receive_response.is_null()) {
-    log_trace_event_and_uma("BeginNavigationToCommit",
-                            timeline.begin_navigation,
-                            timeline.commit_ipc_sent);
-  } else {
-    log_trace_event_and_uma("BeginNavigationToLoaderStart",
-                            timeline.begin_navigation, timeline.loader_start);
-    log_trace_event_and_uma("LoaderStartToReceiveResponse",
-                            timeline.loader_start, timeline.receive_response);
-
-    // Generate the nested loader events contained within
-    // LoaderStartToReceiveResponse. `loader_fetch_start` can be earlier than
-    // `loader_start` when Prefetch or Prerendering is enabled. Don't record
-    // metrics or traces in such cases to avoid skewing the data.
-    if (timeline.loader_start <= timeline.loader_fetch_start) {
-      log_trace_event_and_uma("LoaderStartToFetchStart", timeline.loader_start,
-                              timeline.loader_fetch_start);
-      log_trace_event_and_uma("FetchStartToReceiveHeaders",
-                              timeline.loader_fetch_start,
-                              timeline.loader_receive_headers);
-      // TODO(alexmos): add events for redirects when they are present.
-      log_trace_event_and_uma("ReceiveHeadersToReceiveResponse",
-                              timeline.loader_receive_headers,
-                              timeline.receive_response);
+    // Record Start -> {BeforeUnloadPhase1} -> NavigationRequest.
+    if (!timeline.beforeunload_phase1_start.is_null()) {
+      log_trace_event_and_uma("StartToBeforeUnloadPhase1", track1,
+                              timeline.start,
+                              timeline.beforeunload_phase1_start);
+      log_trace_event_and_uma("BeforeUnloadPhase1", track1,
+                              timeline.beforeunload_phase1_start,
+                              timeline.beforeunload_phase1_end);
+      log_trace_event_and_uma("BeforeUnloadPhase1ToNavigationRequestCreation",
+                              track1, timeline.beforeunload_phase1_end,
+                              timeline.navigation_request_creation);
+    } else {
+      log_trace_event_and_uma("StartToNavigationRequestCreation", track1,
+                              timeline.start,
+                              timeline.navigation_request_creation);
     }
 
-    log_trace_event_and_uma("ReceiveResponseToCommit",
-                            timeline.receive_response,
-                            timeline.commit_ipc_sent);
+    // Record NavigationRequest -> {BeforeUnloadPhase2} -> BeginNavigation.
+    if (!timeline.beforeunload_phase2_start.is_null()) {
+      log_trace_event_and_uma("NavigationRequestToBeforeUnloadPhase2", track1,
+                              timeline.navigation_request_creation,
+                              timeline.beforeunload_phase2_start);
+      log_trace_event_and_uma("BeforeUnloadPhase2", track1,
+                              timeline.beforeunload_phase2_start,
+                              timeline.beforeunload_phase2_end);
+      log_trace_event_and_uma("BeforeUnloadPhase2ToBeginNavigation", track1,
+                              timeline.beforeunload_phase2_end,
+                              timeline.begin_navigation);
+    } else {
+      log_trace_event_and_uma("NavigationRequestToBeginNavigation", track1,
+                              timeline.navigation_request_creation,
+                              timeline.begin_navigation);
+    }
+
+    // For navigations that don't use a URLLoader, such as about:blank
+    // navigations, record a single interval from BeginNavigation to sending the
+    // CommitNavigation IPC, which will include choosing the target SiteInstance
+    // WillCommitWithoutUrlLoader throttle processing, etc. Do the same for
+    // navigations that encounter an error and never see a response from the
+    // loader. Otherwise, break down the URL loading into several finer-grained
+    // intervals.
+    if (timeline.loader_start.is_null() ||
+        timeline.receive_response.is_null()) {
+      log_trace_event_and_uma("BeginNavigationToCommit", track1,
+                              timeline.begin_navigation,
+                              timeline.commit_ipc_sent);
+    } else {
+      log_trace_event_and_uma("BeginNavigationToLoaderStart", track1,
+                              timeline.begin_navigation, timeline.loader_start);
+      log_trace_event_and_uma("LoaderStartToReceiveResponse", track1,
+                              timeline.loader_start, timeline.receive_response);
+
+      // Generate the nested loader events contained within
+      // LoaderStartToReceiveResponse. `loader_fetch_start` can be earlier than
+      // `loader_start` when Prefetch or Prerendering is enabled. Don't record
+      // metrics or traces in such cases to avoid skewing the data.
+      if (timeline.loader_start <= timeline.loader_fetch_start) {
+        log_trace_event_and_uma("LoaderStartToFetchStart", track1,
+                                timeline.loader_start,
+                                timeline.loader_fetch_start);
+        log_trace_event_and_uma("FetchStartToReceiveHeaders", track1,
+                                timeline.loader_fetch_start,
+                                timeline.loader_receive_headers);
+        // TODO(alexmos): add events for redirects when they are present.
+        log_trace_event_and_uma("ReceiveHeadersToReceiveResponse", track1,
+                                timeline.loader_receive_headers,
+                                timeline.receive_response);
+      }
+
+      log_trace_event_and_uma("ReceiveResponseToCommit", track1,
+                              timeline.receive_response,
+                              timeline.commit_ipc_sent);
+    }
+
+    log_trace_event_and_uma("CommitToDidCommit", track1,
+                            timeline.commit_ipc_sent,
+                            timeline.did_commit_ipc_received);
+  } else {
+    // Navigations without a `begin_navigation` timestamp are synchronous
+    // renderer commits, like same-document navigations and the synchronous
+    // about:blank commit.
+    // TODO(crbug.com/409589669): The `timeline.start` value is currently set to
+    // `renderer_commit_ipc_received` in `DidCommitNavigationInternal`, making
+    // `StartToSyncRendererCommit` zero sized. Move the start time earlier.
+    log_trace_event_and_uma("StartToSyncRendererCommit", track1, timeline.start,
+                            timeline.renderer_commit_ipc_received);
+    log_trace_event_and_uma("CommitToDidCommit", track1,
+                            timeline.renderer_commit_ipc_received,
+                            timeline.did_commit_ipc_received);
   }
 
-  log_trace_event_and_uma("CommitToDidCommit", timeline.commit_ipc_sent,
-                          timeline.did_commit_ipc_received);
   // Generate a nested slice for the renderer side of the navigation commit,
   // contained within CommitToDidCommit.
-  log_trace_event_and_uma("RendererCommitToDidCommit",
+  log_trace_event_and_uma("RendererCommitToDidCommit", track1,
                           timeline.renderer_commit_ipc_received,
                           timeline.renderer_did_commit_ipc_sent);
-  log_trace_event_and_uma("DidCommitToFinish", timeline.did_commit_ipc_received,
+  log_trace_event_and_uma("DidCommitToFinish", track1,
+                          timeline.did_commit_ipc_received, timeline.finish);
+
+  // Create a second track (with the same name but a different ID) for showing
+  // non-nested events about the duration of the navigation, with beforeunload
+  // time removed. Note that the track names are not visible in the Perfetto UI.
+  static const perfetto::NamedTrack track2(
+      "Navigation: Durations", base::trace_event::GetNextGlobalTraceId(),
+      perfetto::Track::Global(kGlobalInstantTrackId));
+
+  // Excluding beforeunload time from the total navigation duration is useful
+  // because it is not under the browser's control, and may include long periods
+  // of waiting for the user to interact with a dialog.
+  base::TimeDelta beforeunload_total_duration;
+  if (!timeline.beforeunload_phase1_start.is_null()) {
+    beforeunload_total_duration +=
+        timeline.beforeunload_phase1_end - timeline.beforeunload_phase1_start;
+  }
+  if (!timeline.beforeunload_phase2_start.is_null()) {
+    beforeunload_total_duration +=
+        timeline.beforeunload_phase2_end - timeline.beforeunload_phase2_start;
+  }
+
+  // Record how much time was correctly ignored by current navigation metrics,
+  // by moving it to the start of the duration.
+  base::TimeTicks duration_start = timeline.start + beforeunload_total_duration;
+  log_trace_event_and_uma("CorrectlyIgnored", track2, timeline.start,
+                          duration_start,
+                          /*histogram_name=*/"IgnoredCorrectly");
+  // Record the remaining duration of the navigation, moving the start time
+  // forward by the amount that was ignored.
+  log_trace_event_and_uma("TotalExcludingBeforeUnload", track2, duration_start,
                           timeline.finish);
 
-  // Also record total time that excludes the time to process beforeunload
-  // handlers, as this time is not under the browser's control. Note that
-  // this can't have a meaningful trace event due to the adjustment.
-  base::TimeDelta total_excluding_beforeunload =
-      timeline.finish - timeline.start;
-  if (!timeline.beforeunload_start.is_null()) {
-    total_excluding_beforeunload -=
-        timeline.begin_navigation - timeline.beforeunload_start;
+  // Also record a separate metric for main-frame, cross-document cases for
+  // better comparison with guardrail metrics.
+  bool is_main_frame_cross_doc =
+      is_primary_main_frame && !is_same_document_navigation;
+  if (is_main_frame_cross_doc && (timeline.finish >= duration_start)) {
+    base::UmaHistogramTimes(
+        "Navigation.Timeline.TotalExcludingBeforeUnload.MainFrameOnly.Duration",
+        timeline.finish - duration_start);
   }
-  base::UmaHistogramTimes(
-      "Navigation.Timeline.TotalExcludingBeforeUnload.Duration",
-      total_excluding_beforeunload);
+
+  // Most navigation metrics currently ignore everything before the adjusted
+  // common_params start time, which is after any beforeunload handling (either
+  // phase 1 or phase 2). This is incorrect, because it excludes a significant
+  // amount of work done before and between the two beforeunload phases. Record
+  // how much of this time was ignored incorrectly to determine the impact of
+  // changing the metrics. In the trace viewer, this time is shown nested within
+  // (and at the start of) `TotalExcludingBeforeUnload`, to visually see how
+  // much of the navigation duration such metrics are ignoring.
+  // TODO(crbug.com/385170155): Move to a more accurate navigation start so that
+  // we don't incorrectly ignore anything, and remove the metrics below.
+  if (duration_start < timeline.common_params_start) {
+    log_trace_event_and_uma("IncorrectlyIgnored", track2, duration_start,
+                            timeline.common_params_start,
+                            /*histogram_name=*/"IgnoredIncorrectly");
+    if (is_main_frame_cross_doc &&
+        (timeline.common_params_start >= duration_start)) {
+      base::UmaHistogramTimes(
+          "Navigation.Timeline.IgnoredIncorrectly.MainFrameOnly.Duration",
+          timeline.common_params_start - duration_start);
+    }
+    // Also record what percentage was incorrectly ignored.
+    base::TimeDelta ignored_incorrectly =
+        timeline.common_params_start - duration_start;
+    base::TimeDelta total_excluding_beforeunload =
+        timeline.finish - duration_start;
+    if (!ignored_incorrectly.is_negative() &&
+        total_excluding_beforeunload.is_positive()) {
+      size_t ignored_percentage =
+          100 * ignored_incorrectly / total_excluding_beforeunload;
+      base::UmaHistogramPercentage(
+          "Navigation.Timeline.IgnoredIncorrectly.Percentage",
+          ignored_percentage);
+      if (is_main_frame_cross_doc) {
+        base::UmaHistogramPercentage(
+            "Navigation.Timeline.IgnoredIncorrectly.MainFrameOnly.Percentage",
+            ignored_percentage);
+      }
+    }
+  }
 }
 }  // namespace
 
@@ -3792,13 +3914,13 @@ RenderFrameHostImpl::AccessibilityGetNativeViewAccessible() {
     // |AccessibilityGetNativeViewAccessible()| should be only accessible when
     // we process AX events. Otherwise this should not be used while in
     // back/forward cache and the document should be evicted.
-    return nullptr;
+    return gfx::NativeViewAccessible();
   }
   RenderWidgetHostViewBase* view = static_cast<RenderWidgetHostViewBase*>(
       render_view_host_->GetWidget()->GetView());
   if (view)
     return view->AccessibilityGetNativeViewAccessible();
-  return nullptr;
+  return gfx::NativeViewAccessible();
 }
 
 gfx::NativeViewAccessible
@@ -3808,13 +3930,13 @@ RenderFrameHostImpl::AccessibilityGetNativeViewAccessibleForWindow() {
   // expected.
   if (IsInactiveAndDisallowActivation(
           DisallowActivationReasonId::kAXGetNativeViewForWindow))
-    return nullptr;
+    return gfx::NativeViewAccessible();
 
   RenderWidgetHostViewBase* view = static_cast<RenderWidgetHostViewBase*>(
       render_view_host_->GetWidget()->GetView());
   if (view)
     return view->AccessibilityGetNativeViewAccessibleForWindow();
-  return nullptr;
+  return gfx::NativeViewAccessible();
 }
 
 void RenderFrameHostImpl::AccessibilityHitTest(
@@ -8461,7 +8583,7 @@ bool RenderFrameHostImpl::Reload() {
 }
 
 void RenderFrameHostImpl::SendAccessibilityEventsToManager(
-    const ui::AXUpdatesAndEvents& details) {
+    ui::AXUpdatesAndEvents& details) {
   if (!browser_accessibility_manager_) {
     return;
   }
@@ -9445,7 +9567,9 @@ void RenderFrameHostImpl::OpenURL(blink::mojom::OpenURLParamsPtr params) {
         /*blob_url_loader_factory=*/nullptr,
         network::mojom::SourceLocation::New(), /*has_user_gesture=*/false,
         params->is_form_submission, params->impression,
-        params->initiator_activation_and_ad_status, base::TimeTicks::Now(),
+        params->initiator_activation_and_ad_status,
+        params->actual_navigation_start,
+        /*navigation_start_time=*/base::TimeTicks::Now(),
         /*is_embedder_initiated_fenced_frame_navigation=*/false,
         /*is_unfenced_top_navigation=*/true,
         /*force_new_browsing_instance=*/true, /*is_container_initiated=*/false,
@@ -9476,6 +9600,8 @@ void RenderFrameHostImpl::OpenURL(blink::mojom::OpenURLParamsPtr params) {
   if (!owner) {
     return;
   }
+  // TODO(crbug.com/385170155): Consider whether to pass actual_navigation_start
+  // through this path as well, which may involve a lot of plumbing.
   owner->GetCurrentNavigator().RequestOpenURL(
       this, validated_url, base::OptionalToPtr(params->initiator_frame_token),
       GetProcess()->GetDeprecatedID(), params->initiator_origin,
@@ -9910,12 +10036,10 @@ void RenderFrameHostImpl::SendPrivateAggregationRequestsForFencedFrameEvent(
     const std::string& event_type) {
   if (!base::FeatureList::IsEnabled(blink::features::kPrivateAggregationApi) ||
       !blink::features::kPrivateAggregationApiEnabledInProtectedAudience
-           .Get() ||
-      !blink::features::kPrivateAggregationApiProtectedAudienceExtensionsEnabled
            .Get()) {
     mojo::ReportBadMessage(
-        "FLEDGE extensions must be enabled to use reportEvent() for private "
-        "aggregation events.");
+        "Private Aggregation must be enabled in Protected Audience to use "
+        "reportEvent() for private aggregation events.");
     return;
   }
   // Only check if the event type starts with "reserved." - We allow event types
@@ -11665,8 +11789,16 @@ RenderFrameHostImpl::CheckOrDispatchBeforeUnloadForFrame(
   // Only run beforeunload in frames that have registered a beforeunload
   // handler. See description of SendBeforeUnload() for details on simulating
   // beforeunload for legacy reasons.
+  //
+  // If `kAvoidUnnecessaryBeforeUnloadCheckSync` is enabled with
+  // `kWithoutSendBeforeUnload` mode and there is no beforeunload handler for
+  // the navigating frame, then do not simulate a beforeunload handler, and
+  // navigation can continue.
   const bool run_beforeunload_for_legacy_frame =
-      rfh == this && !rfh->has_before_unload_handler_;
+      rfh == this && !rfh->has_before_unload_handler_ &&
+      !IsAvoidUnnecessaryBeforeUnloadCheckSyncEnabledFor(
+          features::AvoidUnnecessaryBeforeUnloadCheckSyncMode::
+              kWithoutSendBeforeUnload);
   const bool should_run_beforeunload =
       rfh->has_before_unload_handler_ || run_beforeunload_for_legacy_frame;
 
@@ -11713,6 +11845,10 @@ RenderFrameHostImpl::CheckOrDispatchBeforeUnloadForFrame(
     // Wait to schedule until all frames have been processed. The legacy
     // beforeunload is not needed if another frame has a beforeunload
     // handler.
+    // Note for `kAvoidUnnecessaryBeforeUnloadCheckSync` feature:
+    // `run_beforeunload_for_legacy_frame` is never true if
+    // `kAvoidUnnecessaryBeforeUnloadCheckSync` is enabled with
+    // `kWithoutSendBeforeUnload` mode.
     *run_beforeunload_for_legacy = true;
     return FrameIterationAction::kContinue;
   }
@@ -14018,8 +14154,7 @@ void RenderFrameHostImpl::CreateDedicatedWorkerHostFactory(
           /*creator=*/GetGlobalId(),
           /*ancestor_render_frame_host_id=*/GetGlobalId(), GetStorageKey(),
           isolation_info_, BuildClientSecurityState(),
-          /*creator_coep_reporter=*/coep_reporter,
-          /*ancestor_coep_reporter=*/coep_reporter),
+          /*creator_coep_reporter=*/coep_reporter),
       std::move(receiver));
 }
 
@@ -14336,7 +14471,8 @@ RenderFrameHostImpl::CreateNavigationRequestForSynchronousRendererCommit(
     const std::vector<GURL>& redirects,
     const GURL& original_request_url,
     bool is_same_document,
-    bool is_same_document_history_api_navigation) {
+    bool is_same_document_history_api_navigation,
+    base::TimeTicks actual_navigation_start) {
   // This function must only be called when there are no NavigationRequests for
   // a navigation can be found at DidCommit time, which can only happen in two
   // cases:
@@ -14404,7 +14540,7 @@ RenderFrameHostImpl::CreateNavigationRequestForSynchronousRendererCommit(
       std::move(referrer), transition, should_replace_current_entry, method,
       has_user_gesture, is_overriding_user_agent, redirects,
       original_request_url, std::move(coep_reporter), std::move(dip_reporter),
-      http_status_code);
+      http_status_code, actual_navigation_start);
 }
 
 void RenderFrameHostImpl::BeforeUnloadTimeout() {
@@ -15244,6 +15380,9 @@ bool RenderFrameHostImpl::DidCommitNavigationInternal(
 
     // TODO(crbug.com/40150370): Do not use |params| to get the values,
     // depend on values known at commit time instead.
+    // TODO(crbug.com/409589669): `actual_navigation_start` should be set to an
+    // earlier timestamp from the renderer process, rather than the time that
+    // the renderer process begins the commit.
     navigation_request = CreateNavigationRequestForSynchronousRendererCommit(
         params->url, params->origin, params->initiator_base_url,
         params->referrer.Clone(), params->transition,
@@ -15251,7 +15390,8 @@ bool RenderFrameHostImpl::DidCommitNavigationInternal(
         redirects, params->url, is_same_document_navigation,
         same_document_params &&
             same_document_params->same_document_navigation_type ==
-                blink::mojom::SameDocumentNavigationType::kHistoryApi);
+                blink::mojom::SameDocumentNavigationType::kHistoryApi,
+        /*actual_navigation_start=*/params->commit_navigation_start);
 
     // Add the origin from this navigation to the list of committed origins. In
     // the common case, this is done in UpdatePermissionsForNavigation() at
@@ -15385,9 +15525,8 @@ bool RenderFrameHostImpl::DidCommitNavigationInternal(
     // still has a valid receiver, `this` will receive delayed IPC calls from
     // the network service. When the remote interface in the network service is
     // destructed, `mojo::ReceiverSet` automatically removes the receiver.
-    for (auto& receiver : navigation_request->TakeCookieObservers()) {
-      cookie_observers_.Add(std::move(receiver),
-                            CookieAccessDetails::Source::kNavigation);
+    for (auto& [receiver, source] : navigation_request->TakeCookieObservers()) {
+      cookie_observers_.Add(std::move(receiver), source);
     }
     for (auto& receiver : navigation_request->TakeTrustTokenObservers()) {
       trust_token_observers_.Add(this, std::move(receiver));
@@ -15497,8 +15636,9 @@ bool RenderFrameHostImpl::DidCommitNavigationInternal(
 
   // Record navigation trace events and annotate them with the committed URL,
   // rather than the initial URL.
-  RecordNavigationTraceEventsAndMetrics(navigation_timeline,
-                                        GetLastCommittedURL());
+  RecordNavigationTraceEventsAndMetrics(
+      navigation_timeline, GetLastCommittedURL(), IsInPrimaryMainFrame(),
+      is_same_document_navigation);
 
   return true;
 }
@@ -15859,25 +15999,29 @@ void RenderFrameHostImpl::MaybeGenerateCrashReport(
 
   // Construct the crash report.
   base::Value::Dict body;
+  if (base::FeatureList::IsEnabled(
+          blink::features::kCrashReportingAPIMoreContextData)) {
+    body.Set("is_top_level", IsOutermostMainFrame() ? "true" : "false");
+  }
   if (!reason.empty()) {
     body.Set("reason", reason);
-    if (reason == "unresponsive" &&
-        base::FeatureList::IsEnabled(
-            blink::features::
-                kDocumentPolicyIncludeJSCallStacksInCrashReports)) {
-      RenderProcessHostImpl* rph =
-          static_cast<RenderProcessHostImpl*>(GetProcess());
-      const std::string& unresponsive_document_javascript_call_stack =
-          rph->GetUnresponsiveDocumentJavascriptCallStack();
-      const blink::LocalFrameToken& unresponsive_document_token =
-          rph->GetUnresponsiveDocumentToken();
+  }
 
-      if (!unresponsive_document_javascript_call_stack.empty()) {
-        if (unresponsive_document_token == GetFrameToken()) {
-          body.Set("stack", unresponsive_document_javascript_call_stack);
-        } else {
-          body.Set("stack", "Unable to collect JS call stack.");
-        }
+  if (reason == "unresponsive" &&
+      base::FeatureList::IsEnabled(
+          blink::features::kDocumentPolicyIncludeJSCallStacksInCrashReports)) {
+    RenderProcessHostImpl* rph =
+        static_cast<RenderProcessHostImpl*>(GetProcess());
+    const std::string& unresponsive_document_javascript_call_stack =
+        rph->GetUnresponsiveDocumentJavascriptCallStack();
+    const blink::LocalFrameToken& unresponsive_document_token =
+        rph->GetUnresponsiveDocumentToken();
+
+    if (!unresponsive_document_javascript_call_stack.empty()) {
+      if (unresponsive_document_token == GetFrameToken()) {
+        body.Set("stack", unresponsive_document_javascript_call_stack);
+      } else {
+        body.Set("stack", "Unable to collect JS call stack.");
       }
     }
   }
@@ -15936,14 +16080,9 @@ void RenderFrameHostImpl::SendCommitNavigation(
 
   base::ElapsedTimer timer;
   DCHECK_EQ(net::OK, navigation_request->GetNetErrorCode());
-  if (commit_params->origin_to_commit) {
-    DCHECK(
-        base::FeatureList::IsEnabled(features::kUseBrowserCalculatedOrigin) ||
-        common_params->url.SchemeIs(url::kDataScheme));
-    CHECK_EQ(commit_params->origin_to_commit.value(),
-             navigation_request->browser_side_origin_to_commit_with_debug_info()
-                 .first.value());
-  }
+  CHECK_EQ(commit_params->origin_to_commit,
+           navigation_request->browser_side_origin_to_commit_with_debug_info()
+               .first.value());
   IncreaseCommitNavigationCounter();
   mojo::PendingRemote<blink::mojom::CodeCacheHost> code_cache_host;
   mojo::PendingRemote<blink::mojom::CodeCacheHost>
@@ -16120,9 +16259,7 @@ void RenderFrameHostImpl::SendCommitFailedNavigation(
         subresource_loader_factories,
     const blink::DocumentToken& document_token,
     blink::mojom::PolicyContainerPtr policy_container) {
-  // `origin_to_commit` must be set on failed navigations.
-  DCHECK(commit_params->origin_to_commit);
-  CHECK_EQ(commit_params->origin_to_commit.value(),
+  CHECK_EQ(commit_params->origin_to_commit,
            navigation_request->browser_side_origin_to_commit_with_debug_info()
                .first.value());
   DCHECK(navigation_client && navigation_request);
@@ -16348,6 +16485,54 @@ void RenderFrameHostImpl::SendBeforeUnload(
       },
       rfh, for_legacy);
   if (for_legacy) {
+    // We would like to synchronously continue navigation without the following
+    // PostTask in the future to improve performance if the frame being
+    // navigated (and all child frames) do not have beforeunload handlers.
+    // However, as described in
+    // `ContentBrowserClient::SupportsAvoidUnnecessaryBeforeUnloadCheckSync()`,
+    // this can result in re-entrancy issues on navigation. The re-entrancy is
+    // checked by NavigationController's `in_navigate_to_pending_entry` flag.
+    // While this flag is true, we prohibit starting another navigation
+    // synchronously while the existing navigation is still being processed on
+    // the stack (CHECK(!in_navigate_to_pending_entry_)).
+    //
+    // The following `is_eligible_for_avoid_unnecessary_beforeunload` flag is
+    // used to allow synchronous continuation of navigation if the value of
+    // kAvoidUnnecessaryBeforeUnloadCheckSyncMode is either
+    // kWithSendBeforeUnload or kWithoutSendBeforeUnload (To understand these
+    // modes, please refer to the code comment of the
+    // `AvoidUnnecessaryBeforeUnloadCheckSyncMode` enum in the header file).
+    //
+    // The following `can_be_in_navigate_to_pending_entry` flag is used to
+    // investigate whether it is safe to do so, by checking whether the CHECK
+    // would've failed if we continue synchronously instead of posting a task.
+    // This flag is only used when kAvoidUnnecessaryBeforeUnloadCheckSyncMode is
+    // set to kDumpWithoutCrashing.
+    const bool is_eligible_for_avoid_unnecessary_beforeunload =
+        is_waiting_for_beforeunload_completion_ &&
+        unload_ack_is_for_navigation_ &&
+        GetContentClient()
+            ->browser()
+            ->SupportsAvoidUnnecessaryBeforeUnloadCheckSync();
+    const bool can_be_in_navigate_to_pending_entry =
+        is_eligible_for_avoid_unnecessary_beforeunload &&
+        IsAvoidUnnecessaryBeforeUnloadCheckSyncEnabledFor(
+            features::AvoidUnnecessaryBeforeUnloadCheckSyncMode::
+                kDumpWithoutCrashing) &&
+        frame_tree()->controller().in_navigate_to_pending_entry();
+
+    base::TimeTicks beforeunload_end_time_for_legacy = base::TimeTicks::Now();
+
+    if (is_eligible_for_avoid_unnecessary_beforeunload &&
+        IsAvoidUnnecessaryBeforeUnloadCheckSyncEnabledFor(
+            features::AvoidUnnecessaryBeforeUnloadCheckSyncMode::
+                kWithSendBeforeUnload)) {
+      std::move(before_unload_closure)
+          .Run(/*proceed=*/true, send_before_unload_start_time_,
+               beforeunload_end_time_for_legacy);
+      return;
+    }
+
     // Use a high-priority task to continue the navigation. This is safe as it
     // happens early in the navigation flow and shouldn't race with any other
     // tasks associated with this navigation.
@@ -16356,18 +16541,34 @@ void RenderFrameHostImpl::SendBeforeUnload(
             FROM_HERE,
             base::BindOnce(
                 [](blink::mojom::LocalFrame::BeforeUnloadCallback callback,
-                   base::TimeTicks start_time, base::TimeTicks end_time) {
+                   base::TimeTicks start_time, base::TimeTicks end_time,
+                   base::WeakPtr<NavigationControllerImpl>
+                       navigation_controller,
+                   const bool can_be_in_navigate_to_pending_entry) {
                   // Measures the time a posted task spends in the queue before
                   // execution. Recorded only when `for_legacy` is true.
                   base::UmaHistogramTimes(
                       "Navigation.OnBeforeUnloadOverheadTime."
                       "NoBeforeUnloadHandlerRegistered",
                       base::TimeTicks::Now() - end_time);
+                  if (can_be_in_navigate_to_pending_entry &&
+                      navigation_controller) {
+                    navigation_controller
+                        ->set_can_be_in_navigate_to_pending_entry(true);
+                  }
                   std::move(callback).Run(/*proceed=*/true, start_time,
                                           end_time);
+                  if (can_be_in_navigate_to_pending_entry &&
+                      navigation_controller) {
+                    navigation_controller
+                        ->set_can_be_in_navigate_to_pending_entry(false);
+                  }
                 },
                 std::move(before_unload_closure),
-                send_before_unload_start_time_, base::TimeTicks::Now()));
+                send_before_unload_start_time_,
+                beforeunload_end_time_for_legacy,
+                frame_tree()->controller().GetWeakPtr(),
+                can_be_in_navigate_to_pending_entry));
     return;
   }
   auto scope = MakeUrgentMessageScopeIfNeeded();
@@ -18306,7 +18507,10 @@ blink::mojom::PermissionStatus RenderFrameHostImpl::GetPermissionStatus(
     blink::PermissionType permission_type) {
   return GetBrowserContext()
       ->GetPermissionController()
-      ->GetPermissionStatusForCurrentDocument(permission_type, this);
+      ->GetPermissionStatusForCurrentDocument(
+          content::PermissionDescriptorUtil::
+              CreatePermissionDescriptorForPermissionType(permission_type),
+          this);
 }
 
 void RenderFrameHostImpl::BindCacheStorageForBucket(
@@ -18391,6 +18595,12 @@ RenderFrameHostImpl::DeviceBoundSessionObserver::~DeviceBoundSessionObserver() =
 void RenderFrameHostImpl::DeviceBoundSessionObserver::
     OnDeviceBoundSessionAccessed(
         const net::device_bound_sessions::SessionAccess& access) {
+  if (!is_terminated_ &&
+      access.access_type ==
+          net::device_bound_sessions::SessionAccess::AccessType::kTermination &&
+      terminated_callback_) {
+    std::move(terminated_callback_).Run();
+  }
   is_terminated_ |=
       access.access_type ==
       net::device_bound_sessions::SessionAccess::AccessType::kTermination;
@@ -18568,7 +18778,10 @@ blink::mojom::PermissionStatus RenderFrameHostImpl::GetCombinedPermissionStatus(
     blink::PermissionType permission_type) {
   return GetBrowserContext()
       ->GetPermissionController()
-      ->GetCombinedPermissionAndDeviceStatus(permission_type, this);
+      ->GetCombinedPermissionAndDeviceStatus(
+          content::PermissionDescriptorUtil::
+              CreatePermissionDescriptorForPermissionType(permission_type),
+          this);
 }
 
 media::PictureInPictureEventsInfo::AutoPipReasonCallback
@@ -18578,7 +18791,7 @@ RenderFrameHostImpl::CreateAutoPipReasonCallback() {
         if (rfh == nullptr) {
           return media::PictureInPictureEventsInfo::AutoPipReason::kUnknown;
         }
-        return rfh->delegate()->GetAutoPipReason();
+        return rfh->delegate()->GetAutoPipInfo().auto_pip_reason;
       },
       weak_ptr_factory_.GetWeakPtr());
 }

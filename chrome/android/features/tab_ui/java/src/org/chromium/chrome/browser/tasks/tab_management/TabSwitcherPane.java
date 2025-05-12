@@ -27,6 +27,7 @@ import org.chromium.base.supplier.Supplier;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
+import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.hub.DelegateButtonData;
 import org.chromium.chrome.browser.hub.HubColorScheme;
@@ -119,7 +120,7 @@ public class TabSwitcherPane extends TabSwitcherPaneBase implements TabSwitcherD
      * @param userEducationHelper Used for showing IPHs.
      * @param edgeToEdgeSupplier Supplier to the {@link EdgeToEdgeController} instance.
      * @param compositorViewHolderSupplier Supplier to the {@link CompositorViewHolder} instance.
-     * @param tabGroupCreationUiFlow Orchestrates the tab group creation UI flow.
+     * @param tabGroupCreationUiDelegate Orchestrates the tab group creation UI flow.
      */
     TabSwitcherPane(
             @NonNull Context context,
@@ -133,7 +134,7 @@ public class TabSwitcherPane extends TabSwitcherPaneBase implements TabSwitcherD
             @NonNull UserEducationHelper userEducationHelper,
             @NonNull ObservableSupplier<EdgeToEdgeController> edgeToEdgeSupplier,
             @NonNull ObservableSupplier<CompositorViewHolder> compositorViewHolderSupplier,
-            @NonNull TabGroupCreationUiFlow tabGroupCreationUiFlow) {
+            @NonNull TabGroupCreationUiDelegate tabGroupCreationUiDelegate) {
         super(
                 context,
                 factory,
@@ -142,7 +143,7 @@ public class TabSwitcherPane extends TabSwitcherPaneBase implements TabSwitcherD
                 userEducationHelper,
                 edgeToEdgeSupplier,
                 compositorViewHolderSupplier,
-                tabGroupCreationUiFlow);
+                tabGroupCreationUiDelegate);
         mSharedPreferences = sharedPreferences;
         mTabGroupModelFilterSupplier = tabGroupModelFilterSupplier;
         mTabSwitcherPaneDrawableCoordinator = tabSwitcherDrawableCoordinator;
@@ -286,6 +287,8 @@ public class TabSwitcherPane extends TabSwitcherPaneBase implements TabSwitcherD
     private void onProfileProviderAvailable(@NonNull ProfileProvider profileProvider) {
         Profile profile = profileProvider.getOriginalProfile();
         mTabGroupSyncService = TabGroupSyncServiceFactory.getForProfile(profile);
+
+        mTracker = TrackerFactory.getTrackerForProfile(profileProvider.getOriginalProfile());
 
         if (!PriceTrackingFeatures.isPriceAnnotationsEnabled(profileProvider.getOriginalProfile())
                 && getTabListMode() == TabListMode.GRID) {

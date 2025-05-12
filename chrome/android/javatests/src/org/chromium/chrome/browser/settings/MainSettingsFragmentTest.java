@@ -70,6 +70,7 @@ import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.BuildInfo;
 import org.chromium.base.ContextUtils;
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.PackageManagerUtils;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.CommandLineFlags;
@@ -158,6 +159,7 @@ import java.util.stream.Stream;
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE, "show-autofill-signatures"})
 @DoNotBatch(reason = "Tests cannot run batched because they launch a Settings activity.")
+@DisableFeatures(ChromeFeatureList.DATA_SHARING)
 public class MainSettingsFragmentTest {
     private static final String SEARCH_ENGINE_SHORT_NAME = "Google";
 
@@ -240,11 +242,13 @@ public class MainSettingsFragmentTest {
                 mSettingsActivityTestRule
                         .getActivity()
                         .findViewById(R.id.account_management_account_row);
+        ChromeRenderTestRule.sanitize(accountRow);
         mRenderTestRule.render(accountRow, "main_settings_signed_out_account");
         View googleServicesRow =
                 mSettingsActivityTestRule
                         .getActivity()
                         .findViewById(R.id.account_management_google_services_row);
+        ChromeRenderTestRule.sanitize(googleServicesRow);
         mRenderTestRule.render(googleServicesRow, "main_settings_signed_out_google_services");
     }
 
@@ -260,6 +264,7 @@ public class MainSettingsFragmentTest {
                 mSettingsActivityTestRule
                         .getActivity()
                         .findViewById(R.id.account_management_account_row);
+        ChromeRenderTestRule.sanitize(accountRow);
         mRenderTestRule.render(accountRow, "main_settings_signin_disabled_by_policy_account");
     }
 
@@ -546,6 +551,7 @@ public class MainSettingsFragmentTest {
                         .getActivity()
                         .findViewById(android.R.id.content)
                         .getRootView();
+        ChromeRenderTestRule.sanitize(view);
         mRenderTestRule.render(view, "main_settings_signed_in_identity_error");
     }
 
@@ -914,9 +920,10 @@ public class MainSettingsFragmentTest {
         // this is an instrumentation test there's not a good way to fake or force device
         // characteristics, so we just fork the test's behavior based on the eligibility state.
         boolean showSetting =
-                BuildInfo.getInstance().isFoldable
-                        || !DeviceFormFactor.isNonMultiDisplayContextOnTablet(
-                                mSettingsActivityTestRule.getActivity());
+                !DeviceInfo.isAutomotive()
+                        && (BuildInfo.getInstance().isFoldable
+                                || !DeviceFormFactor.isNonMultiDisplayContextOnTablet(
+                                        mSettingsActivityTestRule.getActivity()));
         if (!showSetting) {
             Assert.assertNull(
                     "Address Bar should not be shown for for ineligible devices",

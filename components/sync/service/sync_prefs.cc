@@ -162,6 +162,8 @@ void SyncPrefs::RegisterProfilePrefs(PrefRegistrySimple* registry) {
       prefs::internal::kSyncInitialSyncFeatureSetupComplete, false);
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
+  registry->RegisterBooleanPref(
+      prefs::internal::kFirstSyncCompletedInFullSyncMode, false);
   registry->RegisterBooleanPref(kObsoleteAutofillWalletImportEnabledMigrated,
                                 false);
   registry->RegisterIntegerPref(prefs::internal::kSyncToSigninMigrationState,
@@ -253,6 +255,23 @@ void SyncPrefs::ClearInitialSyncFeatureSetupComplete() {
 }
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 
+bool SyncPrefs::IsFirstSyncCompletedInFullSyncMode() const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  return pref_service_->GetBoolean(
+      prefs::internal::kFirstSyncCompletedInFullSyncMode);
+}
+
+void SyncPrefs::SetFirstSyncCompletedInFullSyncMode() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  pref_service_->SetBoolean(prefs::internal::kFirstSyncCompletedInFullSyncMode,
+                            true);
+}
+
+void SyncPrefs::ClearFirstSyncCompletedInFullSyncMode() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  pref_service_->ClearPref(prefs::internal::kFirstSyncCompletedInFullSyncMode);
+}
+
 bool SyncPrefs::HasKeepEverythingSynced() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return pref_service_->GetBoolean(prefs::internal::kSyncKeepEverythingSynced);
@@ -281,8 +300,7 @@ UserSelectableTypeSet SyncPrefs::GetSelectedTypesForAccount(
         type_enabled = pref_value->GetBool();
       } else if (type == UserSelectableType::kHistory ||
                  type == UserSelectableType::kTabs ||
-                 type == UserSelectableType::kSavedTabGroups ||
-                 type == UserSelectableType::kSharedTabGroupData) {
+                 type == UserSelectableType::kSavedTabGroups) {
         // History, Tabs, Saved Tab Groups and and Shared Tab Group Data are
         // disabled by default.
         type_enabled = false;
@@ -718,8 +736,6 @@ const char* SyncPrefs::GetPrefNameForType(UserSelectableType type) {
       return prefs::internal::kSyncTabs;
     case UserSelectableType::kSavedTabGroups:
       return prefs::internal::kSyncSavedTabGroups;
-    case UserSelectableType::kSharedTabGroupData:
-      return prefs::internal::kSyncSharedTabGroupData;
     case UserSelectableType::kPayments:
       return prefs::internal::kSyncPayments;
     case UserSelectableType::kProductComparison:
@@ -783,9 +799,6 @@ bool SyncPrefs::IsTypeSupportedInTransportMode(UserSelectableType type) {
       return base::FeatureList::IsEnabled(kReplaceSyncPromosWithSignInPromos);
     case UserSelectableType::kProductComparison:
       return base::FeatureList::IsEnabled(kReplaceSyncPromosWithSignInPromos);
-    case syncer::UserSelectableType::kSharedTabGroupData:
-      return base::FeatureList::IsEnabled(
-          kSyncSharedTabGroupDataInTransportMode);
     case UserSelectableType::kSavedTabGroups:
       return base::FeatureList::IsEnabled(kReplaceSyncPromosWithSignInPromos);
     case UserSelectableType::kExtensions:

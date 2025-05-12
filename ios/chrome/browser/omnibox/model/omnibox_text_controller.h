@@ -12,6 +12,7 @@
 @protocol AutocompleteSuggestion;
 @class OmniboxAutocompleteController;
 class OmniboxController;
+@protocol OmniboxFocusDelegate;
 @protocol OmniboxTextControllerDelegate;
 @class OmniboxTextFieldIOS;
 class OmniboxViewIOS;
@@ -21,6 +22,9 @@ class OmniboxViewIOS;
 
 /// Delegate of the omnibox text controller.
 @property(nonatomic, weak) id<OmniboxTextControllerDelegate> delegate;
+
+/// Omnibox focus delegate.
+@property(nonatomic, weak) id<OmniboxFocusDelegate> focusDelegate;
 
 /// Controller of autocomplete.
 @property(nonatomic, weak)
@@ -32,11 +36,24 @@ class OmniboxViewIOS;
 /// Temporary initializer, used during the refactoring. crbug.com/390409559
 - (instancetype)initWithOmniboxController:(OmniboxController*)omniboxController
                            omniboxViewIOS:(OmniboxViewIOS*)omniboxViewIOS
+                            inLensOverlay:(BOOL)inLensOverlay
     NS_DESIGNATED_INITIALIZER;
 - (instancetype)init NS_UNAVAILABLE;
 
 /// Removes all C++ references.
 - (void)disconnect;
+
+/// Updates the omnibox text based on its current client state.
+- (void)updateAppearance;
+
+/// Returns whether the omnibox is first responder.
+- (BOOL)isOmniboxFirstResponder;
+
+/// Ends omnibox editing / defocus the omnibox.
+- (void)endEditing;
+
+/// Inserts text into the omnibox without triggering autocomplete.
+- (void)insertTextToOmnibox:(NSString*)text;
 
 #pragma mark - Autocomplete event
 
@@ -57,11 +74,17 @@ class OmniboxViewIOS;
 /// Clears the Omnibox text.
 - (void)clearText;
 
+/// Accepts the current input / default suggestion.
+- (void)acceptInput;
+
 /// Prepares the omnibox for scribble.
 - (void)prepareForScribble;
 
 /// Cleans up the omnibox after scribble.
 - (void)cleanupAfterScribble;
+
+/// Called when the text input mode changed.
+- (void)onTextInputModeChange;
 
 /// Called when the omnibox text field starts editing.
 - (void)onDidBeginEditing;
@@ -90,9 +113,27 @@ class OmniboxViewIOS;
 
 #pragma mark - Omnibox popup event
 
-/// Previews `suggestion` in the Omnibox. Called when a suggestion is
-/// highlighted in the popup.
-- (void)previewSuggestion:(id<AutocompleteSuggestion>)suggestion;
+/// Sets the currently previewed autocomplete suggestion.
+- (void)previewSuggestion:(id<AutocompleteSuggestion>)suggestion
+            isFirstUpdate:(BOOL)isFirstUpdate;
+
+/// Notifies of scroll event.
+- (void)onScroll;
+
+/// Hides the keyboard.
+- (void)hideKeyboard;
+
+/// Refines omnibox content with `text`.
+- (void)refineWithText:(const std::u16string&)text;
+
+#pragma mark - Private event
+// Events that are private. Removed from header after refactoring
+// (crbug.com/390409559). Since these methods should be private, comments are in
+// the implementation file.
+
+- (void)setCaretPos:(NSUInteger)caretPos;
+
+- (void)startAutocompleteAfterEdit;
 
 @end
 

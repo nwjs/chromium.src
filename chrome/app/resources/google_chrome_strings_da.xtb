@@ -103,7 +103,6 @@
 <translation id="234869673307233423">Chrome kan ikke tjekke dine adgangskoder. Prøv igen senere.</translation>
 <translation id="235650106824528204">Alle Chrome-data, der genereres ved brug af denne profil (f.eks. oprettelse af bogmærker, historik, adgangskoder og andre indstillinger) kan fjernes af arbejdsprofilens administrator. <ph name="LEARN_MORE" /></translation>
 <translation id="2359808026110333948">Fortsæt</translation>
-<translation id="2401189691232800402">ChromeOS-system</translation>
 <translation id="2403703063067034158">Opstartsfejl: En anden konfigurationen kører i øjeblikket. Prøv igen senere.</translation>
 <translation id="2409816192575564775">{NUM_DEVICES,plural, =0{En eller flere Chrome-udvidelser havde adgang til 1 HID-enhed}=1{En eller flere Chrome-udvidelser har adgang til 1 HID-enhed}one{En eller flere Chrome-udvidelser har adgang til # HID-enhed}other{En eller flere Chrome-udvidelser har adgang til # HID-enheder}}</translation>
 <translation id="2424440923901031101">Denne udvidelse overtræder politikken for Chrome Webshop og er muligvis ikke sikker. Fjern den fra Chrome, så den ikke længere kan se og ændre dine data på de websites, du besøger, herunder dine personlige oplysninger.</translation>
@@ -615,7 +614,6 @@
 <translation id="8999208279178790196">{0,plural, =0{Der er en tilgængelig Chrome-opdatering}=1{Der er en tilgængelig Chrome-opdatering}one{En Chrome-opdatering har været tilgængelig i # dag}other{En Chrome-opdatering har været tilgængelig i # dage}}</translation>
 <translation id="9014771989710951291">Flere organisationer administrerer Chrome</translation>
 <translation id="9024318700713112071">Angiv Chrome som din standardbrowser</translation>
-<translation id="9053892488859122171">ChromeOS Flex-system</translation>
 <translation id="9090566250983691233">Se, hvorfor Chrome blokerer visse filer</translation>
 <translation id="9106236359747881194">Markér den tekst, du vil søge efter</translation>
 <translation id="911206726377975832">Slet også dine browserdata?</translation>

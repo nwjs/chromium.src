@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_service_test_base.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/extensions/permissions/active_tab_permission_granter.h"
@@ -16,6 +15,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/navigation_simulator.h"
 #include "content/public/test/web_contents_tester.h"
+#include "extensions/browser/extension_registrar.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/host_access_request_helper.h"
 #include "extensions/browser/permissions_manager.h"
@@ -75,7 +75,7 @@ HostAccessRequestsHelperUnittest::InstallExtensionAndWithholdHostPermissions(
                        .AddHostPermission(host_permission)
                        .SetID(crx_file::id_util::GenerateId(name))
                        .Build();
-  service()->AddExtension(extension.get());
+  registrar()->AddExtension(extension);
 
   ScriptingPermissionsModifier(profile(), extension)
       .SetWithholdHostPermissions(true);
@@ -91,7 +91,7 @@ HostAccessRequestsHelperUnittest::InstallExtensionWithActiveTab(
                        .SetID(crx_file::id_util::GenerateId(name))
                        .AddAPIPermission("activeTab")
                        .Build();
-  service()->AddExtension(extension.get());
+  registrar()->AddExtension(extension);
 
   return extension;
 }
@@ -391,7 +391,7 @@ TEST_F(HostAccessRequestsHelperUnittest,
                        .AddAPIPermission("activeTab")
                        .SetID(crx_file::id_util::GenerateId(extension_name))
                        .Build();
-  service()->AddExtension(extension.get());
+  registrar()->AddExtension(extension);
   ScriptingPermissionsModifier(profile(), extension)
       .SetWithholdHostPermissions(true);
 
@@ -444,7 +444,7 @@ TEST_F(HostAccessRequestsHelperUnittest,
 
   // Uninstall extension A. Verify only extension B should have a host access
   // request.
-  service()->UninstallExtension(
+  registrar()->UninstallExtension(
       extension_A->id(), extensions::UNINSTALL_REASON_FOR_TESTING, nullptr);
   EXPECT_FALSE(permissions_manager()->HasActiveHostAccessRequest(
       tab_id, extension_A->id()));
@@ -452,8 +452,8 @@ TEST_F(HostAccessRequestsHelperUnittest,
       tab_id, extension_B->id()));
 
   // Disable extension B. Verify no extension should have a host access request.
-  service()->DisableExtension(extension_B->id(),
-                              extensions::disable_reason::DISABLE_USER_ACTION);
+  registrar()->DisableExtension(
+      extension_B->id(), {extensions::disable_reason::DISABLE_USER_ACTION});
   EXPECT_FALSE(permissions_manager()->HasActiveHostAccessRequest(
       tab_id, extension_A->id()));
   EXPECT_FALSE(permissions_manager()->HasActiveHostAccessRequest(
@@ -462,7 +462,7 @@ TEST_F(HostAccessRequestsHelperUnittest,
   // Enable extension B. Verify no extension has a host access request. Request
   // is not persisted when extension is re-enabled, the extension needs to add
   // the request again.
-  service()->EnableExtension(extension_B->id());
+  registrar()->EnableExtension(extension_B->id());
   EXPECT_FALSE(permissions_manager()->HasActiveHostAccessRequest(
       tab_id, extension_A->id()));
   EXPECT_FALSE(permissions_manager()->HasActiveHostAccessRequest(

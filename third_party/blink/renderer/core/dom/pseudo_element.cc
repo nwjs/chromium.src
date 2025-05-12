@@ -285,7 +285,7 @@ PseudoElement::PseudoElement(Element* parent,
       view_transition_name_(view_transition_name) {
   DCHECK_NE(pseudo_id, kPseudoIdNone);
   parent->GetTreeScope().AdoptIfNeeded(*this);
-  SetParentOrShadowHostNode(parent);
+  SetParentNode(parent);
   SetHasCustomStyleCallbacks();
   if ((pseudo_id == kPseudoIdBefore || pseudo_id == kPseudoIdAfter) &&
       parent->HasTagName(html_names::kInputTag)) {
@@ -366,6 +366,18 @@ const ComputedStyle* PseudoElement::AdjustedLayoutStyle(
     // the originating element of the scroll marker.
     StyleAdjuster::AdjustStyleForDisplay(builder, layout_parent_style, this,
                                          &GetDocument());
+    if (style.IsCSSInertIsInherited() &&
+        style.IsCSSInert() != layout_parent_style.IsCSSInert()) {
+      // A ::scroll-marker gets its inertness from its ::scroll-marker-group
+      // instead of its originating element unless the inertness is applied
+      // directly to the ::scroll-marker itself.
+      builder.SetIsCSSInert(layout_parent_style.IsCSSInert());
+      builder.SetIsCSSInertIsInherited(false);
+    }
+    if (style.IsHTMLInert() != layout_parent_style.IsHTMLInert()) {
+      builder.SetIsHTMLInert(layout_parent_style.IsHTMLInert());
+      builder.SetIsHTMLInertIsInherited(false);
+    }
     return builder.TakeStyle();
   }
 
@@ -383,7 +395,7 @@ void PseudoElement::Dispose() {
   DetachLayoutTree();
   Element* parent = ParentOrShadowHostElement();
   GetDocument().AdoptIfNeeded(*this);
-  SetParentOrShadowHostNode(nullptr);
+  SetParentNode(nullptr);
   RemovedFrom(*parent);
 }
 

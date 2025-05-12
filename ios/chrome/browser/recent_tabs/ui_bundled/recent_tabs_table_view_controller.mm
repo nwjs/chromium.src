@@ -31,6 +31,7 @@
 #import "ios/chrome/browser/authentication/ui_bundled/cells/signin_promo_view_configurator.h"
 #import "ios/chrome/browser/authentication/ui_bundled/cells/signin_promo_view_consumer.h"
 #import "ios/chrome/browser/authentication/ui_bundled/cells/table_view_signin_promo_item.h"
+#import "ios/chrome/browser/authentication/ui_bundled/change_profile/change_profile_recent_tabs_continuation.h"
 #import "ios/chrome/browser/authentication/ui_bundled/enterprise/enterprise_utils.h"
 #import "ios/chrome/browser/authentication/ui_bundled/history_sync/history_sync_coordinator.h"
 #import "ios/chrome/browser/authentication/ui_bundled/history_sync/history_sync_utils.h"
@@ -729,16 +730,20 @@ typedef std::pair<SessionID, TableViewURLItem*> RecentlyClosedTableViewItemPair;
   ProfileIOS* profile = self.profile;
   if (!self.signinPromoViewMediator && profile) {
     self.signinPromoViewMediator = [[SigninPromoViewMediator alloc]
-         initWithIdentityManager:IdentityManagerFactory::GetForProfile(profile)
-           accountManagerService:ChromeAccountManagerServiceFactory::
-                                     GetForProfile(profile)
-                     authService:AuthenticationServiceFactory::GetForProfile(
-                                     profile)
-                     prefService:profile->GetPrefs()
-                     syncService:self.syncService
-                     accessPoint:signin_metrics::AccessPoint::kRecentTabs
-                 signinPresenter:self
-        accountSettingsPresenter:nil];
+                  initWithIdentityManager:IdentityManagerFactory::GetForProfile(
+                                              profile)
+                    accountManagerService:ChromeAccountManagerServiceFactory::
+                                              GetForProfile(profile)
+                              authService:AuthenticationServiceFactory::
+                                              GetForProfile(profile)
+                              prefService:profile->GetPrefs()
+                              syncService:self.syncService
+                              accessPoint:signin_metrics::AccessPoint::
+                                              kRecentTabs
+                          signinPresenter:self
+                 accountSettingsPresenter:nil
+        changeProfileContinuationProvider:
+            base::BindRepeating(&CreateChangeProfileRecentTabsContinuation)];
     self.signinPromoViewMediator.signinPromoAction =
         SigninPromoAction::kSigninWithNoDefaultIdentity;
     self.signinPromoViewMediator.consumer = self;
@@ -1066,8 +1071,7 @@ typedef std::pair<SessionID, TableViewURLItem*> RecentlyClosedTableViewItemPair;
   self.sessionState = newSessionState;
 
   if (self.sessionState != SessionsSyncUserState::USER_SIGNED_OUT) {
-    [self.signinPromoViewMediator disconnect];
-    self.signinPromoViewMediator = nil;
+    [self disconnectMediator];
   }
 }
 
@@ -1093,8 +1097,7 @@ typedef std::pair<SessionID, TableViewURLItem*> RecentlyClosedTableViewItemPair;
 }
 
 - (void)dismissModals {
-  [self.signinPromoViewMediator disconnect];
-  self.signinPromoViewMediator = nil;
+  [self disconnectMediator];
   [self.tableView.contextMenuInteraction dismissMenu];
 }
 
@@ -1747,8 +1750,7 @@ typedef std::pair<SessionID, TableViewURLItem*> RecentlyClosedTableViewItemPair;
     // is removed since the section is replaced at each reload.
     // Metrics would be recorded too often.
     // The other device section can be present even without the promo.
-    [self.signinPromoViewMediator disconnect];
-    self.signinPromoViewMediator = nil;
+    [self disconnectMediator];
     return;
   }
   if ([self.tableViewModel hasItemForItemType:ItemTypeOtherDevicesSigninPromo
@@ -1781,13 +1783,13 @@ typedef std::pair<SessionID, TableViewURLItem*> RecentlyClosedTableViewItemPair;
 #pragma mark - SyncPresenter
 
 - (void)showPrimaryAccountReauth {
-  [self.applicationHandler
-              showSignin:[[ShowSigninCommand alloc]
-                             initWithOperation:AuthenticationOperation::
-                                                   kPrimaryAccountReauth
-                                   accessPoint:signin_metrics::AccessPoint::
-                                                   kRecentTabs]
-      baseViewController:self];
+  auto provider =
+      base::BindRepeating(&CreateChangeProfileRecentTabsContinuation);
+  ShowSigninCommand* command = [[ShowSigninCommand
+      alloc] initWithOperation:AuthenticationOperation::kPrimaryAccountReauth
+                            accessPoint:signin_metrics::AccessPoint::kRecentTabs
+      changeProfileContinuationProvider:provider];
+  [self.applicationHandler showSignin:command baseViewController:self];
 }
 
 - (void)showSyncPassphraseSettings {
@@ -1877,6 +1879,12 @@ typedef std::pair<SessionID, TableViewURLItem*> RecentlyClosedTableViewItemPair;
 }
 
 #pragma mark - Private Helpers
+
+// Disconnects the mediator.
+- (void)disconnectMediator {
+  [self.signinPromoViewMediator disconnect];
+  self.signinPromoViewMediator = nil;
+}
 
 - (void)didTapPromoActionButton {
   syncer::SyncService* const syncService = self.syncService;

@@ -253,7 +253,6 @@ void ServiceWorkerMainResourceLoader::StartRequest(
 
   RaceNetworkRequestMode race_network_request_mode =
       RaceNetworkRequestMode::kDefault;
-  std::optional<blink::ServiceWorkerRouterRaceSource> race_source;
   // Check if registered static router rules match the request.
   if (active_worker->router_evaluator()) {
     CHECK(active_worker->router_evaluator()->IsValid());
@@ -328,9 +327,9 @@ void ServiceWorkerMainResourceLoader::StartRequest(
           }
           return;
         }
-        case network::mojom::ServiceWorkerRouterSourceType::kRace:
+        case network::mojom::ServiceWorkerRouterSourceType::
+            kRaceNetworkAndFetchEvent:
           race_network_request_mode = RaceNetworkRequestMode::kForced;
-          race_source = sources[0].race_source;
           break;
         case network::mojom::ServiceWorkerRouterSourceType::kFetchEvent:
           race_network_request_mode = RaceNetworkRequestMode::kSkipped;
@@ -364,6 +363,10 @@ void ServiceWorkerMainResourceLoader::StartRequest(
                   },
                   active_worker));
           return;
+        case network::mojom::ServiceWorkerRouterSourceType::
+            kRaceNetworkAndCache:
+          // TODO(crbug.com/370844790): implement race network and cache
+          break;
       }
     }
   }
@@ -371,8 +374,8 @@ void ServiceWorkerMainResourceLoader::StartRequest(
   // Dispatch the fetch event.
   fetch_dispatcher_ = std::make_unique<ServiceWorkerFetchDispatcher>(
       blink::mojom::FetchAPIRequest::From(resource_request_),
-      resource_request_.destination, fetch_event_client_id_,
-      service_worker_client_->client_uuid(), active_worker,
+      resource_request_.destination, /*client_id=*/fetch_event_client_id_,
+      /*resulting_client_id=*/service_worker_client_->client_uuid(), active_worker,
       base::BindOnce(&ServiceWorkerMainResourceLoader::DidPrepareFetchEvent,
                      weak_factory_.GetWeakPtr(), active_worker,
                      active_worker->running_status()),
@@ -384,8 +387,6 @@ void ServiceWorkerMainResourceLoader::StartRequest(
   }
 
   if (race_network_request_mode == RaceNetworkRequestMode::kForced) {
-    CHECK_EQ(race_source->target, blink::ServiceWorkerRouterRaceSource::
-                                      TargetEnum::kNetworkAndFetchHandler);
     if (base::FeatureList::IsEnabled(
             features::
                 kServiceWorkerStaticRouterRaceNetworkRequestPerformanceImprovement)) {
@@ -604,17 +605,6 @@ bool ServiceWorkerMainResourceLoader::MaybeStartNavigationPreload(
   }
 
   return false;
-}
-
-void ServiceWorkerMainResourceLoader::CommitResponseHeaders(
-    const network::mojom::URLResponseHeadPtr& response_head) {
-  DCHECK(url_loader_client_.is_bound());
-  TRACE_EVENT_WITH_FLOW2(
-      "ServiceWorker", "ServiceWorkerMainResourceLoader::CommitResponseHeaders",
-      this, TRACE_EVENT_FLAG_FLOW_IN | TRACE_EVENT_FLAG_FLOW_OUT,
-      "response_code", response_head->headers->response_code(), "status_text",
-      response_head->headers->GetStatusText());
-  TransitionToStatus(Status::kSentHeader);
 }
 
 void ServiceWorkerMainResourceLoader::CommitResponseBody(
@@ -955,7 +945,8 @@ void ServiceWorkerMainResourceLoader::DidDispatchFetchEvent(
   if (auto* route_info = response_head_->service_worker_router_info.get()) {
     if (route_info->matched_source_type &&
         *route_info->matched_source_type ==
-            network::mojom::ServiceWorkerRouterSourceType::kRace) {
+            network::mojom::ServiceWorkerRouterSourceType::
+                kRaceNetworkAndFetchEvent) {
       route_info->actual_source_type =
           network::mojom::ServiceWorkerRouterSourceType::kFetchEvent;
     } else {
@@ -1063,7 +1054,7 @@ void ServiceWorkerMainResourceLoader::
   CHECK_EQ(synthetic_response_manager_->Status(),
            SyntheticResponseStatus::kNotReady);
   SetCommitResponsibility(FetchResponseFrom::kWithoutServiceWorker);
-  CommitResponseHeaders(response_head);
+  CHECK(url_loader_client_.is_bound());
   CommitResponseBody(response_head, std::move(body), std::nullopt);
 }
 
@@ -1141,8 +1132,7 @@ void ServiceWorkerMainResourceLoader::StartResponse(
     return;
   }
 
-  // We have a non-redirect response. Send the headers to the client.
-  CommitResponseHeaders(response_head_);
+  CHECK(url_loader_client_.is_bound());
 
   // Handle a stream response body.
   if (!body_as_stream.is_null() && body_as_stream->stream.is_valid()) {
@@ -1233,7 +1223,8 @@ void ServiceWorkerMainResourceLoader::SetCommitResponsibility(
   if (response_head_ && response_head_->service_worker_router_info &&
       response_head_->service_worker_router_info->matched_source_type &&
       *response_head_->service_worker_router_info->matched_source_type ==
-          network::mojom::ServiceWorkerRouterSourceType::kRace &&
+          network::mojom::ServiceWorkerRouterSourceType::
+              kRaceNetworkAndFetchEvent &&
       fetch_response_from == FetchResponseFrom::kWithoutServiceWorker) {
     response_head_->service_worker_router_info->actual_source_type =
         network::mojom::ServiceWorkerRouterSourceType::kNetwork;
@@ -1726,11 +1717,8 @@ void ServiceWorkerMainResourceLoader::TransitionToStatus(Status new_status) {
     case Status::kStarted:
       DCHECK_EQ(status_, Status::kNotStarted);
       break;
-    case Status::kSentHeader:
-      DCHECK_EQ(status_, Status::kStarted);
-      break;
     case Status::kSentBody:
-      DCHECK_EQ(status_, Status::kSentHeader);
+      DCHECK_EQ(status_, Status::kStarted);
       break;
     case Status::kCompleted:
       DCHECK(
@@ -1738,8 +1726,6 @@ void ServiceWorkerMainResourceLoader::TransitionToStatus(Status new_status) {
           status_ == Status::kNotStarted ||
           // Network fallback after interception.
           status_ == Status::kStarted ||
-          // Pipe creation failure for empty response.
-          status_ == Status::kSentHeader ||
           // Success case or error while sending the response's body.
           status_ == Status::kSentBody);
       break;

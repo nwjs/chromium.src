@@ -759,9 +759,6 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 // Returns whether the UseLensToSearchForImage feature is enabled;
 - (BOOL)isUseLensToSearchForImageEnabled;
 
-// Returns whether the Web Channels feature is enabled.
-- (BOOL)isWebChannelsEnabled;
-
 // Returns whether the Tab Group Sync feature is enabled.
 - (BOOL)isTabGroupSyncEnabled;
 
@@ -894,6 +891,9 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 
 // Copies `text` into the clipboard from the app's perspective.
 - (void)copyTextToPasteboard:(NSString*)text;
+
+// Copies `link` as NSURL into the clipboard from the app's perspective.
+- (void)copyLinkAsURLToPasteBoard:(NSString*)link;
 
 #pragma mark - Context Menus Utilities (EG2)
 

@@ -162,11 +162,6 @@
       },
     },
   },
-  'cros-cbx-dut': {
-    'skylab': {
-      'cros_cbx': True,
-    },
-  },
   'crosier-no-arc': {
     'args': [
       '--test-launcher-filter-file=../../testing/buildbot/filters/chromeos.reven.chromeos_integration_tests.filter',
@@ -406,7 +401,7 @@
     'fail_if_unused': False,
     'swarming': {
       'dimensions': {
-        'device_type': 'e2s',
+        'device_type': 's5e9945',
         'device_os': 'UP1A.231005.007',
         'device_os_type': 'user',
         'os': 'Android',
@@ -595,6 +590,20 @@
       },
     },
   },
+  'mac_arm64_apple_m3_retina_gpu_stable': {
+    'fail_if_unused': False,
+    'swarming': {
+      'dimensions': {
+        'cpu': 'arm64',
+        'gpu': 'apple:m3',
+        'mac_model': 'Mac15,3',
+        'os': 'Mac-15.4.1',
+        'pool': 'chromium.tests.gpu',
+        'display_attached': '1',
+        'hidpi': '1',
+      },
+    },
+  },
   'mac_default_arm64': {
     'swarming': {
       'dimensions': {
@@ -617,7 +626,7 @@
       'dimensions': {
         'cpu': 'x86-64',
         'gpu': '8086:3e9b',
-        'os': 'Mac-15.0',
+        'os': 'Mac-14.5',
         'display_attached': '1',
       },
     },

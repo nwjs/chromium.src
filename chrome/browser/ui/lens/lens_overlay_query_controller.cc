@@ -561,6 +561,16 @@ lens::Payload CreatePageContentPayload(
   return payload;
 }
 
+std::string Base64EncodeRequestId(lens::LensOverlayRequestId request_id) {
+  std::string serialized_request_id;
+  CHECK(request_id.SerializeToString(&serialized_request_id));
+  std::string encoded_request_id;
+  base::Base64UrlEncode(serialized_request_id,
+                        base::Base64UrlEncodePolicy::OMIT_PADDING,
+                        &encoded_request_id);
+  return encoded_request_id;
+}
+
 }  // namespace
 
 PageContent::PageContent() : content_type_(lens::MimeType::kUnknown) {}
@@ -674,6 +684,8 @@ void LensOverlayQueryController::MaybeRestartQueryFlow() {
 void LensOverlayQueryController::SendFullPageTranslateQuery(
     const std::string& source_language,
     const std::string& target_language) {
+  CHECK(query_controller_state_ != QueryControllerState::kOff)
+      << "SendFullPageTranslateQuery called when query controller is off";
   translate_options_ = TranslateOptions(source_language, target_language);
 
   // Send a normal full image request. The parameters to make it a translate
@@ -683,6 +695,9 @@ void LensOverlayQueryController::SendFullPageTranslateQuery(
 }
 
 void LensOverlayQueryController::SendEndTranslateModeQuery() {
+  CHECK(query_controller_state_ != QueryControllerState::kOff)
+      << "SendEndTranslateModeQuery called when query controller is off";
+
   translate_options_.reset();
   PrepareAndFetchFullImageRequest();
 }
@@ -703,6 +718,9 @@ void LensOverlayQueryController::SendUpdatedPageContent(
     std::optional<std::string> new_page_title,
     std::optional<uint32_t> pdf_current_page,
     const SkBitmap& screenshot) {
+  CHECK(query_controller_state_ != QueryControllerState::kOff)
+      << "SendUpdatedPageContent called when query controller is off";
+
   if (underlying_page_content.has_value()) {
     underlying_page_contents_ = underlying_page_content.value();
     primary_content_type_ = primary_content_type.value();
@@ -736,6 +754,8 @@ void LensOverlayQueryController::SendUpdatedPageContent(
 
 void LensOverlayQueryController::SendPartialPageContentRequest(
     base::span<const std::u16string> partial_content) {
+  CHECK(query_controller_state_ != QueryControllerState::kOff)
+      << "SendPartialPageContentRequest called when query controller is off";
   partial_content_ = partial_content;
 
   PrepareAndFetchPartialPageContentRequest();
@@ -746,6 +766,9 @@ void LensOverlayQueryController::SendRegionSearch(
     lens::LensOverlaySelectionType lens_selection_type,
     std::map<std::string, std::string> additional_search_query_params,
     std::optional<SkBitmap> region_bytes) {
+  CHECK(query_controller_state_ != QueryControllerState::kOff)
+      << "SendRegionSearch called when query controller is off";
+
   SendInteraction(/*region=*/std::move(region), /*query_text=*/std::nullopt,
                   /*object_id=*/std::nullopt, lens_selection_type,
                   additional_search_query_params, region_bytes);
@@ -755,6 +778,8 @@ void LensOverlayQueryController::SendContextualTextQuery(
     const std::string& query_text,
     lens::LensOverlaySelectionType lens_selection_type,
     std::map<std::string, std::string> additional_search_query_params) {
+  CHECK(query_controller_state_ != QueryControllerState::kOff)
+      << "SendContextualTextQuery called when query controller is off";
   if (underlying_page_contents_.empty()) {
     SendTextOnlyQuery(query_text, lens_selection_type,
                       additional_search_query_params);
@@ -785,6 +810,9 @@ void LensOverlayQueryController::SendTextOnlyQuery(
     const std::string& query_text,
     lens::LensOverlaySelectionType lens_selection_type,
     std::map<std::string, std::string> additional_search_query_params) {
+  CHECK(query_controller_state_ != QueryControllerState::kOff)
+      << "SendTextOnlyQuery called when query controller is off";
+
   // Although the text only flow might not send an interaction request, we
   // should replace any in-flight interaction requests to cancel previously
   // issued fetches.
@@ -830,6 +858,9 @@ void LensOverlayQueryController::SendMultimodalRequest(
     lens::LensOverlaySelectionType multimodal_selection_type,
     std::map<std::string, std::string> additional_search_query_params,
     std::optional<SkBitmap> region_bytes) {
+  CHECK(query_controller_state_ != QueryControllerState::kOff)
+      << "SendMultimodalRequest called when query controller is off";
+
   if (base::TrimWhitespaceASCII(query_text, base::TRIM_ALL).empty()) {
     return;
   }
@@ -851,6 +882,23 @@ void LensOverlayQueryController::SendSemanticEventGen204IfEnabled(
     request_id = std::make_optional(latest_request_id_);
   }
   SendSemanticEventGen204IfEnabled(event, request_id);
+}
+
+void LensOverlayQueryController::RunSuggestInputsCallback() {
+  suggest_inputs_.set_send_gsession_vsrid_for_contextual_suggest(
+      lens::features::GetLensOverlaySendLensInputsForContextualSuggest());
+  suggest_inputs_.set_send_gsession_vsrid_vit_for_lens_suggest(
+      lens::features::GetLensOverlaySendLensInputsForLensSuggest());
+  suggest_inputs_.set_send_vsint_for_lens_suggest(
+      lens::features::
+          GetLensOverlaySendLensVisualInteractionDataForLensSuggest());
+  if (cluster_info_.has_value()) {
+    suggest_inputs_.set_search_session_id(cluster_info_->search_session_id());
+  } else {
+    suggest_inputs_.clear_search_session_id();
+  }
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, base::BindOnce(suggest_inputs_callback_, suggest_inputs_));
 }
 
 void LensOverlayQueryController::ResetRequestClusterInfoStateForTesting() {
@@ -923,13 +971,7 @@ std::string LensOverlayQueryController::GetVsridForNewTab() {
   std::unique_ptr<lens::LensOverlayRequestId> request_id =
       request_id_generator_->GetNextRequestId(
           RequestIdUpdateMode::kOpenInNewTab);
-  std::string serialized_request_id;
-  CHECK(request_id->SerializeToString(&serialized_request_id));
-  std::string encoded_request_id;
-  base::Base64UrlEncode(serialized_request_id,
-                        base::Base64UrlEncodePolicy::OMIT_PADDING,
-                        &encoded_request_id);
-  return encoded_request_id;
+  return Base64EncodeRequestId(*request_id);
 }
 
 std::unique_ptr<lens::LensOverlayRequestId>
@@ -939,12 +981,7 @@ LensOverlayQueryController::GetNextRequestId(RequestIdUpdateMode update_mode) {
   latest_request_id_ = *request_id.get();
   latest_encoded_analytics_id_ =
       request_id_generator_->GetBase32EncodedAnalyticsId();
-  std::string serialized_request_id;
-  CHECK(request_id->SerializeToString(&serialized_request_id));
-  std::string encoded_request_id;
-  base::Base64UrlEncode(serialized_request_id,
-                        base::Base64UrlEncodePolicy::OMIT_PADDING,
-                        &encoded_request_id);
+  std::string encoded_request_id = Base64EncodeRequestId(*request_id);
   suggest_inputs_.set_encoded_request_id(encoded_request_id);
   RunSuggestInputsCallback();
   return request_id;
@@ -1028,16 +1065,18 @@ void LensOverlayQueryController::ClusterInfoFetchResponseHandler(
   cluster_info_->set_server_session_id(server_response.server_session_id());
   cluster_info_->set_search_session_id(server_response.search_session_id());
 
-  // Update the suggest inputs with the cluster info's search session id.
-  RunSuggestInputsCallback();
-
   // If routing info is enabled, store the routing info to be included in
   // followup requests.
   if (lens::features::IsLensOverlayRoutingInfoEnabled() &&
       server_response.has_routing_info() &&
       !request_id_generator_->HasRoutingInfo()) {
-    request_id_generator_->SetRoutingInfo(server_response.routing_info());
+    std::unique_ptr<lens::LensOverlayRequestId> request_id =
+        request_id_generator_->SetRoutingInfo(server_response.routing_info());
+    suggest_inputs_.set_encoded_request_id(Base64EncodeRequestId(*request_id));
   }
+
+  // Update the suggest inputs with the cluster info's search session id.
+  RunSuggestInputsCallback();
 
   // Clear the cluster info after its lifetime expires.
   base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
@@ -1312,7 +1351,10 @@ void LensOverlayQueryController::FullImageFetchResponseHandler(
     if (lens::features::IsLensOverlayRoutingInfoEnabled() &&
         cluster_info_->has_routing_info() &&
         !request_id_generator_->HasRoutingInfo()) {
-      request_id_generator_->SetRoutingInfo(cluster_info_->routing_info());
+      std::unique_ptr<lens::LensOverlayRequestId> new_request_id =
+          request_id_generator_->SetRoutingInfo(cluster_info_->routing_info());
+      suggest_inputs_.set_encoded_request_id(
+          Base64EncodeRequestId(*new_request_id));
     }
   }
 
@@ -2027,6 +2069,7 @@ void LensOverlayQueryController::InteractionFetchResponseHandler(
     // enabled and the image signals feature flag is disabled.
     suggest_inputs_.set_encoded_image_signals(
         server_response.interaction_response().encoded_response());
+    RunSuggestInputsCallback();
   }
 
   if (lens::features::IsSimplifiedSelectionEnabled() &&
@@ -2344,26 +2387,11 @@ void LensOverlayQueryController::ResetRequestClusterInfoState() {
   cluster_info_.reset();
   query_controller_state_ = QueryControllerState::kClusterInfoExpired;
   request_id_generator_->ResetRequestId();
+  suggest_inputs_.Clear();
+  RunSuggestInputsCallback();
   parent_query_sent_ = false;
   is_first_page_contents_request_ = true;
   is_first_partial_page_contents_request_ = true;
-}
-
-void LensOverlayQueryController::RunSuggestInputsCallback() {
-  suggest_inputs_.set_send_gsession_vsrid_for_contextual_suggest(
-      lens::features::GetLensOverlaySendLensInputsForContextualSuggest());
-  suggest_inputs_.set_send_gsession_vsrid_vit_for_lens_suggest(
-      lens::features::GetLensOverlaySendLensInputsForLensSuggest());
-  suggest_inputs_.set_send_vsint_for_lens_suggest(
-      lens::features::
-          GetLensOverlaySendLensVisualInteractionDataForLensSuggest());
-  if (cluster_info_.has_value()) {
-    suggest_inputs_.set_search_session_id(cluster_info_->search_session_id());
-  } else {
-    suggest_inputs_.clear_search_session_id();
-  }
-  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE, base::BindOnce(suggest_inputs_callback_, suggest_inputs_));
 }
 
 void LensOverlayQueryController::OnFullImageEndpointFetcherCreated(
@@ -2413,7 +2441,7 @@ void LensOverlayQueryController::OnChunkUploadEndpointFetcherCreated(
 
 bool LensOverlayQueryController::ShouldSendContextualSearchQuery() {
   // Can send the query if the page content request has finished.
-  return !page_content_request_in_progress_;
+  return !page_content_request_in_progress_ && cluster_info_.has_value();
 }
 
 bool LensOverlayQueryController::IsPartialPageContentSubstantial() {

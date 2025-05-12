@@ -28,6 +28,10 @@ namespace tab_groups {
 // may change if the tab groups name, color, or urls are changed from the
 // tab_group_editor_bubble_view.
 class SavedTabGroup {
+  // This tells if the shared group is enabled or not. This field is read from
+  // group data and is to inform observers/UI about the shared group status.
+  enum class SharedGroupStatus { kEnabled, kDisabledChromeNeedsUpdate };
+
  public:
   SavedTabGroup(
       const std::u16string& title,
@@ -74,6 +78,9 @@ class SavedTabGroup {
   }
   const base::Time& last_user_interaction_time() const {
     return last_user_interaction_time_;
+  }
+  const std::optional<base::Time>& archival_time() const {
+    return archival_time_;
   }
   const std::optional<std::string>& creator_cache_guid() const {
     return creator_cache_guid_;
@@ -155,10 +162,12 @@ class SavedTabGroup {
       base::Time update_time_windows_epoch_micros);
   SavedTabGroup& SetLastUserInteractionTime(
       base::Time last_user_interaction_time);
+  SavedTabGroup& SetArchivalTime(std::optional<base::Time> archival_time);
   SavedTabGroup& SetPosition(size_t position);
   SavedTabGroup& SetPinned(bool pinned);
   SavedTabGroup& SetCollaborationId(
       std::optional<CollaborationId> collaboration_id);
+  SavedTabGroup& SetSharedGroupStatus(SharedGroupStatus shared_group_status);
   SavedTabGroup& SetOriginatingTabGroupGuid(
       std::optional<base::Uuid> originating_tab_group_guid,
       bool use_originating_tab_group_guid);
@@ -200,7 +209,9 @@ class SavedTabGroup {
   // order of the group as is. CHECKs that the removed tab is not the last tab,
   // unless `ignore_empty_groups_for_testing` is true. `removed_by` is the user
   // who removed the tab, used for shared groups only and may be empty.
-  SavedTabGroup& RemoveTabLocally(const base::Uuid& saved_tab_guid);
+  SavedTabGroup& RemoveTabLocally(
+      const base::Uuid& saved_tab_guid,
+      std::optional<GaiaId> local_gaia_id = std::nullopt);
   SavedTabGroup& RemoveTabFromSync(
       const base::Uuid& saved_tab_guid,
       GaiaId removed_by,
@@ -275,6 +286,10 @@ class SavedTabGroup {
   // and all the tabs. UUID and local tab and group IDs are not copied.
   SavedTabGroup CopyBaseFieldsWithTabs() const;
 
+  // Updates the `last_removed_tabs_metadata_` for a given tab and gaia ID.
+  void UpdateLastRemovedTabMetadata(const base::Uuid& saved_tab_guid,
+                                    GaiaId removed_by);
+
   // The ID used to represent the group in sync.
   base::Uuid saved_guid_;
 
@@ -322,6 +337,10 @@ class SavedTabGroup {
   // metrics.
   base::Time last_user_interaction_time_;
 
+  // Timestamp of when the tab group was locally archived. Tab groups that are
+  // not archived will not have a value. This field is not synced.
+  std::optional<base::Time> archival_time_;
+
   // The saved guid of the group that this group was created from. Used for
   // both shared and saved tab groups when they are converted from the other
   // type.
@@ -353,6 +372,9 @@ class SavedTabGroup {
   // The last removed tabs which were removed from this group. Used for shared
   // tab groups only.
   std::map<base::Uuid, RemovedTabMetadata> last_removed_tabs_metadata_;
+
+  // Whether to show/disable a shared tab group is known from this status.
+  SharedGroupStatus shared_group_status_ = SharedGroupStatus::kEnabled;
 };
 
 }  // namespace tab_groups

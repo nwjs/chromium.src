@@ -4,13 +4,15 @@
 
 package org.chromium.chrome.browser.auxiliary_search;
 
-import android.content.Context;
+import static org.chromium.build.NullUtil.assumeNonNull;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
+import android.content.Context;
 
 import org.chromium.base.ResettersForTesting;
 import org.chromium.base.ServiceLoaderUtil;
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchController.AuxiliarySearchHostType;
 import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchDonor.SetDocumentClassVisibilityForPackageCallback;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
@@ -19,13 +21,18 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 
 /** This is the Factory for the auxiliary search. */
+@NullMarked
 public class AuxiliarySearchControllerFactory {
-    @Nullable private final AuxiliarySearchHooks mHooks;
+    private final @Nullable AuxiliarySearchHooks mHooks;
 
-    @Nullable private AuxiliarySearchHooks mHooksForTesting;
+    private boolean mSupportMultiDataSource;
+
+    private @Nullable AuxiliarySearchHooks mHooksForTesting;
 
     /** It tracks whether the current device is a tablet. */
-    @Nullable private Boolean mIsTablet;
+    private @Nullable Boolean mIsTablet;
+
+    private @Nullable AuxiliarySearchController mAuxiliarySearchMultiDataController;
 
     /** Static class that implements the initialization-on-demand holder idiom. */
     private static class LazyHolder {
@@ -39,6 +46,7 @@ public class AuxiliarySearchControllerFactory {
 
     private AuxiliarySearchControllerFactory() {
         mHooks = ServiceLoaderUtil.maybeCreate(AuxiliarySearchHooks.class);
+        mSupportMultiDataSource = isMultiDataTypeEnabledOnDevice();
     }
 
     /** Returns whether the hook is enabled on device. */
@@ -71,7 +79,7 @@ public class AuxiliarySearchControllerFactory {
             return mHooksForTesting.isMultiDataTypeEnabledOnDevice();
         }
 
-        return mHooks.isMultiDataTypeEnabledOnDevice();
+        return mHooks != null && mHooks.isMultiDataTypeEnabledOnDevice();
     }
 
     /** Returns whether the sharing Tabs with the system is enabled by default on the device. */
@@ -85,24 +93,38 @@ public class AuxiliarySearchControllerFactory {
 
     /** Creates a {@link AuxiliarySearchController} instance if enabled. */
     public @Nullable AuxiliarySearchController createAuxiliarySearchController(
-            @NonNull Context context,
-            @NonNull Profile profile,
-            @Nullable TabModelSelector tabModelSelector) {
+            Context context,
+            Profile profile,
+            @Nullable TabModelSelector tabModelSelector,
+            @AuxiliarySearchHostType int hostType) {
         if (!isEnabled()) {
             return null;
         }
 
         assert ChromeFeatureList.sAndroidAppIntegrationV2.isEnabled();
-        return new AuxiliarySearchControllerImpl(context, profile, tabModelSelector);
+        if (mSupportMultiDataSource && hostType == AuxiliarySearchHostType.CTA) {
+            if (mAuxiliarySearchMultiDataController == null) {
+                mAuxiliarySearchMultiDataController =
+                        new AuxiliarySearchMultiDataControllerImpl(
+                                context, profile, AuxiliarySearchHostType.CTA);
+            }
+            return mAuxiliarySearchMultiDataController;
+        }
+
+        return new AuxiliarySearchControllerImpl(context, profile, tabModelSelector, hostType);
     }
 
     public void setSchemaTypeVisibilityForPackage(
-            @NonNull SetDocumentClassVisibilityForPackageCallback callback) {
+            SetDocumentClassVisibilityForPackageCallback callback) {
         if (!isEnabled()) {
             return;
         }
 
-        mHooks.setSchemaTypeVisibilityForPackage(callback);
+        if (mHooksForTesting != null) {
+            mHooksForTesting.setSchemaTypeVisibilityForPackage(callback);
+        }
+
+        assumeNonNull(mHooks).setSchemaTypeVisibilityForPackage(callback);
     }
 
     /**
@@ -118,8 +140,7 @@ public class AuxiliarySearchControllerFactory {
         return mIsTablet;
     }
 
-    @Nullable
-    public String getSupportedPackageName() {
+    public @Nullable String getSupportedPackageName() {
         if (mHooksForTesting != null) {
             return mHooksForTesting.getSupportedPackageName();
         }
@@ -134,6 +155,12 @@ public class AuxiliarySearchControllerFactory {
     public void setHooksForTesting(AuxiliarySearchHooks instanceForTesting) {
         mHooksForTesting = instanceForTesting;
         ResettersForTesting.register(() -> mHooksForTesting = null);
+    }
+
+    public void setSupportMultiDataSourceForTesting(boolean supportMultiDataSource) {
+        boolean oldValue = mSupportMultiDataSource;
+        mSupportMultiDataSource = supportMultiDataSource;
+        ResettersForTesting.register(() -> mSupportMultiDataSource = oldValue);
     }
 
     public void resetIsTabletForTesting() {

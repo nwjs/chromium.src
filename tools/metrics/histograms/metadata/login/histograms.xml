@@ -152,7 +152,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Login.IsTokenHandleInSyncWithRefreshToken" enum="Boolean"
-    expires_after="2025-08-10">
+    expires_after="2025-10-12">
   <owner>sinhak@chromium.org</owner>
   <owner>cros-lurs@google.com</owner>
   <summary>
@@ -202,6 +202,17 @@ chromium-metrics-reviews@google.com.
 
     Warning: this histogram was expired from 2023-12-24 to 2025-03-14; data may
     be missing.
+  </summary>
+</histogram>
+
+<histogram name="Login.PageLoad.DetectionType" enum="LoginDetectionType"
+    expires_after="2025-11-30">
+  <owner>tbansal@chromium.org</owner>
+  <owner>yigu@chromium.org</owner>
+  <owner>web-identity-eng@google.com</owner>
+  <summary>
+    Type of login detected for a page load based on different heuristics.
+    Recorded once per page load.
   </summary>
 </histogram>
 

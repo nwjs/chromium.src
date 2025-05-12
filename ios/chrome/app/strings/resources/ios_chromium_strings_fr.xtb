@@ -156,7 +156,6 @@ Pour modifier ce paramètre, <ph name="BEGIN_LINK" />supprimez les données Chro
 <translation id="4790638144988730920">Continuez d'utiliser les données Chromium de votre compte Google.</translation>
 <translation id="4828317641996116749">Chromium n'est pas parvenu à vérifier tous les mots de passe. Réessayez plus tard.</translation>
 <translation id="4856138222358683580">Actions Chromium</translation>
-<translation id="4863800915967098115">En vous connectant, vous ajoutez votre compte à Chromium pour vos activités de navigation dans le cadre professionnel.</translation>
 <translation id="4904452304169763785">Alertes concernant les problèmes de confidentialité ou de sécurité que Chromium détecte pour vous.</translation>
 <translation id="4962295957157529683">Terminez ce que vous étiez en train de faire dans l'autre fenêtre Chromium ouverte.</translation>
 <translation id="4985291216379576555">Chromium ne parvient pas à rechercher les mises à jour, car vous êtes hors connexion</translation>
@@ -211,6 +210,7 @@ Points à prendre en compte :
 <translation id="593808800391107017">Recevez des alertes concernant les problèmes de confidentialité ou de sécurité que Chromium détecte automatiquement pour vous.</translation>
 <translation id="5951593919357934226">Profitez pleinement de Chromium.</translation>
 <translation id="5985254578475526217">Pour recevoir des notifications de Chromium, activez-les dans les réglages iOS.</translation>
+<translation id="6041226255405329731">Connectez-vous à Chromium pour partager et rejoindre des groupes d'onglets, et collaborer sur des idées</translation>
 <translation id="6104024151682120539">Ouvrir dans Chromium</translation>
 <translation id="61109258320235597">Pour utiliser et enregistrer des données Chromium dans votre compte Google, saisissez votre phrase secrète.</translation>
 <translation id="6132149203299792222">Connectez-vous avec votre compte Google pour synchroniser vos mots de passe, vos favoris, etc.</translation>

@@ -69,7 +69,9 @@ public class BinderCallsListener {
                 "android.os.IPowerManager",
                 // Used by Android code.
                 "android.content.IContentProvider",
+                "android.view.accessibility.IAccessibilityInteractionConnectionCallback",
                 "android.view.accessibility.IAccessibilityManager",
+                "android.view.contentcapture.IContentCaptureManager",
                 "android.os.IUserManager",
                 "android.hardware.devicestate.IDeviceStateManager",
                 "com.android.internal.telephony.ISub",
@@ -82,6 +84,11 @@ public class BinderCallsListener {
                 "com.android.internal.inputmethod.IInputMethodSession",
                 "com.android.internal.app.IVoiceInteractionManagerService",
                 "com.android.internal.textservice.ITextServicesManager",
+                // See https://crbug.com/407479092.
+                "com.android.internal.telephony.ITelephony",
+                "com.android.internal.infra.IAndroidFuture",
+                "com.android.internal.textservice.ISpellCheckerSession",
+                "com.android.internal.telecom.ITelecomService",
                 // Gets activity task ID during startup; cached.
                 "android.app.IActivityClientController",
                 // Used to check if stylus is enabled.
@@ -92,6 +99,9 @@ public class BinderCallsListener {
                 "android.app.job.IJobScheduler",
                 // ConnectivitiyManager#getNetworkInfo.
                 "android.net.IConnectivityManager",
+                // Used by NetworkActiveNotifier to change the underlying network state -
+                // https://crbug.com/407478223.
+                "android.net.ITetheringConnector",
                 // Used to get Window Insets.
                 "android.view.IWindowManager",
                 // Determines if specific permissions are revoked by policy.
@@ -125,7 +135,27 @@ public class BinderCallsListener {
                 // Records background restrictions imposed on Chrome by Android.
                 "android.app.usage.IUsageStatsManager",
                 // Used for EditText UI elements.
-                "android.view.autofill.IAutoFillManager");
+                "android.view.autofill.IAutoFillManager",
+                // Used in MediaNotificationController - https://crbug.com/407575141.
+                "android.media.session.ISession",
+                // Used in LocationUtils to check if location is enabled -
+                // https://crbug.com/407576192.
+                "android.location.ILocationManager",
+                // Called when PhysicalDisplayAndroid creates the window context -
+                // https://crbug.com/407495299.
+                "android.companion.virtual.IVirtualDeviceManager",
+                // Stopping TextToSpeech - https://crbug.com/407493249.
+                "android.speech.tts.ITextToSpeechService",
+                // Creation of android.speech.tts.TextToSpeech - https://crbug.com/407618827.
+                "android.speech.tts.ITextToSpeechManager",
+                // Wraps CCT callbacks with a CustomTabsConnection#safeExtraCallback -
+                // https://crbug.com/407696847.
+                "android.support.customtabs.ICustomTabsCallback",
+                // Called onWindowFocusChanged - https://crbug.com/407570292.
+                "android.app.unipnp.IUnionManager",
+                // Checks if the Browser role is available to promote dialogs -
+                // https://crbug.com/407477867.
+                "android.app.role.IRoleManager");
     }
 
     private @Nullable Object mImplementation;
@@ -158,10 +188,8 @@ public class BinderCallsListener {
                             mInvocationHandler);
             mImplementation = implementation;
         } catch (Exception e) {
-            // Undocumented API, do not fail if it changes. Pretend that it has been installed
-            // to not attempt it later.
+            // Undocumented API, do not fail if it changes.
             Log.w(TAG, "Failed to create the listener proxy. Has the framework changed?");
-            mInstalled = true;
         }
     }
 
@@ -180,6 +208,21 @@ public class BinderCallsListener {
     @UiThread
     public boolean installListener() {
         return installListener(mImplementation);
+    }
+
+    /**
+     * Get the total time spent in Binder calls since the listener was installed, if it was
+     * installed.
+     *
+     * <p>NOTE: The current implementation of BinderCallsListener is *very* exhaustive. This method
+     * will include time spent in Binder calls that originated from outside of Chrome too.
+     *
+     * @return time spent in Binder calls in milliseconds since the listener was installed or null.
+     */
+    @Nullable
+    public Long getTimeSpentInBinderCalls() {
+        if (!mInstalled || mInvocationHandler == null) return null;
+        return mInvocationHandler.getTimeSpentInBinderCalls();
     }
 
     private boolean installListener(@Nullable Object listener) {
@@ -225,7 +268,12 @@ public class BinderCallsListener {
         private @Nullable BiConsumer<String, String> mObserver;
         private int mCurrentTransactionId;
         private int mNumUploads;
+        private long mTotalTimeSpentInBinderCallsMillis;
         private long mCurrentTransactionStartTimeMillis;
+
+        public long getTimeSpentInBinderCalls() {
+            return mTotalTimeSpentInBinderCallsMillis;
+        }
 
         @Override
         public @Nullable Object invoke(Object proxy, Method method, Object[] args) {
@@ -252,6 +300,10 @@ public class BinderCallsListener {
                     return null;
                 case "onTransactEnded":
                     TraceEvent.end("BinderCallsListener.invoke", mCurrentInterfaceDescriptor);
+
+                    long transactionDurationMillis =
+                            SystemClock.uptimeMillis() - mCurrentTransactionStartTimeMillis;
+                    mTotalTimeSpentInBinderCallsMillis += transactionDurationMillis;
                     if (mObserver != null) {
                         mObserver.accept("onTransactEnded", mCurrentInterfaceDescriptor);
                     }
@@ -260,9 +312,6 @@ public class BinderCallsListener {
                     if (session == null || session != mCurrentTransactionId) {
                         return null;
                     }
-
-                    long transactionDurationMillis =
-                            SystemClock.uptimeMillis() - mCurrentTransactionStartTimeMillis;
 
                     // Only report a subset of slow calls for non-local builds.
                     boolean shouldReportSlowCall =
@@ -273,7 +322,8 @@ public class BinderCallsListener {
                         // If there was a new Binder call introduced, consider moving it to a
                         // background thread if possible. If not, add it to the allow list.
                         String message =
-                                "BinderCallsListener detected a slow call on the UI thread by: "
+                                "This is not a crash. BinderCallsListener detected a slow call on"
+                                        + " the UI thread by: "
                                         + mCurrentInterfaceDescriptor
                                         + " with duration="
                                         + transactionDurationMillis

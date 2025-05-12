@@ -18,6 +18,8 @@ std::optional<V8GPUFeatureName::Enum> GPUSupportedFeatures::ToV8FeatureNameEnum(
           kChromiumExperimentalTimestampQueryInsidePasses;
     case wgpu::FeatureName::TextureCompressionBC:
       return V8GPUFeatureName::Enum::kTextureCompressionBc;
+    case wgpu::FeatureName::TextureCompressionBCSliced3D:
+      return V8GPUFeatureName::Enum::kTextureCompressionBcSliced3d;
     case wgpu::FeatureName::TextureCompressionETC2:
       return V8GPUFeatureName::Enum::kTextureCompressionEtc2;
     case wgpu::FeatureName::TextureCompressionASTC:
@@ -78,19 +80,15 @@ void GPUSupportedFeatures::AddFeatureName(const V8GPUFeatureName feature_name) {
   features_bitset_.set(static_cast<size_t>(feature_name.AsEnum()));
 }
 
-bool GPUSupportedFeatures::has(const V8GPUFeatureName::Enum feature) const {
+bool GPUSupportedFeatures::Has(const V8GPUFeatureName::Enum feature) const {
   return features_bitset_.test(static_cast<size_t>(feature));
-}
-
-bool GPUSupportedFeatures::has(const String& feature) const {
-  return features_.Contains(feature);
 }
 
 bool GPUSupportedFeatures::hasForBinding(
     ScriptState* script_state,
     const String& feature,
     ExceptionState& exception_state) const {
-  return has(feature);
+  return features_.Contains(feature);
 }
 
 GPUSupportedFeatures::IterationSource::IterationSource(

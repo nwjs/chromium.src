@@ -36,13 +36,24 @@ OnDeviceContext::OnDeviceContext(OnDeviceOptions opts,
     : opts_(std::move(opts)), feature_(feature) {}
 OnDeviceContext::~OnDeviceContext() = default;
 
-bool OnDeviceContext::SetInput(MultimodalMessageReadView request) {
+bool OnDeviceContext::SetInput(
+    MultimodalMessageReadView request,
+    OptimizationGuideModelExecutor::Session::SetInputCallback callback) {
+  callback_ = std::move(callback);
   auto input =
       opts_.adapter->ConstructInputString(request, /*want_input_context=*/true);
   if (!input) {
+    if (callback_) {
+      std::move(callback_).Run(base::unexpected(
+          OptimizationGuideModelExecutionError::FromModelExecutionError(
+              OptimizationGuideModelExecutionError::ModelExecutionError::
+                  kInvalidRequest)));
+    }
     return false;
   }
-  session_.reset();
+  // Keep the old session alive until the new session is ready. This prevents
+  // the model from freeing resources that may be needed in the new session.
+  auto old_session = std::move(session_);
   client_.reset();
   input_ = std::move(input->input);
   GetOrCreateSession();  // Start processing
@@ -62,6 +73,7 @@ OnDeviceContext::GetOrCreateSession() {
   opts_.model_client->StartSession(session_.BindNewPipeAndPassReceiver(),
                                    std::move(params));
   session_.reset_on_disconnect();
+  session_->SetPriority(priority_);
   if (input_ && input_->pieces.size() > 0) {
     AddContext();
   }
@@ -84,8 +96,16 @@ std::unique_ptr<OnDeviceContext> OnDeviceContext::Clone() {
   context->input_ = input_.Clone();
   CloneSession(context->session_.BindNewPipeAndPassReceiver(),
                /*logged_request=*/nullptr, /*ignore_context=*/false);
+  context->SetPriority(priority_);
   context->session_.reset_on_disconnect();
   return context;
+}
+
+void OnDeviceContext::SetPriority(on_device_model::mojom::Priority priority) {
+  priority_ = priority;
+  if (session_) {
+    session_->SetPriority(priority);
+  }
 }
 
 void OnDeviceContext::AddContext() {
@@ -97,6 +117,9 @@ void OnDeviceContext::AddContext() {
 }
 
 void OnDeviceContext::OnComplete(uint32_t tokens_processed) {
+  if (callback_) {
+    std::move(callback_).Run(tokens_processed);
+  }
   client_.reset();
   base::UmaHistogramCounts10000(
       base::StrCat({"OptimizationGuide.ModelExecution."

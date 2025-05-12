@@ -30,6 +30,7 @@
 #include "components/omnibox/browser/fake_autocomplete_provider_client.h"
 #include "components/omnibox/browser/omnibox_prefs.h"
 #include "components/omnibox/browser/test_scheme_classifier.h"
+#include "components/omnibox/common/omnibox_feature_configs.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/testing_pref_service.h"
@@ -294,10 +295,13 @@ TEST_F(FeaturedSearchProviderTest, StarterPackExpansion) {
   RunTest(typing_scheme_cases);
 }
 
-TEST_F(FeaturedSearchProviderTest, StarterPackExpansionRelevance) {
+// TODO(crbug.com/413598265): Fix flaky test.
+TEST_F(FeaturedSearchProviderTest, FLAKY_StarterPackExpansionRelevance) {
   base::test::ScopedFeatureList features;
   features.InitWithFeatures(
-      {omnibox::kStarterPackExpansion, omnibox::kStarterPackPage}, {});
+      {omnibox::kStarterPackExpansion,
+       omnibox_feature_configs::ContextualSearch::kStarterPackPage},
+      {});
 
   AddStarterPackEntriesToTemplateUrlService();
 

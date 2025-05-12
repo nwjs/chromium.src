@@ -3,17 +3,13 @@
 // found in the LICENSE file.
 
 import type {ColorOption, DpiOption, DuplexOption, PrintPreviewModelElement, PrintTicket, RecentDestination, Settings} from 'chrome://print/print_preview.js';
-import {
-  Destination, DestinationOrigin, DuplexMode,
-  makeRecentDestination, MarginsType,
-  PrinterType, ScalingType, Size} from 'chrome://print/print_preview.js';
+import {Destination, DestinationOrigin, DuplexMode, makeRecentDestination, MarginsType, PrinterType, ScalingType, Size} from 'chrome://print/print_preview.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
-import {assertDeepEquals, assertEquals, assertFalse, assertNotEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
+import {assertDeepEquals, assertEquals, assertFalse, assertNotEquals, assertNotReached, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {eventToPromise} from 'chrome://webui-test/test_util.js';
 
-import {
-  getCddTemplateWithAdvancedSettings} from './print_preview_test_utils.js';
+import {getCddTemplateWithAdvancedSettings} from './print_preview_test_utils.js';
 
 
 function assertMarginsSettingsResetToDefault(settings: Settings) {
@@ -174,7 +170,6 @@ suite('ModelTest', function() {
       layout: true,
       color: false,
       mediaSize: testDestination.capabilities!.printer.media_size!.option[1]!,
-      mediaType: testDestination.capabilities!.printer.media_type!.option[1],
       margins: MarginsType.CUSTOM,
       customMargins: {
         marginTop: 100,
@@ -217,7 +212,6 @@ suite('ModelTest', function() {
       isScalingDisabled: false,
       fitToPageScaling: 100,
       pageCount: 3,
-      isFromArc: false,
       title: 'title',
     };
     model.pageSize = new Size(612, 792);
@@ -252,8 +246,6 @@ suite('ModelTest', function() {
 
     const expectedDefaultTicketObject: PrintTicket = {
       mediaSize: testDestination.capabilities!.printer.media_size!.option[0]!,
-      mediaType: testDestination.capabilities!.printer.media_type!.option[0]!
-                     .vendor_id,
       pageCount: 3,
       landscape: false,
       color: testDestination.getNativeColorModel(true),
@@ -285,9 +277,6 @@ suite('ModelTest', function() {
     const newTicket = model.createPrintTicket(testDestination, false, false);
     const expectedNewTicketObject: PrintTicket = {
       mediaSize: testDestination.capabilities!.printer.media_size!.option[1]!,
-      borderless: false,
-      mediaType: testDestination.capabilities!.printer.media_type!.option[1]!
-                     .vendor_id,
       pageCount: 1,
       landscape: true,
       color: testDestination.getNativeColorModel(false),
@@ -748,5 +737,23 @@ suite('ModelTest', function() {
     }));
     model.applyStickySettings();
     assertMarginsSettingsResetToDefault(model.settings);
+  });
+
+  /**
+   * Tests that getSettingValue() returns the raw Array instance, as opposed to
+   * the Proxy wrapper used by the Observable instance internally. This is
+   * important for cases where the array is passed to the PDF plugin via
+   * postMessage, as the Proxy-wrapped object is non-cloneable and would result
+   * in a DataCloneError.
+   */
+  test('GetSettingValueReturnsRawArray', function() {
+    const pages = model.getSettingValue('pages');
+    assertTrue(Array.isArray(pages));
+
+    try {
+      structuredClone(pages);
+    } catch (e) {
+      assertNotReached((e as Error).toString());
+    }
   });
 });

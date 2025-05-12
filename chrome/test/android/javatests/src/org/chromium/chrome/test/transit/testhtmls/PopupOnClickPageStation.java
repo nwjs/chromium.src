@@ -36,8 +36,7 @@ public class PopupOnClickPageStation extends WebPageStation {
     public void declareElements(Elements.Builder elements) {
         super.declareElements(elements);
 
-        mLinkToPopup =
-                elements.declareElement(new HtmlElement(LINK_TO_POPUP, mWebContentsSupplier));
+        mLinkToPopup = elements.declareElement(new HtmlElement(LINK_TO_POPUP, webContentsElement));
     }
 
     /** Opens the same page as a pop-up (in Android, this means in a new tab). */
@@ -48,7 +47,7 @@ public class PopupOnClickPageStation extends WebPageStation {
                         .withIsOpeningTabs(1)
                         .withIsSelectingTabs(1)
                         .build();
-        return travelToSync(newPage, mLinkToPopup::click);
+        return travelToSync(newPage, mLinkToPopup.getClickTrigger());
     }
 
     /**
@@ -57,6 +56,7 @@ public class PopupOnClickPageStation extends WebPageStation {
      */
     public PopupBlockedMessageFacility clickLinkAndExpectPopupBlockedMessage() {
         return enterFacilitySync(
-                new PopupBlockedMessageFacility<PopupOnClickPageStation>(1), mLinkToPopup::click);
+                new PopupBlockedMessageFacility<PopupOnClickPageStation>(1),
+                mLinkToPopup.getClickTrigger());
     }
 }

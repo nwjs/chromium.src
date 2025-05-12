@@ -26,6 +26,7 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 import androidx.annotation.LayoutRes;
+import androidx.annotation.StyleRes;
 import androidx.recyclerview.widget.RecyclerView;
 
 import org.chromium.base.TraceEvent;
@@ -82,8 +83,13 @@ class KeyboardAccessoryViewBinder {
 
     abstract static class BarItemViewHolder<T extends BarItem, V extends View>
             extends RecyclerView.ViewHolder {
+
         BarItemViewHolder(ViewGroup parent, @LayoutRes int layout) {
-            super(LayoutInflater.from(parent.getContext()).inflate(layout, parent, false));
+            this(LayoutInflater.from(parent.getContext()).inflate(layout, parent, false));
+        }
+
+        BarItemViewHolder(View barItem) {
+            super(barItem);
         }
 
         @SuppressWarnings("unchecked")
@@ -115,7 +121,12 @@ class KeyboardAccessoryViewBinder {
                 ViewGroup parent,
                 KeyboardAccessoryView keyboardAccessory,
                 Function<AutofillSuggestion, Drawable> suggestionDrawableFunction) {
-            super(parent, selectLayoutForScale(parent.getContext()));
+            super(
+                    new ChipView(
+                            parent.getContext(),
+                            null,
+                            0,
+                            selectStyleForSuggestion(parent.getContext())));
             mRootViewForIPH = parent.getRootView();
             mKeyboardAccessory = keyboardAccessory;
             mSuggestionDrawableFunction = suggestionDrawableFunction;
@@ -126,9 +137,14 @@ class KeyboardAccessoryViewBinder {
             TraceEvent.begin("BarItemChipViewHolder#bind");
             int iconId = item.getSuggestion().getIconId();
             boolean isIphShown = false;
+            // TODO (crbug.com/408984579): Reduce or move the nested IPH logic from here.
             if (item.getFeatureForIph() != null) {
                 if (item.getFeatureForIph()
-                        .equals(FeatureConstants.KEYBOARD_ACCESSORY_PAYMENT_OFFER_FEATURE)) {
+                                .equals(FeatureConstants.KEYBOARD_ACCESSORY_PAYMENT_OFFER_FEATURE)
+                        || item.getFeatureForIph()
+                                .equals(
+                                        FeatureConstants
+                                                .KEYBOARD_ACCESSORY_HOME_WORK_PROFILE_SUGGESTION_FEATURE)) {
                     if (iconId != 0) {
                         isIphShown =
                                 showHelpBubble(
@@ -137,7 +153,7 @@ class KeyboardAccessoryViewBinder {
                                         chipView.getStartIconViewRect(),
                                         chipView.getContext(),
                                         mRootViewForIPH,
-                                        item.getSuggestion().getItemTag());
+                                        null);
                     } else {
                         isIphShown =
                                 showHelpBubble(
@@ -145,7 +161,7 @@ class KeyboardAccessoryViewBinder {
                                         item.getFeatureForIph(),
                                         chipView,
                                         mRootViewForIPH,
-                                        item.getSuggestion().getItemTag());
+                                        null);
                     }
                 } else if (item.getFeatureForIph()
                         .equals(
@@ -193,17 +209,7 @@ class KeyboardAccessoryViewBinder {
             chipView.getPrimaryTextView().setEllipsize(null);
 
             chipView.getPrimaryTextView().setText(item.getSuggestion().getLabel());
-            if (item.getSuggestion().getItemTag() != null
-                    && !item.getSuggestion().getItemTag().isEmpty()) {
-                chipView.getPrimaryTextView()
-                        .setContentDescription(
-                                item.getSuggestion().getLabel()
-                                        + " "
-                                        + item.getSuggestion().getItemTag());
-            } else {
-                chipView.getPrimaryTextView()
-                        .setContentDescription(item.getSuggestion().getLabel());
-            }
+            chipView.getPrimaryTextView().setContentDescription(item.getSuggestion().getLabel());
             chipView.getSecondaryTextView().setText(item.getSuggestion().getSublabel());
             chipView.getSecondaryTextView()
                     .setVisibility(
@@ -248,14 +254,14 @@ class KeyboardAccessoryViewBinder {
             TraceEvent.end("BarItemChipViewHolder#bind");
         }
 
-        @LayoutRes
-        private static int selectLayoutForScale(Context context) {
+        @StyleRes
+        private static int selectStyleForSuggestion(Context context) {
             if (!ChromeFeatureList.isEnabled(ChromeFeatureList.ANDROID_ELEGANT_TEXT_HEIGHT)) {
-                return R.layout.keyboard_accessory_suggestion;
+                return R.style.KeyboardAccessoryChip;
             }
             return context.getResources().getConfiguration().fontScale >= LARGE_FONT_THRESHOLD
-                    ? R.layout.keyboard_accessory_suggestion_large
-                    : R.layout.keyboard_accessory_suggestion;
+                    ? R.style.KeyboardAccessoryLargeChip
+                    : R.style.KeyboardAccessoryChip;
         }
     }
 
@@ -275,7 +281,7 @@ class KeyboardAccessoryViewBinder {
 
     static class BarItemActionChipViewHolder extends BarItemViewHolder<BarItem, ChipView> {
         BarItemActionChipViewHolder(ViewGroup parent) {
-            super(parent, R.layout.keyboard_accessory_suggestion);
+            super(new ChipView(parent.getContext(), null, 0, R.style.KeyboardAccessoryChip));
         }
 
         @Override

@@ -196,6 +196,20 @@ struct AppendOptions {
   uint32 token_offset = 0;
 };
 
+[Stable, Extensible]
+union ResponseConstraint {
+  // A JSON schema defining structured output requirements for the response.
+  // Passed as an opaque JSON blob to llguidance.
+  string json_schema;
+
+  // A regex string specifying the output constraints.
+  string regex;
+
+  // Used to handle version skew.
+  [Default]
+  bool unknown_type;
+};
+
 [Stable]
 struct GenerateOptions {
   // The maximum number of tokens that should be output from a call to
@@ -207,6 +221,24 @@ struct GenerateOptions {
   uint32? top_k;
   // Deprecated: use SessionParams.temperature instead.
   float? temperature;
+
+  // Deprecated: use `constraint` instead.
+  [MinVersion=1] string? response_json_schema;
+
+  // Specifies any constraints on the output for this Generate() call. Note that
+  // only one of the JSON schema or regex constraints should be provided.
+  [MinVersion=2] ResponseConstraint? constraint;
+};
+
+// Priorities which determine how requests to a session are scheduled.
+[Stable, Extensible]
+enum Priority {
+  // Requests should be treated as high priority, the user may be actively
+  // waiting for a response.
+  [Default] kForeground,
+  // Requests are not urgent and may be queued. Background requests will only
+  // run if there are no active foreground requests.
+  kBackground,
 };
 
 // A session for a model that allows adding context and then executing an input
@@ -236,6 +268,19 @@ interface Session {
   // Clones the current session. The cloned session will have the same context
   // as the current session.
   Clone@4(pending_receiver<Session> session);
+
+  // Gets the probability for a series of tokens on top of the current
+  // context. Capabilities.probabilities_output must be specified to use this.
+  // Note that this is implemented as a blocking method on the service side
+  // and should only be used in debugging/testing.
+  [MinVersion=3]
+  GetProbabilitiesBlocking@8(string text) => (array<float> probabilities);
+
+  // Sets the priority for currently queued requests to this session and future
+  // requests. Any clones made of this session will inherit the current
+  // priority. Priority for new sessions defaults to kForeground.
+  [MinVersion=4]
+  SetPriority@9(Priority priority);
 };
 
 // A loaded model which can be queried. This interface must be controlled by the
@@ -306,6 +351,7 @@ enum LoadModelResult {
   kSuccess,
   kGpuBlocked,
   [Default] kFailedToLoadLibrary,
+  [MinVersion=1, EnableIf=is_chromeos] kCrosNeedReboot,
 };
 
 [Stable]

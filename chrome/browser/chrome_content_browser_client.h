@@ -170,6 +170,10 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   // update our I/O thread cache of this value.
   static void SetApplicationLocale(const std::string& locale);
 
+  // Disables caching of the advanced-protection state in
+  // ShouldEnableStrictSiteIsolation().
+  static void DisableAdvancedProtectionCachingForTests();
+
   // content::ContentBrowserClient:
   std::unique_ptr<content::BrowserMainParts> CreateBrowserMainParts(
       bool is_integration_test) override;
@@ -225,6 +229,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       content::BrowserContext* browser_context,
       const url::Origin& origin,
       bool is_for_isolated_world,
+      bool is_for_service_worker,
       network::mojom::URLLoaderFactoryParams* factory_params) override;
   void GetAdditionalWebUISchemes(
       std::vector<std::string>* additional_schemes) override;
@@ -655,9 +660,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       std::optional<int64_t> navigation_id) override;
   std::vector<std::unique_ptr<blink::URLLoaderThrottle>>
   CreateURLLoaderThrottlesForKeepAlive(
-      const network::ResourceRequest& request,
       content::BrowserContext* browser_context,
-      const base::RepeatingCallback<content::WebContents*()>& wc_getter,
       content::FrameTreeNodeId frame_tree_node_id) override;
   mojo::PendingRemote<network::mojom::URLLoaderFactory>
   CreateNonNetworkNavigationURLLoaderFactory(
@@ -814,7 +817,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   std::unique_ptr<content::VideoOverlayWindow>
   CreateWindowForVideoPictureInPicture(
       content::VideoPictureInPictureWindowController* controller) override;
-  media::PictureInPictureEventsInfo::AutoPipReason GetAutoPipReason(
+  media::PictureInPictureEventsInfo::AutoPipInfo GetAutoPipInfo(
       const content::WebContents& web_contents) const override;
   void RegisterRendererPreferenceWatcher(
       content::BrowserContext* browser_context,
@@ -1101,17 +1104,18 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       MultiCaptureChanged state) override;
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
-  bool ShouldEnableDips(content::BrowserContext* browser_context) override;
-  void OnDipsServiceCreated(content::BrowserContext* browser_context,
-                            content::BtmService* dips_service) override;
-  uint64_t GetDipsRemoveMask() override;
-  bool ShouldDipsDeleteInteractionRecords(uint64_t remove_mask) override;
+  bool ShouldEnableBtm(content::BrowserContext* browser_context) override;
+  void OnBtmServiceCreated(content::BrowserContext* browser_context,
+                           content::BtmService* dips_service) override;
+  uint64_t GetBtmRemoveMask() override;
+  bool ShouldBtmDeleteInteractionRecords(uint64_t remove_mask) override;
 
   bool ShouldSuppressAXLoadComplete(content::RenderFrameHost* rfh) override;
 
   void BindAIManager(
       content::BrowserContext* browser_context,
       base::SupportsUserData* context_user_data,
+      content::RenderFrameHost* rfh,
       mojo::PendingReceiver<blink::mojom::AIManager> receiver) override;
 
 #if BUILDFLAG(ENABLE_ON_DEVICE_TRANSLATION)
@@ -1149,6 +1153,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
 
 #if BUILDFLAG(IS_WIN)
   void OnUiaProviderRequested(bool uia_provider_enabled) override;
+  void OnUiaProviderDisabled() override;
 #endif
 
   bool ShouldDispatchPagehideDuringCommit(
@@ -1188,7 +1193,6 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   MaybeCreateKeepAliveRequestTracker(
       const network::ResourceRequest& request,
       std::optional<ukm::SourceId> ukm_source_id,
-      bool is_attribution_reporting_eligible_request,
       content::KeepAliveRequestTracker::IsContextDetachedCallback
           is_context_detached_callback) override;
 
@@ -1414,8 +1418,8 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   base::WeakPtrFactory<ChromeContentBrowserClient> weak_factory_{this};
 };
 
-// The implementation of ChromeContentBrowserClient::ShouldEnableDips(), for use
+// The implementation of ChromeContentBrowserClient::ShouldEnableBtm(), for use
 // within //chrome.
-bool ShouldBrowserContextEnableDips(content::BrowserContext* browser_context);
+bool ShouldBrowserContextEnableBtm(content::BrowserContext* browser_context);
 
 #endif  // CHROME_BROWSER_CHROME_CONTENT_BROWSER_CLIENT_H_

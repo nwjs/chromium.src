@@ -255,10 +255,9 @@ EncoderStatus D3D12VideoEncodeAV1Delegate::InitializeVideoEncoder(
           const std::pair<VideoCodecProfile, std::vector<VideoPixelFormat>>&
               profile) { return profile.first == config.output_profile; });
   if (supported_profiles.end() == supported_profile) {
-    return {
-        EncoderStatus::Codes::kEncoderUnsupportedProfile,
-        base::StringPrintf("D3D12VideoEncoder got not supportted profile: %s",
-                           GetProfileName(config.output_profile))};
+    return {EncoderStatus::Codes::kEncoderUnsupportedProfile,
+            base::StringPrintf("D3D12VideoEncoder got unsupportted profile: %s",
+                               GetProfileName(config.output_profile))};
   }
   D3D12_VIDEO_ENCODER_AV1_PROFILE profile =
       kVideoCodecProfileToD3D12Profile.at(config.output_profile);
@@ -335,7 +334,7 @@ EncoderStatus D3D12VideoEncodeAV1Delegate::InitializeVideoEncoder(
           D3D12_VIDEO_ENCODER_FRAME_SUBREGION_LAYOUT_MODE_FULL_FRAME,
       .ResolutionsListCount = 1,
       .pResolutionList = &input_size_,
-      .MaxReferenceFramesInDPB = static_cast<UINT>(max_num_ref_frames_),
+      .MaxReferenceFramesInDPB = max_num_ref_frames_,
 
       .SuggestedProfile /*output*/ = {.DataSize = sizeof(profile),
                                       .pAV1Profile = &profile},
@@ -362,9 +361,8 @@ EncoderStatus D3D12VideoEncodeAV1Delegate::InitializeVideoEncoder(
             " Failed to initialize D3D12VideoEncoderWrapper."};
   }
 
-  dpb_.emplace(max_num_ref_frames_);
-  if (!dpb_->InitializeTextureArray(device_.Get(), config.input_visible_size,
-                                    input_format_)) {
+  if (!dpb_.InitializeTextureArray(device_.Get(), config.input_visible_size,
+                                   input_format_, max_num_ref_frames_)) {
     return {EncoderStatus::Codes::kEncoderInitializationError,
             "Failed to initialize DPB."};
   }
@@ -478,9 +476,10 @@ void D3D12VideoEncodeAV1Delegate::FillPictureControlParams(
 }
 
 EncoderStatus::Or<BitstreamBufferMetadata>
-D3D12VideoEncodeAV1Delegate::EncodeImpl(ID3D12Resource* input_frame,
-                                        UINT input_frame_subresource,
-                                        bool force_keyframe) {
+D3D12VideoEncodeAV1Delegate::EncodeImpl(
+    ID3D12Resource* input_frame,
+    UINT input_frame_subresource,
+    const VideoEncoder::EncodeOptions& options) {
   input_arguments_.SequenceControlDesc.Flags =
       D3D12_VIDEO_ENCODER_SEQUENCE_CONTROL_FLAG_NONE;
   input_arguments_.SequenceControlDesc.RateControl = {
@@ -491,16 +490,16 @@ D3D12VideoEncodeAV1Delegate::EncodeImpl(ID3D12Resource* input_frame,
   input_arguments_.SequenceControlDesc.PictureTargetResolution = input_size_;
 
   // Fill picture_params_ for next encoded frame.
-  FillPictureControlParams(force_keyframe);
+  FillPictureControlParams(options.key_frame);
 
   bool is_keyframe =
       picture_params_.FrameType == D3D12_VIDEO_ENCODER_AV1_FRAME_TYPE_KEY_FRAME;
   input_arguments_.PictureControlDesc.Flags =
       D3D12_VIDEO_ENCODER_PICTURE_CONTROL_FLAG_USED_AS_REFERENCE_PICTURE;
-  auto reconstructed_buffer = dpb_->GetCurrentFrame();
+  auto reconstructed_buffer = dpb_.GetCurrentFrame();
   D3D12_VIDEO_ENCODE_REFERENCE_FRAMES reference_frames{};
   if (!is_keyframe) {
-    reference_frames = dpb_->ToD3D12VideoEncodeReferenceFrames();
+    reference_frames = dpb_.ToD3D12VideoEncodeReferenceFrames();
   }
   input_arguments_.PictureControlDesc.ReferenceFrames = reference_frames;
   input_arguments_.pInputFrame = input_frame;
@@ -574,7 +573,7 @@ EncoderStatus::Or<size_t> D3D12VideoEncodeAV1Delegate::ReadbackBitstream(
   software_brc_->PostEncodeUpdate(packed_header_size + compressed_size);
 
   // Refresh DPB slot 0 with current reconstructed picture.
-  dpb_->ReplaceWithCurrentFrame(0);
+  dpb_.ReplaceWithCurrentFrame(0);
 
   // Follow RefreshFrameFlags to refresh the descriptors array.
   D3D12_VIDEO_ENCODER_AV1_REFERENCE_PICTURE_DESCRIPTOR a_descriptor = {

@@ -7,6 +7,7 @@
 #include "base/test/gmock_callback_support.h"
 #include "base/test/gmock_move_support.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/mock_callback.h"
 #include "base/test/run_until.h"
 #include "base/test/test_future.h"
 #include "chrome/browser/optimization_guide/mock_optimization_guide_keyed_service.h"
@@ -49,6 +50,8 @@ using PasswordChangeOutcome = ::optimization_guide::proto::
 
 const std::u16string kOldPassword = u"qwerty123";
 const std::u16string kNewPassword = u"cE1L45Vgxyzlu8";
+const int password_renderer_id = 1;
+const int new_password_renderer_id = 2;
 
 class FakeChromePasswordManagerClient : public ChromePasswordManagerClient {
  public:
@@ -78,25 +81,34 @@ std::unique_ptr<KeyedService> CreateOptimizationService(
 class MockStubPasswordManagerDriver
     : public password_manager::StubPasswordManagerDriver {
  public:
+  MOCK_METHOD(
+      void,
+      FillChangePasswordForm,
+      (autofill::FieldRendererId,
+       autofill::FieldRendererId,
+       autofill::FieldRendererId,
+       const std::u16string&,
+       const std::u16string&,
+       base::OnceCallback<void(const std::optional<autofill::FormData>&)>),
+      (override));
   MOCK_METHOD(void,
-              SubmitChangePasswordForm,
-              (autofill::FieldRendererId,
-               autofill::FieldRendererId,
-               autofill::FieldRendererId,
-               const std::u16string&,
-               const std::u16string&,
-               base::OnceCallback<void(const autofill::FormData&)>),
+              SubmitFormWithEnter,
+              (autofill::FieldRendererId, base::OnceCallback<void(bool)>),
               (override));
 };
 
 autofill::FormData CreateTestPasswordFormData() {
   std::vector<autofill::FormFieldData> fields;
-  fields.push_back(
-      CreateTestFormField(/*label=*/"Username:", /*name=*/"username",
-                          /*value=*/"", autofill::FormControlType::kInputText));
   fields.push_back(CreateTestFormField(
       /*label=*/"Password:", /*name=*/"password",
       /*value=*/"", autofill::FormControlType::kInputPassword));
+  fields.back().set_renderer_id(
+      autofill::FieldRendererId(password_renderer_id));
+  fields.push_back(CreateTestFormField(
+      /*label=*/"New Password:", /*name=*/"new-password",
+      /*value=*/"", autofill::FormControlType::kInputPassword));
+  fields.back().set_renderer_id(
+      autofill::FieldRendererId(new_password_renderer_id));
   autofill::FormData form;
   form.set_url(GURL("https://www.foo.com"));
   form.set_fields(std::move(fields));
@@ -173,9 +185,12 @@ class ChangeFormSubmissionVerifierTest
 
   std::unique_ptr<ChangeFormSubmissionVerifier> CreateVerifier(
       password_manager::PasswordFormManager* manager,
+      base::OnceCallback<void(optimization_guide::OnAIPageContentDone)>
+          capture_annotated_page_content,
       base::OnceCallback<void(bool)> result_callback) {
     auto verifier = std::make_unique<ChangeFormSubmissionVerifier>(
-        web_contents(), std::move(result_callback));
+        base::PassKey<class ChangeFormSubmissionVerifierTest>(), web_contents(),
+        std::move(capture_annotated_page_content), std::move(result_callback));
     verifier->FillChangePasswordForm(manager, kOldPassword, kNewPassword);
     return verifier;
   }
@@ -204,13 +219,22 @@ TEST_F(ChangeFormSubmissionVerifierTest, Succeeded) {
   auto form_manager = CreateFormManager();
 
   base::test::TestFuture<bool> completion_future;
+  base::MockCallback<
+      base::OnceCallback<void(optimization_guide::OnAIPageContentDone)>>
+      capture_annotated_page_content;
+  EXPECT_CALL(capture_annotated_page_content, Run)
+      .WillOnce(base::test::RunOnceCallback<0>(
+          optimization_guide::AIPageContentResult()));
   auto verifier =
-      CreateVerifier(form_manager.get(), completion_future.GetCallback());
+      CreateVerifier(form_manager.get(), capture_annotated_page_content.Get(),
+                     completion_future.GetCallback());
 
   base::RunLoop run_loop;
-  EXPECT_CALL(driver(), SubmitChangePasswordForm)
+  EXPECT_CALL(driver(), FillChangePasswordForm)
+      .WillOnce(RunOnceCallback<5>(CreateTestPasswordFormData()));
+  EXPECT_CALL(driver(), SubmitFormWithEnter)
       .WillOnce(DoAll(Invoke(&run_loop, &base::RunLoop::Quit),
-                      RunOnceCallback<5>(CreateTestPasswordFormData())));
+                      RunOnceCallback<1>(/*success=*/true)));
   run_loop.Run();
 
   EXPECT_CALL(*optimization_service(), ExecuteModel)
@@ -229,13 +253,22 @@ TEST_F(ChangeFormSubmissionVerifierTest, Failed) {
   auto form_manager = CreateFormManager();
 
   base::test::TestFuture<bool> completion_future;
+  base::MockCallback<
+      base::OnceCallback<void(optimization_guide::OnAIPageContentDone)>>
+      capture_annotated_page_content;
+  EXPECT_CALL(capture_annotated_page_content, Run)
+      .WillOnce(base::test::RunOnceCallback<0>(
+          optimization_guide::AIPageContentResult()));
   auto verifier =
-      CreateVerifier(form_manager.get(), completion_future.GetCallback());
+      CreateVerifier(form_manager.get(), capture_annotated_page_content.Get(),
+                     completion_future.GetCallback());
 
   base::RunLoop run_loop;
-  EXPECT_CALL(driver(), SubmitChangePasswordForm)
+  EXPECT_CALL(driver(), FillChangePasswordForm)
+      .WillOnce(RunOnceCallback<5>(CreateTestPasswordFormData()));
+  EXPECT_CALL(driver(), SubmitFormWithEnter)
       .WillOnce(DoAll(Invoke(&run_loop, &base::RunLoop::Quit),
-                      RunOnceCallback<5>(CreateTestPasswordFormData())));
+                      RunOnceCallback<1>(/*success=*/true)));
   run_loop.Run();
 
   EXPECT_CALL(*optimization_service(), ExecuteModel)
@@ -250,13 +283,22 @@ TEST_F(ChangeFormSubmissionVerifierTest, OnTimeout) {
   auto form_manager = CreateFormManager();
 
   base::test::TestFuture<bool> completion_future;
+  base::MockCallback<
+      base::OnceCallback<void(optimization_guide::OnAIPageContentDone)>>
+      capture_annotated_page_content;
+  EXPECT_CALL(capture_annotated_page_content, Run)
+      .WillOnce(base::test::RunOnceCallback<0>(
+          optimization_guide::AIPageContentResult()));
   auto verifier =
-      CreateVerifier(form_manager.get(), completion_future.GetCallback());
+      CreateVerifier(form_manager.get(), capture_annotated_page_content.Get(),
+                     completion_future.GetCallback());
 
   base::RunLoop run_loop;
-  EXPECT_CALL(driver(), SubmitChangePasswordForm)
+  EXPECT_CALL(driver(), FillChangePasswordForm)
+      .WillOnce(RunOnceCallback<5>(CreateTestPasswordFormData()));
+  EXPECT_CALL(driver(), SubmitFormWithEnter)
       .WillOnce(DoAll(Invoke(&run_loop, &base::RunLoop::Quit),
-                      RunOnceCallback<5>(CreateTestPasswordFormData())));
+                      RunOnceCallback<1>(/*success=*/true)));
   run_loop.Run();
 
   // Verify submission isn't verified for `kSubmissionWaitingTimeout` seconds.
@@ -280,12 +322,17 @@ TEST_F(ChangeFormSubmissionVerifierTest, FailedFilling) {
   auto form_manager = CreateFormManager();
 
   base::test::TestFuture<bool> completion_future;
+  base::MockCallback<
+      base::OnceCallback<void(optimization_guide::OnAIPageContentDone)>>
+      capture_annotated_page_content;
+  EXPECT_CALL(capture_annotated_page_content, Run).Times(0);
   auto verifier =
-      CreateVerifier(form_manager.get(), completion_future.GetCallback());
+      CreateVerifier(form_manager.get(), capture_annotated_page_content.Get(),
+                     completion_future.GetCallback());
 
-  // Expect a call to SubmitChangePasswordForm, although don't invoke completion
+  // Expect a call to FillChangePasswordForm, although don't invoke completion
   // callback.
-  EXPECT_CALL(driver(), SubmitChangePasswordForm).Times(1);
+  EXPECT_CALL(driver(), FillChangePasswordForm).Times(1);
   // Password change isn't verified.
   EXPECT_CALL(*optimization_service(), ExecuteModel).Times(0);
 
@@ -299,12 +346,19 @@ TEST_F(ChangeFormSubmissionVerifierTest, SubmissionBeforeFillingIsDoneIgnored) {
   auto form_manager = CreateFormManager();
 
   base::test::TestFuture<bool> completion_future;
+  base::MockCallback<
+      base::OnceCallback<void(optimization_guide::OnAIPageContentDone)>>
+      capture_annotated_page_content;
+  EXPECT_CALL(capture_annotated_page_content, Run)
+      .WillOnce(base::test::RunOnceCallback<0>(
+          optimization_guide::AIPageContentResult()));
   auto verifier =
-      CreateVerifier(form_manager.get(), completion_future.GetCallback());
+      CreateVerifier(form_manager.get(), capture_annotated_page_content.Get(),
+                     completion_future.GetCallback());
 
   base::RunLoop run_loop;
-  base::OnceCallback<void(const autofill::FormData&)> callback;
-  EXPECT_CALL(driver(), SubmitChangePasswordForm)
+  base::OnceCallback<void(const std::optional<autofill::FormData>&)> callback;
+  EXPECT_CALL(driver(), FillChangePasswordForm)
       .WillOnce(DoAll(Invoke(&run_loop, &base::RunLoop::Quit),
                       MoveArg<5>(&callback)));
   run_loop.Run();
@@ -314,7 +368,10 @@ TEST_F(ChangeFormSubmissionVerifierTest, SubmissionBeforeFillingIsDoneIgnored) {
   verifier->OnPasswordFormSubmission(web_contents());
   testing::Mock::VerifyAndClearExpectations(optimization_service());
 
+  EXPECT_CALL(driver(), SubmitFormWithEnter)
+      .WillOnce(RunOnceCallback<1>(/*success=*/true));
   std::move(callback).Run(CreateTestPasswordFormData());
+
   EXPECT_CALL(*optimization_service(), ExecuteModel)
       .WillOnce(WithArg<3>(Invoke(&PostResponse<true>)));
   verifier->OnPasswordFormSubmission(web_contents());
@@ -326,13 +383,22 @@ TEST_F(ChangeFormSubmissionVerifierTest, MultipleSubmissionsAreIgnored) {
   auto form_manager = CreateFormManager();
 
   base::test::TestFuture<bool> completion_future;
+  base::MockCallback<
+      base::OnceCallback<void(optimization_guide::OnAIPageContentDone)>>
+      capture_annotated_page_content;
+  EXPECT_CALL(capture_annotated_page_content, Run)
+      .WillOnce(base::test::RunOnceCallback<0>(
+          optimization_guide::AIPageContentResult()));
   auto verifier =
-      CreateVerifier(form_manager.get(), completion_future.GetCallback());
+      CreateVerifier(form_manager.get(), capture_annotated_page_content.Get(),
+                     completion_future.GetCallback());
 
   base::RunLoop run_loop;
-  EXPECT_CALL(driver(), SubmitChangePasswordForm)
+  EXPECT_CALL(driver(), FillChangePasswordForm)
+      .WillOnce(RunOnceCallback<5>(CreateTestPasswordFormData()));
+  EXPECT_CALL(driver(), SubmitFormWithEnter)
       .WillOnce(DoAll(Invoke(&run_loop, &base::RunLoop::Quit),
-                      RunOnceCallback<5>(CreateTestPasswordFormData())));
+                      RunOnceCallback<1>(/*success=*/true)));
   run_loop.Run();
 
   // Verify that `ExecuteModel` is called once.
@@ -344,4 +410,29 @@ TEST_F(ChangeFormSubmissionVerifierTest, MultipleSubmissionsAreIgnored) {
   verifier->OnPasswordFormSubmission(web_contents());
 
   EXPECT_TRUE(completion_future.Get());
+}
+
+TEST_F(ChangeFormSubmissionVerifierTest, FailsCapturingAnnoatedPageContent) {
+  auto form_manager = CreateFormManager();
+
+  base::test::TestFuture<bool> completion_future;
+  base::MockCallback<
+      base::OnceCallback<void(optimization_guide::OnAIPageContentDone)>>
+      capture_annotated_page_content;
+  EXPECT_CALL(capture_annotated_page_content, Run)
+      .WillOnce(base::test::RunOnceCallback<0>(std::nullopt));
+  auto verifier =
+      CreateVerifier(form_manager.get(), capture_annotated_page_content.Get(),
+                     completion_future.GetCallback());
+
+  base::RunLoop run_loop;
+  EXPECT_CALL(driver(), FillChangePasswordForm)
+      .WillOnce(RunOnceCallback<5>(CreateTestPasswordFormData()));
+  EXPECT_CALL(driver(), SubmitFormWithEnter)
+      .WillOnce(DoAll(Invoke(&run_loop, &base::RunLoop::Quit),
+                      RunOnceCallback<1>(/*success=*/true)));
+  run_loop.Run();
+
+  EXPECT_CALL(*optimization_service(), ExecuteModel).Times(0);
+  EXPECT_FALSE(completion_future.Get());
 }

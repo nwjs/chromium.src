@@ -226,6 +226,29 @@ targets.mixin(
 )
 
 targets.mixin(
+    name = "14-automotive-landscape-x64-emulator",
+    generate_pyl_entry = False,
+    description = "Run with android_34_automotive_x64",
+    args = [
+        "--avd-config=../../tools/android/avd/proto/android_34_automotive_x64.textpb",
+    ],
+    swarming = targets.swarming(
+        # soft affinity so that bots with caches will be picked first
+        optional_dimensions = {
+            60: {
+                "caches": "android_34_automotive_x64",
+            },
+        },
+        named_caches = [
+            swarming.cache(
+                name = "android_34_automotive_x64",
+                path = ".android_emulator/android_34_automotive_x64",
+            ),
+        ],
+    ),
+)
+
+targets.mixin(
     name = "14-x64-emulator",
     generate_pyl_entry = False,
     description = "Run with android_34_google_apis_x64",
@@ -989,10 +1012,7 @@ targets.mixin(
     generate_pyl_entry = targets.IGNORE_UNUSED,
     swarming = targets.swarming(
         dimensions = {
-            # Unfortunately, "s24" is not exposed as a dimension. "e2s" appears
-            # to refer to the S24 specifically, while "s5e9945" is for the
-            # entire S24 family.
-            "device_type": "e2s",
+            "device_type": "s5e9945",
             "device_os": "UP1A.231005.007",
             "device_os_type": "user",
             "os": "Android",
@@ -1488,7 +1508,7 @@ targets.mixin(
     swarming = targets.swarming(
         dimensions = {
             "cpu": "Apple_(Virtual)",
-            "os": "Mac-14",
+            "os": "Mac",
             "pool": "chromium.tests.macvm",
         },
     ),
@@ -1721,6 +1741,24 @@ targets.mixin(
 )
 
 targets.mixin(
+    name = "mac_arm64_apple_m3_retina_gpu_stable",
+    # We always need this entry to be generated since it is used by
+    # //content/test/gpu/find_bad_machines.py.
+    generate_pyl_entry = targets.IGNORE_UNUSED,
+    swarming = targets.swarming(
+        dimensions = {
+            "cpu": "arm64",
+            "gpu": "apple:m3",
+            "mac_model": "Mac15,3",
+            "os": "Mac-15.4.1",
+            "pool": "chromium.tests.gpu",
+            "display_attached": "1",
+            "hidpi": "1",
+        },
+    ),
+)
+
+targets.mixin(
     name = "mac_beta_arm64",
     generate_pyl_entry = False,
     swarming = targets.swarming(
@@ -1774,7 +1812,7 @@ targets.mixin(
         dimensions = {
             "cpu": "x86-64",
             "gpu": "8086:3e9b",
-            "os": "Mac-15.0",
+            "os": "Mac-14.5",
             "display_attached": "1",
         },
     ),
@@ -2105,13 +2143,6 @@ targets.mixin(
     generate_pyl_entry = targets.IGNORE_UNUSED,
     swarming = targets.swarming(
         containment_type = "AUTO",
-    ),
-)
-
-targets.mixin(
-    name = "cros-cbx-dut",
-    skylab = targets.skylab(
-        cros_cbx = True,
     ),
 )
 
@@ -2526,12 +2557,12 @@ targets.mixin(
     generate_pyl_entry = False,
     args = [
         "--xcode-build-version",
-        "16e5129f",
+        "16e140",
     ],
     swarming = targets.swarming(
         named_caches = [
             swarming.cache(
-                name = "xcode_ios_16e5129f",
+                name = "xcode_ios_16e140",
                 path = "Xcode.app",
             ),
         ],

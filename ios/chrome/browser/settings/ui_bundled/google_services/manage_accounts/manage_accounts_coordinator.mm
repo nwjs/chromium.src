@@ -25,6 +25,7 @@
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
+#import "ios/chrome/browser/shared/model/profile/features.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
@@ -291,7 +292,7 @@ using signin_metrics::PromoAction;
                             view:itemView
         forceSnackbarOverToolbar:NO
                       withSource:metricSignOut
-                      completion:^(BOOL success) {
+                      completion:^(BOOL success, SceneState* scene_state) {
                         [weakSelf handleSignOutCompleted:success];
                       }];
   _signoutCoordinator.delegate = self;

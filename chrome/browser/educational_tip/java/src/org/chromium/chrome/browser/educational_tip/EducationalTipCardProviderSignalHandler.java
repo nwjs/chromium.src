@@ -11,6 +11,7 @@ import androidx.annotation.VisibleForTesting;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncFeatures;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
@@ -18,10 +19,12 @@ import org.chromium.chrome.browser.tabmodel.TabGroupModelFilterProvider;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.ui.default_browser_promo.DefaultBrowserPromoUtils;
+import org.chromium.chrome.browser.ui.signin.history_sync.HistorySyncHelper;
 import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.segmentation_platform.InputContext;
 import org.chromium.components.segmentation_platform.ProcessedValue;
+import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
 
 /** Provides information about the signals of cards in the educational tip module. */
@@ -59,6 +62,11 @@ public class EducationalTipCardProviderSignalHandler {
                         ProcessedValue.fromFloat(syncedTabGroupExists(profile)));
                 return inputContext;
             case ModuleType.QUICK_DELETE_PROMO:
+                return inputContext;
+            case ModuleType.HISTORY_SYNC_PROMO:
+                inputContext.addEntry(
+                        "is_eligible_to_history_opt_in",
+                        ProcessedValue.fromFloat(isEligibleToHistoryOptIn(profile)));
                 return inputContext;
             default:
                 assert false : "Card type not supported!";
@@ -134,5 +142,19 @@ public class EducationalTipCardProviderSignalHandler {
 
         int syncedGroupCount = tabGroupSyncService.getAllGroupIds().length;
         return syncedGroupCount > 0 ? 1.0f : 0.0f;
+    }
+
+    /**
+     * Returns a value of 1.0f if the user is eligible to history sync. Otherwise, it returns 0.0f.
+     */
+    private static float isEligibleToHistoryOptIn(Profile profile) {
+        if (IdentityServicesProvider.get()
+                .getIdentityManager(profile)
+                .hasPrimaryAccount(ConsentLevel.SIGNIN)) {
+            HistorySyncHelper helper = HistorySyncHelper.getForProfile(profile);
+            return helper.shouldSuppressHistorySync() || helper.isDeclinedOften() ? 0.0f : 1.0f;
+        }
+
+        return 0.0f;
     }
 }

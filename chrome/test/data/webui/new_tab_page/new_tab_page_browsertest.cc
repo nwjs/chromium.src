@@ -65,10 +65,6 @@ IN_PROC_BROWSER_TEST_F(NewTabPageTest, Transparency) {
   RunTest("new_tab_page/transparency_test.js", "mocha.run()");
 }
 
-IN_PROC_BROWSER_TEST_F(NewTabPageTest, Footer) {
-  RunTest("new_tab_page/footer_test.js", "mocha.run()");
-}
-
 using NewTabPageModulesTest = NewTabPageBrowserTest;
 
 IN_PROC_BROWSER_TEST_F(NewTabPageModulesTest, ModuleWrapper) {
@@ -89,10 +85,6 @@ IN_PROC_BROWSER_TEST_F(NewTabPageModulesTest, ModuleDescriptor) {
 
 IN_PROC_BROWSER_TEST_F(NewTabPageModulesTest, ModuleRegistry) {
   RunTest("new_tab_page/modules/module_registry_test.js", "mocha.run()");
-}
-
-IN_PROC_BROWSER_TEST_F(NewTabPageModulesTest, ModuleHeader) {
-  RunTest("new_tab_page/modules/module_header_test.js", "mocha.run()");
 }
 
 IN_PROC_BROWSER_TEST_F(NewTabPageModulesTest, InfoDialog) {

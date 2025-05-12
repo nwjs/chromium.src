@@ -15,6 +15,7 @@
 #include "cc/paint/paint_canvas.h"
 #include "cc/paint/paint_flags.h"
 #include "media/base/limits.h"
+#include "media/base/picture_in_picture_events_info.h"
 #include "media/base/video_frame.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -87,6 +88,9 @@ class MockWebMediaPlayer : public WebMediaPlayer {
   uint64_t VideoDecodedByteCount() const override { return 0; }
   void SetVolumeMultiplier(double multiplier) override {}
   void SuspendForFrameClosed() override {}
+  void RecordAutoPictureInPictureInfo(
+      const media::PictureInPictureEventsInfo::AutoPipInfo&
+          auto_picture_in_picture_info) override {}
 
   void SetWouldTaintOrigin(bool taint) { would_taint_origin_ = taint; }
   bool PassedTimingAllowOriginCheck() const override { return true; }

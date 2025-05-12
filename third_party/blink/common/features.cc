@@ -40,12 +40,6 @@ BASE_FEATURE_PARAM(int,
                    "ad-auction-signals-max-size-bytes",
                    10000);
 
-// Serves as killswitch for changing CanCreateCanvasResourceProvider() to
-// create resource provider internally rather than Canvas2DLayerBridge.
-BASE_FEATURE(kAdjustCanCreateCanvas2dResourceProvider,
-             "AdjustCanCreateCanvas2dResourceProvider",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Avoids copying ResourceRequest::TrustedParams when possible.
 BASE_FEATURE(kAvoidTrustedParamsCopies,
              "AvoidTrustedParamsCopies",
@@ -59,6 +53,10 @@ BASE_FEATURE(kBlockMidiByDefault,
 BASE_FEATURE(kComputePressureRateObfuscationMitigation,
              "ComputePressureRateObfuscationMitigation",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kCrashReportingAPIMoreContextData,
+             "CrashReportingAPIMoreContextData",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLowerHighResolutionTimerThreshold,
              "LowerHighResolutionTimerThreshold",
@@ -443,6 +441,10 @@ BASE_FEATURE(kCheckHTMLParserBudgetLessOften,
              "CheckHTMLParserBudgetLessOften",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kClearSiteDataPrefetchPrerenderCache,
+             "ClearSiteDataPrefetchPrerenderCache",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enable legacy `dpr` client hint.
 BASE_FEATURE(kClientHintsDPR_DEPRECATED,
              "ClientHintsDPR_DEPRECATED",
@@ -750,7 +752,7 @@ BASE_FEATURE_ENUM_PARAM(
 // window's top-level site.
 BASE_FEATURE(kEnforceNoopenerOnBlobURLNavigation,
              "EnforceNoopenerOnBlobURLNavigation",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kEventTimingIgnorePresentationTimeFromUnexpectedFrameSource,
              "EventTimingIgnorePresentationTimeFromUnexpectedFrameSource",
@@ -1051,6 +1053,12 @@ BASE_FEATURE(kForceInOrderScript,
              "ForceInOrderScript",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Text autosizing uses heuristics to inflate text sizes on devices with
+// small screens. This feature is for disabling these heuristics.
+BASE_FEATURE(kForceOffTextAutosizing,
+             "ForceOffTextAutosizing",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Automatically convert light-themed pages to use a Blink-generated dark theme
 BASE_FEATURE(kForceWebContentsDarkMode,
              "WebContentsForceDark",
@@ -1151,7 +1159,10 @@ BASE_FEATURE(kHiddenSelectionBounds,
 
 BASE_FEATURE(kIgnoreInputWhileHidden,
              "IgnoreInputWhileHidden",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+             // TODO(crbug.com/407265465) Some Accessibility tools on Windows
+             // appear to mark the Renderer as Hidden. This feature currently
+             // breaks them. Disabling until the root cause can be identified.
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kImageLoadingPrioritizationFix,
              "ImageLoadingPrioritizationFix",
@@ -1395,6 +1406,18 @@ BASE_FEATURE_PARAM(int,
 BASE_FEATURE(kLCPTimingPredictorPrerender2,
              "LCPTimingPredictorPrerender2",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE_PARAM(int,
+                   kLCPTimingPredictorSlidingWindowSize,
+                   &kLCPTimingPredictorPrerender2,
+                   "lcp_timing_predictor_sliding_window_size",
+                   1000);
+
+BASE_FEATURE_PARAM(int,
+                   kLCPTimingPredictorMaxHistogramBuckets,
+                   &kLCPTimingPredictorPrerender2,
+                   "lcp_timing_predictor_max_histogram_buckets",
+                   10);
 
 BASE_FEATURE(kLCPPAutoPreconnectLcpOrigin,
              "LCPPAutoPreconnectLcpOrigin",
@@ -1972,10 +1995,6 @@ BASE_FEATURE(kOpenAllUrlsOrFilesOnDrop,
              "OpenAllUrlsOrFilesOnDrop",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kOptimizeLoadingDataUrls,
-             "OptimizeLoadingDataUrls",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kOriginAgentClusterDefaultEnabled,
              "OriginAgentClusterDefaultEnable",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -2206,14 +2225,6 @@ BASE_FEATURE_PARAM(bool,
                    "enabled_in_fledge",
                    /*default_value=*/true);
 
-// Selectively allows the Protected Audience-specific extensions to be disabled.
-// The name has not been updated (from "fledge") for consistency across versions
-BASE_FEATURE_PARAM(bool,
-                   kPrivateAggregationApiProtectedAudienceExtensionsEnabled,
-                   &kPrivateAggregationApi,
-                   "fledge_extensions_enabled",
-                   /*default_value=*/true);
-
 // Selectively allows the debug mode to be disabled while leaving the rest of
 // the API in place. If disabled, any `enableDebugMode()` calls will essentially
 // have no effect.
@@ -2225,7 +2236,7 @@ BASE_FEATURE_PARAM(bool,
 
 // Adds some additional functionality (new reserved event types, base values)
 // to things enabled by
-// kPrivateAggregationApiProtectedAudienceExtensionsEnabled.
+// kPrivateAggregationApiEnabledInProtectedAudience.
 BASE_FEATURE(kPrivateAggregationApiProtectedAudienceAdditionalExtensions,
              "PrivateAggregationApiProtectedAudienceAdditionalExtensions",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -2369,6 +2380,11 @@ BASE_FEATURE(kScriptStreamingForNonHTTP,
              "ScriptStreamingForNonHTTP",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enables sending Sec-Purpose: "prefetch" header for rel="prefetch".
+BASE_FEATURE(kSecPurposePrefetchHeaderRelPrefetch,
+             "SecPurposePrefetchHeaderRelPrefetch",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kSelectiveInOrderScript,
              "SelectiveInOrderScript",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -2390,13 +2406,6 @@ BASE_FEATURE(kSendCnameAliasesToSubresourceFilterFromRenderer,
 BASE_FEATURE(kServiceWorkerUpdateDelay,
              "ServiceWorkerUpdateDelay",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// If disabled, client_id and resultingClientId behavior keeps the old
-// Chromium behavior.
-// This is workaround for crbug.com/1520512 until the fix gets ready.
-BASE_FEATURE(kServiceWorkerClientIdAlignedWithSpec,
-             "ServiceWorkerClientIdAlignedWithSpec",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, beacons (and friends) have ResourceLoadPriority::kLow,
 // not ResourceLoadPriority::kVeryLow.
@@ -2424,10 +2433,6 @@ BASE_FEATURE(kSharedStorageSelectURLSavedQueries,
 
 BASE_FEATURE(kSharedStorageAPIEnableWALForDatabase,
              "SharedStorageAPIEnableWALForDatabase",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kSimplifyLoadingTransparentPlaceholderImage,
-             "SimplifyLoadingTransparentPlaceholderImage",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 const char kSkipTouchEventFilterTypeParamName[] = "type";
@@ -2458,7 +2463,7 @@ BASE_FEATURE_PARAM(int,
                    kSpeculativeServiceWorkerWarmUpMaxCount,
                    &kSpeculativeServiceWorkerWarmUp,
                    "sw_warm_up_max_count",
-                   10);
+                   2);
 
 // Duration to keep worker warmed-up.
 BASE_FEATURE_PARAM(base::TimeDelta,
@@ -2709,6 +2714,14 @@ BASE_FEATURE(kWebAppBorderless,
 // https://github.com/WICG/manifest-incubations/blob/gh-pages/scope_extensions-explainer.md
 BASE_FEATURE(kWebAppEnableScopeExtensions,
              "WebAppEnableScopeExtensions",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Controls scope extensions feature in web apps. Enables parsing of "site"
+// entries in "scope_extensions" field in web app manifests. See explainer for
+// more information:
+// https://github.com/WICG/manifest-incubations/blob/gh-pages/scope_extensions-explainer.md
+BASE_FEATURE(kWebAppEnableScopeExtensionsBySite,
+             "WebAppEnableScopeExtensionsBySite",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls parsing of the "lock_screen" dictionary field and its "start_url"

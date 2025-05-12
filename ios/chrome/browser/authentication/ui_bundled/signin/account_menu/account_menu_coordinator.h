@@ -9,6 +9,7 @@
 
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_coordinator.h"
 
+enum class AccountMenuAccessPoint;
 @protocol AccountMenuCoordinatorDelegate;
 
 // Coordinator to display the fast account menu view controller.
@@ -18,11 +19,14 @@
 // UIModalPresentationPopover mode.
 - (instancetype)initWithBaseViewController:(UIViewController*)viewController
                                    browser:(Browser*)browser
+                              contextStyle:(SigninContextStyle)contextStyle
                                 anchorView:(UIView*)anchorView
+                               accessPoint:(AccountMenuAccessPoint)accessPoint
     NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)initWithBaseViewController:(UIViewController*)viewController
                                    browser:(Browser*)browser
+                              contextStyle:(SigninContextStyle)contextStyle
                                accessPoint:
                                    (signin_metrics::AccessPoint)accessPoint
     NS_UNAVAILABLE;

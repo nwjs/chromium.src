@@ -5,14 +5,22 @@
 import {assert} from 'chrome://resources/js/assert.js';
 import {PromiseResolver} from 'chrome://resources/js/promise_resolver.js';
 
-import type {AnnotationBrush, AnnotationText, Color, TextStyles} from './constants.js';
+import type {AnnotationBrush, Color, TextAttributes, TextBoxRect, TextStyles} from './constants.js';
 import {AnnotationBrushType, TextAlignment, TextStyle} from './constants.js';
-import {PluginController} from './controller.js';
+import type {MessageData} from './controller.js';
+import {PluginController, PluginControllerEventType} from './controller.js';
+import type {Viewport} from './viewport.js';
+
+export interface ViewportParams {
+  pageX: number;
+  pageY: number;
+  zoom: number;
+}
 
 export class Ink2Manager extends EventTarget {
   private brush_: AnnotationBrush = {type: AnnotationBrushType.PEN};
-  private text_: AnnotationText = {
-    font: 'Roboto',
+  private attributes_: TextAttributes = {
+    typeface: '',
     size: 12,
     color: {r: 0, g: 0, b: 0},
     alignment: TextAlignment.LEFT,
@@ -23,9 +31,55 @@ export class Ink2Manager extends EventTarget {
       [TextStyle.STRIKETHROUGH]: false,
     },
   };
-
   private brushResolver_: PromiseResolver<void>|null = null;
+  private fontNamesResolver_: PromiseResolver<string[]>|null = null;
   private pluginController_: PluginController = PluginController.getInstance();
+  private viewport_: Viewport|null = null;
+  private viewportParams_: ViewportParams = {pageX: 0, pageY: 0, zoom: 1.0};
+
+  constructor() {
+    super();
+    this.pluginController_.getEventTarget().addEventListener(
+        PluginControllerEventType.PLUGIN_MESSAGE,
+        (e: Event) => this.handlePluginMessage_(e as CustomEvent<MessageData>));
+  }
+
+  setViewport(viewport: Viewport) {
+    this.viewport_ = viewport;
+  }
+
+  private handlePluginMessage_(e: CustomEvent<MessageData>) {
+    const data = e.detail;
+    if (data.type.toString() === 'updateTextAnnotTextBoxRect') {
+      const detail = data as unknown as TextBoxRect;
+      this.dispatchEvent(new CustomEvent('update-text-box', {detail}));
+    }
+  }
+
+  getViewportParams(): ViewportParams {
+    return this.viewportParams_;
+  }
+
+  viewportChanged() {
+    assert(this.viewport_, 'Must call setViewport() before viewportChanged()');
+    const visiblePage = this.viewport_.getMostVisiblePage();
+    const visiblePageDimensions = this.viewport_.getPageScreenRect(visiblePage);
+    const zoom = this.viewport_.getZoom();
+    if (visiblePageDimensions.x === this.viewportParams_.pageX &&
+        visiblePageDimensions.y === this.viewportParams_.pageY &&
+        zoom === this.viewportParams_.zoom) {
+      // Early return to avoid firing unnecessary events.
+      return;
+    }
+
+    this.viewportParams_ = {
+      pageX: visiblePageDimensions.x,
+      pageY: visiblePageDimensions.y,
+      zoom,
+    };
+    this.dispatchEvent(
+        new CustomEvent('viewport-changed', {detail: this.viewportParams_}));
+  }
 
   isInitializationStarted(): boolean {
     return this.brushResolver_ !== null;
@@ -40,8 +94,8 @@ export class Ink2Manager extends EventTarget {
     return this.brush_;
   }
 
-  getCurrentText(): AnnotationText {
-    return this.text_;
+  getCurrentTextAttributes(): TextAttributes {
+    return this.attributes_;
   }
 
   initializeBrush(): Promise<void> {
@@ -86,55 +140,74 @@ export class Ink2Manager extends EventTarget {
     this.setAnnotationBrushInPlugin_();
   }
 
-  setTextFont(font: string) {
-    if (this.text_.font === font) {
+  getTextAnnotationFontNames(): Promise<string[]> {
+    if (this.fontNamesResolver_ === null) {
+      this.fontNamesResolver_ = new PromiseResolver();
+      this.pluginController_.getTextAnnotFontNames().then(fontsMessage => {
+        assert(this.fontNamesResolver_);
+        this.fontNamesResolver_.resolve(fontsMessage.data);
+        assert(fontsMessage.data.length > 0);
+        this.setTextTypeface(fontsMessage.data[0]!);
+      });
+    }
+    return this.fontNamesResolver_.promise;
+  }
+
+  setTextTypeface(typeface: string) {
+    if (this.attributes_.typeface === typeface) {
       return;
     }
 
-    this.text_.font = font;
+    this.attributes_.typeface = typeface;
     this.updatedText_();
   }
 
   setTextSize(size: number) {
-    if (this.text_.size === size) {
+    if (this.attributes_.size === size) {
       return;
     }
 
-    this.text_.size = size;
+    this.attributes_.size = size;
     this.updatedText_();
   }
 
   setTextColor(color: Color) {
-    if (this.text_.color.r === color.r && this.text_.color.g === color.g &&
-        this.text_.color.b === color.b) {
+    if (this.attributes_.color.r === color.r &&
+        this.attributes_.color.g === color.g &&
+        this.attributes_.color.b === color.b) {
       return;
     }
 
-    this.text_.color = color;
+    this.attributes_.color = color;
     this.updatedText_();
   }
 
   setTextAlignment(alignment: TextAlignment) {
-    if (this.text_.alignment === alignment) {
+    if (this.attributes_.alignment === alignment) {
       return;
     }
 
-    this.text_.alignment = alignment;
+    this.attributes_.alignment = alignment;
     this.updatedText_();
   }
 
   setTextStyles(styles: TextStyles) {
-    if (this.text_.styles[TextStyle.BOLD] === styles[TextStyle.BOLD] &&
-        this.text_.styles[TextStyle.ITALIC] === styles[TextStyle.ITALIC] &&
-        this.text_.styles[TextStyle.UNDERLINE] ===
+    if (this.attributes_.styles[TextStyle.BOLD] === styles[TextStyle.BOLD] &&
+        this.attributes_.styles[TextStyle.ITALIC] ===
+            styles[TextStyle.ITALIC] &&
+        this.attributes_.styles[TextStyle.UNDERLINE] ===
             styles[TextStyle.UNDERLINE] &&
-        this.text_.styles[TextStyle.STRIKETHROUGH] ===
+        this.attributes_.styles[TextStyle.STRIKETHROUGH] ===
             styles[TextStyle.STRIKETHROUGH]) {
       return;
     }
 
-    this.text_.styles = styles;
+    this.attributes_.styles = styles;
     this.updatedText_();
+  }
+
+  setTextBoxRect(update: TextBoxRect) {
+    this.pluginController_.setTextAnnotTextBoxRect(update);
   }
 
   /**
@@ -158,17 +231,22 @@ export class Ink2Manager extends EventTarget {
 
   private updatedText_(): void {
     this.setAnnotationTextInPlugin_();
-    this.fireTextChanged_();
+    this.fireFontChanged_();
   }
 
   private setAnnotationTextInPlugin_(): void {
-    // TODO (crbug.com/402547554): Replace this with a real call to the plugin,
-    // once the backend has been built.
-    console.info('Send plugin text information ' + JSON.stringify(this.text_));
+    this.pluginController_.setTextAnnotationFont({
+      typeface: this.attributes_.typeface,
+      fontSize: this.attributes_.size,
+      alignment: this.attributes_.alignment,
+      style: this.attributes_.styles,
+      color: this.attributes_.color,
+    });
   }
 
-  private fireTextChanged_() {
-    this.dispatchEvent(new CustomEvent('text-changed', {detail: this.text_}));
+  private fireFontChanged_() {
+    this.dispatchEvent(
+        new CustomEvent('attributes-changed', {detail: this.attributes_}));
   }
 
   static getInstance(): Ink2Manager {

@@ -133,10 +133,10 @@ IN_PROC_BROWSER_TEST_F(SingleClientStandaloneTransportSyncTest,
   EXPECT_TRUE(GetSyncService(0)->IsSyncFeatureActive());
   // Make sure that some data type which is not allowed in transport-only mode
   // got activated.
-  ASSERT_FALSE(AllowedTypesInStandaloneTransportMode().Has(syncer::BOOKMARKS));
+  ASSERT_FALSE(AllowedTypesInStandaloneTransportMode().Has(syncer::AUTOFILL));
   ASSERT_TRUE(GetSyncService(0)->GetUserSettings()->GetSelectedTypes().Has(
-      syncer::UserSelectableType::kBookmarks));
-  EXPECT_TRUE(GetSyncService(0)->GetActiveDataTypes().Has(syncer::BOOKMARKS));
+      syncer::UserSelectableType::kAutofill));
+  EXPECT_TRUE(GetSyncService(0)->GetActiveDataTypes().Has(syncer::AUTOFILL));
 }
 #endif  // BUILDFLAG(IS_ANDROID)
 
@@ -468,13 +468,14 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_FALSE(
       GetSyncService(0)->GetActiveDataTypes().Has(syncer::USER_EVENTS));
 
-  // Without `kReplaceSyncPromosWithSignInPromos`, neither PREFERENCES nor
-  // PRIORITY_PREFERENCES should be active in transport mode (even if the user
-  // has opted in).
+  // Without `kReplaceSyncPromosWithSignInPromos`, PREFERENCES should not be
+  // active in transport mode (even if the user has opted in).
   EXPECT_FALSE(
       GetSyncService(0)->GetActiveDataTypes().Has(syncer::PREFERENCES));
-  EXPECT_FALSE(GetSyncService(0)->GetActiveDataTypes().Has(
-      syncer::PRIORITY_PREFERENCES));
+  // TODO(crbug.com/412602018): With
+  // `kSyncSupportAlwaysSyncingPriorityPreferences` enabled,
+  // PRIORITY_PREFERENCES are active in transport mode and decoupled from user
+  // toggle. Update or add new test to cover PRIORITY_PREFERENCES.
 }
 
 // SingleClientStandaloneTransportReplaceSyncWithSigninMigrationSyncTest is

@@ -16,8 +16,11 @@
 #include "chrome/browser/notifications/notification_permission_context.h"
 #include "chrome/browser/notifications/platform_notification_service_factory.h"
 #include "chrome/browser/notifications/platform_notification_service_impl.h"
+#include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
+#include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/permissions/notifications_engagement_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/safe_browsing/notification_content_detection/notification_content_detection_util.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/content_settings_pattern.h"
@@ -26,11 +29,15 @@
 #include "components/permissions/permission_uma_util.h"
 #include "components/permissions/permission_util.h"
 #include "components/safe_browsing/content/browser/notification_content_detection/notification_content_detection_constants.h"
+#include "components/safe_browsing/core/common/features.h"
 #include "components/site_engagement/content/site_engagement_service.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_event_dispatcher.h"
 #include "content/public/browser/permission_controller.h"
+#include "content/public/browser/permission_descriptor_util.h"
 #include "content/public/browser/permission_result.h"
+#include "content/public/browser/platform_notification_context.h"
+#include "content/public/browser/storage_partition.h"
 #include "content/public/common/persistent_notification_status.h"
 #include "third_party/blink/public/common/permissions/permission_utils.h"
 #include "url/gurl.h"
@@ -124,7 +131,10 @@ void PersistentNotificationHandler::OnClick(
   blink::mojom::PermissionStatus permission_status =
       profile->GetPermissionController()
           ->GetPermissionResultForOriginWithoutContext(
-              blink::PermissionType::NOTIFICATIONS, url::Origin::Create(origin))
+              content::PermissionDescriptorUtil::
+                  CreatePermissionDescriptorForPermissionType(
+                      blink::PermissionType::NOTIFICATIONS),
+              url::Origin::Create(origin))
           .status;
 
   // Don't process click events when the |origin| doesn't have permission. This
@@ -227,6 +237,74 @@ void PersistentNotificationHandler::DisableNotifications(Profile* profile,
 void PersistentNotificationHandler::OpenSettings(Profile* profile,
                                                  const GURL& origin) {
   NotificationCommon::OpenNotificationSettings(profile, origin);
+}
+
+void PersistentNotificationHandler::ReportNotificationAsSafe(
+    const std::string& notification_id,
+    const GURL& url,
+    Profile* profile) {
+  OnMaybeReport(notification_id, url, profile, /*did_show_warning=*/true,
+                /*did_user_unsubscribe=*/false);
+}
+
+void PersistentNotificationHandler::ReportWarnedNotificationAsSpam(
+    const std::string& notification_id,
+    const GURL& url,
+    Profile* profile) {
+  OnMaybeReport(notification_id, url, profile, /*did_show_warning=*/true,
+                /*did_user_unsubscribe=*/true);
+}
+
+void PersistentNotificationHandler::ReportUnwarnedNotificationAsSpam(
+    const std::string& notification_id,
+    const GURL& url,
+    Profile* profile) {
+  OnMaybeReport(notification_id, url, profile, /*did_show_warning=*/false,
+                /*did_user_unsubscribe=*/true);
+}
+
+void PersistentNotificationHandler::OnMaybeReport(
+    const std::string& notification_id,
+    const GURL& url,
+    Profile* profile,
+    bool did_show_warning,
+    bool did_user_unsubscribe) {
+  CHECK(profile);
+
+  // In case the data volume becomes excessive, logging should happen at a
+  // sampled rate. This rate is defined by the
+  // `kReportNotificationContentDetectionDataRate` feature parameter.
+  if (base::RandDouble() * 100 >
+      safe_browsing::kReportNotificationContentDetectionDataRate.Get()) {
+    return;
+  }
+
+  scoped_refptr<content::PlatformNotificationContext> notification_context =
+      profile->GetStoragePartitionForUrl(url)->GetPlatformNotificationContext();
+  if (!notification_context ||
+      !OptimizationGuideKeyedServiceFactory::GetForProfile(profile)) {
+    return;
+  }
+
+  blink::mojom::EngagementLevel engagement_level =
+      blink::mojom::EngagementLevel::NONE;
+  if (site_engagement::SiteEngagementService::Get(profile)) {
+    engagement_level = site_engagement::SiteEngagementService::Get(profile)
+                           ->GetEngagementLevel(url);
+  }
+
+  // Read notification data from database and upload as log to model quality
+  // service.
+  notification_context->ReadNotificationDataAndRecordInteraction(
+      notification_id, url,
+      content::PlatformNotificationContext::Interaction::NONE,
+      base::BindOnce(
+          &safe_browsing::SendNotificationContentDetectionDataToMQLSServer,
+          OptimizationGuideKeyedServiceFactory::GetForProfile(profile)
+              ->GetModelQualityLogsUploaderService()
+              ->GetWeakPtr(),
+          safe_browsing::NotificationContentDetectionMQLSMetadata(
+              did_show_warning, did_user_unsubscribe, engagement_level)));
 }
 
 #if BUILDFLAG(ENABLE_BACKGROUND_MODE)

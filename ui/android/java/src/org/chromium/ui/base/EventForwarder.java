@@ -61,6 +61,17 @@ public class EventForwarder {
     // Delegate to call WebContents functionality.
     private @Nullable StylusWritingDelegate mStylusWritingDelegate;
 
+    // Holds the previous pointer event's position that was forwarded to native
+    private float mLastPointerPositionX;
+    private float mLastPointerPositionY;
+
+    // Holds the previous trackpad event's position when the pointer is captured, the event's
+    // position in this case contains the raw finger coordinates on the trackpad
+    private float mLastTrackpadPositionX;
+    private float mLastTrackpadPositionY;
+
+    private boolean mIsLastTrackpadPositionValid;
+
     /** Interface to provide stylus writing functionality. */
     public interface StylusWritingDelegate {
         /**
@@ -465,6 +476,11 @@ public class EventForwarder {
         boolean shouldConvertToMouseEvent =
                 isTrackpadToMouseEventConversionEnabled()
                         && isTrackpadToMouseConversionEvent(event);
+
+        mLastPointerPositionX = event.getX();
+        mLastPointerPositionY = event.getY();
+        mIsLastTrackpadPositionValid = false;
+
         EventForwarderJni.get()
                 .onMouseEvent(
                         mNativeEventForwarder,
@@ -560,7 +576,6 @@ public class EventForwarder {
         String url = null;
         if (event.getAction() == DragEvent.ACTION_DROP) {
             try {
-                StringBuilder contentBuilder = new StringBuilder("");
                 ClipData clipData = event.getClipData();
                 final int itemCount = clipData == null ? 0 : clipData.getItemCount();
                 for (int i = 0; i < itemCount; i++) {
@@ -591,7 +606,7 @@ public class EventForwarder {
                         html = temp.toString();
                     }
                 }
-                content = contentBuilder.toString();
+                content = "";
             } catch (UndeclaredThrowableException e) {
                 // When dropped item is not successful for whatever reason, catch before we crash.
                 // While ClipData.Item does capture most common failures, there could be exceptions
@@ -671,6 +686,190 @@ public class EventForwarder {
                         event,
                         MotionEventUtils.getEventTimeNanos(event),
                         event.getDownTime());
+    }
+
+    /**
+     * Forwards the captured pointer events to native, transforms the captured pointer event first
+     * to a format similar to the non-captured event.
+     */
+    @VisibleForTesting
+    public boolean onCapturedPointerEvent(MotionEvent event) {
+        boolean shouldConvertToMouseEvent =
+                isTrackpadToMouseEventConversionEnabled()
+                        && event.isFromSource(InputDevice.SOURCE_TOUCHPAD);
+        event = transformCapturedPointerEvent(event);
+
+        if (!event.isFromSource(InputDevice.SOURCE_MOUSE)) {
+            Log.w(
+                    TAG,
+                    "Received a captured pointer event with an unexpected source %d.",
+                    event.getSource());
+            return true;
+        }
+
+        // For mousedown and mouseup events, we use ACTION_BUTTON_PRESS
+        // and ACTION_BUTTON_RELEASE respectively because they provide
+        // info about the changed-button.
+        if (event.getAction() == MotionEvent.ACTION_DOWN
+                || event.getAction() == MotionEvent.ACTION_UP
+                || event.getActionMasked() == MotionEvent.ACTION_POINTER_DOWN
+                || event.getActionMasked() == MotionEvent.ACTION_POINTER_UP) {
+            // While we use the action buttons for the changed state it is important to still
+            // consume the down/up events to get the complete stream for a drag gesture, which
+            // is provided using ACTION_MOVE touch events.
+            return true;
+        }
+
+        if (event.getX() == mLastPointerPositionX
+                && event.getY() == mLastPointerPositionY
+                && event.getAction() == MotionEvent.ACTION_MOVE) {
+            // No change compared to previous event, no need to forward the event
+            return true;
+        }
+
+        // Update the last event position
+        mLastPointerPositionX = event.getX();
+        mLastPointerPositionY = event.getY();
+
+        if (event.getAction() == MotionEvent.ACTION_SCROLL) {
+            return EventForwarderJni.get()
+                    .onGenericMotionEvent(
+                            mNativeEventForwarder,
+                            EventForwarder.this,
+                            event,
+                            MotionEventUtils.getEventTimeNanos(event),
+                            event.getDownTime());
+        } else {
+            EventForwarderJni.get()
+                    .onMouseEvent(
+                            mNativeEventForwarder,
+                            EventForwarder.this,
+                            MotionEventUtils.getEventTimeNanos(event),
+                            event.getActionMasked(),
+                            event.getX(),
+                            event.getY(),
+                            event.getPointerId(0),
+                            event.getPressure(0),
+                            event.getOrientation(0),
+                            event.getAxisValue(MotionEvent.AXIS_TILT, 0),
+                            getMouseEventActionButton(event),
+                            event.getButtonState(),
+                            event.getMetaState(),
+                            shouldConvertToMouseEvent
+                                    ? MotionEvent.TOOL_TYPE_MOUSE
+                                    : event.getToolType(0));
+        }
+
+        return true;
+    }
+
+    private MotionEvent transformCapturedPointerEvent(MotionEvent event) {
+        float offsetX = 0.0f;
+        float offsetY = 0.0f;
+
+        // TODO(crbug.com/405067297): support multi-finger events on the trackpad (scroll)
+        if (event.isFromSource(InputDevice.SOURCE_TOUCHPAD)) {
+            event = updateTrackpadButtonState(event);
+
+            // Ignore calculating the offset if we don't have the previous event trackpad position
+            if (mIsLastTrackpadPositionValid) {
+                // Input device is trackpad, getX & getY return the raw finger position on the
+                // trackpad
+                // Calculate the offsets based on the previous event position vs. the current event
+                // position
+                offsetX = event.getX() - mLastTrackpadPositionX;
+                offsetY = event.getY() - mLastTrackpadPositionY;
+            }
+
+            mLastTrackpadPositionX = event.getX();
+            mLastTrackpadPositionY = event.getY();
+
+            // Invalidate the trackpad position for these cases:
+            // ACTION_UP: No pointer on the trackpad, the position data is stale
+            // ACTION_POINTER_UP & ACTION_POINTER_DOWN: Multiple trackpad pointers causes the main
+            // pointer (pointer at idx 0) to flip from one to another, causing sudden jumps in
+            // offsets, we need to wait for a subsequent event to figure out the correct trackpad
+            // position
+            mIsLastTrackpadPositionValid =
+                    (event.getAction() != MotionEvent.ACTION_UP
+                            && event.getActionMasked() != MotionEvent.ACTION_POINTER_UP
+                            && event.getActionMasked() != MotionEvent.ACTION_POINTER_DOWN);
+        } else if (event.isFromSource(InputDevice.SOURCE_MOUSE_RELATIVE)) {
+            // Input device is Mouse, getX & getY return the relative change of the pointer position
+            offsetX = event.getX();
+            offsetY = event.getY();
+        } else {
+            // Unexpected source
+            return event;
+        }
+
+        float currentPointerPositionX = mLastPointerPositionX + offsetX;
+        float currentPointerPositionY = mLastPointerPositionY + offsetY;
+
+        MotionEvent ret = MotionEvent.obtain(event);
+        ret.setSource(InputDevice.SOURCE_MOUSE);
+        ret.setLocation(currentPointerPositionX, currentPointerPositionY);
+
+        return ret;
+    }
+
+    private static MotionEvent updateTrackpadButtonState(MotionEvent event) {
+        if (event.getAction() != MotionEvent.ACTION_BUTTON_PRESS
+                && event.getAction() != MotionEvent.ACTION_BUTTON_RELEASE) {
+            return event;
+        }
+
+        // When the pointer is captured, all clicks on trackpad would have a BUTTON_PRIMARY state,
+        // regardless of how many pointers are on the trackpad. So, we need to correct the button
+        // state
+        int updatedButtonState;
+        if (event.getPointerCount() == 2) {
+            updatedButtonState = MotionEvent.BUTTON_SECONDARY;
+        } else if (event.getPointerCount() == 3) {
+            updatedButtonState = MotionEvent.BUTTON_TERTIARY;
+        } else {
+            // No change is made on the event
+            return event;
+        }
+
+        return MotionEvent.obtain(
+                event.getDownTime(),
+                event.getEventTime(),
+                event.getAction(),
+                event.getPointerCount(),
+                getPointerPropertiesForEvent(event),
+                getPointerCoordsForEvent(event),
+                event.getMetaState(),
+                updatedButtonState,
+                event.getXPrecision(),
+                event.getYPrecision(),
+                event.getDeviceId(),
+                event.getEdgeFlags(),
+                event.getSource(),
+                event.getFlags());
+    }
+
+    private static MotionEvent.PointerProperties[] getPointerPropertiesForEvent(MotionEvent event) {
+        MotionEvent.PointerProperties[] ret =
+                new MotionEvent.PointerProperties[event.getPointerCount()];
+        for (int i = 0; i < event.getPointerCount(); i++) {
+            MotionEvent.PointerProperties properties = new MotionEvent.PointerProperties();
+            event.getPointerProperties(i, properties);
+
+            ret[i] = properties;
+        }
+        return ret;
+    }
+
+    private static MotionEvent.PointerCoords[] getPointerCoordsForEvent(MotionEvent event) {
+        MotionEvent.PointerCoords[] ret = new MotionEvent.PointerCoords[event.getPointerCount()];
+        for (int i = 0; i < event.getPointerCount(); i++) {
+            MotionEvent.PointerCoords coords = new MotionEvent.PointerCoords();
+            event.getPointerCoords(i, coords);
+
+            ret[i] = coords;
+        }
+        return ret;
     }
 
     /**

@@ -22,6 +22,7 @@
 #include "base/values.h"
 #include "base/version.h"
 #include "build/build_config.h"
+#include "components/policy/core/common/policy_pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/supervised_user/core/browser/kids_chrome_management_url_checker_client.h"
@@ -39,11 +40,13 @@
 #include "google_apis/gaia/gaia_id.h"
 #include "ui/base/l10n/l10n_util.h"
 
-using base::UserMetricsAction;
+namespace supervised_user {
 
 namespace {
+using base::UserMetricsAction;
+
 // Helper that extracts custodian data from given preferences.
-std::optional<supervised_user::Custodian> GetCustodianFromPrefs(
+std::optional<Custodian> GetCustodianFromPrefs(
     const PrefService& user_prefs,
     std::string_view email_address_pref,
     std::string_view name_pref,
@@ -58,12 +61,10 @@ std::optional<supervised_user::Custodian> GetCustodianFromPrefs(
       profile_image_url.empty()) {
     return std::nullopt;
   }
-  return supervised_user::Custodian((name.empty() ? email : name), email,
-                                    gaia_id, profile_image_url);
+  return Custodian((name.empty() ? email : name), email, gaia_id,
+                   profile_image_url);
 }
 }  // namespace
-
-namespace supervised_user {
 
 Custodian::Custodian(std::string_view name,
                      std::string_view email_address,
@@ -95,7 +96,12 @@ void SupervisedUserService::Init() {
       prefs::kSupervisedUserId,
       base::BindRepeating(&SupervisedUserService::OnSupervisedUserIdChanged,
                           base::Unretained(this)));
-  SetActive(supervised_user::IsSubjectToParentalControls(user_prefs_.get()));
+  pref_change_registrar_.Add(
+      policy::policy_prefs::kIncognitoModeAvailability,
+      base::BindRepeating(
+          &SupervisedUserService::OnIncognitoModeAvailabilityChanged,
+          base::Unretained(this)));
+  SetActive(IsSubjectToParentalControls(user_prefs_.get()));
 }
 
 SupervisedUserURLFilter* SupervisedUserService::GetURLFilter() const {
@@ -160,13 +166,8 @@ SupervisedUserService::SupervisedUserService(
       user_prefs, std::move(url_filter_delegate));
 }
 
-void SupervisedUserService::SetActive(bool active) {
-  if (active_ == active) {
-    return;
-  }
-  active_ = active;
-
-  settings_service_->SetActive(active_);
+void SupervisedUserService::SetSettingsServiceActive(bool active) {
+  settings_service_->SetActive(active);
 
   // Trigger a sync reconfig to enable/disable the right SU data types.
   // The logic to do this lives in the
@@ -177,17 +178,29 @@ void SupervisedUserService::SetActive(bool active) {
       sync_service_->GetUserSettings()->IsInitialSyncFeatureSetupComplete()) {
     // Trigger a reconfig by grabbing a SyncSetupInProgressHandle and
     // immediately releasing it again (via the temporary unique_ptr going away).
-    sync_service_->GetSetupInProgressHandle();
+    std::ignore = sync_service_->GetSetupInProgressHandle();
   }
+}
 
+void SupervisedUserService::SetActive(bool active) {
+  if (active_ == active) {
+    return;
+  }
+  active_ = active;
+
+  // If-else branches should work in Li-Fo manner.
   if (active_) {
-    // Initialize SafeSites URL checker.
+    // 1. Activate the subservice.
+    SetSettingsServiceActive(active_);
+
+    // 2. Initialize SafeSites URL checker.
     GetURLFilter()->SetURLCheckerClient(
         std::make_unique<KidsChromeManagementURLCheckerClient>(
             identity_manager_, url_loader_factory_,
             platform_delegate_->GetCountryCode(),
             platform_delegate_->GetChannel()));
 
+    // 3. Start observing prefs.
     pref_change_registrar_.Add(
         prefs::kDefaultSupervisedUserFilteringBehavior,
         base::BindRepeating(
@@ -212,21 +225,29 @@ void SupervisedUserService::SetActive(bool active) {
                               base::Unretained(this)));
     }
 
+    // 4. Initialize approvals.
     remote_web_approvals_manager_.AddApprovalRequestCreator(
         std::make_unique<PermissionRequestCreatorImpl>(identity_manager_,
                                                        url_loader_factory_));
 
-    // Initialize the filter.
+    // 5. Initialize the filter.
     OnDefaultFilteringBehaviorChanged();
     OnSafeSitesSettingChanged();
     UpdateManualHosts();
     UpdateManualURLs();
-
     GetURLFilter()->SetFilterInitialized(true);
     current_web_filter_type_ = url_filter_->GetWebFilterType();
   } else {
+    // 5. Destroy filter.
+    url_filter_->Clear();
+    for (SupervisedUserServiceObserver& observer : observer_list_) {
+      observer.OnURLFilterChanged();
+    }
+
+    // 4. Destroy approvals.
     remote_web_approvals_manager_.ClearApprovalRequestsCreators();
 
+    // 3. Stop observing prefs.
     pref_change_registrar_.Remove(
         prefs::kDefaultSupervisedUserFilteringBehavior);
     pref_change_registrar_.Remove(prefs::kSupervisedUserSafeSites);
@@ -236,10 +257,9 @@ void SupervisedUserService::SetActive(bool active) {
       pref_change_registrar_.Remove(pref);
     }
 
-    url_filter_->Clear();
-    for (SupervisedUserServiceObserver& observer : observer_list_) {
-      observer.OnURLFilterChanged();
-    }
+    // 2. SafeSites URL checker is gone with filter from 5.
+    // 1. Shut down settings.
+    SetSettingsServiceActive(active_);
   }
 }
 
@@ -250,22 +270,29 @@ void SupervisedUserService::OnCustodianInfoChanged() {
 }
 
 void SupervisedUserService::OnSupervisedUserIdChanged() {
-  bool is_child =
-      supervised_user::IsSubjectToParentalControls(user_prefs_.get());
-  if (is_child) {
-    // When supervision is enabled, close any incognito windows/tabs that may
-    // be open for this profile. These windows cannot be created after the
-    // user is signed in, and closing existing ones avoids unexpected
-    // behavior due to baked-in assumptions in the SupervisedUser code.
+  SetActive(IsSubjectToParentalControls(user_prefs_.get()));
+}
+
+void SupervisedUserService::OnIncognitoModeAvailabilityChanged() {
+  // This is called in the following cases:
+  // 1) When kSupervisedUserId changes state and indicates child account, the
+  // `setings_service_`::SetActive(true) call notifies all subscribers that
+  // settings have changed. SupervisedUserPrefStore is one of these subscribers,
+  // and it unconditionally disables the incognito mode.
+  // 2) When incognito mode is explicitly disabled, regardless kSupervisedUserId
+  // status.
+  // 3) Backing policy pref is updated independently from supervised user
+  // features. Closing incognito tabs in this situation seems the right thing to
+  // do and closing incognito tabs is idempotent.
+  if (platform_delegate_->ShouldCloseIncognitoTabs()) {
     platform_delegate_->CloseIncognitoTabs();
   }
-  SetActive(is_child);
 }
 
 void SupervisedUserService::OnDefaultFilteringBehaviorChanged() {
   int behavior_value =
       user_prefs_->GetInteger(prefs::kDefaultSupervisedUserFilteringBehavior);
-  supervised_user::FilteringBehavior behavior =
+  FilteringBehavior behavior =
       SupervisedUserURLFilter::BehaviorFromInt(behavior_value);
   url_filter_->SetDefaultFilteringBehavior(behavior);
 
@@ -274,8 +301,7 @@ void SupervisedUserService::OnDefaultFilteringBehaviorChanged() {
   }
 
   WebFilterType filter_type = url_filter_->GetWebFilterType();
-  if (!AreWebFilterPrefsDefault(*user_prefs_) &&
-      current_web_filter_type_ != filter_type) {
+  if (current_web_filter_type_ != filter_type) {
     url_filter_->ReportWebFilterTypeMetrics();
     current_web_filter_type_ = filter_type;
   }
@@ -283,8 +309,7 @@ void SupervisedUserService::OnDefaultFilteringBehaviorChanged() {
 
 void SupervisedUserService::OnSafeSitesSettingChanged() {
   WebFilterType filter_type = url_filter_->GetWebFilterType();
-  if (!AreWebFilterPrefsDefault(*user_prefs_) &&
-      current_web_filter_type_ != filter_type) {
+  if (current_web_filter_type_ != filter_type) {
     url_filter_->ReportWebFilterTypeMetrics();
     current_web_filter_type_ = filter_type;
   }
@@ -298,13 +323,11 @@ void SupervisedUserService::UpdateManualHosts() {
     DCHECK(it.second.is_bool());
     host_map[it.first] = it.second.GetIfBool().value_or(false);
   }
-  url_filter_->SetManualHosts(std::move(host_map));
 
-  for (SupervisedUserServiceObserver& observer : observer_list_) {
-    observer.OnURLFilterChanged();
-  }
-
-  if (!AreWebFilterPrefsDefault(*user_prefs_)) {
+  if (url_filter_->SetManualHosts(std::move(host_map))) {
+    for (SupervisedUserServiceObserver& observer : observer_list_) {
+      observer.OnURLFilterChanged();
+    }
     url_filter_->ReportManagedSiteListMetrics();
   }
 }
@@ -317,13 +340,11 @@ void SupervisedUserService::UpdateManualURLs() {
     DCHECK(it.second.is_bool());
     url_map[GURL(it.first)] = it.second.GetIfBool().value_or(false);
   }
-  url_filter_->SetManualURLs(std::move(url_map));
 
-  for (SupervisedUserServiceObserver& observer : observer_list_) {
-    observer.OnURLFilterChanged();
-  }
-
-  if (!AreWebFilterPrefsDefault(*user_prefs_)) {
+  if (url_filter_->SetManualURLs(std::move(url_map))) {
+    for (SupervisedUserServiceObserver& observer : observer_list_) {
+      observer.OnURLFilterChanged();
+    }
     url_filter_->ReportManagedSiteListMetrics();
   }
 }
@@ -334,7 +355,7 @@ void SupervisedUserService::Shutdown() {
   }
   DCHECK(!did_shutdown_);
   did_shutdown_ = true;
-  if (supervised_user::IsSubjectToParentalControls(user_prefs_.get())) {
+  if (IsSubjectToParentalControls(user_prefs_.get())) {
     base::RecordAction(UserMetricsAction("ManagedUsers_QuitBrowser"));
   }
   SetActive(false);

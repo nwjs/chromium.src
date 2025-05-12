@@ -42,6 +42,7 @@
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
 #include "extensions/buildflags/buildflags.h"
+#include "third_party/blink/public/mojom/loader/resource_load_info.mojom.h"
 #include "url/origin.h"
 
 #if BUILDFLAG(IS_ANDROID)
@@ -51,6 +52,7 @@
 #include "chrome/browser/password_manager/android/password_access_loss_warning_startup_launcher.h"
 #include "chrome/browser/password_manager/android/password_manager_error_message_delegate.h"
 #include "chrome/browser/password_manager/android/save_update_password_message_delegate.h"
+#include "components/enterprise/connectors/core/features.h"
 #include "components/password_manager/core/browser/credential_cache.h"
 #include "components/password_manager/core/browser/first_cct_page_load_passwords_ukm_recorder.h"
 #endif
@@ -259,20 +261,27 @@ class ChromePasswordManagerClient
                                    const GURL& frame_url) override;
 #endif
 
-// Reporting login event is only supported on desktop platforms.
-#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
+// Reporting login event is supported on desktop platforms (mapped by
+// `ENTERPRISE_CONTENT_ANALYSIS`) and on the Android platform, when the
+// enterprise reporting feature flag is turned on. `IS_ANDROID` cannot be added
+// to `ENTERPRISE_CONTENT_ANALYSIS`, because the build flag is also used by
+// other features that are not yet supported on Android.
+#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS) || BUILDFLAG(IS_ANDROID)
   void MaybeReportEnterpriseLoginEvent(
       const GURL& url,
       bool is_federated,
       const url::SchemeHostPort& federated_origin,
       const std::u16string& login_user_name) const override;
 
-// Reporting password breach event is only supported when extensions are enabled
-// and safe browsing is available.
+  // Reporting password breach event is supported on desktop platforms (mapped
+  // by `ENTERPRISE_CONTENT_ANALYSIS`) and on the Android platform, when the
+  // enterprise reporting feature flag is turned on. `IS_ANDROID` cannot be
+  // added to `ENTERPRISE_CONTENT_ANALYSIS`, because the build flag is also used
+  // by other features that are not yet supported on Android.
   void MaybeReportEnterprisePasswordBreachEvent(
       const std::vector<std::pair<GURL, std::u16string>>& identities)
       const override;
-#endif
+#endif  // BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS) || BUILDFLAG(IS_ANDROID)
 
   ukm::SourceId GetUkmSourceId() override;
   password_manager::PasswordManagerMetricsRecorder* GetMetricsRecorder()
@@ -404,6 +413,10 @@ class ChromePasswordManagerClient
   // content::WebContentsObserver overrides.
   void PrimaryPageChanged(content::Page& page) override;
   void WebContentsDestroyed() override;
+  void ResourceLoadComplete(
+      content::RenderFrameHost* render_frame_host,
+      const content::GlobalRequestID& request_id,
+      const blink::mojom::ResourceLoadInfo& resource_load_info) override;
 
   // autofill::AutofillManager::Observer:
   void OnFieldTypesDetermined(autofill::AutofillManager& manager,
@@ -438,6 +451,7 @@ class ChromePasswordManagerClient
       autofill::password_generation::PasswordGenerationType type,
       password_manager::ContentPasswordManagerDriver* driver,
       const autofill::password_generation::PasswordGenerationUIData& ui_data);
+  void MaybeShowSavePasswordPrimingPromo(const GURL& current_url) override;
 #endif  // !BUILDFLAG(IS_ANDROID)
 
   gfx::RectF TransformToRootCoordinates(

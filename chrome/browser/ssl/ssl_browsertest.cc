@@ -16,6 +16,7 @@
 #include "base/base_switches.h"
 #include "base/command_line.h"
 #include "base/containers/contains.h"
+#include "base/containers/span.h"
 #include "base/feature_list.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
@@ -154,7 +155,7 @@
 #include "content/public/test/test_renderer_host.h"
 #include "content/public/test/test_utils.h"
 #include "content/public/test/url_loader_interceptor.h"
-#include "crypto/sha2.h"
+#include "crypto/hash.h"
 #include "extensions/browser/event_router.h"
 #include "google_apis/gaia/gaia_id.h"
 #include "mojo/public/cpp/bindings/associated_remote.h"
@@ -203,6 +204,7 @@
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "chrome/browser/extensions/chrome_test_extension_loader.h"
+#include "chrome/browser/extensions/scoped_test_mv2_enabler.h"
 #include "extensions/browser/background_script_executor.h"
 #include "extensions/common/extension.h"
 #include "extensions/test/test_extension_dir.h"
@@ -362,13 +364,12 @@ std::string EncodeQuery(const std::string& query) {
 }
 
 // Returns the Sha256 hash of the SPKI of |cert|.
-net::HashValue GetSPKIHash(const CRYPTO_BUFFER* cert) {
+std::array<uint8_t, crypto::hash::kSha256Size> GetSPKIHash(
+    const CRYPTO_BUFFER* cert) {
   std::string_view spki_bytes;
   EXPECT_TRUE(net::asn1::ExtractSPKIFromDERCert(
       net::x509_util::CryptoBufferAsStringPiece(cert), &spki_bytes));
-  net::HashValue sha256(net::HASH_VALUE_SHA256);
-  crypto::SHA256HashString(spki_bytes, sha256.data(), crypto::kSHA256Length);
-  return sha256;
+  return crypto::hash::Sha256(base::as_byte_span(spki_bytes));
 }
 
 // Compares two SSLStatuses to check if they match up before and after an
@@ -1914,6 +1915,9 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, TestServiceWorkerRequestsUseClientCertStore) {
 IN_PROC_BROWSER_TEST_F(
     SSLUITest,
     TestExtensionServiceWorkerCanContinueWithoutACertificate) {
+  // TODO(https://crbug.com/40804030): Remove this when updated to use MV3.
+  extensions::ScopedTestMV2Enabler mv2_enabler;
+
   // Make the browser use the ClientCertStoreStub instead of the regular one.
   ProfileNetworkContextServiceFactory::GetForContext(browser()->profile())
       ->set_client_cert_store_factory_for_testing(

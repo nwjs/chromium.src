@@ -138,7 +138,7 @@ Probeer om ’n paar minute te wag voordat jy afmeld. As jy nou afmeld, sal hier
 <translation id="4742795653798179840">Chrome-data is uitgevee</translation>
 <translation id="4761869838909035636">Doen Chrome-veiligheidskontrole</translation>
 <translation id="4798859546468762093">Sluit Chrome by <ph name="FEATURE_NAME_1" /> en <ph name="FEATURE_NAME_2" /> in om personalisering en ander kenmerke te kry</translation>
-<translation id="4819268619367838612">Chrome stuur gebruik- en omvaldata na Google toe om te help om die app beter te maak. <ph name="BEGIN_LINK" />Bestuur<ph name="END_LINK" /></translation>
+<translation id="4819268619367838612">Chrome stuur gebruik- en omvaldata na Google toe om te help om die program beter te maak. <ph name="BEGIN_LINK" />Bestuur<ph name="END_LINK" /></translation>
 <translation id="4830799082179398588">Maak Chrome jou verstekblaaier?</translation>
 <translation id="484033449593719797">Nie op Chrome Beta gesteun nie</translation>
 <translation id="4840404732697892756">Google Wagwoordbestuurder kan jou wagwoorde nagaan wanneer jy met jou Google-rekening aanmeld.</translation>
@@ -157,7 +157,7 @@ Probeer om ’n paar minute te wag voordat jy afmeld. As jy nou afmeld, sal hier
 <translation id="5305440589062022504">Maak die Wagwoordbestuurder in Chrome oop</translation>
 <translation id="5310957470610282541">Sommige van jou Chrome-data is nog nie in jou Google-rekening gestoor nie.
 Probeer om ’n paar minute te wag voordat jy afmeld. As jy nou afmeld, sal hierdie data uitgevee word.</translation>
-<translation id="5389212809648216794">Google Chrome kan nie jou kamera gebruik nie omdat dit deur 'n ander app gebruik word</translation>
+<translation id="5389212809648216794">Google Chrome kan nie jou kamera gebruik nie omdat dit deur 'n ander program gebruik word</translation>
 <translation id="5395376160638294582">Maak seker dat jy altyd die Chrome-data in jou Google-rekening kan gebruik</translation>
 <translation id="5404252374083197467">Stel Chrome as verstek?</translation>
 <translation id="5439191312780166229">Waarsku jou oor gevaarlike werwe – selfs werwe waarvan Google nie voorheen geweet het nie – deur meer data van werwe te ontleed as standaardbeskerming. Jy kan kies om Chrome-waarskuwings oor te slaan.</translation>
@@ -228,7 +228,6 @@ Jou data is met jou wagfrase geënkripteer. Voer dit in om Chrome-data in jou Go
 Gaan na <ph name="BEGIN_LINK" />Google-dienste<ph name="END_LINK" /> vir meer instellings wat data gebruik om jou Chrome-ervaring te verbeter.</translation>
 <translation id="6922332667202044570">Vee blaaierdata in Chrome uit.</translation>
 <translation id="6924922227983877439">Maak by verstek skakels in Chrome oop</translation>
-<translation id="6931601805528922498">Aanmelding voeg jou rekening by Chrome vir werksverwante blaai.</translation>
 <translation id="6975725306479268850">Kies Chrome vir Outovul</translation>
 <translation id="7056826488869329999">Maak veiligheidskontrole in Chrome oop en laat dit loop.</translation>
 <translation id="7061455974939528301">Druk en hou die Chrome-ikoon en klik “Wysig tuisskerm”</translation>
@@ -276,6 +275,7 @@ Gaan na <ph name="BEGIN_LINK" />Google-dienste<ph name="END_LINK" /> vir meer in
 <translation id="778855399387580014">Begin 'n soektog in 'n nuwe Chrome-oortjie.</translation>
 <translation id="7792140019572081272">Chrome hou jou sensitiewe data met Gesig-ID veilig.</translation>
 <translation id="7855730255114109580">Google Chrome is op datum</translation>
+<translation id="787226752901403048">Meld by Chrome aan om oortjiegroepe te deel en daarby aan te sluit, en saam te werk aan idees</translation>
 <translation id="7897703007638178753">Sien Chrome se onlangse oortjies</translation>
 <translation id="7948283758957877064">Wat’s nuut in Chrome</translation>
 <translation id="8000174216052461231">Chome-wenk: Kry Chrome se sterkste sekuriteit</translation>

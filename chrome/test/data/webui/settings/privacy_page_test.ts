@@ -116,7 +116,8 @@ suite('PrivacyPage', function() {
   // <if expr="use_nss_certs">
   // Old certificate manager should not be shown since kEnableCertManagementUIV2
   // feature flag is enabled in SettingsSecurityPageTest constructor.
-  // TODO(crbug.com/40928765): remove this test once feature is rolled out
+  // TODO(crbug.com/390333881): remove this test case once the feature flag
+  // and old implementation are removed.
   test('certificate_manager_visibility', function() {
     Router.getInstance().navigateTo(routes.CERTIFICATES);
     const certManager = page.shadowRoot!.querySelector('certificate-manager');
@@ -418,7 +419,8 @@ suite(`PrivacySandbox`, function() {
 
 // <if expr="use_nss_certs">
 // Test with Certificate Management V2 flag off.
-// TODO(crbug.com/40928765): remove this suite once feature is rolled out
+// TODO(crbug.com/390333881): remove this test suite once the feature flag and
+// old implementation are removed.
 suite(`CertificateManagementV2`, function() {
   let page: SettingsPrivacyPageElement;
   let settingsPrefs: SettingsPrefsElement;
@@ -471,8 +473,6 @@ suite(`CookiesSubpage`, function() {
   suiteSetup(function() {
     loadTimeData.overrideValues({
       isPrivacySandboxRestricted: false,
-      // This test covers the pre-3PCD subpage.
-      is3pcdCookieSettingsRedesignEnabled: false,
     });
     resetRouterForTesting();
 
@@ -505,17 +505,27 @@ suite(`CookiesSubpage`, function() {
     assertTrue(!!associatedControl);
     assertEquals('thirdPartyCookiesLinkRow', associatedControl.id);
   });
+
+  test('clickCookiesRow', async function() {
+    const thirdPartyCookiesLinkRow =
+        page.shadowRoot!.querySelector<HTMLElement>(
+            '#thirdPartyCookiesLinkRow');
+    assertTrue(!!thirdPartyCookiesLinkRow);
+    thirdPartyCookiesLinkRow.click();
+    // Check that the correct page was navigated to.
+    await flushTasks();
+    assertEquals(
+        routes.COOKIES, Router.getInstance().getCurrentRoute());
+  });
 });
 
-suite(`TrackingProtectionSubpage`, function() {
+suite(`IncognitoTrackingProtectionsSubpage`, function() {
   let page: SettingsPrivacyPageElement;
   let settingsPrefs: SettingsPrefsElement;
-  let metricsBrowserProxy: TestMetricsBrowserProxy;
 
   suiteSetup(function() {
     loadTimeData.overrideValues({
-      isPrivacySandboxRestricted: false,
-      is3pcdCookieSettingsRedesignEnabled: true,
+      enableIncognitoTrackingProtections: true,
     });
     resetRouterForTesting();
 
@@ -525,9 +535,6 @@ suite(`TrackingProtectionSubpage`, function() {
 
   setup(function() {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
-
-    metricsBrowserProxy = new TestMetricsBrowserProxy();
-    MetricsBrowserProxyImpl.setInstance(metricsBrowserProxy);
 
     page = document.createElement('settings-privacy-page');
     page.prefs = settingsPrefs.prefs!;
@@ -539,37 +546,33 @@ suite(`TrackingProtectionSubpage`, function() {
     resetRouterForTesting();
   });
 
-
-  test('cookiesSubpageAttributes', async function() {
-    // The subpage is only in the DOM if the corresponding route is open.
-    const thirdPartyCookiesLinkRow =
-        page.shadowRoot!.querySelector<CrLinkRowElement>(
-            '#thirdPartyCookiesLinkRow');
-    assertTrue(!!thirdPartyCookiesLinkRow);
-    thirdPartyCookiesLinkRow.click();
+  test('clickIncognitoTrackingProtectionsRow', async function() {
+    const incognitoTrackingProtectionsLinkRow =
+        page.shadowRoot!.querySelector<HTMLElement>(
+            '#incognitoTrackingProtectionsLinkRow');
+    assertTrue(!!incognitoTrackingProtectionsLinkRow);
+    incognitoTrackingProtectionsLinkRow.click();
+    // Check that the correct page was navigated to.
     await flushTasks();
-
-    const cookiesSubpage =
-        page.shadowRoot!.querySelector<PolymerElement>('#cookies');
-    assertTrue(!!cookiesSubpage);
     assertEquals(
-        page.i18n('thirdPartyCookiesPageTitle'),
-        cookiesSubpage.getAttribute('page-title'));
-    const associatedControl = cookiesSubpage.get('associatedControl');
-    assertTrue(!!associatedControl);
-    assertEquals('thirdPartyCookiesLinkRow', associatedControl.id);
+        routes.INCOGNITO_TRACKING_PROTECTIONS, Router.getInstance().getCurrentRoute());
   });
 
-  test('clickCookiesRow', async function() {
-    const thirdPartyCookiesLinkRow =
-        page.shadowRoot!.querySelector<HTMLElement>(
-            '#thirdPartyCookiesLinkRow');
-    assertTrue(!!thirdPartyCookiesLinkRow);
-    thirdPartyCookiesLinkRow.click();
-    // Ensure we navigate to the correct page.
+  // TODO(crbug.com/408036586): Remove once kFingerprintingProtectionUx is launched.
+  test('IncognitoTrackingProtectionsRowNotVisible', async function () {
+    loadTimeData.overrideValues({
+      isFingerprintingProtectionUxEnabled: false,
+      isIpProtectionUxEnabled: false,
+      enableIncognitoTrackingProtections: false,
+    });
+
+    page.remove();
+    page = document.createElement('settings-privacy-page');
+    document.body.appendChild(page);
+
     await flushTasks();
-    assertEquals(
-        routes.COOKIES, Router.getInstance().getCurrentRoute());
+
+    assertFalse(isChildVisible(page, '#incognitoTrackingProtectionsLinkRow'));
   });
 });
 

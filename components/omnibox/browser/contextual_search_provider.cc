@@ -6,6 +6,7 @@
 
 #include <stddef.h>
 
+#include <cmath>
 #include <optional>
 #include <string>
 #include <utility>
@@ -28,11 +29,13 @@
 #include "components/omnibox/browser/autocomplete_provider_client.h"
 #include "components/omnibox/browser/autocomplete_provider_debouncer.h"
 #include "components/omnibox/browser/autocomplete_provider_listener.h"
+#include "components/omnibox/browser/lens_suggest_inputs_utils.h"
 #include "components/omnibox/browser/match_compare.h"
 #include "components/omnibox/browser/page_classification_functions.h"
 #include "components/omnibox/browser/remote_suggestions_service.h"
 #include "components/omnibox/browser/search_suggestion_parser.h"
 #include "components/omnibox/browser/zero_suggest_provider.h"
+#include "components/omnibox/common/omnibox_feature_configs.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/search_engines/search_engine_type.h"
 #include "components/search_engines/template_url_service.h"
@@ -87,7 +90,9 @@ void ContextualSearchProvider::Start(
     const AutocompleteInput& autocomplete_input,
     bool minimal_changes) {
   TRACE_EVENT0("omnibox", "ContextualSearchProvider::Start");
-  Stop(true, false);
+  // Clear the cached results to remove the page search action matches. Also,
+  // matches the behavior of the `ZeroSuggestProvider`.
+  Stop(/*clear_cached_results=*/true, /*due_to_user_inactivity=*/false);
 
   if (client()->IsOffTheRecord()) {
     done_ = true;
@@ -96,13 +101,13 @@ void ContextualSearchProvider::Start(
 
   const auto [input, starter_pack_engine] = AdjustInputForStarterPackKeyword(
       autocomplete_input, client()->GetTemplateURLService());
-
   if (!starter_pack_engine) {
     // Only surface the action matches that help the user find their way into
-    // the '@page' scope. Requirements: non-SRP, non-NTP, with empty input.
+    // the '@page' scope. Requirements: web, non-SRP, non-NTP, with empty input.
     // TODO(crbug.com/406276335): Move and condition on zero suggest response to
     //  the ZeroSuggestProvider so it can inhibit the ad actions for some pages.
     if (omnibox::IsOtherWebPage(input.current_page_classification()) &&
+        input.current_url().SchemeIsHTTPOrHTTPS() &&
         (input.IsZeroSuggest() ||
          input.type() == metrics::OmniboxInputType::EMPTY)) {
       AddPageSearchActionMatches();
@@ -111,22 +116,28 @@ void ContextualSearchProvider::Start(
   }
   input_keyword_ = starter_pack_engine->keyword();
 
-  AddDefaultMatch(input.text());
+  AddDefaultVerbatimMatch(input);
 
-  if (input.lens_overlay_suggest_inputs().has_value()) {
-    done_ = false;
-    StartSuggestRequest(std::move(input));
-  } else {
+  // Exit early if the input is not in ZPS keyword mode or the autocomplete
+  // input is not allowed to make asynchronous requests.
+  if (!input.text().empty() || autocomplete_input.omit_asynchronous_matches()) {
     done_ = true;
+    return;
   }
+  done_ = false;
+  StartSuggestRequest(std::move(input));
 }
 
 void ContextualSearchProvider::Stop(bool clear_cached_results,
                                     bool due_to_user_inactivity) {
-  AutocompleteProvider::Stop(clear_cached_results, due_to_user_inactivity);
-  input_keyword_.clear();
-  if (loader_) {
+  if (!due_to_user_inactivity) {
+    // Stop the pending request if the sotp is not due to user inactivity. If
+    // it is due to user inactivity, the request will continue so the
+    // suggestions can be shown when they are ready.
+    AutocompleteProvider::Stop(clear_cached_results, due_to_user_inactivity);
+    lens_suggest_inputs_subscription_ = {};
     loader_.reset();
+    input_keyword_.clear();
   }
 }
 
@@ -154,6 +165,34 @@ bool ContextualSearchProvider::ShouldAppendExtraParams(
 }
 
 void ContextualSearchProvider::StartSuggestRequest(AutocompleteInput input) {
+  if (AreLensSuggestInputsReady(input.lens_overlay_suggest_inputs()) ||
+      !omnibox_feature_configs::ContextualSearch::Get()
+           .csp_async_suggest_inputs) {
+    // If the suggest inputs are ready, make the suggest request immediately.
+    // Also, skip the async wait if the feature is disabled.
+    MakeSuggestRequest(std::move(input));
+    return;
+  }
+
+  // Wait for the suggest inputs to be generated and then make the suggest
+  // request. Safe to use base::Unretained(this) because the subscription is
+  // reset and cancelled if this provider is destroyed.
+  lens_suggest_inputs_subscription_ = client()->GetLensSuggestInputsWhenReady(
+      base::BindOnce(&ContextualSearchProvider::OnLensSuggestInputsReady,
+                     base::Unretained(this), std::move(input)));
+}
+
+void ContextualSearchProvider::OnLensSuggestInputsReady(
+    AutocompleteInput input,
+    std::optional<lens::proto::LensOverlaySuggestInputs> lens_suggest_inputs) {
+  CHECK(!AreLensSuggestInputsReady(input.lens_overlay_suggest_inputs()));
+  if (lens_suggest_inputs) {
+    input.set_lens_overlay_suggest_inputs(*lens_suggest_inputs);
+  }
+  MakeSuggestRequest(std::move(input));
+}
+
+void ContextualSearchProvider::MakeSuggestRequest(AutocompleteInput input) {
   TemplateURLRef::SearchTermsArgs search_terms_args;
 
   // TODO(crbug.com/404608703): Consider new types or taking from `input`.
@@ -167,6 +206,9 @@ void ContextualSearchProvider::StartSuggestRequest(AutocompleteInput input) {
   search_terms_args.lens_overlay_suggest_inputs =
       input.lens_overlay_suggest_inputs();
 
+  // Make the request and store the loader to keep it alive. Destroying the
+  // loader will cancel the request. Safe to use base::Unretained(this) because
+  // the loader is reset and destroyed if this provider is destroyed.
   loader_ =
       client()
           ->GetRemoteSuggestionsService(/*create_if_necessary=*/true)
@@ -176,7 +218,7 @@ void ContextualSearchProvider::StartSuggestRequest(AutocompleteInput input) {
               search_terms_args,
               client()->GetTemplateURLService()->search_terms_data(),
               base::BindOnce(&ContextualSearchProvider::SuggestRequestCompleted,
-                             weak_ptr_factory_.GetWeakPtr(), std::move(input)));
+                             base::Unretained(this), std::move(input)));
 }
 
 void ContextualSearchProvider::SuggestRequestCompleted(
@@ -193,10 +235,16 @@ void ContextualSearchProvider::SuggestRequestCompleted(
     return;
   }
 
+  // Some match must be available in order to stay in keyword mode,
+  // but an empty result set is possible. The default match will
+  // always be added first for a consistent keyword experience.
+  matches_.clear();
+  suggestion_groups_map_.clear();
+  AddDefaultVerbatimMatch(input);
+
   // Note: Queries are not yet supported. If it is kept, the current behavior
-  // will be to mismatch between `input_text` and `query` empty string, failing
+  // will be to mismatch between input text and query empty string, failing
   // the parse early in SearchSuggestionParser::ParseSuggestResults.
-  std::u16string input_text = input.text();
   input.UpdateText(u"", 0u, {});
 
   SearchSuggestionParser::Results results;
@@ -212,12 +260,6 @@ void ContextualSearchProvider::SuggestRequestCompleted(
   done_ = true;
 
   // Convert the results into |matches_| and notify the listeners.
-  // Some match must be available in order to stay in keyword mode,
-  // but an empty result set is possible. The default match will
-  // always be added first for a consistent keyword experience.
-  matches_.clear();
-  suggestion_groups_map_.clear();
-  AddDefaultMatch(input_text);
   ConvertSuggestResultsToAutocompleteMatches(results, input);
   NotifyListeners(/*updated_matches=*/true);
 }
@@ -225,14 +267,17 @@ void ContextualSearchProvider::SuggestRequestCompleted(
 void ContextualSearchProvider::ConvertSuggestResultsToAutocompleteMatches(
     const SearchSuggestionParser::Results& results,
     const AutocompleteInput& input) {
+  const TemplateURL* template_url = GetKeywordTemplateURL();
+  if (!template_url) {
+    return;
+  }
   // Add all the SuggestResults to the map. We display all ZeroSuggest search
   // suggestions as unbolded.
   MatchMap map;
   for (size_t i = 0; i < results.suggest_results.size(); ++i) {
-    AddMatchToMap(results.suggest_results[i], input,
-                  client()->GetTemplateURLService()->GetDefaultSearchProvider(),
+    AddMatchToMap(results.suggest_results[i], input, template_url,
                   client()->GetTemplateURLService()->search_terms_data(), i,
-                  false, false, &map);
+                  /*mark_as_deletable*/ false, /*in_keyword_mode=*/true, &map);
   }
 
   const int num_query_results = map.size();
@@ -267,41 +312,68 @@ void ContextualSearchProvider::AddPageSearchActionMatches() {
   match.contents_class = {{0, ACMatchClassification::NONE}};
   match.transition = ui::PAGE_TRANSITION_GENERATED;
   match.suggest_type = omnibox::SuggestType::TYPE_NATIVE_CHROME;
+  match.suggestion_group_id =
+      omnibox::GroupId::GROUP_ZERO_SUGGEST_IN_PRODUCT_HELP;
 
-  match.takeover_action =
-      base::MakeRefCounted<ContextualSearchAskAboutPageAction>();
-  // TODO(crbug.com/399951524): Use action's label strings hint.
-  match.contents = u"Ask about this page";
-  matches_.push_back(match);
-
-  match.relevance--;
-  match.takeover_action =
-      base::MakeRefCounted<ContextualSearchSelectRegionAction>();
-  // TODO(crbug.com/399951524): Use action's label strings hint.
-  match.contents = u"Search with Google Lens";
-  matches_.push_back(match);
+  auto add_action = [&](auto action) {
+    match.relevance--;
+    match.takeover_action = std::move(action);
+    match.contents = match.takeover_action->GetLabelStrings().hint;
+    matches_.push_back(match);
+  };
+  if (omnibox_feature_configs::ContextualSearch::Get().single_lens_action) {
+    add_action(base::MakeRefCounted<ContextualSearchOpenLensAction>());
+  } else {
+    add_action(base::MakeRefCounted<ContextualSearchAskAboutPageAction>());
+    add_action(base::MakeRefCounted<ContextualSearchSelectRegionAction>());
+  }
 }
 
-void ContextualSearchProvider::AddDefaultMatch(std::u16string_view input_text) {
-  std::u16string_view text =
-      base::TrimWhitespace(input_text, base::TrimPositions::TRIM_ALL);
+void ContextualSearchProvider::AddDefaultVerbatimMatch(
+    const AutocompleteInput& input) {
+  const TemplateURL* template_url = GetKeywordTemplateURL();
+  std::u16string text = base::CollapseWhitespace(input.text(), false);
 
   AutocompleteMatch match(this, kDefaultMatchRelevance, false,
                           AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED);
   if (text.empty()) {
+    // Inert/static keyword mode helper text match for empty input. This match
+    // doesn't commit the omnibox when selected, it just stands in to inform the
+    // user about how to use the keyword scope they've entered.
     match.contents =
         l10n_util::GetStringUTF16(IDS_STARTER_PACK_PAGE_EMPTY_QUERY_MATCH_TEXT);
     match.contents_class = {{0, ACMatchClassification::DIM}};
+
+    // These are necessary to avoid the omnibox dropping out of keyword mode.
+    if (template_url) {
+      match.keyword = template_url->keyword();
+    }
+    match.transition = ui::PAGE_TRANSITION_KEYWORD;
+    match.allowed_to_be_default_match = true;
   } else {
-    match.contents = text;
-    match.contents_class = {{0, ACMatchClassification::NONE}};
-    match.subtypes.insert(omnibox::SUBTYPE_CONTEXTUAL_SEARCH);
+    // Verbatim search suggestion, using the keyword `template_url` (@page)
+    // instead of default search engine, for a more consistent keyword UX.
+    // Note, the SUBTYPE_CONTEXTUAL_SEARCH subtype will cause this match
+    // to be fulfilled via ContextualSearchFulfillmentAction `takeover_action`.
+    SearchSuggestionParser::SuggestResult verbatim(
+        /*suggestion=*/text,
+        /*type=*/AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED,
+        /*suggest_type=*/omnibox::TYPE_NATIVE_CHROME,
+        /*subtypes=*/{omnibox::SUBTYPE_CONTEXTUAL_SEARCH},
+        /*from_keyword=*/true,
+        /*navigational_intent=*/omnibox::NAV_INTENT_NONE,
+        /*relevance=*/kDefaultMatchRelevance,
+        /*relevance_from_server=*/false,
+        /*input_text=*/text);
+    match = CreateSearchSuggestion(
+        this, input, /*in_keyword_mode=*/true, verbatim, template_url,
+        client()->GetTemplateURLService()->search_terms_data(),
+        /*accepted_suggestion=*/0, ShouldAppendExtraParams(verbatim));
   }
-
-  // These are necessary to avoid the omnibox dropping out of keyword mode.
-  match.keyword = input_keyword_;
-  match.transition = ui::PAGE_TRANSITION_KEYWORD;
-  match.allowed_to_be_default_match = true;
-
   matches_.push_back(match);
+}
+
+const TemplateURL* ContextualSearchProvider::GetKeywordTemplateURL() const {
+  return client()->GetTemplateURLService()->GetTemplateURLForKeyword(
+      input_keyword_);
 }

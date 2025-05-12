@@ -38,6 +38,78 @@ CalcProvider::CalcProvider() {
           .Get();
 }
 
+// Meta-feature that enables/disables the other related features if set.
+// When not overridden, each feature is enabled/disabled separately.
+BASE_FEATURE(ContextualSearch::kOmniboxContextualSuggestions,
+             "OmniboxContextualSuggestions",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables the @page starter pack scope.
+BASE_FEATURE(ContextualSearch::kStarterPackPage,
+             "StarterPackPage",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Contextual zero-prefix (aka zero-suggest). There are suggestions based on the
+// user's current URL. Fullfillment of these suggestions is delegated to Lens
+// since Lens provides additional logic for contextualizing the results to the
+// current page, by using more than the URL, i.e. the page content.
+BASE_FEATURE(ContextualSearch::kContextualZeroSuggestLensFulfillment,
+             "ContextualZeroSuggestLensFulfillment",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables the contextual search provider to wait for the Lens suggest inputs
+// to be ready before making the suggest request.
+BASE_FEATURE(ContextualSearch::kContextualSearchProviderAsyncSuggestInputs,
+             "ContextualSearchProviderAsyncSuggestInputs",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Feature to enable use of the "ctxus" param on zero suggest requests.
+BASE_FEATURE(ContextualSearch::kSendContextualUrlSuggestParam,
+             "SendContextualUrlSuggestParam",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(ContextualSearch::kOmniboxContextualSearchOnFocusSuggestions,
+             "OmniboxContextualSearchOnFocusSuggestions",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(ContextualSearch::kOmniboxContextualSearchActionsAtTop,
+             "OmniboxContextualSearchActionsAtTop",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(ContextualSearch::kOmniboxContextualSearchSingleLensAction,
+             "OmniboxContextualSearchSingleLensAction",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+ContextualSearch::ContextualSearch() {
+  // Meta-feature turns on/off other features, but only if it's overridden by
+  // the user. If not then each feature is controlled separately.
+  const std::optional<bool> meta_state =
+      base::FeatureList::GetStateIfOverridden(kOmniboxContextualSuggestions);
+  const auto feature_enabled = [&](const base::Feature& feature) {
+    return meta_state.value_or(base::FeatureList::IsEnabled(feature));
+  };
+
+  starter_pack_page = feature_enabled(kStarterPackPage);
+  contextual_zero_suggest_lens_fulfillment =
+      feature_enabled(kContextualZeroSuggestLensFulfillment);
+  csp_async_suggest_inputs =
+      feature_enabled(kContextualSearchProviderAsyncSuggestInputs);
+  // This could be taken from a feature param if needed, but currently it's
+  // simply one or none.
+  contextual_url_suggest_param =
+      feature_enabled(kSendContextualUrlSuggestParam) ? "1" : "";
+  contextual_zps_limit =
+      feature_enabled(kOmniboxContextualSearchOnFocusSuggestions)
+          ? base::FeatureParam<int>(&kOmniboxContextualSearchOnFocusSuggestions,
+                                    "Limit", 3)
+                .Get()
+          : 0;
+  actions_at_top =
+      base::FeatureList::IsEnabled(kOmniboxContextualSearchActionsAtTop);
+  single_lens_action =
+      base::FeatureList::IsEnabled(kOmniboxContextualSearchSingleLensAction);
+}
+
 DocumentProvider::DocumentProvider() {
   enabled = base::FeatureList::IsEnabled(omnibox::kDocumentProvider);
   min_query_length =
@@ -110,6 +182,14 @@ SearchAggregatorProvider::SearchAggregatorProvider() {
   disable_drive = base::FeatureParam<bool>(&kSearchAggregatorProvider,
                                            "disable_drive", true)
                       .Get();
+  multiple_requests = base::FeatureParam<bool>(&kSearchAggregatorProvider,
+                                               "multiple_requests", false)
+                          .Get();
+
+  relevance_scoring_mode =
+      base::FeatureParam<std::string>(&kSearchAggregatorProvider,
+                                      "relevance_scoring_mode", "mixed")
+          .Get();
 
   scoring_max_matches_created_per_type =
       base::FeatureParam<size_t>(&kSearchAggregatorProvider,
@@ -253,7 +333,7 @@ BASE_FEATURE(OmniboxUrlSuggestionsOnFocus::kOmniboxUrlSuggestionsOnFocus,
              "OmniboxUrlSuggestionsOnFocus",
              base::FEATURE_DISABLED_BY_DEFAULT);
 OmniboxUrlSuggestionsOnFocus::OmniboxUrlSuggestionsOnFocus() {
-  const char kMvtScoringParamRecencyFactor_Default[] = "default";
+  const char kMvtScoringParamRecencyFactor_Classic[] = "default";
   enabled = base::FeatureList::IsEnabled(kOmniboxUrlSuggestionsOnFocus);
   show_recently_closed_tabs =
       base::FeatureParam<bool>(&kOmniboxUrlSuggestionsOnFocus,
@@ -277,7 +357,7 @@ OmniboxUrlSuggestionsOnFocus::OmniboxUrlSuggestionsOnFocus() {
   most_visited_recency_factor =
       base::FeatureParam<std::string>(&kOmniboxUrlSuggestionsOnFocus,
                                       "OnFocusMostVisitedRecencyFactor",
-                                      kMvtScoringParamRecencyFactor_Default)
+                                      kMvtScoringParamRecencyFactor_Classic)
           .Get();
   directly_query_history_service =
       base::FeatureParam<bool>(&kOmniboxUrlSuggestionsOnFocus,

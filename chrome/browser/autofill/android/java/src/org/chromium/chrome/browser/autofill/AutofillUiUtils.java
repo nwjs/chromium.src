@@ -55,6 +55,7 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.components.autofill.FieldType;
 import org.chromium.components.autofill.ImageSize;
+import org.chromium.components.autofill.ImageType;
 import org.chromium.components.autofill.payments.LegalMessageLine;
 import org.chromium.ui.text.ChromeClickableSpan;
 import org.chromium.ui.text.SpanApplier;
@@ -113,8 +114,8 @@ public class AutofillUiUtils {
         int NONE = 7;
     }
 
-    /** Contains dimensional specs for credit card icons. */
-    public static class CardIconSpecs {
+    /** Contains dimensional specs for icons by the {@code AutofillImageFetcher}. */
+    public static class IconSpecs {
         private final Context mContext;
         private final int mWidthId;
         private final int mHeightId;
@@ -125,10 +126,19 @@ public class AutofillUiUtils {
          * @param context to get the resources.
          * @param widthId Resource Id for the icon's width spec.
          * @param heightId Resource Id for the icon's height spec.
+         */
+        private IconSpecs(Context context, int widthId, int heightId) {
+            this(context, widthId, heightId, 0, 0);
+        }
+
+        /**
+         * @param context to get the resources.
+         * @param widthId Resource Id for the icon's width spec.
+         * @param heightId Resource Id for the icon's height spec.
          * @param cornerRadiusId Resource Id for the icon's corner radius spec.
          * @param borderWidthId Resource Id for the icon's border width spec.
          */
-        private CardIconSpecs(
+        private IconSpecs(
                 Context context, int widthId, int heightId, int cornerRadiusId, int borderWidthId) {
             mContext = context;
             mWidthId = widthId;
@@ -138,36 +148,76 @@ public class AutofillUiUtils {
         }
 
         /**
-         * Create the {@link CardIconSpecs} for the icon based on the size (small or large or
-         * square) of the icon to be rendered.
+         * Create the {@link IconSpecs} for the icon type and based on the icon size (small or large
+         * or square) of the icon to be rendered.
          *
          * @param context to get the resources.
-         * @param cardIconSize Enum that specifies the icon's size (small or large or square).
-         * @return {@link CardIconSpecs} instance containing the specs for the card icon.
+         * @param imageType Enum that specifies the type of the icon fetched by the {@code
+         *     AutofillImageFetcher}.
+         * @param imageSize Enum that specifies the icon's size (small or large or square).
+         * @return {@link IconSpecs} instance containing the specs for the icon.
          */
-        public static CardIconSpecs create(Context context, @ImageSize int cardIconSize) {
-            if (cardIconSize == ImageSize.LARGE) {
-                return new CardIconSpecs(
-                        context,
-                        R.dimen.large_card_icon_width,
-                        R.dimen.large_card_icon_height,
-                        R.dimen.large_card_icon_corner_radius,
-                        R.dimen.card_icon_border_width);
+        public static IconSpecs create(
+                Context context, @ImageType int imageType, @ImageSize int imageSize) {
+            switch (imageType) {
+                case ImageType.CREDIT_CARD_ART_IMAGE:
+                case ImageType.PIX_ACCOUNT_IMAGE:
+                    return createForCreditCardIcon(context, imageSize);
+                case ImageType.VALUABLE_IMAGE:
+                    return createForValuableIcon(context, imageSize);
             }
-            if (cardIconSize == ImageSize.SQUARE) {
-                return new CardIconSpecs(
-                        context,
-                        R.dimen.square_card_icon_side_length,
-                        R.dimen.square_card_icon_side_length,
-                        R.dimen.square_card_icon_corner_radius,
-                        R.dimen.card_icon_border_width_zero);
+            assert false : "Image type not handled: " + imageType;
+            return null;
+        }
+
+        private static IconSpecs createForCreditCardIcon(
+                Context context, @ImageSize int imageSize) {
+            switch (imageSize) {
+                case ImageSize.LARGE:
+                    return new IconSpecs(
+                            context,
+                            R.dimen.large_card_icon_width,
+                            R.dimen.large_card_icon_height,
+                            R.dimen.large_card_icon_corner_radius,
+                            R.dimen.card_icon_border_width);
+                case ImageSize.SQUARE:
+                    return new IconSpecs(
+                            context,
+                            R.dimen.square_card_icon_side_length,
+                            R.dimen.square_card_icon_side_length,
+                            R.dimen.square_card_icon_corner_radius,
+                            R.dimen.card_icon_border_width_zero);
+                case ImageSize.SMALL:
+                    return new IconSpecs(
+                            context,
+                            R.dimen.small_card_icon_width,
+                            R.dimen.small_card_icon_height,
+                            R.dimen.small_card_icon_corner_radius,
+                            R.dimen.card_icon_border_width);
             }
-            return new CardIconSpecs(
-                    context,
-                    R.dimen.small_card_icon_width,
-                    R.dimen.small_card_icon_height,
-                    R.dimen.small_card_icon_corner_radius,
-                    R.dimen.card_icon_border_width);
+            assert false : "Image size not handled: " + imageSize;
+            return null;
+        }
+
+        private static IconSpecs createForValuableIcon(Context context, @ImageSize int imageSize) {
+            switch (imageSize) {
+                case ImageSize.LARGE:
+                    return new IconSpecs(
+                            context,
+                            R.dimen.large_valuable_icon_size,
+                            R.dimen.large_valuable_icon_size);
+                case ImageSize.SMALL:
+                    return new IconSpecs(
+                            context,
+                            R.dimen.small_valuable_icon_size,
+                            R.dimen.small_valuable_icon_size);
+            }
+            assert false : "Image size not handled: " + imageSize;
+            return null;
+        }
+
+        public GURL getResolvedIconUrl(GURL iconUrl) {
+            return getFifeIconUrlWithParams(iconUrl, getWidth(), getHeight());
         }
 
         public @Px int getWidth() {
@@ -179,11 +229,15 @@ public class AutofillUiUtils {
         }
 
         public @Px int getCornerRadius() {
-            return mContext.getResources().getDimensionPixelSize(mCornerRadiusId);
+            return mCornerRadiusId == 0
+                    ? 0
+                    : mContext.getResources().getDimensionPixelSize(mCornerRadiusId);
         }
 
         public @Px int getBorderWidth() {
-            return mContext.getResources().getDimensionPixelSize(mBorderWidthId);
+            return mBorderWidthId == 0
+                    ? 0
+                    : mContext.getResources().getDimensionPixelSize(mBorderWidthId);
         }
     }
 
@@ -574,14 +628,15 @@ public class AutofillUiUtils {
     }
 
     /**
-     * Adds dimension params to card art URL for credit cards.
-     * @param customIconUrl A FIFE URL to fetch the card art icon.
+     * Adds dimension params to a FIFE image URL.
+     *
+     * @param customIconUrl A FIFE URL to fetch the image.
      * @param width in pixels.
      * @param height in pixels.
-     * @return {@link GURL} formatted with the icon dimensions to fetch the card art icon.
+     * @return {@link GURL} formatted with the icon dimensions to fetch the image.
      */
-    public static GURL getCreditCardIconUrlWithParams(
-            GURL customIconUrl, @Px int width, @Px int height) {
+    @VisibleForTesting
+    static GURL getFifeIconUrlWithParams(GURL customIconUrl, @Px int width, @Px int height) {
         // Params can be added to a FIFE URL by appending them at the end like URL[=params]. "w"
         // option is used to set the width in pixels, and "h" is used to set the height in pixels.
         StringBuilder url = new StringBuilder(customIconUrl.getSpec());
@@ -618,12 +673,12 @@ public class AutofillUiUtils {
 
     /**
      * If {@code showCustomIcon} is true, and the {@code cardArtUrl} is valid, it fetches the bitmap
-     * of the required size from PersonalDataManager. If not, the default icon {@code defaultIconId}
-     * is fetched from the resources. If the bitmap is not available in cache, then it is fetched
-     * from the server and stored in cache for the next time.
+     * of the required size from {@code imageFetcher}. If not, the default icon {@code
+     * defaultIconId} is fetched from the resources. If the bitmap is not available in cache, then
+     * it is fetched from the server and stored in cache for the next time.
      *
      * @param context Context required to get resources.
-     * @param personalDataManager The PDM associated with the card.
+     * @param imageFetcher The {@link AutofillImageFetcher} associated with the profile.
      * @param cardArtUrl The URL to fetch the icon.
      * @param defaultIconId Resource Id for the default (network) icon if the card art could not be
      *     retrieved.
@@ -634,7 +689,7 @@ public class AutofillUiUtils {
      */
     public static @Nullable Drawable getCardIcon(
             Context context,
-            PersonalDataManager personalDataManager,
+            AutofillImageFetcher imageFetcher,
             @Nullable GURL cardArtUrl,
             int defaultIconId,
             @ImageSize int cardIconSize,
@@ -650,8 +705,9 @@ public class AutofillUiUtils {
         }
 
         Optional<Bitmap> customIconBitmap =
-                personalDataManager.getCustomImageForAutofillSuggestionIfAvailable(
-                        cardArtUrl, CardIconSpecs.create(context, cardIconSize));
+                imageFetcher.getImageIfAvailable(
+                        cardArtUrl,
+                        IconSpecs.create(context, ImageType.CREDIT_CARD_ART_IMAGE, cardIconSize));
         if (!customIconBitmap.isPresent()) {
             return defaultIcon;
         }
@@ -663,22 +719,22 @@ public class AutofillUiUtils {
      * Resize the bitmap to the required specs, round corners, and add grey border.
      *
      * @param bitmap to be updated.
-     * @param cardIconSpecs {@link CardIconSpecs} instance containing the specs for the card icon.
+     * @param iconSpecs {@link IconSpecs} instance containing the specs for the card icon.
      * @param addRoundedCornersAndGreyBorder If true, the bitmap corners are rounded, and a grey
      *     border is added. If false, no enhancements are applied to the bitmap.
      * @return Resized {@link Bitmap} with rounded corners and grey border.
      */
     public static Bitmap resizeAndAddRoundedCornersAndGreyBorder(
-            Bitmap bitmap, CardIconSpecs cardIconSpecs, boolean addRoundedCornersAndGreyBorder) {
+            Bitmap bitmap, IconSpecs iconSpecs, boolean addRoundedCornersAndGreyBorder) {
         // The server maintains the card art image's aspect ratio, so the fetched image might not be
         // the exact required size. Scale the icon to the desired dimension.
-        if (bitmap.getWidth() != cardIconSpecs.getWidth()
-                || bitmap.getHeight() != cardIconSpecs.getHeight()) {
+        if (bitmap.getWidth() != iconSpecs.getWidth()
+                || bitmap.getHeight() != iconSpecs.getHeight()) {
             bitmap =
                     Bitmap.createScaledBitmap(
                             bitmap,
-                            cardIconSpecs.getWidth(),
-                            cardIconSpecs.getHeight(),
+                            iconSpecs.getWidth(),
+                            iconSpecs.getHeight(),
                             /* filter= */ true);
         }
 
@@ -691,7 +747,7 @@ public class AutofillUiUtils {
         // Square logos have their corners rounded off, and then placed in a rectangular white
         // background of size `ImageSize.LARGE`. The rectangular composite asset further has its
         // corners rounded, and outlined with a grey border similar to other rectangular assets.
-        if (cardIconSpecs.getWidth() == cardIconSpecs.getHeight()) {
+        if (iconSpecs.getWidth() == iconSpecs.getHeight()) {
             Bitmap squareBitmap =
                     Bitmap.createBitmap(
                             bitmap.getWidth(), bitmap.getHeight(), Bitmap.Config.ARGB_8888);
@@ -701,13 +757,14 @@ public class AutofillUiUtils {
             RectF squareRectF = new RectF(0, 0, bitmap.getWidth(), bitmap.getHeight());
             squareCanvas.drawRoundRect(
                     squareRectF,
-                    cardIconSpecs.getCornerRadius(),
-                    cardIconSpecs.getCornerRadius(),
+                    iconSpecs.getCornerRadius(),
+                    iconSpecs.getCornerRadius(),
                     squarePaint);
             squarePaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC_IN));
             squareCanvas.drawBitmap(bitmap, 0, 0, squarePaint);
 
-            CardIconSpecs backgroundSpecs = CardIconSpecs.create(context, ImageSize.LARGE);
+            IconSpecs backgroundSpecs =
+                    IconSpecs.create(context, ImageType.CREDIT_CARD_ART_IMAGE, ImageSize.LARGE);
             Bitmap backgroundBitmap =
                     Bitmap.createBitmap(
                             backgroundSpecs.getWidth(),
@@ -725,11 +782,11 @@ public class AutofillUiUtils {
 
             // It can now be treated as a rectangular image asset, and enhancements can be applied.
             bitmap = backgroundBitmap;
-            cardIconSpecs = backgroundSpecs;
+            iconSpecs = backgroundSpecs;
         }
 
         // Round the corners.
-        float cornerRadius = cardIconSpecs.getCornerRadius();
+        float cornerRadius = iconSpecs.getCornerRadius();
         Bitmap bitmapWithEnhancements =
                 Bitmap.createBitmap(bitmap.getWidth(), bitmap.getHeight(), Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmapWithEnhancements);
@@ -745,7 +802,7 @@ public class AutofillUiUtils {
         int greyColor = ContextCompat.getColor(context, R.color.baseline_neutral_variant_90);
         paint.setColor(greyColor);
         paint.setStyle(Paint.Style.STROKE);
-        paint.setStrokeWidth(cardIconSpecs.getBorderWidth());
+        paint.setStrokeWidth(iconSpecs.getBorderWidth());
         canvas.drawRoundRect(rectF, cornerRadius, cornerRadius, paint);
 
         return bitmapWithEnhancements;
@@ -755,7 +812,7 @@ public class AutofillUiUtils {
      * Adds credit card details in the card details section.
      *
      * @param context to get the resources.
-     * @param personalDataManager The PDM associated with the card.
+     * @param imageFetcher The {@link AutofillImageFetcher} associated with the profile.
      * @param parentView View that contains the card details section.
      * @param cardName Card's nickname/product name/network name.
      * @param cardNumber Card's obfuscated last 4 digits.
@@ -773,7 +830,7 @@ public class AutofillUiUtils {
      */
     public static void addCardDetails(
             Context context,
-            PersonalDataManager personalDataManager,
+            AutofillImageFetcher imageFetcher,
             View parentView,
             String cardName,
             String cardNumber,
@@ -789,7 +846,7 @@ public class AutofillUiUtils {
         cardIconView.setImageDrawable(
                 getCardIcon(
                         context,
-                        personalDataManager,
+                        imageFetcher,
                         cardArtUrl,
                         defaultIconId,
                         cardIconSize,

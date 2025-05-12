@@ -1050,11 +1050,8 @@ void PrintPreviewHandler::SendInitialSettings(
   initial_settings.Set(kSettingPreviewModifiable,
                        request_params->is_modifiable);
 #if BUILDFLAG(IS_CHROMEOS)
-  bool source_is_arc = request_params->is_from_arc;
-#else
-  bool source_is_arc = false;
+  initial_settings.Set(kSettingPreviewIsFromArc, request_params->is_from_arc);
 #endif
-  initial_settings.Set(kSettingPreviewIsFromArc, source_is_arc);
   initial_settings.Set(kSettingPrinterName, (*g_nw_printer_name).empty() ? default_printer : *g_nw_printer_name);
   initial_settings.Set(kDocumentHasSelection, request_params->has_selection);
   initial_settings.Set(kSettingShouldPrintSelectionOnly,

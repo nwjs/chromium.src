@@ -107,7 +107,6 @@ Disa funksione mund të mos ofrohen dhe ndryshimet në preferenca nuk do të ruh
 <translation id="234869673307233423">Chrome nuk mund t'i kontrollojë fjalëkalimet e tua. Provo përsëri më vonë.</translation>
 <translation id="235650106824528204">Çdo e dhënë e Chrome që krijohet gjatë përdorimit të këtij profili (si p.sh. krijimi i faqeshënuesve, historikut, fjalëkalimeve dhe cilësimeve të tjera) mund të hiqet nga administratori i profilit të punës. <ph name="LEARN_MORE" /></translation>
 <translation id="2359808026110333948">Vazhdo</translation>
-<translation id="2401189691232800402">Sistemi i ChromeOS</translation>
 <translation id="2403703063067034158">Gabim në nisje: aktualisht po ekzekutohet një shembull tjetër i konfigurimit; provo përsëri më vonë.</translation>
 <translation id="2409816192575564775">{NUM_DEVICES,plural, =0{Një ose disa shtesa të Chrome kanë pasur qasje në 1 pajisje HID}=1{Një ose disa shtesa të Chrome kanë qasje në 1 pajisje HID}other{Një ose disa shtesa të Chrome kanë qasje në # pajisje HID}}</translation>
 <translation id="2424440923901031101">Kjo shtesë shkel politikën e "Dyqanit të uebit të Chrome" dhe mund të mos jetë e sigurt. Hiqe atë nga Chrome që të mos arrijë të shikojë dhe të ndryshojë më të dhënat e tua në sajtin që viziton ti, duke përfshirë informacionet e tua personale.</translation>
@@ -622,7 +621,6 @@ Google Chrome nuk është në gjendje të rikuperojë cilësimet e tua.</transla
 <translation id="8999208279178790196">{0,plural, =0{Ofrohet një përditësim i Chrome}=1{Ofrohet një përditësim i Chrome}other{Një përditësim i Chrome ofrohet prej # ditësh}}</translation>
 <translation id="9014771989710951291">Disa organizata menaxhojnë Chrome</translation>
 <translation id="9024318700713112071">Cakto Chrome si parazgjedhje</translation>
-<translation id="9053892488859122171">Sistemi Chrome OS Flex</translation>
 <translation id="9090566250983691233">Mëso se pse Chrome i bllokon disa skedarë</translation>
 <translation id="9106236359747881194">Zgjidh tekstin për të kërkuar</translation>
 <translation id="911206726377975832">Të fshihen po ashtu të dhënat e shfletimit?</translation>

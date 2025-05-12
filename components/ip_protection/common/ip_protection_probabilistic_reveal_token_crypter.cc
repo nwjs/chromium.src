@@ -13,6 +13,7 @@
 #include "base/memory/ptr_util.h"
 #include "base/sequence_checker.h"
 #include "components/ip_protection/common/ip_protection_data_types.h"
+#include "components/ip_protection/common/ip_protection_telemetry.h"
 #include "third_party/abseil-cpp/absl/status/statusor.h"
 #include "third_party/private-join-and-compute/src/crypto/context.h"
 #include "third_party/private-join-and-compute/src/crypto/ec_group.h"
@@ -35,8 +36,8 @@ namespace {
 absl::StatusOr<std::unique_ptr<ElGamalEncrypter>> CreateEncrypter(
     ECGroup const* group,
     const std::string& serialized_public_key) {
-  ASSIGN_OR_RETURN(ECPoint g, group->GetFixedGenerator());
-  ASSIGN_OR_RETURN(ECPoint y, group->CreateECPoint(serialized_public_key));
+  PJC_ASSIGN_OR_RETURN(ECPoint g, group->GetFixedGenerator());
+  PJC_ASSIGN_OR_RETURN(ECPoint y, group->CreateECPoint(serialized_public_key));
   return std::make_unique<ElGamalEncrypter>(
       group,
       std::make_unique<PublicKey>(PublicKey{std::move(g), std::move(y)}));
@@ -50,8 +51,8 @@ absl::StatusOr<std::vector<Ciphertext>> CreateCiphertext(
   std::vector<Ciphertext> ciphertext;
   ciphertext.reserve(tokens.size());
   for (const auto& t : tokens) {
-    ASSIGN_OR_RETURN(ECPoint u, group->CreateECPoint(t.u));
-    ASSIGN_OR_RETURN(ECPoint e, group->CreateECPoint(t.e));
+    PJC_ASSIGN_OR_RETURN(ECPoint u, group->CreateECPoint(t.u));
+    PJC_ASSIGN_OR_RETURN(ECPoint e, group->CreateECPoint(t.e));
     ciphertext.emplace_back(std::move(u), std::move(e));
   }
   return ciphertext;
@@ -66,14 +67,14 @@ IpProtectionProbabilisticRevealTokenCrypter::Create(
   auto context = std::make_unique<Context>();
   std::unique_ptr<ECGroup> group;
   {
-    ASSIGN_OR_RETURN(ECGroup local_group,
-                     ECGroup::Create(NID_X9_62_prime256v1, context.get()));
+    PJC_ASSIGN_OR_RETURN(ECGroup local_group,
+                         ECGroup::Create(NID_X9_62_prime256v1, context.get()));
     group = std::make_unique<ECGroup>(std::move(local_group));
   }
-  ASSIGN_OR_RETURN(std::unique_ptr<ElGamalEncrypter> encrypter,
-                   CreateEncrypter(group.get(), serialized_public_key));
-  ASSIGN_OR_RETURN(std::vector<Ciphertext> ciphertext,
-                   CreateCiphertext(group.get(), tokens));
+  PJC_ASSIGN_OR_RETURN(std::unique_ptr<ElGamalEncrypter> encrypter,
+                       CreateEncrypter(group.get(), serialized_public_key));
+  PJC_ASSIGN_OR_RETURN(std::vector<Ciphertext> ciphertext,
+                       CreateCiphertext(group.get(), tokens));
   // Can not use `make_unique` since constructor is private.
   // Can not use `return std::unique_ptr`, git cl upload
   // returns pre-submit error and recommends using base::WrapUnique.
@@ -104,10 +105,10 @@ IpProtectionProbabilisticRevealTokenCrypter::SetNewPublicKeyAndTokens(
     const std::string& serialized_public_key,
     const std::vector<ProbabilisticRevealToken>& tokens) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  ASSIGN_OR_RETURN(std::unique_ptr<ElGamalEncrypter> encrypter,
-                   CreateEncrypter(group_.get(), serialized_public_key));
-  ASSIGN_OR_RETURN(std::vector<Ciphertext> ciphertext,
-                   CreateCiphertext(group_.get(), tokens));
+  PJC_ASSIGN_OR_RETURN(std::unique_ptr<ElGamalEncrypter> encrypter,
+                       CreateEncrypter(group_.get(), serialized_public_key));
+  PJC_ASSIGN_OR_RETURN(std::vector<Ciphertext> ciphertext,
+                       CreateCiphertext(group_.get(), tokens));
   // Creating encrypter and ciphertext succeeded, set members.
   encrypter_.reset(encrypter.release());
   ciphertext_ = std::move(ciphertext);
@@ -124,18 +125,21 @@ void IpProtectionProbabilisticRevealTokenCrypter::ClearTokens() {
 
 absl::StatusOr<ProbabilisticRevealToken>
 IpProtectionProbabilisticRevealTokenCrypter::Randomize(size_t i) const {
+  base::TimeTicks randomization_start_time = base::TimeTicks::Now();
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (i >= ciphertext_.size()) {
     return absl::InvalidArgumentError("invalid index");
   }
-  ASSIGN_OR_RETURN(Ciphertext randomized_ciphertext,
-                   encrypter_->ReRandomize(ciphertext_[i]));
+  PJC_ASSIGN_OR_RETURN(Ciphertext randomized_ciphertext,
+                       encrypter_->ReRandomize(ciphertext_[i]));
   ProbabilisticRevealToken randomized_token;
   randomized_token.version = 1;
-  ASSIGN_OR_RETURN(randomized_token.u,
-                   randomized_ciphertext.u.ToBytesCompressed());
-  ASSIGN_OR_RETURN(randomized_token.e,
-                   randomized_ciphertext.e.ToBytesCompressed());
+  PJC_ASSIGN_OR_RETURN(randomized_token.u,
+                       randomized_ciphertext.u.ToBytesCompressed());
+  PJC_ASSIGN_OR_RETURN(randomized_token.e,
+                       randomized_ciphertext.e.ToBytesCompressed());
+  Telemetry().ProbabilisticRevealTokenRandomizationTime(
+      base::TimeTicks::Now() - randomization_start_time);
   return randomized_token;
 }
 

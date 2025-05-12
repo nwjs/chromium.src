@@ -85,6 +85,18 @@ chromium-metrics-reviews@google.com.
   <variant name="ShaderModule"/>
 </variants>
 
+<variants name="WebGPUShaderTiming">
+  <variant name="GLSL.CompileShader"/>
+  <variant name="ShaderModuleGenerateGLSL"/>
+  <variant name="ShaderModuleGenerateHLSL"/>
+  <variant name="ShaderModuleGenerateMSL"/>
+  <variant name="ShaderModuleGenerateSPIRV"/>
+  <variant name="ShaderModuleProgramToIR"/>
+  <variant name="ShaderModuleSingleEntryPoint"/>
+  <variant name="ShaderModuleSubstituteOverrides"/>
+  <variant name="Vulkan.CreateShaderModule"/>
+</variants>
+
 <histogram name="ConfigureDisplays.External.Modeset.AttemptSucceeded"
     enum="BooleanSuccess" expires_after="2026-07-05">
   <owner>gildekel@chromium.org</owner>
@@ -434,7 +446,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="GPU.CanvasOopRaster.OopRasterAndGpuAcceleration"
-    enum="CanvasOopRasterAndGpuAcceleration" expires_after="2025-08-10">
+    enum="CanvasOopRasterAndGpuAcceleration" expires_after="2025-10-12">
   <owner>vasilyt@chromium.org</owner>
   <owner>nazabris@microsoft.com</owner>
   <owner>jochin@microsoft.com</owner>
@@ -562,7 +574,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="GPU.DirectComposition.DCLayer.YUVOverlayCount"
-    units="overlays" expires_after="2025-07-27">
+    units="overlays" expires_after="2025-09-28">
   <owner>magchen@chromium.org</owner>
   <owner>zmo@chromium.org</owner>
   <summary>
@@ -585,9 +597,9 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram base="true"
+<histogram
     name="GPU.DirectComposition.DCLayerResult.Video.{GPUProtectedVideoType}"
-    enum="DCLayerResult" expires_after="2025-07-27">
+    enum="DCLayerResult" expires_after="2025-09-28">
   <owner>magchen@chromium.org</owner>
   <owner>zmo@chromium.org</owner>
   <owner>chrome-gpu-metric-alerts@chromium.org</owner>
@@ -595,11 +607,10 @@ chromium-metrics-reviews@google.com.
     Recorded for each quad (on overlay processing) with protected video type the
     reason it was or wasn't put in an overlay.
   </summary>
-  <token key="GPUProtectedVideoType" variants="GPUProtectedVideoType"/>
 </histogram>
 
 <histogram name="GPU.DirectComposition.HardwareOverlaysSupported"
-    enum="BooleanOverlaySupported" expires_after="2025-08-10">
+    enum="BooleanOverlaySupported" expires_after="2025-10-12">
   <owner>magchen@chromium.org</owner>
   <owner>chrome-gpu-metric-alerts@chromium.org</owner>
   <summary>
@@ -644,7 +655,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram base="true"
+<histogram
     name="GPU.DirectComposition.SwapChainCreationResult3.SoftwareProtected.{SoftwareProtectedType}"
     enum="Hresult" expires_after="2025-06-08">
   <owner>magchen@chromium.org</owner>
@@ -660,7 +671,7 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
-<histogram base="true"
+<histogram
     name="GPU.DirectComposition.SwapChainCreationResult3.{GPUProtectedVideoType}"
     enum="Hresult" expires_after="2025-06-08">
   <owner>magchen@chromium.org</owner>
@@ -670,7 +681,6 @@ chromium-metrics-reviews@google.com.
     Whether creating swap chain for protected video succeeded. Recorded once per
     swap chain creation.
   </summary>
-  <token key="GPUProtectedVideoType" variants="GPUProtectedVideoType"/>
 </histogram>
 
 <histogram name="GPU.DirectComposition.SwapChainFormat3" enum="DXGI_FORMAT"
@@ -767,21 +777,6 @@ chromium-metrics-reviews@google.com.
   <summary>
     Records the result of retrying EstableGpuChannelSync in Chrome OS. Logged
     every time when a EstableGpuChannel fails on Chrome OS.
-  </summary>
-</histogram>
-
-<histogram name="GPU.EstablishGpuChannelSyncRetry.Software" units="retries"
-    expires_after="2025-07-08">
-  <owner>magchen@chromium.org</owner>
-  <owner>vasilyt@chromium.org</owner>
-  <owner>chrome-gpu-metric-alerts@chromium.org</owner>
-  <summary>
-    Records how many retries it takes before successfullly EstableGpuChannelSync
-    in a loop for software compositing when creating a LayerTreeFrameSink on
-    Chrome OS. The max number 21 is reserved for the case of no success at all
-    after 20 retries. Logged when a EstableGpuChannel for software compositing
-    fails on Chrome OS and it starts retries for a maximum of 3 seconds with 150
-    ms each time.
   </summary>
 </histogram>
 
@@ -1046,7 +1041,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="GPU.IntelGpuSeriesType" enum="IntelGpuSeriesType"
-    expires_after="2025-08-10">
+    expires_after="2025-10-12">
   <owner>sunnyps@chromium.org</owner>
   <owner>zmo@chromium.org</owner>
   <summary>
@@ -1067,7 +1062,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Gpu.Mac.BackpressureUs" units="microseconds"
-    expires_after="2025-07-27">
+    expires_after="2025-09-28">
   <owner>magchen@chromium.org</owner>
   <owner>ccameron@chromium.org</owner>
   <summary>
@@ -1134,7 +1129,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="GPU.OutputSurface.InsertRenderPassRecording" enum="Boolean"
-    expires_after="2025-08-01">
+    expires_after="2025-10-05">
   <owner>kylechar@chromium.org</owner>
   <owner>chrome-gpu-metric-alerts@chromium.org</owner>
   <summary>
@@ -1158,7 +1153,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="GPU.PaintOpReader.DeserializationError"
-    enum="PaintOpDeserializationError" expires_after="2025-08-10">
+    enum="PaintOpDeserializationError" expires_after="2025-10-12">
   <owner>junov@chromium.org</owner>
   <owner>chrome-gpu-metric-alerts@chromium.org</owner>
   <summary>
@@ -1169,35 +1164,8 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="GPU.Presentation.FrameHandlesAnimationOrInteraction"
-    enum="FrameHandlingType" expires_after="2025-09-07">
-  <owner>magchen@chromium.org</owner>
-  <owner>vmiura@chromium.org</owner>
-  <owner>chrome-gpu-metric-alerts@chromium.org</owner>
-  <summary>
-    Recorded on Mac when a frame is ready to present and GPU Present() is
-    called. It records whether the current frame is handling interaction,
-    animation, both, or none.
-  </summary>
-</histogram>
-
-<histogram
-    name="GPU.Presentation.NonAnimatedOrInteractiveFrameWithPendingFrame"
-    enum="Boolean" expires_after="2025-09-07">
-  <owner>magchen@chromium.org</owner>
-  <owner>vmiura@chromium.org</owner>
-  <owner>chrome-gpu-metric-alerts@chromium.org</owner>
-  <summary>
-    Recorded on Mac for frames that are not handling interaction and animation
-    at the time when they are ready to present and GPU Present() is called . If
-    VSyncAlignedPresent and kPresentationDelayForInteractiveFrames are enabled,
-    this type of frames can be swapped immediately. However, they must wait in
-    the queue for VSync when there is a pending frame(s).
-  </summary>
-</histogram>
-
 <histogram name="GPU.Presentation.VSyncCallbackDelay" units="microseconds"
-    expires_after="2025-08-10">
+    expires_after="2025-10-12">
   <owner>magchen@chromium.org</owner>
   <owner>vmiura@chromium.org</owner>
   <owner>chrome-gpu-metric-alerts@chromium.org</owner>
@@ -1256,7 +1224,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="GPU.Sandboxed" enum="Boolean" expires_after="2025-07-27">
+<histogram name="GPU.Sandboxed" enum="Boolean" expires_after="2025-09-28">
   <owner>akhna@google.com</owner>
   <owner>chromeos-hardening@google.com</owner>
   <summary>
@@ -1267,7 +1235,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="GPU.ShaderLoadPrefixOK" enum="BooleanMatched"
-    expires_after="2025-08-10">
+    expires_after="2025-10-12">
   <owner>vikassoni@chromium.org</owner>
   <owner>chrome-gpu-metric-alerts@google.com</owner>
   <summary>
@@ -1297,7 +1265,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="GPU.SkiaBackendType" enum="SkiaBackendType"
-    expires_after="2025-08-10">
+    expires_after="2025-10-12">
   <owner>kylechar@chromium.org</owner>
   <owner>chrome-gpu-metric-alerts@google.com</owner>
   <summary>
@@ -1383,7 +1351,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="GPU.WatchdogThread.Event{ThreadType}"
-    enum="GpuWatchdogThreadEvent" expires_after="2025-04-27">
+    enum="GpuWatchdogThreadEvent" expires_after="2026-04-27">
   <owner>magchen@chromium.org</owner>
   <owner>zmo@chromium.org</owner>
   <owner>chrome-gpu-metric-alerts@chromium.org</owner>
@@ -1398,7 +1366,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="GPU.WatchdogThread.Timeout{WatchdogStage}{ThreadType}"
-    enum="GpuWatchdogTimeoutEvent" expires_after="2025-07-06">
+    enum="GpuWatchdogTimeoutEvent" expires_after="2026-04-27">
   <owner>magchen@chromium.org</owner>
   <owner>zmo@chromium.org</owner>
   <owner>chrome-gpu-metric-alerts@chromium.org</owner>
@@ -1420,7 +1388,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="GPU.WebGLDisplayType" enum="EGLDisplayType"
-    expires_after="2025-08-10">
+    expires_after="2025-10-12">
   <owner>geofflang@chromium.org</owner>
   <owner>chrome-gpu-metric-alerts@chromium.org</owner>
   <summary>
@@ -1430,7 +1398,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Gpu.{CacheType}LoadHitInCache" enum="Boolean"
-    expires_after="2025-08-17">
+    expires_after="2025-10-19">
   <owner>blundell@chromium.org</owner>
   <owner>geofflang@chromium.org</owner>
   <owner>chrome-gpu-metric-alerts@chromium.org</owner>
@@ -1536,7 +1504,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="GPU.{GraphiteDawnOrWebGPU}.{Cacheable}.CacheMiss"
-    units="microseconds" expires_after="2025-08-17">
+    units="microseconds" expires_after="2025-10-19">
   <owner>lokokung@google.com</owner>
   <owner>mdb.webgpu-dev-team@google.com</owner>
   <summary>
@@ -1588,6 +1556,19 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
+<histogram name="GPU.{GraphiteDawnOrWebGPU}.{ShaderTiming}"
+    units="microseconds" expires_after="2026-06-09">
+  <owner>petermcneeley@google.com</owner>
+  <owner>mdb.webgpu-dev-team@google.com</owner>
+  <summary>
+    Tracks the amount of time in microseconds it takes for a call to
+    {ShaderTiming} to complete, excluding when the result is found in frontend
+    cache. Recorded only for clients that support high-resolution clocks.
+  </summary>
+  <token key="GraphiteDawnOrWebGPU" variants="GraphiteDawnOrWebGPU"/>
+  <token key="ShaderTiming" variants="WebGPUShaderTiming"/>
+</histogram>
+
 <histogram name="GPU.{SchedulerType}.{Stage}" units="microseconds"
     expires_after="2024-08-07">
   <owner>vikassoni@chromium.org</owner>
@@ -1623,7 +1604,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Graphics.Exo.Surface.{ExoSurfaceCodePaths}" enum="Boolean"
-    expires_after="2025-08-10">
+    expires_after="2025-10-12">
   <owner>harthuang@google.com</owner>
   <owner>fangzhoug@chromium.org</owner>
   <owner>petermcneeley@chromium.org</owner>
@@ -1633,6 +1614,20 @@ chromium-metrics-reviews@google.com.
     and remove all deprecated code path if they have never been executed.
   </summary>
   <token key="ExoSurfaceCodePaths" variants="ExoSurfaceCodePaths"/>
+</histogram>
+
+<histogram name="Skia.Graphite.PipelineCache.PipelineUsesInEpoch" units="count"
+    expires_after="2026-01-01">
+  <owner>robertphillips@google.com</owner>
+  <owner>michaelludwig@google.com</owner>
+  <owner>skia-gpu-team@google.com</owner>
+  <summary>
+    This reports the number of Pipelines used in a five-minute window. This
+    provides information regarding the size of the optimal Pipeline active set.
+
+    This is only recorded on clients using both Graphite and Precompilation. It
+    is recorded every five minutes.
+  </summary>
 </histogram>
 
 <histogram name="Skia.Graphite.PipelineCreationRace"
@@ -1653,8 +1648,8 @@ chromium-metrics-reviews@google.com.
   <owner>michaelludwig@google.com</owner>
   <owner>skia-gpu-team@google.com</owner>
   <summary>
-    Measures the time taken to create a Pipeline in Skia's Dawn backend for each
-    of the three conditions.
+    Measures the time taken to create a Pipeline in Skia's Dawn backend for
+    {CompilationType} compilations.
 
     This is only recorded on clients with high-resolution clocks.
   </summary>
@@ -1665,16 +1660,55 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
+<histogram name="Skia.Graphite.Precompile.{PipelineStatistic}" units="count"
+    expires_after="2026-01-01">
+  <owner>robertphillips@google.com</owner>
+  <owner>michaelludwig@google.com</owner>
+  <owner>skia-gpu-team@google.com</owner>
+  <summary>
+    Reports the number of Pipelines that were categorized as
+    {PipelineStatistic}.
+
+    This is only recorded on clients using both Graphite and Precompilation. It
+    is recorded after a 30 minute delay.
+  </summary>
+  <token key="PipelineStatistic">
+    <variant name="NormalPreemptedByPrecompile"
+        summary="Reports the number of times a Precompiled Pipeline is chosen
+                 over a Normally compiled Pipeline. This is roughly the
+                 benefit Chromium is seeing from Precompilation. Higher is
+                 better."/>
+    <variant name="UnpreemptedPrecompilePipelines"
+        summary="Reports the number of times a Precompiled Pipeline reaches
+                 the Pipeline cache. A Precompiled Pipeline may be pruned
+                 before reaching the cache either because it was preempted by
+                 a Normal Pipeline or by a different Precompilation Pipeline.
+                 This is roughly the overall cost Chromium is incurring for
+                 Precompilation. Lower is better as long as
+                 NormalPreemptedByPrecompile doesn't decrease."/>
+    <variant name="UnusedPrecompiledPipelines"
+        summary="Reports the number of times a Precompiled Pipeline is either
+                 purged from the Pipeline cache before being ever used or is
+                 residing (unused) in the Pipeline cache after 30 minutes.
+                 This is roughly the wasted cost of over-generation in the
+                 Precompilation system. Ideally this would be zero."/>
+  </token>
+</histogram>
+
 <histogram name="Skia.VulkanMemoryAllocator.AmountAllocated" units="KB"
-    expires_after="2024-09-01">
+    expires_after="2026-01-01">
   <owner>egdaniel@google.com</owner>
-  <owner>bsalomon@google.com</owner>
+  <owner>michaelludwig@google.com</owner>
+  <owner>skia-gpu-team@google.com</owner>
   <summary>
     The total amount of memory that the VulkanMemoryAllocator used by Skia's
     Vulkan backend has allocated. This is GPU memory for VkImages and VkBuffers.
     Note that the allocator may be shared with other users outside of Skia and
     this amount includes their uses as well. This is collected each time we
     request an allocation from Skia.
+
+    Warning: this histogram was expired from 2024-09-01 to 2025-04-02; data may
+    be missing.
   </summary>
 </histogram>
 
@@ -1705,7 +1739,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Viz.BeginFrameSource.VSyncCallbackDelay" units="microseconds"
-    expires_after="2025-08-10">
+    expires_after="2025-10-12">
   <owner>magchen@chromium.org</owner>
   <owner>vmiura@chromium.org</owner>
   <owner>chrome-gpu-metric-alerts@chromium.org</owner>
@@ -1721,12 +1755,23 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Viz.CreateFallbackImageResult"
-    enum="CreateFallbackImageResult" expires_after="2025-08-01">
+    enum="CreateFallbackImageResult" expires_after="2025-10-05">
   <owner>kylechar@chromium.org</owner>
   <owner>chrome-gpu-metric-alerts@chromium.org</owner>
   <summary>
     This is recorded each time SkiaRenderer attempts to create a fallback image
     to replace a missing shared image. The result captures success and failure
+    with a reason for the failure.
+  </summary>
+</histogram>
+
+<histogram name="Viz.CreatePromiseImageResult" enum="CreatePromiseImageResult"
+    expires_after="2025-12-01">
+  <owner>hitawala@chromium.org</owner>
+  <owner>chrome-gpu-metric-alerts@chromium.org</owner>
+  <summary>
+    This is recorded each time SkiaRenderer attempts to create promise image
+    textures for the original image. The result captures success and failure
     with a reason for the failure.
   </summary>
 </histogram>

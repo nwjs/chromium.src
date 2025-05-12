@@ -113,13 +113,10 @@ RasterMode CanvasResourceHost::GetRasterMode() const {
 
 void CanvasResourceHost::ResetLayer() {
   if (cc_layer_) {
-    if (GetRasterMode() == RasterMode::kGPU) {
-      cc_layer_->ClearTexture();
-      // Orphaning the layer is required to trigger the recreation of a new
-      // layer in the case where destruction is caused by a canvas resize. Test:
-      // virtual/gpu/fast/canvas/canvas-resize-after-paint-without-layout.html
-      cc_layer_->RemoveFromParent();
-    }
+    // Orphaning the layer is required to trigger the recreation of a new
+    // layer in the case where destruction is caused by a canvas resize. Test:
+    // virtual/gpu/fast/canvas/canvas-resize-after-paint-without-layout.html
+    cc_layer_->RemoveFromParent();
     cc_layer_->ClearClient();
     cc_layer_ = nullptr;
   }
@@ -202,7 +199,7 @@ bool CanvasResourceHost::PrepareTransferableResource(
   // If the context is lost, we don't know if we should be producing GPU or
   // software frames, until we get a new context, since the compositor will
   // be trying to get a new context and may change modes.
-  if (!GetOrCreateCanvasResourceProvider(preferred_2d_raster_mode_)) {
+  if (!GetOrCreateCanvasResourceProvider()) {
     return false;
   }
 
@@ -260,40 +257,15 @@ bool CanvasResourceHost::IsResourceValid() {
     return true;
   }
 
-  if (!cc_layer_) {
-    return true;
-  }
-
-  if (resource_provider_ &&
-      resource_provider_->GetType() == CanvasResourceProvider::kBitmap) {
-    if (preferred_2d_raster_mode_ == RasterModeHint::kPreferCPU) {
-      return true;
-    }
-  }
-
-  if (context_lost_ || shared_bitmap_gpu_channel_lost_) {
+  if (IsContextLost()) {
     return false;
   }
 
-  // For Gpu rendering
-  if (resource_provider_ && resource_provider_->IsAccelerated() &&
-      resource_provider_->IsGpuContextLost()) {
-    context_lost_ = true;
-    ReplaceResourceProvider(nullptr);
-    NotifyGpuContextLost();
+  if (resource_provider_ && !resource_provider_->IsValid()) {
     return false;
   }
 
-  // For software rendering
-  if (resource_provider_ &&
-      resource_provider_->IsSoftwareSharedImageGpuChannelLost()) {
-    shared_bitmap_gpu_channel_lost_ = true;
-    ReplaceResourceProvider(nullptr);
-    NotifyGpuContextLost();
-    return false;
-  }
-
-  return !!GetOrCreateCanvasResourceProvider(preferred_2d_raster_mode_);
+  return !!GetOrCreateCanvasResourceProvider();
 }
 
 }  // namespace blink

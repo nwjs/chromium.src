@@ -7,7 +7,6 @@
 #include <string>
 
 #include "base/test/metrics/histogram_tester.h"
-#include "base/test/scoped_feature_list.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
@@ -26,7 +25,6 @@
 #include "components/supervised_user/core/browser/supervised_user_service.h"
 #include "components/supervised_user/core/browser/supervised_user_url_filter.h"
 #include "components/supervised_user/core/browser/supervised_user_utils.h"
-#include "components/supervised_user/core/common/features.h"
 #include "components/supervised_user/core/common/pref_names.h"
 #include "components/supervised_user/core/common/supervised_user_constants.h"
 #include "content/public/test/browser_task_environment.h"
@@ -107,6 +105,9 @@ class FamilyLinkUserMetricsProviderTest : public testing::Test {
   }
 
   void AllowUnsafeSitesForSupervisedUser(Profile* profile) {
+    // Note: overrides the setting in the user pref store in the context of user
+    // managed by family link. In true environment, for these users, this
+    // happens in the supervised user pref store.
     profile->GetPrefs()->SetBoolean(prefs::kSupervisedUserSafeSites, false);
   }
 
@@ -314,25 +315,13 @@ TEST_F(FamilyLinkUserMetricsProviderTest,
 class FamilyLinkUserMetricsProviderTestWithExtensionsPermissionsEnabled
     : public FamilyLinkUserMetricsProviderTest {
  protected:
-  FamilyLinkUserMetricsProviderTestWithExtensionsPermissionsEnabled() {
-    feature_list_.InitWithFeatures(
-        {
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
-            supervised_user::
-                kEnableExtensionsPermissionsForSupervisedUsersOnDesktop,
-#endif
-            supervised_user::
-                kEnableSupervisedUserSkipParentApprovalToInstallExtensions},
-        {});
-  }
+  FamilyLinkUserMetricsProviderTestWithExtensionsPermissionsEnabled() = default;
 
   void SetExtensionToggleStateForSupervisedUser(Profile* profile,
                                                 bool toggle_state) {
     supervised_user_test_util::SetSkipParentApprovalToInstallExtensionsPref(
         profile, toggle_state);
   }
-
-  base::test::ScopedFeatureList feature_list_;
 };
 
 TEST_F(FamilyLinkUserMetricsProviderTestWithExtensionsPermissionsEnabled,

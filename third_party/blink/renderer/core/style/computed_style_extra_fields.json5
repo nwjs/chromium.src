@@ -1221,6 +1221,17 @@
       default_value: "false",
     },
     {
+      // https://drafts.csswg.org/css-ui-4/#inertness
+      // Bit that is set for interactivity:inert and is never reset in the
+      // subtree even if the interactivity is set back to auto.
+      name: "IsCSSInert",
+      inherited: true,
+      independent: true,
+      field_template: "primitive",
+      type_name: "bool",
+      default_value: "false",
+    },
+    {
       // We need to go through LayoutObject::SetStyle with
       // ApplyStyleChanges::kYes if the body changes from being the first body
       // element to a secondary one because the same style could lead to
@@ -1328,7 +1339,7 @@
       name: "AnchorCenterOffset",
       field_template: "external",
       field_group: "*",
-      include_paths: ["third_party/blink/renderer/core/layout/geometry/physical_offset.h"],
+      include_paths: ["third_party/blink/renderer/platform/geometry/physical_offset.h"],
       default_value: "std::nullopt",
       type_name: "std::optional<PhysicalOffset>",
       custom_compare: true,

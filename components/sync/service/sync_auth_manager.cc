@@ -406,7 +406,8 @@ SyncAccountInfo SyncAuthManager::DetermineAccountToUse() const {
 bool SyncAuthManager::UpdateSyncAccountIfNecessary() {
   DCHECK(registered_for_auth_notifications_);
 
-  SyncAccountInfo new_account = DetermineAccountToUse();
+  const SyncAccountInfo new_account = DetermineAccountToUse();
+
   if (new_account.account_info.account_id ==
       sync_account_.account_info.account_id) {
     // We're already using this account (or there was and is no account to use).

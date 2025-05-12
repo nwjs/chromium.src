@@ -16,14 +16,21 @@
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
-#include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "base/values.h"
 #include "chrome/browser/profiles/profile_observer.h"
+#include "content/public/browser/browser_context.h"
 #include "extensions/browser/preload_check.h"
+#include "extensions/buildflags/buildflags.h"
 #include "extensions/common/manifest.h"
 
+static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
+
 class Profile;
+
+namespace content {
+class BrowserContext;
+}
 
 namespace extensions {
 
@@ -66,7 +73,7 @@ class UnpackedInstaller : public base::RefCountedThreadSafe<UnpackedInstaller>,
   UnpackedInstaller& operator=(const UnpackedInstaller&) = delete;
 
   static scoped_refptr<UnpackedInstaller> Create(
-      ExtensionService* extension_service);
+      content::BrowserContext* context);
 
   // Loads the extension from the directory |extension_path|, which is
   // the top directory of a specific extension where its manifest file lives.
@@ -114,7 +121,7 @@ class UnpackedInstaller : public base::RefCountedThreadSafe<UnpackedInstaller>,
  private:
   friend class base::RefCountedThreadSafe<UnpackedInstaller>;
 
-  explicit UnpackedInstaller(ExtensionService* extension_service);
+  explicit UnpackedInstaller(content::BrowserContext* context);
   ~UnpackedInstaller() override;
 
   // Must be called from the UI thread. Begin management policy and requirements

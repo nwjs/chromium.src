@@ -86,7 +86,10 @@
 #include "content/public/browser/storage_partition_config.h"
 #include "content/public/browser/web_contents.h"
 
-#if !BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS)
+#include "chrome/browser/web_applications/isolated_web_apps/commands/cleanup_bundle_cache_command.h"
+#include "chrome/browser/web_applications/isolated_web_apps/policy/isolated_web_app_cache_client.h"
+#else  // !BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/web_applications/jobs/link_capturing.h"
 #endif
 
@@ -353,6 +356,19 @@ void WebAppCommandScheduler::CheckIsolatedWebAppBundleInstallability(
           &profile_.get(), bundle_metadata, std::move(callback)),
       call_location);
 }
+
+#if BUILDFLAG(IS_CHROMEOS)
+void WebAppCommandScheduler::CleanupIsolatedWebAppBundleCache(
+    const std::vector<web_package::SignedWebBundleId>& iwas_to_keep_in_cache,
+    IwaCacheClient::SessionType session_type,
+    base::OnceCallback<void(CleanupBundleCacheResult)> callback,
+    const base::Location& call_location) {
+  provider_->command_manager().ScheduleCommand(
+      std::make_unique<CleanupBundleCacheCommand>(
+          iwas_to_keep_in_cache, session_type, std::move(callback)),
+      call_location);
+}
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 void WebAppCommandScheduler::GetIsolatedWebAppBrowsingData(
     base::OnceCallback<void(base::flat_map<url::Origin, uint64_t>)> callback,

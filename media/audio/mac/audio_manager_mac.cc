@@ -670,7 +670,7 @@ AudioParameters AudioManagerMac::GetInputStreamParameters(
   if (AudioDeviceDescription::IsLoopbackDevice(device_id)) {
     return AudioParameters(AudioParameters::AUDIO_PCM_LOW_LATENCY,
                            ChannelLayoutConfig::Stereo(), kLoopbackSampleRate,
-                           ChooseBufferSize(true, kLoopbackSampleRate));
+                           kLoopbackFramesPerBuffer);
   }
 
   AudioDeviceID device = GetAudioDeviceIdByUId(true, device_id);
@@ -718,6 +718,8 @@ AudioParameters AudioManagerMac::GetInputStreamParameters(
 
   if (AUAudioInputStream::IsEchoCancellationSupported(device, params)) {
     params.set_effects(params.effects() | AudioParameters::ECHO_CANCELLER);
+    params.set_effects(params.effects() |
+                       AudioParameters::AUTOMATIC_GAIN_CONTROL);
   }
 
   return params;

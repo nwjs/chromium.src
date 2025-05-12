@@ -7,9 +7,10 @@ package org.chromium.chrome.browser.auxiliary_search;
 import android.graphics.Bitmap;
 
 import androidx.annotation.IntDef;
-import androidx.annotation.NonNull;
 
 import org.chromium.base.Callback;
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.PauseResumeWithNativeObserver;
 
@@ -19,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 
 /** This Controller for the auxiliary search. */
+@NullMarked
 public interface AuxiliarySearchController extends PauseResumeWithNativeObserver {
     @IntDef({
         AuxiliarySearchDataType.ALL,
@@ -31,6 +33,20 @@ public interface AuxiliarySearchController extends PauseResumeWithNativeObserver
         int ALL = 0;
         int BOOKMARK = 1;
         int TAB = 2;
+        int NUM_ENTRIES = 3;
+    }
+
+    @IntDef({
+        AuxiliarySearchHostType.CTA,
+        AuxiliarySearchHostType.CTA_BACKGROUND_TASK,
+        AuxiliarySearchHostType.CCT_BACKGROUND_TASK,
+        AuxiliarySearchHostType.NUM_ENTRIES
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    @interface AuxiliarySearchHostType {
+        int CTA = 0;
+        int CTA_BACKGROUND_TASK = 1;
+        int CCT_BACKGROUND_TASK = 2;
         int NUM_ENTRIES = 3;
     }
 
@@ -48,7 +64,7 @@ public interface AuxiliarySearchController extends PauseResumeWithNativeObserver
     default void onPauseWithNative() {}
 
     /** Destroy and unhook objects at destruction. */
-    default void destroy() {}
+    default void destroy(@Nullable ActivityLifecycleDispatcher lifecycleDispatcher) {}
 
     /**
      * Called after the background task has fetched metadata.
@@ -60,9 +76,9 @@ public interface AuxiliarySearchController extends PauseResumeWithNativeObserver
      * @param <T> The type of the entry data for donation.
      */
     default <T> void onBackgroundTaskStart(
-            @NonNull List<T> entries,
-            @NonNull Map<T, Bitmap> entryToFaviconMap,
-            @NonNull Callback<Boolean> callback,
+            List<T> entries,
+            Map<T, Bitmap> entryToFaviconMap,
+            Callback<Boolean> callback,
             long startTimeMs) {}
 
     /**

@@ -5,7 +5,6 @@
 #import "base/test/ios/wait_util.h"
 #import "components/sync/service/sync_service_utils.h"
 #import "components/trusted_vault/trusted_vault_server_constants.h"
-#import "ios/chrome/browser/authentication/ui_bundled/signin/interruptible_chrome_coordinator.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_constants.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_coordinator.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
@@ -168,9 +167,8 @@ TEST_F(TrustedVaultReauthenticationCoordinatorTest, TestInterruptWithDismiss) {
       base::test::ios::kWaitForUIElementTimeout, ^bool() {
         return !base_view_controller_.presentedViewController.beingPresented;
       }));
-  // Interrupt the coordinator.
-  [signinCoordinator interruptAnimated:NO];
-  // Sign-in and interrupt completion blocks should be called synchronously.
-  EXPECT_TRUE(signin_completion_called);
+  // Stop the coordinator while being opened.
   [signinCoordinator stop];
+  // Sign-in and interrupt completion blocks should be called synchronously.
+  EXPECT_FALSE(signin_completion_called);
 }

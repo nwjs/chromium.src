@@ -13,13 +13,16 @@
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
 #include "chrome/browser/signin/signin_promo_util.h"
+#include "chrome/browser/signin/signin_ui_util.h"
 #include "chrome/browser/sync/sync_service_factory.h"
+#include "chrome/common/pref_names.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/scoped_testing_local_state.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
 #include "components/autofill/core/browser/test_utils/test_profiles.h"
+#include "components/autofill/core/common/autofill_features.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/base/signin_metrics.h"
 #include "components/signin/public/base/signin_pref_names.h"
@@ -184,31 +187,11 @@ class ShowPromoTest : public testing::Test {
   scoped_refptr<const extensions::Extension> extension_;
 };
 
-TEST_F(ShowPromoTest, DoNotShowAddressSignInPromoWithoutImprovedBrowserSignin) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeatures(
-      /*enabled_features=*/{},
-      /*disabled_features=*/{switches::kImprovedSigninUIOnDesktop});
-
-  EXPECT_FALSE(ShouldShowAddressSignInPromo(*profile(),
-                                            autofill::test::StandardProfile()));
-}
-
 TEST_F(ShowPromoTest, DoNotShowBookmarkSignInPromoWithoutExplicitSignIn) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures(
       /*enabled_features=*/{},
       /*disabled_features=*/{switches::kSyncEnableBookmarksInTransportMode});
-
-  EXPECT_FALSE(ShouldShowBookmarkSignInPromo(*profile()));
-}
-
-TEST_F(ShowPromoTest, DoNotShowBookmarkSignInPromoWithoutMinimizeDeletion) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeatures(
-      /*enabled_features=*/{},
-      /*disabled_features=*/{
-          switches::kSyncMinimizeDeletionsDuringBookmarkBatchUpload});
 
   EXPECT_FALSE(ShouldShowBookmarkSignInPromo(*profile()));
 }
@@ -318,9 +301,7 @@ class ShowSigninPromoTestWithFeatureFlags : public ShowPromoTest {
     ShowPromoTest::SetUp();
     feature_list_.InitWithFeatures(
         /*enabled_features=*/
-        {switches::kImprovedSigninUIOnDesktop,
-         switches::kSyncEnableBookmarksInTransportMode,
-         switches::kSyncMinimizeDeletionsDuringBookmarkBatchUpload,
+        {switches::kSyncEnableBookmarksInTransportMode,
          switches::kEnableExtensionsExplicitBrowserSignin},
         /*disabled_features=*/{});
     ON_CALL(*sync_service(), GetDataTypesForTransportOnlyMode())
@@ -498,8 +479,13 @@ TEST_F(ShowSigninPromoTestWithFeatureFlags,
   EXPECT_FALSE(ShouldShowAddressSignInPromo(*profile(), address));
 }
 
+// TODO(crbug.com/40100455): Remove when
+// kAutofillEnableAccountStorageForIneligibleCountries is cleaned up.
 TEST_F(ShowSigninPromoTestWithFeatureFlags,
        DoNotShowAddressIfCountryNotEligibleForAccountStorage) {
+  base::test::ScopedFeatureList feature;
+  feature.InitAndDisableFeature(
+      autofill::features::kAutofillEnableAccountStorageForIneligibleCountries);
   const std::string non_eligible_country_code("IR");
 
   ASSERT_FALSE(
@@ -742,6 +728,97 @@ TEST_F(ShowSigninPromoTestWithFeatureFlags,
   }
 
   EXPECT_TRUE(ShouldShowBookmarkSignInPromo(*profile.get()));
+}
+
+class SyncPromoIdentityPillManagerTest : public testing::Test {
+ public:
+  SyncPromoIdentityPillManagerTest()
+      : local_state_(TestingBrowserProcess::GetGlobal()) {
+    // Environment setup for adding an account with cookies to store the
+    // per-account prefs.
+    TestingProfile::Builder builder;
+    builder.AddTestingFactories(
+        IdentityTestEnvironmentProfileAdaptor::
+            GetIdentityTestEnvironmentFactoriesWithAppendedFactories(
+                {TestingProfile::TestingFactory{
+                    ChromeSigninClientFactory::GetInstance(),
+                    base::BindRepeating(&BuildChromeSigninClientWithURLLoader,
+                                        &url_loader_factory_)}}));
+    profile_ = builder.Build();
+    identity_test_env_adaptor_ =
+        std::make_unique<IdentityTestEnvironmentProfileAdaptor>(profile_.get());
+    identity_test_env_adaptor_->identity_test_env()->SetTestURLLoaderFactory(
+        &url_loader_factory_);
+  }
+
+  AccountInfo MakeAccountAvailable(std::string_view email) {
+    return identity_test_env_adaptor_->identity_test_env()
+        ->MakeAccountAvailable(
+            identity_test_env_adaptor_->identity_test_env()
+                ->CreateAccountAvailabilityOptionsBuilder()
+                .WithAccessPoint(signin_metrics::AccessPoint::kUnknown)
+                .WithCookie(true)
+                .Build(email));
+  }
+
+  Profile& profile() { return *profile_.get(); }
+
+  PrefService& local_state() { return *local_state_.Get(); }
+
+ private:
+  ScopedTestingLocalState local_state_;
+  network::TestURLLoaderFactory url_loader_factory_;
+  content::BrowserTaskEnvironment task_environment_;
+  std::unique_ptr<TestingProfile> profile_;
+  std::unique_ptr<IdentityTestEnvironmentProfileAdaptor>
+      identity_test_env_adaptor_;
+};
+
+TEST_F(SyncPromoIdentityPillManagerTest, MaxShownCount) {
+  MakeAccountAvailable("test@email.com");
+  const int max_shown_count = 10;
+  SyncPromoIdentityPillManager manager(profile(), max_shown_count,
+                                       /*max_used_count=*/1);
+
+  for (int i = 0; i < max_shown_count; ++i) {
+    // The promo should be shown if the shown count is below the max.
+    EXPECT_TRUE(manager.ShouldShowPromo());
+    manager.RecordPromoShown();
+  }
+
+  // The promo should not be shown if the shown count is at the max.
+  EXPECT_FALSE(manager.ShouldShowPromo());
+}
+
+TEST_F(SyncPromoIdentityPillManagerTest, MaxUsedCount) {
+  MakeAccountAvailable("test@email.com");
+  const int max_used_count = 5;
+  SyncPromoIdentityPillManager manager(profile(), /*max_shown_count=*/10,
+                                       max_used_count);
+
+  for (int i = 0; i < max_used_count; ++i) {
+    // The promo should be shown if the used count is below the max.
+    EXPECT_TRUE(manager.ShouldShowPromo());
+    manager.RecordPromoUsed();
+  }
+
+  // The promo should not be shown if the used count is at the max.
+  EXPECT_FALSE(manager.ShouldShowPromo());
+}
+
+TEST_F(SyncPromoIdentityPillManagerTest, ShouldNotShowPromoIfNoAccount) {
+  SyncPromoIdentityPillManager manager(profile(), /*max_shown_count=*/10,
+                                       /*max_used_count=*/2);
+  EXPECT_FALSE(manager.ShouldShowPromo());
+}
+
+TEST_F(SyncPromoIdentityPillManagerTest,
+       ShouldNotShowPromoIfPromotionsDisabled) {
+  local_state().SetBoolean(prefs::kPromotionsEnabled, false);
+  MakeAccountAvailable("test@email.com");
+  SyncPromoIdentityPillManager manager(profile(), /*max_shown_count=*/10,
+                                       /*max_used_count=*/2);
+  EXPECT_FALSE(manager.ShouldShowPromo());
 }
 
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)

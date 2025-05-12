@@ -133,6 +133,16 @@ void ServiceWorkerRaceNetworkRequestURLLoaderClient::OnReceiveResponse(
       head_->load_timing.receive_headers_end =
           head_->load_timing.receive_headers_start;
       cached_metadata_ = std::move(cached_metadata);
+      // TODO(crbug.com/408309960): Update to call `owner_`'s
+      // DidDispatchFetchEvent() or StartResponse() to handle the response as if
+      // it comes from the fetch event so that every information is propagated
+      // correctly.
+      //
+      // For now, set was_fetched_via_service_worker true here to address
+      // crbug.com/404577046. Since this field is normally set by
+      // blink::ServiceWorkerLoaderHelpers::SaveResponseInfo(). But currently
+      // this is called only when the response is returned from the fetch event.
+      head_->was_fetched_via_service_worker = true;
       if (base::FeatureList::IsEnabled(
               features::
                   kServiceWorkerStaticRouterRaceNetworkRequestPerformanceImprovement) &&
@@ -250,7 +260,6 @@ void ServiceWorkerRaceNetworkRequestURLLoaderClient::CommitResponse() {
   }
   TransitionState(State::kResponseCommitted);
   owner_->RecordFetchResponseFrom();
-  owner_->CommitResponseHeaders(head_);
   owner_->CommitResponseBody(
       head_,
       write_buffer_manager_for_race_network_request_.ReleaseConsumerHandle(),

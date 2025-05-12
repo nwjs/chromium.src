@@ -439,6 +439,15 @@ void AvatarToolbarButton::ButtonPressed(bool is_source_accelerator) {
     return;
   }
 
+#if !BUILDFLAG(IS_CHROMEOS)
+  if (browser_->window()->IsFeaturePromoActive(
+          feature_engagement::kIPHPasswordsSavePrimingPromoFeature)) {
+    browser_->window()->NotifyFeaturePromoFeatureUsed(
+        feature_engagement::kIPHPasswordsSavePrimingPromoFeature,
+        FeaturePromoFeatureUsedAction::kClosePromoIfPresent);
+  }
+#endif
+
   if (!explicit_button_pressed_action_.is_null()) {
     explicit_button_pressed_action_.Run();
     return;
@@ -484,6 +493,16 @@ bool AvatarToolbarButton::IsLabelPresentAndVisible() const {
     return false;
   }
   return label()->GetVisible() && !label()->GetText().empty();
+}
+
+void AvatarToolbarButton::UpdateButtonAction() {
+  internal_reset_button_action_closure_.RunAndReset();
+  std::optional<base::RepeatingClosure> button_action =
+      delegate_->GetButtonAction();
+  if (button_action.has_value()) {
+    internal_reset_button_action_closure_ =
+        SetExplicitButtonAction(*std::move(button_action));
+  }
 }
 
 void AvatarToolbarButton::UpdateLayoutInsets() {

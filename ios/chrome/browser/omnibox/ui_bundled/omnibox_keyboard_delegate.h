@@ -7,11 +7,13 @@
 
 #import <UIKit/UIKit.h>
 
-typedef NS_ENUM(NSUInteger, OmniboxKeyboardAction) {
-  OmniboxKeyboardActionUpArrow,
-  OmniboxKeyboardActionDownArrow,
-  OmniboxKeyboardActionLeftArrow,
-  OmniboxKeyboardActionRightArrow
+/// Keyboard actions used by both the textfield and popup.
+enum class OmniboxKeyboardAction {
+  kUpArrow,
+  kDownArrow,
+  kLeftArrow,
+  kRightArrow,
+  kReturnKey,
 };
 
 // Keyboard inputs in the omnibox are received by OmniboxTextFieldIOS. Some keys
@@ -24,7 +26,10 @@ typedef NS_ENUM(NSUInteger, OmniboxKeyboardAction) {
 // by UIFocusSystem available in iOS 15.
 @protocol OmniboxKeyboardDelegate <NSObject>
 
+/// Whether the `keyboardAction` can be performed.
 - (BOOL)canPerformKeyboardAction:(OmniboxKeyboardAction)keyboardAction;
+
+/// Performs the `keyboardAction`.
 - (void)performKeyboardAction:(OmniboxKeyboardAction)keyboardAction;
 
 @end

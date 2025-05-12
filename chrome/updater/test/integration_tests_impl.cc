@@ -55,6 +55,7 @@
 #include "chrome/enterprise_companion/global_constants.h"
 #include "chrome/enterprise_companion/installer_paths.h"
 #include "chrome/updater/activity.h"
+#include "chrome/updater/branded_constants.h"
 #include "chrome/updater/constants.h"
 #include "chrome/updater/device_management/dm_policy_builder_for_testing.h"
 #include "chrome/updater/external_constants_builder.h"
@@ -163,7 +164,9 @@ std::string GetUpdateResponseForAppV4(const std::string& app_id,
       R"(          {"operations":[)"
       R"(            { "type":"download",)"
       R"(              "urls":[{"url":"%s/%s"}],)"
-      R"(              "out":{"sha256":"%s"}},)"
+      R"(              "out":{"sha256":"%s"},)"
+      // arbitrary size, must be greater than 0:
+      R"(              "size": 10},)"
       R"(            { "type":"crx3",)"
       R"(              "arguments":"%s",)"
       R"(              "path":"%s",)"
@@ -1313,9 +1316,14 @@ std::vector<TestUpdaterVersion> GetRealUpdaterVersions() {
   return v;
 }
 
-void SetupRealUpdater(UpdaterScope scope, const base::FilePath& updater_path) {
+void SetupRealUpdater(UpdaterScope scope,
+                      const base::FilePath& updater_path,
+                      const base::Value::List& switches) {
   base::CommandLine command_line(updater_path);
   command_line.AppendSwitch(kInstallSwitch);
+  for (const base::Value& cmd_line_switch : switches) {
+    command_line.AppendSwitch(cmd_line_switch.GetString());
+  }
   int exit_code = -1;
   Run(scope, command_line, &exit_code);
   ASSERT_EQ(exit_code, 0);

@@ -10,12 +10,13 @@ import android.view.View;
 import org.jni_zero.CalledByNative;
 
 import org.chromium.base.Callback;
-import org.chromium.base.CallbackUtils;
 import org.chromium.base.Log;
+import org.chromium.base.ResettersForTesting;
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.components.embedder_support.contextmenu.ContextMenuItemDelegate;
 import org.chromium.components.embedder_support.contextmenu.ContextMenuParams;
 import org.chromium.components.embedder_support.contextmenu.ContextMenuPopulator;
-import org.chromium.components.embedder_support.contextmenu.ContextMenuUi;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
@@ -23,12 +24,15 @@ import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import java.util.List;
 
 /** A helper class that handles generating and dismissing context menus for {@link WebContents}. */
+@NullMarked
 public class AwContextMenuHelper {
+    private static @Nullable Callback<@Nullable AwContextMenuCoordinator>
+            sMenuShownCallbackForTesting;
     private static final String TAG = "AwContextMenuHelper";
     private final WebContents mWebContents;
 
-    private ContextMenuPopulator mCurrentPopulator;
-    private ContextMenuUi mCurrentContextMenu;
+    private @Nullable ContextMenuPopulator mCurrentPopulator;
+    private @Nullable AwContextMenuCoordinator mCurrentContextMenu;
 
     private AwContextMenuHelper(WebContents webContents) {
         mWebContents = webContents;
@@ -52,17 +56,20 @@ public class AwContextMenuHelper {
      */
     @CalledByNative
     private void showContextMenu(ContextMenuParams params, View view) {
-        if (params.isFile()) return;
-
         WindowAndroid windowAndroid = mWebContents.getTopLevelNativeWindow();
 
-        if (view == null
+        if (((params.isFile() || params.isImage() || params.isVideo()) && !params.isAnchor())
+                || view == null
                 || view.getVisibility() != View.VISIBLE
                 || view.getParent() == null
                 || windowAndroid == null
                 || windowAndroid.getActivity().get() == null
+                || windowAndroid.getContext().get() == null
                 || mCurrentContextMenu != null) {
             Log.w(TAG, "Could not create context menu");
+            if (sMenuShownCallbackForTesting != null) {
+                sMenuShownCallbackForTesting.onResult(null);
+            }
             return;
         }
 
@@ -78,7 +85,12 @@ public class AwContextMenuHelper {
 
                     mCurrentPopulator.onItemSelected(result);
                 };
-        Runnable onMenuShown = CallbackUtils.emptyRunnable();
+        Runnable onMenuShown =
+                () -> {
+                    if (sMenuShownCallbackForTesting != null) {
+                        sMenuShownCallbackForTesting.onResult(mCurrentContextMenu);
+                    }
+                };
         Runnable onMenuClosed =
                 () -> {
                     mCurrentContextMenu = null;
@@ -93,6 +105,9 @@ public class AwContextMenuHelper {
         List<Pair<Integer, ModelList>> items = mCurrentPopulator.buildContextMenu();
 
         if (items.isEmpty()) {
+            if (sMenuShownCallbackForTesting != null) {
+                sMenuShownCallbackForTesting.onResult(null);
+            }
             Log.w(TAG, "Could not create items for context menu");
             return;
         }
@@ -101,6 +116,12 @@ public class AwContextMenuHelper {
 
         mCurrentContextMenu.displayMenu(
                 windowAndroid, mWebContents, params, items, callback, onMenuShown, onMenuClosed);
+    }
+
+    public static void setMenuShownCallbackForTests(
+            Callback<@Nullable AwContextMenuCoordinator> callback) {
+        sMenuShownCallbackForTesting = callback;
+        ResettersForTesting.register(() -> sMenuShownCallbackForTesting = null);
     }
 
     @CalledByNative

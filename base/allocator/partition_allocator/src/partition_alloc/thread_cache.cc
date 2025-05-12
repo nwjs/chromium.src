@@ -6,7 +6,6 @@
 
 #include <sys/types.h>
 
-#include <algorithm>
 #include <atomic>
 #include <cstdint>
 
@@ -15,6 +14,7 @@
 #include "partition_alloc/internal_allocator.h"
 #include "partition_alloc/partition_alloc-inl.h"
 #include "partition_alloc/partition_alloc_base/component_export.h"
+#include "partition_alloc/partition_alloc_base/cxx_wrapper/algorithm.h"
 #include "partition_alloc/partition_alloc_base/immediate_crash.h"
 #include "partition_alloc/partition_alloc_base/time/time.h"
 #include "partition_alloc/partition_alloc_check.h"
@@ -75,7 +75,8 @@ uint8_t ThreadCache::global_limits_[ThreadCache::kBucketCount];
 
 // Start with the normal size, not the maximum one.
 uint16_t ThreadCache::largest_active_bucket_index_ =
-    internal::BucketIndexLookup::GetIndex(ThreadCache::kDefaultSizeThreshold);
+    internal::BucketIndexLookup::GetIndexForNeutralBuckets(
+        ThreadCache::kDefaultSizeThreshold);
 
 // static
 ThreadCacheRegistry& ThreadCacheRegistry::Instance() {
@@ -497,7 +498,8 @@ ThreadCache::ThreadCache(PartitionRoot* root)
       root_(root),
       thread_id_(internal::base::PlatformThread::CurrentId()),
       next_(nullptr),
-      prev_(nullptr) {
+      prev_(nullptr),
+      scheduler_loop_quarantine_branch_(root) {
   ThreadCacheRegistry::Instance().RegisterThreadCache(this);
 
   memset(&stats_, 0, sizeof(stats_));
@@ -520,16 +522,12 @@ ThreadCache::ThreadCache(PartitionRoot* root)
 
   // When enabled, initialize scheduler loop quarantine branch.
   // This branch is only used within this thread, so not `lock_required`.
-  if (root_->settings.scheduler_loop_quarantine) {
-    internal::LightweightQuarantineBranchConfig per_thread_config = {
-        .lock_required = false,
-        .branch_capacity_in_bytes =
-            root_->scheduler_loop_quarantine_branch_capacity_in_bytes,
-    };
-    scheduler_loop_quarantine_branch_.emplace(
-        root_->GetSchedulerLoopQuarantineRoot().CreateBranch(
-            per_thread_config));
-  }
+  const auto& scheduler_loop_quarantine_config =
+      root_->settings.scheduler_loop_quarantine_thread_local_config;
+  PA_CHECK(!scheduler_loop_quarantine_config.enable_quarantine ||
+           !scheduler_loop_quarantine_config.quarantine_config.lock_required);
+  scheduler_loop_quarantine_branch_.Configure(
+      root_->scheduler_loop_quarantine_root, scheduler_loop_quarantine_config);
 }
 
 ThreadCache::~ThreadCache() {
@@ -868,6 +866,13 @@ bool ThreadCache::IsInFreelist(uintptr_t address,
                                size_t bucket_index,
                                size_t& position) {
   PA_REENTRANCY_GUARD(is_in_thread_cache_);
+
+  // ThreadCache's bucket count can be smaller than PartitionRoot's count.
+  // If `bucket_index` is no less than `kBucketCount`, it is not inside
+  // `ThreadCache`.
+  if (bucket_index >= kBucketCount) {
+    return false;
+  }
 
   auto& bucket = buckets_[bucket_index];
   if (!bucket.freelist_head) [[unlikely]] {

@@ -26,11 +26,6 @@ BASE_FEATURE(kTabGroupSyncAndroid,
              "TabGroupSyncAndroid",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Feature flag used to enable tab group revisit surface.
-BASE_FEATURE(kTabGroupPaneAndroid,
-             "TabGroupPaneAndroid",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Feature flag used to determine whether the network layer is disabled for
 // tab group sync.
 BASE_FEATURE(kTabGroupSyncDisableNetworkLayer,
@@ -80,7 +75,7 @@ BASE_FEATURE(kForceRemoveClosedTabGroupsOnStartup,
 // Enables checking for URLs before syncing them to remote devices.
 BASE_FEATURE(kEnableUrlRestriction,
              "EnableUrlRestriction",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables clean up of hidden groups.
 BASE_FEATURE(kEnableOriginatingSavedGroupCleanUp,
@@ -125,7 +120,8 @@ bool IsTabTitleSanitizationEnabled() {
 }
 
 bool IsUrlRestrictionEnabled() {
-  return base::FeatureList::IsEnabled(kEnableUrlRestriction);
+  return data_sharing::features::IsDataSharingFunctionalityEnabled() &&
+         base::FeatureList::IsEnabled(kEnableUrlRestriction);
 }
 
 bool IsOriginatingSavedGroupCleanUpEnabled() {

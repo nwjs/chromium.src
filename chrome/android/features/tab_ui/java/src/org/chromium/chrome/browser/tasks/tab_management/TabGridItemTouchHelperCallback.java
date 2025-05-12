@@ -14,6 +14,7 @@ import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.view.HapticFeedbackConstants;
 import android.view.View;
+import android.view.ViewConfiguration;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -51,7 +52,7 @@ import java.util.List;
  * related actions in grid related layouts.
  */
 public class TabGridItemTouchHelperCallback extends ItemTouchHelper.SimpleCallback {
-    private static final long LONGPRESS_DURATION_MS = 200L;
+    private static final long LONGPRESS_DURATION_MS = ViewConfiguration.getLongPressTimeout();
     private final TabListModel mModel;
     private final Supplier<TabGroupModelFilter> mCurrentTabGroupModelFilterSupplier;
     private final ObservableSupplierImpl<Integer> mRecentlySwipedTabIdSupplier =
@@ -262,8 +263,10 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper.SimpleCallba
         SimpleRecyclerViewAdapter.ViewHolder simpleViewHolder =
                 (SimpleRecyclerViewAdapter.ViewHolder) viewHolder;
 
-        int tabId = simpleViewHolder.model.get(TabProperties.TAB_ID);
-        mRecentlySwipedTabIdSupplier.set(tabId);
+        if (simpleViewHolder.model.containsKey(TabProperties.TAB_ID)) {
+            int tabId = simpleViewHolder.model.get(TabProperties.TAB_ID);
+            mRecentlySwipedTabIdSupplier.set(tabId);
+        }
 
         if (simpleViewHolder.model.get(CARD_TYPE) == TAB) {
             mTabClosedListener.run(
@@ -521,9 +524,11 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper.SimpleCallba
             }
         } else if (actionState == ItemTouchHelper.ACTION_STATE_DRAG
                 && mTabGridDialogHandler != null) {
+            int itemMiddle =
+                    Math.floorDiv(
+                            viewHolder.itemView.getBottom() + viewHolder.itemView.getTop(), 2);
             boolean isHoveredOnUngroupBar =
-                    viewHolder.itemView.getBottom() + dY
-                            > recyclerView.getBottom() - mUngroupThreshold;
+                    itemMiddle + dY > recyclerView.getBottom() - mUngroupThreshold;
             if (mSelectedTabIndex == TabModel.INVALID_TAB_INDEX) return;
             mUnGroupTabIndex =
                     isHoveredOnUngroupBar

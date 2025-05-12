@@ -43,7 +43,6 @@
 #include "chrome/browser/devtools/devtools_select_file_dialog.h"
 #include "chrome/browser/devtools/features.h"
 #include "chrome/browser/devtools/url_constants.h"
-#include "chrome/browser/extensions/extension_management.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/privacy_sandbox/tracking_protection_settings_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -52,13 +51,14 @@
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
+#include "chrome/browser/ui/browser_dialogs.h"
 #include "chrome/browser/ui/hats/hats_service.h"
 #include "chrome/browser/ui/hats/hats_service_factory.h"
 #include "chrome/common/channel_info.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/common/extensions/chrome_manifest_url_handlers.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
+#include "chrome/grit/generated_resources.h"
 #include "components/content_settings/core/common/features.h"
 #include "components/infobars/content/content_infobar_manager.h"
 #include "components/metrics/structured/structured_events.h"
@@ -96,11 +96,6 @@
 #include "content/public/common/content_features.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/common/url_utils.h"
-#include "extensions/browser/extension_registry.h"
-#include "extensions/browser/extension_system.h"
-#include "extensions/browser/extension_util.h"
-#include "extensions/common/constants.h"
-#include "extensions/common/permissions/permissions_data.h"
 #include "google_apis/google_api_keys.h"
 #include "ipc/ipc_channel.h"
 #include "net/base/features.h"
@@ -116,6 +111,8 @@
 #include "services/network/public/cpp/wrapper_shared_url_loader_factory.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
 #include "third_party/blink/public/public_buildflags.h"
+#include "ui/base/l10n/l10n_util.h"
+#include "ui/base/models/dialog_model.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/shell_dialogs/select_file_dialog.h"
@@ -123,6 +120,16 @@
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
+#endif
+
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+#include "chrome/browser/extensions/extension_management.h"
+#include "chrome/common/extensions/chrome_manifest_url_handlers.h"
+#include "extensions/browser/extension_registry.h"
+#include "extensions/browser/extension_system.h"
+#include "extensions/browser/extension_util.h"
+#include "extensions/common/constants.h"
+#include "extensions/common/permissions/permissions_data.h"
 #endif
 
 using content::BrowserThread;
@@ -909,6 +916,12 @@ void DevToolsUIBindings::CloseWindow() {
 
 void DevToolsUIBindings::LoadCompleted() {
   FrontendLoaded();
+
+#if BUILDFLAG(IS_ANDROID)
+  // On Android we don't support showing menus with custom menu info provided
+  // by blink::ContextMenuProvider. Use the soft menu to work around it.
+  CallClientMethod("DevToolsAPI", "setUseSoftMenu", base::Value(true));
+#endif  // BUILDFLAG(IS_ANDROID)
 }
 
 void DevToolsUIBindings::SetInspectedPageBounds(const gfx::Rect& rect) {
@@ -1291,7 +1304,7 @@ void DevToolsUIBindings::AddFileSystem(const std::string& type) {
       type,
       base::BindOnce(&DevToolsSelectFileDialog::SelectFile, web_contents_,
                      ui::SelectFileDialog::SELECT_FOLDER),
-      base::BindRepeating(&DevToolsUIBindings::ShowDevToolsInfoBar,
+      base::BindRepeating(&DevToolsUIBindings::HandleDirectoryPermissions,
                           weak_factory_.GetWeakPtr()));
 }
 
@@ -1307,7 +1320,7 @@ void DevToolsUIBindings::UpgradeDraggedFileSystemPermissions(
   //      frontend_host_);
   file_helper_.UpgradeDraggedFileSystemPermissions(
       file_system_url,
-      base::BindRepeating(&DevToolsUIBindings::ShowDevToolsInfoBar,
+      base::BindRepeating(&DevToolsUIBindings::HandleDirectoryPermissions,
                           weak_factory_.GetWeakPtr()));
 }
 
@@ -1339,7 +1352,7 @@ void DevToolsUIBindings::ConnectAutomaticFileSystem(
 
   file_helper_.ConnectAutomaticFileSystem(
       file_system_path, uuid, add_if_missing,
-      BindRepeating(&DevToolsUIBindings::ShowDevToolsInfoBar,
+      BindRepeating(&DevToolsUIBindings::HandleDirectoryPermissions,
                     weak_factory_.GetWeakPtr()),
       BindOnce(&DevToolsUIBindings::ConnectAutomaticFileSystemDone,
                weak_factory_.GetWeakPtr(), std::move(callback)));
@@ -1708,6 +1721,8 @@ void DevToolsUIBindings::GetHostConfig(DispatchCallback callback) {
                         features::kDevToolsFreestylerPatching.Get());
     freestyler_dict.Set("multimodal",
                         features::kDevToolsFreestylerMultimodal.Get());
+    freestyler_dict.Set("multimodalUploadInput",
+                        features::kDevToolsFreestylerMultimodalUploadInput.Get());
     freestyler_dict.Set("functionCalling",
                         features::kDevToolsFreestylerFunctionCalling.Get());
     response_dict.Set("devToolsFreestyler", std::move(freestyler_dict));
@@ -2235,6 +2250,17 @@ void DevToolsUIBindings::SearchCompleted(
                    base::Value(std::move(file_paths_value)));
 }
 
+void DevToolsUIBindings::HandleDirectoryPermissions(
+    const std::string& directory_path,
+    const std::u16string& message,
+    DevToolsInfoBarDelegate::Callback callback) {
+  if (base::FeatureList::IsEnabled(::features::kDevToolsNewPermissionDialog)) {
+    ShowDirectoryPermissionDialog(directory_path, std::move(callback));
+  } else {
+    ShowDevToolsInfoBar(message, std::move(callback));
+  }
+}
+
 void DevToolsUIBindings::ShowDevToolsInfoBar(
     const std::u16string& message,
     DevToolsInfoBarDelegate::Callback callback) {
@@ -2252,10 +2278,49 @@ void DevToolsUIBindings::ShowDevToolsInfoBar(
 #endif
 }
 
+DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kCancelButtonId);
+
+void DevToolsUIBindings::ShowDirectoryPermissionDialog(
+    const std::string& directory_path,
+    DevToolsInfoBarDelegate::Callback callback) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+
+  auto split_callback = base::SplitOnceCallback(std::move(callback));
+  auto accept_callback = base::BindOnce(std::move(split_callback.first), true);
+  auto cancel_callbacks = base::SplitOnceCallback(
+      base::BindOnce(std::move(split_callback.second), false));
+  std::u16string origin_identity_name = u"DevTools";
+  chrome::ShowTabModal(
+      ui::DialogModel::Builder()
+          .SetTitle(l10n_util::GetStringUTF16(
+              IDS_DEV_TOOLS_EDIT_DIRECTORY_PERMISSION_TITLE))
+          .AddParagraph(ui::DialogModelLabel::CreateWithReplacements(
+              IDS_FILE_SYSTEM_ACCESS_WRITE_PERMISSION_DIRECTORY_TEXT,
+              {ui::DialogModelLabel::CreateEmphasizedText(origin_identity_name),
+               ui::DialogModelLabel::CreateEmphasizedText(
+                   base::FilePath::FromUTF8Unsafe(directory_path)
+                       .LossyDisplayName())}))
+          .AddOkButton(
+              std::move(accept_callback),
+              ui::DialogModel::Button::Params().SetLabel(l10n_util::GetStringUTF16(
+                  IDS_FILE_SYSTEM_ACCESS_EDIT_DIRECTORY_PERMISSION_ALLOW_TEXT)))
+          .AddCancelButton(
+              std::move(cancel_callbacks.first),
+              ui::DialogModel::Button::Params().SetId(kCancelButtonId))
+          .SetCloseActionCallback(std::move(cancel_callbacks.second))
+          .SetInitiallyFocusedField(kCancelButtonId)
+          .Build(),
+      web_contents_);
+}
+
+void DevToolsUIBindings::OnPermissionDialogResult(
+    DevToolsInfoBarDelegate::Callback callback,
+    permissions::PermissionAction result) {
+  std::move(callback).Run(result == permissions::PermissionAction::GRANTED);
+}
+
 void DevToolsUIBindings::AddDevToolsExtensionsToClient() {
-#if BUILDFLAG(IS_ANDROID)
-  NOTIMPLEMENTED();
-#else
+#if BUILDFLAG(ENABLE_EXTENSIONS)
   const extensions::ExtensionRegistry* registry =
       extensions::ExtensionRegistry::Get(profile_->GetOriginalProfile());
   if (!registry) {

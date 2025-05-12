@@ -606,6 +606,13 @@ class ChromeDriver(object):
   def ClearDevicePosture(self):
     return self.ExecuteCommand(Command.CLEAR_DEVICE_POSTURE)
 
+  def SetDisplayFeatures(self, features):
+    return self.ExecuteCommand(Command.SET_DISPLAY_FEATURES,
+                               {'features': features})
+
+  def ClearDisplayFeatures(self):
+    return self.ExecuteCommand(Command.CLEAR_DISPLAY_FEATURES)
+
   def TakeScreenshot(self):
     return self.ExecuteCommand(Command.SCREENSHOT)
 
@@ -833,6 +840,11 @@ class ChromeDriver(object):
   def RemoveVirtualPressureSource(self, type):
     params = {'type': type}
     return self.ExecuteCommand(Command.REMOVE_VIRTUAL_PRESSURE_SOURCE, params)
+
+  def SetProtectedAudienceKAnonymity(self, owner, name, hashes):
+    params = {'owner': owner, 'name': name, 'hashes': hashes}
+    return self.ExecuteCommand(Command.SET_PROTECTED_AUDIENCE_KANONYMITY,
+                               params)
 
   def __enter__(self):
     return self

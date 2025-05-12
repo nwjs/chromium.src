@@ -12,12 +12,15 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.LayerDrawable;
 import android.view.View;
+import android.view.ViewGroup;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -44,12 +47,14 @@ import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.toolbar.ToolbarFeatures;
+import org.chromium.chrome.browser.toolbar.ToolbarProgressBar;
 import org.chromium.chrome.browser.toolbar.top.CaptureReadinessResult.TopToolbarAllowCaptureReason;
 import org.chromium.chrome.browser.toolbar.top.CaptureReadinessResult.TopToolbarBlockCaptureReason;
 import org.chromium.chrome.browser.toolbar.top.ToolbarControlContainer.ToolbarViewResourceAdapter;
 import org.chromium.chrome.browser.toolbar.top.ToolbarControlContainer.ToolbarViewResourceAdapter.ToolbarInMotionStage;
+import org.chromium.chrome.browser.toolbar.top.ToolbarControlContainer.ToolbarViewResourceFrameLayout;
 import org.chromium.components.browser_ui.desktop_windowing.AppHeaderState;
-import org.chromium.components.browser_ui.styles.ChromeColors;
+import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.ui.base.TestActivity;
 
 import java.util.concurrent.atomic.AtomicInteger;
@@ -67,8 +72,11 @@ public class ToolbarControlContainerTest {
 
     @Mock private ResourceFactory.Natives mResourceFactoryJni;
     @Mock private View mToolbarContainer;
+    @Mock private ViewGroup mToolbarView;
+    @Mock private View mLocationBarView;
     @Mock private View mToolbarHairline;
     @Mock private Toolbar mToolbar;
+    @Mock private ToolbarProgressBar mProgressBar;
     @Mock private Tab mTab;
     @Mock private LayoutStateProvider mLayoutStateProvider;
     @Mock private FullscreenManager mFullscreenManager;
@@ -187,6 +195,7 @@ public class ToolbarControlContainerTest {
         when(mToolbarContainer.getHeight()).thenReturn(1);
         when(mToolbarContainer.findViewById(anyInt())).thenReturn(mToolbarHairline);
         when(mToolbarHairline.getHeight()).thenReturn(1);
+        doReturn(mProgressBar).when(mToolbar).getProgressBar();
         mBrowserStateBrowserControlsVisibilityDelegate.set(BrowserControlsState.BOTH);
         mCompositorInMotionSupplier.set(false);
         mBrowserStateBrowserControlsVisibilityDelegate.addObserver(
@@ -478,10 +487,50 @@ public class ToolbarControlContainerTest {
         var stripBackgroundColorDrawable = (ColorDrawable) backgroundLayerDrawable.getDrawable(0);
         assertEquals(
                 "Tab strip background color drawable color is incorrect.",
-                ChromeColors.getSurfaceColor(
-                        controlContainer.getContext(), R.dimen.default_elevation_2),
+                SemanticColorUtils.getColorSurfaceContainer(activity),
                 stripBackgroundColorDrawable.getColor());
 
         activity.finish();
+    }
+
+    @Test
+    public void testShowLocationBarOnly() {
+        doReturn(mLocationBarView).when(mToolbar).removeLocationBarView();
+        doReturn(Color.RED).when(mToolbar).getPrimaryColor();
+        TestActivity activity = Robolectric.buildActivity(TestActivity.class).get();
+        ToolbarControlContainer controlContainer =
+                (ToolbarControlContainer)
+                        activity.getLayoutInflater().inflate(R.layout.control_container, null);
+        controlContainer.initWithToolbar(R.layout.toolbar_phone);
+        controlContainer.setPostInitializationDependencies(
+                mToolbar,
+                mToolbarView,
+                false,
+                mConstraintsSupplier,
+                mTabSupplier,
+                mCompositorInMotionSupplier,
+                mBrowserStateBrowserControlsVisibilityDelegate,
+                mLayoutStateProviderSupplier,
+                mFullscreenManager);
+
+        controlContainer.toggleLocationBarOnlyMode(true);
+        verify(mProgressBar).setVisibility(View.INVISIBLE);
+        verify(mToolbarView).setVisibility(View.INVISIBLE);
+        verify(mToolbarView).removeView(mLocationBarView);
+        assertEquals(Color.RED, ((ColorDrawable) controlContainer.getBackground()).getColor());
+        ToolbarViewResourceFrameLayout toolbarViewResourceFrameLayout =
+                controlContainer.getToolbarContainerForTesting();
+        assertEquals(
+                mLocationBarView,
+                toolbarViewResourceFrameLayout.getChildAt(
+                        toolbarViewResourceFrameLayout.getChildCount() - 1));
+        // check that location bar is parented to container view
+
+        controlContainer.toggleLocationBarOnlyMode(false);
+        verify(mProgressBar).setVisibility(View.VISIBLE);
+        verify(mToolbarView).setVisibility(View.VISIBLE);
+        verify(mToolbar).restoreLocationBarView();
+        assertEquals(
+                Color.TRANSPARENT, ((ColorDrawable) controlContainer.getBackground()).getColor());
     }
 }

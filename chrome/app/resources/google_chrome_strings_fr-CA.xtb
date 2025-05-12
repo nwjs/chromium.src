@@ -107,7 +107,6 @@ Certaines fonctionnalités ne seront peut-être pas disponibles et les modificat
 <translation id="234869673307233423">Chrome ne peut pas vérifier vos mots de passe. Réessayez plus tard.</translation>
 <translation id="235650106824528204">L'administrateur du profil professionnel peut retirer toutes les données Chrome générées durant l'utilisation de ce profil (comme la création de favoris, l'historique, les mots de passe et d'autres paramètres). <ph name="LEARN_MORE" /></translation>
 <translation id="2359808026110333948">Continuer</translation>
-<translation id="2401189691232800402">Système ChromeOS</translation>
 <translation id="2403703063067034158">Erreur de démarrage : une autre instance de configuration est actuellement en cours d'exécution, veuillez réessayer plus tard.</translation>
 <translation id="2409816192575564775">{NUM_DEVICES,plural, =0{Une ou plusieurs extensions Chrome ont accédé à 1 appareil HID}=1{Une ou plusieurs extensions Chrome ont accédé à 1 appareil HID}one{Une ou plusieurs extensions Chrome ont accédé à # appareils HID}other{Une ou plusieurs extensions Chrome ont accédé à # appareils HID}}</translation>
 <translation id="2424440923901031101">Cette extension enfreint la politique de la boutique en ligne Chrome Web Store et peut être dangereuse. Retirez-la de Chrome afin qu'elle ne puisse plus voir ni modifier vos données sur les sites que vous visitez, y compris vos renseignements personnels.</translation>
@@ -622,7 +621,6 @@ Google Chrome ne peut pas récupérer vos paramètres.</translation>
 <translation id="8999208279178790196">{0,plural, =0{Une mise à jour de Chrome est proposée}=1{Une mise à jour de Chrome est proposée}one{Une mise à jour de Chrome est proposée depuis # jour}other{Une mise à jour de Chrome est proposée depuis # jours}}</translation>
 <translation id="9014771989710951291">Plusieurs organisations gèrent Chrome</translation>
 <translation id="9024318700713112071">Définir Chrome comme navigateur par défaut</translation>
-<translation id="9053892488859122171">Système Chrome OS Flex</translation>
 <translation id="9090566250983691233">Découvrir pourquoi Chrome bloque certains fichiers</translation>
 <translation id="9106236359747881194">Sélectionner le texte à rechercher</translation>
 <translation id="911206726377975832">Supprimer également vos données de navigation?</translation>

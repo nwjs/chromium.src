@@ -8,6 +8,7 @@ import androidx.annotation.NonNull;
 
 import org.chromium.base.CallbackController;
 import org.chromium.chrome.browser.educational_tip.cards.DefaultBrowserPromoCoordinator;
+import org.chromium.chrome.browser.educational_tip.cards.HistorySyncPromoCoordinator;
 import org.chromium.chrome.browser.educational_tip.cards.QuickDeletePromoCoordinator;
 import org.chromium.chrome.browser.educational_tip.cards.TabGroupPromoCoordinator;
 import org.chromium.chrome.browser.educational_tip.cards.TabGroupSyncPromoCoordinator;
@@ -22,7 +23,8 @@ public class EducationalTipCardProviderFactory {
             @ModuleType int moduleType,
             @NonNull Runnable onModuleClickedCallback,
             @NonNull CallbackController callbackController,
-            @NonNull EducationTipModuleActionDelegate actionDelegate) {
+            @NonNull EducationTipModuleActionDelegate actionDelegate,
+            Runnable removeModuleCallback) {
         switch (moduleType) {
             case ModuleType.DEFAULT_BROWSER_PROMO:
                 return new DefaultBrowserPromoCoordinator(onModuleClickedCallback, actionDelegate);
@@ -35,6 +37,12 @@ public class EducationalTipCardProviderFactory {
             case ModuleType.QUICK_DELETE_PROMO:
                 return new QuickDeletePromoCoordinator(
                         onModuleClickedCallback, callbackController, actionDelegate);
+            case ModuleType.HISTORY_SYNC_PROMO:
+                return new HistorySyncPromoCoordinator(
+                        onModuleClickedCallback,
+                        callbackController,
+                        actionDelegate,
+                        removeModuleCallback);
             default:
                 assert false : "Educational tip module's card type not supported!";
                 return null;

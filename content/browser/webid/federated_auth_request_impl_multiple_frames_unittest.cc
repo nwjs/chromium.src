@@ -107,7 +107,8 @@ class TestIdpNetworkRequestManager : public MockIdpNetworkRequestManager {
                                   endpoints, idp_metadata));
   }
 
-  void SendAccountsRequest(const GURL& accounts_url,
+  void SendAccountsRequest(const url::Origin& idp_origin,
+                           const GURL& accounts_url,
                            const std::string& client_id,
                            AccountsRequestCallback callback) override {
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
@@ -223,6 +224,8 @@ class FederatedAuthRequestImplMultipleFramesTest
         "Ken R. Example",            // name
         "Ken",                       // given_name
         GURL(),                      // picture
+        "(403) 293-3421",            // phone
+        "@kenr",                     // username
         std::vector<std::string>(),  // login_hints
         std::vector<std::string>(),  // domain_hints
         std::vector<std::string>()   // labels

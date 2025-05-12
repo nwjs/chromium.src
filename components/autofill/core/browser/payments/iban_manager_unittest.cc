@@ -7,6 +7,7 @@
 #include <string_view>
 
 #include "base/functional/callback_helpers.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/mock_callback.h"
 #include "base/test/task_environment.h"
@@ -19,7 +20,7 @@
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/form_structure_test_api.h"
 #include "components/autofill/core/browser/foundations/test_autofill_client.h"
-#include "components/autofill/core/browser/integrators/mock_autofill_optimization_guide.h"
+#include "components/autofill/core/browser/integrators/optimization_guide/mock_autofill_optimization_guide.h"
 #include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/grit/components_scaled_resources.h"
@@ -98,7 +99,13 @@ class IbanManagerTest : public testing::Test,
         .WillByDefault(testing::Return(false));
   }
 
-  bool IsNewFopDisplayEnabled() const { return GetParam(); }
+  bool IsNewFopDisplayEnabled() const {
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+    return false;
+#else
+    return GetParam();
+#endif
+  }
 
   void TearDown() override {
     ui::ResourceBundle::CleanupSharedInstance();

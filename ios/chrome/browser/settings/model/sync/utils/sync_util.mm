@@ -6,9 +6,12 @@
 
 #import "base/metrics/histogram_functions.h"
 #import "base/notreached.h"
+#import "base/strings/utf_string_conversions.h"
 #import "components/infobars/core/infobar_manager.h"
+#import "components/signin/public/identity_manager/account_info.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
 #import "components/strings/grit/components_strings.h"
+#import "components/sync/base/features.h"
 #import "components/sync/service/sync_service.h"
 #import "ios/chrome/browser/infobars/model/infobar_manager_impl.h"
 #import "ios/chrome/browser/settings/model/sync/utils/account_error_ui_info.h"
@@ -96,19 +99,23 @@ std::u16string GetIdentityErrorInfoBarTitle(
 
 // Gets the message of the identity error info bar.
 NSString* GetIdentityErrorInfoBarMessage(
-    syncer::SyncService::UserActionableError error) {
+    syncer::SyncService::UserActionableError error,
+    const std::u16string& email) {
   switch (error) {
     case syncer::SyncService::UserActionableError::kNeedsPassphrase:
-      return l10n_util::GetNSString(
-          IDS_IOS_IDENTITY_ERROR_INFOBAR_KEEP_USING_YOUR_CHROME_DATA_MESSAGE);
-    case syncer::SyncService::UserActionableError::
-        kNeedsTrustedVaultKeyForPasswords:
-      return l10n_util::GetNSString(
-          IDS_IOS_IDENTITY_ERROR_INFOBAR_KEEP_USING_PASSWORDS_MESSAGE);
     case syncer::SyncService::UserActionableError::
         kNeedsTrustedVaultKeyForEverything:
       return l10n_util::GetNSString(
           IDS_IOS_IDENTITY_ERROR_INFOBAR_KEEP_USING_YOUR_CHROME_DATA_MESSAGE);
+    case syncer::SyncService::UserActionableError::
+        kNeedsTrustedVaultKeyForPasswords:
+      return base::FeatureList::IsEnabled(
+                 syncer::kSyncTrustedVaultInfobarImprovements)
+                 ? l10n_util::GetNSStringF(
+                       IDS_IOS_IDENTITY_ERROR_INFOBAR_KEEP_USING_PASSWORDS_MESSAGE_WITH_EMAIL,
+                       email)
+                 : l10n_util::GetNSString(
+                       IDS_IOS_IDENTITY_ERROR_INFOBAR_KEEP_USING_PASSWORDS_MESSAGE);
     case syncer::SyncService::UserActionableError::
         kTrustedVaultRecoverabilityDegradedForPasswords:
       return l10n_util::GetNSString(
@@ -201,7 +208,8 @@ NSString* GetSyncErrorMessageForProfile(ProfileIOS* profile) {
       syncService->GetUserActionableError();
 
   if (GetAccountErrorUIInfo(syncService) != nil) {
-    return GetIdentityErrorInfoBarMessage(error);
+    return GetIdentityErrorInfoBarMessage(
+        error, base::UTF8ToUTF16(syncService->GetAccountInfo().email));
   }
 
   switch (error) {
@@ -312,15 +320,19 @@ bool DisplaySyncErrors(ProfileIOS* profile,
     return false;
   }
 
-  // Logs when an infobar is shown to user. See crbug.com/265352.
-  base::UmaHistogramEnumeration("Sync.SyncErrorInfobarDisplayed",
-                                *infobarSyncError);
-
   DCHECK(web_state);
   infobars::InfoBarManager* infoBarManager =
       InfoBarManagerImpl::FromWebState(web_state);
   DCHECK(infoBarManager);
-  return SyncErrorInfoBarDelegate::Create(infoBarManager, profile, presenter);
+  bool infobar_displayed =
+      SyncErrorInfoBarDelegate::Create(infoBarManager, profile, presenter);
+  if (infobar_displayed) {
+    // Logs when an infobar is shown to user. See crbug.com/265352.
+    base::UmaHistogramEnumeration("Sync.SyncErrorInfobarDisplayed2",
+                                  *infobarSyncError);
+  }
+
+  return infobar_displayed;
 }
 
 void LogSyncErrorInfobarDismissed(

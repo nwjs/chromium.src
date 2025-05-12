@@ -16,6 +16,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/numerics/safe_conversions.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "components/language/core/common/language_util.h"
@@ -113,6 +114,7 @@ static constexpr double kDefaultRatioInParentX = 0.5;
 static constexpr double kDefaultRatioInParentY = 1;
 static constexpr int kErrorImageSizeDip = 20;
 static constexpr int kErrorMessageBetweenChildSpacingDip = 16;
+static constexpr double kContextSufficientOverlapRatio = .4;
 
 constexpr base::TimeDelta kAnimationDuration = base::Milliseconds(250);
 
@@ -1011,6 +1013,12 @@ void CaptionBubble::ExpandOrCollapseButtonPressed() {
   // The change of expanded state may cause the title to change visibility, and
   // it surely causes the content height to change, so redraw the bubble.
   Redraw();
+  if (caption_bubble_settings_->ShouldAdjustPositionOnExpand() && model_ &&
+      is_expanded_) {
+    model_->GetContext()->GetBounds(
+        base::BindOnce(&CaptionBubble::AdjustPosition,
+                       weak_ptr_factory_.GetWeakPtr(), model_->unique_id()));
+  }
 }
 
 void CaptionBubble::SwapButtons(views::Button* first_button,
@@ -1578,7 +1586,45 @@ void CaptionBubble::RepositionInContextRect(CaptionBubbleModel::Id model_id,
     target_bounds.AdjustToFit(inset_rect);
   }
 
+  if (model_->GetContext()->ShouldAvoidOverlap()) {
+    gfx::Rect intersection = context_rect;
+    intersection.Intersect(target_bounds);
+    if (intersection.size().GetArea() >
+        context_rect.size().GetArea() * kContextSufficientOverlapRatio) {
+      // Place below if there's room, otherwise place above.
+      std::optional<display::Display> display =
+          GetWidget()->GetNearestDisplay();
+      if (!display.has_value() ||
+          context_rect.bottom() + target_bounds.height() <
+              display->bounds().bottom()) {
+        target_bounds.Offset(0, context_rect.height());
+      } else {
+        target_bounds.Offset(0,
+                             -context_rect.height() - kMinAnchorMarginDip * 2);
+      }
+
+      GetWidget()->SetBoundsConstrained(target_bounds);
+      return;
+    }
+  }
+
   GetWidget()->SetBounds(target_bounds);
+}
+
+void CaptionBubble::AdjustPosition(CaptionBubbleModel::Id model_id,
+                                   const gfx::Rect& context_rect) {
+  // We shouldn't reposition ourselves into the context rect of a model that is
+  // no longer active.
+  if (model_ == nullptr || model_->unique_id() != model_id) {
+    return;
+  }
+  gfx::Rect inset_rect = context_rect;
+  inset_rect.Inset(gfx::Insets(kMinAnchorMarginDip));
+  gfx::Rect bubble_bounds = GetBubbleBounds();
+  if (!inset_rect.Contains(bubble_bounds)) {
+    bubble_bounds.AdjustToFit(inset_rect);
+    GetWidget()->SetBounds(bubble_bounds);
+  }
 }
 
 void CaptionBubble::UpdateContentSize() {

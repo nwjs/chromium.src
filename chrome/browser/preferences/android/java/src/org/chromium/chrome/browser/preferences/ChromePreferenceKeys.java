@@ -117,6 +117,10 @@ public final class ChromePreferenceKeys {
     public static final String AUXILIARY_SEARCH_IS_SCHEMA_V2_SET =
             "Chrome.AuxiliarySearch.IsSchemaV2Set";
 
+    /** The current version of the WebPage schema sent to the App search. */
+    public static final String AUXILIARY_SEARCH_SCHEMA_VERSION =
+            "Chrome.AuxiliarySearch.SchemaVersion";
+
     /** Whether the consumer schema for Tabs sharing exists. */
     public static final String AUXILIARY_SEARCH_CONSUMER_SCHEMA_FOUND =
             "Chrome.AuxiliarySearch.ConsumerSchemaFound";
@@ -195,10 +199,6 @@ public final class ChromePreferenceKeys {
     public static final String CONTEXT_MENU_SHOP_IMAGE_WITH_GOOGLE_LENS_CLICKED =
             "Chrome.ContextMenu.ShopImageWithGoogleLensClicked";
 
-    /** Key used to record the number of dismissals of the Continuous Search UI. */
-    public static final String CONTINUOUS_SEARCH_DISMISSAL_COUNT =
-            "Chrome.ContinuousSearch.DismissalCount";
-
     public static final String CRASH_UPLOAD_FAILURE_BROWSER = "browser_crash_failure_upload";
     public static final String CRASH_UPLOAD_FAILURE_GPU = "gpu_crash_failure_upload";
     public static final String CRASH_UPLOAD_FAILURE_OTHER = "other_crash_failure_upload";
@@ -256,8 +256,15 @@ public final class ChromePreferenceKeys {
      * last opened. Used to determine whether to show on startup a message informing the user about
      * the setting change.
      */
-    public static final String DEFAULT_OS_ADVANCED_PROTECTION_SETTING =
+    public static final String OS_ADVANCED_PROTECTION_SETTING =
             "Chrome.OsAdvancedProtection.DefaultEnabled";
+
+    /**
+     * Indicates the later time of: - user changing advanced-protection android-OS setting OR - user
+     * launching Chrome.
+     */
+    public static final String OS_ADVANCED_PROTECTION_SETTING_UPDATED_TIME =
+            "Chrome.OsAdvancedProtection.UpdatedTime";
 
     /**
      * Indicates that Chrome should show an alert to the user about data privacy if the device lock
@@ -956,6 +963,7 @@ public final class ChromePreferenceKeys {
             new KeyPrefix("zero_suggest_post_content_data*");
 
     public static final String BLUETOOTH_NOTIFICATION_IDS = "Chrome.Bluetooth.NotificationIds";
+    public static final String SERIAL_NOTIFICATION_IDS = "Chrome.Serial.NotificationIds";
     public static final String USB_NOTIFICATION_IDS = "Chrome.USB.NotificationIds";
 
     /**
@@ -984,6 +992,7 @@ public final class ChromePreferenceKeys {
                 AUXILIARY_SEARCH_MODULE_IMPRESSION,
                 AUXILIARY_SEARCH_IS_SCHEMA_SET,
                 AUXILIARY_SEARCH_IS_SCHEMA_V2_SET,
+                AUXILIARY_SEARCH_SCHEMA_VERSION,
                 APP_LAUNCH_LAST_KNOWN_ACTIVE_TAB_STATE,
                 APP_LAUNCH_SEARCH_ENGINE_HAD_LOGO,
                 APPLICATION_OVERRIDE_LANGUAGE,
@@ -999,7 +1008,6 @@ public final class ChromePreferenceKeys {
                 CONTEXT_MENU_OPEN_IN_EPHEMERAL_TAB_CLICKED,
                 CONTEXT_MENU_SEARCH_WITH_GOOGLE_LENS_CLICKED,
                 CONTEXT_MENU_SHOP_IMAGE_WITH_GOOGLE_LENS_CLICKED,
-                CONTINUOUS_SEARCH_DISMISSAL_COUNT,
                 CUSTOM_TABS_LAST_CLIENT_PACKAGE,
                 CUSTOM_TABS_LAST_CLOSE_TAB_INTERACTION,
                 CUSTOM_TABS_LAST_CLOSE_TIMESTAMP,
@@ -1013,7 +1021,6 @@ public final class ChromePreferenceKeys {
                 DEFAULT_BROWSER_PROMO_PROMOED_COUNT,
                 DEFAULT_BROWSER_PROMO_SESSION_COUNT,
                 DEFAULT_ENABLED_DESKTOP_SITE_GLOBAL_SETTING,
-                DEFAULT_OS_ADVANCED_PROTECTION_SETTING,
                 DEPRECATED_HOMEPAGE_LOCATION_POLICY,
                 DEPRECATED_HOMEPAGE_PARTNER_CUSTOMIZED_DEFAULT_URI,
                 DEVICE_LOCK_SHOW_ALERT_IF_REMOVED,
@@ -1073,6 +1080,8 @@ public final class ChromePreferenceKeys {
                 OFFLINE_MEASUREMENTS_USER_AGENT_STRING,
                 OMNIBOX_CACHED_ZERO_SUGGEST_GROUPS_INFO,
                 OPTIMIZATION_GUIDE_PUSH_NOTIFICATION_CACHE.pattern(),
+                OS_ADVANCED_PROTECTION_SETTING,
+                OS_ADVANCED_PROTECTION_SETTING_UPDATED_TIME,
                 PASSWORD_PROTECTION_ACCOUNTS,
                 PERSISTENT_OFFLINE_CONTENT_AVAILABILITY_STATUS,
                 PIH_PRIVACY_NOTICE_CLOSED,
@@ -1095,6 +1104,7 @@ public final class ChromePreferenceKeys {
                 SEARCH_ENGINE_CHOICE_OS_CHOICE_APPLIED_TIMESTAMP,
                 SEARCH_ENGINE_CHOICE_PENDING_OS_CHOICE_DIALOG_SHOWN_ATTEMPTS,
                 SEGMENTATION_FEED_ACTIVE_USER,
+                SERIAL_NOTIFICATION_IDS,
                 SETTINGS_SAFETY_CHECK_LAST_RUN_TIMESTAMP,
                 SETTINGS_SAFETY_CHECK_RUN_COUNTER,
                 SHARING_LAST_SHARED_COMPONENT_NAME,

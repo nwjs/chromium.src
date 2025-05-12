@@ -57,7 +57,6 @@
 #include "third_party/blink/renderer/core/html/forms/html_text_area_element.h"
 #include "third_party/blink/renderer/core/html/html_body_element.h"
 #include "third_party/blink/renderer/core/html/html_br_element.h"
-#include "third_party/blink/renderer/core/html/html_dialog_element.h"
 #include "third_party/blink/renderer/core/html/html_frame_element.h"
 #include "third_party/blink/renderer/core/html/html_frame_set_element.h"
 #include "third_party/blink/renderer/core/html/html_html_element.h"
@@ -974,47 +973,6 @@ void StyleAdjuster::AdjustEffectiveTouchAction(
   }
 }
 
-static void AdjustStyleForInert(ComputedStyleBuilder& builder,
-                                Element* element) {
-  if (!element) {
-    return;
-  }
-
-  Document& document = element->GetDocument();
-  if (!RuntimeEnabledFeatures::CSSInertEnabled()) {
-    if (element->IsInertRoot()) {
-      builder.SetIsHTMLInert(true);
-      builder.SetIsHTMLInertIsInherited(false);
-      return;
-    }
-  }
-
-  const Element* modal_element = document.ActiveModalDialog();
-  if (!modal_element) {
-    modal_element = Fullscreen::FullscreenElementFrom(document);
-  }
-  if (modal_element == element) {
-    builder.SetIsHTMLInert(false);
-    builder.SetIsHTMLInertIsInherited(false);
-    return;
-  }
-  if (modal_element && element == document.documentElement()) {
-    builder.SetIsHTMLInert(true);
-    builder.SetIsHTMLInertIsInherited(false);
-    return;
-  }
-
-  if (StyleBaseData* base_data = builder.BaseData()) {
-    if (base_data->GetBaseComputedStyle()->Display() == EDisplay::kNone) {
-      // Elements which are transitioning to display:none should become inert:
-      // https://github.com/w3c/csswg-drafts/issues/8389
-      builder.SetIsHTMLInert(true);
-      builder.SetIsHTMLInertIsInherited(false);
-      return;
-    }
-  }
-}
-
 void StyleAdjuster::AdjustForForcedColorsMode(ComputedStyleBuilder& builder,
                                               Document& document) {
   if (!builder.InForcedColorsMode() ||
@@ -1251,8 +1209,6 @@ void StyleAdjuster::AdjustComputedStyle(StyleResolverState& state,
   // Let the theme also have a crack at adjusting the style.
   LayoutTheme::GetTheme().AdjustStyle(
       element ? element : state.GetPseudoElement(), builder);
-
-  AdjustStyleForInert(builder, element);
 
   AdjustStyleForEditing(builder, element);
 

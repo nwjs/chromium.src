@@ -94,6 +94,14 @@ gn_args.config(
     },
 )
 
+# This will not be the default anymore so must explicitly be set on bots.
+gn_args.config(
+    name = "android_with_static_analysis",
+    args = {
+        "android_static_analysis": "on",
+    },
+)
+
 gn_args.config(
     name = "android_low_end_secondary_toolchain",
     args = {
@@ -256,6 +264,13 @@ gn_args.config(
         "dcheck_off",
         "release",
     ],
+)
+
+gn_args.config(
+    name = "disable_jni_multiplexing",
+    args = {
+        "enable_jni_multiplexing": False,
+    },
 )
 
 gn_args.config(
@@ -1016,6 +1031,13 @@ gn_args.config(
     name = "no_resource_allowlisting",
     args = {
         "enable_resource_allowlist_generation": False,
+    },
+)
+
+gn_args.config(
+    name = "no_safe_browsing",
+    args = {
+        "safe_browsing_mode": 0,
     },
 )
 

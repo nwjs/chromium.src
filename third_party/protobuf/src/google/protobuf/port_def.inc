@@ -573,8 +573,6 @@ static_assert(PROTOBUF_ABSL_MIN(20230125, 3),
 #define PROTOBUF_FINAL final
 #endif
 
-
-
 // TODO: Enable the feature by default and remove this flag.
 #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
 #error PROTOBUF_PREFETCH_PARSE_TABLE was previously defined
@@ -590,8 +588,12 @@ static_assert(PROTOBUF_ABSL_MIN(20230125, 3),
 #define PROTOBUF_PREFETCH_WITH_OFFSET(base, offset)
 #endif
 
-#if defined(__has_attribute) && __has_attribute(no_sanitize)
+#if !defined(_MSVC_LANG)
+#if __has_attribute(no_sanitize)
 #define PROTOBUF_NO_SANITIZE(...) __attribute__((no_sanitize(__VA_ARGS__)))
+#else
+#define PROTOBUF_NO_SANITIZE(...)
+#endif  // __has_attribute(no_sanitize)
 #else
 #define PROTOBUF_NO_SANITIZE(...)
 #endif

@@ -1,6 +1,7 @@
 // Copyright 2017 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+
 import type {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 import {dedupingMixin} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
@@ -19,7 +20,7 @@ export const SettingsMixin = dedupingMixin(
           };
         }
 
-        settings: Settings;
+        declare settings: Settings;
 
         getSetting(settingName: keyof Settings): Setting {
           return getInstance().getSetting(settingName);

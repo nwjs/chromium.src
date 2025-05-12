@@ -1163,7 +1163,7 @@ if (use_blink && !is_cronet_build) {
     _common_web_test_options += [
       "--additional-expectations",
       "@WrappedPath(" +
-          rebase_path("//third_party/blink/web_tests/CfTTestExpecations",
+          rebase_path("//third_party/blink/web_tests/CfTTestExpectations",
                       root_out_dir) + ")",
     ]
   }
@@ -1517,7 +1517,7 @@ if (use_blink && !is_cronet_build) {
       data += [ "//third_party/blink/web_tests/ASANExpectations" ]
     }
     if (is_chrome_for_testing) {
-      data += [ "//third_party/blink/web_tests/CfTTestExpecations" ]
+      data += [ "//third_party/blink/web_tests/CfTTestExpectations" ]
     }
     if (is_msan) {
       data += [ "//third_party/blink/web_tests/MSANExpectations" ]
@@ -1596,23 +1596,6 @@ if (use_blink && !is_cronet_build) {
 
       # === Test Case Folders Ends ===
     ]
-  }
-
-  script_test("devtools_web_tests") {
-    # This target differs from :blink_web_tests in that it uses the
-    # same test harness but runs an entirely different set of tests
-    # and doesn't have a dependency on the web_test directory at all.
-    script = _common_web_test_script
-
-    args = _common_web_test_args + [
-             "--layout-tests-directory=@WrappedPath(" + rebase_path(
-                     "//third_party/devtools-frontend/src/test/webtests",
-                     root_out_dir) + ")",
-             "http/tests/devtools",
-           ]
-
-    data_deps = [ ":blink_web_tests_support_data" ]
-    data = [ "//third_party/devtools-frontend/src/test/webtests/" ]
   }
 
   script_test("webgpu_blink_web_tests") {
@@ -1696,7 +1679,7 @@ if (use_blink && !is_cronet_build) {
       "//third_party/blink/renderer/build/scripts/",
       "//third_party/blink/tools/",
       "//third_party/blink/web_tests/ASANExpectations",
-      "//third_party/blink/web_tests/CfTTestExpecations",
+      "//third_party/blink/web_tests/CfTTestExpectations",
       "//third_party/blink/web_tests/FlagExpectations/",
       "//third_party/blink/web_tests/LeakExpectations",
       "//third_party/blink/web_tests/MSANExpectations",

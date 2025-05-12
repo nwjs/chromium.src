@@ -191,6 +191,14 @@ class OOFCandidateStyleIterator {
       }
     }
     UpdateStyle(index);
+
+    if (!style_) {
+      // The last successful fallback no longer exists. The rule may have been
+      // deleted. Performing ResizeObserver steps invalidates such last
+      // successful options (and then this won't be an issue), but we may
+      // perform layout before that has happened. Update to base style.
+      UpdateStyle(std::nullopt);
+    }
   }
 
   std::optional<const CSSPropertyValueSet*> TrySetFromFallback(
@@ -365,7 +373,9 @@ const Element* GetPositionAnchorElement(
   }
   if (const ScopedCSSName* specifier = style.PositionAnchor()) {
     if (const PhysicalAnchorReference* reference =
-            anchor_query->AnchorReference(*node.GetLayoutBox(), specifier)) {
+            anchor_query->AnchorReference(
+                *node.GetLayoutBox(),
+                ToAnchorScopedName(*specifier, *node.GetLayoutBox()))) {
       DCHECK(!reference->element || reference->GetLayoutObject());
       return reference->element;
     }
@@ -471,7 +481,7 @@ std::optional<LogicalSize> OutOfFlowLayoutPart::InitialContainingBlockFixedSize(
           ? PhysicalSize(frame_view->Size())
           : PhysicalSize(frame_view->LayoutViewport()->ExcludeScrollbars(
                 frame_view->Size()));
-  return size.ConvertToLogical(container.Style().GetWritingMode());
+  return ToLogicalSize(size, container.Style().GetWritingMode());
 }
 
 OutOfFlowLayoutPart::OutOfFlowLayoutPart(BoxFragmentBuilder* container_builder)
@@ -693,8 +703,8 @@ OutOfFlowLayoutPart::ApplyPositionAreaOffsets(
                      insets.inline_start);
 
   const LogicalOffset logical_shift =
-      default_anchor_scroll_shift.ConvertToLogical(
-          container_info.writing_direction, PhysicalSize(), PhysicalSize());
+      WritingModeConverter(container_info.writing_direction, PhysicalSize())
+          .ToLogical(default_anchor_scroll_shift, PhysicalSize());
 
   const LogicalBoxSides behaves_as_auto =
       offsets.behaves_as_auto.ToLogical(container_info.writing_direction);
@@ -825,8 +835,8 @@ OutOfFlowLayoutPart::GetContainingBlockInfo(
 
       const auto writing_direction =
           containing_block->StyleRef().GetWritingDirection();
-      LogicalSize size = containing_block_fragment->Size().ConvertToLogical(
-          writing_direction.GetWritingMode());
+      LogicalSize size = ToLogicalSize(containing_block_fragment->Size(),
+                                       writing_direction.GetWritingMode());
       size.block_size = BoxTotalBlockSize(*To<LayoutBox>(containing_block));
 
       // TODO(1079031): This should eventually include scrollbar and border.
@@ -1043,8 +1053,10 @@ void OutOfFlowLayoutPart::AddInlineContainingBlockInfo(
     // Step 1 - determine the start_offset.
     const PhysicalRect& start_rect =
         block_info.value->start_fragment_union_rect;
-    LogicalOffset start_offset = start_rect.offset.ConvertToLogical(
-        container_writing_direction, container_builder_size, start_rect.size);
+    const WritingModeConverter container_converter{container_writing_direction,
+                                                   container_builder_size};
+    LogicalOffset start_offset =
+        container_converter.ToLogical(start_rect.offset, start_rect.size);
 
     // Make sure we add the inline borders, we don't need to do this in the
     // inline direction if the blocks are in opposite directions.
@@ -1054,12 +1066,12 @@ void OutOfFlowLayoutPart::AddInlineContainingBlockInfo(
 
     // Step 2 - determine the end_offset.
     const PhysicalRect& end_rect = block_info.value->end_fragment_union_rect;
-    LogicalOffset end_offset = end_rect.offset.ConvertToLogical(
-        container_writing_direction, container_builder_size, end_rect.size);
+    LogicalOffset end_offset =
+        container_converter.ToLogical(end_rect.offset, end_rect.size);
 
     // Add in the size of the fragment to get the logical end of the fragment.
-    end_offset += end_rect.size.ConvertToLogical(
-        container_writing_direction.GetWritingMode());
+    end_offset += ToLogicalSize(end_rect.size,
+                                container_writing_direction.GetWritingMode());
 
     // Make sure we subtract the inline borders, we don't need to do this in the
     // inline direction if the blocks are in opposite directions.
@@ -1088,12 +1100,13 @@ void OutOfFlowLayoutPart::AddInlineContainingBlockInfo(
       // writing mode of the builder into account.
       PhysicalSize physical_size =
           ToPhysicalSize(inline_cb_size, GetConstraintSpace().GetWritingMode());
+      const PhysicalOffset start_physical_offset =
+          start_offset.ConvertToPhysical(container_writing_direction,
+                                         container_builder_size, physical_size);
       start_offset =
-          start_offset
-              .ConvertToPhysical(container_writing_direction,
-                                 container_builder_size, physical_size)
-              .ConvertToLogical(GetConstraintSpace().GetWritingDirection(),
-                                container_builder_size, physical_size);
+          WritingModeConverter(GetConstraintSpace().GetWritingDirection(),
+                               container_builder_size)
+              .ToLogical(start_physical_offset, physical_size);
     }
 
     // Subtract out the inline relative offset, if set, so that it can be
@@ -1270,8 +1283,8 @@ void OutOfFlowLayoutPart::LayoutOOFsInMulticol(
           multicol_box_fragment->Borders().ConvertToLogical(writing_direction) +
           multicol_box_fragment->Padding().ConvertToLogical(writing_direction);
       LayoutUnit available_inline_size =
-          multicol_box_fragment->Size()
-              .ConvertToLogical(writing_direction.GetWritingMode())
+          ToLogicalSize(multicol_box_fragment->Size(),
+                        writing_direction.GetWritingMode())
               .inline_size -
           border_padding.InlineSum();
       column_inline_progression =
@@ -1663,9 +1676,8 @@ void OutOfFlowLayoutPart::LayoutFragmentainerDescendants(
           if (!column_balancing_info_) {
             fragment = &GetChildFragment(index);
             fragmentainer_consumed_block_size_ +=
-                fragment->Size()
-                    .ConvertToLogical(
-                        container_builder_->Style().GetWritingMode())
+                ToLogicalSize(fragment->Size(),
+                              container_builder_->Style().GetWritingMode())
                     .block_size;
           }
         }
@@ -2479,8 +2491,8 @@ OutOfFlowLayoutPart::TryCalculateOffset(
 
   offset_info.block_estimate = node_dimensions.size.block_size;
   offset_info.container_content_size =
-      container_physical_content_size.ConvertToLogical(
-          candidate_writing_direction.GetWritingMode());
+      ToLogicalSize(container_physical_content_size,
+                    candidate_writing_direction.GetWritingMode());
 
   // Calculate the offsets.
   const BoxStrut inset =
@@ -2630,7 +2642,7 @@ const LayoutResult* OutOfFlowLayoutPart::GenerateFragment(
   PhysicalSize physical_size =
       ToPhysicalSize(logical_size, style.GetWritingMode());
   LogicalSize available_size =
-      physical_size.ConvertToLogical(GetConstraintSpace().GetWritingMode());
+      ToLogicalSize(physical_size, GetConstraintSpace().GetWritingMode());
   bool is_repeatable = false;
 
   ConstraintSpaceBuilder builder(GetConstraintSpace(),
@@ -2996,7 +3008,7 @@ ConstraintSpace OutOfFlowLayoutPart::GetFragmentainerConstraintSpace(
   const WritingMode container_writing_mode =
       container_builder_->Style().GetWritingMode();
   LogicalSize fragmentainer_size =
-      fragment.Size().ConvertToLogical(container_writing_mode);
+      ToLogicalSize(fragment.Size(), container_writing_mode);
   LogicalSize percentage_resolution_size =
       LogicalSize(fragmentainer_size.inline_size,
                   container_builder_->ChildAvailableSize().block_size);
@@ -3051,9 +3063,8 @@ void OutOfFlowLayoutPart::ComputeStartFragmentIndexAndRelativeOffset(
   for (; child_index < ChildCount(); child_index++) {
     const PhysicalBoxFragment& child_fragment = GetChildFragment(child_index);
     if (child_fragment.IsFragmentainerBox()) {
-      fragmentainer_block_size = child_fragment.Size()
-                                     .ConvertToLogical(default_writing_mode)
-                                     .block_size;
+      fragmentainer_block_size =
+          ToLogicalSize(child_fragment.Size(), default_writing_mode).block_size;
       fragmentainer_block_size =
           ClampedToValidFragmentainerCapacity(fragmentainer_block_size);
       current_max_block_size += fragmentainer_block_size;

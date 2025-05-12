@@ -437,8 +437,11 @@ class CORE_EXPORT LocalFrame final
   float LayoutZoomFactor() const { return layout_zoom_factor_; }
   void SetTextZoomFactor(float);
   float TextZoomFactor() const { return text_zoom_factor_; }
-  void SetLayoutAndTextZoomFactors(float layout_zoom_factor,
-                                   float text_zoom_factor);
+  void SetCssZoomFactor(float);
+  float CssZoomFactor() const { return css_zoom_factor_; }
+  void SetZoomFactors(float layout_zoom_factor,
+                      float text_zoom_factor,
+                      float css_zoom_factor);
 
   double DevicePixelRatio() const;
 
@@ -1095,6 +1098,7 @@ class CORE_EXPORT LocalFrame final
 
   float layout_zoom_factor_;
   float text_zoom_factor_;
+  float css_zoom_factor_;
 
   Member<CoreProbeSink> probe_sink_;
   scoped_refptr<InspectorTaskRunner> inspector_task_runner_;
@@ -1199,9 +1203,12 @@ class CORE_EXPORT LocalFrame final
   // SubresourceFilterAgent::Initialize.
   bool is_frame_created_by_ad_script_ = false;
 
-  // The identifier of the ad script at the time of frame creation. Kept to
-  // defer instrumentation probe call till the frame is committed.
-  std::optional<AdScriptIdentifier> ad_script_from_frame_creation_stack_;
+  // The ancestry chain of ad script identifiers leading to this frame's
+  // creation, ordered from the most immediate script (in the frame creation
+  // stack) to more distant ancestors (that created the immediately preceding
+  // script). Kept to defer instrumentation probe call until the frame is
+  // committed.
+  Vector<AdScriptIdentifier> provisional_ad_script_ancestry_;
 
   bool evict_cached_session_storage_on_freeze_or_unload_ = false;
 

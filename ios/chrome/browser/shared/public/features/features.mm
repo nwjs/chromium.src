@@ -439,6 +439,10 @@ BASE_FEATURE(kIOSChooseFromDrive,
              "IOSChooseFromDrive",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kIOSChooseFromDriveSimulatedClick,
+             "IOSChooseFromDriveSimulatedClick",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kIOSDownloadNoUIUpdateInBackground,
              "IOSDownloadNoUIUpdateInBackground",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -505,9 +509,7 @@ BASE_FEATURE(kFullscreenImprovement,
              "FullscreenImprovement",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kTabGroupsIPad,
-             "TabGroupsIPad",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kTabGroupsIPad, "TabGroupsIPad", base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsTabGroupInGridEnabled() {
   if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
@@ -791,7 +793,7 @@ bool IsKeyboardAccessoryUpgradeEnabled() {
 }
 
 bool IsKeyboardAccessoryUpgradeWithShortManualFillMenuEnabled() {
-  return IsKeyboardAccessoryUpgradeEnabled() &&
+  return (ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TABLET) &&
          base::FeatureList::IsEnabled(
              kIOSKeyboardAccessoryUpgradeShortManualFillMenu);
 }
@@ -974,17 +976,8 @@ bool IsSaveToPhotosAccountPickerImprovementEnabled() {
              kSaveToPhotosAccountDefaultChoiceImprovementParam, true);
 }
 
-BASE_FEATURE(kHomeCustomization,
-             "HomeCustomization",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-bool IsHomeCustomizationEnabled() {
-  return base::FeatureList::IsEnabled(kHomeCustomization);
-}
-
 bool ShouldDeprecateFeedHeader() {
-  return IsHomeCustomizationEnabled() &&
-         base::FeatureList::IsEnabled(kDeprecateFeedHeader);
+  return base::FeatureList::IsEnabled(kDeprecateFeedHeader);
 }
 
 BASE_FEATURE(kEnableAppBackgroundRefresh,
@@ -1042,26 +1035,13 @@ bool IsBlueDotOnToolsMenuButtoneEnabled() {
   return base::FeatureList::IsEnabled(kBlueDotOnToolsMenuButton);
 }
 
-BASE_FEATURE(kUseAccountListFromIdentityManager,
-             "UseAccountListFromIdentityManager",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-bool IsUseAccountListFromIdentityManagerEnabled() {
-  return base::FeatureList::IsEnabled(kUseAccountListFromIdentityManager);
-}
-
 BASE_FEATURE(kSeparateProfilesForManagedAccounts,
              "SeparateProfilesForManagedAccounts",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-bool AreSeparateProfilesForManagedAccountsEnabled() {
-  // The APIs to support multiple profiles are only available in iOS 17+, so
-  // consider this feature as disabled in earlier versions.
-  if (!@available(iOS 17, *)) {
-    return false;
-  }
-  return base::FeatureList::IsEnabled(kSeparateProfilesForManagedAccounts);
-}
+BASE_FEATURE(kSeparateProfilesForManagedAccountsKillSwitch,
+             "SeparateProfilesForManagedAccountsKillSwitch",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kOmahaResyncTimerOnForeground,
              "OmahaResyncTimerOnForeground",
@@ -1173,6 +1153,14 @@ BASE_FEATURE(kIOSPasskeysM2,
 
 bool IOSPasskeysM2Enabled() {
   return base::FeatureList::IsEnabled(kIOSPasskeysM2);
+}
+
+BASE_FEATURE(kIOSPushNotificationMultiProfile,
+             "IOSPushNotificationMultiProfile",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsIOSMultiProfilePushNotificationHandlingEnabled() {
+  return base::FeatureList::IsEnabled(kIOSPushNotificationMultiProfile);
 }
 
 const char kFullscreenTransitionSlower[] = "SlowFullscreenTransitionSpeed";
@@ -1364,4 +1352,18 @@ BASE_FEATURE(kRunDefaultStatusCheck,
 
 bool IsRunDefaultStatusCheckEnabled() {
   return base::FeatureList::IsEnabled(kRunDefaultStatusCheck);
+}
+
+BASE_FEATURE(kContainedTabGroup,
+             "ContainedTabGroup",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsContainedTabGroupEnabled() {
+  return base::FeatureList::IsEnabled(kContainedTabGroup);
+}
+
+BASE_FEATURE(kBestOfAppFRE, "BestOfAppFRE", base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsBestOfAppFREEnabled() {
+  return base::FeatureList::IsEnabled(kBestOfAppFRE);
 }

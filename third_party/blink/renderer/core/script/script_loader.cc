@@ -751,8 +751,7 @@ PendingScript* ScriptLoader::PrepareScript(
   // credentials mode, and referrer policy is referrer policy.</spec>
   ScriptFetchOptions options(nonce, integrity_metadata, integrity_attr,
                              parser_state, credentials_mode, referrer_policy,
-                             fetch_priority_hint, render_blocking_behavior,
-                             RejectCoepUnsafeNone(false));
+                             fetch_priority_hint, render_blocking_behavior);
 
   // <spec step="30">Let settings object be el's node document's relevant
   // settings object.</spec>
@@ -1093,7 +1092,7 @@ PendingScript* ScriptLoader::PrepareScript(
         // text, settings object, base URL, and options.</spec>
         ModuleScriptCreationParams params(
             source_url, base_url, ScriptSourceLocationType::kInline,
-            ModuleType::kJavaScript, ParkableString(source_text.Impl()),
+            ResolvedModuleType::kJavaScript, ParkableString(source_text.Impl()),
             nullptr, network::mojom::ReferrerPolicy::kDefault);
         ModuleScript* module_script =
             JSModuleScript::Create(params, modulator, options, position);
@@ -1335,7 +1334,7 @@ void ScriptLoader::FetchModuleScriptTree(
     const ScriptFetchOptions& options) {
   auto* module_tree_client =
       MakeGarbageCollected<ModulePendingScriptTreeClient>();
-  modulator->FetchTree(url, ModuleType::kJavaScript,
+  modulator->FetchTree(url, ModuleType::kJavaScriptOrWasm,
                        fetch_client_settings_object_fetcher,
                        mojom::blink::RequestContextType::SCRIPT,
                        network::mojom::RequestDestination::kScript, options,

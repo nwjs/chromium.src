@@ -68,12 +68,6 @@ CGFloat SpaceBetweenModules() {
 @property(nonatomic, strong)
     OverscrollActionsController* overscrollActionsController;
 
-// Whether or not the user has scrolled into the feed, transferring ownership of
-// the omnibox to allow it to stick to the top of the NTP.
-// With Web Channels enabled, also determines if the feed header is stuck to the
-// top.
-@property(nonatomic, assign, getter=isScrolledIntoFeed) BOOL scrolledIntoFeed;
-
 // Whether or not the fake omnibox is pinned to the top of the NTP. Redefined
 // to make readwrite.
 @property(nonatomic, assign) BOOL isFakeboxPinned;
@@ -313,7 +307,7 @@ CGFloat SpaceBetweenModules() {
   [self.helpHandler
       presentInProductHelpWithType:InProductHelpType::kDiscoverFeedMenu];
 
-  if (IsHomeCustomizationEnabled() && !IsFirstRunRecent(base::Days(3))) {
+  if (!IsFirstRunRecent(base::Days(3))) {
     [self.helpHandler
         presentInProductHelpWithType:InProductHelpType::kHomeCustomizationMenu];
   }
@@ -501,12 +495,11 @@ CGFloat SpaceBetweenModules() {
     [self addViewControllerAboveFeed:self.feedHeaderViewController];
   }
 
-  if (!IsHomeCustomizationEnabled() || self.magicStackVisible) {
+  if (self.magicStackVisible) {
     [self addViewControllerAboveFeed:self.magicStackCollectionView];
   }
 
-  if (self.contentSuggestionsViewController &&
-      (!IsHomeCustomizationEnabled() || self.mostVisitedVisible)) {
+  if (self.contentSuggestionsViewController && self.mostVisitedVisible) {
     [self addViewControllerAboveFeed:self.contentSuggestionsViewController];
   }
 
@@ -644,20 +637,10 @@ CGFloat SpaceBetweenModules() {
 
     // If the current view controller represents a module, account for the
     // vertical spacing between modules.
-    if (IsHomeCustomizationEnabled() &&
-        (viewController == self.magicStackCollectionView ||
-         viewController == self.contentSuggestionsViewController ||
-         viewController == self.feedHeaderViewController)) {
+    if (viewController == self.magicStackCollectionView ||
+        viewController == self.contentSuggestionsViewController ||
+        viewController == self.feedHeaderViewController) {
       heightAboveFeed += SpaceBetweenModules();
-    }
-  }
-  if (!IsHomeCustomizationEnabled()) {
-    if (self.feedHeaderViewController) {
-      heightAboveFeed += kBottomMagicStackPadding;
-    }
-    if (!self.contentSuggestionsViewController) {
-      heightAboveFeed +=
-          content_suggestions::HeaderBottomPadding(self.traitCollection);
     }
   }
   return heightAboveFeed;
@@ -1219,41 +1202,21 @@ CGFloat SpaceBetweenModules() {
 - (void)setInitialFakeOmniboxConstraints {
   [NSLayoutConstraint deactivateConstraints:self.fakeOmniboxConstraints];
 
-  if (IsHomeCustomizationEnabled()) {
-    // If all modules are disabled, the fake omnibox doesn't need additional
-    // constraints.
-    if ([self.viewControllersAboveFeed lastObject] ==
-        self.headerViewController) {
-      self.fakeOmniboxConstraints = @[];
-    } else {
-      // Otherwise, anchor the header to the module below it.
-      NSInteger headerIndex = [self.viewControllersAboveFeed
-          indexOfObject:self.headerViewController];
-      UIView* viewBelowHeader =
-          [self.viewControllersAboveFeed objectAtIndex:(headerIndex + 1)].view;
-      self.fakeOmniboxConstraints = @[
-        [viewBelowHeader.topAnchor
-            constraintEqualToAnchor:self.headerViewController.view.bottomAnchor
-                           constant:SpaceBetweenModules()],
-      ];
-    }
+  // If all modules are disabled, the fake omnibox doesn't need additional
+  // constraints.
+  if ([self.viewControllersAboveFeed lastObject] == self.headerViewController) {
+    self.fakeOmniboxConstraints = @[];
   } else {
-    if (self.contentSuggestionsViewController) {
-      self.fakeOmniboxConstraints = @[
-        [self.contentSuggestionsViewController.view.topAnchor
-            constraintEqualToAnchor:self.headerViewController.view
-                                        .bottomAnchor],
-      ];
-    } else {
-      // If `contentSuggestionsViewController` is nil, that means MVTs are in
-      // the Magic Stack.
-      self.fakeOmniboxConstraints = @[
-        [self.magicStackCollectionView.view.topAnchor
-            constraintEqualToAnchor:self.headerViewController.view.bottomAnchor
-                           constant:content_suggestions::HeaderBottomPadding(
-                                        self.traitCollection)],
-      ];
-    }
+    // Otherwise, anchor the header to the module below it.
+    NSInteger headerIndex =
+        [self.viewControllersAboveFeed indexOfObject:self.headerViewController];
+    UIView* viewBelowHeader =
+        [self.viewControllersAboveFeed objectAtIndex:(headerIndex + 1)].view;
+    self.fakeOmniboxConstraints = @[
+      [viewBelowHeader.topAnchor
+          constraintEqualToAnchor:self.headerViewController.view.bottomAnchor
+                         constant:SpaceBetweenModules()],
+    ];
   }
   [NSLayoutConstraint activateConstraints:self.fakeOmniboxConstraints];
 }
@@ -1340,7 +1303,7 @@ CGFloat SpaceBetweenModules() {
 // includes the fake omnibox and if Web Channels is enabled, the feed header. If
 // `force` is YES, the sticky elements will always be set based on the scroll
 // position. If `force` is NO, the sticky elements will only based on
-// `isScrolledIntoFeed` to prevent pinning them multiple times.
+// `isFakeboxPinned` to prevent pinning them multiple times.
 - (void)handleStickyElementsForScrollPosition:(CGFloat)scrollPosition
                                         force:(BOOL)force {
   // Handles the sticky omnibox. Does not stick for iPads.
@@ -1417,23 +1380,6 @@ CGFloat SpaceBetweenModules() {
       [self.feedHeaderViewController.view.widthAnchor
           constraintEqualToAnchor:self.moduleLayoutGuide.widthAnchor],
     ]];
-    if (!IsHomeCustomizationEnabled()) {
-      // If Feed top section is enabled, the header bottom anchor should be set
-      // to its top anchor instead of the feed collection's top anchor.
-      UIView* bottomView = self.collectionView;
-      if (self.feedTopSectionViewController) {
-        bottomView = self.feedTopSectionViewController.view;
-      }
-      [NSLayoutConstraint activateConstraints:@[
-        [self.feedHeaderViewController.view.topAnchor
-            constraintEqualToAnchor:self.magicStackCollectionView.view
-                                        .bottomAnchor
-                           constant:kBottomMagicStackPadding],
-        [bottomView.topAnchor
-            constraintEqualToAnchor:self.feedHeaderViewController.view
-                                        .bottomAnchor],
-      ]];
-    }
     if (self.feedTopSectionViewController) {
       [NSLayoutConstraint activateConstraints:@[
         [self.feedTopSectionViewController.view.centerXAnchor
@@ -1448,22 +1394,12 @@ CGFloat SpaceBetweenModules() {
                                         .bottomAnchor],
       ]];
     }
-  } else {
-    if (!IsHomeCustomizationEnabled()) {
-      [NSLayoutConstraint activateConstraints:@[
-        [self.collectionView.topAnchor
-            constraintEqualToAnchor:self.magicStackCollectionView.view
-                                        .bottomAnchor],
-      ]];
-    }
   }
-  if (IsHomeCustomizationEnabled()) {
-    UIView* lastView = [self.viewControllersAboveFeed lastObject].view;
-    [NSLayoutConstraint activateConstraints:@[
-      [self.collectionView.topAnchor
-          constraintEqualToAnchor:lastView.bottomAnchor],
-    ]];
-  }
+  UIView* lastView = [self.viewControllersAboveFeed lastObject].view;
+  [NSLayoutConstraint activateConstraints:@[
+    [self.collectionView.topAnchor
+        constraintEqualToAnchor:lastView.bottomAnchor],
+  ]];
 
   if (_feedContainer) {
     [NSLayoutConstraint activateConstraints:@[
@@ -1483,8 +1419,7 @@ CGFloat SpaceBetweenModules() {
     [[self containerView].safeAreaLayoutGuide.trailingAnchor
         constraintEqualToAnchor:self.headerViewController.view.trailingAnchor],
   ]];
-  if (self.contentSuggestionsViewController &&
-      (!IsHomeCustomizationEnabled() || self.mostVisitedVisible)) {
+  if (self.contentSuggestionsViewController && self.mostVisitedVisible) {
     [NSLayoutConstraint activateConstraints:@[
       [self.contentSuggestionsViewController.view.leadingAnchor
           constraintEqualToAnchor:self.moduleLayoutGuide.leadingAnchor],
@@ -1492,7 +1427,7 @@ CGFloat SpaceBetweenModules() {
           constraintEqualToAnchor:self.moduleLayoutGuide.trailingAnchor],
     ]];
   }
-  if (!IsHomeCustomizationEnabled() || self.magicStackVisible) {
+  if (self.magicStackVisible) {
     [NSLayoutConstraint activateConstraints:@[
       [self.magicStackCollectionView.view.leadingAnchor
           constraintEqualToAnchor:self.moduleLayoutGuide.leadingAnchor],
@@ -1500,18 +1435,10 @@ CGFloat SpaceBetweenModules() {
           constraintEqualToAnchor:self.moduleLayoutGuide.trailingAnchor],
     ]];
   }
-  if (self.contentSuggestionsViewController && !IsHomeCustomizationEnabled()) {
-    [NSLayoutConstraint activateConstraints:@[
-      [self.magicStackCollectionView.view.topAnchor
-          constraintEqualToAnchor:self.contentSuggestionsViewController.view
-                                      .bottomAnchor],
-    ]];
-  }
 
   // Anchor each module except the one directly below the header, since it will
   // dynamically update its top anchor when the fake omnibox is pinned.
-  if (IsHomeCustomizationEnabled() &&
-      [self.viewControllersAboveFeed lastObject] != self.headerViewController) {
+  if ([self.viewControllersAboveFeed lastObject] != self.headerViewController) {
     // Start with the bottom module's index, which is either the feed header if
     // enabled, or the last object of the module array if not.
     NSUInteger startIndex =
@@ -1751,7 +1678,7 @@ CGFloat SpaceBetweenModules() {
       [self.contentSuggestionsViewController.view removeFromSuperview];
       [self.contentSuggestionsViewController didMoveToParentViewController:nil];
 
-      if (!IsHomeCustomizationEnabled() || self.mostVisitedVisible) {
+      if (self.mostVisitedVisible) {
         // Add child VC to new parent.
         [self.contentSuggestionsViewController
             willMoveToParentViewController:self.feedWrapperViewController
@@ -1905,13 +1832,6 @@ CGFloat SpaceBetweenModules() {
 
 #pragma mark - Setters
 
-// Sets whether or not the NTP is scrolled into the feed and notifies the
-// content suggestions layout to avoid it changing the omnibox frame when this
-// view controls its position.
-- (void)setIsScrolledIntoFeed:(BOOL)scrolledIntoFeed {
-  _scrolledIntoFeed = scrolledIntoFeed;
-}
-
 // Sets the y content offset of the NTP collection view.
 - (void)setContentOffset:(CGFloat)offset {
   UICollectionView* collectionView = self.collectionView;
@@ -1925,7 +1845,6 @@ CGFloat SpaceBetweenModules() {
     offset = MIN(maxOffset, offset);
   }
   collectionView.contentOffset = CGPointMake(0, offset);
-  self.scrolledIntoFeed = offset > [self offsetWhenScrolledIntoFeed];
   [self handleStickyElementsForScrollPosition:offset force:YES];
   [self updateScrollPositionToSave];
 }

@@ -30,7 +30,6 @@
 #include "base/files/file_util.h"
 #include "base/functional/overloaded.h"
 #include "base/json/json_file_value_serializer.h"
-#include "base/mac/mac_util.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
 #include "base/numerics/byte_conversions.h"
@@ -1141,11 +1140,6 @@ ContextProperties GraphBuilderCoreml::GetContextProperties() {
       OperandDataType::kInt8, OperandDataType::kUint8, OperandDataType::kInt32,
       OperandDataType::kUint32};
   SupportedDataTypes arg_min_max_input_supported_data_types = kFloatsAndInt32;
-  // crbug.com/388117627: On Intel devices, passing float input containing NaNs
-  // sometimes triggers a crash in Core ML.
-  if (base::mac::GetCPUType() != base::mac::CPUType::kArm) {
-    arg_min_max_input_supported_data_types = {OperandDataType::kInt32};
-  }
 
   static constexpr SupportedDataTypes kArgMinMaxOutputSupportedDataTypes{
       OperandDataType::kInt32};
@@ -1162,6 +1156,7 @@ ContextProperties GraphBuilderCoreml::GetContextProperties() {
   // TODO: crbug.com/345271830 - specify data types for all parameters.
   ContextProperties properties(
       InputOperandLayout::kNchw, Resample2DAxes::kChannelsFirst,
+      BatchNormalizationAxis::kChannelsFirst,
       /*tensor_byte_length_limit=*/kTensorByteLengthLimit,
       {/*input=*/kFloatsAndInt32,
        /*constant=*/kConstantSupportedDataTypes,
@@ -2043,20 +2038,6 @@ GraphBuilderCoreml::AddOperationForBatchNormalization(
   CHECK(context_properties_.data_type_limits.batch_normalization_input.Supports(
       GetOperand(operation.input_operand_id).descriptor));
 
-  // TODO(crbug.com/338398666): Consider supporting more values for
-  // `operation.axis` by transposing the input. CoreML only supports
-  // batchNormalization over the "channel" dimension, though we don't actually
-  // have any way to know the layout here, so we'll just guess it's:
-  //  - NCH for a 3D input,
-  //  - NCHW for a 4D input, or
-  //  - NCDHW for a 5D input
-  // https://apple.github.io/coremltools/source/coremltools.converters.mil.mil.ops.defs.html#coremltools.converters.mil.mil.ops.defs.iOS17.normalization.batch_norm
-  if (operation.axis != 1) {
-    return NewNotSupportedError(
-        "Unsupported axis for batchNormalization. It must be the channel "
-        "dimension.");
-  }
-
   uint64_t input_operand_id = operation.input_operand_id;
   const OperandInfo& input_operand_info = GetOperandInfo(input_operand_id);
   // Rank of 5 causes crashes when not targeting `MLComputeUnitsCPUOnly`, see
@@ -2084,15 +2065,32 @@ GraphBuilderCoreml::AddOperationForBatchNormalization(
   static constexpr char kParamVariance[] = "variance";
 
   // TODO(crbug.com/338529226): These params must all be constant tensors.
+  if (!constant_operands_->contains(operation.mean_operand_id)) {
+    return NewNotSupportedError(
+        "batchNormalization argument mean must be constant.");
+  }
+  if (!constant_operands_->contains(operation.variance_operand_id)) {
+    return NewNotSupportedError(
+        "batchNormalization argument variance must be constant.");
+  }
   RETURN_IF_ERROR(SetInputFromOperand(*op->mutable_inputs(), kParamMean,
                                       operation.mean_operand_id));
   RETURN_IF_ERROR(SetInputFromOperand(*op->mutable_inputs(), kParamVariance,
                                       operation.variance_operand_id));
+
   if (operation.scale_operand_id.has_value()) {
+    if (!constant_operands_->contains(*operation.scale_operand_id)) {
+      return NewNotSupportedError(
+          "batchNormalization argument scale must be constant.");
+    }
     RETURN_IF_ERROR(SetInputFromOperand(*op->mutable_inputs(), kOpParamGamma,
                                         *operation.scale_operand_id));
   }
   if (operation.bias_operand_id.has_value()) {
+    if (!constant_operands_->contains(*operation.bias_operand_id)) {
+      return NewNotSupportedError(
+          "batchNormalization argument bias must be constant.");
+    }
     RETURN_IF_ERROR(SetInputFromOperand(*op->mutable_inputs(), kOpParamBeta,
                                         *operation.bias_operand_id));
   }
@@ -3904,11 +3902,6 @@ GraphBuilderCoreml::AddOperationForInstanceNormalization(
   CHECK(context_properties_.data_type_limits.instance_normalization_input
             .Supports(GetOperand(operation.input_operand_id).descriptor));
 
-  if (operation.layout != mojom::InputOperandLayout::kChannelsFirst) {
-    // TODO(crbug.com/338398666) Support channels-last by adding transposes.
-    return NewNotSupportedError("Unsupported input layout.");
-  }
-
   CoreML::Specification::MILSpec::Operation* op = block.add_operations();
   op->set_type(kOpInstanceNormalizationTypeName);
   RETURN_IF_ERROR(SetInputFromOperand(*op->mutable_inputs(), kOpParamX,
@@ -3981,12 +3974,6 @@ GraphBuilderCoreml::AddOperationForLayerNormalization(
         return (a + 1) != b;
       }) == operation.axes.end();
   if (!is_consecutive) {
-    if (base::mac::GetCPUType() != base::mac::CPUType::kArm) {
-      if (__builtin_available(macOS 15, *)) {
-        return NewNotSupportedError(
-            "Axes must be consecutive for layerNormalization.");
-      }
-    }
     if (device_ == mojom::CreateContextOptions::Device::kCpu) {
       return NewNotSupportedError(
           "Axes must be consecutive for layerNormalization on cpu.");
@@ -4794,7 +4781,11 @@ GraphBuilderCoreml::AddOperationForQuantizeLinear(
   CHECK(context_properties_.data_type_limits.quantize_linear_zero_point
             .data_types.Has(zero_point_operand_data_type));
 
-  // TODO(crbug.com/338529226): These params must all be constant tensors.
+  if (zero_point_operand_data_type == OperandDataType::kInt32 ||
+      zero_point_operand_data_type == OperandDataType::kUint32) {
+    return AddOperationForQuantizeLinearEmulate(operation, block);
+  }
+
   if (!constant_operands_->contains(operation.zero_point_operand_id) ||
       !constant_operands_->contains(operation.scale_operand_id)) {
     return AddOperationForQuantizeLinearEmulate(operation, block);

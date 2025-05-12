@@ -59,9 +59,6 @@ export declare interface GlicWebClient {
   initialize(glicBrowserHost: GlicBrowserHost): Promise<void>;
 
   /**
-   * @todo Remove void promise value once the web client returns OpenPanelInfo.
-   *       https://crbug.com/391946150
-   *
    * @todo The browser is currently storing the previous panel size, but the web
    *       client should be updated to set the panel size when handling this
    *       call. https://crbug.com/392141194
@@ -81,8 +78,8 @@ export declare interface GlicWebClient {
    * Important: The panel is only made user-visible once the returned promise is
    * resolved or failed (failures are ignored and the panel is still shown).
    */
-  notifyPanelWillOpen?(panelOpeningData: PanelOpeningData&
-                       PanelState): Promise<void|OpenPanelInfo>;
+  notifyPanelWillOpen?
+      (panelOpeningData: PanelOpeningData&PanelState): Promise<OpenPanelInfo>;
 
   /**
    * Called right after the panel was hidden away and is not visible to
@@ -181,6 +178,11 @@ export declare interface GlicBrowserHost {
    */
   actInFocusedTab?
       (params: ActInFocusedTabParams): Promise<ActInFocusedTabResult>;
+
+  /**
+   * Stops an actor task in the browser if one exists. No-op otherwise.
+   */
+  stopActorTask?(): void;
 
   /**
    * Requests the host to capture a screenshot. The choice of the screenshot
@@ -402,10 +404,10 @@ export declare interface GlicBrowserHost {
 
   /**
    * Opens the OS permission settings page for the given permission type.
-   * Supports `media` for microphone and `geolocation` for location. This
-   * function is available when running on Mac.
+   * Supports `media` for microphone and `geolocation` for location.
+   * @throws {Error} if the permission type is not supported.
    */
-  openOsPermissionSettingsMenu?(permission: string): void;
+  openOsPermissionSettingsMenu?(permission: OsPermissionType): void;
 
   /**
    * Get the status of the OS Microphone permission currently granted to Chrome.
@@ -417,7 +419,20 @@ export declare interface GlicBrowserHost {
    * panel and false when the user stops.
    */
   isManuallyResizing?(): ObservableValue<boolean>;
+
+  /**
+   * @todo Not yet implemented. https://crbug.com/404617216
+   *
+   * Returns the set of zero state suggestions for the currently focused tab
+   * based on if the client is currently in it's is_first_run.
+   * Callers should verify the current focused tab matches the
+   * ZeroStateSuggestions tabId and url before using it.
+   */
+  getZeroStateSuggestionsForFocusedTab?
+      (is_first_run?: boolean): Promise<ZeroStateSuggestions>;
 }
+/** Fields of interest from the system settings page. */
+export type OsPermissionType = 'media'|'geolocation';
 
 /** Fields of interest from the Glic settings page. */
 export enum SettingsPageField {
@@ -570,7 +585,12 @@ export declare interface PanelOpeningData {
    * The state of the panel as it's being opened.
    */
   panelState?: PanelState;
-  /** Indicates the entry point used to trigger the opening of the panel. */
+  /**
+   * Indicates the entry point used to trigger the opening of the panel.
+   * In the event the web client's page is reloaded, the new web client will
+   * receive a notifyPanelWillOpen call with the same invocation source as
+   * before, even though the user did not, for example, click a button again.
+   */
   invocationSource?: InvocationSource;
 }
 
@@ -928,25 +948,64 @@ export declare interface ScrollToSelector {
   exactText?: ScrollToTextSelector;
 
   /**
-   * Text fragment selector, see ScrollToTextFragmentSelector for more details
+   * Text fragment selector, see ScrollToTextFragmentSelector for more details.
    */
   textFragment?: ScrollToTextFragmentSelector;
+
+  /** Node selector, see ScrollToNodeSelector for more details. */
+  node?: ScrollToNodeSelector;
 }
 
 /**
- * scrollTo() selector to select exact text in HTML and PDF documents.
+ * scrollTo() selector to select exact text in HTML and PDF documents within
+ * a given search range starting from the start node (specified with
+ * searchRangeStartNodeId) to the end of the document. If not specified, the
+ * search range will be the entire document.
+ * The documentId in ScrollToParams must be specified if a
+ * searchRangeStartNodeId is specified.
  */
 export declare interface ScrollToTextSelector {
   text: string;
+
+  /**
+   * See common_ancestor_dom_node_id in proto ContentAttributes
+   * in components/optimization_guide/proto/features/common_quality_data.proto.
+   */
+  searchRangeStartNodeId?: number;
 }
 
 /**
- * scrollTo() selector to select a range of text in HTML and PDF documents.
+ * scrollTo() selector to select a range of text in HTML and PDF documents
+ * within a given search range starting from the start node (specified with
+ * searchRangeStartNodeId) to the end of the document. If not specified, the
+ * search range will be the entire document.
+ * The documentId in ScrollToParams must be specified if a
+ * searchRangeStartNodeId is specified.
  * Text selected will match textStart <anything in the middle> textEnd.
  */
 export declare interface ScrollToTextFragmentSelector {
   textStart: string;
   textEnd: string;
+
+  /**
+   * See common_ancestor_dom_node_id in proto ContentAttributes
+   * in components/optimization_guide/proto/features/common_quality_data.proto.
+   */
+  searchRangeStartNodeId?: number;
+}
+
+/**
+ * scrollTo() selector to select all text inside a specific node (corresponding
+ * to the provided nodeId). documentId must also be specified in ScrollToParams
+ * when this selector is used.
+ */
+export declare interface ScrollToNodeSelector {
+  /**
+   * Value should be obtained from common_ancestor_dom_node_id in
+   * ContentAttributes (see
+   * components/optimization_guide/proto/features/common_quality_data.proto)
+   */
+  nodeId: number;
 }
 
 /** Error type used for scrollTo(). */
@@ -977,6 +1036,11 @@ export enum ScrollToErrorReason {
    * iframes).
    */
   NO_MATCHING_DOCUMENT = 5,
+
+  /**
+   *  The search range starting from DOMNodeId did not result in a valid range.
+   */
+  SEARCH_RANGE_INVALID = 6,
 }
 
 /**
@@ -1033,7 +1097,7 @@ export declare interface UserProfileInfo {
   localProfileName?: string;
   /** The profile email. */
   email: string;
-  /** Whether the profile or the browser is managed. */
+  /** Whether the profile's signed-in account is a managed account. */
   isManaged?: boolean;
 }
 
@@ -1058,6 +1122,25 @@ export declare interface WithGlicApi {
 export declare interface GlicApiBootMessage {
   type: 'glic-bootstrap';
   glicApiSource: string;
+}
+
+/** Zero-state suggestions for the current tab. */
+export declare interface ZeroStateSuggestions {
+  /**
+   * A collection of suggestions associated with the linked tab. This may be
+   * empty.
+   */
+  suggestions: SuggestionContent[];
+  /** A unique ID to track the the associated tab. */
+  tabId: string;
+  /** The url of the associated tab. */
+  url: string;
+}
+
+/** Zero-state suggestion for the current tab.*/
+export declare interface SuggestionContent {
+  /** The suggestion text. Always provided. */
+  suggestion: string;
 }
 
 //
@@ -1097,6 +1180,8 @@ export interface BackwardsCompatibleTypes {
   webClient: GlicWebClient;
   webPageData: WebPageData;
   openSettingsOptions: OpenSettingsOptions;
+  osPermissionType: OsPermissionType;
+  zeroStateSuggestions: ZeroStateSuggestions;
 }
 
 // Enums that should not be changed.

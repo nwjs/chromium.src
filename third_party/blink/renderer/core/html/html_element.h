@@ -399,6 +399,8 @@ class CORE_EXPORT HTMLElement : public Element {
 
   void HandleKeypressEvent(KeyboardEvent&);
 
+  void SetPopoverInvoker(Element* invoker);
+
   static void CloseEntirePopoverStack(
       HeapVector<Member<HTMLElement>>& stack,
       HidePopoverFocusBehavior focus_behavior,
@@ -413,6 +415,7 @@ class CORE_EXPORT HTMLElement : public Element {
   void OnNonceAttrChanged(const AttributeModificationParams&);
   void OnPopoverChanged(const AttributeModificationParams&);
   void OnContainerTimingAttrChanged(const AttributeModificationParams&);
+  void OnRoleAttrChanged(const AttributeModificationParams&);
 
   int AdjustedOffsetForZoom(LayoutUnit);
   int OffsetTopOrLeft(bool top);

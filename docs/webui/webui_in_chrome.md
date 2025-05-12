@@ -117,7 +117,7 @@ export class HelloWorldAppElement extends CrLitElement {
     };
   }
 
-  protected message_: string = loadTimeData.getString('message');
+  protected accessor message_: string = loadTimeData.getString('message');
 }
 
 declare global {
@@ -141,7 +141,7 @@ build_webui("build") {
 
   static_files = [ "hello_world.html", "hello_world.css" ]
 
-  non_web_component_files = [ "app.ts", "app.html.ts" ]
+  ts_files = [ "app.ts", "app.html.ts" ]
   css_files = [ "app.css" ]
 
   # Enable the proper webui_context_type depending on whether implementing

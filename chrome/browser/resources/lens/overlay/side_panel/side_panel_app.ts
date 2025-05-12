@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 import './side_panel_ghost_loader.js';
+import './side_panel_error_page.js';
 import '/strings.m.js';
 import '/lens/shared/searchbox_ghost_loader.js';
 import '/lens/shared/searchbox_shared_style.css.js';
@@ -12,6 +13,7 @@ import '//resources/cr_elements/cr_toast/cr_toast.js';
 import {ColorChangeUpdater} from '//resources/cr_components/color_change_listener/colors_css_updater.js';
 import {HelpBubbleMixin} from '//resources/cr_components/help_bubble/help_bubble_mixin.js';
 import type {SearchboxElement} from '//resources/cr_components/searchbox/searchbox.js';
+import type {CrButtonElement} from '//resources/cr_elements/cr_button/cr_button.js';
 import type {CrToastElement} from '//resources/cr_elements/cr_toast/cr_toast.js';
 import {I18nMixin} from '//resources/cr_elements/i18n_mixin.js';
 import {assert} from '//resources/js/assert.js';
@@ -23,11 +25,12 @@ import type {SearchboxGhostLoaderElement} from '/lens/shared/searchbox_ghost_loa
 
 import type {LensSidePanelPageHandlerInterface} from '../lens_side_panel.mojom-webui.js';
 import {PageContentType} from '../page_content_type.mojom-webui.js';
-import {handleEscapeSearchbox, onSearchboxKeydown} from '../searchbox_utils.js';
+import {handleEscapeSearchbox} from '../searchbox_utils.js';
 
 import {getTemplate} from './side_panel_app.html.js';
 import {SidePanelBrowserProxyImpl} from './side_panel_browser_proxy.js';
 import type {SidePanelBrowserProxy} from './side_panel_browser_proxy.js';
+import type {SidePanelErrorPageElement} from './side_panel_error_page.js';
 import type {SidePanelGhostLoaderElement} from './side_panel_ghost_loader.js';
 
 // The url query parameter keys for the viewport size.
@@ -36,13 +39,15 @@ const VIEWPORT_WIDTH_KEY = 'biw';
 
 export interface LensSidePanelAppElement {
   $: {
-    results: HTMLIFrameElement,
+    closeFeedbackToastButton: CrButtonElement,
+    feedbackToast: CrToastElement,
     ghostLoader: SidePanelGhostLoaderElement,
-    networkErrorPage: HTMLElement,
+    messageToast: CrToastElement,
+    errorPage: SidePanelErrorPageElement,
+    results: HTMLIFrameElement,
     searchbox: SearchboxElement,
     searchboxContainer: HTMLElement,
     searchboxGhostLoader: SearchboxGhostLoaderElement,
-    toast: CrToastElement,
     uploadProgressBar: HTMLElement,
     uploadProgressBarContainer: HTMLElement,
   };
@@ -60,6 +65,10 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
 
   static get properties() {
     return {
+      autocompleteRequestStarted: {
+        type: Boolean,
+        value: false,
+      },
       isBackArrowVisible: {
         type: Boolean,
         value: false,
@@ -124,6 +133,10 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
         value: false,
         notify: true,
       },
+      pageContentType: {
+        type: Number,
+        value: PageContentType.kUnknown,
+      },
       /* TODO(385183449): Once WebUI preloading is implemented in the
        * side panel, update the loadTimeData for searchBoxHint in the side
        * panel WebUI constructor insteading of passing it to the searchbox. */
@@ -141,40 +154,43 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
         computed: `computeShowUploadProgress(uploadProgressPercentage)`,
         reflectToAttribute: true,
       },
-      toastMessage: String,
+      toastMessage: {
+        type: String,
+        value: '',
+      },
     };
   }
 
   // Public for use in browser tests.
-  isBackArrowVisible: boolean;
+  declare isBackArrowVisible: boolean;
   // Whether the user is currently focused into the searchbox.
-  isSearchboxFocused: boolean;
-  private showGhostLoader: boolean;
+  declare isSearchboxFocused: boolean;
+  declare private showGhostLoader: boolean;
   // Whether to purposely suppress the ghost loader. Done when escaping from
   // the searchbox when there's text or when page bytes aren't successfully
   // uploaded.
-  suppressGhostLoader: boolean;
-  placeholderText: string;
+  declare suppressGhostLoader: boolean;
+  declare placeholderText: string;
   // Whether the ghost loader should show its error state.
-  showErrorState: boolean;
-  private showUploadProgress: boolean;
+  declare showErrorState: boolean;
+  declare private showUploadProgress: boolean;
   // The current progress of the page content upload.
-  uploadProgressPercentage: number;
+  declare uploadProgressPercentage: number;
   // Whether the ghost loader is enabled via feature flag.
-  private enableGhostLoader: boolean;
+  declare private enableGhostLoader: boolean;
   // The placeholder text to show in the searchbox.
-  private pageContentType: PageContentType = PageContentType.kUnknown;
+  declare private pageContentType: PageContentType;
   // Whether this is an in flight request to autocomplete.
-  private autocompleteRequestStarted: boolean = false;
-  private isErrorPageVisible: boolean;
+  declare private autocompleteRequestStarted: boolean;
+  declare private isErrorPageVisible: boolean;
   // Whether the results iframe is currently loading. This needs to be done via
   // browser because the iframe is cross-origin. Default true since the side
   // panel can open before a navigation has started.
-  private isLoadingResults: boolean;
-  private isContextualSearchbox: boolean;
+  declare private isLoadingResults: boolean;
+  declare private isContextualSearchbox: boolean;
   // The URL for the loading image shown when results frame is loading a new
   // page.
-  private readonly loadingImageUrl: string;
+  declare private readonly loadingImageUrl: string;
   // The animations for the progress bar. One for the progress bar width
   // increase, and one for the progress bar height decrease on results load.
   private progressBarAnimation: Animation|null = null;
@@ -182,11 +198,11 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
 
   private browserProxy: SidePanelBrowserProxy =
       SidePanelBrowserProxyImpl.getInstance();
-  private darkMode: boolean;
+  declare private darkMode: boolean;
   private listenerIds: number[];
   private pageHandler: LensSidePanelPageHandlerInterface;
-  private wasBackArrowAvailable: boolean;
-  private toastMessage: string = '';
+  declare private wasBackArrowAvailable: boolean;
+  declare private toastMessage: string;
   private eventTracker_: EventTracker = new EventTracker();
 
   constructor() {
@@ -228,16 +244,11 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
       this.browserProxy.callbackRouter.pageContentTypeChanged.addListener(
           this.pageContentTypeChanged.bind(this)),
       this.browserProxy.callbackRouter.showToast.addListener(
-          this.showToast.bind(this)),
+          this.showMessageToast.bind(this)),
     ];
     this.eventTracker_.add(this.$.searchbox, 'mousedown', () => {
       this.suppressGhostLoader = false;
       this.showErrorState = false;
-    });
-    this.eventTracker_.add(document, 'keydown', (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' && this.isSearchboxFocused) {
-        onSearchboxKeydown(this, this.$.searchbox);
-      }
     });
     this.eventTracker_.add(
         document, 'query-autocomplete',
@@ -267,6 +278,8 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
       // The user submitted a new query, therefore the searchbox should not stay
       // focused.
       this.blurSearchbox();
+
+      this.$.feedbackToast.hide();
     } else {
       // Animate away the progress bar once the results are loaded.
       this.progressBarHideAnimation = this.$.uploadProgressBarContainer.animate(
@@ -280,6 +293,8 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
         // and the progress bar stays invisible.
         this.uploadProgressPercentage = 0;
       };
+
+      this.showFeedbackToast();
     }
   }
 
@@ -347,11 +362,18 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
   }
 
   // Called when the searchbox requests autocomplete suggestions.
-  private handleQueryAutocomplete() {
+  private handleQueryAutocomplete(e: CustomEvent) {
     this.autocompleteRequestStarted = true;
+    if (!e.detail.inputValue.trim()) {
+      // If there is an input of only whitespace, don't show ghost loader since
+      // no results will ever be returned for these inputs.
+      this.suppressGhostLoader = e.detail.inputValue;
+      this.showErrorState = false;
+    }
   }
 
   private setShowErrorPage(shouldShowErrorPage: boolean) {
+    this.$.errorPage.setIsProtectedError(false);
     this.isErrorPageVisible =
         shouldShowErrorPage && loadTimeData.getBoolean('enableErrorPage');
   }
@@ -423,23 +445,48 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
     this.pageContentType = newPageContentType;
   }
 
-  private async showToast(message: string) {
-    if (this.$.toast.open) {
-      // If toast already open, wait after hiding so that animation is
-      // smoother.
-      await this.$.toast.hide();
-      setTimeout(() => {
-        this.toastMessage = message;
-        this.$.toast.show();
-      }, 100);
-    } else {
-      this.toastMessage = message;
-      this.$.toast.show();
+  // Show the toast that asks the user to share their feedback.
+  private async showFeedbackToast() {
+    // Feature disabled, return early.
+    if (!loadTimeData.getBoolean('newFeedbackEnabled')) {
+      return;
     }
+
+    await this.$.messageToast.hide();
+    await this.showToast(this.$.feedbackToast);
   }
 
-  private onHideToastClick() {
-    this.$.toast.hide();
+  private async showMessageToast(message: string) {
+    await this.$.feedbackToast.hide();
+    await this.showToast(this.$.messageToast, message);
+  }
+
+  private async showToast(toast: CrToastElement, message?: string) {
+    if (toast.open) {
+      // If toast already open, wait after hiding so that animation is
+      // smoother.
+      await toast.hide();
+      setTimeout(() => {
+        this.toastMessage = message ?? this.toastMessage;
+        toast.show();
+      }, 100);
+      return;
+    }
+
+    this.toastMessage = message ?? this.toastMessage;
+    toast.show();
+  }
+
+  private onSendFeedbackClick() {
+    // TODO(crbug.com/408057740): Clicking button should open form.
+  }
+
+  private onHideFeedbackToastClick() {
+    this.$.feedbackToast.hide();
+  }
+
+  private onHideMessageToastClick() {
+    this.$.messageToast.hide();
   }
 
   makeGhostLoaderVisibleForTesting() {

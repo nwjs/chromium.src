@@ -17,6 +17,8 @@
 #import "components/signin/public/base/signin_switches.h"
 #import "components/signin/public/identity_manager/objc/identity_manager_observer_bridge.h"
 #import "components/strings/grit/components_strings.h"
+#import "ios/chrome/browser/browser_view/model/browser_view_visibility_notifier_browser_agent.h"
+#import "ios/chrome/browser/browser_view/model/browser_view_visibility_observer_bridge.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/content_suggestions_mediator.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/user_account_image_update_delegate.h"
 #import "ios/chrome/browser/discover_feed/model/discover_feed_service.h"
@@ -43,7 +45,6 @@
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service.h"
-#import "ios/chrome/browser/signin/model/chrome_account_manager_service_observer_bridge.h"
 #import "ios/chrome/browser/sync/model/sync_observer_bridge.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_params.h"
@@ -57,22 +58,7 @@
 #import "ui/base/l10n/l10n_util.h"
 #import "url/gurl.h"
 
-namespace {
-// URL for 'Manage Activity' item in the Discover feed menu.
-const char kFeedManageActivityURL[] =
-    "https://myactivity.google.com/myactivity?product=50";
-// URL for 'Manage Interests' item in the Discover feed menu.
-const char kFeedManageInterestsURL[] =
-    "https://google.com/preferences/interests/yourinterests";
-// URL for 'Manage Hidden' item in the Discover feed menu.
-const char kFeedManageHiddenURL[] =
-    "https://google.com/preferences/interests/hidden";
-// URL for 'Learn More' item in the Discover feed menu;
-const char kFeedLearnMoreURL[] = "https://support.google.com/chrome/"
-                                 "?p=new_tab&co=GENIE.Platform%3DiOS&oco=1";
-}  // namespace
-
-@interface NewTabPageMediator () <ChromeAccountManagerServiceObserver,
+@interface NewTabPageMediator () <BrowserViewVisibilityObserving,
                                   IdentityManagerObserverBridgeDelegate,
                                   PrefObserverDelegate,
                                   SearchEngineObserving,
@@ -85,21 +71,22 @@ const char kFeedLearnMoreURL[] = "https://support.google.com/chrome/"
 @property(nonatomic, assign) AuthenticationService* authService;
 // This is the object that knows how to update the Identity Disc UI.
 @property(nonatomic, weak) id<UserAccountImageUpdateDelegate> imageUpdater;
-// Yes if the browser is currently in incognito mode.
-@property(nonatomic, assign) BOOL isIncognito;
 // DiscoverFeed Service to display the Feed.
 @property(nonatomic, assign) DiscoverFeedService* discoverFeedService;
 
 @end
 
 @implementation NewTabPageMediator {
-  std::unique_ptr<ChromeAccountManagerServiceObserverBridge>
-      _accountManagerServiceObserver;
   // Listen for default search engine changes.
   std::unique_ptr<SearchEngineObserverBridge> _searchEngineObserver;
   // Observes changes in identity and updates the Identity Disc.
   std::unique_ptr<signin::IdentityManagerObserverBridge>
       _identityObserverBridge;
+  // Observes changes of the browser view visibility state.
+  raw_ptr<BrowserViewVisibilityNotifierBrowserAgent>
+      _browserViewVisibilityNotifierBrowserAgent;
+  std::unique_ptr<BrowserViewVisibilityObserverBridge>
+      _browserViewVisibilityObserverBridge;
   // Used to load URLs.
   raw_ptr<UrlLoadingBrowserAgent> _URLLoader;
   raw_ptr<PrefService> _prefService;
@@ -125,21 +112,23 @@ const char kFeedLearnMoreURL[] = "https://support.google.com/chrome/"
 @synthesize scrollPositionToSave = _scrollPositionToSave;
 
 - (instancetype)
-     initWithTemplateURLService:(TemplateURLService*)templateURLService
-                      URLLoader:(UrlLoadingBrowserAgent*)URLLoader
-                    authService:(AuthenticationService*)authService
-                identityManager:(signin::IdentityManager*)identityManager
-          accountManagerService:
-              (ChromeAccountManagerService*)accountManagerService
-       identityDiscImageUpdater:(id<UserAccountImageUpdateDelegate>)imageUpdater
-                    isIncognito:(BOOL)isIncognito
-            discoverFeedService:(DiscoverFeedService*)discoverFeedService
-                    prefService:(PrefService*)prefService
-                    syncService:(syncer::SyncService*)syncService
-    regionalCapabilitiesService:
-        (regional_capabilities::RegionalCapabilitiesService*)
-            regionalCapabilitiesService
-                     isSafeMode:(BOOL)isSafeMode {
+       initWithTemplateURLService:(TemplateURLService*)templateURLService
+                        URLLoader:(UrlLoadingBrowserAgent*)URLLoader
+                      authService:(AuthenticationService*)authService
+                  identityManager:(signin::IdentityManager*)identityManager
+            accountManagerService:
+                (ChromeAccountManagerService*)accountManagerService
+         identityDiscImageUpdater:
+             (id<UserAccountImageUpdateDelegate>)imageUpdater
+              discoverFeedService:(DiscoverFeedService*)discoverFeedService
+                      prefService:(PrefService*)prefService
+                      syncService:(syncer::SyncService*)syncService
+      regionalCapabilitiesService:
+          (regional_capabilities::RegionalCapabilitiesService*)
+              regionalCapabilitiesService
+    browserViewVisibilityNotifier:(BrowserViewVisibilityNotifierBrowserAgent*)
+                                      browserViewVisibilityNotifierBrowserAgent
+                       isSafeMode:(BOOL)isSafeMode {
   self = [super init];
   if (self) {
     CHECK(identityManager);
@@ -149,20 +138,20 @@ const char kFeedLearnMoreURL[] = "https://support.google.com/chrome/"
     _URLLoader = URLLoader;
     _authService = authService;
     _accountManagerService = accountManagerService;
-    _accountManagerServiceObserver =
-        std::make_unique<ChromeAccountManagerServiceObserverBridge>(
-            self, _accountManagerService);
     _identityManager = identityManager;
     _identityObserverBridge =
         std::make_unique<signin::IdentityManagerObserverBridge>(identityManager,
                                                                 self);
+    _browserViewVisibilityNotifierBrowserAgent =
+        browserViewVisibilityNotifierBrowserAgent;
+    _browserViewVisibilityObserverBridge =
+        std::make_unique<BrowserViewVisibilityObserverBridge>(self);
     // Listen for default search engine changes.
     _searchEngineObserver = std::make_unique<SearchEngineObserverBridge>(
         self, self.templateURLService);
     _syncService = syncService;
     _syncObserver = std::make_unique<SyncObserverBridge>(self, syncService);
     _imageUpdater = imageUpdater;
-    _isIncognito = isIncognito;
     _discoverFeedService = discoverFeedService;
     _prefService = prefService;
     _regionalCapabilitiesService = regionalCapabilitiesService;
@@ -184,12 +173,16 @@ const char kFeedLearnMoreURL[] = "https://support.google.com/chrome/"
   [self updateAccountImage];
   [self updateAccountErrorBadge];
   [self startObservingPrefs];
+  _browserViewVisibilityNotifierBrowserAgent->AddObserver(
+      _browserViewVisibilityObserverBridge.get());
 }
 
 - (void)shutdown {
+  _browserViewVisibilityNotifierBrowserAgent->RemoveObserver(
+      _browserViewVisibilityObserverBridge.get());
   _searchEngineObserver.reset();
   _identityObserverBridge.reset();
-  _accountManagerServiceObserver.reset();
+  _browserViewVisibilityObserverBridge.reset();
   self.accountManagerService = nil;
   self.discoverFeedService = nullptr;
   _prefChangeRegistrar.reset();
@@ -200,11 +193,6 @@ const char kFeedLearnMoreURL[] = "https://support.google.com/chrome/"
   _regionalCapabilitiesService = nullptr;
   _identityManager = nullptr;
   self.feedControlDelegate = nil;
-}
-
-- (void)handleFeedLearnMoreTapped {
-  [self.feedMetricsRecorder recordHeaderMenuLearnMoreTapped];
-  [self openMenuItemWebPage:GURL(kFeedLearnMoreURL)];
 }
 
 - (void)saveNTPStateForWebState:(web::WebState*)webState {
@@ -234,39 +222,16 @@ const char kFeedLearnMoreURL[] = "https://support.google.com/chrome/"
   }
 }
 
-#pragma mark - FeedManagementNavigationDelegate
+#pragma mark - BrowserViewVisibilityObserving
 
-- (void)handleNavigateToActivity {
-  [self.feedMetricsRecorder recordHeaderMenuManageActivityTapped];
-  [self openMenuItemWebPage:GURL(kFeedManageActivityURL)];
-}
-
-- (void)handleNavigateToFollowing {
-  [self.feedMetricsRecorder recordHeaderMenuManageFollowingTapped];
-  [self openMenuItemWebPage:GURL(kFeedManageInterestsURL)];
-}
-
-- (void)handleNavigateToHidden {
-  [self.feedMetricsRecorder recordHeaderMenuManageHiddenTapped];
-  [self openMenuItemWebPage:GURL(kFeedManageHiddenURL)];
-}
-
-- (void)handleNavigateToFollowedURL:(const GURL&)url {
-  // TODO(crbug.com/40227407): Add metrics.
-  [self openMenuItemWebPage:url];
-}
-
-#pragma mark - ChromeAccountManagerServiceObserver
-
-- (void)identityUpdated:(id<SystemIdentity>)identity {
-  if (IsUseAccountListFromIdentityManagerEnabled()) {
-    // Listening to `onExtendedAccountInfoUpdated` instead.
-    return;
+- (void)browserViewDidChangeToVisibilityState:
+            (BrowserViewVisibilityState)currentState
+                                    fromState:(BrowserViewVisibilityState)
+                                                  previousState {
+  if (self.discoverFeedService && self.NTPVisible && self.feedHeaderVisible) {
+    self.discoverFeedService->UpdateFeedViewVisibilityState(
+        self.contentCollectionView, currentState, previousState);
   }
-  if (![identity isEqual:_signedInIdentity]) {
-    return;
-  }
-  [self handleIdentityUpdated];
 }
 
 #pragma mark - SearchEngineObserving
@@ -294,14 +259,11 @@ const char kFeedLearnMoreURL[] = "https://support.google.com/chrome/"
 }
 
 - (void)onExtendedAccountInfoUpdated:(const AccountInfo&)info {
-  if (!IsUseAccountListFromIdentityManagerEnabled()) {
-    // Listening to `identityUpdated` instead.
-    return;
-  }
   if (info.gaia != GaiaId(_signedInIdentity.gaiaID)) {
     return;
   }
-  [self handleIdentityUpdated];
+  [self updateAccountImage];
+  [self updateAccountErrorBadge];
 }
 
 #pragma mark - PrefObserverDelegate
@@ -414,11 +376,6 @@ const char kFeedLearnMoreURL[] = "https://support.google.com/chrome/"
       updateADPBadgeWithErrorFound:primaryIdentityHasError
                               name:_signedInIdentity.userFullName
                              email:_signedInIdentity.userEmail];
-}
-
-- (void)handleIdentityUpdated {
-  [self updateAccountImage];
-  [self updateAccountErrorBadge];
 }
 
 @end

@@ -15,10 +15,11 @@
 #import "ios/chrome/app/profile/profile_state.h"
 #import "ios/chrome/browser/authentication/ui_bundled/authentication_flow/authentication_flow_performer.h"
 #import "ios/chrome/browser/authentication/ui_bundled/authentication_flow/authentication_flow_performer_delegate.h"
-#import "ios/chrome/browser/authentication/ui_bundled/history_sync/history_sync_capabilities_fetcher.h"
+#import "ios/chrome/browser/authentication/ui_bundled/continuation.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
+#import "ios/chrome/browser/shared/model/browser/browser_observer_bridge.h"
 #import "ios/chrome/browser/shared/model/profile/profile_attributes_storage_ios.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/model/profile/profile_manager_ios.h"
@@ -48,7 +49,8 @@ enum class AuthenticationFlowInProfileState {
 
 }  // namespace
 
-@interface AuthenticationFlowInProfile () <AuthenticationFlowPerformerDelegate>
+@interface AuthenticationFlowInProfile () <AuthenticationFlowPerformerDelegate,
+                                           BrowserObserving>
 @end
 
 @implementation AuthenticationFlowInProfile {
@@ -65,6 +67,7 @@ enum class AuthenticationFlowInProfileState {
   BOOL _isManagedIdentity;
   AuthenticationFlowPerformer* _performer;
   raw_ptr<Browser> _browser;
+  std::unique_ptr<BrowserObserverBridge> _browserObserver;
   signin_metrics::AccessPoint _accessPoint;
   BOOL _precedingHistorySync;
   PostSignInActionSet _postSignInActions;
@@ -76,8 +79,6 @@ enum class AuthenticationFlowInProfileState {
   // to compare with a similiar list from device mangement to understand whether
   // user and device are managed by the same domain.
   NSArray<NSString*>* _userAffiliationIDs;
-  // Capabilities fetcher for the subsequent History Sync Opt-In screen.
-  HistorySyncCapabilitiesFetcher* _capabilitiesFetcher;
 
   // The lifetime of this ScopedClosureRunner denotes a batch of primary account
   // changes. UI listens to batched changes to avoid visual artifacts during an
@@ -96,6 +97,7 @@ enum class AuthenticationFlowInProfileState {
     CHECK(browser);
     CHECK(identity);
     _browser = browser;
+    _browserObserver = std::make_unique<BrowserObserverBridge>(_browser, self);
     _identityToSignIn = identity;
     _isManagedIdentity = isManagedIdentity;
     _accessPoint = accessPoint;
@@ -110,6 +112,7 @@ enum class AuthenticationFlowInProfileState {
     (signin_ui::SigninCompletionCallback)completion {
   CHECK_EQ(_state, AuthenticationFlowInProfileState::kBegin,
            base::NotFatalUntil::M138);
+  CHECK(!_signInCompletion) << "startSignInWithCompletion was called twice.";
   CHECK(completion);
   _selfRetainer = self;
   _signInCompletion = completion;
@@ -355,19 +358,7 @@ enum class AuthenticationFlowInProfileState {
     [self continueFlow];
     return;
   }
-  ProfileIOS* profile = [self originalProfile];
-  // Create the capability fetcher and start fetching capabilities.
-  __weak __typeof(self) weakSelf = self;
-  _capabilitiesFetcher = [[HistorySyncCapabilitiesFetcher alloc]
-      initWithIdentityManager:IdentityManagerFactory::GetForProfile(profile)];
-
-  [_capabilitiesFetcher
-      startFetchingRestrictionCapabilityWithCallback:base::BindOnce(^(
-                                                         signin::Tribool
-                                                             capability) {
-        // The capability value is ignored.
-        [weakSelf continueFlow];
-      })];
+  [_performer fetchAccountCapabilities:[self originalProfile]];
 }
 
 - (void)successCompleteFlowStep {
@@ -377,16 +368,25 @@ enum class AuthenticationFlowInProfileState {
       _isManagedIdentity ? signin_metrics::SigninAccountType::kManaged
                          : signin_metrics::SigninAccountType::kRegular;
   signin_metrics::LogSigninWithAccountType(accountType);
+  CHECK(_signInCompletion);
   signin_ui::SigninCompletionCallback signInCompletion = _signInCompletion;
   _signInCompletion = nil;
   signInCompletion(SigninCoordinatorResult::SigninCoordinatorResultSuccess);
   [_performer completePostSignInActions:_postSignInActions
                            withIdentity:_identityToSignIn
-                                browser:_browser];
+                                browser:_browser
+                            accessPoint:_accessPoint];
   [self continueFlow];
 }
 
 - (void)switchBackToPersonalProfileIfNeededStep {
+  if (!_browser) {
+    // Browser was destroyed in the meantime. This can happen if a switch is
+    // already in progress, or if the window/scene got closed. Either way, no
+    // switching necessary here.
+    [self continueFlow];
+    return;
+  }
   // Note: It's theoretically possible that the originating profile was not the
   // personal one, but rather another managed profile. In that case, switching
   // back to that managed profile would be "more correct". However, that would
@@ -405,15 +405,17 @@ enum class AuthenticationFlowInProfileState {
   }
   SceneState* sceneState = _browser->GetSceneState();
   [_performer switchToProfileWithName:personalProfileName
-                           sceneState:sceneState];
+                           sceneState:sceneState
+            changeProfileContinuation:DoNothingContinuation()];
 }
 
 - (void)failureCompleteFlowStep {
-  // None of the steps after signin can fail. If any failable steps after the
-  // signin step get added in the future, then a call to
+  // None of the steps after signin can fail (except for the case of the browser
+  // going away, which is more "abort" than "fail)"). If any failable steps
+  // after the signin step get added in the future, then a call to
   // `[_performer signOutImmediatelyFromProfile:...]` should be added here.
-  CHECK(!_didSignIn);
-
+  CHECK(!_browser || !_didSignIn, base::NotFatalUntil::M140);
+  CHECK(_signInCompletion);
   signin_ui::SigninCompletionCallback signInCompletion = _signInCompletion;
   _signInCompletion = nil;
   // If the sign-in failed, the result is `SigninCoordinatorResultInterrupted`.
@@ -440,18 +442,14 @@ enum class AuthenticationFlowInProfileState {
   [self continueFlow];
 }
 
-- (void)didClearData {
-  // TODO(crbug.com/403183877): Split `AuthenticationFlowPerformer` into 2
-  // classes to avoid having all those NOTREACHED methods.
-  NOTREACHED();
-}
-
 - (void)didFetchUnsyncedDataWithUnsyncedDataTypes:
     (syncer::DataTypeSet)unsyncedDataTypes {
   // Unsynced data is checked by AuthenticationFlow before calling
   // `AuthenticationFlowInProfile`.
   // So unsynced data is checked when leaving a profile (for profile switching),
   // or before sign-out (for account switching).
+  // TODO(crbug.com/403183877): Split `AuthenticationFlowPerformer` into 2
+  // classes to avoid having all those NOTREACHED methods.
   NOTREACHED();
 }
 
@@ -479,16 +477,17 @@ enum class AuthenticationFlowInProfileState {
 }
 
 - (void)didFailToSwitchToProfile {
-  // This class only ever switches (back) to the personal profile, which should
-  // never fail.
   NOTREACHED();
 }
 
-- (void)didSwitchToProfileWithNewProfileBrowser:(Browser*)newProfileBrowser {
+- (void)didSwitchToProfileWithNewProfileBrowser:(Browser*)newProfileBrowser
+                                     completion:(base::OnceClosure)completion {
   CHECK(newProfileBrowser);
+  CHECK(completion);
 
   // After the profile switch, `_browser` is not valid anymore.
   _browser = nullptr;
+  std::move(completion).Run();
 }
 
 - (void)didRegisterForUserPolicyWithDMToken:(NSString*)dmToken
@@ -519,6 +518,18 @@ enum class AuthenticationFlowInProfileState {
     (policy::ProfileSeparationDataMigrationSettings)
         profileSeparationDataMigrationSettings {
   NOTREACHED();
+}
+
+- (void)didFetchAccountCapabilities {
+  [self continueFlow];
+}
+
+#pragma mark - BrowserObserving
+
+- (void)browserDestroyed:(Browser*)browser {
+  CHECK_EQ(browser, _browser);
+  _browser = nullptr;
+  _error = ios::provider::CreateUserCancelledSigninError();
 }
 
 @end

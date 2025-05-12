@@ -28,6 +28,7 @@ found in the LICENSE file.
 
     <!-- Sync UI constants -->
     <item type="id" name="passphrase_type_list" />
+    <item type="id" name="history_and_tabs_toggle"/>
 
     <!-- Keyboard shortcuts -->
     <item type="id" name="print_id" />
@@ -51,6 +52,10 @@ found in the LICENSE file.
     <item type="id" name="contextmenu_save_page" />
     <item type="id" name="contextmenu_share_page" />
     <item type="id" name="contextmenu_print_page" />
+    <item type="id" name="contextmenu_back" />
+    <item type="id" name="contextmenu_forward" />
+    <item type="id" name="contextmenu_reload" />
+    <item type="id" name="contextmenu_inspect_element" />
 
     <!-- Custom Tab Group -->
     <item type="id" name="contextmenu_open_in_new_chrome_tab" />

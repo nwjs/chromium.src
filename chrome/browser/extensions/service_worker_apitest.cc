@@ -33,7 +33,6 @@
 #include "chrome/browser/extensions/error_console/error_console_test_observer.h"
 #include "chrome/browser/extensions/extension_action_runner.h"
 #include "chrome/browser/extensions/extension_apitest.h"
-#include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/unpacked_installer.h"
 #include "chrome/browser/gcm/gcm_profile_service_factory.h"
 #include "chrome/browser/notifications/notification_display_service_factory.h"
@@ -72,6 +71,7 @@
 #include "extensions/browser/event_router.h"
 #include "extensions/browser/extension_function_histogram_value.h"
 #include "extensions/browser/extension_host.h"
+#include "extensions/browser/extension_registrar.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/process_map.h"
 #include "extensions/browser/service_worker/service_worker_task_queue.h"
@@ -1314,8 +1314,8 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerTest,
             NavigateAndExtractInnerText(get_resource_url("index.html")));
 
   // Disable the extension. Opening the page should fail.
-  extension_service()->DisableExtension(extension_id,
-                                        disable_reason::DISABLE_USER_ACTION);
+  extension_registrar()->DisableExtension(
+      extension_id, {disable_reason::DISABLE_USER_ACTION});
   base::RunLoop().RunUntilIdle();
 
   EXPECT_EQ(content::PAGE_TYPE_ERROR,
@@ -1325,7 +1325,7 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerTest,
 
   // Re-enable the extension. Opening pages should immediately start to succeed
   // again.
-  extension_service()->EnableExtension(extension_id);
+  extension_registrar()->EnableExtension(extension_id);
   base::RunLoop().RunUntilIdle();
 
   EXPECT_EQ("Caught a fetch for /index.html",
@@ -1337,7 +1337,7 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerTest,
 
   // Uninstall the extension. Opening pages should fail again.
   std::u16string error;
-  extension_service()->UninstallExtension(
+  extension_registrar()->UninstallExtension(
       extension_id, UninstallReason::UNINSTALL_REASON_FOR_TESTING, &error);
   base::RunLoop().RunUntilIdle();
 
@@ -1477,10 +1477,10 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerBasedBackgroundTest,
 
   std::string id;
 
-  ExtensionService* const extension_service =
-      ExtensionSystem::Get(profile())->extension_service();
+  ExtensionRegistrar* const extension_registrar =
+      ExtensionRegistrar::Get(profile());
   scoped_refptr<UnpackedInstaller> installer =
-      UnpackedInstaller::Create(extension_service);
+      UnpackedInstaller::Create(profile());
 
   // Set a completion callback so we can get the ID of the extension.
   installer->set_completion_callback(base::BindLambdaForTesting(
@@ -1515,7 +1515,7 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerBasedBackgroundTest,
     ExtensionTestMessageListener ready_listener("ready2");
     ExtensionTestMessageListener on_installed_listener("onInstalled");
 
-    extension_service->ReloadExtension(id);
+    extension_registrar->ReloadExtension(id);
     EXPECT_TRUE(ready_listener.WaitUntilSatisfied());
     EXPECT_TRUE(on_installed_listener.WaitUntilSatisfied());
   }
@@ -1529,7 +1529,7 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerBasedBackgroundTest,
     ExtensionTestMessageListener ready_listener("ready3");
     ExtensionTestMessageListener on_installed_listener("onInstalled");
 
-    extension_service->ReloadExtension(id);
+    extension_registrar->ReloadExtension(id);
     EXPECT_TRUE(ready_listener.WaitUntilSatisfied());
     EXPECT_TRUE(on_installed_listener.WaitUntilSatisfied());
   }
@@ -2581,10 +2581,10 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerBasedBackgroundTest,
   ASSERT_TRUE(extension2);
   EXPECT_NE(extension1->id(), extension2->id());
 
-  extension_service()->DisableExtension(extension1->id(),
-                                        disable_reason::DISABLE_USER_ACTION);
-  extension_service()->DisableExtension(extension2->id(),
-                                        disable_reason::DISABLE_USER_ACTION);
+  extension_registrar()->DisableExtension(
+      extension1->id(), {disable_reason::DISABLE_USER_ACTION});
+  extension_registrar()->DisableExtension(
+      extension2->id(), {disable_reason::DISABLE_USER_ACTION});
 }
 
 constexpr char kReady[] = "ready";

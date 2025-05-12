@@ -57,8 +57,6 @@
 #import "ios/chrome/browser/content_suggestions/ui_bundled/magic_stack/magic_stack_module_container_delegate.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/magic_stack/magic_stack_ranking_model.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/magic_stack/magic_stack_utils.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/magic_stack_half_sheet_mediator.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/magic_stack_half_sheet_table_view_controller.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/ntp_home_constant.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/price_tracking_promo/price_tracking_promo_action_delegate.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/price_tracking_promo/price_tracking_promo_mediator.h"
@@ -200,7 +198,6 @@ using segmentation_platform::TipIdentifier;
     ContentSuggestionsCommands,
     ContentSuggestionsViewControllerAudience,
     MagicStackCollectionViewControllerAudience,
-    MagicStackHalfSheetTableViewControllerDelegate,
     MagicStackModuleContainerDelegate,
     TipsPasswordsCoordinatorDelegate,
     NotificationsOptInAlertCoordinatorDelegate,
@@ -243,11 +240,6 @@ using segmentation_platform::TipIdentifier;
 
   // The coordinator for displaying tips related to Passwords.
   TipsPasswordsCoordinator* _tipsPasswordsCoordinator;
-
-  // The edit half sheet for toggling all Magic Stack modules.
-  MagicStackHalfSheetTableViewController*
-      _magicStackHalfSheetTableViewController;
-  MagicStackHalfSheetMediator* _magicStackHalfSheetMediator;
 
   // Displays alert giving the user the option to turn notifications
   // on for the app. This is for the third opt in flow where notifications
@@ -521,7 +513,8 @@ using segmentation_platform::TipIdentifier;
                             sceneState:self.browser->GetSceneState()
                  isDefaultSearchEngine:isDefaultSearchEngine
                    segmentationService:_segmentationService
-        deviceSwitcherResultDispatcher:_deviceSwitcherResultDispatcher];
+        deviceSwitcherResultDispatcher:_deviceSwitcherResultDispatcher
+                  priceTrackingEnabled:IsPriceTrackingEnabled(self.profile)];
     if (IsSegmentedDefaultBrowserPromoEnabled()) {
       [_setUpListMediator retrieveUserSegment];
     }
@@ -591,12 +584,6 @@ using segmentation_platform::TipIdentifier;
   self.contentSuggestionsViewController = nil;
   [_defaultBrowserPromoCoordinator stop];
   _defaultBrowserPromoCoordinator = nil;
-  [_magicStackHalfSheetMediator disconnect];
-  _magicStackHalfSheetMediator = nil;
-  [_magicStackHalfSheetTableViewController.presentingViewController
-      dismissViewControllerAnimated:NO
-                         completion:nil];
-  _magicStackHalfSheetTableViewController = nil;
   [_notificationsOptInAlertCoordinator stop];
   _notificationsOptInAlertCoordinator = nil;
   [self.browser->GetCommandDispatcher()
@@ -774,38 +761,7 @@ using segmentation_platform::TipIdentifier;
 
 - (void)didTapMagicStackEditButton {
   base::RecordAction(base::UserMetricsAction("IOSMagicStackSettingsOpened"));
-  if (IsHomeCustomizationEnabled()) {
-    [self.delegate openMagicStackCustomizationMenu];
-  } else {
-    _magicStackHalfSheetTableViewController =
-        [[MagicStackHalfSheetTableViewController alloc] init];
-
-    _magicStackHalfSheetMediator = [[MagicStackHalfSheetMediator alloc]
-        initWithLocalState:GetApplicationContext()->GetLocalState()
-        profilePrefService:self.profile->GetPrefs()];
-    _magicStackHalfSheetMediator.consumer =
-        _magicStackHalfSheetTableViewController;
-    _magicStackHalfSheetTableViewController.delegate = self;
-    _magicStackHalfSheetTableViewController.modelDelegate =
-        _magicStackHalfSheetMediator;
-
-    UINavigationController* navViewController = [[UINavigationController alloc]
-        initWithRootViewController:_magicStackHalfSheetTableViewController];
-
-    navViewController.modalPresentationStyle = UIModalPresentationPageSheet;
-    UISheetPresentationController* presentationController =
-        navViewController.sheetPresentationController;
-    presentationController.prefersEdgeAttachedInCompactHeight = YES;
-    presentationController.widthFollowsPreferredContentSizeWhenEdgeAttached =
-        YES;
-    presentationController.detents = @[
-      [UISheetPresentationControllerDetent mediumDetent],
-      [UISheetPresentationControllerDetent largeDetent]
-    ];
-    [_magicStackCollectionView presentViewController:navViewController
-                                            animated:YES
-                                          completion:nil];
-  }
+  [self.delegate openMagicStackCustomizationMenu];
 }
 
 - (void)logEphemeralCardVisibility:(ContentSuggestionsModuleType)card {
@@ -1088,17 +1044,6 @@ using segmentation_platform::TipIdentifier;
 
 - (void)customizeCardsWasTapped {
   [self didTapMagicStackEditButton];
-}
-
-#pragma mark - MagicStackHalfSheetTableViewControllerDelegate
-
-- (void)dismissMagicStackHalfSheet {
-  [_magicStackHalfSheetMediator disconnect];
-  _magicStackHalfSheetMediator = nil;
-  [_magicStackHalfSheetTableViewController.presentingViewController
-      dismissViewControllerAnimated:YES
-                         completion:nil];
-  _magicStackHalfSheetTableViewController = nil;
 }
 
 #pragma mark - TipsPasswordsCoordinatorDelegate
@@ -1491,14 +1436,9 @@ using segmentation_platform::TipIdentifier;
 #pragma mark - Helpers
 
 - (bool)hasIdentitiesOnDevice {
-  if (IsUseAccountListFromIdentityManagerEnabled()) {
-    return !IdentityManagerFactory::GetForProfile(self.profile)
-                ->GetAccountsOnDevice()
-                .empty();
-  } else {
-    return ChromeAccountManagerServiceFactory::GetForProfile(self.profile)
-        ->HasIdentities();
-  }
+  return !IdentityManagerFactory::GetForProfile(self.profile)
+              ->GetAccountsOnDevice()
+              .empty();
 }
 
 - (void)showMagicStackRecentTabs {

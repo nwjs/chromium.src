@@ -42,6 +42,7 @@
 #include "content/services/auction_worklet/public/cpp/auction_network_events_delegate.h"
 #include "content/services/auction_worklet/public/cpp/auction_worklet_features.h"
 #include "content/services/auction_worklet/public/mojom/auction_worklet_service.mojom.h"
+#include "content/services/auction_worklet/public/mojom/in_progress_auction_download.mojom.h"
 #include "content/services/auction_worklet/public/mojom/seller_worklet.mojom.h"
 #include "content/services/auction_worklet/public/mojom/trusted_signals_cache.mojom.h"
 #include "content/services/auction_worklet/real_time_reporting_bindings.h"
@@ -455,7 +456,7 @@ SellerWorklet::SellerWorklet(
     mojo::PendingRemote<auction_worklet::mojom::AuctionNetworkEventsHandler>
         auction_network_events_handler,
     TrustedSignalsKVv2Manager* trusted_signals_kvv2_manager,
-    const GURL& decision_logic_url,
+    mojom::InProgressAuctionDownloadPtr decision_logic_load,
     const std::optional<GURL>& trusted_scoring_signals_url,
     const url::Origin& top_window_origin,
     mojom::AuctionWorkletPermissionsPolicyStatePtr permissions_policy_state,
@@ -467,7 +468,8 @@ SellerWorklet::SellerWorklet(
         load_seller_worklet_client)
     : url_loader_factory_(std::move(pending_url_loader_factory)),
       trusted_signals_kvv2_manager_(trusted_signals_kvv2_manager),
-      script_source_url_(decision_logic_url),
+      script_source_url_(decision_logic_load->url),
+      script_source_load_(std::move(decision_logic_load)),
       send_creative_scanning_metadata_(send_creative_scanning_metadata),
       trusted_scoring_signals_origin_(
           trusted_scoring_signals_url ? std::make_optional(url::Origin::Create(
@@ -491,7 +493,7 @@ SellerWorklet::SellerWorklet(
     v8_state_.push_back(std::unique_ptr<V8State, base::OnTaskRunnerDeleter>(
         new V8State(
             v8_helpers_[i], debug_ids_[i], std::move(shared_storage_hosts[i]),
-            decision_logic_url, trusted_scoring_signals_url,
+            script_source_url_, trusted_scoring_signals_url,
             trusted_scoring_signals_origin_, top_window_origin,
             permissions_policy_state->Clone(), experiment_group_id,
             send_creative_scanning_metadata, weak_ptr_factory_.GetWeakPtr()),
@@ -1299,7 +1301,9 @@ void SellerWorklet::V8State::ScoreAd(
         context_recycler->for_debugging_only_bindings()->TakeLossReportUrl(),
         /*debug_win_report_url=*/std::nullopt,
         context_recycler->private_aggregation_bindings()
-            ->TakePrivateAggregationRequests(),
+            ->TakePrivateAggregationRequests(
+                /*did_uncaught_error_occur=*/result ==
+                AuctionV8Helper::Result::kFailure),
         FilterRealtimeContributions(std::move(real_time_contributions),
                                     elapsed),
         /*scoring_latency=*/elapsed,
@@ -1368,7 +1372,8 @@ void SellerWorklet::V8State::ScoreAd(
           /*script_timed_out=*/convert_score_ad.FailureIsTimeout(),
           std::move(errors_out),
           context_recycler->private_aggregation_bindings()
-              ->TakePrivateAggregationRequests(),
+              ->TakePrivateAggregationRequests(
+                  /*did_uncaught_error_occur=*/true),
           FilterRealtimeContributions(std::move(real_time_contributions),
                                       elapsed));
       return;
@@ -1411,7 +1416,8 @@ void SellerWorklet::V8State::ScoreAd(
             /*scoring_latency=*/elapsed,
             /*script_timed_out=*/false, std::move(errors_out),
             context_recycler->private_aggregation_bindings()
-                ->TakePrivateAggregationRequests(),
+                ->TakePrivateAggregationRequests(
+                    /*did_uncaught_error_occur=*/true),
             FilterRealtimeContributions(std::move(real_time_contributions),
                                         elapsed));
         return;
@@ -1466,7 +1472,8 @@ void SellerWorklet::V8State::ScoreAd(
                   ->TakeLossReportUrl(),
               /*debug_win_report_url=*/std::nullopt,
               context_recycler->private_aggregation_bindings()
-                  ->TakePrivateAggregationRequests(),
+                  ->TakePrivateAggregationRequests(
+                      /*did_uncaught_error_occur=*/false),
               FilterRealtimeContributions(std::move(real_time_contributions),
                                           elapsed),
               /*scoring_latency=*/elapsed, /*script_timed_out=*/true,
@@ -1523,7 +1530,8 @@ void SellerWorklet::V8State::ScoreAd(
         /*scoring_latency=*/elapsed,
         /*script_timed_out=*/false, std::move(errors_out),
         context_recycler->private_aggregation_bindings()
-            ->TakePrivateAggregationRequests(),
+            ->TakePrivateAggregationRequests(
+                /*did_uncaught_error_occur=*/true),
         FilterRealtimeContributions(std::move(real_time_contributions),
                                     elapsed));
     return;
@@ -1540,7 +1548,8 @@ void SellerWorklet::V8State::ScoreAd(
         context_recycler->for_debugging_only_bindings()->TakeLossReportUrl(),
         context_recycler->for_debugging_only_bindings()->TakeWinReportUrl(),
         context_recycler->private_aggregation_bindings()
-            ->TakePrivateAggregationRequests(),
+            ->TakePrivateAggregationRequests(
+                /*did_uncaught_error_occur=*/false),
         FilterRealtimeContributions(std::move(real_time_contributions),
                                     elapsed),
         /*scoring_latency=*/elapsed, /*script_timed_out=*/false,
@@ -1564,7 +1573,8 @@ void SellerWorklet::V8State::ScoreAd(
         /*scoring_latency=*/elapsed, /*script_timed_out=*/false,
         std::move(errors_out),
         context_recycler->private_aggregation_bindings()
-            ->TakePrivateAggregationRequests(),
+            ->TakePrivateAggregationRequests(
+                /*did_uncaught_error_occur=*/true),
         FilterRealtimeContributions(std::move(real_time_contributions),
                                     elapsed));
     return;
@@ -1589,7 +1599,8 @@ void SellerWorklet::V8State::ScoreAd(
           /*scoring_latency=*/elapsed,
           /*script_timed_out=*/false, std::move(errors_out),
           context_recycler->private_aggregation_bindings()
-              ->TakePrivateAggregationRequests(),
+              ->TakePrivateAggregationRequests(
+                  /*did_uncaught_error_occur=*/true),
           FilterRealtimeContributions(std::move(real_time_contributions),
                                       elapsed));
       return;
@@ -1618,7 +1629,8 @@ void SellerWorklet::V8State::ScoreAd(
       context_recycler->for_debugging_only_bindings()->TakeLossReportUrl(),
       context_recycler->for_debugging_only_bindings()->TakeWinReportUrl(),
       context_recycler->private_aggregation_bindings()
-          ->TakePrivateAggregationRequests(),
+          ->TakePrivateAggregationRequests(
+              /*did_uncaught_error_occur=*/false),
       FilterRealtimeContributions(std::move(real_time_contributions), elapsed),
       /*scoring_latency=*/elapsed, /*script_timed_out=*/false,
       std::move(errors_out));
@@ -1883,7 +1895,9 @@ void SellerWorklet::V8State::ReportResult(
         std::move(callback), /*signals_for_winner=*/std::nullopt,
         /*report_url=*/std::nullopt, /*ad_beacon_map=*/{},
         context_recycler.private_aggregation_bindings()
-            ->TakePrivateAggregationRequests(),
+            ->TakePrivateAggregationRequests(
+                /*did_uncaught_error_occur=*/result ==
+                AuctionV8Helper::Result::kFailure),
         elapsed,
         /*script_timed_out=*/result == AuctionV8Helper::Result::kTimeout,
         std::move(errors_out));
@@ -1895,7 +1909,8 @@ void SellerWorklet::V8State::ReportResult(
       context_recycler.report_bindings()->report_url(),
       context_recycler.register_ad_beacon_bindings()->TakeAdBeaconMap(),
       context_recycler.private_aggregation_bindings()
-          ->TakePrivateAggregationRequests(),
+          ->TakePrivateAggregationRequests(
+              /*did_uncaught_error_occur=*/false),
       elapsed, /*script_timed_out=*/false, std::move(errors_out));
 }
 
@@ -2044,7 +2059,7 @@ void SellerWorklet::Start() {
       url_loader_factory_.get(), /*auction_network_events_handler=*/
       CreateNewAuctionNetworkEventsHandlerRemote(
           auction_network_events_handler_),
-      script_source_url_, v8_helpers_, debug_ids_,
+      std::move(script_source_load_), v8_helpers_, debug_ids_,
       std::move(on_got_cross_origin_signals_permissions),
       base::BindOnce(&SellerWorklet::OnDownloadComplete,
                      base::Unretained(this)));

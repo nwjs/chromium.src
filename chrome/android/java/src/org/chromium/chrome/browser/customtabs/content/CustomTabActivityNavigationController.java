@@ -12,9 +12,12 @@ import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.ResolveInfo;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.provider.Browser;
 import android.text.TextUtils;
+import android.window.OnBackInvokedCallback;
+import android.window.OnBackInvokedDispatcher;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
@@ -68,7 +71,8 @@ public class CustomTabActivityNavigationController
         FinishReason.USER_NAVIGATION,
         FinishReason.REPARENTING,
         FinishReason.OTHER,
-        FinishReason.OPEN_IN_BROWSER
+        FinishReason.OPEN_IN_BROWSER,
+        FinishReason.HANDLED_BY_OS
     })
     @Target(ElementType.TYPE_USE)
     @Retention(RetentionPolicy.SOURCE)
@@ -79,17 +83,17 @@ public class CustomTabActivityNavigationController
         int OTHER = 2;
         // The web page is opened in the default browser by starting a new activity.
         int OPEN_IN_BROWSER = 3;
+        int HANDLED_BY_OS = 4;
     }
 
     /** A handler of back presses. */
     public interface BackHandler {
         /**
-         * Called when back button is pressed, unless already handled by another handler.
-         * The implementation should do one of the following:
-         * 1) Synchronously accept and handle the event and return true;
-         * 2) Synchronously reject the event by returning false;
-         * 3) Accept the event by returning true, handle it asynchronously, and if the handling
-         * fails, trigger the default handling routine by running the defaultBackHandler.
+         * Called when back button is pressed, unless already handled by another handler. The
+         * implementation should do one of the following: 1) Synchronously accept and handle the
+         * event and return true; 2) Synchronously reject the event by returning false; 3) Accept
+         * the event by returning true, handle it asynchronously, and if the handling fails, trigger
+         * the default handling routine by running the defaultBackHandler.
          */
         boolean handleBackPressed(Runnable defaultBackHandler);
     }
@@ -109,6 +113,8 @@ public class CustomTabActivityNavigationController
             new ObservableSupplierImpl<>(false);
 
     @Nullable private FinishHandler mFinishHandler;
+
+    @Nullable private OnBackInvokedCallback mOnSystemBackInvokedCallback;
 
     private boolean mIsFinishing;
 
@@ -135,6 +141,14 @@ public class CustomTabActivityNavigationController
                 }
 
                 private boolean shouldInterceptBackPress() {
+                    // If this is the first tab created or when all other tabs are closed, we want
+                    // the OS to handle the back event then notify the registered observer that the
+                    // back event has happened.
+                    if (ChromeFeatureList.sCctPredictiveBackGesture.isEnabled()
+                            && mTabController.onlyOneTabRemaining()
+                            && !mIntentDataProvider.isPartialCustomTab()) {
+                        return false;
+                    }
                     return mTabProvider.getTab() != null
                             && ChromeBrowserInitializer.getInstance().isFullBrowserInitialized();
                 }
@@ -154,6 +168,16 @@ public class CustomTabActivityNavigationController
         mCustomTabObserver = customTabObserver;
         mCloseButtonNavigator = closeButtonNavigator;
         mActivity = activity;
+
+        if (ChromeFeatureList.sCctPredictiveBackGesture.isEnabled()
+                && Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
+            mOnSystemBackInvokedCallback = () -> handleNavigateOnBackByOS();
+            mActivity
+                    .getOnBackInvokedDispatcher()
+                    .registerOnBackInvokedCallback(
+                            OnBackInvokedDispatcher.PRIORITY_SYSTEM_NAVIGATION_OBSERVER,
+                            mOnSystemBackInvokedCallback);
+        }
 
         lifecycleDispatcher.register(this);
         mTabProvider.addObserver(mTabObserver);
@@ -222,7 +246,7 @@ public class CustomTabActivityNavigationController
     }
 
     /** Handles back button navigation. */
-    public boolean navigateOnBack() {
+    public boolean navigateOnBack(@FinishReason int reason) {
         if (!ChromeBrowserInitializer.getInstance().isFullBrowserInitialized()) return false;
 
         boolean separateTask =
@@ -230,11 +254,13 @@ public class CustomTabActivityNavigationController
                                 & (Intent.FLAG_ACTIVITY_NEW_TASK
                                         | Intent.FLAG_ACTIVITY_NEW_DOCUMENT))
                         != 0;
+
+        // TODO(crbug.com/40285983): Add a metric for events handled by the OS and record it.
         RecordUserAction.record("CustomTabs.SystemBack");
         if (mTabProvider.getTab() == null) return false;
 
         if (mTabController.onlyOneTabRemaining()) {
-            finishActivity(separateTask);
+            finishActivity(reason, separateTask);
             return true;
         }
 
@@ -242,24 +268,26 @@ public class CustomTabActivityNavigationController
         MinimizeAppAndCloseTabBackPressHandler.recordForCustomTab(
                 MinimizeAppAndCloseTabType.CLOSE_TAB, separateTask);
 
-        if (!mTabController.dispatchBeforeUnloadIfNeeded()) mTabController.closeTab();
+        if (!mTabController.dispatchBeforeUnloadIfNeeded()) {
+            mTabController.closeTab();
+        }
 
         return true;
     }
 
-    private void finishActivity(boolean separateTask) {
+    private void finishActivity(@FinishReason int reason, boolean separateTask) {
         // If we're closing the last tab and it doesn't have beforeunload, just finish the Activity
         // manually. If we had called mTabController.closeTab() and waited for the Activity to close
         // as a result we would have a visual glitch: https://crbug.com/1087108.
         MinimizeAppAndCloseTabBackPressHandler.record(MinimizeAppAndCloseTabType.MINIMIZE_APP);
         MinimizeAppAndCloseTabBackPressHandler.recordForCustomTab(
                 MinimizeAppAndCloseTabType.MINIMIZE_APP, separateTask);
-        finish(USER_NAVIGATION);
+        finish(reason);
     }
 
     @Override
     public int handleBackPress() {
-        return navigateOnBack() ? BackPressResult.SUCCESS : BackPressResult.FAILURE;
+        return navigateOnBack(USER_NAVIGATION) ? BackPressResult.SUCCESS : BackPressResult.FAILURE;
     }
 
     @Override
@@ -396,10 +424,9 @@ public class CustomTabActivityNavigationController
     }
 
     /**
-     * Sets a criterion to choose a page to land to when close button is pressed.
-     * Only one such criterion can be set.
-     * If no page in the navigation history meets the criterion, or there is no criterion, then
-     * pressing close button will finish the Custom Tab activity.
+     * Sets a criterion to choose a page to land to when close button is pressed. Only one such
+     * criterion can be set. If no page in the navigation history meets the criterion, or there is
+     * no criterion, then pressing close button will finish the Custom Tab activity.
      */
     public void setLandingPageOnCloseCriterion(Predicate<String> criterion) {
         mCloseButtonNavigator.setLandingPageCriteria(criterion);
@@ -413,6 +440,14 @@ public class CustomTabActivityNavigationController
     @Override
     public void onStopWithNative() {
         if (mIsFinishing) {
+            if (ChromeFeatureList.sCctPredictiveBackGesture.isEnabled()
+                    && Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA
+                    && mOnSystemBackInvokedCallback != null) {
+                mActivity
+                        .getOnBackInvokedDispatcher()
+                        .unregisterOnBackInvokedCallback(mOnSystemBackInvokedCallback);
+                mOnSystemBackInvokedCallback = null;
+            }
             mTabController.closeAndForgetTab();
         } else {
             mTabController.saveState();
@@ -442,5 +477,20 @@ public class CustomTabActivityNavigationController
         String assertMsg = "URL used to open browser is null. " + tabInfo + intentDataProviderInfo;
         Log.e(TAG, assertMsg);
         assert false : assertMsg;
+    }
+
+    private void handleNavigateOnBackByOS() {
+        if (ChromeFeatureList.sCctPredictiveBackGesture.isEnabled()
+                && Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
+            navigateOnBack(FinishReason.HANDLED_BY_OS);
+        }
+    }
+
+    public BrowserServicesIntentDataProvider getIntentDataProviderForTesting() {
+        return mIntentDataProvider;
+    }
+
+    public CustomTabActivityTabProvider.Observer getTabObserverForTesting() {
+        return mTabObserver;
     }
 }

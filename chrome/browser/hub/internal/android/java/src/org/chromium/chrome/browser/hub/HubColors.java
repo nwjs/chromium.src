@@ -12,19 +12,20 @@ import android.graphics.Color;
 import androidx.annotation.ColorInt;
 import androidx.annotation.ColorRes;
 import androidx.annotation.DimenRes;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.annotation.StyleRes;
 import androidx.core.content.ContextCompat;
 
 import com.google.android.material.color.MaterialColors;
 
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.theme.SurfaceColorUpdateUtils;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.ui.util.ColorUtils;
 import org.chromium.ui.util.ValueUtils;
 import org.chromium.ui.util.XrUtils;
 
 /** Util class to handle various color operations shared between hub classes. */
+@NullMarked
 public final class HubColors {
     private static final String TAG = "HubColors";
     private static final int[][] SELECTED_AND_NORMAL_STATES =
@@ -47,9 +48,25 @@ public final class HubColors {
 
         switch (colorScheme) {
             case HubColorScheme.DEFAULT:
-                return SemanticColorUtils.getDefaultBgColor(context);
+                return SurfaceColorUpdateUtils.getGridTabSwitcherBackgroundColor(
+                        context, /* isIncognito= */ false);
             case HubColorScheme.INCOGNITO:
-                return ContextCompat.getColor(context, R.color.default_bg_color_dark);
+                return SurfaceColorUpdateUtils.getGridTabSwitcherBackgroundColor(
+                        context, /* isIncognito= */ true);
+            default:
+                assert false;
+                return Color.TRANSPARENT;
+        }
+    }
+
+    /** Returns the color toolbar action button uses per the given color scheme. */
+    public static @ColorInt int getToolbarActionButtonIconColor(
+            Context context, @HubColorScheme int colorScheme) {
+        switch (colorScheme) {
+            case HubColorScheme.DEFAULT:
+                return SemanticColorUtils.getDefaultIconColorOnAccent1(context);
+            case HubColorScheme.INCOGNITO:
+                return ContextCompat.getColor(context, R.color.default_icon_color_on_accent1_dark);
             default:
                 assert false;
                 return Color.TRANSPARENT;
@@ -71,128 +88,40 @@ public final class HubColors {
 
     /** Returns the color selected icons should use per the given color scheme. */
     public static @ColorInt int getSelectedIconColor(
-            Context context, @HubColorScheme int colorScheme) {
+            Context context, @HubColorScheme int colorScheme, boolean isGtsUpdateEnabled) {
         switch (colorScheme) {
             case HubColorScheme.DEFAULT:
-                return SemanticColorUtils.getDefaultIconColorAccent1(context);
+                if (isGtsUpdateEnabled) {
+                    return SemanticColorUtils.getDefaultIconColor(context);
+                } else {
+                    return SemanticColorUtils.getDefaultIconColorAccent1(context);
+                }
             case HubColorScheme.INCOGNITO:
-                return ContextCompat.getColor(context, R.color.default_control_color_active_dark);
+                if (isGtsUpdateEnabled) {
+                    return ContextCompat.getColor(context, R.color.default_icon_color_light);
+                } else {
+                    return ContextCompat.getColor(
+                            context, R.color.default_control_color_active_dark);
+                }
+
             default:
                 assert false;
                 return Color.TRANSPARENT;
         }
     }
 
-    /** Returns the color for the icon in the floating action button. */
-    public static @ColorInt int getOnContainerColor(
-            boolean shouldUseAlternativeFabColor,
-            Context context,
-            @HubColorScheme int colorScheme) {
-        return shouldUseAlternativeFabColor
-                ? getOnPrimaryContainerColor(context, colorScheme)
-                : getOnSecondaryContainerColor(context, colorScheme);
-    }
-
-    /** Returns the color of containers like the floating action button. */
-    public static @ColorInt int getContainerColor(
-            boolean shouldUseAlternativeFabColor,
-            Context context,
-            @HubColorScheme int colorScheme) {
-        return shouldUseAlternativeFabColor
-                ? getPrimaryContainerColor(context, colorScheme)
-                : getSecondaryContainerColor(context, colorScheme);
-    }
-
-    /** Returns the color of secondary containers like the floating action button. */
-    public static @ColorInt int getSecondaryContainerColor(
+    /** Returns the color selected tab item selector should use per the given color scheme. */
+    public static @ColorInt int geTabItemSelectorColor(
             Context context, @HubColorScheme int colorScheme) {
         switch (colorScheme) {
             case HubColorScheme.DEFAULT:
-                return SemanticColorUtils.getChipBgSelectedColor(context);
+                return SemanticColorUtils.getColorSurfaceBright(context);
             case HubColorScheme.INCOGNITO:
-                return ContextCompat.getColor(context, R.color.baseline_secondary_30);
+                return ContextCompat.getColor(
+                        context, R.color.pane_switcher_selected_tab_incognito);
             default:
                 assert false;
                 return Color.TRANSPARENT;
-        }
-    }
-
-    /**
-     * Returns the color for the icon in the floating action button with secondary container color.
-     */
-    public static @ColorInt int getOnSecondaryContainerColor(
-            Context context, @HubColorScheme int colorScheme) {
-        switch (colorScheme) {
-            case HubColorScheme.DEFAULT:
-                return SemanticColorUtils.getColorOnSecondaryContainer(context);
-            case HubColorScheme.INCOGNITO:
-                return ContextCompat.getColor(context, R.color.baseline_secondary_90);
-            default:
-                assert false;
-                return Color.TRANSPARENT;
-        }
-    }
-
-    /** Returns the color of containers that reacts to being disabled. */
-    public static ColorStateList getContainerColorStateList(
-            Context context, @ColorInt int containerColor) {
-        return asDisabledAndNormalStates(context, containerColor);
-    }
-
-    /** Returns the color of primary containers like the floating action button. */
-    public static @ColorInt int getPrimaryContainerColor(
-            Context context, @HubColorScheme int colorScheme) {
-        switch (colorScheme) {
-            case HubColorScheme.DEFAULT:
-                return SemanticColorUtils.getColorPrimaryContainer(context);
-            case HubColorScheme.INCOGNITO:
-                return ContextCompat.getColor(context, R.color.baseline_secondary_30);
-            default:
-                assert false;
-                return Color.TRANSPARENT;
-        }
-    }
-
-    /**
-     * Returns the color for the icon in the floating action button with primary container color.
-     */
-    public static @ColorInt int getOnPrimaryContainerColor(
-            Context context, @HubColorScheme int colorScheme) {
-        switch (colorScheme) {
-            case HubColorScheme.DEFAULT:
-                return SemanticColorUtils.getDefaultIconColorOnAccent1Container(context);
-            case HubColorScheme.INCOGNITO:
-                return ContextCompat.getColor(context, R.color.baseline_secondary_90);
-            default:
-                assert false;
-                return Color.TRANSPARENT;
-        }
-    }
-
-    /** Returns the color most text should use for the given color scheme. */
-    public static @StyleRes int getTextAppearanceMediumOnPrimaryContainer(
-            @HubColorScheme int colorScheme) {
-        switch (colorScheme) {
-            case HubColorScheme.DEFAULT:
-                return R.style.TextAppearance_FloatingActionButton_OnPrimaryContainer;
-            case HubColorScheme.INCOGNITO:
-                return R.style.TextAppearance_FloatingActionButton_Incognito;
-            default:
-                assert false;
-                return Resources.ID_NULL;
-        }
-    }
-
-    /** Returns the color most text should use for the given color scheme. */
-    public static @StyleRes int getTextAppearanceMedium(@HubColorScheme int colorScheme) {
-        switch (colorScheme) {
-            case HubColorScheme.DEFAULT:
-                return R.style.TextAppearance_FloatingActionButton;
-            case HubColorScheme.INCOGNITO:
-                return R.style.TextAppearance_FloatingActionButton_Incognito;
-            default:
-                assert false;
-                return Resources.ID_NULL;
         }
     }
 
@@ -248,17 +177,39 @@ public final class HubColors {
         return ContextCompat.getColor(context, backgroundColorRes);
     }
 
+    /** Returns the hub tool bar action button background color as per the given color scheme. */
+    public static @ColorInt int getToolbarActionButtonBackgroundColor(
+            Context context, @HubColorScheme int colorScheme) {
+        switch (colorScheme) {
+            case HubColorScheme.DEFAULT:
+                return SemanticColorUtils.getFilledButtonBgColor(context);
+            case HubColorScheme.INCOGNITO:
+                return ContextCompat.getColor(context, R.color.filled_button_bg_color_light);
+            default:
+                assert false;
+                return Color.TRANSPARENT;
+        }
+    }
+
+    /** Returns the hub pane switcher background color as per the given color scheme. */
+    public static @ColorInt int getPaneSwitcherBackgroundColor(
+            Context context, @HubColorScheme int colorScheme) {
+        switch (colorScheme) {
+            case HubColorScheme.DEFAULT:
+                return SemanticColorUtils.getColorSurfaceContainer(context);
+            case HubColorScheme.INCOGNITO:
+                return ContextCompat.getColor(context, R.color.pane_switcher_background_incognito);
+            default:
+                assert false;
+                return Color.TRANSPARENT;
+        }
+    }
+
     public static ColorStateList getActionButtonColor(Context context, @ColorInt int color) {
         @DimenRes int disabledAlpha = R.dimen.default_disabled_alpha;
         return generateDisabledAndNormalStatesColorStateList(context, color, disabledAlpha);
     }
 
-    private static ColorStateList asDisabledAndNormalStates(Context context, @ColorInt int color) {
-        @DimenRes int disabledAlpha = R.dimen.filled_button_bg_disabled_alpha;
-        return generateDisabledAndNormalStatesColorStateList(context, color, disabledAlpha);
-    }
-
-    @NonNull
     private static ColorStateList generateDisabledAndNormalStatesColorStateList(
             Context context, int color, int disabledAlpha) {
         Resources resources = context.getResources();

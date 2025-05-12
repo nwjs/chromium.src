@@ -98,12 +98,6 @@ IN_PROC_BROWSER_TEST_F(TabMenuModelBrowserTest, MoveToNewWindow) {
 }
 
 IN_PROC_BROWSER_TEST_F(TabMenuModelBrowserTest, AddToExistingGroupSubmenu) {
-  // Prevents flakes by ensuring the TabGroupSyncService is initialized before
-  // creating any tab groups.
-  tab_groups::TabGroupSyncService* service =
-      tab_groups::SavedTabGroupUtils::GetServiceForProfile(profile());
-  service->SetIsInitializedForTesting(true);
-
   chrome::NewTab(browser());
   chrome::NewTab(browser());
   chrome::NewTab(browser());
@@ -138,12 +132,6 @@ IN_PROC_BROWSER_TEST_F(TabMenuModelBrowserTest, AddToExistingGroupSubmenu) {
 
 IN_PROC_BROWSER_TEST_F(TabMenuModelBrowserTest,
                        AddToExistingGroupSubmenu_DoesNotIncludeCurrentGroup) {
-  // Prevents flakes by ensuring the TabGroupSyncService is initialized before
-  // creating any tab groups.
-  tab_groups::TabGroupSyncService* service =
-      tab_groups::SavedTabGroupUtils::GetServiceForProfile(profile());
-  service->SetIsInitializedForTesting(true);
-
   chrome::NewTab(browser());
   chrome::NewTab(browser());
   chrome::NewTab(browser());
@@ -181,12 +169,6 @@ IN_PROC_BROWSER_TEST_F(TabMenuModelBrowserTest,
 // Regression test for crbug.com/1197875
 IN_PROC_BROWSER_TEST_F(TabMenuModelBrowserTest,
                        AddToExistingGroupAfterGroupDestroyed) {
-  // Prevents flakes by ensuring the TabGroupSyncService is initialized before
-  // creating any tab groups.
-  tab_groups::TabGroupSyncService* service =
-      tab_groups::SavedTabGroupUtils::GetServiceForProfile(profile());
-  service->SetIsInitializedForTesting(true);
-
   chrome::NewTab(browser());
   chrome::NewTab(browser());
 
@@ -612,7 +594,7 @@ class TabMenuModelComparisonTableTest : public TabMenuModelBrowserTest {
     ui_test_utils::NavigateToURLWithDisposition(
         browser, url, WindowOpenDisposition::NEW_BACKGROUND_TAB,
         ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
-    browser->tab_strip_model()->ToggleSelectionAt(
+    browser->tab_strip_model()->SelectTabAt(
         browser->tab_strip_model()->count() - 1);
   }
 

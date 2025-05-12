@@ -32,6 +32,7 @@ class AutofillOfferData;
 class AutofillOfferManager;
 enum class AutofillProgressDialogType;
 class AutofillSaveCardBottomSheetBridge;
+class BnplIssuer;
 struct BnplTosModel;
 struct CardUnmaskChallengeOption;
 class CardUnmaskDelegate;
@@ -56,7 +57,7 @@ enum class WebauthnDialogCallbackType;
 
 namespace payments {
 
-class BnplManager;
+struct BnplIssuerContext;
 class MandatoryReauthManager;
 class PaymentsNetworkInterface;
 class PaymentsWindowManager;
@@ -312,10 +313,9 @@ class PaymentsAutofillClient : public RiskDataLoader {
   // bubble if `options.show_prompt` is true; otherwise only shows the omnibox
   // icon. On mobile, shows the offer-to-save infobar if `options.show_prompt`
   // is true; otherwise does not offer to save at all.
-  virtual void ConfirmSaveCreditCardLocally(
-      const CreditCard& card,
-      SaveCreditCardOptions options,
-      LocalSaveCardPromptCallback callback);
+  virtual void ShowSaveCreditCardLocally(const CreditCard& card,
+                                         SaveCreditCardOptions options,
+                                         LocalSaveCardPromptCallback callback);
 
   // Runs `callback` once the user makes a decision with respect to the
   // offer-to-save prompt. This includes both the save server card prompt and
@@ -330,7 +330,7 @@ class PaymentsAutofillClient : public RiskDataLoader {
   // not offer to save at all.
   // TODO (crbug.com/1462821): Make `legal_message_lines` optional, as CVC
   // upload has no legal message.
-  virtual void ConfirmSaveCreditCardToCloud(
+  virtual void ShowSaveCreditCardToCloud(
       const CreditCard& card,
       const LegalMessageLines& legal_message_lines,
       SaveCreditCardOptions options,
@@ -398,6 +398,7 @@ class PaymentsAutofillClient : public RiskDataLoader {
 
   // Show the OTP unmask dialog to accept user-input OTP value.
   virtual void ShowCardUnmaskOtpInputDialog(
+      CreditCard::RecordType card_type,
       const CardUnmaskChallengeOption& challenge_option,
       base::WeakPtr<OtpUnmaskDelegate> delegate);
 
@@ -562,13 +563,22 @@ class PaymentsAutofillClient : public RiskDataLoader {
   virtual payments::MandatoryReauthManager*
   GetOrCreatePaymentsMandatoryReauthManager();
 
-  // Gets the payments BNPL manager owned by the client. This will be used to
-  // handle BNPL flows. It is not implemented on iOS and iOS WebView, and should
-  // not be used on those platforms.
-  virtual payments::BnplManager* GetPaymentsBnplManager();
-
   // Shows the `Save and Fill` modal dialog.
   virtual void ShowCreditCardSaveAndFillDialog();
+
+  // Shows the issuer selection dialog for BNPL when the BNPL suggestion is
+  // selected to let users choose a BNPL issuer.
+  virtual void ShowSelectBnplIssuerDialog(
+      std::vector<BnplIssuerContext> bnpl_issuer_context,
+      std::string app_locale,
+      base::OnceCallback<void(BnplIssuer)> selected_issuer_callback,
+      base::OnceClosure cancel_callback);
+
+  // Dismiss the issuer selection dialog for BNPL.
+  virtual void DismissSelectBnplIssuerDialog();
+
+  // Checks if the browser popup is a tab modal popup.
+  virtual bool IsTabModalPopup() const;
 };
 
 }  // namespace payments

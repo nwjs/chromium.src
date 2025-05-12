@@ -95,7 +95,6 @@
 #include "third_party/blink/renderer/core/inspector/invalidation_set_to_selector_map.h"
 #include "third_party/blink/renderer/core/layout/adjust_for_absolute_zoom.h"
 #include "third_party/blink/renderer/core/layout/geometry/logical_size.h"
-#include "third_party/blink/renderer/core/layout/geometry/physical_size.h"
 #include "third_party/blink/renderer/core/layout/layout_counter.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/layout/layout_theme.h"
@@ -116,6 +115,7 @@
 #include "third_party/blink/renderer/core/view_transition/view_transition_utils.h"
 #include "third_party/blink/renderer/platform/fonts/font_cache.h"
 #include "third_party/blink/renderer/platform/fonts/font_selector.h"
+#include "third_party/blink/renderer/platform/geometry/physical_size.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/instrumentation/histogram.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
@@ -3264,6 +3264,9 @@ void StyleEngine::NodeWillBeRemoved(Node& node) {
           tree->RemoveScopeForElement(*element);
         }
       }
+      if (!style->ScrollMarkerContainNone()) {
+        GetDocument().SetNeedsScrollMarkerGroupRelationsUpdate();
+      }
     }
     pending_invalidations_.RescheduleSiblingInvalidationsAsDescendants(
         *element);
@@ -3852,32 +3855,14 @@ void StyleEngine::RecalcTransitionPseudoStyle() {
 
   ViewTransitionUtils::ForEachTransition(
       *document_, [&](ViewTransition& transition) {
-        Element* scope = transition.Scope();
-        if (!scope) {
-          scope = document_->documentElement();
-        }
-        if (!scope || !scope->InActiveDocument()) {
-          return;
-        }
-
-        // TODO(crbug.com/405117185): Use only the v-t-names inside the scope.
-        scope->RecalcTransitionPseudoTreeStyle(view_transition_names_);
+        transition.RecalcTransitionPseudoTreeStyle();
       });
 }
 
 void StyleEngine::RebuildTransitionPseudoLayoutTrees() {
   ViewTransitionUtils::ForEachTransition(
       *document_, [&](ViewTransition& transition) {
-        Element* scope = transition.Scope();
-        if (!scope) {
-          scope = document_->documentElement();
-        }
-        if (!scope || !scope->InActiveDocument()) {
-          return;
-        }
-
-        // TODO(crbug.com/405117185): Use only the v-t-names inside the scope.
-        scope->RebuildTransitionPseudoLayoutTree(view_transition_names_);
+        transition.RebuildTransitionPseudoLayoutTree();
       });
 }
 
@@ -4725,25 +4710,11 @@ bool StyleEngine::UpdateLastSuccessfulPositionFallbacksAndAnchorScrollShift() {
   return invalidated;
 }
 
-void StyleEngine::RevisitStyleSheetForInspector(StyleSheetContents* contents) {
-  // We need to revisit the sheet twice, once with the global rule set and
-  // once with the sheet's associated rule set.
-  // The global rule set contains the rule invalidation data we're currently
-  // using for style invalidations. However, if a stylesheet change occurs,
-  // we may throw out the global rule set data and rebuild it from the
-  // individual sheets' data, so the inspector needs to know about both.
-  InvalidationSetToSelectorMap::StyleSheetContentsScope contents_scope(
-      contents);
-  RevisitStyleRulesForInspector(GetRuleFeatureSet(), contents->ChildRules());
-  if (contents->HasRuleSet()) {
-    RevisitStyleRulesForInspector(contents->GetRuleSet().Features(),
-                                  contents->ChildRules());
-  }
-}
+namespace {
 
-void StyleEngine::RevisitStyleRulesForInspector(
-    const RuleFeatureSet& features,
-    const HeapVector<Member<StyleRuleBase>>& rules) {
+template <typename VectorType>
+void RevisitStyleRulesForInspector(const RuleFeatureSet& features,
+                                   const VectorType& rules) {
   for (StyleRuleBase* rule : rules) {
     if (StyleRule* style_rule = DynamicTo<StyleRule>(rule)) {
       for (const CSSSelector* selector = style_rule->FirstSelector(); selector;
@@ -4756,6 +4727,25 @@ void StyleEngine::RevisitStyleRulesForInspector(
                    DynamicTo<StyleRuleGroup>(rule)) {
       RevisitStyleRulesForInspector(features, style_rule_group->ChildRules());
     }
+  }
+}
+
+}  // namespace
+
+void StyleEngine::RevisitStyleSheetForInspector(
+    StyleSheetContents* contents,
+    const RuleFeatureSet* features) const {
+  // We need to revisit the sheet twice, once with the global rule set and
+  // once with the sheet's associated rule set.
+  // The global rule set contains the rule invalidation data we're currently
+  // using for style invalidations. However, if a stylesheet change occurs,
+  // we may throw out the global rule set data and rebuild it from the
+  // individual sheets' data, so the inspector needs to know about both.
+  InvalidationSetToSelectorMap::StyleSheetContentsScope contents_scope(
+      contents);
+  RevisitStyleRulesForInspector(GetRuleFeatureSet(), contents->ChildRules());
+  if (features) {
+    RevisitStyleRulesForInspector(*features, contents->ChildRules());
   }
 }
 

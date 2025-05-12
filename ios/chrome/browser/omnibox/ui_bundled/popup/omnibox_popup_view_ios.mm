@@ -22,8 +22,7 @@
 #import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
 #import "ios/chrome/browser/ntp/shared/metrics/home_metrics.h"
 #import "ios/chrome/browser/omnibox/model/omnibox_autocomplete_controller.h"
-#import "ios/chrome/browser/omnibox/ui_bundled/omnibox_util.h"
-#import "ios/chrome/browser/omnibox/ui_bundled/popup/omnibox_popup_mediator.h"
+#import "ios/chrome/browser/omnibox/public/omnibox_util.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/public/features/system_flags.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
@@ -52,24 +51,4 @@ void OmniboxPopupViewIOS::UpdatePopupAppearance() {
 
 bool OmniboxPopupViewIOS::IsOpen() const {
   return omnibox_autocomplete_controller_.hasSuggestions;
-}
-
-#pragma mark - OmniboxPopupProvider
-
-bool OmniboxPopupViewIOS::IsPopupOpen() {
-  return omnibox_autocomplete_controller_.hasSuggestions;
-}
-
-void OmniboxPopupViewIOS::SetTextAlignment(NSTextAlignment alignment) {
-  [omnibox_autocomplete_controller_ setTextAlignment:alignment];
-}
-
-void OmniboxPopupViewIOS::SetSemanticContentAttribute(
-    UISemanticContentAttribute semanticContentAttribute) {
-  [omnibox_autocomplete_controller_
-      setSemanticContentAttribute:semanticContentAttribute];
-}
-
-void OmniboxPopupViewIOS::SetHasThumbnail(bool has_thumbnail) {
-  [omnibox_autocomplete_controller_ setHasThumbnail:has_thumbnail];
 }

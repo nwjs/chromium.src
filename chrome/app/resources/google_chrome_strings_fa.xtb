@@ -103,7 +103,6 @@
 <translation id="234869673307233423">‏Chrome نمی‌تواند گذرواژه‌هایتان را بررسی کند. بعداً دوباره امتحان کنید.</translation>
 <translation id="235650106824528204">‏سرپرست نمایه کاری می‌تواند داده‌های Chrome را که درطول استفاده از این نمایه ایجاد شده‌اند (مثل ایجاد سابقه نشانک‌ها، گذرواژه‌ها، و دیگر تنظیمات) بردارد. <ph name="LEARN_MORE" /></translation>
 <translation id="2359808026110333948">ادامه</translation>
-<translation id="2401189691232800402">‏سیستم ChromeOS</translation>
 <translation id="2403703063067034158">خطای راه‌اندازی: فعلاً راه‌اندازی دیگری درحال اجرا است، لطفاً کمی بعد دوباره امتحان کنید.</translation>
 <translation id="2409816192575564775">{NUM_DEVICES,plural, =0{‏یک یا چند افزونه Chrome به یک «دستگاه میانای انسانی» (HID) دسترسی داشتند}=1{‏یک یا چند افزونه Chrome به یک «دستگاه میانای انسانی» (HID) دسترسی دارند}one{‏یک یا چند افزونه Chrome به # «دستگاه میانای انسانی» (HID) دسترسی دارند}other{‏یک یا چند افزونه Chrome به # «دستگاه میانای انسانی» (HID) دسترسی دارند}}</translation>
 <translation id="2424440923901031101">‏این افزونه خط‌مشی «نت‌بازار Chrome» را نقض می‌کند و ممکن است ناامن باشد. آن را از Chrome حذف کنید تا دیگر نتواند داده‌های شما (ازجمله اطلاعات شخصی) را در سایت‌هایی که بازدید می‌کنید ببیند و تغییر دهد.</translation>
@@ -225,7 +224,7 @@
 باید به بلوتوث دسترسی داشته باشد. <ph name="IDS_SERIAL_DEVICE_CHOOSER_AUTHORIZE_BLUETOOTH_LINK" /></translation>
 <translation id="386202838227397562">‏لطفاً همه پنجره‌های Google Chrome را ببندید و دوباره امتحان کنید.</translation>
 <translation id="3873044882194371212">‏باز کردن پیوند در پنجره &amp;ناشناس Chrome</translation>
-<translation id="3885770153807205175">انتخاب‌گر زبان</translation>
+<translation id="3885770153807205175">انتخابگر زبان</translation>
 <translation id="3889417619312448367">‏حذف نصب Google Chrome</translation>
 <translation id="3892148308691398805">کپی کردن نوشتار</translation>
 <translation id="3941890832296813527">خطای نصب: نام فایل نصب‌کننده نامعتبر است یا از آن پشتیبانی نمی‌شود.</translation>
@@ -615,7 +614,6 @@
 <translation id="8999208279178790196">{0,plural, =0{‏به‌روزرسانی Chrome دردسترس است}=1{‏به‌روزرسانی Chrome دردسترس است}one{‏به‌روزرسانی Chrome از # روز پیش دردسترس است}other{‏به‌روزرسانی Chrome از # روز پیش دردسترس است}}</translation>
 <translation id="9014771989710951291">‏چندین سازمان Chrome را مدیریت می‌کنند</translation>
 <translation id="9024318700713112071">‏تنظیم Chrome به‌عنوان مرورگر پیش‌فرض</translation>
-<translation id="9053892488859122171">‏سیستم ChromeOS Flex</translation>
 <translation id="9090566250983691233">‏ببینید چرا Chrome برخی‌از فایل‌ها را مسدود می‌کند</translation>
 <translation id="9106236359747881194">نوشتاری را برای جستجو انتخاب کنید</translation>
 <translation id="911206726377975832">داده‌های مرور شما نیز حذف شود؟</translation>

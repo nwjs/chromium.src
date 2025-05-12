@@ -162,6 +162,7 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
 
 - (void)viewDidLayoutSubviews {
   [super viewDidLayoutSubviews];
+  [self updateCloseButton];
   // Update the bottom sheet height.
   [self resize];
 }
@@ -259,27 +260,17 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
 
 // Sets up the buttons.
 - (void)setUpTopButtons {
+  // Close button
+  [self updateCloseButton];
+
+  // Ellipsis button
+  if (_hideEllipsisMenu) {
+    return;
+  }
   UIImageSymbolConfiguration* symbolConfiguration = [UIImageSymbolConfiguration
       configurationWithPointSize:kButtonSize
                           weight:UIImageSymbolWeightRegular
                            scale:UIImageSymbolScaleMedium];
-  // Stop button
-  UIUserInterfaceIdiom idiom = [[UIDevice currentDevice] userInterfaceIdiom];
-  if (idiom != UIUserInterfaceIdiomPad) {
-    _closeButton = [self addTopButtonWithSymbolName:kXMarkCircleFillSymbol
-                                symbolConfiguration:symbolConfiguration
-                                          isLeading:NO
-                            accessibilityIdentifier:kAccountMenuCloseButtonId];
-    [_closeButton addTarget:self
-                     action:@selector(userTappedOnClose)
-           forControlEvents:UIControlEventTouchUpInside];
-  }
-
-  if (_hideEllipsisMenu) {
-    return;
-  }
-
-  // Ellipsis button
   UIAction* manageYourAccountAction = [UIAction
       actionWithTitle:
           l10n_util::GetNSString(
@@ -318,6 +309,42 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
   _ellipsisButton.showsMenuAsPrimaryAction = true;
   _ellipsisButton.accessibilityLabel =
       l10n_util::GetNSString(IDS_IOS_ICON_OPTION_MENU);
+}
+
+// Decides if the Close button should be shown.
+- (BOOL)shouldShowCloseButton {
+  UIUserInterfaceIdiom idiom = [[UIDevice currentDevice] userInterfaceIdiom];
+  return idiom == UIUserInterfaceIdiomPhone ||
+         self.presentingViewController.traitCollection.horizontalSizeClass ==
+             UIUserInterfaceSizeClassCompact;
+}
+
+// Adds or removes the Close button based on the device type and collection.
+- (void)updateCloseButton {
+  BOOL isCloseButtonShown = _closeButton;
+  BOOL shouldShowCloseButton = [self shouldShowCloseButton];
+  if (shouldShowCloseButton == isCloseButtonShown) {
+    return;
+  }
+  if (shouldShowCloseButton) {
+    // Add the Close button.
+    UIImageSymbolConfiguration* symbolConfiguration =
+        [UIImageSymbolConfiguration
+            configurationWithPointSize:kButtonSize
+                                weight:UIImageSymbolWeightRegular
+                                 scale:UIImageSymbolScaleMedium];
+    _closeButton = [self addTopButtonWithSymbolName:kXMarkCircleFillSymbol
+                                symbolConfiguration:symbolConfiguration
+                                          isLeading:NO
+                            accessibilityIdentifier:kAccountMenuCloseButtonId];
+    [_closeButton addTarget:self
+                     action:@selector(userTappedOnClose)
+           forControlEvents:UIControlEventTouchUpInside];
+  } else {
+    // Remove the Close button.
+    [_closeButton removeFromSuperview];
+    _closeButton = nil;
+  }
 }
 
 // Configures and returns a cell.
@@ -446,16 +473,22 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
   presentationController.prefersEdgeAttachedInCompactHeight = YES;
   presentationController.widthFollowsPreferredContentSizeWhenEdgeAttached = YES;
   presentationController.preferredCornerRadius = kHalfSheetCornerRadius;
-  __weak __typeof(self) weakSelf = self;
-  auto preferredHeightForSheetContent = ^CGFloat(
-      id<UISheetPresentationControllerDetentResolutionContext> context) {
-    return [weakSelf preferredHeightForSheetContent];
-  };
-  UISheetPresentationControllerDetent* customDetent =
-      [UISheetPresentationControllerDetent
-          customDetentWithIdentifier:kCustomMinimizedDetentIdentifier
-                            resolver:preferredHeightForSheetContent];
-  presentationController.detents = @[ customDetent ];
+
+  // In case of compact width only, adjust detents.
+  if (self.traitCollection.horizontalSizeClass ==
+      UIUserInterfaceSizeClassCompact) {
+    __weak __typeof(self) weakSelf = self;
+    auto preferredHeightForSheetContent = ^CGFloat(
+        id<UISheetPresentationControllerDetentResolutionContext> context) {
+      return [weakSelf preferredHeightForSheetContent];
+    };
+    UISheetPresentationControllerDetent* customDetent =
+        [UISheetPresentationControllerDetent
+            customDetentWithIdentifier:kCustomMinimizedDetentIdentifier
+                              resolver:preferredHeightForSheetContent];
+    presentationController.detents = @[ customDetent ];
+  }
+
   presentationController.selectedDetentIdentifier =
       kCustomMinimizedDetentIdentifier;
 }
@@ -504,11 +537,6 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
   [accountsIdentifiers addObject:@(RowIdentifierAddAccount)];
   [snapshot appendItemsWithIdentifiers:accountsIdentifiers
              intoSectionWithIdentifier:@(AccountsSectionIdentifier)];
-  if (_hideEllipsisMenu) {
-    [accountsIdentifiers addObject:@(RowIdentifierManageAccounts)];
-    [snapshot appendItemsWithIdentifiers:accountsIdentifiers
-               intoSectionWithIdentifier:@(AccountsSectionIdentifier)];
-  }
 
   if (_showSettingsButton) {
     // The sign-out button is grouped with the accounts section.
@@ -518,8 +546,12 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
     [snapshot appendItemsWithIdentifiers:@[ @(RowIdentifierSettings) ]
                intoSectionWithIdentifier:@(SettingsSectionIdentifier)];
   } else {
-    // The sign-out button has its own section.
     [snapshot appendSectionsWithIdentifiers:@[ @(SignOutSectionIdentifier) ]];
+    // The sign-out button has its own section.
+    if (_hideEllipsisMenu) {
+      [snapshot appendItemsWithIdentifiers:@[ @(RowIdentifierManageAccounts) ]
+                 intoSectionWithIdentifier:@(SignOutSectionIdentifier)];
+    }
     [snapshot appendItemsWithIdentifiers:@[ @(RowIdentifierSignOut) ]
                intoSectionWithIdentifier:@(SignOutSectionIdentifier)];
   }
@@ -527,8 +559,11 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
   [_accountMenuDataSource applySnapshot:snapshot animatingDifferences:YES];
 }
 
-// Returns the sheet presentation controller if it exists.
+// Returns the sheet presentation controller of the used presentation style.
 - (UISheetPresentationController*)sheetPresentationController {
+  if (self.navigationController.sheetPresentationController) {
+    return self.navigationController.sheetPresentationController;
+  }
   return self.navigationController.popoverPresentationController
       .adaptiveSheetPresentationController;
 }
@@ -653,26 +688,13 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
 }
 
 - (void)updatePrimaryAccount {
-  __weak __typeof(self) weakSelf = self;
-  ProceduralBlock manageYourAccountButtonAction = nil;
-  if (_hideEllipsisMenu) {
-    manageYourAccountButtonAction = ^{
-      base::RecordAction(
-          base::UserMetricsAction("Signin_AccountMenu_ManageAccount"));
-      [weakSelf.mutator didTapManageYourGoogleAccount];
-    };
-  }
   _identityAccountView = [[CentralAccountView alloc]
-                      initWithFrame:CGRectMake(0, 0,
-                                               self.tableView.frame.size.width,
-                                               0)
-                        avatarImage:self.dataSource.primaryAccountAvatar
-                               name:self.dataSource.primaryAccountUserFullName
-                              email:self.dataSource.primaryAccountEmail
-              managementDescription:self.dataSource.managementDescription
-                    useLargeMargins:NO
-         addManageYourAccountButton:_hideEllipsisMenu
-      manageYourAccountButtonAction:manageYourAccountButtonAction];
+              initWithFrame:CGRectMake(0, 0, self.tableView.frame.size.width, 0)
+                avatarImage:self.dataSource.primaryAccountAvatar
+                       name:self.dataSource.primaryAccountUserFullName
+                      email:self.dataSource.primaryAccountEmail
+      managementDescription:self.dataSource.managementDescription
+            useLargeMargins:NO];
   [_identityAccountView updateTopPadding:[self navigationBarHeight]];
   self.tableView.tableHeaderView = _identityAccountView;
   [self.tableView reloadData];

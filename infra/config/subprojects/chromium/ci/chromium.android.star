@@ -184,6 +184,7 @@ ci.builder(
     gn_args = gn_args.config(
         configs = [
             "android_builder_without_codecs",
+            "android_with_static_analysis",
             "debug_builder",
             "remoteexec",
             "arm",
@@ -241,6 +242,7 @@ ci.builder(
     gn_args = gn_args.config(
         configs = [
             "android_builder",
+            "android_with_static_analysis",
             "debug_static_builder",
             "enable_android_secondary_abi",
             "remoteexec",
@@ -302,6 +304,7 @@ ci.builder(
     gn_args = gn_args.config(
         configs = [
             "android_builder",
+            "android_with_static_analysis",
             "debug_static_builder",
             "enable_android_secondary_abi",
             "remoteexec",
@@ -336,6 +339,7 @@ ci.builder(
     gn_args = gn_args.config(
         configs = [
             "android_builder",
+            "android_with_static_analysis",
             "debug_static_builder",
             "enable_android_secondary_abi",
             "remoteexec",
@@ -387,6 +391,7 @@ ci.builder(
     gn_args = gn_args.config(
         configs = [
             "android_builder",
+            "android_with_static_analysis",
             "debug_static_builder",
             "enable_android_secondary_abi",
             "remoteexec",
@@ -436,6 +441,7 @@ ci.builder(
     gn_args = gn_args.config(
         configs = [
             "android_builder",
+            "android_with_static_analysis",
             "debug_static_builder",
             "remoteexec",
             "x86",
@@ -581,6 +587,7 @@ ci.builder(
             "cast_debug",
             "cast_java_debug",
             "android_builder",
+            "android_with_static_analysis",
             "clang",
             "remoteexec",
             "arm",
@@ -634,9 +641,11 @@ ci.builder(
     gn_args = gn_args.config(
         configs = [
             "cast_android",
-            "cast_release",
             "cast_java_release",
+            "cast_release",
+            "disable_jni_multiplexing",
             "android_builder",
+            "android_with_static_analysis",
             "clang",
             "remoteexec",
             "arm",
@@ -693,6 +702,7 @@ ci.builder(
             "cast_debug",
             "cast_java_debug",
             "android_builder",
+            "android_with_static_analysis",
             "clang",
             "remoteexec",
             "arm64",
@@ -746,9 +756,11 @@ ci.builder(
     gn_args = gn_args.config(
         configs = [
             "cast_android",
-            "cast_release",
             "cast_java_release",
+            "cast_release",
+            "disable_jni_multiplexing",
             "android_builder",
+            "android_with_static_analysis",
             "clang",
             "remoteexec",
             "arm64",
@@ -779,6 +791,7 @@ ci.builder(
     gn_args = gn_args.config(
         configs = [
             "android_builder_without_codecs",
+            "android_with_static_analysis",
             "release_builder",
             "remoteexec",
             "minimal_symbols",
@@ -803,6 +816,7 @@ ci.builder(
     gn_args = gn_args.config(
         configs = [
             "android_builder",
+            "android_with_static_analysis",
             "debug_builder",
             "remoteexec",
             "arm",
@@ -1177,6 +1191,7 @@ ci.builder(
     gn_args = gn_args.config(
         configs = [
             "android_builder",
+            "android_with_static_analysis",
             "enable_android_secondary_abi",
             "release_builder",
             "remoteexec",
@@ -1370,6 +1385,7 @@ ci.builder(
     gn_args = gn_args.config(
         configs = [
             "android_builder_without_codecs",
+            "android_with_static_analysis",
             "cronet_android",
             "debug_static_builder",
             "remoteexec",
@@ -1473,6 +1489,7 @@ ci.builder(
     gn_args = gn_args.config(
         configs = [
             "android_builder_without_codecs",
+            "android_with_static_analysis",
             "cronet_android",
             "debug_static_builder",
             "remoteexec",
@@ -1492,58 +1509,6 @@ ci.builder(
     console_view_entry = consoles.console_view_entry(
         category = "cronet|arm64",
         short_name = "dbg",
-    ),
-    contact_team_email = "cronet-team@google.com",
-    notifies = ["cronet"],
-)
-
-ci.builder(
-    name = "android-cronet-arm64-gn2bp-dbg",
-    description_html = "Builds the gn2bp verification workflow.",
-    schedule = "0 */6 * * *",  # Run every 6 hours.
-    triggered_by = [],
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = [
-                "android",
-                "checkout_copybara",
-            ],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "main_builder",
-            apply_configs = [
-                "cronet_builder",
-                "mb",
-            ],
-            build_config = builder_config.build_config.DEBUG,
-            target_arch = builder_config.target_arch.ARM,
-            target_bits = 64,
-            target_platform = builder_config.target_platform.ANDROID,
-        ),
-        android_config = builder_config.android_config(config = "base_config"),
-        build_gs_bucket = "chromium-android-archive",
-    ),
-    gn_args = gn_args.config(
-        configs = [
-            "android_builder_without_codecs",
-            "cronet_android",
-            "debug_static_builder",
-            "remoteexec",
-            "arm64",
-        ],
-    ),
-    targets = targets.bundle(
-        additional_compile_targets = [
-            "cronet_gn2bp_aosp_feedback_loop",
-            "cronet_package",
-            "cronet_package_ci",
-        ],
-    ),
-    gardener_rotations = args.ignore_default(gardener_rotations.CRONET),
-    console_view_entry = consoles.console_view_entry(
-        category = "cronet|gn2bp",
-        short_name = "gn2bp",
     ),
     contact_team_email = "cronet-team@google.com",
     notifies = ["cronet"],
@@ -1624,6 +1589,7 @@ ci.builder(
     gn_args = gn_args.config(
         configs = [
             "android_builder_without_codecs",
+            "android_with_static_analysis",
             "cronet_android",
             "release_builder",
             "remoteexec",
@@ -1656,298 +1622,6 @@ ci.builder(
     notifies = ["cronet"],
 )
 
-# Compiles with Android Mainline Clang
-ci.builder(
-    name = "android-cronet-mainline-clang-arm64-dbg",
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = ["android"],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "main_builder",
-            apply_configs = [
-                "cronet_builder",
-                "mb",
-            ],
-            build_config = builder_config.build_config.DEBUG,
-            target_arch = builder_config.target_arch.ARM,
-            target_bits = 64,
-            target_platform = builder_config.target_platform.ANDROID,
-        ),
-        android_config = builder_config.android_config(config = "base_config"),
-        build_gs_bucket = "chromium-android-archive",
-    ),
-    gn_args = gn_args.config(
-        configs = [
-            "android_builder_without_codecs",
-            "cronet_android",
-            "debug_static_builder",
-            "remoteexec",
-            "arm64",
-            "cronet_android_mainline_clang",
-        ],
-    ),
-    targets = targets.bundle(
-        targets = [
-            "cronet_common_compile_targets",
-        ],
-    ),
-    gardener_rotations = args.ignore_default(gardener_rotations.CRONET),
-    console_view_entry = consoles.console_view_entry(
-        category = "cronet|mainline_clang|arm64",
-        short_name = "dbg",
-    ),
-    contact_team_email = "cronet-team@google.com",
-    notifies = ["cronet"],
-)
-
-# Compiles with Android Mainline Clang (coverage-enabled)
-ci.builder(
-    name = "android-cronet-mainline-clang-arm64-rel",
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = ["android"],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "main_builder",
-            apply_configs = [
-                "cronet_builder",
-                "mb",
-            ],
-            build_config = builder_config.build_config.RELEASE,
-            target_arch = builder_config.target_arch.ARM,
-            target_bits = 64,
-            target_platform = builder_config.target_platform.ANDROID,
-        ),
-        android_config = builder_config.android_config(config = "base_config"),
-        build_gs_bucket = "chromium-android-archive",
-    ),
-    gn_args = gn_args.config(
-        configs = [
-            "android_builder_without_codecs",
-            "cronet_android",
-            "official_optimize",
-            "release_builder",
-            "remoteexec",
-            "minimal_symbols",
-            "arm64",
-            "strip_debug_info",
-            "cronet_android_mainline_clang",
-            "use_clang_coverage",
-        ],
-    ),
-    targets = targets.bundle(
-        targets = [
-            "cronet_common_compile_targets",
-        ],
-    ),
-    gardener_rotations = args.ignore_default(gardener_rotations.CRONET),
-    console_view_entry = consoles.console_view_entry(
-        category = "cronet|mainline_clang_coverage|arm64",
-        short_name = "rel",
-    ),
-    contact_team_email = "cronet-team@google.com",
-    notifies = ["cronet"],
-)
-
-# Compiles with Android Mainline Clang
-ci.builder(
-    name = "android-cronet-mainline-clang-riscv64-dbg",
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = ["android"],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "main_builder",
-            apply_configs = [
-                "cronet_builder",
-                "mb",
-            ],
-            build_config = builder_config.build_config.DEBUG,
-            target_arch = builder_config.target_arch.ARM,
-            target_bits = 64,
-            target_platform = builder_config.target_platform.ANDROID,
-        ),
-        android_config = builder_config.android_config(config = "base_config"),
-        build_gs_bucket = "chromium-android-archive",
-    ),
-    gn_args = gn_args.config(
-        configs = [
-            "android_builder_without_codecs",
-            "cronet_android",
-            "debug_static_builder",
-            "remoteexec",
-            "riscv64",
-            "cronet_android_mainline_clang",
-        ],
-    ),
-    targets = targets.bundle(
-        targets = [
-            "cronet_common_compile_targets",
-        ],
-    ),
-    gardener_rotations = args.ignore_default(gardener_rotations.CRONET),
-    console_view_entry = consoles.console_view_entry(
-        category = "cronet|mainline_clang|riscv64",
-        short_name = "dbg",
-    ),
-    contact_team_email = "cronet-team@google.com",
-    notifies = ["cronet"],
-)
-
-# Compiles with Android Mainline Clang
-ci.builder(
-    name = "android-cronet-mainline-clang-riscv64-rel",
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = ["android"],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "main_builder",
-            apply_configs = [
-                "cronet_builder",
-                "mb",
-            ],
-            build_config = builder_config.build_config.RELEASE,
-            target_arch = builder_config.target_arch.ARM,
-            target_bits = 64,
-            target_platform = builder_config.target_platform.ANDROID,
-        ),
-        android_config = builder_config.android_config(config = "base_config"),
-        build_gs_bucket = "chromium-android-archive",
-    ),
-    gn_args = gn_args.config(
-        configs = [
-            "android_builder_without_codecs",
-            "cronet_android",
-            "official_optimize",
-            "release_builder",
-            "remoteexec",
-            "minimal_symbols",
-            "riscv64",
-            "strip_debug_info",
-            "cronet_android_mainline_clang",
-        ],
-    ),
-    targets = targets.bundle(
-        targets = [
-            "cronet_common_compile_targets",
-        ],
-    ),
-    gardener_rotations = args.ignore_default(gardener_rotations.CRONET),
-    console_view_entry = consoles.console_view_entry(
-        category = "cronet|mainline_clang|riscv64",
-        short_name = "rel",
-    ),
-    contact_team_email = "cronet-team@google.com",
-    notifies = ["cronet"],
-)
-
-# Compiles with Android Mainline Clang
-ci.builder(
-    name = "android-cronet-mainline-clang-x86-dbg",
-    branch_selector = branches.selector.ANDROID_BRANCHES,
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = [
-                "android",
-            ],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "main_builder",
-            apply_configs = [
-                "cronet_builder",
-                "mb",
-            ],
-            build_config = builder_config.build_config.DEBUG,
-            target_arch = builder_config.target_arch.INTEL,
-            target_bits = 32,
-            target_platform = builder_config.target_platform.ANDROID,
-        ),
-        android_config = builder_config.android_config(
-            config = "base_config",
-        ),
-        build_gs_bucket = "chromium-android-archive",
-    ),
-    gn_args = gn_args.config(
-        configs = [
-            "android_builder_without_codecs",
-            "cronet_android",
-            "debug_static_builder",
-            "remoteexec",
-            "x86",
-            "cronet_android_mainline_clang",
-        ],
-    ),
-    targets = targets.bundle(
-        targets = [
-            "cronet_common_compile_targets",
-        ],
-    ),
-    gardener_rotations = args.ignore_default(gardener_rotations.CRONET),
-    console_view_entry = consoles.console_view_entry(
-        category = "cronet|mainline_clang|x86",
-        short_name = "dbg",
-    ),
-    contact_team_email = "cronet-team@google.com",
-    notifies = ["cronet"],
-)
-
-# Compiles with Android Mainline Clang (coverage-enabled)
-ci.builder(
-    name = "android-cronet-mainline-clang-x86-rel",
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = ["android"],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "main_builder",
-            apply_configs = [
-                "cronet_builder",
-                "mb",
-            ],
-            build_config = builder_config.build_config.RELEASE,
-            target_arch = builder_config.target_arch.INTEL,
-            target_bits = 32,
-            target_platform = builder_config.target_platform.ANDROID,
-        ),
-        android_config = builder_config.android_config(config = "base_config"),
-        build_gs_bucket = "chromium-android-archive",
-    ),
-    gn_args = gn_args.config(
-        configs = [
-            "android_builder_without_codecs",
-            "cronet_android",
-            "official_optimize",
-            "release_builder",
-            "remoteexec",
-            "minimal_symbols",
-            "x86",
-            "strip_debug_info",
-            "cronet_android_mainline_clang",
-            "use_clang_coverage",
-        ],
-    ),
-    targets = targets.bundle(
-        targets = [
-            "cronet_common_compile_targets",
-        ],
-    ),
-    gardener_rotations = args.ignore_default(gardener_rotations.CRONET),
-    console_view_entry = consoles.console_view_entry(
-        category = "cronet|mainline_clang_coverage|x86",
-        short_name = "rel",
-    ),
-    contact_team_email = "cronet-team@google.com",
-    notifies = ["cronet"],
-)
-
 ci.builder(
     name = "android-cronet-riscv64-dbg",
     description_html = "Verifies building Cronet against RISC-V64",
@@ -1973,6 +1647,7 @@ ci.builder(
     gn_args = gn_args.config(
         configs = [
             "android_builder_without_codecs",
+            "android_with_static_analysis",
             "cronet_android",
             "debug_static_builder",
             "remoteexec",
@@ -2072,6 +1747,7 @@ ci.builder(
     gn_args = gn_args.config(
         configs = [
             "android_builder_without_codecs",
+            "android_with_static_analysis",
             "cronet_android",
             "debug_static_builder",
             "remoteexec",
@@ -2133,6 +1809,7 @@ ci.builder(
     gn_args = gn_args.config(
         configs = [
             "android_builder_without_codecs",
+            "android_with_static_analysis",
             "cronet_android",
             "debug_static_builder",
             "remoteexec",
@@ -2356,6 +2033,55 @@ ci.thin_tester(
     console_view_entry = consoles.console_view_entry(
         category = "cronet|test",
         short_name = "15",
+    ),
+    contact_team_email = "cronet-team@google.com",
+    notifies = ["cronet"],
+)
+
+ci.thin_tester(
+    name = "android-cronet-x64-dbg-16-tests",
+    description_html = "Tests Cronet against Android 16",
+    triggered_by = ["ci/android-cronet-x64-dbg"],
+    builder_spec = builder_config.builder_spec(
+        execution_mode = builder_config.execution_mode.TEST,
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+            apply_configs = [
+                "android",
+            ],
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "main_builder",
+            apply_configs = [
+                "cronet_builder",
+                "mb",
+            ],
+            build_config = builder_config.build_config.DEBUG,
+            target_bits = 64,
+            target_platform = builder_config.target_platform.ANDROID,
+        ),
+        android_config = builder_config.android_config(
+            config = "base_config",
+        ),
+        build_gs_bucket = "chromium-android-archive",
+    ),
+    targets = targets.bundle(
+        targets = [
+            "cronet_gtests",
+        ],
+        mixins = [
+            "16-x64-emulator",
+            "emulator-8-cores",
+            "has_native_resultdb_integration",
+            "isolate_profile_data",
+            "linux-jammy",
+            "x86-64",
+        ],
+    ),
+    gardener_rotations = args.ignore_default(gardener_rotations.CRONET),
+    console_view_entry = consoles.console_view_entry(
+        category = "cronet|test",
+        short_name = "16",
     ),
     contact_team_email = "cronet-team@google.com",
     notifies = ["cronet"],
@@ -3062,6 +2788,7 @@ ci.builder(
     gn_args = gn_args.config(
         configs = [
             "android_builder",
+            "android_with_static_analysis",
             "release_builder",
             "remoteexec",
             "minimal_symbols",
@@ -4097,6 +3824,7 @@ ci.builder(
     gn_args = gn_args.config(
         configs = [
             "android_builder",
+            "android_with_static_analysis",
             "release_builder",
             "remoteexec",
             "minimal_symbols",
@@ -4138,6 +3866,9 @@ ci.builder(
                     "--gtest-also-run-pre-tests",
                     "--test-launcher-filter-file=../../testing/buildbot/filters/android.device_14.content_browsertests.filter",
                 ],
+                # TODO(crbug.com/410638690): Re-enable on CQ once the high
+                # pending time is gone.
+                ci_only = True,
             ),
             "webview_instrumentation_test_apk_multiple_process_mode": targets.mixin(
                 args = [
@@ -4340,6 +4071,69 @@ ci.builder(
 )
 
 ci.builder(
+    name = "android-14-automotive-landscape-x64-rel",
+    description_html = "Run chromium tests on Android 14 automotive landscape emulators.",
+    # TODO(crbug.com/40286106): Enable on branches once stable
+    #branch_selector = branches.selector.ANDROID_BRANCHES,
+    builder_spec = builder_config.builder_spec(
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+            apply_configs = [
+                "android",
+            ],
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "main_builder",
+            apply_configs = [
+                "mb",
+            ],
+            build_config = builder_config.build_config.RELEASE,
+            target_arch = builder_config.target_arch.INTEL,
+            target_bits = 64,
+            target_platform = builder_config.target_platform.ANDROID,
+        ),
+        android_config = builder_config.android_config(
+            config = "base_config",
+        ),
+        build_gs_bucket = "chromium-android-archive",
+    ),
+    gn_args = gn_args.config(
+        configs = [
+            "android_builder",
+            "release_builder",
+            "remoteexec",
+            "minimal_symbols",
+            "x64",
+            "strip_debug_info",
+            "android_fastbuild",
+        ],
+    ),
+    targets = targets.bundle(
+        targets = [
+            "android_14_automotive_landscape_emulator_gtests",
+        ],
+        mixins = [
+            "14-automotive-landscape-x64-emulator",
+            "emulator-8-cores",
+            "has_native_resultdb_integration",
+            "linux-jammy",
+            "x86-64",
+        ],
+    ),
+    targets_settings = targets.settings(
+        os_type = targets.os_type.ANDROID,
+    ),
+    gardener_rotations = args.ignore_default(None),
+    #tree_closing = True,
+    console_view_entry = consoles.console_view_entry(
+        category = "builder_tester|x64",
+        short_name = "14A",
+    ),
+    contact_team_email = "clank-engprod@google.com",
+    execution_timeout = 4 * time.hour,
+)
+
+ci.builder(
     name = "android-14-tablet-landscape-arm64-rel",
     branch_selector = branches.selector.ANDROID_BRANCHES,
     description_html = "Run chromium tests on Android 14 tablets in Landscape Mode.",
@@ -4366,6 +4160,7 @@ ci.builder(
     gn_args = gn_args.config(
         configs = [
             "android_builder",
+            "android_with_static_analysis",
             "release_builder",
             "remoteexec",
             "minimal_symbols",
@@ -5086,6 +4881,7 @@ ci.builder(
     gn_args = gn_args.config(
         configs = [
             "android_builder",
+            "android_with_static_analysis",
             "release_builder",
             "remoteexec",
             "minimal_symbols",

@@ -16,7 +16,7 @@
 #include "components/autofill/core/browser/form_types.h"
 #include "components/autofill/core/browser/foundations/autofill_manager.h"
 #include "components/autofill/core/browser/foundations/browser_autofill_manager.h"
-#include "components/autofill/core/browser/integrators/fast_checkout_client.h"
+#include "components/autofill/core/browser/integrators/fast_checkout/fast_checkout_client.h"
 #include "components/autofill/core/browser/logging/log_manager.h"
 #include "components/autofill/core/browser/payments/iban_access_manager.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
@@ -292,9 +292,9 @@ void TouchToFillDelegateAndroidImpl::ScanCreditCard() {
 void TouchToFillDelegateAndroidImpl::OnCreditCardScanned(
     const CreditCard& card) {
   HideTouchToFill();
-  manager_->FillOrPreviewCreditCardForm(
-      mojom::ActionPersistence::kFill, query_form_, query_field_.global_id(),
-      card, AutofillTriggerSource::kScanCreditCard);
+  manager_->FillOrPreviewForm(mojom::ActionPersistence::kFill, query_form_,
+                              query_field_.global_id(), &card,
+                              AutofillTriggerSource::kScanCreditCard);
 }
 
 void TouchToFillDelegateAndroidImpl::ShowPaymentMethodSettings() {
@@ -313,10 +313,11 @@ void TouchToFillDelegateAndroidImpl::CreditCardSuggestionSelected(
   if (!card) {
     return;
   }
-  manager_->FillOrPreviewCreditCardForm(
-      mojom::ActionPersistence::kFill, query_form_, query_field_.global_id(),
-      is_virtual ? CreditCard::CreateVirtualCard(*card) : *card,
-      AutofillTriggerSource::kTouchToFillCreditCard);
+  const CreditCard& card_to_fill =
+      is_virtual ? CreditCard::CreateVirtualCard(*card) : *card;
+  manager_->FillOrPreviewForm(mojom::ActionPersistence::kFill, query_form_,
+                              query_field_.global_id(), &card_to_fill,
+                              AutofillTriggerSource::kTouchToFillCreditCard);
 }
 
 void TouchToFillDelegateAndroidImpl::IbanSuggestionSelected(

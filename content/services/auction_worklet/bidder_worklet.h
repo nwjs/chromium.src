@@ -126,8 +126,8 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
       mojo::PendingRemote<auction_worklet::mojom::AuctionNetworkEventsHandler>
           auction_network_events_handler,
       TrustedSignalsKVv2Manager* trusted_signals_kvv2_manager,
-      const GURL& script_source_url,
-      const std::optional<GURL>& bidding_wasm_helper_url,
+      mojom::InProgressAuctionDownloadPtr script_source_load,
+      mojom::InProgressAuctionDownloadPtr wasm_helper_load,
       const std::optional<GURL>& trusted_bidding_signals_url,
       const std::string& trusted_bidding_signals_slot_size_param,
       const url::Origin& top_window_origin,
@@ -149,8 +149,8 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
 
   std::vector<int> context_group_ids_for_testing() const;
 
-  const std::string& join_origin_hash_salt_for_testing() const {
-    return thread_selector_.join_origin_hash_salt_for_testing();
+  uint64_t group_by_origin_key_hash_salt_for_testing() const {
+    return thread_selector_.group_by_origin_key_hash_salt_for_testing();
   }
 
   static bool IsKAnon(const mojom::BidderWorkletNonSharedParams*
@@ -187,6 +187,7 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
       base::Time auction_start_time,
       const std::optional<blink::AdSize>& requested_ad_size,
       uint16_t multi_bid_limit,
+      uint64_t group_by_origin_id,
       uint64_t trace_id,
       mojo::PendingAssociatedRemote<mojom::GenerateBidClient>
           generate_bid_client,
@@ -208,8 +209,7 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
       const std::optional<std::string>&
           direct_from_seller_auction_signals_header_ad_slot,
       const std::string& seller_signals_json,
-      mojom::KAnonymityBidMode kanon_mode,
-      bool bid_is_kanon,
+      mojom::KAnonymityStatus kanon_status,
       const GURL& browser_signal_render_url,
       double browser_signal_bid,
       const std::optional<blink::AdCurrency>& browser_signal_bid_currency,
@@ -255,7 +255,6 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
 
     mojom::BidderWorkletNonSharedParamsPtr bidder_worklet_non_shared_params;
     mojom::KAnonymityBidMode kanon_mode;
-    url::Origin interest_group_join_origin;
     std::optional<std::string> auction_signals_json;
     std::optional<std::string> per_buyer_signals_json;
     std::optional<base::TimeDelta> per_buyer_timeout;
@@ -268,6 +267,7 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
     std::optional<blink::AdSize> requested_ad_size;
     uint16_t multi_bid_limit;
     base::Time auction_start_time;
+    uint64_t group_by_origin_id;
     uint64_t trace_id;
 
     // Time where tracing for wait_generate_bid_deps began.
@@ -355,8 +355,7 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
     std::optional<std::string> auction_signals_json;
     std::optional<std::string> per_buyer_signals_json;
     std::string seller_signals_json;
-    mojom::KAnonymityBidMode kanon_mode;
-    bool bid_is_kanon;
+    mojom::KAnonymityStatus kanon_status;
     GURL browser_signal_render_url;
     double browser_signal_bid;
     std::optional<blink::AdCurrency> browser_signal_bid_currency;
@@ -535,7 +534,7 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
         ContextRecycler& context_recycler,
         const std::optional<std::string>& auction_signals_json,
         const std::optional<std::string>& per_buyer_signals_json,
-        const std::string seller_signals_json,
+        const std::string& seller_signals_json,
         bool is_for_additional_bid,
         const std::optional<std::string>& interest_group_name_reporting_id,
         const std::optional<std::string>& buyer_reporting_id,
@@ -584,8 +583,7 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
         const std::optional<std::string>&
             direct_from_seller_auction_signals_header_ad_slot,
         const std::string& seller_signals_json,
-        mojom::KAnonymityBidMode kanon_mode,
-        bool bid_is_kanon,
+        mojom::KAnonymityStatus kanon_status,
         const GURL& browser_signal_render_url,
         double browser_signal_bid,
         const std::optional<blink::AdCurrency>& browser_signal_bid_currency,
@@ -609,7 +607,6 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
     void GenerateBid(
         mojom::BidderWorkletNonSharedParamsPtr bidder_worklet_non_shared_params,
         mojom::KAnonymityBidMode kanon_mode,
-        const url::Origin& interest_group_join_origin,
         const std::optional<std::string>& auction_signals_json,
         const std::optional<std::string>& per_buyer_signals_json,
         DirectFromSellerSignalsRequester::Result
@@ -631,6 +628,7 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
         base::Time auction_start_time,
         const std::optional<blink::AdSize>& requested_ad_size,
         uint16_t multi_bid_limit,
+        uint64_t group_by_origin_id,
         scoped_refptr<TrustedSignals::Result> trusted_bidding_signals_result,
         bool trusted_bidding_signals_fetch_failed,
         uint64_t trace_id,
@@ -654,7 +652,6 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
     std::optional<SingleGenerateBidResult> RunGenerateBidOnce(
         const mojom::BidderWorkletNonSharedParams&
             bidder_worklet_non_shared_params,
-        const url::Origin& interest_group_join_origin,
         const std::string* auction_signals_json,
         const std::string* per_buyer_signals_json,
         const DirectFromSellerSignalsRequester::Result&
@@ -675,6 +672,7 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
         base::Time auction_start_time,
         const std::optional<blink::AdSize>& requested_ad_size,
         uint16_t multi_bid_limit,
+        uint64_t group_by_origin_id,
         const scoped_refptr<TrustedSignals::Result>&
             trusted_bidding_signals_result,
         uint64_t trace_id,
@@ -745,7 +743,9 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
     // ContextRecyclers for "group-by-origin" execution mode. The number of
     // previously-used contexts to keep track of is configured by
     // kFledgeNumberBidderWorkletGroupByOriginContextsToKeepValue.
-    base::LRUCache<url::Origin, std::unique_ptr<ContextRecycler>>
+    //
+    // The key is the group by origin ID..
+    base::LRUCache<uint64_t, std::unique_ptr<ContextRecycler>>
         context_recyclers_for_origin_group_mode_;
 
     // ContextRecyclers we prepare in advance, along with a bool indicating if
@@ -910,7 +910,9 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
   // Values shared by all interest groups that the BidderWorklet can be used
   // for.
   const GURL script_source_url_;
+  mojom::InProgressAuctionDownloadPtr script_source_load_;
   std::optional<GURL> wasm_helper_url_;
+  mojom::InProgressAuctionDownloadPtr wasm_helper_load_;
 
   // Populated only if `this` was created with a non-null
   // `trusted_scoring_signals_url`.

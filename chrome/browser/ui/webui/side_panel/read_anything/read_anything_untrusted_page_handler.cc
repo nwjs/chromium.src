@@ -45,6 +45,7 @@
 #include "content/public/browser/scoped_accessibility_mode.h"
 #include "content/public/browser/web_contents_user_data.h"
 #include "content/public/browser/web_ui.h"
+#include "extensions/browser/extension_registry.h"
 #include "net/http/http_status_code.h"
 #include "pdf/buildflags.h"
 #include "services/network/public/cpp/header_util.h"
@@ -75,10 +76,7 @@
 using ash::language_packs::LanguagePackManager;
 using ash::language_packs::PackResult;
 #else
-#include "chrome/browser/browser_process.h"
-#include "chrome/browser/component_updater/wasm_tts_engine_component_installer.h"
 #include "chrome/common/extensions/extension_constants.h"
-#include "components/update_client/crx_update_item.h"
 #endif
 
 using content::TtsController;
@@ -316,12 +314,7 @@ ReadAnythingUntrustedPageHandler::ReadAnythingUntrustedPageHandler(
 #if !BUILDFLAG(IS_CHROMEOS)
   content::TtsController::GetInstance()->AddUpdateLanguageStatusDelegate(this);
 
-  if (features::IsWasmTtsComponentUpdaterEnabled()) {
-    component_updater_observation_.Observe(
-        g_browser_process->component_updater());
-  } else {
-    extensions::ExtensionRegistry::Get(profile_)->AddObserver(this);
-  }
+  extensions::ExtensionRegistry::Get(profile_)->AddObserver(this);
 
 #endif
   side_panel_controller_ = ReadAnythingSidePanelControllerGlue::FromWebContents(
@@ -512,25 +505,19 @@ void ReadAnythingUntrustedPageHandler::OnUpdateLanguageStatus(
 void ReadAnythingUntrustedPageHandler::OnExtensionReady(
     content::BrowserContext* browser_context,
     const extensions::Extension* extension) {
-  if (extension->id() != extension_misc::kTTSEngineExtensionId) {
+  const auto& extensionId =
+      features::IsWasmTtsComponentUpdaterEnabled()
+          ? extension_misc::kComponentUpdaterTTSEngineExtensionId
+          : extension_misc::kTTSEngineExtensionId;
+  if (extension->id() != extensionId || extension_installed_) {
     return;
   }
+  // Keep track of whether or not we've gotten a signal for installing the
+  // extension. Otherwise, if reading mode is opened simultaneously in
+  // multiple profiles, there can be an infinite loop of trying to install
+  // and uninstall voices.
+  extension_installed_ = true;
   page_->OnTtsEngineInstalled();
-}
-
-// component_updater::ServiceObserver:
-void ReadAnythingUntrustedPageHandler::OnEvent(
-    const update_client::CrxUpdateItem& item) {
-  if (item.id !=
-      component_updater::WasmTtsEngineComponentInstallerPolicy::GetId()) {
-    return;
-  }
-
-  // Once the component has been updated, send a signal so reading mode
-  // can check for new voices.
-  if (item.state == update_client::ComponentState::kUpdated) {
-    page_->OnTtsEngineInstalled();
-  }
 }
 #endif
 
@@ -921,8 +908,9 @@ void ReadAnythingUntrustedPageHandler::SetLanguageCode(
   const std::string& language_code =
       (code.empty() || code == language_detection::kUnknownLanguageCode) ? ""
                                                                          : code;
-  // Only send the language code if it's a new language.
-  if (language_code != current_language_code_) {
+  // Only send the language code if it's a new language, unless it's an empty
+  // code. Always send an empty code so we know to use the tree language.
+  if (language_code.empty() || (language_code != current_language_code_)) {
     current_language_code_ = language_code;
     page_->SetLanguageCode(current_language_code_);
   }

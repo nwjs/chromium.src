@@ -213,6 +213,7 @@ void RenderInputRouter::SetDeviceScaleFactor(float device_scale_factor) {
 
 void RenderInputRouter::ProgressFlingIfNeeded(base::TimeTicks current_time) {
   TRACE_EVENT("input", "RenderInputRouter::ProgressFlingIfNeeded");
+  CHECK(fling_scheduler_);
   fling_scheduler_->ProgressFlingOnBeginFrameIfneeded(current_time);
 }
 
@@ -390,10 +391,9 @@ void RenderInputRouter::OnInputDispatchedToRendererResult(
       event, result == DispatchToRendererResult::kDispatched);
 }
 
-void RenderInputRouter::DidOverscroll(const ui::DidOverscrollParams& params) {
-  if (view_input_) {
-    view_input_->DidOverscroll(params);
-  }
+void RenderInputRouter::DidOverscroll(
+    blink::mojom::DidOverscrollParamsPtr params) {
+  delegate_->DidOverscroll(std::move(params));
 }
 
 void RenderInputRouter::DidStartScrollingViewport() {
@@ -672,6 +672,18 @@ void RenderInputRouter::SetView(RenderWidgetHostViewInput* view) {
     return;
   }
   view_input_ = view->GetInputWeakPtr();
+}
+
+void RenderInputRouter::SetBeginFrameSourceForFlingScheduler(
+    viz::BeginFrameSource* begin_frame_source) {
+  if (!fling_scheduler_) {
+    // In some cases, the fling_scheduler_ might not have been set yet, we
+    // should only attempt to set `nullptr` in such cases. See
+    // crbug.com/411461030.
+    CHECK(!begin_frame_source);
+    return;
+  }
+  fling_scheduler_->SetBeginFrameSource(begin_frame_source);
 }
 
 void RenderInputRouter::ResetFrameWidgetInputInterfaces() {

@@ -15,26 +15,8 @@ promise_test(async () => {
   assert_equals(Object.prototype.toString.call(writer), '[object Writer]');
 }, 'Writer.create() must be return a Writer.');
 
-promise_test(async t => {
-  let createResult = undefined;
-  const progressEvents = [];
-  let options = {};
-  const downloadComplete = new Promise(resolve => {
-    options.monitor = (m) => {
-      m.addEventListener("downloadprogress", e => {
-        assert_equals(createResult, undefined);
-        assert_equals(e.total, 1);
-        progressEvents.push(e);
-        if (e.loaded == 1) { resolve(); }
-      });
-    };
-  });
-
-  createResult = await Writer.create(options);
-  await downloadComplete;
-  assert_greater_than_equal(progressEvents.length, 2);
-  assert_equals(progressEvents.at(0).loaded, 0);
-  assert_equals(progressEvents.at(-1).loaded, 1);
+promise_test(async () => {
+  await testMonitor(Writer.create);
 }, 'Writer.create() notifies its monitor on downloadprogress');
 
 promise_test(async () => {
@@ -142,3 +124,19 @@ promise_test(async () => {
   const result = await writer.measureInputUsage(kTestPrompt);
   assert_greater_than(result, 0);
 }, 'Writer.measureInputUsage() returns non-empty result');
+
+promise_test(async () => {
+  const writer = await Writer.create();
+  await Promise.all([
+    writer.write(kTestPrompt),
+    writer.write(kTestPrompt)
+  ]);
+}, 'Multiple Writer.write() calls are resolved successfully.');
+
+promise_test(async () => {
+  const writer = await Writer.create();
+  await Promise.all([
+    writer.writeStreaming(kTestPrompt),
+    writer.writeStreaming(kTestPrompt)
+  ]);
+}, 'Multiple Writer.writeStreaming() calls are resolved successfully.');

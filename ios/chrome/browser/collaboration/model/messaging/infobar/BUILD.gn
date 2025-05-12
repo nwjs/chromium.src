@@ -1,0 +1,27 @@
+# Copyright 2025 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+source_set("infobar") {
+  sources = [
+    "collaboration_group_infobar_delegate.h",
+    "collaboration_group_infobar_delegate.mm",
+  ]
+
+  deps = [
+    "//base",
+    "//components/collaboration/public",
+    "//components/infobars/core",
+    "//components/strings",
+    "//ios/chrome/app/strings",
+    "//ios/chrome/browser/infobars/model",
+    "//ios/chrome/browser/infobars/model:public",
+    "//ios/chrome/browser/saved_tab_groups/model",
+    "//ios/chrome/browser/shared/model/browser",
+    "//ios/chrome/browser/shared/model/profile",
+    "//ios/chrome/browser/shared/model/web_state_list",
+    "//ios/chrome/browser/url_loading/model",
+    "//ios/chrome/browser/url_loading/model:url_loading_params_header",
+    "//ui/base",
+  ]
+}

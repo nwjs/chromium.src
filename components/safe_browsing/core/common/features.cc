@@ -37,12 +37,16 @@ BASE_FEATURE(kAddReferringAppInfoToProtegoPings,
 
 BASE_FEATURE(kAddReferringWebApkToProtegoPings,
              "AddReferringWebApkToProtegoPings",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 BASE_FEATURE(kAddWarningShownTSToClientSafeBrowsingReport,
              "AddWarningShownTSToClientSafeBrowsingReport",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kBundledSecuritySettings,
+             "BundledSecuritySettings",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kClientSideDetectionAcceptHCAllowlist,
              "ClientSideDetectionAcceptHCAllowlist",
@@ -56,13 +60,17 @@ BASE_FEATURE(kClientSideDetectionDebuggingMetadataCache,
              "ClientSideDetectionDebuggingMetadataCache",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kClientSideDetectionForcedLlamaRedirectChainKillswitch,
+             "ClientSideDetectionForcedLlamaRedirectChainKillswitch",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kClientSideDetectionKillswitch,
              "ClientSideDetectionKillswitch",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kClientSideDetectionSendLlamaForcedTriggerInfo,
              "ClientSideDetectionSendLlamaForcedTriggerInfo",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kClientSideDetectionLlamaForcedTriggerInfoForScamDetection,
              "ClientSideDetectionLlamaForcedTriggerInfoForScamDetection",
@@ -75,6 +83,10 @@ BASE_FEATURE(kClientSideDetectionKeyboardPointerLockRequest,
 BASE_FEATURE(kClientSideDetectionNotificationPrompt,
              "ClientSideDetectionNotificationPrompt",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kClientSideDetectionRedirectChainKillswitch,
+             "ClientSideDetectionRedirectChainKillswitch",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kClientSideDetectionSamplePing,
              "ClientSideDetectionSamplePing",
@@ -157,10 +169,6 @@ BASE_FEATURE(kEnterprisePasswordReuseUiRefresh,
 
 BASE_FEATURE(kEnterpriseRealTimeUrlCheckOnAndroid,
              "EnterpriseRealTimeUrlCheckOnAndroid",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kEsbAiStringUpdate,
-             "EsbAiStringUpdate",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kEsbAsASyncedSetting,
@@ -261,6 +269,10 @@ BASE_FEATURE(kOnDeviceNotificationContentDetectionModel,
              "OnDeviceNotificationContentDetectionModel",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kNotificationTelemetry,
+             "NotificationTelemetry",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 constexpr base::FeatureParam<int>
     kOnDeviceNotificationContentDetectionModelAllowlistSamplingRate{
         &kOnDeviceNotificationContentDetectionModel,
@@ -284,6 +296,15 @@ constexpr base::FeatureParam<std::string> kRedWarningSurveyReportTypeFilter{
 constexpr base::FeatureParam<std::string> kRedWarningSurveyDidProceedFilter{
     &kRedWarningSurvey, "RedWarningSurveyDidProceedFilter",
     /*default_value=*/"TRUE,FALSE"};
+
+BASE_FEATURE(kReportNotificationContentDetectionData,
+             "ReportNotificationContentDetectionData",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+constexpr base::FeatureParam<int> kReportNotificationContentDetectionDataRate{
+    &kReportNotificationContentDetectionData,
+    "ReportNotificationContentDetectionDataRate",
+    /*default_value=*/100};
 
 BASE_FEATURE(kSafeBrowsingDailyPhishingReportsLimit,
              "SafeBrowsingDailyPhishingReportsLimit",
@@ -325,6 +346,12 @@ constexpr base::FeatureParam<double>
     kSafetyHubDisruptiveNotificationRevocationMaxEngagementScore{
         &kSafetyHubDisruptiveNotificationRevocation,
         /*name=*/"max_engagement_score", /*default_value=*/0.0};
+
+constexpr base::FeatureParam<int>
+    kSafetyHubDisruptiveNotificationRevocationNotificationTimeoutSeconds{
+        &kSafetyHubDisruptiveNotificationRevocation,
+        /*name=*/"notification_timeout_seconds",
+        /*default_value=*/7 * 24 * 3600};
 
 BASE_FEATURE(kSavePasswordHashFromProfilePicker,
              "SavePasswordHashFromProfilePicker",
@@ -371,9 +398,11 @@ base::Value::List GetFeatureStatusList() {
   // chrome://safe-browsing. Features should be listed in alphabetical order.
   const base::Feature* kExperimentalFeatures[] = {
       // keep-sorted start
+      &kClientSideDetectionForcedLlamaRedirectChainKillswitch,
       &kClientSideDetectionKeyboardPointerLockRequest,
       &kClientSideDetectionKillswitch,
       &kClientSideDetectionNotificationPrompt,
+      &kClientSideDetectionRedirectChainKillswitch,
       &kCreateNotificationsAcceptedClientSafeBrowsingReports,
       &kDelayedWarnings,
       &kDlpRegionalizedEndpoints,
@@ -388,6 +417,7 @@ base::Value::List GetFeatureStatusList() {
       &kLocalIpAddressInEvents,
       &kLocalListsUseSBv5,
       &kOnDeviceNotificationContentDetectionModel,
+      &kReportNotificationContentDetectionData,
       &kSafeBrowsingRemoveCookiesInAuthRequests,
       &kSafetyHubAbusiveNotificationRevocation,
       &kShowWarningsForSuspiciousNotifications,

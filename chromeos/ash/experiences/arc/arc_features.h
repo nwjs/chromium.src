@@ -36,7 +36,6 @@ BASE_DECLARE_FEATURE_PARAM(bool, kEnableArcIdleManagerPendingIdleReactivate);
 BASE_DECLARE_FEATURE(kEnableArcS2Idle);
 BASE_DECLARE_FEATURE(kEnableArcVmDataMigration);
 BASE_DECLARE_FEATURE(kEnableFriendlierErrorDialog);
-BASE_DECLARE_FEATURE(kEnableLazyWebViewInit);
 BASE_DECLARE_FEATURE(kEnablePerVmCoreScheduling);
 BASE_DECLARE_FEATURE(kEnableVirtioBlkForData);
 BASE_DECLARE_FEATURE(kEnableVirtioBlkMultipleWorkers);
@@ -67,7 +66,6 @@ BASE_DECLARE_FEATURE(kRtVcpuDualCore);
 BASE_DECLARE_FEATURE(kRtVcpuQuadCore);
 BASE_DECLARE_FEATURE(kSaveRawFilesOnTracing);
 BASE_DECLARE_FEATURE(kSkipDropCaches);
-BASE_DECLARE_FEATURE(kSwitchToKeyMintOnT);
 BASE_DECLARE_FEATURE(kSwitchToKeyMintOnTOverride);
 BASE_DECLARE_FEATURE(kSyncInstallPriority);
 BASE_DECLARE_FEATURE(kUnthrottleOnActiveAudioV2);
@@ -86,9 +84,6 @@ BASE_DECLARE_FEATURE_PARAM(int, kVmmSwapOutTimeIntervalSecond);
 BASE_DECLARE_FEATURE_PARAM(int, kVmmSwapArcSilenceIntervalSecond);
 BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kVmmSwapTrimInterval);
 BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kVmmSwapMinShrinkInterval);
-BASE_DECLARE_FEATURE(kPriorityAppLmkDelay);
-BASE_DECLARE_FEATURE_PARAM(int, kPriorityAppLmkDelaySecond);
-BASE_DECLARE_FEATURE_PARAM(std::string, kPriorityAppLmkDelayList);
 BASE_DECLARE_FEATURE(kLmkPerceptibleMinStateUpdate);
 }  // namespace arc
 

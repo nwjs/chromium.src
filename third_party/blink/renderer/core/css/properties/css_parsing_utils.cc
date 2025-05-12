@@ -1026,18 +1026,6 @@ class MathFunctionParser {
     return result;
   }
 
-  // TODO: Remove this method once ConsumeNumberRaw_DO_NOT_USE is removed.
-  bool ConsumeNumberRaw(double& result) {
-    if (!calc_value_ || calc_value_->Category() != kCalcNumber ||
-        !calc_value_->ExpressionNode()->IsNumericLiteral()) {
-      return false;
-    }
-    DCHECK(!has_consumed_);  // Cannot consume twice.
-    has_consumed_ = true;
-    result = calc_value_->GetDoubleValue();
-    return true;
-  }
-
  private:
   bool has_consumed_ = false;
   CSSParserTokenStream* stream_;
@@ -1145,18 +1133,6 @@ CSSPrimitiveValue* ConsumeIntegerOrNumberCalc(
 CSSPrimitiveValue* ConsumePositiveInteger(CSSParserTokenStream& stream,
                                           const CSSParserContext& context) {
   return ConsumeInteger(stream, context, 1);
-}
-
-bool ConsumeNumberRaw_DO_NOT_USE(CSSParserTokenStream& stream,
-                                 const CSSParserContext& context,
-                                 double& result) {
-  if (stream.Peek().GetType() == kNumberToken) {
-    result = stream.ConsumeIncludingWhitespace().NumericValue();
-    return true;
-  }
-  MathFunctionParser math_parser(stream, context,
-                                 CSSPrimitiveValue::ValueRange::kAll);
-  return math_parser.ConsumeNumberRaw(result);
 }
 
 CSSPrimitiveValue* ConsumeNumber(CSSParserTokenStream& stream,
@@ -3186,9 +3162,10 @@ static CSSValue* ConsumeDeprecatedWebkitCrossFade(
     return nullptr;
   }
 
-  if (percentage->IsNumericLiteralValue()) {
+  if (const auto* percentage_literal =
+          DynamicTo<CSSNumericLiteralValue>(percentage)) {
     percentage = CSSNumericLiteralValue::Create(
-        ClampTo<double>(percentage->GetDoubleValue(), 0, 1),
+        ClampTo<double>(percentage_literal->GetDoubleValue(), 0, 1),
         CSSPrimitiveValue::UnitType::kNumber);
   }
 
@@ -3213,8 +3190,9 @@ static CSSValue* ConsumeCrossFade(CSSParserTokenStream& stream,
       if (percentage) {
         return nullptr;
       }
-      if (percent_value->IsNumericLiteralValue()) {
-        double val = percent_value->GetDoubleValue();
+      if (const auto* literal =
+              DynamicTo<CSSNumericLiteralValue>(percent_value)) {
+        double val = literal->GetDoubleValue();
         if (!(val >= 0.0 &&
               val <= 100.0)) {  // Includes checks for NaN and infinities.
           return nullptr;
@@ -3442,6 +3420,15 @@ static CSSImageSetOptionValue* ConsumeImageSetOption(
   // Type could appear before or after resolution
   CSSImageSetTypeValue* type = ConsumeImageSetType(stream);
   CSSPrimitiveValue* resolution = ConsumeResolution(stream, context);
+  if (resolution && !resolution->GetValueIfKnown().has_value()) {
+    // TODO(crbug.com/410746569): image-set() resolutions as not resolved at
+    // computed value time. That is, the computed resolution is not stored in
+    // ComputedStyle. getComputedStyle() uses StyleImageComputedCSSValueBuilder,
+    // for which a CSSLengthResolver is not available. Instead of return
+    // incorrect values for getComputedStyle() we do not support calc
+    // expressions that rely on relative units or sibling-index() for now.
+    return nullptr;
+  }
   if (!type) {
     type = ConsumeImageSetType(stream);
   }
@@ -4292,9 +4279,15 @@ CSSValue* ConsumeAnimationDuration(CSSParserTokenStream& stream,
 }
 
 CSSValue* ConsumeTimelineRangeName(CSSParserTokenStream& stream) {
-  return ConsumeIdent<CSSValueID::kContain, CSSValueID::kCover,
-                      CSSValueID::kEntry, CSSValueID::kEntryCrossing,
-                      CSSValueID::kExit, CSSValueID::kExitCrossing>(stream);
+  return RuntimeEnabledFeatures::ScrollTimelineNamedRangeScrollEnabled()
+             ? ConsumeIdent<CSSValueID::kContain, CSSValueID::kCover,
+                            CSSValueID::kEntry, CSSValueID::kEntryCrossing,
+                            CSSValueID::kExit, CSSValueID::kExitCrossing,
+                            CSSValueID::kScroll>(stream)
+             : ConsumeIdent<CSSValueID::kContain, CSSValueID::kCover,
+                            CSSValueID::kEntry, CSSValueID::kEntryCrossing,
+                            CSSValueID::kExit, CSSValueID::kExitCrossing>(
+                   stream);
 }
 
 CSSValue* ConsumeTimelineRangeNameAndPercent(CSSParserTokenStream& stream,
@@ -4307,7 +4300,7 @@ CSSValue* ConsumeTimelineRangeNameAndPercent(CSSParserTokenStream& stream,
   list->Append(*range_name);
   CSSValue* percentage =
       ConsumePercent(stream, context, CSSPrimitiveValue::ValueRange::kAll);
-  if (!percentage) {
+  if (!percentage || !percentage->IsNumericLiteralValue()) {
     return nullptr;
   }
   list->Append(*percentage);
@@ -4321,9 +4314,15 @@ CSSValue* ConsumeAnimationDelay(CSSParserTokenStream& stream,
 
 CSSValue* ConsumeAnimationRange(CSSParserTokenStream& stream,
                                 const CSSParserContext& context,
-                                double default_offset_percent) {
+                                double default_offset_percent,
+                                bool allow_auto) {
   if (CSSValue* ident = ConsumeIdent<CSSValueID::kNormal>(stream)) {
     return ident;
+  }
+  if (allow_auto) {
+    if (CSSValue* ident = ConsumeIdent<CSSValueID::kAuto>(stream)) {
+      return ident;
+    }
   }
   CSSValueList* list = CSSValueList::CreateSpaceSeparated();
   CSSValue* range_name = ConsumeTimelineRangeName(stream);
@@ -4481,11 +4480,17 @@ CSSValue* ConsumeAnimationTriggerValue(CSSPropertyID property,
     case CSSPropertyID::kAnimationTriggerTimeline:
       return css_parsing_utils::ConsumeAnimationTimeline(stream, context);
     case CSSPropertyID::kAnimationTriggerRangeStart:
+      return css_parsing_utils::ConsumeAnimationRange(stream, context, 0.0,
+                                                      /*allow_auto=*/false);
     case CSSPropertyID::kAnimationTriggerExitRangeStart:
-      return css_parsing_utils::ConsumeAnimationRange(stream, context, 0.0);
+      return css_parsing_utils::ConsumeAnimationRange(stream, context, 0.0,
+                                                      /*allow_auto=*/true);
     case CSSPropertyID::kAnimationTriggerRangeEnd:
+      return css_parsing_utils::ConsumeAnimationRange(stream, context, 100.0,
+                                                      /*allow_auto=*/false);
     case CSSPropertyID::kAnimationTriggerExitRangeEnd:
-      return css_parsing_utils::ConsumeAnimationRange(stream, context, 100.0);
+      return css_parsing_utils::ConsumeAnimationRange(stream, context, 100.0,
+                                                      /*allow_auto=*/true);
     default:
       NOTREACHED();
   }
@@ -5202,7 +5207,7 @@ CSSValue* ConsumeCornerShape(CSSParserTokenStream& stream,
   if (auto* ident =
           ConsumeIdent<CSSValueID::kBevel, CSSValueID::kNotch,
                        CSSValueID::kRound, CSSValueID::kScoop,
-                       CSSValueID::kSquircle, CSSValueID::kStraight>(stream)) {
+                       CSSValueID::kSquircle, CSSValueID::kSquare>(stream)) {
     return ident;
   }
 
@@ -5213,14 +5218,18 @@ CSSValue* ConsumeCornerShape(CSSParserTokenStream& stream,
   CSSParserTokenStream::RestoringBlockGuard guard(stream);
   stream.ConsumeWhitespace();
   const CSSPrimitiveValue* param = nullptr;
-  if (stream.Peek().Id() == CSSValueID::kInfinity) {
+  if (stream.Peek().Id() == CSSValueID::kNegativeInfinity) {
+    param =
+        CSSNumericLiteralValue::Create(-std::numeric_limits<double>::infinity(),
+                                       CSSPrimitiveValue::UnitType::kNumber);
+    stream.ConsumeIncludingWhitespace();
+  } else if (stream.Peek().Id() == CSSValueID::kInfinity) {
     param =
         CSSNumericLiteralValue::Create(std::numeric_limits<double>::infinity(),
                                        CSSPrimitiveValue::UnitType::kNumber);
     stream.ConsumeIncludingWhitespace();
   } else {
-    param = ConsumeNumber(stream, context,
-                          CSSPrimitiveValue::ValueRange::kNonNegative);
+    param = ConsumeNumber(stream, context, CSSPrimitiveValue::ValueRange::kAll);
   }
   if (!param) {
     return nullptr;
@@ -6758,8 +6767,8 @@ bool ConsumeGridTemplateShorthand(bool important,
   return false;
 }
 
-CSSValue* ConsumeMasonrySlack(CSSParserTokenStream& stream,
-                              const CSSParserContext& context) {
+CSSValue* ConsumeItemTolerance(CSSParserTokenStream& stream,
+                               const CSSParserContext& context) {
   if (stream.Peek().Id() == CSSValueID::kNormal) {
     return ConsumeIdent(stream);
   }
@@ -7479,8 +7488,11 @@ CSSValue* ConsumeOffsetPath(CSSParserTokenStream& stream,
 
   CSSValue* offset_path = ConsumeRay(stream, context);
   if (!offset_path) {
-    offset_path = ConsumeBasicShape(stream, context, AllowPathValue::kForbid,
-                                    AllowShapeValue::kForbid);
+    offset_path = ConsumeBasicShape(
+        stream, context, AllowPathValue::kForbid,
+        RuntimeEnabledFeatures::CSSShapeFunctionOffsetPathEnabled()
+            ? AllowShapeValue::kAllow
+            : AllowShapeValue::kForbid);
   }
   if (!offset_path) {
     offset_path = ConsumeUrl(stream, context);

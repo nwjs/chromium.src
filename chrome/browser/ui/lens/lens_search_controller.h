@@ -6,9 +6,13 @@
 #define CHROME_BROWSER_UI_LENS_LENS_SEARCH_CONTROLLER_H_
 
 #include "base/memory/raw_ptr.h"
-#include "components/tab_collections/public/tab_interface.h"
+#include "components/tabs/public/tab_interface.h"
 
 class LensOverlayController;
+
+namespace lens {
+class LensOverlaySidePanelCoordinator;
+}  // namespace lens
 
 namespace variations {
 class VariationsClient;
@@ -40,25 +44,56 @@ class LensSearchController {
                   syncer::SyncService* sync_service,
                   ThemeService* theme_service);
 
+  // A simple utility that gets the the LensSearchController TabFeature set by
+  // the embedding tab of a lens WebUI hosted in `webui_web_contents`.
+  // May return nullptr if no LensSearchController TabFeature is associated
+  // with `webui_web_contents`.
+  static LensSearchController* FromWebUIWebContents(
+      content::WebContents* webui_web_contents);
+
+  // A simple utility that gets the the LensSearchController TabFeature set by
+  // the instances of WebContents associated with a tab.
+  // May return nullptr if no LensSearchController TabFeature is associated
+  // with `tab_web_contents`.
+  static LensSearchController* FromTabWebContents(
+      content::WebContents* tab_web_contents);
+
+  // Returns the tab interface that owns this controller.
+  tabs::TabInterface* GetTabInterface();
+
   // Returns the LensOverlayController.
   LensOverlayController* lens_overlay_controller();
+
+  // Returns the LensOverlaySidePanelCoordinator.
+  lens::LensOverlaySidePanelCoordinator* lens_overlay_side_panel_coordinator();
 
  protected:
   // Override these methods to stub out individual feature controllers for
   // testing.
   virtual std::unique_ptr<LensOverlayController> CreateLensOverlayController(
       tabs::TabInterface* tab,
+      LensSearchController* lens_search_controller,
       variations::VariationsClient* variations_client,
       signin::IdentityManager* identity_manager,
       PrefService* pref_service,
       syncer::SyncService* sync_service,
       ThemeService* theme_service);
 
+  // Override these methods to be able to track calls made to the side panel
+  // coordinator.
+  virtual std::unique_ptr<lens::LensOverlaySidePanelCoordinator>
+  CreateLensOverlaySidePanelCoordinator();
+
  private:
   // Whether the LensSearchController has been initialized.
   bool initialized_ = false;
 
+  // The overlay controller for the Lens Search feature on this tab.
   std::unique_ptr<LensOverlayController> lens_overlay_controller_;
+
+  // The side panel coordinator for the Lens Search feature on this tab.
+  std::unique_ptr<lens::LensOverlaySidePanelCoordinator>
+      lens_overlay_side_panel_coordinator_;
 
   // Owns this class.
   raw_ptr<tabs::TabInterface> tab_;

@@ -359,7 +359,7 @@ TEST_F(ChromeContentBrowserClientWindowTest, AutomaticBeaconCredentials) {
       url::Origin::Create(GURL("c.test"))));
 }
 
-TEST_F(ChromeContentBrowserClientWindowTest, GetAutoPipReason) {
+TEST_F(ChromeContentBrowserClientWindowTest, GetAutoPipInfo_AutoPipReason) {
   ChromeContentBrowserClient client;
 
   const GURL url("https://www.google.com");
@@ -378,18 +378,18 @@ TEST_F(ChromeContentBrowserClientWindowTest, GetAutoPipReason) {
       AutoPictureInPictureTabHelper::FromWebContents(web_contents);
   ASSERT_NE(nullptr, tab_helper);
   EXPECT_EQ(media::PictureInPictureEventsInfo::AutoPipReason::kUnknown,
-            client.GetAutoPipReason(*web_contents));
+            client.GetAutoPipInfo(*web_contents).auto_pip_reason);
 
   tab_helper->set_auto_pip_trigger_reason_for_testing(
       media::PictureInPictureEventsInfo::AutoPipReason::kVideoConferencing);
   EXPECT_EQ(
       media::PictureInPictureEventsInfo::AutoPipReason::kVideoConferencing,
-      client.GetAutoPipReason(*web_contents));
+      client.GetAutoPipInfo(*web_contents).auto_pip_reason);
 
   tab_helper->set_auto_pip_trigger_reason_for_testing(
       media::PictureInPictureEventsInfo::AutoPipReason::kMediaPlayback);
   EXPECT_EQ(media::PictureInPictureEventsInfo::AutoPipReason::kMediaPlayback,
-            client.GetAutoPipReason(*web_contents));
+            client.GetAutoPipInfo(*web_contents).auto_pip_reason);
 }
 
 #endif  // !BUILDFLAG(IS_ANDROID)
@@ -1632,7 +1632,7 @@ TEST_F(ChromeContentBrowserClientTest, ShouldUseSpareRenderProcessHost) {
                 &profile_, GURL("chrome-search://test")));
 #endif
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   // Extension URL
   EXPECT_EQ(SpareProcessRefusedByEmbedderReason::ExtensionProcess,
             browser_client.ShouldUseSpareRenderProcessHost(
@@ -1694,6 +1694,75 @@ TEST_F(ChromeContentBrowserClientFieldTrialTest,
   ASSERT_FALSE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
                                                    "Enabled"));
 }
+
+TEST_F(ChromeContentBrowserClientFieldTrialTest,
+       OnUiaProviderDisabledFromEnabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  // Start with the browser launching in the Enabled group.
+  scoped_feature_list.InitFromCommandLine(
+      "UiaProvider<UiaProviderWin.Enabled_12345:k/v", {});
+  client().OnUiaProviderRequested(true);
+  ASSERT_FALSE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
+                                                   "Control"));
+  ASSERT_TRUE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
+                                                  "Enabled"));
+  ASSERT_FALSE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
+                                                   "Rejected"));
+  // Now simulate disabling the UIA Provider.
+  client().OnUiaProviderDisabled();
+
+  // The synthetic trial should now be re-registered as "Rejected".
+  ASSERT_FALSE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
+                                                   "Control"));
+  ASSERT_FALSE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
+                                                   "Enabled"));
+  ASSERT_TRUE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
+                                                  "Rejected"));
+}
+
+TEST_F(ChromeContentBrowserClientFieldTrialTest,
+       OnUiaProviderDisabledFromControl) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  // Start with the browser launching in the Enabled group.
+  scoped_feature_list.InitFromCommandLine(
+      "UiaProvider<UiaProviderWin.Control_12345:k/v", {});
+  client().OnUiaProviderRequested(true);
+  ASSERT_TRUE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
+                                                  "Control"));
+  ASSERT_FALSE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
+                                                   "Enabled"));
+  ASSERT_FALSE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
+                                                   "Rejected"));
+
+  // Now simulate disabling the UIA Provider.
+  client().OnUiaProviderDisabled();
+
+  // Nothing should change, as the user was part of the control group without
+  // the UIA Provider anyway.
+  ASSERT_TRUE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
+                                                  "Control"));
+  ASSERT_FALSE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
+                                                   "Enabled"));
+  ASSERT_FALSE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
+                                                   "Rejected"));
+}
+
+TEST_F(ChromeContentBrowserClientFieldTrialTest, OnUiaProviderDisabledNoStudy) {
+  client().OnUiaProviderRequested(false);
+  ASSERT_FALSE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
+                                                   "Control"));
+  ASSERT_FALSE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
+                                                   "Enabled"));
+  ASSERT_FALSE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
+                                                   "Rejected"));
+  client().OnUiaProviderDisabled();
+  ASSERT_FALSE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
+                                                   "Control"));
+  ASSERT_FALSE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
+                                                   "Enabled"));
+  ASSERT_FALSE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
+                                                   "Rejected"));
+}
 #endif  // BUILDFLAG(IS_WIN)
 
 class GrantCookieAccessDueToHeuristicTest
@@ -1701,9 +1770,6 @@ class GrantCookieAccessDueToHeuristicTest
       public testing::WithParamInterface<bool> {
  public:
   void SetUp() override {
-    profile_.GetPrefs()->SetInteger(
-        prefs::kCookieControlsMode,
-        static_cast<int>(content_settings::CookieControlsMode::kLimited));
     profile_.GetPrefs()->SetBoolean(prefs::kTrackingProtection3pcdEnabled,
                                     true);
 

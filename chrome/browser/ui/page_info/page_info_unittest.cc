@@ -1543,7 +1543,7 @@ TEST_F(PageInfoTest, ShowInfoBarWhenAllowingThirdPartyCookies) {
   page_info()->OnStatusChanged(
       /*controls_visible=*/true, /*protections_on=*/true,
       CookieControlsEnforcement::kNoEnforcement,
-      CookieBlocking3pcdStatus::kNotIn3pcd, base::Time(), /*features=*/{});
+      CookieBlocking3pcdStatus::kNotIn3pcd, base::Time());
 
   EXPECT_EQ(0u, infobar_manager()->infobars().size());
   page_info()->OnThirdPartyToggleClicked(/*block_third_party_cookies=*/false);
@@ -1566,7 +1566,7 @@ TEST_F(PageInfoTest, ShowInfoBarWhenBlockingThirdPartyCookies) {
   page_info()->OnStatusChanged(
       /*controls_visible=*/true, /*protections_on=*/false,
       CookieControlsEnforcement::kNoEnforcement,
-      CookieBlocking3pcdStatus::kNotIn3pcd, base::Time(), /*features=*/{});
+      CookieBlocking3pcdStatus::kNotIn3pcd, base::Time());
 
   EXPECT_EQ(0u, infobar_manager()->infobars().size());
   page_info()->OnThirdPartyToggleClicked(/*block_third_party_cookies=*/true);
@@ -2136,15 +2136,6 @@ TEST_F(UnifiedAutoplaySoundSettingsPageInfoTest, NotSoundSetting_Noop) {
 // Unit tests for logic in the PageInfoUI that toggles permission between
 // allow/block and remember/forget.
 class PageInfoToggleStatesUnitTest : public ::testing::Test {
- public:
-  void SetUp() override {
-    scoped_feature_list_.InitAndEnableFeature(
-        permissions::features::kOneTimePermission);
-    ::testing::Test::SetUp();
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 // Testing all possible state transitions for a permission that doesn't

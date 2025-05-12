@@ -27,29 +27,23 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 
 import java.util.List;
-import java.util.Set;
 
 /** Dropdown item adapter for DropdownPopupWindow. */
 @NullMarked
 public class DropdownAdapter extends ArrayAdapter<DropdownItem> {
     private final Context mContext;
-    private final @Nullable Set<Integer> mSeparators;
     private final boolean mAreAllItemsEnabled;
 
     /**
      * Creates an {@code ArrayAdapter} with specified parameters.
+     *
      * @param context Application context.
      * @param items List of labels and icons to display.
-     * @param separators Set of positions that separate {@code items}.
      */
-    public DropdownAdapter(
-            Context context,
-            List<? extends DropdownItem> items,
-            @Nullable Set<Integer> separators) {
+    public DropdownAdapter(Context context, List<? extends DropdownItem> items) {
         super(context, R.layout.dropdown_item);
         mContext = context;
         addAll(items);
-        mSeparators = separators;
         mAreAllItemsEnabled = checkAreAllItemsEnabled();
     }
 
@@ -85,13 +79,7 @@ public class DropdownAdapter extends ArrayAdapter<DropdownItem> {
                             .getDimensionPixelSize(R.dimen.dropdown_item_divider_height);
             height += dividerHeight;
             divider.setHeight(dividerHeight);
-            int dividerColor;
-            if (mSeparators != null && mSeparators.contains(position)) {
-                dividerColor = mContext.getColor(R.color.dropdown_dark_divider_color);
-            } else {
-                dividerColor = mContext.getColor(R.color.dropdown_divider_color);
-            }
-            divider.setDividerColor(dividerColor);
+            divider.setDividerColor(mContext.getColor(R.color.dropdown_divider_color));
         }
 
         DropdownItem item = assumeNonNull(getItem(position));
@@ -136,15 +124,7 @@ public class DropdownAdapter extends ArrayAdapter<DropdownItem> {
             sublabelView.setVisibility(View.VISIBLE);
         }
 
-        ImageView iconViewStart = (ImageView) layout.findViewById(R.id.start_dropdown_icon);
-        ImageView iconViewEnd = (ImageView) layout.findViewById(R.id.end_dropdown_icon);
-        if (item.isIconAtStart()) {
-            iconViewEnd.setVisibility(View.GONE);
-        } else {
-            iconViewStart.setVisibility(View.GONE);
-        }
-
-        ImageView iconView = item.isIconAtStart() ? iconViewStart : iconViewEnd;
+        ImageView iconView = (ImageView) layout.findViewById(R.id.end_dropdown_icon);
         if (item.getIconId() == DropdownItem.NO_ICON) {
             iconView.setVisibility(View.GONE);
         } else {

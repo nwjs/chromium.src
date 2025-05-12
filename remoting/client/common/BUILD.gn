@@ -1,0 +1,26 @@
+# Copyright 2025 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//remoting/remoting_options.gni")
+
+if (is_linux) {
+  source_set("common") {
+    sources = [
+      "logging.h",
+      "remoting_client.cc",
+      "remoting_client.h",
+    ]
+
+    deps = [
+      "//base",
+      "//net",
+      "//remoting/base",
+      "//remoting/proto",
+      "//remoting/proto/remoting/v1:remote_support_host_messages",
+      "//remoting/protocol",
+      "//remoting/signaling",
+      "//third_party/protobuf:protobuf_lite",
+    ]
+  }
+}

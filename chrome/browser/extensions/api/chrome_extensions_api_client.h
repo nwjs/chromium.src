@@ -10,11 +10,18 @@
 #include "build/chromeos_buildflags.h"
 #include "extensions/browser/api/extensions_api_client.h"
 
+namespace base {
+class SingleThreadTaskRunner;
+}
+
 namespace extensions {
 
 class ChromeAutomationInternalApiDelegate;
 class ChromeMetricsPrivateDelegate;
 class ClipboardExtensionHelper;
+class NativeMessageHost;
+class NativeMessagePort;
+class NativeMessagePortDispatcher;
 
 // Extra support for extensions APIs in Chrome.
 class ChromeExtensionsAPIClient : public ExtensionsAPIClient {
@@ -54,17 +61,20 @@ class ChromeExtensionsAPIClient : public ExtensionsAPIClient {
   void OpenFileUrl(const GURL& file_url,
                    content::BrowserContext* browser_context) override;
 #if BUILDFLAG(ENABLE_GUEST_VIEW)
-  AppViewGuestDelegate* CreateAppViewGuestDelegate() const override;
-  ExtensionOptionsGuestDelegate* CreateExtensionOptionsGuestDelegate(
+  std::unique_ptr<AppViewGuestDelegate> CreateAppViewGuestDelegate()
+      const override;
+  std::unique_ptr<ExtensionOptionsGuestDelegate>
+  CreateExtensionOptionsGuestDelegate(
       ExtensionOptionsGuest* guest) const override;
   std::unique_ptr<guest_view::GuestViewManagerDelegate>
   CreateGuestViewManagerDelegate() const override;
   std::unique_ptr<MimeHandlerViewGuestDelegate>
   CreateMimeHandlerViewGuestDelegate(
       MimeHandlerViewGuest* guest) const override;
-  WebViewGuestDelegate* CreateWebViewGuestDelegate(
+  std::unique_ptr<WebViewGuestDelegate> CreateWebViewGuestDelegate(
       WebViewGuest* web_view_guest) const override;
-  WebViewPermissionHelperDelegate* CreateWebViewPermissionHelperDelegate(
+  std::unique_ptr<WebViewPermissionHelperDelegate>
+  CreateWebViewPermissionHelperDelegate(
       WebViewPermissionHelper* web_view_permission_helper) const override;
 #endif  // BUILDFLAG(ENABLE_GUEST_VIEW)
 #if BUILDFLAG(IS_CHROMEOS)
@@ -107,6 +117,12 @@ class ChromeExtensionsAPIClient : public ExtensionsAPIClient {
 
   AutomationInternalApiDelegate* GetAutomationInternalApiDelegate() override;
   std::vector<KeyedServiceBaseFactory*> GetFactoryDependencies() override;
+
+  std::unique_ptr<NativeMessagePortDispatcher>
+  CreateNativeMessagePortDispatcher(std::unique_ptr<NativeMessageHost> host,
+                                    base::WeakPtr<NativeMessagePort> port,
+                                    scoped_refptr<base::SingleThreadTaskRunner>
+                                        message_service_task_runner) override;
 
  private:
   std::unique_ptr<ChromeMetricsPrivateDelegate> metrics_private_delegate_;

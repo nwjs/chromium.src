@@ -7,28 +7,38 @@ package org.chromium.chrome.test.transit.ntp;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
+import static org.chromium.base.test.transit.Condition.whether;
 import static org.chromium.base.test.transit.ViewSpec.viewSpec;
 
 import android.util.Pair;
+import android.view.View;
 
+import org.chromium.base.test.transit.Element;
 import org.chromium.base.test.transit.Elements;
-import org.chromium.base.test.transit.ViewSpec;
+import org.chromium.base.test.transit.SimpleConditions;
+import org.chromium.base.test.transit.ViewElement;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.ntp.IncognitoNewTabPage;
+import org.chromium.chrome.browser.omnibox.UrlBar;
 import org.chromium.chrome.test.transit.SoftKeyboardFacility;
 import org.chromium.chrome.test.transit.omnibox.FakeOmniboxSuggestions;
 import org.chromium.chrome.test.transit.omnibox.OmniboxFacility;
+import org.chromium.chrome.test.transit.page.NativePageCondition;
 import org.chromium.chrome.test.transit.page.PageStation;
+import org.chromium.components.embedder_support.util.UrlConstants;
 
 import java.util.List;
 
 /** The Incognito New Tab Page screen, with text about Incognito mode. */
 public class IncognitoNewTabPageStation extends PageStation {
-    public static final ViewSpec ICON = viewSpec(withId(R.id.new_tab_incognito_icon));
-    public static final ViewSpec GONE_INCOGNITO_TEXT = viewSpec(withText("You’ve gone Incognito"));
+    public ViewElement<UrlBar> urlBarElement;
+    public ViewElement<View> iconElement;
+    public ViewElement<View> goneIncognitoTextElement;
+    public Element<IncognitoNewTabPage> nativePageElement;
 
     protected <T extends IncognitoNewTabPageStation> IncognitoNewTabPageStation(
             Builder<T> builder) {
-        super(builder.withIncognito(true));
+        super(builder.withIncognito(true).withExpectedUrlSubstring(UrlConstants.NTP_URL));
     }
 
     public static Builder<IncognitoNewTabPageStation> newBuilder() {
@@ -38,15 +48,25 @@ public class IncognitoNewTabPageStation extends PageStation {
     @Override
     public void declareElements(Elements.Builder elements) {
         super.declareElements(elements);
-        elements.declareView(URL_BAR);
-        elements.declareView(ICON);
-        elements.declareView(GONE_INCOGNITO_TEXT);
-        elements.declareEnterCondition(new NtpLoadedCondition(mPageLoadedSupplier));
+
+        urlBarElement = elements.declareView(URL_BAR);
+        iconElement = elements.declareView(viewSpec(withId(R.id.new_tab_incognito_icon)));
+        goneIncognitoTextElement =
+                elements.declareView(viewSpec(withText("You’ve gone Incognito")));
+        nativePageElement =
+                elements.declareEnterConditionAsElement(
+                        new NativePageCondition<>(IncognitoNewTabPage.class, loadedTabElement));
+        elements.declareEnterCondition(
+                SimpleConditions.uiThreadCondition(
+                        "Incognito NTP is loaded",
+                        nativePageElement,
+                        nativePage -> whether(nativePage.isLoadedForTests())));
     }
 
     /** Opens the app menu by pressing the toolbar "..." button */
     public IncognitoNewTabPageAppMenuFacility openAppMenu() {
-        return enterFacilitySync(new IncognitoNewTabPageAppMenuFacility(), MENU_BUTTON::click);
+        return enterFacilitySync(
+                new IncognitoNewTabPageAppMenuFacility(), menuButtonElement.getClickTrigger());
     }
 
     /** Click the URL bar to enter the Omnibox. */
@@ -55,7 +75,8 @@ public class IncognitoNewTabPageStation extends PageStation {
         OmniboxFacility omniboxFacility =
                 new OmniboxFacility(/* incognito= */ true, fakeSuggestions);
         SoftKeyboardFacility softKeyboard = new SoftKeyboardFacility();
-        enterFacilitiesSync(List.of(omniboxFacility, softKeyboard), URL_BAR::click);
+        enterFacilitiesSync(
+                List.of(omniboxFacility, softKeyboard), urlBarElement.getClickTrigger());
         return Pair.create(omniboxFacility, softKeyboard);
     }
 }

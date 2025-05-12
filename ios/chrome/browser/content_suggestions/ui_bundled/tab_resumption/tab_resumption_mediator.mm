@@ -395,19 +395,11 @@ class TabResumptionMediatorProxy {
     _webStateList = _browser->GetWebStateList();
     _isOffTheRecord = _browser->GetProfile()->IsOffTheRecord();
 
-    if (IsHomeCustomizationEnabled()) {
-      _tabResumptionDisabled = [[PrefBackedBoolean alloc]
-          initWithPrefService:_profilePrefs
-                     prefName:
-                         prefs::
-                             kHomeCustomizationMagicStackTabResumptionEnabled];
-      [_tabResumptionDisabled setObserver:self];
-    } else {
-      _tabResumptionDisabled = [[PrefBackedBoolean alloc]
-          initWithPrefService:_profilePrefs
-                     prefName:tab_resumption_prefs::kTabResumptionDisabledPref];
-      [_tabResumptionDisabled setObserver:self];
-    }
+    _tabResumptionDisabled = [[PrefBackedBoolean alloc]
+        initWithPrefService:_profilePrefs
+                   prefName:
+                       prefs::kHomeCustomizationMagicStackTabResumptionEnabled];
+    [_tabResumptionDisabled setObserver:self];
 
     ProfileIOS* profile = _browser->GetProfile();
     _sessionSyncService = SessionSyncServiceFactory::GetForProfile(profile);
@@ -667,8 +659,7 @@ class TabResumptionMediatorProxy {
 
 - (void)booleanDidChange:(id<ObservableBoolean>)observableBoolean {
   if (observableBoolean == _tabResumptionDisabled) {
-    if ((IsHomeCustomizationEnabled() && !observableBoolean.value) ||
-        (!IsHomeCustomizationEnabled() && observableBoolean.value)) {
+    if (!observableBoolean.value) {
       [self.delegate removeTabResumptionModule];
     }
   }
@@ -981,6 +972,9 @@ class TabResumptionMediatorProxy {
   item.commandHandler = self;
   item.delegate = self;
   item.shouldShowSeeMore = true;
+  if (commerce::kShopCardVariation.Get() == commerce::kShopCardArm4) {
+    item.shouldShowSeeMore = false;
+  }
   [self fetchShopCardDataForItemIfApplicable:item url:tab->virtual_url];
 }
 

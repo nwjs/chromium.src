@@ -85,6 +85,17 @@ BASE_DECLARE_FEATURE(kAllowWithholdingExtensionPermissionsOnInstall);
 // extension).
 BASE_DECLARE_FEATURE(kCheckingNoExtensionIdInExtensionIpcs);
 
+// If enabled, defers the execution of WebRequestAPI call of
+// `ResetURLLoaderFactories()` to when there's no extension service worker
+// registrations in flight, to avoid disrupting the worker(s) registration(s).
+BASE_DECLARE_FEATURE(kDeferResetURLLoaderFactories);
+
+// If enabled, `ResetURLLoaderFactories()` will not reset extensions'
+// service workers URLLoaderFactories used for fetching scripts and
+// sub-resources. This avoids disrupting the worker(s) registration(s)
+// when they are in flight.
+BASE_DECLARE_FEATURE(kSkipResetServiceWorkerURLLoaderFactories);
+
 // If enabled, <webview>s will be allowed to request permission from an
 // embedding Chrome App to request access to Human Interface Devices.
 BASE_DECLARE_FEATURE(kEnableWebHidInWebView);
@@ -237,6 +248,9 @@ BASE_DECLARE_FEATURE(kSilentDebuggerExtensionAPI);
 // TODO(https://crbug.com/334991035): Remove this feature after we're confident
 // nothing breaks.
 BASE_DECLARE_FEATURE(kRemoveCoreSiteInstance);
+
+// Disables loading extensions via the `--load-extension` command line switch.
+BASE_DECLARE_FEATURE(kDisableLoadExtensionCommandLineSwitch);
 
 // Changes the chrome.userScript API to be enabled by a per-extension toggle
 // rather than the developer mode toggle on chrome://extensions.

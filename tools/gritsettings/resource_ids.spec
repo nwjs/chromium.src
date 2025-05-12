@@ -497,6 +497,10 @@
     "META": {"sizes": {"includes": [20]}},
     "includes": [4380],
   },
+  "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/new_tab_footer/resources.grd": {
+    "META": {"sizes": {"includes": [10]}},
+    "includes": [4390],
+  },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/new_tab_page/resources.grd": {
     "META": {"sizes": {"includes": [200]}},
     "includes": [4400],
@@ -630,7 +634,7 @@
     "includes": [4910],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/side_panel/shared/resources.grd": {
-    "META": {"sizes": {"includes": [15],}},
+    "META": {"sizes": {"includes": [18],}},
     "includes": [4920],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/signin/batch_upload/resources.grd": {

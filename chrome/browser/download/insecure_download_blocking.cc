@@ -18,6 +18,7 @@
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/common/webui_url_constants.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/download/public/common/download_stats.h"
@@ -383,14 +384,14 @@ bool ContainsExtension(const std::string& extension_list,
 // Just print a descriptive message to the console about the blocked download.
 // |is_blocked| indicates whether this download will be blocked now.
 void PrintConsoleMessage(const InsecureDownloadData& data) {
-  content::WebContents* web_contents =
-      content::DownloadItemUtils::GetWebContents(data.item_);
-  if (!web_contents) {
+  content::RenderFrameHost* rfh =
+      content::DownloadItemUtils::GetRenderFrameHost(data.item_);
+  if (!rfh) {
     return;
   }
 
   if (data.is_mixed_content_) {
-    web_contents->GetPrimaryMainFrame()->AddMessageToConsole(
+    rfh->AddMessageToConsole(
         blink::mojom::ConsoleMessageLevel::kError,
         base::StringPrintf(
             "Mixed Content: The site at '%s' was loaded over a secure "
@@ -405,7 +406,13 @@ void PrintConsoleMessage(const InsecureDownloadData& data) {
     return;
   }
 
-  web_contents->GetPrimaryMainFrame()->AddMessageToConsole(
+  // TODO(crbug.com/399076164): debug only. Used to investigate why insecure
+  // downloads can be initiated from the NTP.
+  if (rfh->GetLastCommittedOrigin().host() == chrome::kChromeUINewTabPageHost) {
+    base::debug::DumpWithoutCrashing();
+  }
+
+  rfh->AddMessageToConsole(
       blink::mojom::ConsoleMessageLevel::kError,
       base::StringPrintf(
           "The file at '%s' was %s an insecure connection. "

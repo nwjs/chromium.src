@@ -69,7 +69,6 @@ import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.browser_controls.BrowserStateBrowserControlsVisibilityDelegate;
 import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntentDataProvider;
-import org.chromium.chrome.browser.browserservices.intents.CustomButtonParams;
 import org.chromium.chrome.browser.customtabs.CustomButtonParamsImpl;
 import org.chromium.chrome.browser.customtabs.CustomTabFeatureOverridesManager;
 import org.chromium.chrome.browser.customtabs.features.minimizedcustomtab.CustomTabMinimizeDelegate;
@@ -89,7 +88,6 @@ import org.chromium.chrome.browser.toolbar.top.CaptureReadinessResult;
 import org.chromium.chrome.browser.toolbar.top.NavigationPopup.HistoryDelegate;
 import org.chromium.chrome.browser.toolbar.top.ToggleTabStackButtonCoordinator;
 import org.chromium.chrome.browser.toolbar.top.ToolbarSnapshotDifference;
-import org.chromium.chrome.browser.toolbar.top.ToolbarTablet.OfflineDownloader;
 import org.chromium.chrome.browser.user_education.UserEducationHelper;
 import org.chromium.components.content_settings.CookieBlocking3pcdStatus;
 import org.chromium.components.feature_engagement.Tracker;
@@ -130,7 +128,6 @@ public class CustomTabToolbarUnitTest {
     @Mock private ToggleTabStackButtonCoordinator mTabSwitcherButtonCoordinator;
     @Mock HistoryDelegate mHistoryDelegate;
     @Mock BooleanSupplier mPartnerHomepageEnabledSupplier;
-    @Mock OfflineDownloader mOfflineDownloader;
     @Mock UserEducationHelper mUserEducationHelper;
     @Mock Tracker mTracker;
     @Mock Tab mTab;
@@ -141,7 +138,6 @@ public class CustomTabToolbarUnitTest {
     @Mock private CustomTabFeatureOverridesManager mFeatureOverridesManager;
     @Mock private BrowserServicesIntentDataProvider mIntentDataProvider;
     @Mock private CustomTabMinimizeDelegate mMinimizeDelegate;
-    @Mock private Callback<CustomButtonParams> mCustomButtonCallback;
 
     private Activity mActivity;
     private CustomTabToolbar mToolbar;
@@ -198,11 +194,10 @@ public class CustomTabToolbarUnitTest {
                 mMenuButtonCoordinator,
                 mTabSwitcherButtonCoordinator,
                 mHistoryDelegate,
-                mPartnerHomepageEnabledSupplier,
-                mOfflineDownloader,
                 mUserEducationHelper,
                 trackerSupplier,
                 mToolbarProgressBar,
+                null,
                 null);
 
         if (ChromeFeatureList.sCctToolbarRefactor.isEnabled()) {
@@ -211,8 +206,11 @@ public class CustomTabToolbarUnitTest {
                     mIntentDataProvider,
                     mFeatureOverridesManager,
                     mMinimizeDelegate,
-                    null,
-                    mCustomButtonCallback);
+                    null);
+            var model =
+                    CustomTabToolbarButtonsCoordinator.getCustomActionButtonsModel(
+                            mActivity, mIntentDataProvider, params -> {});
+            mToolbar.setCustomActionButtonsListModel(model);
         }
         mToolbar.setFeatureOverridesManager(mFeatureOverridesManager);
 

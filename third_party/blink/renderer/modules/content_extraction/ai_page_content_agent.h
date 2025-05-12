@@ -105,14 +105,24 @@ class MODULES_EXPORT AIPageContentAgent final
     void AddAnnotatedRoles(const LayoutObject& object,
                            Vector<mojom::blink::AIPageContentAnnotatedRole>&
                                annotated_roles) const;
+    void AddLabel(const LayoutObject& object,
+                  mojom::blink::AIPageContentAttributes& attributes) const;
+    bool IsGenericContainer(
+        const LayoutObject& object,
+        const mojom::blink::AIPageContentAttributes& attributes) const;
 
     void AddInteractiveNode(DOMNodeId dom_node_id);
+    void ComputeHitTestableNodesInViewport(
+        const LocalFrame& frame,
+        mojom::blink::AIPageContentFrameData& frame_data);
 
     // The set of nodes which are involved in a user interaction and must
     // produce a ContentNode.
     base::flat_set<DOMNodeId> interactive_dom_node_ids_;
 
     const raw_ref<const mojom::blink::AIPageContentOptions> options_;
+
+    base::flat_map<DOMNodeId, int32_t> dom_node_to_z_order_;
 
     // The current depth of the tree being walked.
     int stack_depth_ = 0;

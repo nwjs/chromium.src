@@ -311,7 +311,6 @@ PhysicalBoxFragment::PhysicalBoxFragment(
                        kFragmentBox,
                        builder->GetBoxType()),
       bit_field_(ConstHasFragmentItemsFlag::encode(has_fragment_items) |
-                 HasDescendantsForTablePartFlag::encode(false) |
                  IsFragmentationContextRootFlag::encode(
                      builder->is_fragmentation_context_root_) |
                  IsMonolithicFlag::encode(builder->is_monolithic_) |
@@ -397,9 +396,6 @@ PhysicalBoxFragment::PhysicalBoxFragment(
   }
   use_last_baseline_for_inline_baseline_ =
       builder->use_last_baseline_for_inline_baseline_;
-
-  bit_field_.set<HasDescendantsForTablePartFlag>(
-      children_.size() || NeedsOOFPositionedInfoPropagation());
 
 #if DCHECK_IS_ON()
   CheckIntegrity();
@@ -669,7 +665,7 @@ PhysicalRect PhysicalBoxFragment::OverflowClipRect(
     stitched_offset.block_offset = incoming_break_token->ConsumedBlockSize();
   LogicalRect logical_fragment_rect(
       stitched_offset,
-      Size().ConvertToLogical(writing_direction.GetWritingMode()));
+      ToLogicalSize(Size(), writing_direction.GetWritingMode()));
   PhysicalRect physical_fragment_rect =
       converter.ToPhysical(logical_fragment_rect);
 
@@ -1509,9 +1505,8 @@ void PhysicalBoxFragment::CheckSameForSimplifiedLayout(
     bool check_no_fragmentation) const {
   DCHECK_EQ(layout_object_, other.layout_object_);
 
-  LogicalSize size = size_.ConvertToLogical(Style().GetWritingMode());
-  LogicalSize other_size =
-      other.size_.ConvertToLogical(Style().GetWritingMode());
+  LogicalSize size = ToLogicalSize(size_, Style().GetWritingMode());
+  LogicalSize other_size = ToLogicalSize(other.size_, Style().GetWritingMode());
   DCHECK_EQ(size.inline_size, other_size.inline_size);
   if (check_same_block_size)
     DCHECK_EQ(size.block_size, other_size.block_size);
@@ -1535,8 +1530,6 @@ void PhysicalBoxFragment::CheckSameForSimplifiedLayout(
             other.has_adjoining_object_descendants_);
   DCHECK_EQ(may_have_descendant_above_block_start_,
             other.may_have_descendant_above_block_start_);
-  DCHECK_EQ(bit_field_.get<HasDescendantsForTablePartFlag>(),
-            other.bit_field_.get<HasDescendantsForTablePartFlag>());
   DCHECK_EQ(IsFragmentationContextRoot(), other.IsFragmentationContextRoot());
 
   // `depends_on_percentage_block_size_` can change within out-of-flow

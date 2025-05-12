@@ -4,6 +4,7 @@
 
 #include "components/autofill/core/browser/payments/amount_extraction_manager.h"
 
+#include "base/strings/utf_string_conversions.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
@@ -11,7 +12,7 @@
 #include "components/autofill/core/browser/foundations/test_autofill_client.h"
 #include "components/autofill/core/browser/foundations/test_autofill_driver.h"
 #include "components/autofill/core/browser/foundations/test_browser_autofill_manager.h"
-#include "components/autofill/core/browser/integrators/mock_autofill_optimization_guide.h"
+#include "components/autofill/core/browser/integrators/optimization_guide/mock_autofill_optimization_guide.h"
 #include "components/autofill/core/browser/metrics/payments/amount_extraction_metrics.h"
 #include "components/autofill/core/browser/payments/amount_extraction_heuristic_regexes.h"
 #include "components/autofill/core/browser/payments/constants.h"
@@ -238,6 +239,24 @@ TEST_F(AmountExtractionManagerTest, ShouldNotTriggerIfUrlNotEligible) {
   EXPECT_FALSE(amount_extraction_manager_->ShouldTriggerAmountExtraction(
       context, /*should_suppress_suggestions=*/false,
       /*has_suggestions=*/true, /*field_type=*/FieldType::CREDIT_CARD_NUMBER));
+}
+
+TEST_F(AmountExtractionManagerTest, ShouldNotTriggerInIncognitoMode) {
+  SuggestionsContext context;
+  context.is_autofill_available = true;
+  context.filling_product = FillingProduct::kCreditCard;
+  std::vector<FieldType> field_types = {FieldType::CREDIT_CARD_NUMBER,
+                                        FieldType::CREDIT_CARD_NAME_FULL,
+                                        FieldType::CREDIT_CARD_EXP_MONTH};
+  autofill_client_->set_is_off_the_record(/*is_off_the_record=*/true);
+
+  for (FieldType field_type : field_types) {
+    EXPECT_FALSE(amount_extraction_manager_->ShouldTriggerAmountExtraction(
+        context,
+        /*should_suppress_suggestions=*/false,
+        /*has_suggestions=*/true,
+        /*field_type=*/field_type));
+  }
 }
 
 TEST_F(AmountExtractionManagerTest, ShouldTriggerWhenLoggingFeatureIsEnabled) {
@@ -606,10 +625,7 @@ TEST_F(AmountExtractionManagerTest, ResponseBeforeTimeout) {
 // extraction receives a empty result.
 TEST_F(AmountExtractionManagerTest,
        OnCheckoutAmountReceived_EmptyResult_BnplManagerNotified) {
-  MockBnplManager& bnpl_manager_ = autofill_client_->GetPaymentsAutofillClient()
-                                       ->CreateOrGetMockBnplManager();
-
-  EXPECT_CALL(bnpl_manager_,
+  EXPECT_CALL(*autofill_manager_->GetPaymentsBnplManager(),
               OnAmountExtractionReturned(std::optional<uint64_t>()))
       .Times(1);
 
@@ -620,11 +636,9 @@ TEST_F(AmountExtractionManagerTest,
 // extraction receives a result with correct format.
 TEST_F(AmountExtractionManagerTest,
        OnCheckoutAmountReceived_AmountInCorrectFormat_BnplManagerNotified) {
-  MockBnplManager& bnpl_manager_ = autofill_client_->GetPaymentsAutofillClient()
-                                       ->CreateOrGetMockBnplManager();
-
-  EXPECT_CALL(bnpl_manager_, OnAmountExtractionReturned(
-                                 std::optional<uint64_t>(123'450'000ULL)))
+  EXPECT_CALL(
+      *autofill_manager_->GetPaymentsBnplManager(),
+      OnAmountExtractionReturned(std::optional<uint64_t>(123'450'000ULL)))
       .Times(1);
 
   FakeCheckoutAmountReceived("$ 123.45");

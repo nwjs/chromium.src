@@ -4,12 +4,19 @@
 
 package org.chromium.chrome.browser.toolbar;
 
+import static org.chromium.build.NullUtil.assumeNonNull;
+
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.Supplier;
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabLaunchType;
+import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.toolbar.bottom.BottomControlsCoordinator;
 import org.chromium.chrome.browser.ui.native_page.NativePage;
 import org.chromium.components.embedder_support.util.UrlConstants;
@@ -21,6 +28,7 @@ import org.chromium.content_public.common.ContentUrlConstants;
 import org.chromium.ui.base.PageTransition;
 
 /** Implementation of {@link ToolbarTabController}. */
+@NullMarked
 public class ToolbarTabControllerImpl implements ToolbarTabController {
     private final Supplier<Tab> mTabSupplier;
     private final Supplier<Tracker> mTrackerSupplier;
@@ -28,6 +36,8 @@ public class ToolbarTabControllerImpl implements ToolbarTabController {
     private final Supplier<String> mHomepageUrlSupplier;
     private final Runnable mOnSuccessRunnable;
     private final Supplier<Tab> mActivityTabSupplier;
+    private final TabCreatorManager mTabCreatorManager;
+    private final @Nullable MultiInstanceManager mMultiInstanceManager;
 
     /**
      * @param tabSupplier Supplier for the currently active tab.
@@ -39,6 +49,8 @@ public class ToolbarTabControllerImpl implements ToolbarTabController {
      *     tabSupplier and activityTabSupplier can return the same tab if tab is active and
      *     interactable. But activityTabSupplier will return null if it is non-interactable, such as
      *     on overview mode.
+     * @param tabCreatorManager The {@link TabCreatorManager} used to create new tabs.
+     * @param multiInstanceManager The {@link MultiInstanceManager} used to move tabs to new windows
      */
     public ToolbarTabControllerImpl(
             Supplier<Tab> tabSupplier,
@@ -46,13 +58,17 @@ public class ToolbarTabControllerImpl implements ToolbarTabController {
             ObservableSupplier<BottomControlsCoordinator> bottomControlsCoordinatorSupplier,
             Supplier<String> homepageUrlSupplier,
             Runnable onSuccessRunnable,
-            Supplier<Tab> activityTabSupplier) {
+            Supplier<Tab> activityTabSupplier,
+            TabCreatorManager tabCreatorManager,
+            @Nullable MultiInstanceManager multiInstanceManager) {
         mTabSupplier = tabSupplier;
         mTrackerSupplier = trackerSupplier;
         mBottomControlsCoordinatorSupplier = bottomControlsCoordinatorSupplier;
         mHomepageUrlSupplier = homepageUrlSupplier;
         mOnSuccessRunnable = onSuccessRunnable;
         mActivityTabSupplier = activityTabSupplier;
+        mTabCreatorManager = tabCreatorManager;
+        mMultiInstanceManager = multiInstanceManager;
     }
 
     @Override
@@ -70,6 +86,35 @@ public class ToolbarTabControllerImpl implements ToolbarTabController {
 
             tab.goBack();
             mOnSuccessRunnable.run();
+            return true;
+        }
+        return false;
+    }
+
+    public boolean backInNewTab() {
+        // TODO(crbug.com/409631603): Implement.
+        Tab tab = mTabSupplier.get();
+        if (tab != null && tab.canGoBack()) {
+            mTabCreatorManager.getTabCreator(tab.isIncognitoBranded());
+            // Don't run mOnSuccessRunnable since nothing happened in the current tab.
+            return true;
+        }
+        return false;
+    }
+
+    public boolean backInNewWindow() {
+        // TODO(crbug.com/409631603): Implement.
+        Tab tab = mTabSupplier.get();
+        if (tab != null && tab.canGoBack()) {
+            Tab newTab =
+                    mTabCreatorManager
+                            .getTabCreator(tab.isIncognitoBranded())
+                            .createNewTab(
+                                    new LoadUrlParams(tab.getUrl()), TabLaunchType.UNSET, tab);
+            if (mMultiInstanceManager == null) return false;
+            assumeNonNull(newTab);
+            mMultiInstanceManager.moveTabToNewWindow(newTab);
+            // Don't run mOnSuccessRunnable since nothing happened in the current tab.
             return true;
         }
         return false;
@@ -130,6 +175,7 @@ public class ToolbarTabControllerImpl implements ToolbarTabController {
 
     /**
      * Whether Toolbar Tab Controller can consume a back press.
+     *
      * @return True if a back press can be consumed.
      */
     boolean canGoBack() {

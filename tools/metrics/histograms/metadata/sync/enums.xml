@@ -80,6 +80,15 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(/chrome/browser/profiles/batch_upload/batch_upload_service.h:EntryPoint) -->
 
+<!-- LINT.IfChange(BookmarkAccountStorageMoveDialogType) -->
+
+<enum name="BookmarkAccountStorageMoveDialogType">
+  <int value="0" label="Download or upload version"/>
+  <int value="1" label="Upload only version"/>
+</enum>
+
+<!-- LINT.ThenChange(/chrome/browser/ui/views/bookmarks/bookmark_account_storage_move_dialog.h:BookmarkAccountStorageMoveDialogType) -->
+
 <!-- LINT.IfChange(BookmarkGUIDSource) -->
 
 <enum name="BookmarkGUIDSource">
@@ -97,6 +106,33 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(/components/sync/engine/bookmark_update_preprocessing.cc:BookmarkGUIDSource) -->
+
+<!-- LINT.IfChange(BookmarkSetComparisonOutcome) -->
+
+<enum name="BookmarkSetComparisonOutcome">
+  <int value="0" label="Both datasets empty"/>
+  <int value="1" label="Local data empty (account data non-empty)"/>
+  <int value="2" label="Account data empty (local data non-empty)"/>
+  <int value="3" label="Both datasets equal and non-empty"/>
+  <int value="4"
+      label="Local data non-empty and a strict subset of account data"/>
+  <int value="5"
+      label="Intersection of local and account data [99%, 100%) of the total"/>
+  <int value="6"
+      label="Intersection of local and account data [95%, 99%) of the total"/>
+  <int value="7"
+      label="Intersection of local and account data [90%, 95%) of the total"/>
+  <int value="8"
+      label="Intersection of local and account data [50%, 90%) of the total"/>
+  <int value="9"
+      label="Intersection of local and account data [10%, 50%) of the total"/>
+  <int value="10"
+      label="Intersection of local and account data (0%, 10%) of the total"/>
+  <int value="11"
+      label="Local and account datasets are non-empty but do not intersect"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/sync_bookmarks/bookmark_model_merger_comparison_metrics.h:BookmarkSetComparisonOutcome) -->
 
 <!-- LINT.IfChange(BookmarksGUIDDuplicates) -->
 
@@ -175,10 +211,12 @@ chromium-metrics-reviews@google.com.
 <enum name="NudgedUpdateResult">
   <int value="0" label="Success"/>
   <int value="1" label="Empty response"/>
-  <int value="2" label="Failed to download data"/>
+  <int value="2" label="Partial failure"/>
+  <int value="3" label="Server error"/>
+  <int value="4" label="Network error"/>
 </enum>
 
-<!-- LINT.ThenChange(/components/sync/engine/data_type_worker.cc:NudgedUpdateResult) -->
+<!-- LINT.ThenChange(/components/sync/engine/update_handler.h:NudgedUpdateResult) -->
 
 <!-- LINT.IfChange(OutgoingPasswordSharingInvitationCommitError) -->
 
@@ -237,6 +275,18 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(/components/sync/engine/data_type_worker.h:PendingInvalidationStatus) -->
+
+<!-- LINT.IfChange(PreviouslySyncingGaiaIdInfoForMetrics) -->
+
+<enum name="PreviouslySyncingGaiaIdInfoForMetrics">
+  <int value="0" label="Unspecified"/>
+  <int value="1" label="(deprecated) Not enough information"/>
+  <int value="2" label="Sync feature never previously turned on"/>
+  <int value="3" label="Current Gaia ID matches previous with Sync on"/>
+  <int value="4" label="Current Gaia ID differs previous with Sync on"/>
+</enum>
+
+<!-- LINT.ThenChange(/components/sync/base/previously_syncing_gaia_id_info_for_metrics.h:PreviouslySyncingGaiaIdInfoForMetrics) -->
 
 <!-- LINT.IfChange(RemoteBookmarkUpdateError) -->
 
@@ -358,6 +408,8 @@ chromium-metrics-reviews@google.com.
   <int value="81" label="AutofillBnplEnabled"/>
   <int value="82" label="AutofillHasSeenBnpl"/>
   <int value="83" label="AutomaticPasskeyUpgrades"/>
+  <int value="84" label="(test) SyncablePriorityPrefForTesting"/>
+  <int value="85" label="(test) SyncableAlwaysSyncingPriorityPrefForTesting"/>
 <!-- LINT.ThenChange(/components/sync_preferences/common_syncable_prefs_database.cc:CommonSyncablePref)-->
 
 <!-- LINT.IfChange(ChromeSyncablePref) -->
@@ -722,6 +774,8 @@ chromium-metrics-reviews@google.com.
   <int value="100324" label="AccessibilityAXTreeFixingEnabled"/>
   <int value="100325" label="TabSearchMigrationComplete"/>
   <int value="100326" label="ReadAloudPlaybackMode"/>
+  <int value="100327" label="PinSplitTabButton"/>
+  <int value="100328" label="GlicRolloutEligibility"/>
 <!-- LINT.ThenChange(/chrome/browser/sync/prefs/chrome_syncable_prefs_database.cc:ChromeSyncablePref)-->
 
 <!-- LINT.IfChange(IosSyncablePref) -->
@@ -1131,8 +1185,8 @@ chromium-metrics-reviews@google.com.
   <int value="0" label="Metadata consistent"/>
   <int value="1" label="Cache guid mismatch"/>
   <int value="2" label="Data type id mismatch"/>
-  <int value="3" label="Empty persisted authenticated account id"/>
-  <int value="4" label="Authenticated account id mismatch"/>
+  <int value="3" label="Empty persisted authenticated gaia id"/>
+  <int value="4" label="Authenticated gaia id mismatch"/>
 </enum>
 
 <!-- LINT.ThenChange(/components/sync/model/client_tag_based_data_type_processor.cc:SyncMetadataConsistency) -->

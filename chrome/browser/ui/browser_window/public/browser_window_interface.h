@@ -46,6 +46,15 @@ class SessionID;
 class TabStripModel;
 class ImmersiveModeController;
 
+// A feature which wants to show window level call to action UI  should call
+// BrowserWindowInterface::ShowCallToAction and keep alive the instance of
+// ScopedWindowCallToAction for the duration of the window-modal UI.
+class ScopedWindowCallToAction {
+ public:
+  ScopedWindowCallToAction() = default;
+  virtual ~ScopedWindowCallToAction() = default;
+};
+
 class BrowserWindowInterface : public content::PageNavigator {
  public:
   // The contents of the active tab is rendered in a views::WebView. When the
@@ -92,6 +101,12 @@ class BrowserWindowInterface : public content::PageNavigator {
 
   // Returns true if the window is minimized.
   virtual bool IsMinimized() const = 0;
+
+  // Returns true if the browser window is visible on the screen.
+  virtual bool IsVisibleOnScreen() const = 0;
+
+  // Returns true if the window is visible.
+  virtual bool IsVisible() const = 0;
 
   virtual base::WeakPtr<BrowserWindowInterface> GetWeakPtr() = 0;
 
@@ -222,6 +237,17 @@ class BrowserWindowInterface : public content::PageNavigator {
   // //components/web_modal. See crbug.com/377820808.
   virtual void SetWebContentsBlocked(content::WebContents* web_contents,
                                      bool blocked) = 0;
+
+  // Checks if the browser popup is tab modal dialog.
+  virtual bool IsTabModalPopup() const = 0;
+
+  // Features that want to show a window level call to action UI can be mutually
+  // exclusive. Before gating on call to action UI first check
+  // `CanShowModCanShowCallToActionalUI`. Then call ShowCallToAction() and keep
+  // `ScopedWindowCallToAction` alive to prevent other features from showing
+  // window level call to action Uis.
+  virtual bool CanShowCallToAction() const = 0;
+  virtual std::unique_ptr<ScopedWindowCallToAction> ShowCallToAction() = 0;
 };
 
 #endif  // CHROME_BROWSER_UI_BROWSER_WINDOW_PUBLIC_BROWSER_WINDOW_INTERFACE_H_

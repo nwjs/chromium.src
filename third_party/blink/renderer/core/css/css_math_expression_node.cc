@@ -28,11 +28,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
-#pragma allow_unsafe_libc_calls
-#endif
-
 #include "third_party/blink/renderer/core/css/css_math_expression_node.h"
 
 #include <algorithm>
@@ -40,6 +35,7 @@
 #include <numeric>
 #include <tuple>
 
+#include "base/compiler_specific.h"
 #include "base/memory/values_equivalent.h"
 #include "third_party/blink/renderer/core/css/css_color_channel_keywords.h"
 #include "third_party/blink/renderer/core/css/css_custom_ident_value.h"
@@ -367,12 +363,13 @@ ProgressArgsSimplificationStatus CanEagerlySimplifyProgressArgs(
                   })) {
     return ProgressArgsSimplificationStatus::kAllArgsResolveToCanonical;
   }
-  if (std::all_of(operands.begin(), operands.end(),
-                  [&](const CSSMathExpressionNode* node) {
-                    return node->IsNumericLiteral() &&
-                           node->ResolvedUnitType() ==
-                               operands.front()->ResolvedUnitType();
-                  })) {
+  if (std::all_of(
+          operands.begin(), operands.end(),
+          [&](const CSSMathExpressionNode* node) {
+            return node->IsNumericLiteral() &&
+                   node->ResolvedUnitTypeForSimplification() ==
+                       operands.front()->ResolvedUnitTypeForSimplification();
+          })) {
     return ProgressArgsSimplificationStatus::kAllArgsHaveSameType;
   }
   return ProgressArgsSimplificationStatus::kCanNotSimplify;
@@ -393,8 +390,9 @@ struct CSSMathExpressionNodeWithOperator {
   void Trace(Visitor* visitor) const { visitor->Trace(node); }
 };
 using UnitsVector = HeapVector<CSSMathExpressionNodeWithOperator>;
+using GCedUnitsVector = GCedHeapVector<CSSMathExpressionNodeWithOperator>;
 using UnitsVectorHashMap =
-    HeapHashMap<CSSPrimitiveValue::UnitType, Member<UnitsVector>>;
+    HeapHashMap<CSSPrimitiveValue::UnitType, Member<GCedUnitsVector>>;
 
 bool IsNumericNodeWithDoubleValue(const CSSMathExpressionNode* node) {
   return node->IsNumericLiteral() && HasDoubleValue(node->ResolvedUnitType());
@@ -431,18 +429,24 @@ CSSMathOperator MaybeChangeOperatorSignIfNesting(bool is_in_nesting,
 CSSMathExpressionNodeWithOperator MaybeReplaceNodeWithCombined(
     const CSSMathExpressionNode* node,
     CSSMathOperator op,
-    const UnitsHashMap& units_map) {
+    const UnitsHashMap& units_map,
+    bool is_multiply) {
   if (!node->IsNumericLiteral()) {
     return {op, node};
   }
-  CSSPrimitiveValue::UnitType unit_type = node->ResolvedUnitType();
+  CSSPrimitiveValue::UnitType unit_type =
+      node->ResolvedUnitTypeForSimplification();
   auto it = units_map.find(unit_type);
   if (it != units_map.end()) {
     double value = it->value;
-    CSSMathOperator new_op =
-        value < 0.0f ? CSSMathOperator::kSubtract : CSSMathOperator::kAdd;
+    CSSMathOperator new_op = op;
+    if (!is_multiply) {
+      new_op =
+          value < 0.0f ? CSSMathOperator::kSubtract : CSSMathOperator::kAdd;
+      value = std::abs(value);
+    }
     CSSMathExpressionNode* new_node =
-        CSSMathExpressionNumericLiteral::Create(std::abs(value), unit_type);
+        CSSMathExpressionNumericLiteral::Create(value, unit_type);
     return {new_op, new_node};
   }
   return {op, node};
@@ -450,16 +454,20 @@ CSSMathExpressionNodeWithOperator MaybeReplaceNodeWithCombined(
 
 // This function combines numeric values that have double value and are of the
 // same unit type together in numeric_children and saves all the non add/sub
-// operation children and their correct simplified operator in all_children.
+// (or mul, if op is kMultiply) operation children and their correct simplified
+// operator in all_children.
 void CombineNumericChildrenFromNode(const CSSMathExpressionNode* root,
                                     CSSMathOperator op,
                                     UnitsHashMap& numeric_children,
                                     UnitsVector& all_children,
                                     bool is_in_nesting = false) {
-  const CSSPrimitiveValue::UnitType unit_type = root->ResolvedUnitType();
+  const CSSPrimitiveValue::UnitType unit_type =
+      root->ResolvedUnitTypeForSimplification();
   // Go deeper inside the operation node if possible.
   if (auto* operation = DynamicTo<CSSMathExpressionOperation>(root);
-      operation && operation->IsAddOrSubtract()) {
+      operation &&
+      (op == CSSMathOperator::kMultiply ? operation->IsMultiplyOrDivide()
+                                        : operation->IsAddOrSubtract())) {
     const CSSMathOperator operation_op = operation->OperatorType();
     is_in_nesting |= operation->IsNestedCalc();
     // Nest from the left (first op) to the right (second op).
@@ -475,16 +483,20 @@ void CombineNumericChildrenFromNode(const CSSMathExpressionNode* root,
   }
   // If we have numeric with double value - combine under one unit type.
   if (IsNumericNodeWithDoubleValue(root)) {
-    double value = op == CSSMathOperator::kAdd ? root->DoubleValue()
-                                               : -root->DoubleValue();
+    double value = op == CSSMathOperator::kSubtract ? -root->DoubleValue()
+                                                    : root->DoubleValue();
     if (auto it = numeric_children.find(unit_type);
         it != numeric_children.end()) {
-      it->value += value;
+      if (op == CSSMathOperator::kMultiply) {
+        it->value *= value;
+      } else {
+        it->value += value;
+      }
     } else {
       numeric_children.insert(unit_type, value);
     }
   }
-  // Save all non add/sub operations.
+  // Save all non add/sub (or non-mul, respectively) operations.
   all_children.emplace_back(op, root);
 }
 
@@ -498,7 +510,9 @@ void CollectNumericChildrenFromNode(const CSSMathExpressionNode* root,
                                     bool is_in_nesting = false) {
   // Go deeper inside the operation node if possible.
   if (auto* operation = DynamicTo<CSSMathExpressionOperation>(root);
-      operation && operation->IsAddOrSubtract()) {
+      operation &&
+      (op == CSSMathOperator::kMultiply ? operation->IsMultiplyOrDivide()
+                                        : operation->IsAddOrSubtract())) {
     const CSSMathOperator operation_op = operation->OperatorType();
     is_in_nesting |= operation->IsNestedCalc();
     // Nest from the left (first op) to the right (second op).
@@ -512,7 +526,8 @@ void CollectNumericChildrenFromNode(const CSSMathExpressionNode* root,
                                    is_in_nesting);
     return;
   }
-  CSSPrimitiveValue::UnitType unit_type = root->ResolvedUnitType();
+  CSSPrimitiveValue::UnitType unit_type =
+      root->ResolvedUnitTypeForSimplification();
   // If we have numeric with double value - collect in numeric_children.
   if (IsNumericNodeWithDoubleValue(root)) {
     if (auto it = numeric_children.find(unit_type);
@@ -520,7 +535,7 @@ void CollectNumericChildrenFromNode(const CSSMathExpressionNode* root,
       it->value->emplace_back(op, root);
     } else {
       numeric_children.insert(
-          unit_type, MakeGarbageCollected<UnitsVector>(
+          unit_type, MakeGarbageCollected<GCedUnitsVector>(
                          1, CSSMathExpressionNodeWithOperator(op, root)));
     }
     return;
@@ -529,76 +544,42 @@ void CollectNumericChildrenFromNode(const CSSMathExpressionNode* root,
   complex_children.emplace_back(op, root);
 }
 
-CSSMathExpressionNode* AddNodeToSumNode(CSSMathExpressionNode* sum_node,
-                                        const CSSMathExpressionNode* node,
-                                        CSSMathOperator op) {
-  // If the sum node is nullptr, create and return the numeric literal node.
-  if (!sum_node) {
-    return MaybeNegateFirstNode(op, node)->Copy();
-  }
-  // If the node is numeric with double values,
-  // add the numeric literal node with |value| and
-  // operator to match the value's sign.
-  if (IsNumericNodeWithDoubleValue(node)) {
-    double value = node->DoubleValue();
-    CSSMathExpressionNode* new_node = CSSMathExpressionNumericLiteral::Create(
-        std::abs(value), node->ResolvedUnitType());
-    // Change the operator correctly.
-    if (value < 0.0f && op == CSSMathOperator::kAdd) {
-      // + -10 -> -10
-      op = CSSMathOperator::kSubtract;
-    } else if (value < 0.0f && op == CSSMathOperator::kSubtract) {
-      // - -10 -> + 10.
-      op = CSSMathOperator::kAdd;
-    }
-    return MakeGarbageCollected<CSSMathExpressionOperation>(
-        sum_node, new_node, op, sum_node->Category());
-  }
-  // Add the node to the sum_node otherwise.
-  return MakeGarbageCollected<CSSMathExpressionOperation>(sum_node, node, op,
-                                                          sum_node->Category());
-}
-
-CSSMathExpressionNode* AddNodesVectorToSumNode(CSSMathExpressionNode* sum_node,
-                                               const UnitsVector& vector) {
-  for (const auto& [op, node] : vector) {
-    sum_node = AddNodeToSumNode(sum_node, node, op);
-  }
-  return sum_node;
-}
-
 // This function follows:
 // https://drafts.csswg.org/css-values-4/#sort-a-calculations-children
 // As in Blink the math expression tree is binary, we need to collect all the
-// elements of this tree together and create a new tree as a result.
-CSSMathExpressionNode* MaybeSortSumNode(
+// elements of this tree together and return them in the right order.
+// (We don't need a new node, since we're only using it for serialization.)
+GCedUnitsVector CollectSumOrProductInOrder(
     const CSSMathExpressionOperation* root) {
-  CHECK(root->IsAddOrSubtract());
+  CHECK(root->IsAddOrSubtract() || root->IsMultiplyOrDivide());
   CHECK_EQ(root->GetOperands().size(), 2u);
   // Hash map of vectors of numeric literal values with double value with the
   // same unit type.
   UnitsVectorHashMap numeric_children;
-  // Vector of all non add/sub operation children.
+  // Vector of all non add/sub (or non-mul, as appropriate) children.
   UnitsVector complex_children;
   // Collect all the numeric literal with double value in one vector.
-  // Note: using kAdd here as the operator for the first child
+  // Note: using kAdd/kMultiply here as the operator for the first child
   // (e.g. a - b = +a - b, a + b = +a + b)
-  CollectNumericChildrenFromNode(root, CSSMathOperator::kAdd, numeric_children,
-                                 complex_children, false);
-  // Form the final node.
-  CSSMathExpressionNode* final_node = nullptr;
+  CollectNumericChildrenFromNode(root,
+                                 root->IsAddOrSubtract()
+                                     ? CSSMathOperator::kAdd
+                                     : CSSMathOperator::kMultiply,
+                                 numeric_children, complex_children, false);
+  // Form the final vector.
+  GCedUnitsVector ret;
   // From spec: If nodes contains a number, remove it from nodes and append it
   // to ret.
   if (auto it = numeric_children.find(CSSPrimitiveValue::UnitType::kNumber);
       it != numeric_children.end()) {
-    final_node = AddNodesVectorToSumNode(final_node, *it->value);
+    ret.AppendVector(*it->value);
     numeric_children.erase(it);
   }
   // From spec: If nodes contains a percentage, remove it from nodes and append
   // it to ret.
   if (auto it = numeric_children.find(CSSPrimitiveValue::UnitType::kPercentage);
       it != numeric_children.end()) {
-    final_node = AddNodesVectorToSumNode(final_node, *it->value);
+    ret.AppendVector(*it->value);
     numeric_children.erase(it);
   }
   // Now, sort the rest numeric values alphabatically.
@@ -607,8 +588,8 @@ CSSMathExpressionNode* MaybeSortSumNode(
   // ret.
   auto comp = [&](const CSSPrimitiveValue::UnitType& key_a,
                   const CSSPrimitiveValue::UnitType& key_b) {
-    return strcmp(CSSPrimitiveValue::UnitTypeToString(key_a),
-                  CSSPrimitiveValue::UnitTypeToString(key_b)) < 0;
+    return UNSAFE_TODO(strcmp(CSSPrimitiveValue::UnitTypeToString(key_a),
+                              CSSPrimitiveValue::UnitTypeToString(key_b))) < 0;
   };
   Vector<CSSPrimitiveValue::UnitType> keys;
   keys.reserve(numeric_children.size());
@@ -618,21 +599,20 @@ CSSMathExpressionNode* MaybeSortSumNode(
   std::sort(keys.begin(), keys.end(), comp);
   // Now, add those numeric nodes in the sorted order.
   for (const auto& unit_type : keys) {
-    final_node =
-        AddNodesVectorToSumNode(final_node, *numeric_children.at(unit_type));
+    ret.AppendVector(*numeric_children.at(unit_type));
   }
   // Now, add all the complex (non-numerics with double value) values.
-  final_node = AddNodesVectorToSumNode(final_node, complex_children);
-  return final_node;
+  ret.AppendVector(complex_children);
+  return ret;
 }
 
 // This function follows:
 // https://drafts.csswg.org/css-values-4/#calc-simplification
 // As in Blink the math expression tree is binary, we need to collect all the
 // elements of this tree together and create a new tree as a result.
-CSSMathExpressionNode* MaybeSimplifySumNode(
+CSSMathExpressionNode* MaybeSimplifySumOrProductNode(
     const CSSMathExpressionOperation* root) {
-  CHECK(root->IsAddOrSubtract());
+  CHECK(root->IsAddOrSubtract() || root->IsMultiplyOrDivide());
   CHECK_EQ(root->GetOperands().size(), 2u);
   // Hash map of numeric literal values of the same type, that can be
   // combined together.
@@ -640,17 +620,21 @@ CSSMathExpressionNode* MaybeSimplifySumNode(
   // Vector of all non add/sub operation children.
   UnitsVector all_children;
   // Collect all the numeric literal values together.
-  // Note: using kAdd here as the operator for the first child
+  // Note: using kAdd/kMultiply here as the operator for the first child
   // (e.g. a - b = +a - b, a + b = +a + b)
-  CombineNumericChildrenFromNode(root, CSSMathOperator::kAdd, numeric_children,
-                                 all_children);
+  const bool is_multiply = root->IsMultiplyOrDivide();
+  CombineNumericChildrenFromNode(
+      root, is_multiply ? CSSMathOperator::kMultiply : CSSMathOperator::kAdd,
+      numeric_children, all_children);
   // Form the final node.
   HashSet<CSSPrimitiveValue::UnitType> used_units;
   CSSMathExpressionNode* final_node = nullptr;
   for (const auto& child : all_children) {
-    auto [op, node] =
-        MaybeReplaceNodeWithCombined(child.node, child.op, numeric_children);
-    CSSPrimitiveValue::UnitType unit_type = node->ResolvedUnitType();
+    auto [op, node] = MaybeReplaceNodeWithCombined(
+        child.node, child.op, numeric_children, is_multiply);
+    CSSPrimitiveValue::UnitType unit_type =
+        node->ResolvedUnitTypeForSimplification();
+
     // Skip already used unit types, as they have been already combined.
     if (IsNumericNodeWithDoubleValue(node)) {
       if (used_units.Contains(unit_type)) {
@@ -658,15 +642,34 @@ CSSMathExpressionNode* MaybeSimplifySumNode(
       }
       used_units.insert(unit_type);
     }
+
+    // Skip a constant factor of unity, unless it is the only factor.
+    if (is_multiply && unit_type == CSSPrimitiveValue::UnitType::kNumber &&
+        node->IsNumericLiteral() && node->DoubleValue() == 1.0 &&
+        (numeric_children.size() + all_children.size()) > 1) {
+      continue;
+    }
+
     if (!final_node) {
       // First child.
       final_node = MaybeNegateFirstNode(op, node)->Copy();
       continue;
     }
-    final_node = MakeGarbageCollected<CSSMathExpressionOperation>(
-        final_node, node, op, root->Category());
+    final_node =
+        CSSMathExpressionOperation::CreateArithmeticOperationSimplified(
+            final_node, node, op);
   }
   return final_node;
+}
+
+const CSSMathExpressionNode* MaybeSimplifyIfSumOrProductNode(
+    const CSSMathExpressionNode* node) {
+  if (const auto* op = DynamicTo<CSSMathExpressionOperation>(node)) {
+    if (op->IsAddOrSubtract() || op->IsMultiplyOrDivide()) {
+      return MaybeSimplifySumOrProductNode(op);
+    }
+  }
+  return node;
 }
 
 CSSMathExpressionNode* MaybeDistributeArithmeticOperation(
@@ -1264,6 +1267,21 @@ CSSMathExpressionNode* CSSMathExpressionOperation::CreateArithmeticOperation(
     return nullptr;
   }
 
+  // Convert (a / b) to (a * b') (where b' is an Invert node, i.e., 1/b),
+  // except (1 / b) which becomes b'.
+  if (op == CSSMathOperator::kDivide) {
+    CSSMathExpressionNode* inverted_right_side =
+        CreateInvertFunction(right_side);
+
+    if (left_side->Category() == kCalcNumber && left_side->IsNumericLiteral() &&
+        left_side->DoubleValue() == 1.0) {
+      return inverted_right_side;
+    } else {
+      op = CSSMathOperator::kMultiply;
+      right_side = inverted_right_side;
+    }
+  }
+
   return MakeGarbageCollected<CSSMathExpressionOperation>(left_side, right_side,
                                                           op, new_category);
 }
@@ -1545,6 +1563,11 @@ CSSMathExpressionNode* CSSMathExpressionOperation::CreateExponentialFunction(
     }
     case CSSValueID::kSqrt: {
       DCHECK_EQ(operands.size(), 1u);
+      if (!CanEagerlySimplify(operands.front())) {
+        return MakeGarbageCollected<CSSMathExpressionOperation>(
+            operands.front()->Category(), std::move(operands),
+            CSSMathOperator::kSqrt);
+      }
       double a = ValueAsNumber(operands[0], error);
       value = std::sqrt(a);
       break;
@@ -1573,6 +1596,14 @@ CSSMathExpressionNode* CSSMathExpressionOperation::CreateExponentialFunction(
     case CSSValueID::kLog: {
       DCHECK_GE(operands.size(), 1u);
       DCHECK_LE(operands.size(), 2u);
+      if (operands.front()->Category() != kCalcNumber ||
+          operands.back()->Category() != kCalcNumber) {
+        return nullptr;
+      }
+      if (!CanEagerlySimplify(operands)) {
+        return MakeGarbageCollected<CSSMathExpressionOperation>(
+            kCalcNumber, std::move(operands), CSSMathOperator::kLog);
+      }
       double a = ValueAsNumber(operands[0], error);
       if (operands.size() == 2) {
         double b = ValueAsNumber(operands[1], error);
@@ -1584,6 +1615,10 @@ CSSMathExpressionNode* CSSMathExpressionOperation::CreateExponentialFunction(
     }
     case CSSValueID::kExp: {
       DCHECK_EQ(operands.size(), 1u);
+      if (!CanEagerlySimplify(operands.front())) {
+        return MakeGarbageCollected<CSSMathExpressionOperation>(
+            kCalcNumber, std::move(operands), CSSMathOperator::kExp);
+      }
       double a = ValueAsNumber(operands[0], error);
       value = std::exp(a);
       break;
@@ -1641,6 +1676,31 @@ CSSMathExpressionNode* CSSMathExpressionOperation::CreateSignRelatedFunction(
     default:
       NOTREACHED();
   }
+}
+
+CSSMathExpressionNode* CSSMathExpressionOperation::CreateInvertFunction(
+    const CSSMathExpressionNode* operand) {
+  // https://drafts.csswg.org/css-values-4/#serialize-a-calculation-tree
+  //
+  // - If root’s child is a number (not a percentage or dimension)
+  //   return the reciprocal of the child’s value.
+  if (!operand->IsOperation() &&
+      operand->Category() == CalculationResultCategory::kCalcNumber) {
+    const std::optional<double> opt = operand->ComputeValueInCanonicalUnit();
+    if (opt.has_value() && opt.value() != 0) {
+      return CSSMathExpressionNumericLiteral::Create(
+          1.0 / opt.value(), CSSPrimitiveValue::UnitType::kNumber);
+    }
+  }
+
+  // - If root’s child is an Invert node, return the child’s child.
+  if (operand->IsOperation() &&
+      To<CSSMathExpressionOperation>(operand)->IsInvert()) {
+    return To<CSSMathExpressionOperation>(operand)->operands_[0]->Copy();
+  }
+
+  return MakeGarbageCollected<CSSMathExpressionOperation>(
+      kCalcNumber, Operands{operand}, CSSMathOperator::kInvert);
 }
 
 const CSSMathExpressionNode*
@@ -1711,9 +1771,11 @@ CSSMathExpressionOperation::CreateArithmeticOperationSimplified(
   // Simplify addition and subtraction between same types.
   if (op == CSSMathOperator::kAdd || op == CSSMathOperator::kSubtract) {
     if (left_category == right_side->Category()) {
-      CSSPrimitiveValue::UnitType left_type = left_side->ResolvedUnitType();
+      CSSPrimitiveValue::UnitType left_type =
+          left_side->ResolvedUnitTypeForSimplification();
       if (HasDoubleValue(left_type)) {
-        CSSPrimitiveValue::UnitType right_type = right_side->ResolvedUnitType();
+        CSSPrimitiveValue::UnitType right_type =
+            right_side->ResolvedUnitTypeForSimplification();
         if (left_type == right_type) {
           return CSSMathExpressionNumericLiteral::Create(
               EvaluateOperator(
@@ -1760,7 +1822,8 @@ CSSMathExpressionOperation::CreateArithmeticOperationSimplified(
 
     double number = number_side->DoubleValue();
 
-    CSSPrimitiveValue::UnitType other_type = other_side->ResolvedUnitType();
+    CSSPrimitiveValue::UnitType other_type =
+        other_side->ResolvedUnitTypeForSimplification();
     if (HasDoubleValue(other_type)) {
       return CSSMathExpressionNumericLiteral::Create(
           EvaluateOperator({other_side->DoubleValue(), number}, op),
@@ -1803,9 +1866,11 @@ std::tuple<const CSSMathExpressionNode*, wtf_size_t> SubstituteForSizeKeyword(
       return std::make_tuple(source, 0);
     }
 
-    return std::make_tuple(MakeGarbageCollected<CSSMathExpressionOperation>(
-                               operation->Category(), std::move(dest_operands),
-                               operation->OperatorType()),
+    CSSMathExpressionOperation* new_op =
+        MakeGarbageCollected<CSSMathExpressionOperation>(
+            operation->Category(), std::move(dest_operands),
+            operation->OperatorType());
+    return std::make_tuple(MaybeSimplifyIfSumOrProductNode(new_op),
                            total_substitution_count);
   }
 
@@ -1946,13 +2011,13 @@ const CSSMathExpressionOperation* MakeBasisCanonical(
 }  // namespace
 
 // static
-CSSMathExpressionNode*
+const CSSMathExpressionNode*
 CSSMathExpressionOperation::CreateArithmeticOperationAndSimplifyCalcSize(
     const CSSMathExpressionNode* left_side,
     const CSSMathExpressionNode* right_side,
     CSSMathOperator op) {
   DCHECK(op == CSSMathOperator::kAdd || op == CSSMathOperator::kSubtract ||
-         op == CSSMathOperator::kMultiply || op == CSSMathOperator::kDivide);
+         op == CSSMathOperator::kMultiply);
 
   // Merge calc-size() expressions to keep calc-size() always at the top level.
   const CSSMathExpressionOperation* left_calc_size =
@@ -2024,16 +2089,18 @@ CSSMathExpressionOperation::CreateArithmeticOperationAndSimplifyCalcSize(
       const CSSMathExpressionNode* right_calculation =
           right_calc_size->GetOperands()[1];
       return CreateCalcSizeOperation(
-          final_basis, CreateArithmeticOperationSimplified(
-                           left_calculation, right_calculation, op));
+          final_basis,
+          MaybeSimplifyIfSumOrProductNode(CreateArithmeticOperationSimplified(
+              left_calculation, right_calculation, op)));
     } else {
       const CSSMathExpressionNode* left_basis =
           left_calc_size->GetOperands()[0];
       const CSSMathExpressionNode* left_calculation =
           left_calc_size->GetOperands()[1];
       return CreateCalcSizeOperation(
-          left_basis, CreateArithmeticOperationSimplified(left_calculation,
-                                                          right_side, op));
+          left_basis,
+          MaybeSimplifyIfSumOrProductNode(CreateArithmeticOperationSimplified(
+              left_calculation, right_side, op)));
     }
   } else if (right_calc_size) {
     const CSSMathExpressionNode* right_basis =
@@ -2042,10 +2109,12 @@ CSSMathExpressionOperation::CreateArithmeticOperationAndSimplifyCalcSize(
         right_calc_size->GetOperands()[1];
     return CreateCalcSizeOperation(
         right_basis,
-        CreateArithmeticOperationSimplified(left_side, right_calculation, op));
+        MaybeSimplifyIfSumOrProductNode(CreateArithmeticOperationSimplified(
+            left_side, right_calculation, op)));
   }
 
-  return CreateArithmeticOperationSimplified(left_side, right_side, op);
+  return MaybeSimplifyIfSumOrProductNode(
+      CreateArithmeticOperationSimplified(left_side, right_side, op));
 }
 
 CSSMathExpressionOperation::CSSMathExpressionOperation(
@@ -2059,7 +2128,9 @@ CSSMathExpressionOperation::CSSMathExpressionOperation(
           left_side->HasAnchorFunctions() || right_side->HasAnchorFunctions(),
           !left_side->IsScopedValue() || !right_side->IsScopedValue()),
       operands_({left_side, right_side}),
-      operator_(op) {}
+      operator_(op) {
+  DCHECK_NE(CSSMathOperator::kDivide, op);
+}
 
 bool CSSMathExpressionOperation::HasPercentage() const {
   if (Category() == kCalcPercent) {
@@ -2137,7 +2208,9 @@ CSSMathExpressionOperation::CSSMathExpressionOperation(
           AnyOperandHasAnchorFunctions(operands),
           AnyOperandNeedsTreeScopePopulation(operands)),
       operands_(std::move(operands)),
-      operator_(op) {}
+      operator_(op) {
+  DCHECK_NE(CSSMathOperator::kDivide, op);
+}
 
 CSSMathExpressionOperation::CSSMathExpressionOperation(
     CalculationResultCategory category,
@@ -2146,7 +2219,9 @@ CSSMathExpressionOperation::CSSMathExpressionOperation(
                             IsComparison(op),
                             false /*has_anchor_functions*/,
                             false),
-      operator_(op) {}
+      operator_(op) {
+  DCHECK_NE(CSSMathOperator::kDivide, op);
+}
 
 std::optional<PixelsAndPercent> CSSMathExpressionOperation::ToPixelsAndPercent(
     const CSSLengthResolver& length_resolver) const {
@@ -2172,8 +2247,7 @@ std::optional<PixelsAndPercent> CSSMathExpressionOperation::ToPixelsAndPercent(
       }
       break;
     }
-    case CSSMathOperator::kMultiply:
-    case CSSMathOperator::kDivide: {
+    case CSSMathOperator::kMultiply: {
       DCHECK_EQ(operands_.size(), 2u);
       const CSSMathExpressionNode* number_side =
           GetNumericLiteralSide(operands_[0], operands_[1]);
@@ -2193,6 +2267,9 @@ std::optional<PixelsAndPercent> CSSMathExpressionOperation::ToPixelsAndPercent(
       result.value() *= number;
       break;
     }
+    case CSSMathOperator::kInvert:
+      // 1/x can never give pixels.
+      return std::nullopt;
     case CSSMathOperator::kCalcSize:
       // While it looks like we might be able to handle some calc-size() cases
       // here, we don't want to do because it would be difficult to avoid a
@@ -2209,6 +2286,9 @@ std::optional<PixelsAndPercent> CSSMathExpressionOperation::ToPixelsAndPercent(
     case CSSMathOperator::kRoundToZero:
     case CSSMathOperator::kMod:
     case CSSMathOperator::kRem:
+    case CSSMathOperator::kSqrt:
+    case CSSMathOperator::kLog:
+    case CSSMathOperator::kExp:
     case CSSMathOperator::kHypot:
     case CSSMathOperator::kAbs:
     case CSSMathOperator::kSign:
@@ -2224,6 +2304,7 @@ std::optional<PixelsAndPercent> CSSMathExpressionOperation::ToPixelsAndPercent(
     case CSSMathOperator::kAtan:
     case CSSMathOperator::kAtan2:
       return std::nullopt;
+    case CSSMathOperator::kDivide:
     case CSSMathOperator::kInvalid:
       NOTREACHED();
   }
@@ -2254,14 +2335,11 @@ CSSMathExpressionOperation::ToCalculationExpression(
           {operands_.front()->ToCalculationExpression(length_resolver),
            operands_.back()->ToCalculationExpression(length_resolver)},
           CalculationOperator::kMultiply);
-    case CSSMathOperator::kDivide:
-      DCHECK_EQ(operands_.size(), 2u);
+    case CSSMathOperator::kInvert:
+      DCHECK_EQ(operands_.size(), 1u);
       return CalculationExpressionOperationNode::CreateSimplified(
-          {operands_[0]->ToCalculationExpression(length_resolver),
-           CalculationExpressionOperationNode::CreateSimplified(
-               {operands_[1]->ToCalculationExpression(length_resolver)},
-               CalculationOperator::kInvert)},
-          CalculationOperator::kMultiply);
+          {operands_[0]->ToCalculationExpression(length_resolver)},
+          CalculationOperator::kInvert);
     case CSSMathOperator::kMin:
     case CSSMathOperator::kMax: {
       Vector<scoped_refptr<const CalculationExpressionNode>> operands;
@@ -2290,6 +2368,9 @@ CSSMathExpressionOperation::ToCalculationExpression(
     case CSSMathOperator::kRoundToZero:
     case CSSMathOperator::kMod:
     case CSSMathOperator::kRem:
+    case CSSMathOperator::kLog:
+    case CSSMathOperator::kExp:
+    case CSSMathOperator::kSqrt:
     case CSSMathOperator::kHypot:
     case CSSMathOperator::kAbs:
     case CSSMathOperator::kSign:
@@ -2323,6 +2404,12 @@ CSSMathExpressionOperation::ToCalculationExpression(
         op = CalculationOperator::kMod;
       } else if (operator_ == CSSMathOperator::kRem) {
         op = CalculationOperator::kRem;
+      } else if (operator_ == CSSMathOperator::kLog) {
+        op = CalculationOperator::kLog;
+      } else if (operator_ == CSSMathOperator::kExp) {
+        op = CalculationOperator::kExp;
+      } else if (operator_ == CSSMathOperator::kSqrt) {
+        op = CalculationOperator::kSqrt;
       } else if (operator_ == CSSMathOperator::kHypot) {
         op = CalculationOperator::kHypot;
       } else if (operator_ == CSSMathOperator::kAbs) {
@@ -2358,6 +2445,7 @@ CSSMathExpressionOperation::ToCalculationExpression(
       return CalculationExpressionOperationNode::CreateSimplified(
           std::move(operands), op);
     }
+    case CSSMathOperator::kDivide:
     case CSSMathOperator::kInvalid:
       NOTREACHED();
   }
@@ -2483,11 +2571,9 @@ bool CSSMathExpressionOperation::AccumulateLengthArray(
         return operands_[0]->AccumulateLengthArray(
             length_array, multiplier * operands_[1]->DoubleValue());
       }
-    case CSSMathOperator::kDivide:
-      DCHECK_EQ(operands_.size(), 2u);
-      DCHECK_EQ(operands_[1]->Category(), kCalcNumber);
-      return operands_[0]->AccumulateLengthArray(
-          length_array, multiplier / operands_[1]->DoubleValue());
+    case CSSMathOperator::kInvert:
+      // We don't support this yet.
+      return false;
     case CSSMathOperator::kMin:
     case CSSMathOperator::kMax:
     case CSSMathOperator::kClamp:
@@ -2499,6 +2585,9 @@ bool CSSMathExpressionOperation::AccumulateLengthArray(
     case CSSMathOperator::kRoundToZero:
     case CSSMathOperator::kMod:
     case CSSMathOperator::kRem:
+    case CSSMathOperator::kLog:
+    case CSSMathOperator::kExp:
+    case CSSMathOperator::kSqrt:
     case CSSMathOperator::kHypot:
     case CSSMathOperator::kAbs:
     case CSSMathOperator::kSign:
@@ -2518,6 +2607,7 @@ bool CSSMathExpressionOperation::AccumulateLengthArray(
     case CSSMathOperator::kAtan2:
       return false;
     case CSSMathOperator::kInvalid:
+    case CSSMathOperator::kDivide:
       NOTREACHED();
   }
 }
@@ -2547,65 +2637,76 @@ bool CSSMathExpressionOperation::IsElementDependent() const {
   return false;
 }
 
+// https://drafts.csswg.org/css-values-4/#serialize-a-math-function
+// “If a result of this serialization starts with a "(" (open parenthesis) and
+// ends with a ")" (close parenthesis), remove those characters from the
+// result.”
+static void SerializeTopLevelNode(const CSSMathExpressionNode* node,
+                                  StringBuilder& result) {
+  String text = node->CustomCSSText();
+  if (text.StartsWith('(')) {
+    DCHECK(text.EndsWith(')'));
+    result.Append(StringView(text, 1, text.length() - 2));
+  } else {
+    result.Append(text);
+  }
+}
+
 String CSSMathExpressionOperation::CustomCSSText() const {
   switch (operator_) {
     case CSSMathOperator::kAdd:
     case CSSMathOperator::kSubtract:
-    case CSSMathOperator::kMultiply:
-    case CSSMathOperator::kDivide: {
+    case CSSMathOperator::kMultiply: {
       DCHECK_EQ(operands_.size(), 2u);
 
       // As per
       // https://drafts.csswg.org/css-values-4/#sort-a-calculations-children
       // we should sort the dimensions of the sum node.
       const CSSMathExpressionOperation* operation = this;
-      if (IsAddOrSubtract()) {
-        const CSSMathExpressionNode* node = MaybeSortSumNode(this);
-        // Note: we can hit here, since CSS Typed OM doesn't currently follow
-        // the same simplifications as CSS Values spec.
-        // https://github.com/w3c/csswg-drafts/issues/9451
-        if (!node->IsOperation()) {
-          return node->CustomCSSText();
-        }
-        operation = To<CSSMathExpressionOperation>(node);
+      // Note: we can hit here, since CSS Typed OM doesn't currently follow
+      // the same simplifications as CSS Values spec.
+      // https://github.com/w3c/csswg-drafts/issues/9451
+      if (!operation->IsOperation()) {
+        return operation->CustomCSSText();
       }
-      CSSMathOperator op = operation->OperatorType();
-      const Operands& operands = operation->GetOperands();
+      GCedUnitsVector terms = CollectSumOrProductInOrder(this);
 
+      // https://drafts.csswg.org/css-values-4/#serialize-a-calculation-tree
+      //
+      // The parens will be removed by the caller if needed
+      // (#serialize-a-math-function).
       StringBuilder result;
+      result.Append('(');
 
-      // After all the simplifications we only need parentheses here for the
-      // cases like: (lhs as unsimplified sum/sub) [* or /] rhs
-      const bool left_side_needs_parentheses =
-          IsMultiplyOrDivide() && operands.front()->IsOperation() &&
-          To<CSSMathExpressionOperation>(operands.front().Get())
-              ->IsAddOrSubtract();
-      if (left_side_needs_parentheses) {
-        result.Append('(');
-      }
-      result.Append(operands[0]->CustomCSSText());
-      if (left_side_needs_parentheses) {
-        result.Append(')');
-      }
+      // The first node doesn't have an operator before it, so we need to make
+      // sure it's always suitable as an additive value.
+      const CSSMathExpressionNode* first_node =
+          MaybeNegateFirstNode(terms[0].op, terms[0].node);
+      result.Append(first_node->CustomCSSText());
 
-      result.Append(' ');
-      result.Append(ToString(op));
-      result.Append(' ');
+      for (wtf_size_t i = 1; i < terms.size(); ++i) {
+        CSSMathOperator op = terms[i].op;
+        const CSSMathExpressionNode* node = terms[i].node;
 
-      // After all the simplifications we only need parentheses here for the
-      // cases like: lhs [* or /] (rhs as unsimplified sum/sub)
-      const bool right_side_needs_parentheses =
-          IsMultiplyOrDivide() && operands.back()->IsOperation() &&
-          To<CSSMathExpressionOperation>(operands.back().Get())
-              ->IsAddOrSubtract();
-      if (right_side_needs_parentheses) {
-        result.Append('(');
-      }
-      result.Append(operands[1]->CustomCSSText());
-      if (right_side_needs_parentheses) {
-        result.Append(')');
+        // For negative literals in sums, we flip the operator instead of
+        // outputting the sign (e.g., a + -b => a - b).
+        if (IsNumericNodeWithDoubleValue(node) &&
+            (op == CSSMathOperator::kAdd || op == CSSMathOperator::kSubtract)) {
+          double value = node->DoubleValue();
+          if (value < 0.0) {
+            op = op == CSSMathOperator::kAdd ? CSSMathOperator::kSubtract
+                                             : CSSMathOperator::kAdd;
+            node = CSSMathExpressionNumericLiteral::Create(
+                -value, node->ResolvedUnitType());
+          }
+        }
+        result.Append(' ');
+        result.Append(ToString(op));
+        result.Append(' ');
+        result.Append(node->CustomCSSText());
       }
 
+      result.Append(')');
       return result.ReleaseString();
     }
     case CSSMathOperator::kMin:
@@ -2613,6 +2714,9 @@ String CSSMathExpressionOperation::CustomCSSText() const {
     case CSSMathOperator::kClamp:
     case CSSMathOperator::kMod:
     case CSSMathOperator::kRem:
+    case CSSMathOperator::kLog:
+    case CSSMathOperator::kExp:
+    case CSSMathOperator::kSqrt:
     case CSSMathOperator::kHypot:
     case CSSMathOperator::kAbs:
     case CSSMathOperator::kSign:
@@ -2628,10 +2732,10 @@ String CSSMathExpressionOperation::CustomCSSText() const {
       StringBuilder result;
       result.Append(ToString(operator_));
       result.Append('(');
-      result.Append(operands_.front()->CustomCSSText());
+      SerializeTopLevelNode(operands_.front(), result);
       for (const CSSMathExpressionNode* operand : SecondToLastOperands()) {
         result.Append(", ");
-        result.Append(operand->CustomCSSText());
+        SerializeTopLevelNode(operand, result);
       }
       result.Append(')');
 
@@ -2648,10 +2752,10 @@ String CSSMathExpressionOperation::CustomCSSText() const {
         result.Append(ToRoundingStrategyString(operator_));
         result.Append(", ");
       }
-      result.Append(operands_[0]->CustomCSSText());
+      SerializeTopLevelNode(operands_[0], result);
       if (ShouldSerializeRoundingStep(operands_)) {
         result.Append(", ");
-        result.Append(operands_[1]->CustomCSSText());
+        SerializeTopLevelNode(operands_[1], result);
       }
       result.Append(')');
 
@@ -2664,16 +2768,26 @@ String CSSMathExpressionOperation::CustomCSSText() const {
       StringBuilder result;
       result.Append(ToString(operator_));
       result.Append('(');
-      result.Append(operands_.front()->CustomCSSText());
+      SerializeTopLevelNode(operands_.front(), result);
       result.Append(", ");
-      result.Append(operands_[1]->CustomCSSText());
+      SerializeTopLevelNode(operands_[1], result);
       result.Append(", ");
-      result.Append(operands_.back()->CustomCSSText());
+      SerializeTopLevelNode(operands_.back(), result);
       result.Append(')');
 
       return result.ReleaseString();
     }
+    // https://drafts.csswg.org/css-values-4/#serialize-a-calculation-tree
+    case CSSMathOperator::kInvert: {
+      CHECK_EQ(operands_.size(), 1u);
+      StringBuilder result;
+      result.Append("(1 / ");
+      result.Append(operands_[0]->CustomCSSText());
+      result.Append(')');
+      return result.ReleaseString();
+    }
     case CSSMathOperator::kInvalid:
+    case CSSMathOperator::kDivide:
       NOTREACHED();
   }
 }
@@ -2711,8 +2825,7 @@ CSSPrimitiveValue::UnitType CSSMathExpressionOperation::ResolvedUnitType()
     case kCalcPercent:
     case kCalcResolution:
       switch (operator_) {
-        case CSSMathOperator::kMultiply:
-        case CSSMathOperator::kDivide: {
+        case CSSMathOperator::kMultiply: {
           DCHECK_EQ(operands_.size(), 2u);
           if (operands_[0]->Category() == kCalcNumber) {
             return operands_[1]->ResolvedUnitType();
@@ -2727,6 +2840,7 @@ CSSPrimitiveValue::UnitType CSSMathExpressionOperation::ResolvedUnitType()
         case CSSMathOperator::kMin:
         case CSSMathOperator::kMax:
         case CSSMathOperator::kClamp:
+        case CSSMathOperator::kSqrt:
         case CSSMathOperator::kRoundNearest:
         case CSSMathOperator::kRoundUp:
         case CSSMathOperator::kRoundDown:
@@ -2734,7 +2848,8 @@ CSSPrimitiveValue::UnitType CSSMathExpressionOperation::ResolvedUnitType()
         case CSSMathOperator::kMod:
         case CSSMathOperator::kRem:
         case CSSMathOperator::kHypot:
-        case CSSMathOperator::kAbs: {
+        case CSSMathOperator::kAbs:
+        case CSSMathOperator::kInvert: {
           CSSPrimitiveValue::UnitType first_type =
               operands_.front()->ResolvedUnitType();
           if (first_type == CSSPrimitiveValue::UnitType::kUnknown) {
@@ -2756,6 +2871,8 @@ CSSPrimitiveValue::UnitType CSSMathExpressionOperation::ResolvedUnitType()
         case CSSMathOperator::kPow:
         case CSSMathOperator::kSin:
         case CSSMathOperator::kCos:
+        case CSSMathOperator::kLog:
+        case CSSMathOperator::kExp:
         case CSSMathOperator::kTan:
           return CSSPrimitiveValue::UnitType::kNumber;
         case CSSMathOperator::kAsin:
@@ -2775,6 +2892,7 @@ CSSPrimitiveValue::UnitType CSSMathExpressionOperation::ResolvedUnitType()
           // 'size' keyword to produce a correct answer in more cases.
           return CSSPrimitiveValue::UnitType::kUnknown;
         }
+        case CSSMathOperator::kDivide:
         case CSSMathOperator::kInvalid:
           NOTREACHED();
       }
@@ -2832,8 +2950,14 @@ double CSSMathExpressionOperation::EvaluateOperator(
       DCHECK_EQ(operands.size(), 2u);
       return operands[0] * operands[1];
     case CSSMathOperator::kDivide:
+      // While kDivide should not happen during normal evaluation
+      // (it is rewritten to kInvert during parsing), this can happen
+      // during eager simplification.
       DCHECK(operands.size() == 1u || operands.size() == 2u);
       return operands[0] / operands[1];
+    case CSSMathOperator::kInvert:
+      DCHECK_EQ(operands.size(), 1u);
+      return 1.0 / operands[0];
     case CSSMathOperator::kMin: {
       if (operands.empty()) {
         return std::numeric_limits<double>::quiet_NaN();
@@ -2899,6 +3023,22 @@ double CSSMathExpressionOperation::EvaluateOperator(
     case CSSMathOperator::kRem: {
       DCHECK_EQ(operands.size(), 2u);
       return EvaluateSteppedValueFunction(op, operands[0], operands[1]);
+    }
+    case CSSMathOperator::kExp: {
+      DCHECK_EQ(operands.size(), 1u);
+      return std::exp(operands.front());
+    }
+    case CSSMathOperator::kLog: {
+      DCHECK_GE(operands.size(), 1u);
+      DCHECK_LE(operands.size(), 2u);
+      if (operands.size() == 2) {
+        return std::log2(operands.front()) / std::log2(operands.back());
+      }
+      return std::log(operands.front());
+    }
+    case CSSMathOperator::kSqrt: {
+      DCHECK_EQ(operands.size(), 1u);
+      return std::sqrt(operands.front());
     }
     case CSSMathOperator::kHypot: {
       DCHECK_GE(operands.size(), 1u);
@@ -4214,6 +4354,12 @@ class CSSMathExpressionNodeParser {
       }
     }
 
+    if (auto* operation = DynamicTo<CSSMathExpressionOperation>(result)) {
+      if (operation->IsMultiplyOrDivide()) {
+        result = MaybeSimplifySumOrProductNode(operation);
+      }
+    }
+
     return result;
   }
 
@@ -4262,7 +4408,7 @@ class CSSMathExpressionNodeParser {
 
     if (auto* operation = DynamicTo<CSSMathExpressionOperation>(result)) {
       if (operation->IsAddOrSubtract()) {
-        result = MaybeSimplifySumNode(operation);
+        result = MaybeSimplifySumOrProductNode(operation);
       }
     }
 
@@ -4406,10 +4552,8 @@ CSSMathExpressionNode* CSSMathExpressionNode::Create(
     }
     case CalculationOperator::kInvert: {
       DCHECK_EQ(children.size(), 1u);
-      return CSSMathExpressionOperation::CreateArithmeticOperation(
-          CSSMathExpressionNumericLiteral::Create(
-              1, CSSPrimitiveValue::UnitType::kNumber),
-          Create(*children.front()), CSSMathOperator::kDivide);
+      return CSSMathExpressionOperation::CreateInvertFunction(
+          Create(*children.front()));
     }
     case CalculationOperator::kAdd:
     case CalculationOperator::kSubtract: {
@@ -4480,6 +4624,30 @@ CSSMathExpressionNode* CSSMathExpressionNode::Create(
       }
       return CSSMathExpressionOperation::CreateExponentialFunction(
           std::move(operands), CSSValueID::kHypot);
+    }
+    case CalculationOperator::kLog: {
+      DCHECK_GE(children.size(), 1u);
+      DCHECK_LE(children.size(), 2u);
+      CSSMathExpressionOperation::Operands operands;
+      for (const auto& child : children) {
+        operands.push_back(Create(*child));
+      }
+      return CSSMathExpressionOperation::CreateExponentialFunction(
+          std::move(operands), CSSValueID::kLog);
+    }
+    case CalculationOperator::kExp: {
+      DCHECK_EQ(children.size(), 1u);
+      CSSMathExpressionOperation::Operands operands;
+      operands.push_back(Create(*children.front()));
+      return CSSMathExpressionOperation::CreateExponentialFunction(
+          std::move(operands), CSSValueID::kExp);
+    }
+    case CalculationOperator::kSqrt: {
+      DCHECK_EQ(children.size(), 1u);
+      CSSMathExpressionOperation::Operands operands;
+      operands.push_back(Create(*children.front()));
+      return CSSMathExpressionOperation::CreateExponentialFunction(
+          std::move(operands), CSSValueID::kSqrt);
     }
     case CalculationOperator::kAbs:
     case CalculationOperator::kSign: {

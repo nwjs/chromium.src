@@ -294,7 +294,7 @@ void ExtractUnderlines(NSAttributedString* string,
   // full string in the renderer.
   std::u16string _availableText;
   size_t _availableTextOffset;
-  NSUInteger _availableTextChangeCounter;
+  NSUInteger _availableTextChangeNumber;
   gfx::Range _textSelectionRange;
 
   // The composition range, cached from the RenderWidgetHostView. This is only
@@ -484,7 +484,7 @@ void ExtractUnderlines(NSAttributedString* string,
   NSRect textRectInViewCoordinates =
       [self convertRect:textRectInWindowCoordinates fromView:nil];
 
-  NSUInteger capturedChangeCounter = _availableTextChangeCounter;
+  NSUInteger capturedChangeNumber = _availableTextChangeNumber;
 
   [self.spellChecker
       showCorrectionIndicatorOfType:NSCorrectionIndicatorTypeDefault
@@ -495,7 +495,7 @@ void ExtractUnderlines(NSAttributedString* string,
                   completionHandler:^(NSString* acceptedString) {
                     [self didAcceptReplacementString:acceptedString
                                forTextCheckingResult:candidateResult
-                                    withChangeNumber:capturedChangeCounter];
+                                    withChangeNumber:capturedChangeNumber];
                   }];
 }
 
@@ -507,8 +507,11 @@ void ExtractUnderlines(NSAttributedString* string,
   // Call it to report whether they initially accepted or rejected the
   // suggestion, but also if they edit, revert, etc. later.
 
-  if (acceptedString == nil)
+  // Exit if there's no replacement string, or if the web contents changed
+  // in between our spell checker request and this response.
+  if (acceptedString == nil || _availableTextChangeNumber != changeNumber) {
     return;
+  }
 
   NSRange availableTextRange =
       NSMakeRange(_availableTextOffset, _availableText.length());
@@ -531,18 +534,6 @@ void ExtractUnderlines(NSAttributedString* string,
     if ([self.spellChecker preventsAutocorrectionBeforeString:trailingString
                                                      language:nil])
       return;
-
-    // Gather some info in case -doubleClickAtIndex: throws an exception.
-    // This change will eventually be reverted.
-    NSString* info = [NSString
-        stringWithFormat:@"%lu == %lu %lu %@ %@ %@ %@", changeNumber,
-                         _availableTextChangeCounter, attString.string.length,
-                         NSStringFromRange(availableTextRange),
-                         NSStringFromRange(correction.range),
-                         NSStringFromRange(trailingRange),
-                         NSStringFromRange(trailingRangeInAvailableText)];
-    SCOPED_CRASH_KEY_STRING256("RenderWidgetHostViewCocoa", "didAcceptTR",
-                               base::SysNSStringToUTF8(info));
 
     if ([attString doubleClickAtIndex:trailingRangeInAvailableText.location]
             .location < trailingRangeInAvailableText.location)
@@ -664,7 +655,7 @@ void ExtractUnderlines(NSAttributedString* string,
                        range:(gfx::Range)range {
   _availableText = text;
   _availableTextOffset = offset;
-  _availableTextChangeCounter++;
+  _availableTextChangeNumber++;
   _textSelectionRange = range;
   _substitutionWasApplied = NO;
   [NSSpellChecker.sharedSpellChecker dismissCorrectionIndicatorForView:self];
@@ -2424,9 +2415,10 @@ extern NSString* NSTextInputReplacementRangeAttributeName;
   if ([self isHandlingKeyDown] && !_isReconversionTriggered) {
     _setMarkedTextReplacementRange = gfx::Range(replacementRange);
   } else {
-    _host->ImeSetComposition(_markedText, _imeTextSpans,
-                             gfx::Range(replacementRange), newSelRange.location,
-                             NSMaxRange(newSelRange));
+    _host->ImeSetComposition(
+        _markedText, _imeTextSpans,
+        gfx::Range::FromPossiblyInvalidNSRange(replacementRange),
+        newSelRange.location, NSMaxRange(newSelRange));
   }
 
   [[self inputContext] invalidateCharacterCoordinates];

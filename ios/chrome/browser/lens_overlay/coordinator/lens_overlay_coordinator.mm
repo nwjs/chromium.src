@@ -25,7 +25,7 @@
 #import "ios/chrome/browser/lens_overlay/coordinator/lens_overlay_availability.h"
 #import "ios/chrome/browser/lens_overlay/coordinator/lens_overlay_mediator.h"
 #import "ios/chrome/browser/lens_overlay/coordinator/lens_overlay_mediator_delegate.h"
-#import "ios/chrome/browser/lens_overlay/coordinator/lens_overlay_tab_change_responder.h"
+#import "ios/chrome/browser/lens_overlay/coordinator/lens_overlay_tab_change_audience.h"
 #import "ios/chrome/browser/lens_overlay/coordinator/lens_result_page_mediator.h"
 #import "ios/chrome/browser/lens_overlay/model/lens_overlay_configuration_factory.h"
 #import "ios/chrome/browser/lens_overlay/model/lens_overlay_entrypoint.h"
@@ -47,8 +47,8 @@
 #import "ios/chrome/browser/lens_overlay/ui/lens_result_page_view_controller.h"
 #import "ios/chrome/browser/lens_overlay/ui/lens_toolbar_consumer.h"
 #import "ios/chrome/browser/menu/ui_bundled/browser_action_factory.h"
-#import "ios/chrome/browser/omnibox/ui_bundled/chrome_omnibox_client_ios.h"
-#import "ios/chrome/browser/omnibox/ui_bundled/omnibox_coordinator.h"
+#import "ios/chrome/browser/omnibox/coordinator/omnibox_coordinator.h"
+#import "ios/chrome/browser/omnibox/model/chrome_omnibox_client_ios.h"
 #import "ios/chrome/browser/omnibox/ui_bundled/omnibox_focus_delegate.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
@@ -75,6 +75,8 @@
 #import "ios/chrome/browser/snapshots/model/snapshot_tab_helper.h"
 #import "ios/chrome/browser/web/model/web_state_delegate_browser_agent.h"
 #import "ios/public/provider/chrome/browser/lens/lens_configuration.h"
+#import "ios/public/provider/chrome/browser/lens/lens_image_metadata.h"
+#import "ios/public/provider/chrome/browser/lens/lens_image_source.h"
 #import "ios/public/provider/chrome/browser/lens/lens_overlay_api.h"
 #import "ios/public/provider/chrome/browser/lens/lens_overlay_result.h"
 #import "ios/web/public/web_state.h"
@@ -102,7 +104,7 @@ const base::TimeDelta kSearchWithCameraTooltipHintDelay = base::Seconds(2.0);
                                       LensOverlayOverflowMenuDelegate,
                                       LensOverlayResultConsumer,
                                       LensOverlayResultsPagePresenterDelegate,
-                                      LensOverlayTabChangeResponder>
+                                      LensOverlayTabChangeAudience>
 
 // Whether the `_containerViewController` is currently presented.
 @property(nonatomic, assign, readonly) BOOL isLensOverlayVisible;
@@ -353,6 +355,17 @@ const base::TimeDelta kSearchWithCameraTooltipHintDelay = base::Seconds(2.0);
 
   BOOL success = [self createUIWithImageSource:imageSource];
   if (success) {
+    // For metadata associated with translate requests, start the selection
+    // UI early to improve the perceived translation speed, as no other results
+    // are expected to arrive.
+    // TODO(crbug.com/400523059): Remove check once roll is complete.
+    if ([imageSource.imageMetadata
+            respondsToSelector:@selector(translateFilterActive)]) {
+      if (imageSource.imageMetadata.translateFilterActive) {
+        [_selectionViewController start];
+      }
+    }
+
     [self showLensUI:animated completion:completion];
   } else {
     [self destroyLensUI:NO
@@ -416,13 +429,17 @@ const base::TimeDelta kSearchWithCameraTooltipHintDelay = base::Seconds(2.0);
     [_selectionViewController start];
 
     if (self.isResultsBottomSheetCreated) {
-      // Only show the bottom sheet when in selection. For translate, build the
-      // necessary infrastructure but don't show it, effectively starting it
-      // hidden.
       [self buildResultsBottomSheetPresentation];
-      if (!_selectionViewController.translateFilterActive) {
-        [self showResultsBottomSheet];
-      }
+      [self showResultsBottomSheet];
+    } else if (_selectionViewController.translateFilterActive) {
+      [self startResultPage];
+      [_resultsPagePresenter
+          showInfoMessage:LensOverlayBottomSheetInfoMessageType::
+                              kImageTranslatedIndication];
+    } else if (lens::IsLVFEntrypoint(_entrypoint)) {
+      // As autoselection is enabled for LVF, pre-emptively start the results
+      // page for potential results.
+      [self startResultPage];
     } else {
       [self scheduleTooltipHintDisplayIfNecessary];
     }
@@ -676,12 +693,12 @@ const base::TimeDelta kSearchWithCameraTooltipHintDelay = base::Seconds(2.0);
                               kBottomSheetDismissed];
       break;
     case SheetDimensionState::kLarge:
-      [self disableSelectionInteraction:YES];
+      [_selectionViewController disableFlyoutMenu:YES];
       break;
     case SheetDimensionState::kConsent:
       break;
     default:
-      [self disableSelectionInteraction:NO];
+      [_selectionViewController disableFlyoutMenu:NO];
       [_mediator defocusOmnibox];
       break;
   }
@@ -736,8 +753,14 @@ const base::TimeDelta kSearchWithCameraTooltipHintDelay = base::Seconds(2.0);
   }
 }
 
-- (void)prepareForBackgroundTabChange {
-  if (!_associatedTabHelper) {
+- (void)lensOverlayMediatorDidFailDetectingTranslatableText {
+  [self startResultPage];
+  [_resultsPagePresenter showInfoMessage:LensOverlayBottomSheetInfoMessageType::
+                                             kNoTranslatableTextWarning];
+}
+
+- (void)prepareLensUIForBackgroundTabChange {
+  if (!_associatedTabHelper || !self.isUICreated) {
     return;
   }
 
@@ -745,6 +768,12 @@ const base::TimeDelta kSearchWithCameraTooltipHintDelay = base::Seconds(2.0);
   _associatedTabHelper->RecordSheetDimensionState(
       _resultsPagePresenter.sheetDimension);
   _associatedTabHelper->UpdateSnapshotStorage();
+}
+
+#pragma mark - LensOverlayTabChangeAudience
+
+- (void)backgroundTabWillBecomeActive {
+  [self prepareLensUIForBackgroundTabChange];
 }
 
 #pragma mark - LensOverlayResultConsumer
@@ -755,11 +784,7 @@ const base::TimeDelta kSearchWithCameraTooltipHintDelay = base::Seconds(2.0);
   [_metricsRecorder
       recordResultLoadedWithTextSelection:_mediator.currentLensResult
                                               .isTextSelection];
-
-  if (!_resultMediator) {
-    [self startResultPage];
-  }
-
+  [self startResultPage];
   [_resultMediator loadResultsURL:url];
 }
 
@@ -776,9 +801,7 @@ const base::TimeDelta kSearchWithCameraTooltipHintDelay = base::Seconds(2.0);
 }
 
 - (void)handleSlowRequestHasStarted {
-  if (!_resultMediator) {
-    [self startResultPage];
-  }
+  [self startResultPage];
   [_resultMediator handleSlowRequestHasStarted];
 }
 
@@ -951,9 +974,9 @@ const base::TimeDelta kSearchWithCameraTooltipHintDelay = base::Seconds(2.0);
 
 // Opens a given URL in a new tab.
 - (void)openURLInNewTab:(GURL)URL {
-  OpenNewTabCommand* command = [OpenNewTabCommand
-      commandWithURLFromChrome:URL
-                   inIncognito:self.profile->IsOffTheRecord()];
+  OpenNewTabCommand* command =
+      [OpenNewTabCommand commandWithURLFromChrome:URL
+                                      inIncognito:self.isOffTheRecord];
 
   [HandlerForProtocol(self.browser->GetCommandDispatcher(), ApplicationCommands)
       openURLInNewTab:command];
@@ -964,6 +987,11 @@ const base::TimeDelta kSearchWithCameraTooltipHintDelay = base::Seconds(2.0);
   CommandDispatcher* dispatcher = self.browser->GetCommandDispatcher();
   id<PageSideSwipeCommands> pageSideSwipeHandler =
       HandlerForProtocol(dispatcher, PageSideSwipeCommands);
+
+  /// Record a snapshot of the current viewport before navigating to the URL.
+  if (_associatedTabHelper) {
+    _associatedTabHelper->RecordViewportSnaphot();
+  }
 
   UIImage* viewportSnapshot =
       _associatedTabHelper ? _associatedTabHelper->GetViewportSnapshot() : nil;
@@ -1023,6 +1051,10 @@ const base::TimeDelta kSearchWithCameraTooltipHintDelay = base::Seconds(2.0);
 
 // Creates and displays the results bottom sheet.
 - (void)startResultPage {
+  if (_resultMediator) {
+    return;
+  }
+
   Browser* browser = self.browser;
   ProfileIOS* profile = browser->GetProfile();
 
@@ -1040,7 +1072,7 @@ const base::TimeDelta kSearchWithCameraTooltipHintDelay = base::Seconds(2.0);
       HandlerForProtocol(browser->GetCommandDispatcher(), SnackbarCommands);
   _resultMediator.errorHandler = _networkIssuePresenter;
   _resultMediator.delegate = _mediator;
-  _resultMediator.tabChangeResponder = self;
+  _resultMediator.tabChangeAudience = self;
   _mediator.resultConsumer = _resultMediator;
 
   _resultViewController = [[LensResultPageViewController alloc] init];
@@ -1077,7 +1109,7 @@ const base::TimeDelta kSearchWithCameraTooltipHintDelay = base::Seconds(2.0);
 
   // TODO(crbug.com/355179721): Add omnibox focus delegate.
   _omniboxCoordinator.presenterDelegate = _resultViewController;
-  _omniboxCoordinator.isSearchOnlyUI = YES;
+  _omniboxCoordinator.searchOnlyUI = YES;
   [_omniboxCoordinator start];
 
   [_omniboxCoordinator.managedViewController
@@ -1335,6 +1367,9 @@ const base::TimeDelta kSearchWithCameraTooltipHintDelay = base::Seconds(2.0);
   if (_associatedTabHelper) {
     _associatedTabHelper->ClearViewportSnapshot();
   }
+
+  CGFloat guidanceRestHeight = _resultsPagePresenter.presentedResultsPageHeight;
+  [_selectionViewController setGuidanceRestHeight:guidanceRestHeight];
 }
 
 @end

@@ -38,7 +38,8 @@ class CONTENT_EXPORT SharedWorkerInstance {
       const std::string& name,
       const blink::StorageKey& storage_key,
       blink::mojom::SharedWorkerCreationContextType creation_context_type,
-      blink::mojom::SharedWorkerSameSiteCookies same_site_cookies);
+      blink::mojom::SharedWorkerSameSiteCookies same_site_cookies,
+      bool extended_lifetime);
   SharedWorkerInstance(const SharedWorkerInstance& other);
   SharedWorkerInstance(SharedWorkerInstance&& other);
   SharedWorkerInstance& operator=(const SharedWorkerInstance& other) = delete;
@@ -81,6 +82,7 @@ class CONTENT_EXPORT SharedWorkerInstance {
            same_site_cookies_ ==
                blink::mojom::SharedWorkerSameSiteCookies::kNone;
   }
+  bool extended_lifetime() const { return extended_lifetime_; }
 
  private:
   bool is_node_js_;
@@ -109,6 +111,11 @@ class CONTENT_EXPORT SharedWorkerInstance {
   const blink::mojom::SharedWorkerCreationContextType creation_context_type_;
 
   const blink::mojom::SharedWorkerSameSiteCookies same_site_cookies_;
+
+  // Indicates if SharedWorker should extend its lifetime on all clients
+  // have been destructed.
+  // See: https://github.com/whatwg/html/issues/10997
+  const bool extended_lifetime_;
 };
 
 }  // namespace content

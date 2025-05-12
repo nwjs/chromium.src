@@ -144,6 +144,9 @@ class BanRule:
     # expression that will be matched against the path of the file being checked
     # relative to the root of the source tree.
     excluded_paths: Optional[Sequence[str]] = None
+    # If True, surfaces any violation as a Gerrit comment on the CL after
+    # running the CQ.
+    surface_as_gerrit_lint: Optional[bool] = None
 
 
 _BANNED_JAVA_IMPORTS : Sequence[BanRule] = (
@@ -316,6 +319,7 @@ _BANNED_JAVA_FUNCTIONS : Sequence[BanRule] = (
           r'^infra/', # This is permitted in infra/ folder.
           r'^tools/', # This is permitted in tools/ folder.
         ],
+        surface_as_gerrit_lint=True,
     ),
 )
 
@@ -919,7 +923,7 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
             r'content/browser/webid/federated_auth_request_impl\.cc',
             r'media/cast/test/utility/udp_proxy\.h',
             r'sql/recover_module/module_unittest\.cc',
-            r'components/search_engines/template_url_prepopulate_data.cc',
+            r'components/regional_capabilities/regional_capabilities_utils.cc',
             # Do not add new entries to this list. If you have a use case which is
             # not satisfied by the current APIs (i.e. you need an explicitly-seeded
             # sequence, or stability of some sort is required), please contact
@@ -1711,15 +1715,6 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
         [_THIRD_PARTY_EXCEPT_BLINK],  # Not an error in third_party folders.
     ),
     BanRule(
-        'set_owned_by_client',
-        ('set_owned_by_client is deprecated.',
-         'views::View already owns the child views by default. This introduces ',
-         'a competing ownership model which makes the code difficult to reason ',
-         'about. See http://crbug.com/1044687 for more details.'),
-        False,
-        (),
-    ),
-    BanRule(
         'RemoveAllChildViewsWithoutDeleting',
         ('RemoveAllChildViewsWithoutDeleting is deprecated.',
          'This method is deemed dangerous as, unless raw pointers are re-added,',
@@ -2061,6 +2056,14 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
         treat_as_error=False,
     ),
     BanRule(
+        pattern='#pragma allow_unsafe_buffers',
+        explanation=
+        ('Do not use allow_unsafe_buffers to write new unsafe code. Use only '
+         'when enabling unsafe buffers checks under a new uncovered path.',
+        ),
+        treat_as_error=False,
+    ),
+    BanRule(
         pattern=r'UNSAFE_BUFFERS(',
         explanation=
         ('Try to avoid using UNSAFE_BUFFERS() if at all possible. Otherwise, '
@@ -2228,6 +2231,7 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
           r'^infra/', # This is permitted in infra/ folder.
           r'^tools/', # This is permitted in tools/ folder.
         ],
+        surface_as_gerrit_lint=True,
     ),
 )
 
@@ -2288,16 +2292,27 @@ _DEPRECATED_SYNC_CONSENT_JAVA_FUNCTIONS : Sequence[BanRule] = (
     ),
 )
 
-_BANNED_MOJOM_PATTERNS : Sequence[BanRule] = (
+_BANNED_MOJOM_PATTERNS: Sequence[BanRule] = (
     BanRule(
         'handle<shared_buffer>',
         (
-         'Please use one of the more specific shared memory types instead:',
-         '  mojo_base.mojom.ReadOnlySharedMemoryRegion',
-         '  mojo_base.mojom.WritableSharedMemoryRegion',
-         '  mojo_base.mojom.UnsafeSharedMemoryRegion',
+            'Please use one of the more specific shared memory types instead:',
+            '  mojo_base.mojom.ReadOnlySharedMemoryRegion',
+            '  mojo_base.mojom.WritableSharedMemoryRegion',
+            '  mojo_base.mojom.UnsafeSharedMemoryRegion',
         ),
         True,
+    ),
+    BanRule(
+        'string extension_id',
+        (
+            'Please use the extensions::mojom::ExtensionId struct when '
+            'passing extensions::ExtensionIds as mojom messages in order to ',
+            'provide message validation.',
+        ),
+        True,
+        # Only apply this to (mojom) files in a subdirectory of extensions.
+        excluded_paths=(r'^((?!extensions/).)*$', ),
     ),
 )
 
@@ -2465,7 +2480,7 @@ _KNOWN_ROBOTS = set(
   ) | set('%s@skia-corp.google.com.iam.gserviceaccount.com' % s
           for s in ('chromium-internal-autoroll',)
   ) | set('%s@system.gserviceaccount.com' % s
-          for s in ('chrome-screen-ai-releaser',)
+          for s in ('chrome-screen-ai-releaser', 'crash-eng', 'crash')
   ) | set('%s@owners-cleanup-prod.google.com.iam.gserviceaccount.com' % s
           for s in ('swarming-tasks',)
   ) | set('%s@fuchsia-infra.iam.gserviceaccount.com' % s
@@ -2986,8 +3001,7 @@ def _GetMessageForMatchingType(input_api, affected_file, line_number, line,
 
 def CheckNoBannedFunctions(input_api, output_api):
     """Make sure that banned functions are not used."""
-    warnings = []
-    errors = []
+    results= []
 
     def IsExcludedFile(affected_file, excluded_paths):
         if not excluded_paths:
@@ -3017,13 +3031,27 @@ def CheckNoBannedFunctions(input_api, output_api):
         if IsExcludedFile(affected_file, ban_rule.excluded_paths):
             return
 
-        problems = _GetMessageForMatchingType(input_api, f, line_num, line,
-                                              ban_rule)
-        if problems:
+        message = _GetMessageForMatchingType(input_api, f, line_num, line,
+                                             ban_rule)
+        if message:
+            result_loc = []
+            if ban_rule.surface_as_gerrit_lint:
+                result_loc.append(output_api.PresubmitResultLocation(
+                    file_path=affected_file.LocalPath(),
+                    start_line=line_num,
+                    end_line=line_num,
+                ))
             if ban_rule.treat_as_error is not None and ban_rule.treat_as_error:
-                errors.extend(problems)
+                results.append(
+                    output_api.PresubmitError('A banned function was used.\n' +
+                                              '\n'.join(message),
+                                              locations=result_loc))
+
             else:
-                warnings.extend(problems)
+                results.append(
+                    output_api.PresubmitPromptWarning('A banned function was used.\n' +
+                                                      '\n'.join(message),
+                                                      locations=result_loc))
 
     file_filter = lambda f: f.LocalPath().endswith(('.java'))
     for f in input_api.AffectedFiles(file_filter=file_filter):
@@ -3086,17 +3114,8 @@ def CheckNoBannedFunctions(input_api, output_api):
             for ban_rule in _BANNED_MOJOM_PATTERNS:
                 CheckForMatch(f, line_num, line, ban_rule)
 
+    return results
 
-    result = []
-    if (warnings):
-        result.append(
-            output_api.PresubmitPromptWarning('Banned functions were used.\n' +
-                                              '\n'.join(warnings)))
-    if (errors):
-        result.append(
-            output_api.PresubmitError('Banned functions were used.\n' +
-                                      '\n'.join(errors)))
-    return result
 
 def _CheckAndroidNoBannedImports(input_api, output_api):
     """Make sure that banned java imports are not used."""
@@ -3511,6 +3530,12 @@ def CheckNoProductIconsAddedToPublicRepo(input_api, output_api):
     """Heuristically identifies product icons based on their file name and reminds
     contributors not to add them to the Chromium repository.
     """
+
+    if input_api.change.RepositoryRoot().endswith('clank'):
+      # TODO(crbug.com/414435241): Change check to compute whether change
+      # belongs to internal repository instead of relying on string matching.
+      return []
+
     errors = []
     files_to_check = [r'.*google.*\.png$|.*google.*\.svg$|.*google.*\.icon$']
     file_filter = lambda f: input_api.FilterSourceFile(
@@ -5966,6 +5991,7 @@ def ChecksAndroidSpecificOnCommit(input_api, output_api):
     """Groups commit checks that target android code."""
     results = []
     results.extend(_CheckAndroidXmlStyle(input_api, output_api, False))
+    results.extend(_CheckAndroidNullAwayAnnotatedClasses(input_api, output_api))
     return results
 
 # TODO(chrishall): could we additionally match on any path owned by
@@ -6136,10 +6162,13 @@ def ChecksCommon(input_api, output_api):
             input_api, output_api))
 
     presubmit_py_filter = lambda f: input_api.FilterSourceFile(
-        f, files_to_check=[r'.*PRESUBMIT\.py$'])
-    for f in input_api.AffectedFiles(include_deletes=False,
-                                     file_filter=presubmit_py_filter):
-        full_path = input_api.os_path.dirname(f.AbsoluteLocalPath())
+        f, files_to_check=[r'.*PRESUBMIT(?:_test)?\.py$'])
+    potential_paths = set(
+        map(
+            lambda f: input_api.os_path.dirname(f.AbsoluteLocalPath()),
+            input_api.AffectedFiles(include_deletes=False,
+                                    file_filter=presubmit_py_filter)))
+    for full_path in potential_paths:
         test_file = input_api.os_path.join(full_path, 'PRESUBMIT_test.py')
         # The PRESUBMIT.py file (and the directory containing it) might have
         # been affected by being moved or removed, so only try to run the tests
@@ -7175,6 +7204,21 @@ def CheckTranslationExpectations(input_api, output_api,
                                          'tests')
     grd_files = [p for p in grd_files if ignore_path not in p]
 
+    # Ensure no duplicate basenames.
+    basename_to_src_paths = {}
+    for grd_path in grd_files:
+        basename = input_api.os_path.basename(grd_path)
+        basename_to_src_paths.setdefault(basename, [])
+        basename_to_src_paths[basename].append(grd_path)
+    for src_paths in basename_to_src_paths.values():
+        if len(src_paths) > 1:
+            return [
+                output_api.PresubmitNotifyResult(
+                    'Multiple string files have the same basename. This will result in '
+                    'missing translations. Files: %s'
+                    % ', '.join(src_paths))
+            ]
+
     try:
         translation_helper.get_translatable_grds(
             repo_root, grd_files, translation_expectations_path, is_cog)
@@ -7583,6 +7627,10 @@ a subclass of it), or use "@Rule BaseRobolectricTestRule".
 def _CheckAndroidNullAwayAnnotatedClasses(input_api, output_api):
     """Checks that Java classes/interfaces/annotations are null-annotated."""
 
+    # Temporary, crbug.com/389129271
+    if input_api.change.RepositoryRoot().endswith('clank'):
+        return []
+
     nullmarked_annotation = input_api.re.compile(r'^\s*@(NullMarked|NullUnmarked)')
 
     missing_annotation_errors = []
@@ -7595,7 +7643,7 @@ def _CheckAndroidNullAwayAnnotatedClasses(input_api, output_api):
                            r'.*Test.*\.java',
                            r'^android_webview/.*', # Temporary, crbug.com/389129271
                            r'^build/.*',
-                           r'^chrome/.*', # Temporary, crbug.com/389129271
+                           r'^chrome/android/.*', # Temporary, crbug.com/389129271
                            r'^chromecast/.*',
                            r'^components/cronet/.*',
                            r'^tools/.*',
@@ -7603,6 +7651,8 @@ def _CheckAndroidNullAwayAnnotatedClasses(input_api, output_api):
         files_to_check=[r'.*\.java$'])
 
     for f in input_api.AffectedSourceFiles(_FilterFile):
+        if f.Action() != 'A':
+            continue
         for line in f.NewContents():
             if nullmarked_annotation.search(line):
                 break
@@ -7613,7 +7663,7 @@ def _CheckAndroidNullAwayAnnotatedClasses(input_api, output_api):
 
     if missing_annotation_errors:
         results.append(
-            output_api.PresubmitPromptWarning(
+            output_api.PresubmitError(
                 """
 Please add @NullMarked and fix the NullAway warnings in the following files
 (see https://chromium.googlesource.com/chromium/src/+/main/styleguide/java/nullaway.md):

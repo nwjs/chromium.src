@@ -10,6 +10,7 @@
 #import "ios/chrome/browser/authentication/ui_bundled/signin/account_menu/account_menu_data_source.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/account_menu/account_menu_mutator.h"
 
+enum class AccountMenuAccessPoint;
 @protocol AccountMenuConsumer;
 @protocol AccountMenuMediatorDelegate;
 class AuthenticationService;
@@ -39,6 +40,7 @@ class SyncService;
                         authService:(AuthenticationService*)authService
                     identityManager:(signin::IdentityManager*)identityManager
                               prefs:(PrefService*)prefs
+                        accessPoint:(AccountMenuAccessPoint)accessPoint
     NS_DESIGNATED_INITIALIZER;
 - (instancetype)init NS_UNAVAILABLE;
 

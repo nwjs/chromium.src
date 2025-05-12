@@ -40,6 +40,7 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntentDataProvider;
 import org.chromium.chrome.browser.customtabs.CustomTabIntentDataProvider;
 import org.chromium.chrome.browser.customtabs.features.toolbar.CustomTabToolbar;
+import org.chromium.chrome.browser.customtabs.features.toolbar.CustomTabToolbarButtonsCoordinator;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
 import org.chromium.ui.accessibility.AccessibilityState;
 import org.chromium.ui.base.LocalizationUtils;
@@ -146,8 +147,12 @@ public class PartialCustomTabSideSheetStrategy extends PartialCustomTabBaseStrat
 
     @Override
     public void onToolbarInitialized(
-            View coordinatorView, CustomTabToolbar toolbar, @Px int toolbarCornerRadius) {
-        super.onToolbarInitialized(coordinatorView, toolbar, toolbarCornerRadius);
+            View coordinatorView,
+            CustomTabToolbar toolbar,
+            @Px int toolbarCornerRadius,
+            CustomTabToolbarButtonsCoordinator toolbarButtonsCoordinator) {
+        super.onToolbarInitialized(
+                coordinatorView, toolbar, toolbarCornerRadius, toolbarButtonsCoordinator);
 
         if (mShowMaximizeButton) {
             toolbar.initSideSheetMaximizeButton(mIsMaximized, () -> toggleMaximize(true));
@@ -234,7 +239,7 @@ public class PartialCustomTabSideSheetStrategy extends PartialCustomTabBaseStrat
     }
 
     private void maybeResetFocusForScreenReaders() {
-        if (AccessibilityState.isScreenReaderEnabled()) {
+        if (AccessibilityState.isComplexUserInteractionServiceEnabled()) {
             // After resizing the view, notify the window state change to let screen reader
             // focus navigation work as before.
             mToolbarView.sendAccessibilityEvent(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED);

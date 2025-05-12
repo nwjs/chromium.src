@@ -6,11 +6,6 @@ On success, you will see a series of "PASS" messages, followed by "TEST COMPLETE
 interface AI
     attribute @@toStringTag
     method constructor
-interface AICreateMonitor : EventTarget
-    attribute @@toStringTag
-    getter ondownloadprogress
-    method constructor
-    setter ondownloadprogress
 interface AbortController
     attribute @@toStringTag
     getter signal
@@ -1518,6 +1513,11 @@ interface CountQueuingStrategy
     getter highWaterMark
     getter size
     method constructor
+interface CreateMonitor : EventTarget
+    attribute @@toStringTag
+    getter ondownloadprogress
+    method constructor
+    setter ondownloadprogress
 interface Credential
     attribute @@toStringTag
     getter id
@@ -1553,6 +1553,7 @@ interface CustomElementRegistry
     method define
     method get
     method getName
+    method initialize
     method upgrade
     method whenDefined
 interface CustomEvent : Event
@@ -1939,6 +1940,7 @@ interface Document : Node
     getter contentType
     getter cookie
     getter currentScript
+    getter customElementRegistry
     getter defaultView
     getter designMode
     getter dir
@@ -2470,6 +2472,7 @@ interface Element : Node
     getter computedRole
     getter containerTiming
     getter currentCSSZoom
+    getter customElementRegistry
     getter elementTiming
     getter firstElementChild
     getter headingOffset
@@ -4803,6 +4806,7 @@ interface HTMLParamElement : HTMLElement
     setter value
     setter valueType
 interface HTMLPermissionElement : HTMLElement
+    static method isTypeSupported
     attribute @@toStringTag
     getter initialPermissionStatus
     getter invalidReason
@@ -5089,12 +5093,14 @@ interface HTMLTemplateElement : HTMLElement
     getter content
     getter parseparts
     getter shadowRootClonable
+    getter shadowRootCustomElementRegistry
     getter shadowRootDelegatesFocus
     getter shadowRootMode
     getter shadowRootSerializable
     method constructor
     setter parseparts
     setter shadowRootClonable
+    setter shadowRootCustomElementRegistry
     setter shadowRootDelegatesFocus
     setter shadowRootMode
     setter shadowRootSerializable
@@ -6610,6 +6616,7 @@ interface NavigationPreloadManager
     method setHeaderValue
 interface NavigationTransition
     attribute @@toStringTag
+    getter committed
     getter finished
     getter from
     getter navigationType
@@ -7162,7 +7169,7 @@ interface PaymentMethodChangeEvent : PaymentRequestUpdateEvent
     getter methodName
     method constructor
 interface PaymentRequest : EventTarget
-    static method isSecurePaymentConfirmationAvailable
+    static method securePaymentConfirmationAvailability
     attribute @@toStringTag
     getter id
     getter onpaymentmethodchange
@@ -9191,9 +9198,11 @@ interface SVGSVGElement : SVGGraphicsElement
     setter zoomAndPan
 interface SVGScriptElement : SVGElement
     attribute @@toStringTag
+    getter async
     getter href
     getter type
     method constructor
+    setter async
     setter type
 interface SVGSetElement : SVGAnimationElement
     attribute @@toStringTag
@@ -9573,6 +9582,7 @@ interface ShadowRoot : DocumentFragment
     getter activeElement
     getter adoptedStyleSheets
     getter clonable
+    getter customElementRegistry
     getter delegatesFocus
     getter fullscreenElement
     getter host
@@ -9582,7 +9592,6 @@ interface ShadowRoot : DocumentFragment
     getter pictureInPictureElement
     getter pointerLockElement
     getter referenceTarget
-    getter registry
     getter serializable
     getter slotAssignment
     getter styleSheets
@@ -12478,7 +12487,9 @@ interface XRRigidTransform
     method constructor
 interface XRSession : EventTarget
     attribute @@toStringTag
+    getter depthActive
     getter depthDataFormat
+    getter depthType
     getter depthUsage
     getter domOverlayState
     getter enabledFeatures
@@ -12505,11 +12516,13 @@ interface XRSession : EventTarget
     method constructor
     method end
     method getTrackedImageScores
+    method pauseDepthSensing
     method requestAnimationFrame
     method requestHitTestSource
     method requestHitTestSourceForTransientInput
     method requestLightProbe
     method requestReferenceSpace
+    method resumeDepthSensing
     method updateRenderState
     method updateTargetFrameRate
     setter onend

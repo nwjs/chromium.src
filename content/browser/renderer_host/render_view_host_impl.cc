@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <set>
 #include <string>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -85,6 +84,7 @@
 #include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "net/base/url_util.h"
 #include "services/network/public/cpp/features.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/page/browsing_context_group_info.h"
 #include "third_party/blink/public/common/web_preferences/web_preferences.h"
@@ -127,9 +127,7 @@ using perfetto::protos::pbzero::ChromeTrackEvent;
 // <process id, routing id>
 using RenderViewHostID = std::pair<int32_t, int32_t>;
 using RoutingIDViewMap =
-    std::unordered_map<RenderViewHostID,
-                       RenderViewHostImpl*,
-                       base::IntPairHash<RenderViewHostID>>;
+    absl::flat_hash_map<RenderViewHostID, RenderViewHostImpl*>;
 base::LazyInstance<RoutingIDViewMap>::Leaky g_routing_id_view_map =
     LAZY_INSTANCE_INITIALIZER;
 
@@ -268,13 +266,13 @@ void RenderViewHostImpl::GetPlatformSpecificPrefs(
               &prefs->status_font_height);
 
   prefs->vertical_scroll_bar_width_in_dips =
-      display::win::ScreenWin::GetSystemMetricsInDIP(SM_CXVSCROLL);
+      display::win::GetScreenWin()->GetSystemMetricsInDIP(SM_CXVSCROLL);
   prefs->horizontal_scroll_bar_height_in_dips =
-      display::win::ScreenWin::GetSystemMetricsInDIP(SM_CYHSCROLL);
+      display::win::GetScreenWin()->GetSystemMetricsInDIP(SM_CYHSCROLL);
   prefs->arrow_bitmap_height_vertical_scroll_bar_in_dips =
-      display::win::ScreenWin::GetSystemMetricsInDIP(SM_CYVSCROLL);
+      display::win::GetScreenWin()->GetSystemMetricsInDIP(SM_CYVSCROLL);
   prefs->arrow_bitmap_width_horizontal_scroll_bar_in_dips =
-      display::win::ScreenWin::GetSystemMetricsInDIP(SM_CXHSCROLL);
+      display::win::GetScreenWin()->GetSystemMetricsInDIP(SM_CXHSCROLL);
 #elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
   if (command_line->HasSwitch(switches::kSystemFontFamily)) {

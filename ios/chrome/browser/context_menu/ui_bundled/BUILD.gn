@@ -51,6 +51,7 @@ source_set("coordinator") {
     "//ios/public/provider/chrome/browser/context_menu:context_menu_api",
     "//ios/public/provider/chrome/browser/lens:lens_api",
     "//ios/web/common",
+    "//ios/web/public/js_image_transcoder",
     "//ui/base",
     "//url",
   ]
@@ -120,6 +121,7 @@ source_set("unit_tests") {
     "//ios/chrome/test:test_support",
     "//ios/web/common",
     "//ios/web/public",
+    "//ios/web/public/test",
     "//ios/web/public/test/fakes",
     "//net",
     "//testing/gtest",

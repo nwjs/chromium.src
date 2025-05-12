@@ -277,8 +277,8 @@ def ConvertCrateIdToVendorDir(crate_id: str) -> str:
     (e.g. on Windows: "<path to chromium root>\\third_party\\rust\\foo\\v_1").
     """
     crate_name = ConvertCrateIdToCrateName(crate_id)
-    crate_version = ConvertCrateIdToCrateVersion(crate_id)
-    crate_vendor_dir = os.path.join(VENDOR_DIR, f"{crate_name}-{crate_version}")
+    crate_epoch = GetEpoch(ConvertCrateIdToCrateVersion(crate_id))
+    crate_vendor_dir = os.path.join(VENDOR_DIR, f"{crate_name}-{crate_epoch}")
     return crate_vendor_dir
 
 
@@ -455,21 +455,26 @@ def FinishUpdatingCrate(args, title: str, diff: CratesDiff):
     updated_old_crate_ids = set()
 
     # git mv <vendor/old version> <vendor/new version>
-    print(f"  Running `git mv <old dir> <new dir>` (for better diff)...")
+    print(f"  Running `git mv <old dir> <new dir>` " +
+          "(for better diff of major version updates)...")
     for update in diff.updates:
         updated_old_crate_ids.add(update.old_crate_id)
 
         old_dir = ConvertCrateIdToVendorDir(update.old_crate_id)
         new_dir = ConvertCrateIdToVendorDir(update.new_crate_id)
-        Git("mv", "--force", f"{old_dir}", f"{new_dir}")
+        if old_dir != new_dir:
+            Git("mv", "--force", f"{old_dir}", f"{new_dir}")
 
-        old_target_dir = ConvertCrateIdToEpochDir(update.old_crate_id)
-        new_target_dir = ConvertCrateIdToEpochDir(update.new_crate_id)
-        if old_target_dir != new_target_dir:
-            Git("mv", "--force", old_target_dir, new_target_dir)
+            old_target_dir = ConvertCrateIdToEpochDir(update.old_crate_id)
+            new_target_dir = ConvertCrateIdToEpochDir(update.new_crate_id)
+            if old_target_dir != new_target_dir:
+                Git("mv", "--force", old_target_dir, new_target_dir)
     GitAddRustFiles()
-    GitCommit(args, "git mv <old dir> <new dir> (for better diff)")
-    Git("reset", "--hard", "HEAD^")  # Undoing `git mv ...`
+    did_commit = GitCommit(args,
+                           "git mv <old dir> <new dir> (for better diff)",
+                           error_if_no_changes=False)
+    if did_commit:
+        Git("reset", "--hard", "HEAD^")  # Undoing `git mv ...`
 
     # gnrt vendor
     print(f"  Running `gnrt vendor`...")
@@ -575,12 +580,7 @@ def RaiseErrorIfGitIsDirty():
 
 
 def RaiseErrorIfCantUploadToGerrit():
-    creds_check = Git("cl", "creds_check")
-    if "SSO" in creds_check:
-        if not shutil.which('gcertstatus'):
-            raise RuntimeError("No `gcertstatus` in `PATH` despite "\
-                               "`git cl creds-check` saying that SSO "\
-                               "authentication will be used.")
+    if shutil.which('gcertstatus'):
         RunCommandAndCheckForErrors(["gcertstatus", "--check_remaining=45m"],
                                     check_stdout=False,
                                     check_exitcode=True)
@@ -621,12 +621,14 @@ def GitCommit(args, title, error_if_no_changes=True):
         if args.upload:
             print(f"  Running `git cl upload ...` ...")
             GitClUpload("-m", title)
+        return True
     else:
         if error_if_no_changes:
             raise RuntimeError(
-                f"The '%title' commit unexpectedly has no changes")
+                f"The '{title}' commit unexpectedly has no changes")
         else:
             print("    Nothing to commit")
+            return False
 
 
 def ResolveCrateNameToCrateId(crate_name):
@@ -778,6 +780,11 @@ def ManualUpdate(args):
     # This covers most update steps: git mv, gnrt vendor, gnrt gen
     FinishUpdatingCrate(args, title, diff)
 
+    if args.upload:
+        print(f"  Running `git cl upload --commit-description=...` ...")
+        description = CreateCommitDescription(title, diff)
+        GitClUpload(f"--commit-description={description}", "-t",
+                    "Edit CL description to include vet policy")
 
 
 def main():

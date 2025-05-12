@@ -44,17 +44,19 @@
                    showUserEmail:NO
                signOutIfDeclined:NO
                       isOptional:NO
+                    contextStyle:self.contextStyle
                      accessPoint:self.accessPoint];
   _syncPopupCoordinator.delegate = self;
   [_syncPopupCoordinator start];
 }
 
-#pragma mark - InterruptibleChromeCoordinator
+#pragma mark - AnimatedCoordinator
 
-- (void)interruptAnimated:(BOOL)animated {
-  [_syncPopupCoordinator interruptAnimated:animated];
+- (void)stopAnimated:(BOOL)animated {
+  [_syncPopupCoordinator stopAnimated:animated];
   _syncPopupCoordinator.delegate = nil;
   _syncPopupCoordinator = nil;
+  [super stopAnimated:animated];
 }
 
 #pragma mark - HistorySyncPopupCoordinatorDelegate

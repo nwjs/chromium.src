@@ -32,22 +32,20 @@ void SetPreferences(const extensions::Extension* extension,
     webkit_prefs->allow_scripts_to_close_windows = true;
   }
 
-  if (extension->is_platform_app()) {
-    if (extension->is_nwjs_app()) {
-      webkit_prefs->databases_enabled = true;
-      webkit_prefs->local_storage_enabled = true;
-      webkit_prefs->sync_xhr_in_documents_enabled = true;
-      webkit_prefs->cookie_enabled = true;
-      webkit_prefs->target_blank_implies_no_opener_enabled_will_be_removed =
+  if (extension->is_nwjs_app()) {
+    webkit_prefs->databases_enabled = false;
+    webkit_prefs->local_storage_enabled = true;
+    webkit_prefs->sync_xhr_in_documents_enabled = true;
+    webkit_prefs->cookie_enabled = true;
+    webkit_prefs->target_blank_implies_no_opener_enabled_will_be_removed =
         true;
-    }else{
-      webkit_prefs->databases_enabled = false;
-      webkit_prefs->local_storage_enabled = false;
-      webkit_prefs->sync_xhr_in_documents_enabled = false;
-      webkit_prefs->cookie_enabled = false;
-      webkit_prefs->target_blank_implies_no_opener_enabled_will_be_removed =
+  }else{
+    webkit_prefs->databases_enabled = false;
+    webkit_prefs->local_storage_enabled = false;
+    webkit_prefs->sync_xhr_in_documents_enabled = false;
+    webkit_prefs->cookie_enabled = false;
+    webkit_prefs->target_blank_implies_no_opener_enabled_will_be_removed =
         false;
-    }
   }
 
   // Prevent font size preferences from affecting the PDF Viewer extension.

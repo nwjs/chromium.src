@@ -21,10 +21,15 @@ import static androidx.browser.customtabs.CustomTabsIntent.EXTRA_ACTIVITY_SIDE_S
 import static androidx.browser.customtabs.CustomTabsIntent.EXTRA_ACTIVITY_SIDE_SHEET_ENABLE_MAXIMIZATION;
 import static androidx.browser.customtabs.CustomTabsIntent.EXTRA_ACTIVITY_SIDE_SHEET_POSITION;
 import static androidx.browser.customtabs.CustomTabsIntent.EXTRA_ACTIVITY_SIDE_SHEET_ROUNDED_CORNERS_POSITION;
+import static androidx.browser.customtabs.CustomTabsIntent.EXTRA_CLOSE_BUTTON_ENABLED;
 import static androidx.browser.customtabs.CustomTabsIntent.EXTRA_CLOSE_BUTTON_POSITION;
 import static androidx.browser.customtabs.CustomTabsIntent.EXTRA_INITIAL_ACTIVITY_HEIGHT_PX;
 import static androidx.browser.customtabs.CustomTabsIntent.EXTRA_INITIAL_ACTIVITY_WIDTH_PX;
+import static androidx.browser.customtabs.CustomTabsIntent.EXTRA_NETWORK;
 import static androidx.browser.customtabs.CustomTabsIntent.EXTRA_TOOLBAR_CORNER_RADIUS_DP;
+import static androidx.browser.trusted.LaunchHandlerClientMode.FOCUS_EXISTING;
+import static androidx.browser.trusted.LaunchHandlerClientMode.NAVIGATE_EXISTING;
+import static androidx.browser.trusted.LaunchHandlerClientMode.NAVIGATE_NEW;
 
 import android.app.Activity;
 import android.app.ActivityOptions;
@@ -53,6 +58,8 @@ import androidx.browser.customtabs.CustomTabsIntent.ActivitySideSheetRoundedCorn
 import androidx.browser.customtabs.CustomTabsIntent.CloseButtonPosition;
 import androidx.browser.customtabs.CustomTabsSessionToken;
 import androidx.browser.customtabs.TrustedWebUtils;
+import androidx.browser.trusted.FileHandlingData;
+import androidx.browser.trusted.LaunchHandlerClientMode;
 import androidx.browser.trusted.ScreenOrientation;
 import androidx.browser.trusted.TrustedWebActivityDisplayMode;
 import androidx.browser.trusted.TrustedWebActivityIntentBuilder;
@@ -89,6 +96,7 @@ import org.chromium.net.NetId;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -266,21 +274,6 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
      */
     public static final String EXTRA_ACTIVITY_SCROLL_CONTENT_RESIZE =
             "androidx.browser.customtabs.extra.ACTIVITY_SCROLL_CONTENT_RESIZE";
-
-    /**
-     * Extra that specifies the {@link Network} to be bound when launching a custom tab or tabs that
-     * have been pre-created. TODO(xiaom): Remove this once the public extra constant defined in
-     * CustomTabsIntent lands.
-     */
-    public static final String EXTRA_NETWORK = "androidx.browser.customtabs.extra.NETWORK";
-
-    /**
-     * Extra to enable the close button and show it in the toolbar. The close button is enabled by
-     * default, this extra provides a way to disable the close button in the toolbar. TODO(xiaom):
-     * Remove this once the public extra constant defined in CustomTabsIntent lands.
-     */
-    public static final String EXTRA_CLOSE_BUTTON_ENABLED =
-            "androidx.browser.customtabs.extra.CLOSE_BUTTON_ENABLED";
 
     private final Intent mIntent;
     private final SessionHolder<CustomTabsSessionToken> mSession;
@@ -461,6 +454,11 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
                 : roundedCornersPosition;
     }
 
+    private static boolean getIsCloseButtonEnabled(Intent intent, int uiType) {
+        return IntentUtils.safeGetBooleanExtra(intent, EXTRA_CLOSE_BUTTON_ENABLED, true)
+                && uiType != CustomTabsUiType.POPUP;
+    }
+
     /**
      * Extracts the name that identifies the embedding app from the referrer.
      *
@@ -528,8 +526,7 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
                 IntentUtils.safeGetBooleanExtra(
                         intent, EXTRA_ACTIVITY_SCROLL_CONTENT_RESIZE, false);
 
-        mIsCloseButtonEnabled =
-                IntentUtils.safeGetBooleanExtra(intent, EXTRA_CLOSE_BUTTON_ENABLED, true);
+        mIsCloseButtonEnabled = getIsCloseButtonEnabled(intent, mUiType);
         if (mIsCloseButtonEnabled) {
             // TODO(crbug.com/393437143): Potentially reuse the close button code from Auth Tab.
             Bitmap bitmap =
@@ -884,6 +881,9 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
                         usingInteractiveOmnibox
                                 ? CustomTabsIntent.SHARE_STATE_OFF
                                 : CustomTabsIntent.SHARE_STATE_DEFAULT);
+        if (mUiType == CustomTabsUiType.POPUP) {
+            shareState = CustomTabsIntent.SHARE_STATE_OFF;
+        }
         if (shareState == CustomTabsIntent.SHARE_STATE_DEFAULT) {
             if (mToolbarButtons.isEmpty()) {
                 mToolbarButtons.add(
@@ -1609,5 +1609,35 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
     @Override
     public boolean isCloseButtonEnabled() {
         return mIsCloseButtonEnabled;
+    }
+
+    @Override
+    public @LaunchHandlerClientMode.ClientMode int getLaunchHandlerClientMode() {
+        @LaunchHandlerClientMode.ClientMode
+        int clientMode =
+                IntentUtils.safeGetIntExtra(
+                        mIntent,
+                        TrustedWebActivityIntentBuilder.EXTRA_LAUNCH_HANDLER_CLIENT_MODE,
+                        LaunchHandlerClientMode.AUTO);
+
+        if (Arrays.asList(NAVIGATE_EXISTING, FOCUS_EXISTING, NAVIGATE_NEW).contains(clientMode)) {
+            return clientMode;
+        } else {
+            return LaunchHandlerClientMode.AUTO;
+        }
+    }
+
+    @Override
+    public @Nullable FileHandlingData getFileHandlingData() {
+        Bundle bundle =
+                IntentUtils.safeGetBundleExtra(
+                        getIntent(), TrustedWebActivityIntentBuilder.EXTRA_FILE_HANDLING_DATA);
+        if (bundle == null) return null;
+        try {
+            return FileHandlingData.fromBundle(bundle);
+        } catch (Throwable e) {
+            // Catch unparcelling errors potentially thrown by AndroidX bundle parsing code
+            return null;
+        }
     }
 }

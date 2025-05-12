@@ -21,6 +21,7 @@ import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabCreationState;
+import org.chromium.chrome.browser.tab.TabId;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab_ui.RecyclerViewPosition;
@@ -43,6 +44,7 @@ import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.util.TokenHolder;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -66,6 +68,7 @@ class TabListEditorMediator
     private final ObservableSupplierImpl<Boolean> mBackPressChangedSupplier =
             new ObservableSupplierImpl<>();
     private final List<Tab> mVisibleTabs = new ArrayList<>();
+    private final List<String> mVisibleTabGroups = new ArrayList<>();
     private final TabListEditorLayout mTabListEditorLayout;
     private final @Nullable DesktopWindowStateManager mDesktopWindowStateManager;
     private final @CreationMode int mCreationMode;
@@ -225,7 +228,10 @@ class TabListEditorMediator
 
     /** {@link TabListEditorCoordinator.TabListEditorController} implementation. */
     @Override
-    public void show(List<Tab> tabs, @Nullable RecyclerViewPosition recyclerViewPosition) {
+    public void show(
+            List<Tab> tabs,
+            List<String> tabGroupSyncIds,
+            @Nullable RecyclerViewPosition recyclerViewPosition) {
         assert mNavigationProvider != null : "NavigationProvider must be set before calling #show";
         // Reparent the snackbarManager to use the selection editor layout to avoid layering issues.
         mSnackbarOverrideToken =
@@ -238,8 +244,11 @@ class TabListEditorMediator
         mTabListCoordinator.prepareTabGridView();
         mVisibleTabs.clear();
         mVisibleTabs.addAll(tabs);
+        mVisibleTabGroups.clear();
+        mVisibleTabGroups.addAll(tabGroupSyncIds);
 
-        mResetHandler.resetWithListOfTabs(tabs, recyclerViewPosition, /* quickMode= */ false);
+        mResetHandler.resetWithListOfTabs(
+                tabs, tabGroupSyncIds, recyclerViewPosition, /* quickMode= */ false);
 
         mModel.set(TabListEditorProperties.IS_VISIBLE, true);
         mModel.set(
@@ -329,8 +338,12 @@ class TabListEditorMediator
         }
         mTabListCoordinator.cleanupTabGridView();
         mVisibleTabs.clear();
+        mVisibleTabGroups.clear();
         mResetHandler.resetWithListOfTabs(
-                null, /* recyclerViewPosition= */ null, /* quickMode= */ false);
+                /* tabs= */ null,
+                /* tabGroupSyncIds= */ null,
+                /* recyclerViewPosition= */ null,
+                /* quickMode= */ false);
         mModel.set(TabListEditorProperties.IS_VISIBLE, false);
         mResetHandler.postHiding();
         if (mLifecycleObserver != null) mLifecycleObserver.didHide();
@@ -371,13 +384,13 @@ class TabListEditorMediator
 
     @Override
     public void selectAll() {
-        Set<Integer> selectedTabIds = mSelectionDelegate.getSelectedItems();
+        // TODO(crbug.com/412786011): Update this logic to select visible tab groups once the
+        // selection delegate for the TabListEditor supports synced tab groups.
+        Set<@TabId Integer> selectedTabIds = mSelectionDelegate.getSelectedItems();
         for (Tab tab : mVisibleTabs) {
             selectedTabIds.add(tab.getId());
         }
-        mSelectionDelegate.setSelectedItems(selectedTabIds);
-        mResetHandler.resetWithListOfTabs(
-                mVisibleTabs, /* recyclerViewPosition= */ null, /* quickMode= */ true);
+        selectTabs(selectedTabIds);
     }
 
     @Override
@@ -386,11 +399,15 @@ class TabListEditorMediator
         selectedTabIds.clear();
         mSelectionDelegate.setSelectedItems(selectedTabIds);
         mResetHandler.resetWithListOfTabs(
-                mVisibleTabs, /* recyclerViewPosition= */ null, /* quickMode= */ true);
+                mVisibleTabs,
+                mVisibleTabGroups.isEmpty() ? null : mVisibleTabGroups,
+                /* recyclerViewPosition= */ null,
+                /* quickMode= */ true);
     }
 
     @Override
     public boolean areAllTabsSelected() {
+        // TODO(crbug.com/412786011): Update this logic to include visible tab groups.
         Set<Integer> selectedTabIds = mSelectionDelegate.getSelectedItems();
         return selectedTabIds.size() == mVisibleTabs.size();
     }
@@ -409,6 +426,18 @@ class TabListEditorMediator
     @Override
     public void onAppHeaderStateChanged(AppHeaderState newState) {
         mModel.set(TabListEditorProperties.TOP_MARGIN, newState.getAppHeaderHeight());
+    }
+
+    @Override
+    public void selectTabs(Set<@TabId Integer> tabIds) {
+        // Protects selection delegate from immutable sets.
+        Set<@TabId Integer> tabIdsModifiable = new HashSet<>(tabIds);
+        mSelectionDelegate.setSelectedItems(tabIdsModifiable);
+        mResetHandler.resetWithListOfTabs(
+                mVisibleTabs,
+                mVisibleTabGroups.isEmpty() ? null : mVisibleTabGroups,
+                /* recyclerViewPosition= */ null,
+                /* quickMode= */ true);
     }
 
     /** Destroy any members that needs clean up. */

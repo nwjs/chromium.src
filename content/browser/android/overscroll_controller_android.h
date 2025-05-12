@@ -11,6 +11,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/scoped_observation.h"
 #include "base/time/time.h"
+#include "content/browser/renderer_host/render_widget_host_impl.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/render_widget_host.h"
 #include "third_party/blink/public/mojom/input/input_event_result.mojom-shared.h"
@@ -79,6 +80,8 @@ class CONTENT_EXPORT OverscrollControllerAndroid
   void Enable();
   void Disable();
 
+  bool IsHandlingInputSequence();
+
   // Returns true if |event| is consumed by an overscroll effect, in which
   // case it should cease propagation.
   bool OnTouchEvent(const ui::MotionEventAndroid& event);
@@ -119,6 +122,11 @@ class CONTENT_EXPORT OverscrollControllerAndroid
   const float dpi_scale_;
 
   bool enabled_;
+
+  // True if the OverscrollController has claimed the current input sequence. It
+  // will continue handling all events in this sequence until a terminating
+  // action (ACTION_UP/ACTION_CANCEL) occurs.
+  bool is_handling_sequence_ = false;
 
   // Stores the last seen position of a touch input event (in pix) to correctly
   // calculate scroll deltas for `refresh_effect_`.

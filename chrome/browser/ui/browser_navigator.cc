@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
-#pragma allow_unsafe_libc_calls
-#endif
-
 #include "chrome/browser/ui/browser_navigator.h"
 
 #include <algorithm>
@@ -469,8 +464,8 @@ base::WeakPtr<content::NavigationHandle> LoadURLInContents(
             captive_portal::CaptivePortalWindowType::kNone;
     std::unique_ptr<ChromeNavigationUIData> navigation_ui_data =
         ChromeNavigationUIData::CreateForMainFrameNavigation(
-            target_contents, params->disposition,
-            params->is_using_https_as_default_scheme, force_no_https_upgrade);
+            target_contents, params->is_using_https_as_default_scheme,
+            force_no_https_upgrade);
     navigation_ui_data->set_navigation_initiated_from_sync(
         params->navigation_initiated_from_sync);
     load_url_params.navigation_ui_data = std::move(navigation_ui_data);
@@ -506,6 +501,7 @@ class ScopedBrowserShower {
       if (params_->is_tab_modal_popup) {
         CHECK_EQ(params_->disposition, WindowOpenDisposition::NEW_POPUP);
         CHECK_NE(source_contents_, nullptr);
+        window->SetIsTabModalPopup(true);
         constrained_window::ShowModalDialog(window->GetNativeWindow(),
                                             source_contents_);
       } else {

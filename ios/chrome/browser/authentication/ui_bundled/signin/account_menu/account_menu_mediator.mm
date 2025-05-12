@@ -15,8 +15,13 @@
 #import "components/signin/public/base/consent_level.h"
 #import "components/signin/public/identity_manager/objc/identity_manager_observer_bridge.h"
 #import "ios/chrome/browser/authentication/ui_bundled/authentication_flow/authentication_flow.h"
+#import "ios/chrome/browser/authentication/ui_bundled/authentication_flow/authentication_flow_request_helper.h"
 #import "ios/chrome/browser/authentication/ui_bundled/cells/table_view_account_item.h"
+#import "ios/chrome/browser/authentication/ui_bundled/change_profile/change_profile_open_ntp.h"
+#import "ios/chrome/browser/authentication/ui_bundled/change_profile/change_profile_settings_continuation.h"
+#import "ios/chrome/browser/authentication/ui_bundled/continuation.h"
 #import "ios/chrome/browser/authentication/ui_bundled/enterprise/enterprise_utils.h"
+#import "ios/chrome/browser/authentication/ui_bundled/signin/account_menu/account_menu_constants.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/account_menu/account_menu_consumer.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/account_menu/account_menu_data_source.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/account_menu/account_menu_mediator_delegate.h"
@@ -28,12 +33,12 @@
 #import "ios/chrome/browser/settings/model/sync/utils/identity_error_util.h"
 #import "ios/chrome/browser/settings/ui_bundled/settings_table_view_controller_constants.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
+#import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
-#import "ios/chrome/browser/signin/model/chrome_account_manager_service_observer_bridge.h"
 #import "ios/chrome/browser/sync/model/sync_observer_bridge.h"
 
-@interface AccountMenuMediator () <ChromeAccountManagerServiceObserver,
+@interface AccountMenuMediator () <AuthenticationFlowRequestHelper,
                                    IdentityManagerObserverBridgeDelegate,
                                    SyncObserverModelBridge>
 
@@ -45,18 +50,18 @@
 @implementation AccountMenuMediator {
   // Account manager service to retrieve Chrome identities.
   raw_ptr<ChromeAccountManagerService> _accountManagerService;
-  // Chrome account manager service observer bridge.
-  std::unique_ptr<ChromeAccountManagerServiceObserverBridge>
-      _accountManagerServiceObserver;
   raw_ptr<AuthenticationService> _authenticationService;
   raw_ptr<signin::IdentityManager> _identityManager;
   std::unique_ptr<signin::IdentityManagerObserverBridge>
       _identityManagerObserver;
   raw_ptr<PrefService> _prefs;
+  // The access point from which this account menu was triggered.
+  AccountMenuAccessPoint _accessPoint;
   raw_ptr<syncer::SyncService> _syncService;
   std::unique_ptr<SyncObserverBridge> _syncObserver;
-  // The primary identity.
-  id<SystemIdentity> _primaryIdentity;
+  // The primary identity. During an authentication flow, it contains the
+  // previous identity.
+  id<SystemIdentity> _primaryIdentityBeforeSignin;
   // The displayed error, if any.
   AccountErrorUIInfo* _error;
   // Whether the UI should not update anymore.
@@ -73,6 +78,9 @@
   NSString* _primaryAccountDisplayedEmail;
   NSString* _primaryAccountDisplayedUserFullName;
   UIImage* _primaryAccountDisplayedAvatar;
+  // If the authentication flow started, the identity is switching to this
+  // profile.
+  id<SystemIdentity> _identityToSignin;
 }
 
 - (instancetype)initWithSyncService:(syncer::SyncService*)syncService
@@ -80,7 +88,8 @@
                   (ChromeAccountManagerService*)accountManagerService
                         authService:(AuthenticationService*)authService
                     identityManager:(signin::IdentityManager*)identityManager
-                              prefs:(PrefService*)prefs {
+                              prefs:(PrefService*)prefs
+                        accessPoint:(AccountMenuAccessPoint)accessPoint {
   self = [super init];
   if (self) {
     CHECK(syncService);
@@ -91,16 +100,14 @@
     _userInteractionsBlocked = NO;
     _identities = [NSMutableArray array];
     _accountManagerService = accountManagerService;
-    _accountManagerServiceObserver =
-        std::make_unique<ChromeAccountManagerServiceObserverBridge>(
-            self, _accountManagerService);
     _authenticationService = authService;
     _identityManager = identityManager;
     _identityManagerObserver =
         std::make_unique<signin::IdentityManagerObserverBridge>(
             _identityManager, self);
     _prefs = prefs;
-    _primaryIdentity = _authenticationService->GetPrimaryIdentity(
+    _accessPoint = accessPoint;
+    _primaryIdentityBeforeSignin = _authenticationService->GetPrimaryIdentity(
         signin::ConsentLevel::kSignin);
     _syncService = syncService;
     _syncObserver = std::make_unique<SyncObserverBridge>(self, _syncService);
@@ -113,7 +120,6 @@
 - (void)disconnect {
   _blockUpdates = YES;
   _accountManagerService = nullptr;
-  _accountManagerServiceObserver.reset();
   _authenticationService = nullptr;
   _identityManagerObserver.reset();
   _identityManager = nullptr;
@@ -121,7 +127,7 @@
   _syncObserver.reset();
   _syncService = nullptr;
   _identities = nil;
-  _primaryIdentity = nullptr;
+  _primaryIdentityBeforeSignin = nullptr;
 }
 
 #pragma mark - AccountMenuDataSource
@@ -164,16 +170,16 @@
 }
 
 - (NSString*)primaryAccountEmail {
-  return _primaryIdentity.userEmail;
+  return _primaryIdentityBeforeSignin.userEmail;
 }
 
 - (NSString*)primaryAccountUserFullName {
-  return _primaryIdentity.userFullName;
+  return _primaryIdentityBeforeSignin.userFullName;
 }
 
 - (UIImage*)primaryAccountAvatar {
   return _accountManagerService->GetIdentityAvatarWithIdentity(
-      _primaryIdentity, IdentityAvatarSize::Large);
+      _primaryIdentityBeforeSignin, IdentityAvatarSize::Large);
 }
 
 - (NSString*)managementDescription {
@@ -185,31 +191,6 @@
   return _error;
 }
 
-#pragma mark - ChromeAccountManagerServiceObserver
-
-- (void)identityListChanged {
-  if (IsUseAccountListFromIdentityManagerEnabled()) {
-    // Listening to `onAccountsOnDeviceChanged` instead.
-    return;
-  }
-  [self handleIdentityListChanged];
-}
-
-- (void)identityUpdated:(id<SystemIdentity>)identity {
-  if (IsUseAccountListFromIdentityManagerEnabled()) {
-    // Listening to `onExtendedAccountInfoUpdated` instead.
-    return;
-  }
-  [self handleIdentityUpdated];
-}
-
-- (void)onChromeAccountManagerServiceShutdown:
-    (ChromeAccountManagerService*)accountManagerService {
-  // TODO(crbug.com/40067367): This method can be removed once
-  // crbug.com/40067367 is fixed.
-  [self disconnect];
-}
-
 #pragma mark - IdentityManagerObserverBridgeDelegate
 
 - (void)onEndBatchOfPrimaryAccountChanges {
@@ -219,12 +200,13 @@
   id<SystemIdentity> primaryIdentity =
       _authenticationService->GetPrimaryIdentity(signin::ConsentLevel::kSignin);
   if (primaryIdentity) {
-    _primaryIdentity = primaryIdentity;
+    _primaryIdentityBeforeSignin = primaryIdentity;
     [self updateIdentitiesIfAllowed];
     return;
   }
   // The user is not signed anymore. The account menu can be stopped.
-  // The old value of `_primaryIdentity` can be kept during the shutdown.
+  // The old value of `_primaryIdentityBeforeSignin` can be kept during the
+  // shutdown.
   _blockUpdates = YES;
   self.userInteractionsBlocked = YES;
   [self.delegate mediatorWantsToBeDismissed:self
@@ -234,19 +216,11 @@
 }
 
 - (void)onExtendedAccountInfoUpdated:(const AccountInfo&)info {
-  if (!IsUseAccountListFromIdentityManagerEnabled()) {
-    // Listening to `identityUpdated` instead.
-    return;
-  }
-  [self handleIdentityUpdated];
+  [self updateIdentitiesIfAllowed];
 }
 
 - (void)onAccountsOnDeviceChanged {
-  if (!IsUseAccountListFromIdentityManagerEnabled()) {
-    // Listening to `identityListChanged` instead.
-    return;
-  }
-  [self handleIdentityListChanged];
+  [self updateIdentitiesIfAllowed];
 }
 
 #pragma mark - SyncObserverModelBridge
@@ -284,10 +258,11 @@
   _blockUpdates = YES;
   self.userInteractionsBlocked = YES;
   __weak __typeof(self) weakSelf = self;
-  [self.delegate signOutFromTargetRect:targetRect
-                            completion:^(BOOL success) {
-                              [weakSelf signoutEndedWithSuccess:success];
-                            }];
+  [self.delegate
+      signOutFromTargetRect:targetRect
+                 completion:^(BOOL success, SceneState* scene_state) {
+                   [weakSelf signoutEndedWithSuccess:success];
+                 }];
 }
 
 - (void)accountTappedWithGaiaID:(NSString*)gaiaID
@@ -296,29 +271,22 @@
     return;
   }
 
-  id<SystemIdentity> newIdentity = nil;
+  CHECK(!_identityToSignin, base::NotFatalUntil::M140);
   for (id<SystemIdentity> identity : _identities) {
     if (identity.gaiaID == gaiaID) {
-      newIdentity = identity;
+      _identityToSignin = identity;
       break;
     }
   }
-  CHECK(newIdentity);
-
+  CHECK(_identityToSignin);
   [self.consumer switchingStarted];
   _blockUpdates = YES;
   self.userInteractionsBlocked = YES;
 
-  __weak __typeof(self) weakSelf = self;
-  id<SystemIdentity> fromIdentity = _primaryIdentity;
-  _authenticationFlow = [self.delegate
-      triggerSigninWithSystemIdentity:newIdentity
-                           anchorRect:targetRect
-                           completion:^(SigninCoordinatorResult result) {
-                             [weakSelf signinEndedWithResult:result
-                                                fromIdentity:fromIdentity
-                                                  toIdentity:newIdentity];
-                           }];
+  _authenticationFlow = [self.delegate authenticationFlow:_identityToSignin
+                                               anchorRect:targetRect];
+  _authenticationFlow.requestHelper = self;
+  [_authenticationFlow startSignIn];
 }
 
 - (void)didTapErrorButton {
@@ -328,10 +296,11 @@
   switch (_error.errorType) {
     case syncer::SyncService::UserActionableError::kSignInNeedsUpdate: {
       if (_authenticationService->HasCachedMDMErrorForIdentity(
-              _primaryIdentity)) {
+              _primaryIdentityBeforeSignin)) {
         base::RecordAction(
             base::UserMetricsAction("Signin_AccountMenu_ErrorButton_MDM"));
-        [self.delegate openMDMErrodDialogWithSystemIdentity:_primaryIdentity];
+        [self.delegate
+            openMDMErrodDialogWithSystemIdentity:_primaryIdentityBeforeSignin];
       } else {
         base::RecordAction(
             base::UserMetricsAction("Signin_AccountMenu_ErrorButton_Reauth"));
@@ -431,23 +400,35 @@
   }
 }
 
-- (void)signinEndedWithResult:(SigninCoordinatorResult)result
-                 fromIdentity:(id<SystemIdentity>)previousIdentity
-                   toIdentity:(id<SystemIdentity>)newIdentity {
-  CHECK(_authenticationFlow);
+#pragma mark - AuthenticationFlowRequestHelper
+
+- (void)authenticationFlowDidSignInInSameProfileWithResult:
+    (SigninCoordinatorResult)result {
+  if (_accessPoint == AccountMenuAccessPoint::kWeb &&
+      result == SigninCoordinatorResultSuccess) {
+    GetApplicationContext()->GetLocalState()->SetBoolean(
+        prefs::kHasSwitchedAccountsViaWebFlow, true);
+  }
+  if (!_syncService) {
+    // The mediator was disconnected. No need to update it.
+    return;
+  }
+  CHECK(_identityToSignin, base::NotFatalUntil::M140);
+  CHECK(_primaryIdentityBeforeSignin, base::NotFatalUntil::M140);
   _authenticationFlow = nil;
   BOOL success =
       result == SigninCoordinatorResult::SigninCoordinatorResultSuccess;
   if (success) {
     [_delegate mediatorWantsToBeDismissed:self
                                withResult:result
-                           signedIdentity:newIdentity
+                           signedIdentity:_identityToSignin
                           userTappedClose:NO];
-  } else if (_accountManagerService->IsValidIdentity(previousIdentity)) {
+  } else if (_accountManagerService->IsValidIdentity(
+                 _primaryIdentityBeforeSignin)) {
     // If the sign-in failed, sign back in previous account if possible and
     // restart using the account menu.
     _authenticationService->SignIn(
-        previousIdentity,
+        _primaryIdentityBeforeSignin,
         signin_metrics::AccessPoint::kAccountMenuFailedSwitch);
     self.userInteractionsBlocked = NO;
     [self restartUpdates];
@@ -457,17 +438,23 @@
                            signedIdentity:nil
                           userTappedClose:NO];
   }
+  _identityToSignin = nil;
+}
+
+- (ChangeProfileContinuation)authenticationFlowWillChangeProfile {
+  _authenticationFlow = nil;
+  switch (_accessPoint) {
+    case AccountMenuAccessPoint::kNewTabPage:
+      return CreateChangeProfileOpensNTPContinuation();
+    case AccountMenuAccessPoint::kSettings:
+      return CreateChangeProfileSettingsContinuation();
+    case AccountMenuAccessPoint::kWeb:
+      // TODO(crbug.com/375605412): Move the current tab into the new profile.
+      return DoNothingContinuation();
+  }
 }
 
 #pragma mark - Private
-
-- (void)handleIdentityListChanged {
-  [self updateIdentitiesIfAllowed];
-}
-
-- (void)handleIdentityUpdated {
-  [self updateIdentitiesIfAllowed];
-}
 
 // Updates the identity list in `_identities`, and sends an notification to
 // the consumer.
@@ -484,7 +471,7 @@
   NSMutableArray<NSString*>* gaiaIDsToKeep = [NSMutableArray array];
   for (id<SystemIdentity> secondaryIdentity : identitiesOnDevice) {
     NSString* gaiaID = secondaryIdentity.gaiaID;
-    if (secondaryIdentity == _primaryIdentity) {
+    if (secondaryIdentity == _primaryIdentityBeforeSignin) {
       continue;
     }
     BOOL mustAdd = YES;
@@ -504,7 +491,7 @@
   for (NSUInteger i = 0; i < _identities.count; ++i) {
     id<SystemIdentity> identity = _identities[i];
     if (![identitiesOnDevice containsObject:identity] ||
-        identity == _primaryIdentity) {
+        identity == _primaryIdentityBeforeSignin) {
       [gaiaIDsToRemove addObject:identity.gaiaID];
       [_identities removeObjectAtIndex:i--];
       // There will be a new object at place `i`. So we must decrease `i`.

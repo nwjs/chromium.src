@@ -87,8 +87,12 @@ class SupervisedUserService : public KeyedService {
     // Returns the channel for the installation.
     virtual version_info::Channel GetChannel() const = 0;
 
-    // Close all incognito tabs for this service. Called the profile becomes
-    // supervised.
+    // Decides if incognito tabs should be closed. Tested when the supervision
+    // features are enabled.
+    virtual bool ShouldCloseIncognitoTabs() const = 0;
+
+    // Close all incognito tabs for this service. Called when the supervision
+    // features are enabled and require disabling of incognito mode.
     virtual void CloseIncognitoTabs() = 0;
   };
 
@@ -183,6 +187,8 @@ class SupervisedUserService : public KeyedService {
 
   void SetActive(bool active);
 
+  void SetSettingsServiceActive(bool active);
+
   void OnCustodianInfoChanged();
 
   void OnSupervisedUserIdChanged();
@@ -190,6 +196,8 @@ class SupervisedUserService : public KeyedService {
   void OnDefaultFilteringBehaviorChanged();
 
   void OnSafeSitesSettingChanged();
+
+  void OnIncognitoModeAvailabilityChanged();
 
   // Updates the manual overrides for hosts in the URL filters when the
   // corresponding preference is changed.
@@ -237,8 +245,10 @@ class SupervisedUserService : public KeyedService {
   // WebFilterType::kCertainSites, both
   // prefs::kDefaultSupervisedUserFilteringBehavior and
   // prefs::kSupervisedUserSafeSites change. Uses this member to avoid duplicate
-  // reports. Initialized in the SetActive().
-  WebFilterType current_web_filter_type_ = WebFilterType::kMaxValue;
+  // reports. Initialized in the SetActive(). This default value is derived from
+  // default value of both prefs.
+  WebFilterType current_web_filter_type_ =
+      WebFilterType::kTryToBlockMatureSites;
 
   base::WeakPtrFactory<SupervisedUserService> weak_ptr_factory_{this};
 };

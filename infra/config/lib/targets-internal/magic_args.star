@@ -45,6 +45,7 @@ _VENDOR_SUBSTITUTIONS = {
 _DEVICE_SUBSTITUTIONS = {
     "m1": "0",
     "m2": "0",
+    "m3": "0",
     # Qualcomm Adreno 680/685/690 and 741 on Windows arm64. The approach
     # swarming uses to find GPUs (looking for all Win32_VideoController WMI
     # objects) results in different output than what Chrome sees.
@@ -59,7 +60,6 @@ _DEVICE_SUBSTITUTIONS = {
 _ANDROID_VULKAN_DEVICES = {
     # Pixel 6 phones map to multiple GPU models.
     "oriole": _gpu_device(vendor = "13b5", device = "92020010,92020000"),
-    "a23xq": _gpu_device(vendor = "5143", device = "6010901"),
 }
 
 def _get_dimensions(spec_value):
@@ -303,6 +303,7 @@ def _gpu_telemetry_no_root_for_unrooted_devices(_, settings, spec_value):
         "a23xq",
         "dm1q",  # Samsung S23.
         "devonn",  # Motorola Moto G Power 5G.
+        "s5e9945",  # Samsung S24
     )
     dimensions = _get_dimensions(spec_value)
     device_type = dimensions.get("device_type")

@@ -16,7 +16,6 @@ import './modules/module_descriptors.js';
 import 'chrome://resources/cr_components/most_visited/most_visited.js';
 
 export {PageImageServiceBrowserProxy} from 'chrome://resources/cr_components/page_image_service/browser_proxy.js';
-export {FooterElement} from './footer.js';
 export {LensErrorType, LensFormElement, LensSubmitType} from './lens_form.js';
 export {LensUploadDialogAction, LensUploadDialogElement, LensUploadDialogError} from './lens_upload_dialog.js';
 export {MiddleSlotPromoElement, PromoDismissAction} from './middle_slot_promo.js';
@@ -25,7 +24,6 @@ export {InfoDialogElement} from './modules/info_dialog.js';
 export {ParentTrustedDocumentProxy} from './modules/microsoft_auth_frame_connector.js';
 export {InitializeModuleCallback, Module, ModuleDescriptor} from './modules/module_descriptor.js';
 export {counterfactualLoad} from './modules/module_descriptors.js';
-export {ModuleHeaderElement} from './modules/module_header.js';
 export {ModuleRegistry} from './modules/module_registry.js';
 export {ModuleWrapperElement} from './modules/module_wrapper.js';
 export {microsoftAuthModuleDescriptor, MicrosoftAuthModuleElement} from './modules/v2/authentication/microsoft_auth_module.js';

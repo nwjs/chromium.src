@@ -24,6 +24,7 @@ import static androidx.test.espresso.matcher.ViewMatchers.withContentDescription
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
+import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.emptyIterable;
@@ -68,6 +69,7 @@ import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.RuleChain;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
@@ -75,7 +77,6 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.ContextUtils;
-import org.chromium.base.ServiceLoaderUtil;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.test.util.ApplicationTestUtils;
@@ -98,7 +99,6 @@ import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.notifications.channels.ChromeChannelDefinitions;
 import org.chromium.chrome.browser.notifications.channels.SiteChannelsManager;
-import org.chromium.chrome.browser.password_manager.PasswordManagerTestHelper;
 import org.chromium.chrome.browser.permissions.PermissionTestRule;
 import org.chromium.chrome.browser.permissions.PermissionTestRule.PermissionUpdateWaiter;
 import org.chromium.chrome.browser.preferences.Pref;
@@ -110,6 +110,7 @@ import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.batch.BlankCTATabInitialStateRule;
 import org.chromium.chrome.test.pagecontroller.utils.UiAutomatorUtils;
+import org.chromium.chrome.test.util.AdvancedProtectionTestRule;
 import org.chromium.chrome.test.util.ChromeRenderTestRule;
 import org.chromium.chrome.test.util.browser.LocationSettingsTestUtil;
 import org.chromium.components.browser_ui.settings.ChromeBaseCheckBoxPreference;
@@ -142,7 +143,6 @@ import org.chromium.components.content_settings.CookieControlsMode;
 import org.chromium.components.content_settings.ProviderType;
 import org.chromium.components.embedder_support.util.Origin;
 import org.chromium.components.location.LocationUtils;
-import org.chromium.components.permissions.OsAdditionalSecurityPermissionProvider;
 import org.chromium.components.permissions.nfc.NfcSystemLevelSetting;
 import org.chromium.components.policy.test.annotations.Policies;
 import org.chromium.components.prefs.PrefService;
@@ -189,15 +189,21 @@ public class SiteSettingsTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Rule
-    public BlankCTATabInitialStateRule mBlankCTATabInitialStateRule =
-            new BlankCTATabInitialStateRule(mPermissionRule, false);
-
-    @Rule
     public RenderTestRule mRenderTestRule =
             RenderTestRule.Builder.withPublicCorpus()
                     .setRevision(3)
                     .setBugComponent(Component.UI_BROWSER_MOBILE_SETTINGS)
                     .build();
+
+    public BlankCTATabInitialStateRule mBlankCTATabInitialStateRule =
+            new BlankCTATabInitialStateRule(mPermissionRule, false);
+
+    public AdvancedProtectionTestRule mAdvancedProtectionRule = new AdvancedProtectionTestRule();
+
+    // {@link AdvancedProtectionTestRule} needs to run prior to profile being created.
+    @Rule
+    public final RuleChain mRuleChain =
+            RuleChain.outerRule(mAdvancedProtectionRule).around(mBlankCTATabInitialStateRule);
 
     @Mock private SettingsNavigation mSettingsNavigation;
 
@@ -232,34 +238,6 @@ public class SiteSettingsTest {
         "anti_abuse_things_to_consider_header",
         "anti_abuse_things_to_consider_section_one"
     };
-
-    private static class TestPermissionProvider extends OsAdditionalSecurityPermissionProvider {
-        public static String TEST_MESSAGE = "testJavascriptOptimizerMessage";
-
-        private boolean mIsJavascriptOptimizerPermissionGranted;
-
-        public TestPermissionProvider(boolean isJavascriptOptimizerPermissionGranted) {
-            mIsJavascriptOptimizerPermissionGranted = isJavascriptOptimizerPermissionGranted;
-        }
-
-        @Override
-        public boolean hasJavascriptOptimizerPermission() {
-            return mIsJavascriptOptimizerPermissionGranted;
-        }
-
-        @Override
-        public String getJavascriptOptimizerMessage(Context context) {
-            return TestPermissionProvider.TEST_MESSAGE;
-        }
-    }
-
-    public SiteSettingsTest() {
-        // This test suite relies on the real password store. However, that can only store
-        // passwords if the device it runs on has the required min GMS Core version.
-        // To ensure the tests don't depend on the device configuration, set up a fake GMS
-        // Core version instead.
-        PasswordManagerTestHelper.setUpPwmRequiredMinGmsVersion();
-    }
 
     @Before
     public void setUp() throws TimeoutException {
@@ -1930,7 +1908,7 @@ public class SiteSettingsTest {
     @Test
     @SmallTest
     @Feature({"Preferences"})
-    public void testOnlyExpctedPreferencesJavascriptOptimizer() {
+    public void testOnlyExpectedPreferencesJavascriptOptimizer() {
         testExpectedPreferences(
                 SiteSettingsCategory.Type.JAVASCRIPT_OPTIMIZER,
                 BINARY_TOGGLE_WITH_EXCEPTION_AND_INFO_TEXT,
@@ -2685,13 +2663,19 @@ public class SiteSettingsTest {
     @SmallTest
     @Feature({"Preferences"})
     public void testOsBlocksJavascriptOptimizer() {
+        String pageOrigin = mPermissionRule.getOrigin();
+
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    ServiceLoaderUtil.setInstanceForTesting(
-                            OsAdditionalSecurityPermissionProvider.class,
-                            new TestPermissionProvider(
-                                    /* isJavascriptOptimizerPermissionGranted= */ false));
+                    WebsitePreferenceBridge.setContentSettingDefaultScope(
+                            getBrowserContextHandle(),
+                            ContentSettingsType.JAVASCRIPT_OPTIMIZER,
+                            new GURL(pageOrigin),
+                            new GURL(pageOrigin),
+                            ContentSettingValues.ALLOW);
                 });
+
+        mAdvancedProtectionRule.setIsAdvancedProtectionRequestedByOs(true);
 
         final SettingsActivity settingsActivity =
                 SiteSettingsTestUtils.startSiteSettingsCategory(
@@ -2707,7 +2691,9 @@ public class SiteSettingsTest {
                             new String[] {
                                 SingleCategorySettings.INFO_TEXT_KEY,
                                 SingleCategorySettings.BINARY_TOGGLE_KEY,
-                                SingleWebsiteSettings.PREF_OS_PERMISSIONS_WARNING_EXTRA
+                                SingleCategorySettings.TOGGLE_DISABLE_REASON_KEY,
+                                SingleCategorySettings.ALLOWED_GROUP,
+                                SingleCategorySettings.ADD_EXCEPTION_KEY,
                             });
 
                     ChromeSwitchPreference binaryToggle =
@@ -2717,32 +2703,27 @@ public class SiteSettingsTest {
                     Assert.assertFalse(binaryToggle.isChecked());
                     Assert.assertFalse(binaryToggle.isEnabled());
 
-                    Preference osWarningPreference =
+                    Preference toggleDisableReason =
                             singleCategorySettings.findPreference(
-                                    SingleWebsiteSettings.PREF_OS_PERMISSIONS_WARNING_EXTRA);
+                                    SingleCategorySettings.TOGGLE_DISABLE_REASON_KEY);
                     Assert.assertEquals(
-                            TestPermissionProvider.TEST_MESSAGE, osWarningPreference.getTitle());
+                            AdvancedProtectionTestRule.TEST_JAVASCRIPT_OPTIMIZER_MESSAGE,
+                            toggleDisableReason.getTitle());
 
                     settingsActivity.finish();
                 });
     }
 
     /**
-     * Test that if the Javascript-optimizer is enabled by enterprise policy but disabled by the
-     * Android OS setting that the enterprise policy is given precedence.
+     * Test that if the Javascript-optimizer is enabled by enterprise policy but disabled by the OS
+     * advanced-portection-mode setting that the enterprise policy is given precedence.
      */
     @Test
     @SmallTest
     @Feature({"Preferences"})
     @Policies.Add({@Policies.Item(key = "DefaultJavaScriptOptimizerSetting", string = "1")})
     public void testPolicyHigherPriorityThanOsBlockingJavascriptOptimizer() {
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    ServiceLoaderUtil.setInstanceForTesting(
-                            OsAdditionalSecurityPermissionProvider.class,
-                            new TestPermissionProvider(
-                                    /* isJavascriptOptimizerPermissionGranted= */ false));
-                });
+        mAdvancedProtectionRule.setIsAdvancedProtectionRequestedByOs(true);
 
         final SettingsActivity settingsActivity =
                 SiteSettingsTestUtils.startSiteSettingsCategory(
@@ -2782,9 +2763,10 @@ public class SiteSettingsTest {
     }
 
     /**
-     * Test that when: - Javascript-optimizer permission toggle is present on the {@link
-     * SingleWebsiteSettings} screen AND - Javascript-optimizer permission is denied by the
-     * operating system THAT the toggle is disabled.
+     * Test that when: (1) Javascript-optimizer permission toggle is present on the {@link
+     * SingleWebsiteSettings} screen AND (2) Advanced protection is requested by the operating
+     * system THAT the toggle is still enabled because explicit Javascript-optimizer content
+     * settings have priority over advanced-protection-mode.
      */
     @Test
     @SmallTest
@@ -2801,11 +2783,9 @@ public class SiteSettingsTest {
                             new GURL(pageOrigin),
                             new GURL(pageOrigin),
                             ContentSettingValues.ALLOW);
-                    ServiceLoaderUtil.setInstanceForTesting(
-                            OsAdditionalSecurityPermissionProvider.class,
-                            new TestPermissionProvider(
-                                    /* isJavascriptOptimizerPermissionGranted= */ false));
                 });
+
+        mAdvancedProtectionRule.setIsAdvancedProtectionRequestedByOs(true);
 
         SettingsNavigation settingsNavigation =
                 SettingsNavigationFactory.createSettingsNavigation();
@@ -2825,7 +2805,7 @@ public class SiteSettingsTest {
                             (SingleWebsiteSettings) settingsActivity.getMainFragment();
                     Preference javascriptOptimizerPreference =
                             websitePreferences.findPreference("javascript_optimizer");
-                    Assert.assertFalse(javascriptOptimizerPreference.isEnabled());
+                    Assert.assertTrue(javascriptOptimizerPreference.isEnabled());
                 });
         settingsActivity.finish();
     }
@@ -3324,6 +3304,95 @@ public class SiteSettingsTest {
 
         renderClearDataDialogView(
                 settingsActivity, "site_settings_rws_grouped_website_settings_delete_dialog");
+    }
+
+    @Test
+    @SmallTest
+    public void deleteSingleSiteDataRemovesRowSingleWebsiteSettings() throws Exception {
+        final String currentSiteUrl = "one-test.com";
+        final String rwsMemberUrl = "two-test.com";
+        final SettingsActivity settingsActivity =
+                SiteSettingsTestUtils.startSingleWebsitePreferences(
+                        getRwsOwnerSiteForUrls(currentSiteUrl, rwsMemberUrl));
+
+        onView(
+                        allOf(
+                                withText(currentSiteUrl),
+                                isDescendantOfA(withId(SingleWebsiteSettings.RWS_ROW_ID))))
+                .check(matches(isDisplayed()));
+        onView(
+                        allOf(
+                                withText(rwsMemberUrl),
+                                isDescendantOfA(withId(SingleWebsiteSettings.RWS_ROW_ID))))
+                .check(matches(isDisplayed()));
+
+        onView(
+                        allOf(
+                                withId(R.id.image_view_widget),
+                                isDescendantOfA(withId(SingleWebsiteSettings.RWS_ROW_ID)),
+                                withContentDescription(containsString(rwsMemberUrl))))
+                .check(matches(isDisplayed()))
+                .perform(click());
+        onView(withText(R.string.website_reset_confirmation)).check(matches(isDisplayed()));
+        onView(withText(R.string.website_reset))
+                .inRoot(isDialog())
+                .check(matches(isDisplayed()))
+                .perform(click());
+        onView(
+                        allOf(
+                                withText(rwsMemberUrl),
+                                isDescendantOfA(withId(SingleWebsiteSettings.RWS_ROW_ID))))
+                .check(doesNotExist());
+        onView(
+                        allOf(
+                                withText(currentSiteUrl),
+                                isDescendantOfA(withId(SingleWebsiteSettings.RWS_ROW_ID))))
+                .check(matches(isDisplayed()));
+    }
+
+    @Test
+    @SmallTest
+    public void deleteSingleSiteDataRemovesRowGroupedWebsiteSettings() throws Exception {
+        final String currentSiteUrl = "one-test.com";
+        final String rwsMemberUrl = "two-test.com";
+
+        final SettingsActivity settingsActivity =
+                SiteSettingsTestUtils.startGroupedWebsitesPreferences(
+                        getRwsSiteGroupForUrls(currentSiteUrl, rwsMemberUrl));
+
+        onView(
+                        allOf(
+                                withText(currentSiteUrl),
+                                isDescendantOfA(withId(GroupedWebsitesSettings.RWS_ROW_ID))))
+                .check(matches(isDisplayed()));
+        onView(
+                        allOf(
+                                withText(rwsMemberUrl),
+                                isDescendantOfA(withId(GroupedWebsitesSettings.RWS_ROW_ID))))
+                .check(matches(isDisplayed()));
+
+        onView(
+                        allOf(
+                                withId(R.id.image_view_widget),
+                                isDescendantOfA(withId(GroupedWebsitesSettings.RWS_ROW_ID)),
+                                withContentDescription(containsString(rwsMemberUrl))))
+                .check(matches(isDisplayed()))
+                .perform(click());
+        onView(withText(R.string.website_reset_confirmation)).check(matches(isDisplayed()));
+        onView(withText(R.string.website_reset))
+                .inRoot(isDialog())
+                .check(matches(isDisplayed()))
+                .perform(click());
+        onView(
+                        allOf(
+                                withText(rwsMemberUrl),
+                                isDescendantOfA(withId(GroupedWebsitesSettings.RWS_ROW_ID))))
+                .check(doesNotExist());
+        onView(
+                        allOf(
+                                withText(currentSiteUrl),
+                                isDescendantOfA(withId(GroupedWebsitesSettings.RWS_ROW_ID))))
+                .check(matches(isDisplayed()));
     }
 
     // TODO(crbug.com/396463421): Remove once RWS UI V2 launched.

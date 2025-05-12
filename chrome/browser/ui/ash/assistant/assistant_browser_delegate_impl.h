@@ -72,7 +72,6 @@ class AssistantBrowserDelegateImpl
   base::expected<bool, AssistantBrowserDelegate::Error>
   IsNewEntryPointEligibleForPrimaryProfile() override;
   void OpenNewEntryPoint() override;
-  int GetNewEntryPointIconResourceId() override;
   std::optional<std::string> GetNewEntryPointName() override;
 #if BUILDFLAG(ENABLE_CROS_LIBASSISTANT)
   void RequestLibassistantService(
@@ -81,6 +80,8 @@ class AssistantBrowserDelegateImpl
 #endif  // BUILDFLAG(ENABLE_CROS_LIBASSISTANT)
 
   void OverrideEntryPointIdForTesting(const std::string& test_entry_point_id);
+
+  void SetGoogleChromeBuildForTesting();
 
  private:
   // Gets `web_app::WebAppRegistrar` for querying information about new entry
@@ -140,6 +141,8 @@ class AssistantBrowserDelegateImpl
   raw_ptr<Profile> profile_for_new_entry_point_ = nullptr;
 
   std::string entry_point_id_for_testing_;
+
+  bool is_google_chrome_override_for_testing_ = false;
 
   base::ScopedObservation<ash::AssistantStateBase, ash::AssistantStateObserver>
       assistant_state_observation_{this};

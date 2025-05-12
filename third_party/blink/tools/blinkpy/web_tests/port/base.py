@@ -1604,6 +1604,16 @@ class Port(object):
             return self._filesystem.isfile(self.abspath_for_test(path))
         return False
 
+    def get_wpt_type(self, test_name: str) -> Optional[str]:
+        """Returns the test type of a web platform test."""
+
+        base_test = self.lookup_virtual_test_base(test_name) or test_name
+        wpt_dir, url_from_wpt_dir = self.split_wpt_dir(base_test)
+        if not wpt_dir:
+            return None  # Not a WPT.
+        manifest = self.wpt_manifest(wpt_dir)
+        return manifest.get_test_type(url_from_wpt_dir)
+
     def is_wpt_crash_test(self, test_name):
         """Returns whether a WPT test is a crashtest.
 
@@ -2001,7 +2011,7 @@ class Port(object):
         """
         suite = self._lookup_virtual_suite(test)
         if suite is not None:
-            return self.operating_system() not in suite.platforms
+            return self.port_name not in suite.platforms
         return False
 
     def virtual_test_skipped_due_to_disabled(self, test):

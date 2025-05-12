@@ -33,6 +33,7 @@
 #include "components/omnibox/browser/bookmark_provider.h"
 #include "components/omnibox/browser/omnibox_log.h"
 #include "components/omnibox/browser/open_tab_provider.h"
+#include "components/omnibox/browser/tab_group_provider.h"
 #include "components/optimization_guide/machine_learning_tflite_buildflags.h"
 #include "third_party/omnibox_proto/types.pb.h"
 
@@ -317,6 +318,9 @@ class AutocompleteController : public AutocompleteProviderListener,
   friend class AutocompleteProviderTest;
   friend class OmniboxSuggestionButtonRowBrowserTest;
   friend class ZeroSuggestPrefetchTabHelperBrowserTest;
+#if BUILDFLAG(IS_IOS)
+  friend class OmniboxInttestAutocompleteController;
+#endif
   FRIEND_TEST_ALL_PREFIXES(AutocompleteControllerTest,
                            FilterMatchesForInstantKeywordWithBareAt);
   FRIEND_TEST_ALL_PREFIXES(AutocompleteControllerTest,
@@ -336,6 +340,8 @@ class AutocompleteController : public AutocompleteProviderListener,
                            SupportedProvider_OngoingNonPrefetch);
   FRIEND_TEST_ALL_PREFIXES(AutocompleteProviderPrefetchTest,
                            UnsupportedProvider_Prefetch);
+  FRIEND_TEST_ALL_PREFIXES(OmniboxPopupSuggestionGroupHeadersTest,
+                           ShowSuggestionGroupHeadersByPageContext);
   FRIEND_TEST_ALL_PREFIXES(OmniboxPopupViewViewsTest, EmitAccessibilityEvents);
   FRIEND_TEST_ALL_PREFIXES(OmniboxPopupViewViewsTest,
                            EmitAccessibilityEventsOnButtonFocusHint);
@@ -386,6 +392,9 @@ class AutocompleteController : public AutocompleteProviderListener,
                            GetIconForExtensionWithImageURL);
   FRIEND_TEST_ALL_PREFIXES(RealboxHandlerTest, RealboxUpdatesEditModelInput);
   FRIEND_TEST_ALL_PREFIXES(OmniboxViewPopupTest, GetIcon_IconUrl);
+  FRIEND_TEST_ALL_PREFIXES(
+      OmniboxEditModelPopupTest,
+      GetPopupAccessibilityLabelForCurrentSelection_KeywordMode);
 
   // A minimal representation of the previous `AutocompleteResult`. Used by
   // `UpdateResult()`'s helper methods.
@@ -554,6 +563,8 @@ class AutocompleteController : public AutocompleteProviderListener,
   raw_ptr<HistoryFuzzyProvider> history_fuzzy_provider_;
 
   raw_ptr<OpenTabProvider> open_tab_provider_;
+
+  raw_ptr<TabGroupProvider> tab_group_provider_;
 
   raw_ptr<FeaturedSearchProvider> featured_search_provider_;
 

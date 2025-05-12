@@ -8,6 +8,8 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/metrics_hashes.h"
 #include "base/metrics/user_metrics.h"
+#include "base/strings/string_util.h"
+#include "google_apis/common/api_error_codes.h"
 
 namespace ash::boca {
 
@@ -60,6 +62,68 @@ void RecordBabelOrcaTranslationLanguage(const std::string& language) {
 void RecordBabelOrcaTranslationLanguageSwitched() {
   base::RecordAction(
       base::UserMetricsAction(kBocaBabelorcaActionOfStudentSwitchLanguage));
+}
+
+void RecordOnTaskPodNavigateBackClicked() {
+  base::RecordAction(
+      base::UserMetricsAction(kBocaOnTaskActionOfStudentNavigateBack));
+}
+
+void RecordOnTaskPodNavigateForwardClicked() {
+  base::RecordAction(
+      base::UserMetricsAction(kBocaOnTaskActionOfStudentNavigateForward));
+}
+
+void RecordOnTaskPodReloadPageClicked() {
+  base::RecordAction(
+      base::UserMetricsAction(kBocaOnTaskActionOfStudentReloadPage));
+}
+
+void RecordOnTaskPodToggleTabStripVisibilityClicked() {
+  base::RecordAction(base::UserMetricsAction(
+      kBocaOnTaskActionOfStudentToggleTabStripVisibility));
+}
+
+void RecordOnTaskPodSetSnapLocationClicked(bool is_left) {
+  if (is_left) {
+    base::RecordAction(base::UserMetricsAction(
+        kBocaOnTaskActionOfStudentSetSnapLocationToLeft));
+  } else {
+    base::RecordAction(base::UserMetricsAction(
+        kBocaOnTaskActionOfStudentSetSnapLocationToRight));
+  }
+}
+
+void RecordOnRegisterScreenRequestSentErrorCode(
+    google_apis::ApiErrorCode error_code) {
+  RecordSpotlightGoogleApiErrorCode(kBocaSpotlightOnRegisterScreenRequestSent,
+                                    error_code);
+}
+
+void RecordSpotlightGoogleApiErrorCode(const std::string& name,
+                                       google_apis::ApiErrorCode error_code) {
+  base::UmaHistogramSparse(
+      base::ReplaceStringPlaceholders(
+          kBocaSpotlightGoogleApiCallErrorCodeTemplate, {name},
+          /*=offsets*/ nullptr),
+      error_code);
+}
+
+void RecordUpdateStudentActivitiesErrorCode(
+    google_apis::ApiErrorCode error_code) {
+  RecordGoogleApiErrorCode(kBocaUpdateStudentActivities, error_code);
+}
+
+void RecordStudentHeartBeatErrorCode(google_apis::ApiErrorCode error_code) {
+  RecordGoogleApiErrorCode(kBocaStudentHeartbeat, error_code);
+}
+
+void RecordGoogleApiErrorCode(const std::string& name,
+                              google_apis::ApiErrorCode error_code) {
+  base::UmaHistogramSparse(base::ReplaceStringPlaceholders(
+                               kBocaGoogleApiCallErrorCodeTemplate, {name},
+                               /*=offsets*/ nullptr),
+                           error_code);
 }
 
 }  // namespace ash::boca

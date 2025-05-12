@@ -316,10 +316,6 @@ class CONTENT_EXPORT WebContentsImpl
     return delegated_ink_point_renderer_.is_bound();
   }
 
-  // Adds the given accessibility mode to the current accessibility mode
-  // bitmap.
-  void AddAccessibilityModeForTesting(ui::AXMode mode);
-
   // Sets the zoom level for frames associated with this WebContents.
   void UpdateZoom();
 
@@ -365,10 +361,6 @@ class CONTENT_EXPORT WebContentsImpl
   // first commit.
   // TODO(crbug.com/40165695): Rename to HasAccessedInitialMainDocument
   bool HasAccessedInitialDocument();
-
-#if BUILDFLAG(IS_ANDROID)
-  void SetPrimaryMainFrameImportance(ChildProcessImportance importance);
-#endif
 
   // Returns the human-readable name for title in Media Controls.
   // If the returned value is an empty string, it means that there is no
@@ -452,6 +444,7 @@ class CONTENT_EXPORT WebContentsImpl
                              size_t max_nodes,
                              base::TimeDelta timeout,
                              AXTreeSnapshotPolicy policy) override;
+  ui::AXTreeUpdate RequestAXTreeSnapshotWithinBrowserProcess() override;
   uint64_t GetUploadSize() override;
   uint64_t GetUploadPosition() override;
   const std::string& GetEncoding() override;
@@ -633,6 +626,9 @@ class CONTENT_EXPORT WebContentsImpl
   void ActivateNearestFindResult(float x, float y) override;
   void RequestFindMatchRects(int current_version) override;
   service_manager::InterfaceProvider* GetJavaInterfaces() override;
+  ChildProcessImportance GetPrimaryMainFrameImportanceForTesting() override;
+  void SetPrimaryMainFrameImportance(
+      ChildProcessImportance importance) override;
 #endif
   bool HasRecentInteraction() override;
   [[nodiscard]] ScopedIgnoreInputEvents IgnoreInputEvents(
@@ -748,6 +744,9 @@ class CONTENT_EXPORT WebContentsImpl
   std::string DumpAccessibilityTree(
       ui::AXApiType::Type api_type,
       std::vector<ui::AXPropertyFilter> property_filters) override;
+  void ApplyAXTreeFixingResult(ui::AXTreeID tree_id,
+                               ui::AXNodeID node_id,
+                               ax::mojom::Role role) override;
   void RecordAccessibilityEvents(
       bool start_recording,
       std::optional<ui::AXEventCallback> callback) override;
@@ -948,7 +947,7 @@ class CONTENT_EXPORT WebContentsImpl
   void OnFirstContentfulPaintInPrimaryMainFrame() override;
   gfx::NativeWindow GetOwnerNativeWindow() override;
 
-  media::PictureInPictureEventsInfo::AutoPipReason GetAutoPipReason()
+  media::PictureInPictureEventsInfo::AutoPipInfo GetAutoPipInfo()
       const override;
   void OnKeepAliveRequestCreated(
       const network::ResourceRequest& resource_request,
@@ -1004,6 +1003,7 @@ class CONTENT_EXPORT WebContentsImpl
   std::unique_ptr<PrefetchHandle> StartPrefetch(
       const GURL& prefetch_url,
       bool use_prefetch_proxy,
+      const std::string& embedder_histogram_suffix,
       const blink::mojom::Referrer& referrer,
       const std::optional<url::Origin>& referring_origin,
       std::optional<net::HttpNoVarySearchData> no_vary_search_hint,
@@ -1292,6 +1292,9 @@ class CONTENT_EXPORT WebContentsImpl
       std::unique_ptr<blink::WebCoalescedInputEvent> event) override;
   void OnInvalidInputEventSource(
       const viz::FrameSinkId& frame_sink_id) override;
+  void StateOnOverscrollTransfer(
+      const viz::FrameSinkId& frame_sink_id,
+      blink::mojom::DidOverscrollParamsPtr params) override;
 
   // Invoked before a form repost warning is shown.
   void NotifyBeforeFormRepostWarningShow() override;
@@ -2206,6 +2209,11 @@ class CONTENT_EXPORT WebContentsImpl
 
   // See GetPartitionedPopinEmbedderOrigin for details.
   GURL GetPartitionedPopinEmbedderOriginImpl() const;
+
+  // Recursively constructs a vector of AXNodeData objects for the children of
+  // the given |node|.
+  void RecursivelyConstructAXTree(ui::AXNode* node,
+                                  std::vector<ui::AXNodeData>& nodes);
 
   // Data for core operation ---------------------------------------------------
 

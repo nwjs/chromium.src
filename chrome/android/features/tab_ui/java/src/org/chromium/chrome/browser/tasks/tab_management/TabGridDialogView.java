@@ -152,6 +152,7 @@ public class TabGridDialogView extends FrameLayout {
         mUngroupBarHoveredBackgroundColor =
                 TabUiThemeProvider.getTabGridDialogUngroupBarHoveredBackgroundColor(
                         mContext, false);
+        setVisibility(GONE);
     }
 
     void forceAnimationToFinish() {
@@ -193,8 +194,6 @@ public class TabGridDialogView extends FrameLayout {
                 };
         mParent.getViewTreeObserver().addOnGlobalLayoutListener(mParentGlobalLayoutListener);
         updateDialogWithOrientation(mOrientation);
-        setVisibility(GONE);
-        notifyVisibilityListenerOnHide();
     }
 
     @Override
@@ -358,13 +357,15 @@ public class TabGridDialogView extends FrameLayout {
     }
 
     private void clearBackgroundViewAccessibilityImportance() {
-        assert mAccessibilityImportanceMap.size() == 0;
-
+        assert mAccessibilityImportanceMap.isEmpty();
         ViewGroup parent = (ViewGroup) getParent();
         for (int i = 0; i < parent.getChildCount(); i++) {
             View view = parent.getChildAt(i);
             if (view == TabGridDialogView.this) {
-                continue;
+                // Views earlier than us in the child list draw below us. We occlude them, and we
+                // need to turn off their accessibility focus. Views that come after us, like bottom
+                // sheet, may occlude us, and we should not turn off their accessibility focus.
+                break;
             }
             mAccessibilityImportanceMap.put(view, view.getImportantForAccessibility());
             view.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
@@ -376,10 +377,7 @@ public class TabGridDialogView extends FrameLayout {
         for (int i = 0; i < parent.getChildCount(); i++) {
             View view = parent.getChildAt(i);
             if (view == TabGridDialogView.this) {
-                continue;
-            }
-            if (!TabUiUtils.isDataSharingFunctionalityEnabled()) {
-                assert mAccessibilityImportanceMap.containsKey(view);
+                break;
             }
             Integer importance = mAccessibilityImportanceMap.get(view);
             view.setImportantForAccessibility(
@@ -925,6 +923,9 @@ public class TabGridDialogView extends FrameLayout {
         if (faviconDrawable != null) {
             cardFavicon.setImageDrawable(faviconDrawable);
         } else {
+            // In the event the we are unable to draw anything below, draw nothing.
+            cardFavicon.setImageDrawable(null);
+
             // Draw the tab group color dot to the bitmap and put it in the favicon container as it
             // isn't possible to clone the whole view.
             FrameLayout containerView = view.findViewById(R.id.tab_group_color_view_container);
@@ -932,12 +933,14 @@ public class TabGridDialogView extends FrameLayout {
             if (childCount != 0) {
                 assert childCount == 1;
                 View v = containerView.getChildAt(0);
-
-                Bitmap bitmap =
-                        Bitmap.createBitmap(v.getWidth(), v.getHeight(), Bitmap.Config.ARGB_8888);
-                Canvas canvas = new Canvas(bitmap);
-                v.draw(canvas);
-                cardFavicon.setImageBitmap(bitmap);
+                int width = v.getWidth();
+                int height = v.getHeight();
+                if (width != 0 && height != 0) {
+                    Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+                    Canvas canvas = new Canvas(bitmap);
+                    v.draw(canvas);
+                    cardFavicon.setImageBitmap(bitmap);
+                }
             }
         }
 
@@ -1003,26 +1006,30 @@ public class TabGridDialogView extends FrameLayout {
 
     /** Show {@link PopupWindow} for dialog with animation. */
     void showDialog() {
+        if (getVisibility() == VISIBLE) return;
+
         if (mCurrentDialogAnimator != null && mCurrentDialogAnimator != mShowDialogAnimation) {
             mCurrentDialogAnimator.end();
         }
         mCurrentDialogAnimator = mShowDialogAnimation;
+
         assert mScrimManager != null && mScrimPropertyModel != null;
         mScrimManager.showScrim(mScrimPropertyModel);
+
         setVisibility(View.VISIBLE);
         mShowDialogAnimation.start();
     }
 
     /** Hide {@link PopupWindow} for dialog with animation. */
     void hideDialog() {
-        // Skip the hideDialog call caused by initializing the dialog visibility as false.
         if (getVisibility() != VISIBLE) return;
 
-        assert mScrimManager != null && mScrimPropertyModel != null;
         if (mCurrentDialogAnimator != null && mCurrentDialogAnimator != mHideDialogAnimation) {
             mCurrentDialogAnimator.end();
         }
         mCurrentDialogAnimator = mHideDialogAnimation;
+
+        assert mScrimManager != null && mScrimPropertyModel != null;
         if (mScrimManager.isShowingScrim()) {
             if (DeviceFormFactor.isNonMultiDisplayContextOnTablet(mContext)) {
                 mScrimManager.hideScrim(

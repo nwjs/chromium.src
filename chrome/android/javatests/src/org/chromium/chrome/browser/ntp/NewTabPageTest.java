@@ -22,6 +22,7 @@ import static org.chromium.ui.test.util.ViewUtils.waitForView;
 
 import android.content.ComponentCallbacks2;
 import android.content.res.Resources;
+import android.graphics.Point;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
@@ -83,8 +84,9 @@ import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.util.BrowserUiUtils.ModuleTypeOnStartAndNtp;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.chrome.test.R;
+import org.chromium.chrome.test.transit.ChromeTransitTestRules;
+import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
 import org.chromium.chrome.test.util.ChromeRenderTestRule;
 import org.chromium.chrome.test.util.ChromeTabUtils;
 import org.chromium.chrome.test.util.NewTabPageTestUtils;
@@ -137,7 +139,8 @@ public class NewTabPageTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Rule
-    public ChromeTabbedActivityTestRule mActivityTestRule = new ChromeTabbedActivityTestRule();
+    public FreshCtaTransitTestRule mActivityTestRule =
+            ChromeTransitTestRules.freshChromeTabbedActivityRule();
 
     @Rule public SuggestionsDependenciesRule mSuggestionsDeps = new SuggestionsDependenciesRule();
     @Rule public SigninTestRule mSigninTestRule = new SigninTestRule();
@@ -177,7 +180,7 @@ public class NewTabPageTest {
 
     @Before
     public void setUp() throws Exception {
-        mActivityTestRule.startMainActivityWithURL("about:blank");
+        mActivityTestRule.startOnBlankPage();
         TemplateUrlService originalService =
                 ThreadUtils.runOnUiThreadBlocking(
                         () ->
@@ -232,7 +235,7 @@ public class NewTabPageTest {
         onView(withId(R.id.feed_stream_recycler_view))
                 .perform(RecyclerViewActions.scrollToPosition(ARTICLE_SECTION_HEADER_POSITION));
         waitForView((ViewGroup) mNtp.getView(), allOf(withId(R.id.header_title), isDisplayed()));
-        View view = mNtp.getCoordinatorForTesting().getSectionHeaderViewForTesting();
+        View view = mNtp.getCoordinatorForTesting().getHeaderViewForTesting();
         // Check header is expanded.
         mRenderTestRule.render(view, "expandable_header_expanded");
 
@@ -318,7 +321,7 @@ public class NewTabPageTest {
     public void testOpenMostVisitedItemInNewTab() throws ExecutionException {
         Assert.assertNotNull(mMvTilesLayout);
         ChromeTabUtils.invokeContextMenuAndOpenInANewTab(
-                mActivityTestRule,
+                mActivityTestRule.getActivity(),
                 mMvTilesLayout.getTileAt(0),
                 ContextMenuManager.ContextMenuItemId.OPEN_IN_NEW_TAB,
                 false,
@@ -335,7 +338,7 @@ public class NewTabPageTest {
         HistogramWatcher histogramWatcher = expectMostVisitedTilesRecordForNtpModuleClick();
 
         ChromeTabUtils.invokeContextMenuAndOpenInANewTab(
-                mActivityTestRule,
+                mActivityTestRule.getActivity(),
                 mMvTilesLayout.getTileAt(0),
                 ContextMenuManager.ContextMenuItemId.OPEN_IN_INCOGNITO_TAB,
                 true,
@@ -929,6 +932,27 @@ public class NewTabPageTest {
                 expectedTitleTopMargin,
                 ((MarginLayoutParams) suggestionsTileElement.getTitleView().getLayoutParams())
                         .topMargin);
+    }
+
+    /**
+     * Test whether the last touch position in {@link NewTabPage} is been set correctly. This is
+     * used for {@link
+     * org.chromium.chrome.browser.compositor.layouts.phone.NewBackgroundTabAnimationHostView}.
+     */
+    @Test
+    @SmallTest
+    @Feature({"NewTabPage"})
+    public void testLastTouchPosition() {
+        // TODO(crbug.com/415303495): Update test to assert with exact values.
+        Point ntpPoint = mNtp.getLastTouchPosition();
+        Point defaultPoint = new Point(-1, -1);
+        Assert.assertEquals(defaultPoint, ntpPoint);
+
+        Assert.assertNotNull(mMvTilesLayout);
+        View mvTile = mMvTilesLayout.getTileAt(0);
+
+        TouchCommon.longPressView(mvTile, 0, 0);
+        Assert.assertNotEquals(defaultPoint, ntpPoint);
     }
 
     private void verifyMostVisitedTileMargin() {

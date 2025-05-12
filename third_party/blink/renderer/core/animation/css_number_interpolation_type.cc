@@ -61,33 +61,36 @@ InterpolationValue CSSNumberInterpolationType::MaybeConvertInitial(
   std::optional<double> initial_number =
       NumberPropertyFunctions::GetInitialNumber(
           CssProperty(), state.GetDocument().GetStyleResolver().InitialStyle());
-  if (!initial_number)
+  if (!initial_number) {
     return nullptr;
+  }
   return CreateNumberValue(*initial_number);
 }
 
 InterpolationValue CSSNumberInterpolationType::MaybeConvertInherit(
     const StyleResolverState& state,
     ConversionCheckers& conversion_checkers) const {
-  if (!state.ParentStyle())
+  if (!state.ParentStyle()) {
     return nullptr;
+  }
   std::optional<double> inherited =
       NumberPropertyFunctions::GetNumber(CssProperty(), *state.ParentStyle());
   conversion_checkers.push_back(
       MakeGarbageCollected<InheritedNumberChecker>(CssProperty(), inherited));
-  if (!inherited)
+  if (!inherited) {
     return nullptr;
+  }
   return CreateNumberValue(*inherited);
 }
 
 InterpolationValue CSSNumberInterpolationType::MaybeConvertValue(
     const CSSValue& value,
-    const StyleResolverState*,
+    const StyleResolverState&,
     ConversionCheckers&) const {
   auto* primitive_value = DynamicTo<CSSPrimitiveValue>(value);
-  if (!primitive_value ||
-      !(primitive_value->IsNumber() || primitive_value->IsPercentage()))
+  if (!primitive_value || !primitive_value->IsNumber()) {
     return nullptr;
+  }
   return CreateNumberValue(primitive_value->GetDoubleValue());
 }
 
@@ -96,9 +99,21 @@ CSSNumberInterpolationType::MaybeConvertStandardPropertyUnderlyingValue(
     const ComputedStyle& style) const {
   std::optional<double> underlying_number =
       NumberPropertyFunctions::GetNumber(CssProperty(), style);
-  if (!underlying_number)
+  if (!underlying_number) {
     return nullptr;
+  }
   return CreateNumberValue(*underlying_number);
+}
+
+InterpolationValue
+CSSNumberInterpolationType::MaybeConvertCustomPropertyUnderlyingValue(
+    const CSSValue& value) const {
+  if (const auto* number_value = DynamicTo<CSSNumericLiteralValue>(value)) {
+    if (number_value->IsNumber()) {
+      return CreateNumberValue(number_value->GetDoubleValue());
+    }
+  }
+  return nullptr;
 }
 
 void CSSNumberInterpolationType::ApplyStandardPropertyValue(

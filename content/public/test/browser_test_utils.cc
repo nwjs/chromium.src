@@ -894,6 +894,21 @@ void CrashTab(WebContents* web_contents) {
   EXPECT_TRUE(web_contents->IsCrashed());
 }
 
+void SimulateUnresponsivePrimaryMainFrameAndWaitForExit(
+    WebContents* web_contents) {
+  RenderProcessHost* rph = web_contents->GetPrimaryMainFrame()->GetProcess();
+  RenderProcessHostWatcher watcher(
+      rph, RenderProcessHostWatcher::WATCH_FOR_PROCESS_EXIT);
+
+  SimulateUnresponsiveRenderer(
+      web_contents, web_contents->GetPrimaryMainFrame()->GetRenderWidgetHost());
+
+  EXPECT_TRUE(rph->Shutdown(RESULT_CODE_HUNG));
+  watcher.Wait();
+  EXPECT_FALSE(watcher.did_exit_normally());
+  EXPECT_TRUE(web_contents->IsCrashed());
+}
+
 void PwnCommitIPC(WebContents* web_contents,
                   const GURL& target_url,
                   const GURL& new_url,
@@ -1006,6 +1021,14 @@ void NotifyCopyableViewInFrame(RenderFrameHost* render_frame_host,
       rwhi->GetWeakPtr(), std::move(done_callback));
 
   rwhi->InsertVisualStateCallback(std::move(first_frame_done));
+}
+
+void SimulateEndOfPaintHoldingOnPrimaryMainFrame(WebContents* web_contents) {
+  WebContentsImpl* web_contents_impl =
+      static_cast<WebContentsImpl*>(web_contents);
+  RenderWidgetHostImpl* main_frame_rwh =
+      web_contents_impl->GetPrimaryMainFrame()->GetRenderWidgetHost();
+  main_frame_rwh->ForceFirstFrameAfterNavigationTimeout();
 }
 
 void SimulateMouseClick(WebContents* web_contents,
@@ -2220,8 +2243,7 @@ bool AccessibilityTreeContainsNodeWithName(ui::BrowserAccessibility* node,
 }
 
 void WaitForAccessibilityTreeToChange(WebContents* web_contents) {
-  AccessibilityNotificationWaiter accessibility_waiter(
-      web_contents, ui::AXMode(), ax::mojom::Event::kNone);
+  AccessibilityNotificationWaiter accessibility_waiter(web_contents);
   ASSERT_TRUE(accessibility_waiter.WaitForNotification());
 }
 
@@ -2676,7 +2698,6 @@ DOMMessageQueue::~DOMMessageQueue() = default;
 
 void DOMMessageQueue::PrimaryMainFrameRenderProcessGone(
     base::TerminationStatus status) {
-  VLOG(0) << "DOMMessageQueue::RenderProcessGone " << status;
   switch (status) {
     case base::TERMINATION_STATUS_NORMAL_TERMINATION:
     case base::TERMINATION_STATUS_STILL_RUNNING:
@@ -3851,6 +3872,30 @@ void DevToolsInspectorLogWatcher::DispatchProtocolMessage(
 
   if (notification->find("Media.") != std::string::npos) {
     last_media_notification_ = *notification;
+
+    if (*notification == "Media.playerEventsAdded") {
+      bool last_auto_pip_event_info_set = false;
+      const base::Value::List* events =
+          parsed_message.FindListByDottedPath("params.events");
+      if (events) {
+        for (const base::Value& event : *events) {
+          const auto* dict = event.GetIfDict();
+          if (!dict) {
+            continue;
+          }
+          const std::string* text = dict->FindString("value");
+          if ((text != nullptr) &&
+              ((*text).find("auto_picture_in_picture_info") !=
+               std::string::npos)) {
+            last_auto_picture_in_picture_event_info_ = *text;
+            last_auto_pip_event_info_set = true;
+          }
+        }
+      }
+      if (last_auto_pip_event_info_set) {
+        NotifyLastAutoPipEventInfoSet();
+      }
+    }
   }
 }
 
@@ -3871,6 +3916,12 @@ void DevToolsInspectorLogWatcher::FlushAndStopWatching() {
   }
 
   run_loop_disable_log_.Run();
+}
+
+void DevToolsInspectorLogWatcher::NotifyLastAutoPipEventInfoSet() {
+  for (DevToolsInspectorLogWatcherObserver& obs : observers_) {
+    obs.OnLastAutoPipEventInfoSet();
+  }
 }
 
 namespace {

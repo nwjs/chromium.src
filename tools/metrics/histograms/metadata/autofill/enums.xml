@@ -143,6 +143,13 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="Import with section union"/>
 </enum>
 
+<enum name="AutofillAiOptInFunnelEvents">
+  <int value="0" label="IPH was shown"/>
+  <int value="1" label="FFR was shown"/>
+  <int value="2" label="The FFR learn more button was clicked"/>
+  <int value="3" label="FFR was accepted"/>
+</enum>
+
 <enum name="AutofillAlternativeNameFieldValueCharacterSet">
   <int value="0" label="Katakana"/>
   <int value="1" label="Hiragana"/>
@@ -2983,6 +2990,56 @@ Called by update_autofill_enums.py.-->
 
 <!-- LINT.ThenChange(/components/autofill/core/browser/webdata/autofill_webdata_backend_impl.cc:Result) -->
 
+<!-- LINT.IfChange(BnplFormEvent) -->
+
+<enum name="BnplFormEvent">
+  <int value="0" label="Suggestions shown"/>
+  <int value="1" label="A Buy Now Pay Later suggestion was shown"/>
+  <int value="2" label="Suggestion accepted"/>
+  <int value="3" label="Form filled with Affirm VCN"/>
+  <int value="4" label="Form filled with Zip VCN"/>
+  <int value="5" label="Form filled with Afterpay VCN"/>
+  <int value="6" label="Form submitted with Affirm VCN"/>
+  <int value="7" label="Form submitted with Zip VCN"/>
+  <int value="8" label="Form submitted with Afterpay VCN"/>
+</enum>
+
+<!-- LINT.ThenChange(/components/autofill/core/browser/metrics/payments/bnpl_metrics.h:BnplFormEvent) -->
+
+<!-- LINT.IfChange(BnplIssuerId) -->
+
+<enum name="BnplIssuerId">
+  <int value="0" label="Affirm"/>
+  <int value="1" label="Zip"/>
+  <int value="2" label="Afterpay"/>
+</enum>
+
+<!-- LINT.ThenChange(/components/autofill/core/browser/data_model/payments/bnpl_issuer.h:IssuerId) -->
+
+<!-- LINT.IfChange(BnplPopupWindowResult) -->
+
+<enum name="BnplPopupWindowResult">
+  <int value="0" label="Success"/>
+  <int value="1" label="Failure"/>
+  <int value="2" label="User closed before finishing"/>
+</enum>
+
+<!-- LINT.ThenChange(/components/autofill/core/browser/payments/payments_window_manager.h:BnplFlowResult) -->
+
+<enum name="BnplSuggestionNotShownReason">
+  <int value="0" label="Amount extraction failure"/>
+  <int value="1" label="Checkout amount not supported"/>
+</enum>
+
+<!-- LINT.IfChange(BnplTosDialogResult) -->
+
+<enum name="BnplTosDialogResult">
+  <int value="0" label="The cancel button was pressed"/>
+  <int value="1" label="The accept button was pressed"/>
+</enum>
+
+<!-- LINT.ThenChange(/components/autofill/core/browser/metrics/payments/bnpl_metrics.h:BnplTosDialogResult) -->
+
 <enum name="BooleanAutofillAddressSuggestionOnTypingAcceptance">
   <int value="0" label="Not accepted"/>
   <int value="1" label="Accepted"/>
@@ -3616,8 +3673,6 @@ Called by update_autofill_enums.py.-->
       label="&lt;label&gt; for attribute linked to a control element inside a
              shadow DOM via its name attribute"/>
   <int value="15" label="Succeeding DOM node overlaying the input"/>
-  <int value="16"
-      label="The text of a &lt;select&gt; element's first &lt;option&gt;"/>
 </enum>
 
 <!-- LINT.IfChange(InvalidSubmittedFormReasonIOS) -->
@@ -3792,9 +3847,19 @@ Called by update_autofill_enums.py.-->
   <int value="4" label="TimedOut"/>
   <int value="5" label="LinkCLicked"/>
   <int value="6" label="Ignored"/>
+  <int value="7" label="NotShown"/>
 </enum>
 
 <!-- LINT.ThenChange(/components/autofill/ios/browser/credit_card_save_metrics_ios.h:SaveCreditCardPromptResultIOS) -->
+
+<!-- LINT.IfChange(SelectBnplIssuerDialogResult) -->
+
+<enum name="SelectBnplIssuerDialogResult">
+  <int value="0" label="The cancel button was pressed"/>
+  <int value="1" label="An issuer was selected"/>
+</enum>
+
+<!-- LINT.ThenChange(/components/autofill/core/browser/metrics/payments/bnpl_metrics.h:SelectBnplIssuerDialogResult) -->
 
 <!-- LINT.IfChange(SuggestionType) -->
 
@@ -3887,6 +3952,13 @@ Called by update_autofill_enums.py.-->
   <int value="2" label="Manage payment settings option selected"/>
   <int value="3" label="Scan new card option selected"/>
   <int value="4" label="Bottom sheet dismissed"/>
+</enum>
+
+<enum name="TouchToFill.Iban.Outcome">
+  <int value="0"
+      label="IBAN selected from the sheet (either local or server one)"/>
+  <int value="1" label="Manage payment settings option selected"/>
+  <int value="2" label="Bottom sheet dismissed"/>
 </enum>
 
 <enum name="TouchToFill.PaymentMethod.TriggerOutcome">

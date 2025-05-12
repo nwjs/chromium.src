@@ -72,6 +72,11 @@ inline constexpr base::FeatureParam<base::TimeDelta>
 // Feature flag to replace all sync-related UI with sign-in ones.
 BASE_DECLARE_FEATURE(kReplaceSyncPromosWithSignInPromos);
 
+// If enabled, allowlisted priority preferences will be synced even if the
+// preferences user toggle is off. Note that this flag is only meaningful if
+// kEnablePreferencesAccountStorage is enabled.
+BASE_DECLARE_FEATURE(kSyncSupportAlwaysSyncingPriorityPreferences);
+
 // Normally, if kReplaceSyncPromosWithSignInPromos is disabled,
 // UserSelectableType::kBookmarks is disabled by default upon sign-in. This
 // flag makes the type enabled by default, for manual testing.
@@ -89,9 +94,6 @@ constexpr bool IsReadingListAccountStorageEnabled() {
   return true;
 }
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-
-// Flag to allow SHARED_TAB_GROUP_DATA to run in transport mode.
-BASE_DECLARE_FEATURE(kSyncSharedTabGroupDataInTransportMode);
 
 // Flags to allow AUTOFILL_WALLET_METADATA and AUTOFILL_WALLET_OFFER,
 // respectively, to run in transport mode.
@@ -162,6 +164,13 @@ inline constexpr base::FeatureParam<int>
 // `unique_position` field in BookmarkSpecifics, whereas the other one will try
 // to ensure it is populated.
 BASE_DECLARE_FEATURE(kSyncSimulateBookmarksPingPongForTesting);
+
+#if BUILDFLAG(IS_IOS)
+// Enables a set of improvements to the existing trusted vault error infobar on
+// iOS (displaying it on pages with password forms, adjusting display time,
+// adding dismiss conditions, adding a notification pause after dismissal).
+BASE_DECLARE_FEATURE(kSyncTrustedVaultInfobarImprovements);
+#endif  // BUILDFLAG(IS_IOS)
 
 }  // namespace syncer
 

@@ -49,8 +49,10 @@
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager_test_api.h"
 #include "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #include "components/autofill/core/browser/data_manager/test_personal_data_manager.h"
+#include "components/autofill/core/browser/data_manager/valuables/valuables_data_manager_test_api.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile_test_api.h"
+#include "components/autofill/core/browser/data_model/payments/bnpl_issuer.h"
 #include "components/autofill/core/browser/data_model/payments/credit_card.h"
 #include "components/autofill/core/browser/data_model/payments/iban.h"
 #include "components/autofill/core/browser/data_quality/addresses/profile_token_quality.h"
@@ -69,13 +71,15 @@
 #include "components/autofill/core/browser/foundations/test_browser_autofill_manager.h"
 #include "components/autofill/core/browser/geo/alternative_state_name_map_test_utils.h"
 #include "components/autofill/core/browser/heuristic_source.h"
-#include "components/autofill/core/browser/integrators/autofill_compose_delegate.h"
-#include "components/autofill/core/browser/integrators/autofill_plus_address_delegate.h"
-#include "components/autofill/core/browser/integrators/mock_autofill_ai_delegate.h"
-#include "components/autofill/core/browser/integrators/mock_autofill_compose_delegate.h"
-#include "components/autofill/core/browser/integrators/mock_autofill_optimization_guide.h"
-#include "components/autofill/core/browser/integrators/mock_autofill_plus_address_delegate.h"
+#include "components/autofill/core/browser/integrators/autofill_ai/mock_autofill_ai_delegate.h"
+#include "components/autofill/core/browser/integrators/compose/autofill_compose_delegate.h"
+#include "components/autofill/core/browser/integrators/compose/mock_autofill_compose_delegate.h"
+#include "components/autofill/core/browser/integrators/identity_credential/identity_credential_delegate.h"
+#include "components/autofill/core/browser/integrators/identity_credential/mock_identity_credential_delegate.h"
+#include "components/autofill/core/browser/integrators/optimization_guide/mock_autofill_optimization_guide.h"
 #include "components/autofill/core/browser/integrators/password_form_classification.h"
+#include "components/autofill/core/browser/integrators/plus_addresses/autofill_plus_address_delegate.h"
+#include "components/autofill/core/browser/integrators/plus_addresses/mock_autofill_plus_address_delegate.h"
 #include "components/autofill/core/browser/metrics/form_events/form_events.h"
 #include "components/autofill/core/browser/metrics/log_event.h"
 #include "components/autofill/core/browser/ml_model/autofill_ai/mock_autofill_ai_model_cache.h"
@@ -98,6 +102,7 @@
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
 #include "components/autofill/core/browser/test_utils/autofill_form_test_utils.h"
 #include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#include "components/autofill/core/browser/test_utils/valuables_data_test_utils.h"
 #include "components/autofill/core/browser/test_utils/vote_uploads_test_matchers.h"
 #include "components/autofill/core/browser/ui/payments/bubble_show_options.h"
 #include "components/autofill/core/browser/ui/test_autofill_external_delegate.h"
@@ -123,6 +128,7 @@
 #include "components/security_state/core/security_state.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "components/strings/grit/components_strings.h"
+#include "components/sync/base/features.h"
 #include "components/sync/test/test_sync_service.h"
 #include "components/translate/core/common/language_detection_details.h"
 #include "components/variations/variations_associated_data.h"
@@ -183,6 +189,7 @@ using upload_contents_matchers::ObservedSubmissionIs;
 
 constexpr Suggestion::Icon kAddressEntryIcon = Suggestion::Icon::kAccount;
 constexpr char kPlusAddress[] = "plus+remote@plus.plus";
+constexpr char kEllipsisDotSeparator[] = "\u2022";
 
 // Action `SaveArgElementsTo<k>(pointer)` saves the value pointed to by the
 // `k`th (0-based) argument of the mock function by moving it to `*pointer`.
@@ -204,13 +211,22 @@ bool ShouldSplitCardNameAndLastFourDigitsForMetadata() {
   return !BUILDFLAG(IS_IOS);
 }
 
+bool ShouldUseNewFopDisplay() {
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+  return false;
+#else
+  return base::FeatureList::IsEnabled(
+      features::kAutofillEnableNewFopDisplayDesktop);
+#endif
+}
+
 // The number of obfuscation dots we use as a prefix when showing a credit
 // card's last four.
 int ObfuscationLengthForCreditCardLastFourDigits() {
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
   return 2;
 #else
-  return 4;
+  return ShouldUseNewFopDisplay() ? 2 : 4;
 #endif
 }
 
@@ -226,7 +242,13 @@ std::vector<std::vector<Suggestion::Text>> GenerateLabelsFromCreditCard(
       {Suggestion::Text(card.ObfuscatedNumberWithVisibleLastFourDigits(
           ObfuscationLengthForCreditCardLastFourDigits()))}};
 #else
-  if (ShouldSplitCardNameAndLastFourDigitsForMetadata()) {
+  if (ShouldUseNewFopDisplay()) {
+    suggestion_labels = {
+        {Suggestion::Text(card.NetworkAndLastFourDigits(
+             ObfuscationLengthForCreditCardLastFourDigits())),
+         Suggestion::Text(u"•"),
+         Suggestion::Text(card.AbbreviatedExpirationDateForDisplay(false))}};
+  } else if (ShouldSplitCardNameAndLastFourDigitsForMetadata()) {
     // First label contains card name details and second label contains
     // obfuscated last four.
     suggestion_labels = {
@@ -260,18 +282,44 @@ Suggestion GenerateSuggestionFromCardDetails(
           : nickname;
   std::string obfuscated_card_digits = test::ObfuscatedCardDigitsAsUTF8(
       last_four, ObfuscationLengthForCreditCardLastFourDigits());
+  std::string network_and_last_four =
+      base::StrCat({base::UTF16ToUTF8(CreditCard::NetworkForDisplay(network)),
+                    std::string("  "), obfuscated_card_digits});
+  std::vector<std::vector<Suggestion::Text>> network_last_four_and_exp_labels =
+      std::vector<std::vector<Suggestion::Text>>{
+          {Suggestion::Text(base::UTF8ToUTF16(network_and_last_four)),
+           Suggestion::Text(u"•"),
+           Suggestion::Text(base::UTF8ToUTF16(expiration_date_label))}};
   if (type == CREDIT_CARD_NUMBER) {
+    if (ShouldUseNewFopDisplay()) {
+      if (!nickname.empty()) {
+        return Suggestion(
+            /*main_text=*/nickname,
+            /*labels=*/network_last_four_and_exp_labels, icon,
+            SuggestionType::kCreditCardEntry);
+      } else {
+        std::vector<std::string> minor_texts = {kEllipsisDotSeparator,
+                                                expiration_date_label};
+        return Suggestion(
+            /*main_text=*/network_and_last_four,
+            /*minor_text_labels=*/minor_texts,
+            /*label=*/"", icon, SuggestionType::kCreditCardEntry);
+      }
+    }
     if (ShouldSplitCardNameAndLastFourDigitsForMetadata()) {
       std::vector<std::string> minor_text = {obfuscated_card_digits};
       return Suggestion(
-          /*main_text=*/network_or_nickname, minor_text,
+          /*main_text=*/network_or_nickname,
+          /*minor_text_labels=*/minor_text,
           /*label=*/expiration_date_label, icon,
           SuggestionType::kCreditCardEntry);
     } else {
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-      // We use a longer label on desktop platforms.
-      expiration_date_label =
-          std::string("Expires on ") + expiration_date_label;
+      if (!ShouldUseNewFopDisplay()) {
+        // We use a longer label on desktop platforms.
+        expiration_date_label =
+            std::string("Expires on ") + expiration_date_label;
+      }
 #endif
       return Suggestion(
           /*main_text=*/base::StrCat(
@@ -286,6 +334,8 @@ Suggestion GenerateSuggestionFromCardDetails(
       // The label is formatted as either "••••1234" or "••1234".
       labels.push_back(
           {Suggestion::Text(base::UTF8ToUTF16(obfuscated_card_digits))});
+    } else if (ShouldUseNewFopDisplay()) {
+      labels = network_last_four_and_exp_labels;
     } else if (ShouldSplitCardNameAndLastFourDigitsForMetadata()) {
       // The label is formatted as "Product Description/Nickname/Network
       // ••••1234".
@@ -882,7 +932,7 @@ class MockAutofillDriver : public TestAutofillDriver {
               (override));
   MOCK_METHOD(void,
               SendTypePredictionsToRenderer,
-              ((base::span<const raw_ptr<FormStructure, VectorExperimental>>)),
+              ((const FormStructure&)),
               (override));
 };
 
@@ -1169,15 +1219,13 @@ class BrowserAutofillManagerTest : public testing::Test {
         AutofillSuggestionTriggerSource::kTextFieldDidReceiveKeyDown);
     if (const AutofillProfile* profile =
             personal_data().address_data_manager().GetProfileByGUID(guid)) {
-      manager().FillOrPreviewProfileForm(mojom::ActionPersistence::kFill, form,
-                                         field.global_id(), *profile,
-                                         trigger_source);
+      manager().FillOrPreviewForm(mojom::ActionPersistence::kFill, form,
+                                  field.global_id(), profile, trigger_source);
     } else if (const CreditCard* card =
                    personal_data().payments_data_manager().GetCreditCardByGUID(
                        guid)) {
-      manager().FillOrPreviewCreditCardForm(mojom::ActionPersistence::kFill,
-                                            form, field.global_id(), *card,
-                                            trigger_source);
+      manager().FillOrPreviewForm(mojom::ActionPersistence::kFill, form,
+                                  field.global_id(), card, trigger_source);
     }
   }
 
@@ -1268,9 +1316,9 @@ class BrowserAutofillManagerTest : public testing::Test {
     card.SetNetworkForMaskedCard(kVisaCard);
 
     EXPECT_CALL(driver(), ApplyFormAction).Times(AtLeast(1));
-    manager().FillOrPreviewCreditCardForm(mojom::ActionPersistence::kFill,
-                                          *form, form->fields()[0].global_id(),
-                                          card, AutofillTriggerSource::kPopup);
+    manager().FillOrPreviewForm(mojom::ActionPersistence::kFill, *form,
+                                form->fields()[0].global_id(), &card,
+                                AutofillTriggerSource::kPopup);
   }
 
   void OnDidGetRealPan(
@@ -1688,9 +1736,9 @@ TEST_F(BrowserAutofillManagerTest,
   external_delegate()->CheckSuggestions(
       form.fields()[0].global_id(),
       {Suggestion("Charles", std::vector<std::vector<Suggestion::Text>>{},
-                  Suggestion::Icon::kNoIcon, SuggestionType::kAddressEntry),
+                  Suggestion::Icon::kAccount, SuggestionType::kAddressEntry),
        Suggestion("Elvis", std::vector<std::vector<Suggestion::Text>>{},
-                  Suggestion::Icon::kNoIcon, SuggestionType::kAddressEntry),
+                  Suggestion::Icon::kAccount, SuggestionType::kAddressEntry),
        CreateSeparator(), CreateManageAddressesSuggestion()});
 
   // Check that there are no suggestions for the field without the autocomplete
@@ -1847,25 +1895,15 @@ TEST_F(BrowserAutofillManagerTest,
   autofill_field->set_autofilled_type(autofill_field->Type().GetStorableType());
 
   OnAskForValuesToFill(form, firstname_field);
-#if !BUILDFLAG(IS_IOS)
   // Test that we sent the right values to the external delegate.
   external_delegate()->CheckSuggestions(
       firstname_field.global_id(),
-      {Suggestion("Charles", "", Suggestion::Icon::kNoIcon,
+      {Suggestion("Charles", "", Suggestion::Icon::kAccount,
                   SuggestionType::kAddressFieldByFieldFilling),
-       Suggestion("Elvis", "", Suggestion::Icon::kNoIcon,
+       Suggestion("Elvis", "", Suggestion::Icon::kAccount,
                   SuggestionType::kAddressFieldByFieldFilling),
        CreateSeparator(), CreateUndoOrClearFormSuggestion(),
        CreateManageAddressesSuggestion()});
-#else
-  // Test that we sent the right values to the external delegate.
-  external_delegate()->CheckSuggestions(
-      firstname_field.global_id(),
-      {Suggestion("Elvis", "3734 Elvis Presley Blvd.", kAddressEntryIcon,
-                  SuggestionType::kAddressEntry),
-       CreateSeparator(), CreateUndoOrClearFormSuggestion(),
-       CreateManageAddressesSuggestion()});
-#endif  // !BUILDFLAG(IS_IOS)
 }
 
 // Test that we return no suggestions when the form has no relevant fields.
@@ -1974,11 +2012,76 @@ TEST_F(BrowserAutofillManagerTest,
                                         {suggestions[0], suggestions[1]});
 }
 
+class BrowserAutofillManagerTestValuables : public BrowserAutofillManagerTest {
+ public:
+  void SetUp() override {
+    BrowserAutofillManagerTest::SetUp();
+    std::unique_ptr<ValuablesTable> valuables_table =
+        std::make_unique<ValuablesTable>();
+    valuables_table_ = valuables_table.get();
+
+    web_data_service_helper_ =
+        std::make_unique<AutofillWebDataServiceTestHelper>(
+            std::move(valuables_table));
+    client().set_valuables_data_manager(std::make_unique<ValuablesDataManager>(
+        web_data_service_helper_->autofill_webdata_service(),
+        /*image_fetcher=*/nullptr));
+    web_data_service_helper_->WaitUntilIdle();
+  }
+
+  void SetLoyaltyCards(const std::vector<LoyaltyCard>& loyalty_cards) {
+    valuables_table_.get()->SetLoyaltyCards(loyalty_cards);
+    test_api(valuables_data()).LoadLoyaltyCards();
+    web_data_service_helper_->WaitUntilIdle();
+  }
+
+  ValuablesDataManager& valuables_data() {
+    return *client().GetValuablesDataManager();
+  }
+
+ private:
+  std::unique_ptr<AutofillWebDataServiceTestHelper> web_data_service_helper_;
+  // Owned by `web_data_service_helper_`.
+  raw_ptr<ValuablesTable> valuables_table_;
+};
+
+TEST_F(BrowserAutofillManagerTestValuables, GetSuggestions_LoyaltyCards) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      {syncer::kSyncAutofillLoyaltyCard,
+       features::kAutofillEnableLoyaltyCardsFilling},
+      {});
+
+  SetLoyaltyCards({test::CreateLoyaltyCard()});
+
+  FormData form =
+      test::GetFormData({.fields = {{.role = LOYALTY_MEMBERSHIP_ID}}});
+
+  FormsSeen({form});
+  OnAskForValuesToFill(form, form.fields()[0]);
+
+  external_delegate()->CheckSuggestions(
+      form.fields()[0].global_id(),
+      {Suggestion("1234", "Deutsche Bahn", Suggestion::Icon::kNoIcon,
+                  SuggestionType::kLoyaltyCardEntry),
+       CreateSeparator(),
+       Suggestion("Manage loyalty cards...", "", Suggestion::Icon::kSettings,
+                  SuggestionType::kManageLoyaltyCard)});
+}
+
 class BrowserAutofillManagerTestForMetadataCardSuggestions
     : public BrowserAutofillManagerTest,
       public testing::WithParamInterface<bool> {
  public:
-  BrowserAutofillManagerTestForMetadataCardSuggestions()  = default;
+  BrowserAutofillManagerTestForMetadataCardSuggestions() {
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+    feature_flags_.InitAndEnableFeature(
+        features::kAutofillEnableNewFopDisplayDesktop);
+#endif
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_flags_;
 };
 
 INSTANTIATE_TEST_SUITE_P(All,
@@ -2656,20 +2759,16 @@ TEST_F(BrowserAutofillManagerTest,
   const FormFieldData& card_number_field = form.fields()[1];
   ASSERT_EQ(card_number_field.name(), u"cardnumber");
 
-  // Set up `BnplManager` for testing.
-  MockBnplManager& bnpl_manager_ =
-      payments_client().CreateOrGetMockBnplManager();
-
   // Verify that the amount extraction is triggered.
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS)
   EXPECT_CALL(amount_extraction_manager(), TriggerCheckoutAmountExtraction)
       .Times(1);
-  EXPECT_CALL(bnpl_manager_, NotifyOfSuggestionGeneration).Times(1);
+  EXPECT_CALL(*manager().GetPaymentsBnplManager(), NotifyOfSuggestionGeneration)
+      .Times(1);
 #else
   EXPECT_CALL(amount_extraction_manager(), TriggerCheckoutAmountExtraction)
       .Times(0);
-  EXPECT_CALL(bnpl_manager_, NotifyOfSuggestionGeneration).Times(0);
 #endif
 
   OnAskForValuesToFill(form, card_number_field);
@@ -2696,14 +2795,14 @@ TEST_F(BrowserAutofillManagerTest,
   FormData form = CreateTestAddressFormData();
   FormsSeen({form});
 
-  // Set up `BnplManager` for testing.
-  MockBnplManager& bnpl_manager_ =
-      payments_client().CreateOrGetMockBnplManager();
-
   // Verify that the amount extraction is not triggered.
   EXPECT_CALL(amount_extraction_manager(), TriggerCheckoutAmountExtraction)
       .Times(0);
-  EXPECT_CALL(bnpl_manager_, NotifyOfSuggestionGeneration).Times(0);
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
+  EXPECT_CALL(*manager().GetPaymentsBnplManager(), NotifyOfSuggestionGeneration)
+      .Times(0);
+#endif
 
   OnAskForValuesToFill(form, form.fields()[0]);
 
@@ -2730,10 +2829,6 @@ TEST_F(BrowserAutofillManagerTest,
       CreateTestCreditCardFormData(/*is_https=*/true, /*use_month_type=*/false);
   FormsSeen({form});
 
-  // Set up `BnplManager` for testing.
-  MockBnplManager& bnpl_manager_ =
-      payments_client().CreateOrGetMockBnplManager();
-
   // Remove all credit cards under testing profile so that there is no
   // suggestion is generated.
   personal_data().test_payments_data_manager().ClearAllLocalData();
@@ -2741,7 +2836,11 @@ TEST_F(BrowserAutofillManagerTest,
   // Verify that the amount extraction is not triggered.
   EXPECT_CALL(amount_extraction_manager(), TriggerCheckoutAmountExtraction)
       .Times(0);
-  EXPECT_CALL(bnpl_manager_, NotifyOfSuggestionGeneration).Times(0);
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
+  EXPECT_CALL(*manager().GetPaymentsBnplManager(), NotifyOfSuggestionGeneration)
+      .Times(0);
+#endif
 
   OnAskForValuesToFill(form, form.fields()[0]);
 
@@ -2768,10 +2867,6 @@ TEST_F(BrowserAutofillManagerTest,
       CreateTestCreditCardFormData(/*is_https=*/true, /*use_month_type=*/false);
   FormsSeen({form});
 
-  // Set up `BnplManager` for testing.
-  MockBnplManager& bnpl_manager_ =
-      payments_client().CreateOrGetMockBnplManager();
-
   // Disable Autofill.
   client().SetAutofillProfileEnabled(false);
   client().SetAutofillPaymentMethodsEnabled(false);
@@ -2779,7 +2874,11 @@ TEST_F(BrowserAutofillManagerTest,
   // Verify that the amount extraction is not triggered.
   EXPECT_CALL(amount_extraction_manager(), TriggerCheckoutAmountExtraction)
       .Times(0);
-  EXPECT_CALL(bnpl_manager_, NotifyOfSuggestionGeneration).Times(0);
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
+  EXPECT_CALL(*manager().GetPaymentsBnplManager(), NotifyOfSuggestionGeneration)
+      .Times(0);
+#endif
 
   OnAskForValuesToFill(form, form.fields()[0]);
 
@@ -3044,25 +3143,15 @@ TEST_F(BrowserAutofillManagerTest, GetFieldSuggestionsWithDuplicateValues) {
   autofill_field->set_autofilled_type(autofill_field->Type().GetStorableType());
   field.set_value(u"Elvis");
   OnAskForValuesToFill(form, field);
-#if !BUILDFLAG(IS_IOS)
   // Test that we sent the right values to the external delegate.
   external_delegate()->CheckSuggestions(
       field.global_id(),
-      {Suggestion("Elvis", "", Suggestion::Icon::kNoIcon,
+      {Suggestion("Elvis", "", Suggestion::Icon::kAccount,
                   SuggestionType::kAddressFieldByFieldFilling),
-       Suggestion("Charles", "", Suggestion::Icon::kNoIcon,
+       Suggestion("Charles", "", Suggestion::Icon::kAccount,
                   SuggestionType::kAddressFieldByFieldFilling),
        CreateSeparator(), CreateUndoOrClearFormSuggestion(),
        CreateManageAddressesSuggestion()});
-#else
-  // Test that we sent the right values to the external delegate.
-  external_delegate()->CheckSuggestions(
-      field.global_id(),
-      {Suggestion("Elvis", "3734 Elvis Presley Blvd.", kAddressEntryIcon,
-                  SuggestionType::kAddressEntry),
-       CreateSeparator(), CreateUndoOrClearFormSuggestion(),
-       CreateManageAddressesSuggestion()});
-#endif  // !BUILDFLAG(IS_IOS)
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
 
@@ -3139,7 +3228,7 @@ TEST_F(BrowserAutofillManagerTest, GetProfileSuggestions_FieldSwapping) {
   external_delegate()->CheckSuggestions(
       form.fields()[0].global_id(),
       {Suggestion("John H. Doe", std::vector<std::vector<Suggestion::Text>>{},
-                  Suggestion::Icon::kNoIcon,
+                  Suggestion::Icon::kAccount,
                   SuggestionType::kAddressFieldByFieldFilling),
        CreateSeparator(), CreateUndoOrClearFormSuggestion(),
        CreateManageAddressesSuggestion()});
@@ -3193,9 +3282,9 @@ TEST_F(BrowserAutofillManagerTest,
   FormData form = CreateTestCreditCardFormData(/*is_https=*/true,
                                                /*use_month_type=*/false);
   FormsSeen({form});
-  manager().FillOrPreviewCreditCardForm(
-      mojom::ActionPersistence::kFill, form, form.fields().front().global_id(),
-      local_card, AutofillTriggerSource::kPopup);
+  manager().FillOrPreviewForm(mojom::ActionPersistence::kFill, form,
+                              form.fields().front().global_id(), &local_card,
+                              AutofillTriggerSource::kPopup);
   EXPECT_THAT(test_api(form_data_importer()).fetched_card_instrument_id(),
               testing::Optional(local_card.instrument_id()));
 }
@@ -3210,9 +3299,9 @@ TEST_F(BrowserAutofillManagerTest,
   FormData form = CreateTestCreditCardFormData(/*is_https=*/true,
                                                /*use_month_type=*/false);
   FormsSeen({form});
-  manager().FillOrPreviewCreditCardForm(
-      mojom::ActionPersistence::kFill, form, form.fields().front().global_id(),
-      server_card, AutofillTriggerSource::kPopup);
+  manager().FillOrPreviewForm(mojom::ActionPersistence::kFill, form,
+                              form.fields().front().global_id(), &server_card,
+                              AutofillTriggerSource::kPopup);
   EXPECT_THAT(test_api(form_data_importer()).fetched_card_instrument_id(),
               testing::Optional(server_card.instrument_id()));
 }
@@ -3236,21 +3325,22 @@ TEST_F(BrowserAutofillManagerTest,
   FormData form = CreateTestCreditCardFormData(/*is_https=*/true,
                                                /*use_month_type=*/false);
   FormsSeen({form});
-  manager().FillOrPreviewCreditCardForm(
-      mojom::ActionPersistence::kFill, form, form.fields().front().global_id(),
-      filled_card, AutofillTriggerSource::kPopup);
+  manager().FillOrPreviewForm(mojom::ActionPersistence::kFill, form,
+                              form.fields().front().global_id(), &filled_card,
+                              AutofillTriggerSource::kPopup);
   EXPECT_THAT(test_api(form_data_importer()).fetched_card_instrument_id(),
               testing::Optional(filled_card.instrument_id()));
 }
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS)
-TEST_F(BrowserAutofillManagerTest, FillOrPreviewCreditCardForm_Bnpl) {
+TEST_F(BrowserAutofillManagerTest, FillOrPreviewForm_CreditCard_Bnpl) {
   base::test::ScopedFeatureList scoped_feature_list(
       features::kAutofillEnableBuyNowPayLaterSyncing);
 
   CreditCard bnpl_virtual_card = test::GetVirtualCard();
-  bnpl_virtual_card.set_issuer_id(kBnplAffirmIssuerId);
+  bnpl_virtual_card.set_issuer_id(
+      autofill::ConvertToBnplIssuerIdString(BnplIssuer::IssuerId::kBnplAffirm));
   bnpl_virtual_card.set_is_bnpl_card(/*is_bnpl_card=*/true);
 
   TestPaymentsDataManager& test_paydm = static_cast<TestPaymentsDataManager&>(
@@ -3275,9 +3365,9 @@ TEST_F(BrowserAutofillManagerTest, FillOrPreviewCreditCardForm_Bnpl) {
   FormData form = CreateTestCreditCardFormData(/*is_https=*/true,
                                                /*use_month_type=*/false);
   FormsSeen({form});
-  manager().FillOrPreviewCreditCardForm(
+  manager().FillOrPreviewForm(
       mojom::ActionPersistence::kFill, form, form.fields().front().global_id(),
-      bnpl_virtual_card, AutofillTriggerSource::kPopup);
+      &bnpl_virtual_card, AutofillTriggerSource::kPopup);
 }
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS)
@@ -3303,9 +3393,10 @@ TEST_F(BrowserAutofillManagerTest,
   FormData form = CreateTestCreditCardFormData(/*is_https=*/true,
                                                /*use_month_type=*/false);
   FormsSeen({form});
-  manager().FillOrPreviewCreditCardForm(
-      mojom::ActionPersistence::kFill, form, form.fields().front().global_id(),
-      test::GetMaskedServerCard(), AutofillTriggerSource::kPopup);
+  CreditCard card = test::GetMaskedServerCard();
+  manager().FillOrPreviewForm(mojom::ActionPersistence::kFill, form,
+                              form.fields().front().global_id(), &card,
+                              AutofillTriggerSource::kPopup);
   EXPECT_THAT(test_api(form_data_importer()).fetched_card_instrument_id(),
               testing::Optional(filled_card.instrument_id()));
 }
@@ -3325,7 +3416,8 @@ TEST_F(BrowserAutofillManagerTest,
       features::kAutofillEnableBuyNowPayLaterSyncing);
   BnplIssuer issuer = test::GetTestLinkedBnplIssuer();
   CreditCard credit_card = test::GetVirtualCard();
-  credit_card.set_issuer_id(issuer.issuer_id());
+  credit_card.set_issuer_id(
+      autofill::ConvertToBnplIssuerIdString(issuer.issuer_id()));
   credit_card.set_is_bnpl_card(/*is_bnpl_card=*/true);
   test_api(client().GetPersonalDataManager().payments_data_manager())
       .AddBnplIssuer(issuer);
@@ -3335,9 +3427,9 @@ TEST_F(BrowserAutofillManagerTest,
   FormData form = CreateTestCreditCardFormData(/*is_https=*/true,
                                                /*use_month_type=*/false);
   FormsSeen({form});
-  manager().FillOrPreviewCreditCardForm(
-      mojom::ActionPersistence::kFill, form, form.fields().front().global_id(),
-      credit_card, AutofillTriggerSource::kPopup);
+  manager().FillOrPreviewForm(mojom::ActionPersistence::kFill, form,
+                              form.fields().front().global_id(), &credit_card,
+                              AutofillTriggerSource::kPopup);
 }
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS)
@@ -6908,8 +7000,7 @@ TEST_F(BrowserAutofillManagerTest_AutofillAi,
 // Tests that an Autofill profile is not imported into the address data manager
 // when the submitted form was imported by AutofillAI.
 TEST_F(BrowserAutofillManagerTest_AutofillAi,
-       ProfileNotImportedOnSuccessfulUserAnnotationsImport) {
-  using optimization_guide::proto::UserAnnotationsEntry;
+       ProfileNotImportedOnSuccessfulAutofillAiImport) {
   TestAddressDataManager& adm = personal_data().test_address_data_manager();
   FormData form = CreateTestAddressFormData();
   FormsSeen({form});
@@ -6935,7 +7026,7 @@ TEST_F(BrowserAutofillManagerTest_AutofillAi,
 // Tests that an Autofill profile is imported into the address data manager when
 // the submitted form was not imported by AutofillAI.
 TEST_F(BrowserAutofillManagerTest_AutofillAi,
-       ProfileImportedOnFailedUserAnnotationsImport) {
+       ProfileImportedOnFailedAutofillAiImport) {
   TestAddressDataManager& adm = personal_data().test_address_data_manager();
   FormData form = CreateTestAddressFormData();
   FormsSeen({form});
@@ -7325,7 +7416,12 @@ class BrowserAutofillManagerTestForSharingNickname
   BrowserAutofillManagerTestForSharingNickname()
       : local_nickname_(GetParam().local_nickname),
         server_nickname_(GetParam().server_nickname),
-        expected_nickname_(GetParam().expected_nickname) {}
+        expected_nickname_(GetParam().expected_nickname) {
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+    feature_flags_.InitAndEnableFeature(
+        features::kAutofillEnableNewFopDisplayDesktop);
+#endif
+  }
 
   CreditCard GetLocalCard() {
     CreditCard local_card("287151C8-6AB1-487C-9095-28E80BE5DA15",
@@ -7357,7 +7453,7 @@ class BrowserAutofillManagerTestForSharingNickname
     return masked_server_card;
   }
 
-  base::test::ScopedFeatureList card_metadata_flags_;
+  base::test::ScopedFeatureList feature_flags_;
   std::string local_nickname_;
   std::string server_nickname_;
   std::string expected_nickname_;
@@ -8005,6 +8101,69 @@ TEST_F(BrowserAutofillManagerPlusAddressTest,
                   EqualsSuggestion(SuggestionType::kAddressEntry),
                   EqualsSuggestion(SuggestionType::kSeparator),
                   EqualsSuggestion(SuggestionType::kManageAddress)));
+}
+
+class BrowserAutofillManagerIdentityCredentialTest
+    : public BrowserAutofillManagerTest {
+ protected:
+  void SetUp() override {
+    BrowserAutofillManagerTest::SetUp();
+    auto identity_credential_delegate =
+        std::make_unique<NiceMock<MockIdentityCredentialDelegate>>();
+    client().set_identity_credential_delegate(
+        std::move(identity_credential_delegate));
+  }
+
+  MockIdentityCredentialDelegate& identity_credential_delegate() {
+    return static_cast<MockIdentityCredentialDelegate&>(
+        *client().GetIdentityCredentialDelegate());
+  }
+};
+
+// Tests that verified fields are shown above unverified fields.
+TEST_F(BrowserAutofillManagerIdentityCredentialTest,
+       CreateVerifiedEmailSuggestionShownBeforeAddressSuggestions) {
+  EXPECT_CALL(identity_credential_delegate(), GetVerifiedAutofillSuggestions)
+      .WillOnce(testing::WithArg<0>([](const FieldType& field_type) {
+        std::vector<Suggestion> suggestions = {
+            Suggestion(SuggestionType::kIdentityCredential)};
+        return suggestions;
+      }));
+
+  // Set up our form data. Notably, the first field is an email address
+  // with webidentity.
+  FormData form = test::GetFormData(
+      {.fields = {{.role = EMAIL_ADDRESS,
+                   .autocomplete_attribute = "email webidentity"}}});
+  FormsSeen({form});
+  // Check that the plus address suggestion is offered together with address
+  // suggestions.
+  OnAskForValuesToFill(form, form.fields()[0]);
+  EXPECT_TRUE(external_delegate()->on_suggestions_returned_seen());
+  EXPECT_THAT(external_delegate()->suggestions(),
+              ElementsAre(EqualsSuggestion(SuggestionType::kIdentityCredential),
+                          EqualsSuggestion(SuggestionType::kAddressEntry),
+                          EqualsSuggestion(SuggestionType::kAddressEntry),
+                          EqualsSuggestion(SuggestionType::kSeparator),
+                          EqualsSuggestion(SuggestionType::kManageAddress)));
+}
+
+// Tests that verified fields are not shown with the email field alone.
+TEST_F(BrowserAutofillManagerIdentityCredentialTest,
+       EmailFieldAloneDoesNotTriggerIdentityCredentialSuggestion) {
+  EXPECT_CALL(identity_credential_delegate(), GetVerifiedAutofillSuggestions)
+      .Times(0);
+
+  // Set up our form data. Notably, the first field is an email address
+  // without webidentity.
+  FormData form = test::GetFormData(
+      {.fields = {{.role = EMAIL_ADDRESS, .autocomplete_attribute = "email"}}});
+  FormsSeen({form});
+  OnAskForValuesToFill(form, form.fields()[0]);
+  EXPECT_TRUE(external_delegate()->on_suggestions_returned_seen());
+  EXPECT_THAT(
+      external_delegate()->suggestions(),
+      Not(Contains(EqualsSuggestion(SuggestionType::kIdentityCredential))));
 }
 
 // Tests that plus address suggestions are queried and shown for email fields

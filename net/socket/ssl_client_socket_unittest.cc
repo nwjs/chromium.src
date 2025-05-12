@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <string_view>
 #include <tuple>
 #include <utility>
@@ -584,14 +585,6 @@ class DeleteSocketCallback : public TestCompletionCallbackBase {
   }
 
   raw_ptr<StreamSocket, DanglingUntriaged> socket_;
-};
-
-class MockRequireCTDelegate : public TransportSecurityState::RequireCTDelegate {
- public:
-  MOCK_METHOD3(IsCTRequiredForHost,
-               CTRequirementLevel(std::string_view host,
-                                  const X509Certificate* chain,
-                                  const HashValueVector& hashes));
 };
 
 class MockSCTAuditingDelegate : public SCTAuditingDelegate {
@@ -1481,23 +1474,47 @@ TEST_P(SSLClientSocketVersionTest, ConnectMismatched) {
 }
 
 // Tests that certificates parsable by SSLClientSocket's internal SSL
-// implementation, but not X509Certificate are treated as fatal connection
-// errors. This is a regression test for https://crbug.com/91341.
-TEST_P(SSLClientSocketVersionTest, ConnectBadValidity) {
-  ASSERT_TRUE(StartEmbeddedTestServer(EmbeddedTestServer::CERT_BAD_VALIDITY,
-                                      GetServerConfig()));
-  cert_verifier_->set_default_result(ERR_CERT_DATE_INVALID);
+// implementation, but not parsable by X509Certificate are treated as fatal
+// connection errors. This is a regression test for https://crbug.com/91341.
+TEST_P(SSLClientSocketVersionTest, ConnectInvalidCert) {
+  EmbeddedTestServer::ServerCertificateConfig cert_config;
+  // Set the leaf certificate subject field to an invalid Name. The subject
+  // field isn't parsed by the SSL implementation, so this only fails when
+  // trying to construct an X509Certificate for the leaf.
+  // SEQUENCE { NULL }
+  cert_config.subject_tlv = {0x30, 0x01, 0x05};
+
+  ASSERT_TRUE(StartEmbeddedTestServer(cert_config, GetServerConfig()));
 
   SSLConfig ssl_config;
   int rv;
   ASSERT_TRUE(CreateAndConnectSSLClientSocket(ssl_config, &rv));
-  EXPECT_THAT(rv, IsError(ERR_CERT_DATE_INVALID));
+  EXPECT_THAT(rv, IsError(ERR_SSL_SERVER_CERT_BAD_FORMAT));
 }
 
-// Ignoring the certificate error from an invalid certificate should
+// If the certificate could not be parsed as an X509Certificate, overriding the
+// error is not possible.
+TEST_P(SSLClientSocketVersionTest, ConnectInvalidCertCannotIgnoreCertErrors) {
+  EmbeddedTestServer::ServerCertificateConfig cert_config;
+  // Set the leaf certificate subject field to an invalid Name. The subject
+  // field isn't parsed by the SSL implementation, so this only fails when
+  // trying to construct an X509Certificate for the leaf.
+  // SEQUENCE { NULL }
+  cert_config.subject_tlv = {0x30, 0x01, 0x05};
+
+  ASSERT_TRUE(StartEmbeddedTestServer(cert_config, GetServerConfig()));
+
+  SSLConfig ssl_config;
+  ssl_config.ignore_certificate_errors = true;
+  int rv;
+  ASSERT_TRUE(CreateAndConnectSSLClientSocket(ssl_config, &rv));
+  EXPECT_THAT(rv, IsError(ERR_SSL_SERVER_CERT_BAD_FORMAT));
+}
+
+// Ignoring the certificate error from an untrusted certificate should
 // allow a complete connection.
-TEST_P(SSLClientSocketVersionTest, ConnectBadValidityIgnoreCertErrors) {
-  ASSERT_TRUE(StartEmbeddedTestServer(EmbeddedTestServer::CERT_BAD_VALIDITY,
+TEST_P(SSLClientSocketVersionTest, ConnectUntrustedCertIgnoreCertErrors) {
+  ASSERT_TRUE(StartEmbeddedTestServer(EmbeddedTestServer::CERT_EXPIRED,
                                       GetServerConfig()));
   cert_verifier_->set_default_result(ERR_CERT_DATE_INVALID);
 
@@ -3161,6 +3178,73 @@ TEST_P(SSLClientSocketVersionTest,
   sock_.reset();
 }
 
+// Tests that the session cache is sharded by session usage and proxy chain.
+TEST_P(SSLClientSocketVersionTest,
+       SessionResumptionDifferentSessionUsageAndProxyChain) {
+  const SchemefulSite kSiteA(GURL("https://a.test"));
+
+  ASSERT_TRUE(
+      StartEmbeddedTestServer(EmbeddedTestServer::CERT_OK, GetServerConfig()));
+
+  // First, perform a full handshake.
+  SSLConfig ssl_config;
+  ssl_config.session_usage = SessionUsage::kDestination;
+  int rv;
+  ASSERT_TRUE(CreateAndConnectSSLClientSocket(ssl_config, &rv));
+  ASSERT_THAT(rv, IsOk());
+  SSLInfo ssl_info;
+  ASSERT_TRUE(sock_->GetSSLInfo(&ssl_info));
+  EXPECT_EQ(SSLInfo::HANDSHAKE_FULL, ssl_info.handshake_type);
+
+  // TLS 1.2 with False Start and TLS 1.3 cause the ticket to arrive later, so
+  // use the socket to ensure the session ticket has been picked up. Do this for
+  // every connection to avoid problems with TLS 1.3 single-use tickets.
+  EXPECT_THAT(MakeHTTPRequest(sock_.get()), IsOk());
+
+  // The next connection should resume.
+  ASSERT_TRUE(CreateAndConnectSSLClientSocket(ssl_config, &rv));
+  ASSERT_THAT(rv, IsOk());
+  ASSERT_TRUE(sock_->GetSSLInfo(&ssl_info));
+  EXPECT_EQ(SSLInfo::HANDSHAKE_RESUME, ssl_info.handshake_type);
+  EXPECT_THAT(MakeHTTPRequest(sock_.get()), IsOk());
+  sock_.reset();
+
+  // Using a different SessionUsage uses a different session cache
+  // key.
+  ssl_config.session_usage = SessionUsage::kProxy;
+  ASSERT_TRUE(CreateAndConnectSSLClientSocket(ssl_config, &rv));
+  ASSERT_THAT(rv, IsOk());
+  ASSERT_TRUE(sock_->GetSSLInfo(&ssl_info));
+  EXPECT_EQ(SSLInfo::HANDSHAKE_FULL, ssl_info.handshake_type);
+  EXPECT_THAT(MakeHTTPRequest(sock_.get()), IsOk());
+  sock_.reset();
+
+  // We, however, can resume under that newly-established session.
+  ASSERT_TRUE(CreateAndConnectSSLClientSocket(ssl_config, &rv));
+  ASSERT_THAT(rv, IsOk());
+  ASSERT_TRUE(sock_->GetSSLInfo(&ssl_info));
+  EXPECT_EQ(SSLInfo::HANDSHAKE_RESUME, ssl_info.handshake_type);
+  EXPECT_THAT(MakeHTTPRequest(sock_.get()), IsOk());
+  sock_.reset();
+
+  // Repeat with a different proxy chain
+  ssl_config.proxy_chain = ProxyChain::FromSchemeHostAndPort(
+      ProxyServer::SCHEME_HTTPS, "proxy", 8080);
+  ASSERT_TRUE(CreateAndConnectSSLClientSocket(ssl_config, &rv));
+  ASSERT_THAT(rv, IsOk());
+  ASSERT_TRUE(sock_->GetSSLInfo(&ssl_info));
+  EXPECT_EQ(SSLInfo::HANDSHAKE_FULL, ssl_info.handshake_type);
+  EXPECT_THAT(MakeHTTPRequest(sock_.get()), IsOk());
+  sock_.reset();
+
+  ASSERT_TRUE(CreateAndConnectSSLClientSocket(ssl_config, &rv));
+  ASSERT_THAT(rv, IsOk());
+  ASSERT_TRUE(sock_->GetSSLInfo(&ssl_info));
+  EXPECT_EQ(SSLInfo::HANDSHAKE_RESUME, ssl_info.handshake_type);
+  EXPECT_THAT(MakeHTTPRequest(sock_.get()), IsOk());
+  sock_.reset();
+}
+
 // Tests that connections with certificate errors do not add entries to the
 // session cache.
 TEST_P(SSLClientSocketVersionTest, CertificateErrorNoResume) {
@@ -4330,7 +4414,7 @@ TEST_F(SSLClientSocketTest, ClientCertSignatureAlgorithm) {
 HashValueVector MakeHashValueVector(uint8_t value) {
   HashValueVector out;
   HashValue hash(HASH_VALUE_SHA256);
-  memset(hash.data(), value, hash.size());
+  std::ranges::fill(hash.span(), value);
   out.push_back(hash);
   return out;
 }
@@ -4480,47 +4564,6 @@ INSTANTIATE_TEST_SUITE_P(RSAKeyUsageInstantiation,
                          SSLClientSocketKeyUsageTest,
                          Combine(ValuesIn(kKeyUsageTests), Bool()));
 
-// Test that when CT is required (in this case, by the delegate), the
-// absence of CT information is a socket error.
-TEST_P(SSLClientSocketVersionTest, CTIsRequired) {
-  ASSERT_TRUE(
-      StartEmbeddedTestServer(EmbeddedTestServer::CERT_OK, GetServerConfig()));
-  scoped_refptr<X509Certificate> server_cert =
-      embedded_test_server()->GetCertificate();
-
-  // Certificate is trusted and chains to a public root.
-  CertVerifyResult verify_result;
-  verify_result.is_issued_by_known_root = true;
-  verify_result.verified_cert = server_cert;
-  verify_result.public_key_hashes =
-      MakeHashValueVector(kGoodHashValueVectorInput);
-  verify_result.policy_compliance =
-      ct::CTPolicyCompliance::CT_POLICY_NOT_ENOUGH_SCTS;
-  cert_verifier_->AddResultForCert(server_cert.get(), verify_result, OK);
-
-  // Set up CT
-  MockRequireCTDelegate require_ct_delegate;
-  transport_security_state_->SetRequireCTDelegate(&require_ct_delegate);
-  EXPECT_CALL(require_ct_delegate, IsCTRequiredForHost(_, _, _))
-      .WillRepeatedly(Return(TransportSecurityState::RequireCTDelegate::
-                                 CTRequirementLevel::NOT_REQUIRED));
-  EXPECT_CALL(require_ct_delegate,
-              IsCTRequiredForHost(host_port_pair().host(), _, _))
-      .WillRepeatedly(Return(TransportSecurityState::RequireCTDelegate::
-                                 CTRequirementLevel::REQUIRED));
-
-  SSLConfig ssl_config;
-  int rv;
-  ASSERT_TRUE(CreateAndConnectSSLClientSocket(ssl_config, &rv));
-  SSLInfo ssl_info;
-  ASSERT_TRUE(sock_->GetSSLInfo(&ssl_info));
-
-  EXPECT_THAT(rv, IsError(ERR_CERTIFICATE_TRANSPARENCY_REQUIRED));
-  EXPECT_TRUE(ssl_info.cert_status &
-              CERT_STATUS_CERTIFICATE_TRANSPARENCY_REQUIRED);
-  EXPECT_FALSE(sock_->IsConnected());
-}
-
 // Test that when CT is required, setting ignore_certificate_errors
 // ignores errors in CT.
 TEST_P(SSLClientSocketVersionTest, IgnoreCertificateErrorsBypassesRequiredCT) {
@@ -4537,18 +4580,9 @@ TEST_P(SSLClientSocketVersionTest, IgnoreCertificateErrorsBypassesRequiredCT) {
       MakeHashValueVector(kGoodHashValueVectorInput);
   verify_result.policy_compliance =
       ct::CTPolicyCompliance::CT_POLICY_NOT_ENOUGH_SCTS;
-  cert_verifier_->AddResultForCert(server_cert.get(), verify_result, OK);
-
-  // Set up CT
-  MockRequireCTDelegate require_ct_delegate;
-  transport_security_state_->SetRequireCTDelegate(&require_ct_delegate);
-  EXPECT_CALL(require_ct_delegate, IsCTRequiredForHost(_, _, _))
-      .WillRepeatedly(Return(TransportSecurityState::RequireCTDelegate::
-                                 CTRequirementLevel::NOT_REQUIRED));
-  EXPECT_CALL(require_ct_delegate,
-              IsCTRequiredForHost(host_port_pair().host(), _, _))
-      .WillRepeatedly(Return(TransportSecurityState::RequireCTDelegate::
-                                 CTRequirementLevel::REQUIRED));
+  verify_result.cert_status = CERT_STATUS_CERTIFICATE_TRANSPARENCY_REQUIRED;
+  cert_verifier_->AddResultForCert(server_cert.get(), verify_result,
+                                   ERR_CERTIFICATE_TRANSPARENCY_REQUIRED);
 
   SSLConfig ssl_config;
   ssl_config.ignore_certificate_errors = true;
@@ -4583,23 +4617,15 @@ TEST_P(SSLClientSocketVersionTest, PKPMoreImportantThanCT) {
       MakeHashValueVector(kBadHashValueVectorInput);
   verify_result.policy_compliance =
       ct::CTPolicyCompliance::CT_POLICY_NOT_ENOUGH_SCTS;
-  cert_verifier_->AddResultForCert(server_cert.get(), verify_result, OK);
+  verify_result.cert_status = CERT_STATUS_CERTIFICATE_TRANSPARENCY_REQUIRED;
+  cert_verifier_->AddResultForCert(server_cert.get(), verify_result,
+                                   ERR_CERTIFICATE_TRANSPARENCY_REQUIRED);
 
   transport_security_state_->EnableStaticPinsForTesting();
   transport_security_state_->SetPinningListAlwaysTimelyForTesting(true);
   ScopedTransportSecurityStateSource scoped_security_state_source;
 
   const char kCTHost[] = "hsts-hpkp-preloaded.test";
-
-  // Set up CT.
-  MockRequireCTDelegate require_ct_delegate;
-  transport_security_state_->SetRequireCTDelegate(&require_ct_delegate);
-  EXPECT_CALL(require_ct_delegate, IsCTRequiredForHost(_, _, _))
-      .WillRepeatedly(Return(TransportSecurityState::RequireCTDelegate::
-                                 CTRequirementLevel::NOT_REQUIRED));
-  EXPECT_CALL(require_ct_delegate, IsCTRequiredForHost(kCTHost, _, _))
-      .WillRepeatedly(Return(TransportSecurityState::RequireCTDelegate::
-                                 CTRequirementLevel::REQUIRED));
 
   SSLConfig ssl_config;
   int rv;
@@ -4632,13 +4658,6 @@ TEST_P(SSLClientSocketVersionTest, SCTAuditingReportCollected) {
   verify_result.policy_compliance =
       ct::CTPolicyCompliance::CT_POLICY_COMPLIES_VIA_SCTS;
   cert_verifier_->AddResultForCert(server_cert.get(), verify_result, OK);
-
-  // Set up CT and auditing delegate.
-  MockRequireCTDelegate require_ct_delegate;
-  transport_security_state_->SetRequireCTDelegate(&require_ct_delegate);
-  EXPECT_CALL(require_ct_delegate, IsCTRequiredForHost(_, _, _))
-      .WillRepeatedly(Return(TransportSecurityState::RequireCTDelegate::
-                                 CTRequirementLevel::REQUIRED));
 
   MockSCTAuditingDelegate sct_auditing_delegate;
   context_ = std::make_unique<SSLClientContext>(

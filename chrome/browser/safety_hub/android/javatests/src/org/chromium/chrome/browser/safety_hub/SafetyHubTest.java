@@ -47,10 +47,13 @@ import androidx.test.espresso.intent.Intents;
 import androidx.test.espresso.intent.matcher.IntentMatchers;
 import androidx.test.filters.LargeTest;
 import androidx.test.filters.MediumTest;
+import androidx.test.filters.SmallTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 
+import org.chromium.base.test.util.DisabledTest;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -123,7 +126,8 @@ public final class SafetyHubTest {
                         ContentSettingsType.MEDIASTREAM_CAMERA, ContentSettingsType.MEDIASTREAM_MIC
                     },
                     0,
-                    0);
+                    0,
+                    PermissionsRevocationType.UNUSED_PERMISSIONS);
 
     private static final PermissionsData PERMISSIONS_DATA_2 =
             PermissionsData.create(
@@ -135,18 +139,29 @@ public final class SafetyHubTest {
                         ContentSettingsType.BACKGROUND_SYNC
                     },
                     0,
-                    0);
+                    0,
+                    PermissionsRevocationType.UNUSED_PERMISSIONS);
 
     private static final PermissionsData PERMISSIONS_DATA_3 =
             PermissionsData.create(
                     "http://example3.com",
                     new int[] {ContentSettingsType.NOTIFICATIONS, ContentSettingsType.GEOLOCATION},
                     0,
-                    0);
+                    0,
+                    PermissionsRevocationType.UNUSED_PERMISSIONS_AND_ABUSIVE_NOTIFICATIONS);
+    private static final PermissionsData PERMISSIONS_DATA_4 =
+            PermissionsData.create(
+                    "http://example4.com",
+                    new int[] {ContentSettingsType.NOTIFICATIONS},
+                    0,
+                    0,
+                    PermissionsRevocationType.DISRUPTIVE_NOTIFICATION_PERMISSIONS);
     private static final NotificationPermissions NOTIFICATION_PERMISSIONS_1 =
             NotificationPermissions.create("http://example1.com", "*", 3);
     private static final NotificationPermissions NOTIFICATION_PERMISSIONS_2 =
             NotificationPermissions.create("http://example2.com", "*", 8);
+
+    private static final String PREF_NOTIFICATIONS_REVIEW = "notifications_review";
 
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
@@ -220,15 +235,49 @@ public final class SafetyHubTest {
     }
 
     @Test
+    @SmallTest
+    @Features.EnableFeatures(
+            ChromeFeatureList.SAFETY_HUB_DISRUPTIVE_NOTIFICATION_REVOCATION + ":shadow_run/false")
+    public void testFragmentAppearanceDisruptiveRevocation() throws IOException {
+        mSafetyHubFragmentTestRule.startSettingsActivity();
+        SafetyHubExpandablePreference preference =
+                mSafetyHubFragmentTestRule.getFragment().findPreference(PREF_NOTIFICATIONS_REVIEW);
+        Assert.assertFalse(preference.isVisible());
+    }
+
+    @Test
+    @MediumTest
+    @Features.EnableFeatures(
+            ChromeFeatureList.SAFETY_HUB_DISRUPTIVE_NOTIFICATION_REVOCATION + ":shadow_run/true")
+    public void testFragmentAppearanceShadowRun() throws IOException {
+        mSafetyHubFragmentTestRule.startSettingsActivity();
+        SafetyHubExpandablePreference preference =
+                mSafetyHubFragmentTestRule.getFragment().findPreference(PREF_NOTIFICATIONS_REVIEW);
+        Assert.assertTrue(preference.isVisible());
+    }
+
+    @Test
     @LargeTest
     @Feature({"RenderTest", "SafetyHubPermissions"})
     public void testPermissionsSubpageAppearance() throws IOException {
         mUnusedPermissionsBridge.setPermissionsDataForReview(
-                new PermissionsData[] {PERMISSIONS_DATA_1, PERMISSIONS_DATA_2, PERMISSIONS_DATA_3});
+                new PermissionsData[] {PERMISSIONS_DATA_1, PERMISSIONS_DATA_2});
         mPermissionsFragmentTestRule.startSettingsActivity();
         mRenderTestRule.render(
                 getRootViewSanitized(R.string.safety_hub_permissions_page_title),
                 "permissions_subpage");
+    }
+
+    @Test
+    @LargeTest
+    @Feature({"RenderTest", "SafetyHubPermissions"})
+    public void testNotificationPermissionsSubpageAppearance() throws IOException {
+        mUnusedPermissionsBridge.setPermissionsDataForReview(
+                new PermissionsData[] {PERMISSIONS_DATA_3, PERMISSIONS_DATA_4});
+        mPermissionsFragmentTestRule.startSettingsActivity();
+        mRenderTestRule.render(
+                getRootViewSanitized(R.string.safety_hub_permissions_page_title),
+                "notification_permissions_subpage");
     }
 
     @Test
@@ -610,6 +659,7 @@ public final class SafetyHubTest {
     @CommandLineFlags.Add({
         ChromeSwitches.FORCE_UPDATE_MENU_UPDATE_TYPE + "=update_available",
     })
+    @DisabledTest(message = "https://crbug.com/411312866")
     public void testUpdateCheckModule() {
         // TODO(crbug.com/324562205): Move the initialization of the SafetyHubFetchService so
         // that there is no dependency on ChromeTabbedActivity.
@@ -1146,6 +1196,135 @@ public final class SafetyHubTest {
                 safetyHubFragment.getString(R.string.prefs_safe_browsing_no_protection_summary);
         scrollToPreference(withText(safeBrowsingTitle));
         verifyButtonsNextToTextVisibility(safeBrowsingTitle, true);
+
+        clearLocalCompromisedPasswordsCount();
+        setLocalPasswordCheckTimestamp(0);
+    }
+
+    @Test
+    @MediumTest
+    @Policies.Add({@Policies.Item(key = "SafeBrowsingEnabled", string = "false")})
+    @Restriction(GmsCoreVersionRestriction.RESTRICTION_TYPE_VERSION_GE_24W15)
+    @Features.EnableFeatures({
+        ChromeFeatureList.SAFETY_HUB_WEAK_AND_REUSED_PASSWORDS,
+        ChromeFeatureList.SAFETY_HUB_LOCAL_PASSWORDS_MODULE,
+        ChromeFeatureList.SAFETY_HUB_UNIFIED_PASSWORDS_MODULE
+    })
+    public void testUnifiedPasswordsModule_AccountAndLocalCompromisedPasswords() {
+        int accountCompromisedPasswordsCount = 2;
+        int localCompromisedPasswordsCount = 3;
+        setAccountCompromisedPasswordsCount(accountCompromisedPasswordsCount);
+        setLocalCompromisedPasswordsCount(localCompromisedPasswordsCount);
+        setLocalPasswordCheckTimestamp(TimeUtils.currentTimeMillis());
+        addCredentialToAccountStore();
+        addCredentialToProfileStore();
+
+        mSafetyHubFragmentTestRule.startSettingsActivity();
+        SafetyHubFragment safetyHubFragment = mSafetyHubFragmentTestRule.getFragment();
+
+        // Verify that unified passwords module which is in the warning state is expanded by
+        // default.
+        int totalCompromisedPasswordsCount =
+                accountCompromisedPasswordsCount + localCompromisedPasswordsCount;
+        String compromisedPasswordsTitle =
+                safetyHubFragment
+                        .getResources()
+                        .getQuantityString(
+                                R.plurals.safety_hub_passwords_compromised_title,
+                                totalCompromisedPasswordsCount,
+                                totalCompromisedPasswordsCount);
+        scrollToExpandedPreference(compromisedPasswordsTitle);
+        verifyButtonsNextToTextVisibility(compromisedPasswordsTitle, true);
+
+        // Verify the information module is not expanded.
+        String safeBrowsingTitle =
+                safetyHubFragment.getString(R.string.prefs_safe_browsing_no_protection_summary);
+        scrollToPreference(withText(safeBrowsingTitle));
+        verifyButtonsNextToTextVisibility(safeBrowsingTitle, false);
+
+        clearLocalCompromisedPasswordsCount();
+        setLocalPasswordCheckTimestamp(0);
+    }
+
+    @Test
+    @MediumTest
+    @Policies.Add({@Policies.Item(key = "SafeBrowsingEnabled", string = "false")})
+    @Restriction(GmsCoreVersionRestriction.RESTRICTION_TYPE_VERSION_GE_24W15)
+    @Features.EnableFeatures({
+        ChromeFeatureList.SAFETY_HUB_WEAK_AND_REUSED_PASSWORDS,
+        ChromeFeatureList.SAFETY_HUB_LOCAL_PASSWORDS_MODULE,
+        ChromeFeatureList.SAFETY_HUB_UNIFIED_PASSWORDS_MODULE
+    })
+    public void testUnifiedPasswordsModule_AccountCompromisedPasswords() {
+        int accountCompromisedPasswordsCount = 2;
+        setAccountCompromisedPasswordsCount(accountCompromisedPasswordsCount);
+        setLocalCompromisedPasswordsCount(0);
+        setLocalPasswordCheckTimestamp(TimeUtils.currentTimeMillis());
+        addCredentialToAccountStore();
+        addCredentialToProfileStore();
+
+        mSafetyHubFragmentTestRule.startSettingsActivity();
+        SafetyHubFragment safetyHubFragment = mSafetyHubFragmentTestRule.getFragment();
+
+        // Verify that unified passwords module which is in the warning state is expanded by
+        // default.
+        String compromisedPasswordsTitle =
+                safetyHubFragment
+                        .getResources()
+                        .getQuantityString(
+                                R.plurals.safety_hub_account_passwords_compromised_exist,
+                                accountCompromisedPasswordsCount,
+                                accountCompromisedPasswordsCount);
+        scrollToExpandedPreference(compromisedPasswordsTitle);
+        verifyButtonsNextToTextVisibility(compromisedPasswordsTitle, true);
+
+        // Verify the information module is not expanded.
+        String safeBrowsingTitle =
+                safetyHubFragment.getString(R.string.prefs_safe_browsing_no_protection_summary);
+        scrollToPreference(withText(safeBrowsingTitle));
+        verifyButtonsNextToTextVisibility(safeBrowsingTitle, false);
+
+        clearLocalCompromisedPasswordsCount();
+        setLocalPasswordCheckTimestamp(0);
+    }
+
+    @Test
+    @MediumTest
+    @Policies.Add({@Policies.Item(key = "SafeBrowsingEnabled", string = "false")})
+    @Restriction(GmsCoreVersionRestriction.RESTRICTION_TYPE_VERSION_GE_24W15)
+    @Features.EnableFeatures({
+        ChromeFeatureList.SAFETY_HUB_WEAK_AND_REUSED_PASSWORDS,
+        ChromeFeatureList.SAFETY_HUB_LOCAL_PASSWORDS_MODULE,
+        ChromeFeatureList.SAFETY_HUB_UNIFIED_PASSWORDS_MODULE
+    })
+    public void testUnifiedPasswordsModule_LocalCompromisedPasswords() {
+        int localCompromisedPasswordsCount = 3;
+        setAccountCompromisedPasswordsCount(0);
+        setLocalCompromisedPasswordsCount(localCompromisedPasswordsCount);
+        setLocalPasswordCheckTimestamp(TimeUtils.currentTimeMillis());
+        addCredentialToAccountStore();
+        addCredentialToProfileStore();
+
+        mSafetyHubFragmentTestRule.startSettingsActivity();
+        SafetyHubFragment safetyHubFragment = mSafetyHubFragmentTestRule.getFragment();
+
+        // Verify that unified passwords module which is in the warning state is expanded by
+        // default.
+        String compromisedPasswordsTitle =
+                safetyHubFragment
+                        .getResources()
+                        .getQuantityString(
+                                R.plurals.safety_hub_local_passwords_compromised_title,
+                                localCompromisedPasswordsCount,
+                                localCompromisedPasswordsCount);
+        scrollToExpandedPreference(compromisedPasswordsTitle);
+        verifyButtonsNextToTextVisibility(compromisedPasswordsTitle, true);
+
+        // Verify the information module is not expanded.
+        String safeBrowsingTitle =
+                safetyHubFragment.getString(R.string.prefs_safe_browsing_no_protection_summary);
+        scrollToPreference(withText(safeBrowsingTitle));
+        verifyButtonsNextToTextVisibility(safeBrowsingTitle, false);
 
         clearLocalCompromisedPasswordsCount();
         setLocalPasswordCheckTimestamp(0);

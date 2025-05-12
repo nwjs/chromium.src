@@ -98,18 +98,19 @@ class GPUCanvasContext : public ScriptWrappable,
     return false;
   }
 
-  // gpu_presentation_context.idl
+  // gpu_canvas_context.idl {{{
   V8UnionHTMLCanvasElementOrOffscreenCanvas* getHTMLOrOffscreenCanvas() const;
-
   void configure(const GPUCanvasConfiguration* descriptor, ExceptionState&);
   void unconfigure();
   GPUCanvasConfiguration* getConfiguration();
   GPUTexture* getCurrentTexture(ScriptState*, ExceptionState&);
+  // }}} End of WebIDL binding implementation.
 
   // WebGPUSwapBufferProvider::Client implementation
   void OnTextureTransferred() override;
   void InitializeLayer(cc::Layer* layer) override;
   void SetNeedsCompositingUpdate() override;
+  bool IsGPUDeviceDestroyed() override;
 
  private:
   scoped_refptr<WebGPUMailboxTexture> GetFrontBufferMailboxTexture();
@@ -120,18 +121,19 @@ class GPUCanvasContext : public ScriptWrappable,
   void FinalizeFrame(FlushReason) override;
 
   scoped_refptr<StaticBitmapImage> SnapshotInternal(
-      const wgpu::Texture& texture,
-      const gfx::Size& size) const;
+      const wgpu::Texture& texture) const;
 
   bool CopyTextureToResourceProvider(
       const wgpu::Texture& texture,
-      const gfx::Size& size,
       CanvasResourceProvider* resource_provider) const;
 
   void CopyToSwapTexture();
 
   base::WeakPtr<WebGraphicsContext3DProviderWrapper> GetContextProviderWeakPtr()
       const;
+
+  scoped_refptr<StaticBitmapImage> MakeFallbackStaticBitmapImage(
+      V8GPUCanvasAlphaMode::Enum alpha_mode);
 
   Member<GPUDevice> device_;
 

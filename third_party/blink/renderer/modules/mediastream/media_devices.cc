@@ -641,14 +641,7 @@ ScriptPromise<IDLSequence<MediaStream>> MediaDevices::getAllScreensMedia(
     return promise;
   }
 
-  // This API is available either in isolated contexts or, temporarily, on web
-  // pages with strict CSP and trusted types. In isolated contexts, an explicit
-  // check for strict CSP is not required as it enforces a restriction
-  // equivalent to strict CSP (i.e. `script-src self` in combination with
-  // packaging). Since we limit the exposure of the feature through the
-  // [InjectionMitigated] IDL attribute, we can get away with a DCHECK here to
-  // validate that restriction.
-  DCHECK(context->IsIsolatedContext() || context->IsInjectionMitigatedContext());
+  CHECK(context->IsIsolatedContext());
 
   MediaStreamConstraints* constraints = MediaStreamConstraints::Create();
   constraints->setVideo(
@@ -668,8 +661,7 @@ ScriptPromise<MediaStream> MediaDevices::getDisplayMedia(
       std::make_unique<ScopedMediaStreamTracer>("MediaDevices.GetDisplayMedia");
 
   // Using timeout of base::Seconds(12) based on the
-  // Media.MediaDevices.GetDisplayMedia.Latency values. With the earlier value
-  // of base::Seconds(6), we got about 25% of results counted as kTimeout.
+  // Media.MediaDevices.GetDisplayMedia.Latency values.
   auto* resolver = MakeGarbageCollected<
       ScriptPromiseResolverWithTracker<UserMediaRequestResult, MediaStream>>(
       script_state, "Media.MediaDevices.GetDisplayMedia", base::Seconds(12));

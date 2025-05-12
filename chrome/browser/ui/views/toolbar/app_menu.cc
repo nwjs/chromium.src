@@ -1201,8 +1201,7 @@ bool AppMenu::IsCommandEnabled(int command_id) const {
     return true;
   }
 
-  if (features::IsExtensionMenuInRootAppMenu() &&
-      command_id == IDC_EXTENSIONS_SUBMENU) {
+  if (command_id == IDC_EXTENSIONS_SUBMENU) {
     return true;
   }
 
@@ -1264,8 +1263,15 @@ bool AppMenu::GetAccelerator(int command_id,
     return false;
   }
 
-  if (command_id == IDC_CREATE_NEW_TAB_GROUP ||
-      IsTabGroupsCommand(command_id)) {
+  if (command_id == IDC_CREATE_NEW_TAB_GROUP) {
+    if (stg_everything_menu_) {
+      return stg_everything_menu_->GetAccelerator(command_id, accelerator);
+    }
+
+    return false;
+  }
+
+  if (IsTabGroupsCommand(command_id)) {
     return false;
   }
 
