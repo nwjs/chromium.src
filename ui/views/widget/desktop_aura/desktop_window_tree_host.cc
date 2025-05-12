@@ -32,7 +32,7 @@ void DesktopWindowTreeHost::ShowWindowControlsMenu(const gfx::Point& point) {}
 #if defined(OS_WIN)
 void DesktopWindowTreeHost::SetPositionInDIP(const gfx::Point& pos) {
   const gfx::Point pos_in_pixels =
-    display::win::ScreenWin::DIPToScreenPoint(pos);
+    display::win::GetScreenWin()->DIPToScreenPoint(pos);
   AsWindowTreeHost()->SetPositionInPixels(pos_in_pixels);
 }
 #endif

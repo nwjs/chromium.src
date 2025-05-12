@@ -294,7 +294,7 @@ gfx::Rect BrowserFrameViewWin::GetWindowBoundsForClientBounds(
       const int top_inset = GetTopInset(false);
       const int thickness = std::floor(
         FrameTopBorderThicknessPx(false) /
-        display::win::ScreenWin::GetScaleFactorForHWND(hwnd));
+        display::win::GetScreenWin()->GetScaleFactorForHWND(hwnd));
       return gfx::Rect(std::max(0, client_bounds.x()),
         std::max(0, client_bounds.y() - top_inset),
         client_bounds.width() + 2 * thickness, client_bounds.height() + top_inset + thickness);
