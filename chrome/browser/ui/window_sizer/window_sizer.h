@@ -64,7 +64,9 @@ class WindowSizer {
 
   WindowSizer(const WindowSizer&) = delete;
   WindowSizer& operator=(const WindowSizer&) = delete;
-
+  static bool GetSavedWindowBounds(const Browser* browser,
+                                   gfx::Rect* bounds,
+                                   ui::mojom::WindowShowState* show_state);
   // Determines the position and size for a window as it is created as well
   // as the initial state. This function uses several strategies to figure out
   // optimal size and placement, first looking for an existing active window,

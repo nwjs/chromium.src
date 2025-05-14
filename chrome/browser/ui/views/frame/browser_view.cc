@@ -4699,12 +4699,23 @@ void BrowserView::SaveWindowPlacement(const gfx::Rect& bounds,
     }
     saved_bounds.set_size(client_size);
 #endif
-    gfx::Rect client_bounds = gfx::Rect(1000, 1000);
-    gfx::Rect window_bounds =
+    if (show_state == ui::mojom::WindowShowState::kMaximized ||
+        show_state == ui::mojom::WindowShowState::kFullscreen) {
+      // logic with GetWindowBoundsForClientBounds() would return
+      // unexpected insets under maximized windows (0 width). so
+      // we get saved bounds and save only the window state
+      ui::mojom::WindowShowState dummy;
+      WindowSizer::GetSavedWindowBounds(browser_.get(), &saved_bounds,
+                                        &dummy);
+      saved_bounds.set_origin(bounds.origin());
+    } else {
+      gfx::Rect client_bounds = gfx::Rect(1000, 1000);
+      gfx::Rect window_bounds =
           frame_->non_client_view()->GetWindowBoundsForClientBounds(client_bounds);
-    gfx::Insets insets = window_bounds.InsetsFrom(client_bounds);
-    saved_bounds.Inset(insets);
-    saved_bounds.set_origin(bounds.origin());
+      gfx::Insets insets = window_bounds.InsetsFrom(client_bounds);
+      saved_bounds.Inset(insets);
+      saved_bounds.set_origin(bounds.origin());
+    }
   }
   WidgetDelegate::SaveWindowPlacement(saved_bounds, show_state);
   chrome::SaveWindowPlacement(browser_.get(), saved_bounds, show_state);

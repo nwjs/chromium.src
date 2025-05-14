@@ -328,6 +328,13 @@ bool WindowSizer::GetSavedWindowBounds(
   return true;
 }
 
+bool WindowSizer::GetSavedWindowBounds(const Browser* browser,
+                                       gfx::Rect* bounds,
+                                       ui::mojom::WindowShowState* show_state) {
+  WindowSizer sizer(std::make_unique<DefaultStateProvider>(browser), browser);
+  return sizer.GetSavedWindowBounds(bounds, show_state);
+}
+
 gfx::Rect WindowSizer::GetDefaultWindowBounds(
     const display::Display& display) const {
   gfx::Rect work_area = display.work_area();
