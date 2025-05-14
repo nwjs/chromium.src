@@ -4706,7 +4706,7 @@ void BrowserView::SaveWindowPlacement(const gfx::Rect& bounds,
     saved_bounds.Inset(insets);
     saved_bounds.set_origin(bounds.origin());
   }
-  WidgetDelegate::SaveWindowPlacement(bounds, show_state);
+  WidgetDelegate::SaveWindowPlacement(saved_bounds, show_state);
   chrome::SaveWindowPlacement(browser_.get(), saved_bounds, show_state);
   NativeWindowChanged();
 }
