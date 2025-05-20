@@ -18,6 +18,16 @@
 
 namespace blink::features {
 
+BASE_FEATURE(kNWChainImportNode,
+             "NWChainImportNode",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kNWChainImportDom,
+             "NWChainImportDom",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kNWESM,
+             "NWESM",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // -----------------------------------------------------------------------------
 // Feature definitions and associated constants (feature params, et cetera)
 //

@@ -20,6 +20,9 @@
 namespace blink {
 namespace features {
 
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kNWESM);
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kNWChainImportNode);
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kNWChainImportDom);
 // -----------------------------------------------------------------------------
 // Feature declarations and associated constants (feature params, et cetera)
 //

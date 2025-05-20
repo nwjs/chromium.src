@@ -32,6 +32,8 @@
 #include <memory>
 #include <utility>
 
+#include "third_party/blink/public/common/features.h"
+
 #include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/system/sys_info.h"
@@ -655,16 +657,6 @@ bool WasmJSPromiseIntegrationEnabledCallback(v8::Local<v8::Context> context) {
       execution_context);
 }
 
-BASE_FEATURE(kNWChainImportNode,
-             "NWChainImportNode",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-BASE_FEATURE(kNWChainImportDom,
-             "NWChainImportDom",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-BASE_FEATURE(kNWESM,
-             "NWESM",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 v8::MaybeLocal<v8::Promise> HostImportModuleDynamically(
     v8::Local<v8::Context> context,
     v8::Local<v8::Data> v8_host_defined_options,
@@ -676,7 +668,7 @@ v8::MaybeLocal<v8::Promise> HostImportModuleDynamically(
 
   if (context->GetAlignedPointerFromEmbedderData(50) == (void*)0x08110800 &&
       g_host_import_module_fn &&
-      base::FeatureList::IsEnabled(kNWESM)) {
+      base::FeatureList::IsEnabled(features::kNWESM)) {
     v8::EscapableHandleScope handle_scope(isolate);
     v8::MaybeLocal<v8::Promise> ret;
     v8::TryCatch try_catch(isolate);
@@ -944,9 +936,9 @@ v8::MaybeLocal<v8::Promise> ChainImportModulesCpp(
   v8::Local<v8::Promise> chained_promise;
 
   ImportMode mode = ImportMode::DOM_ONLY;
-  if (base::FeatureList::IsEnabled(kNWChainImportNode))
+  if (base::FeatureList::IsEnabled(features::kNWChainImportNode))
     mode = ImportMode::NODE_FIRST;
-  else if (base::FeatureList::IsEnabled(kNWChainImportDom))
+  else if (base::FeatureList::IsEnabled(features::kNWChainImportDom))
     mode = ImportMode::DOM_FIRST;
   // Logic based on mode
   switch (mode) {
@@ -1083,7 +1075,7 @@ void HostGetImportMetaProperties(v8::Local<v8::Context> context,
 
   if (context->GetAlignedPointerFromEmbedderData(50) == (void*)0x08110800 &&
       g_host_get_import_meta_fn &&
-      base::FeatureList::IsEnabled(kNWESM)) {
+      base::FeatureList::IsEnabled(features::kNWESM)) {
     g_host_get_import_meta_fn(context, module, meta);
     return;
   }
@@ -1149,7 +1141,7 @@ void V8Initializer::InitializeV8Common(v8::Isolate* isolate) {
   isolate->SetWasmJSPIEnabledCallback(WasmJSPromiseIntegrationEnabledCallback);
   isolate->SetSharedArrayBufferConstructorEnabledCallback(
       SharedArrayBufferConstructorEnabledCallback);
-  if (base::FeatureList::IsEnabled(kNWESM))
+  if (base::FeatureList::IsEnabled(features::kNWESM))
     isolate->SetHostImportModuleDynamicallyCallback(ChainImportModulesCpp);
   else
     isolate->SetHostImportModuleDynamicallyCallback(HostImportModuleDynamically);
