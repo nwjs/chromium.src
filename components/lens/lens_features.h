@@ -65,6 +65,10 @@ BASE_DECLARE_FEATURE(kLensOverlayUpdatedClientContext);
 COMPONENT_EXPORT(LENS_FEATURES)
 BASE_DECLARE_FEATURE(kLensOverlayMGTInSidePanel);
 
+// Enables the Lens Overlay omnibox entry point.
+COMPONENT_EXPORT(LENS_FEATURES)
+BASE_DECLARE_FEATURE(kLensOverlayOmniboxEntryPoint);
+
 // Enables uploading chunking for the Lens overlay.
 COMPONENT_EXPORT(LENS_FEATURES)
 BASE_DECLARE_FEATURE(kLensOverlayUploadChunking);
@@ -76,6 +80,10 @@ BASE_DECLARE_FEATURE(kLensSearchSidePanelNewFeedback);
 // Enables recontextualizing on each query for the Lens overlay.
 COMPONENT_EXPORT(LENS_FEATURES)
 BASE_DECLARE_FEATURE(kLensOverlayRecontextualizeOnQuery);
+
+// Enables the protected error page in the Lens side panel.
+COMPONENT_EXPORT(LENS_FEATURES)
+BASE_DECLARE_FEATURE(kLensSearchProtectedPage);
 
 // The base URL for Lens.
 COMPONENT_EXPORT(LENS_FEATURES)
@@ -800,6 +808,10 @@ extern bool IsLensSearchSidePanelNewFeedbackEnabled();
 // Whether to recontextualize on each query.
 COMPONENT_EXPORT(LENS_FEATURES)
 bool ShouldLensOverlayRecontextualizeOnQuery();
+
+// Whether the protected page for the side panel is enabled.
+COMPONENT_EXPORT(LENS_FEATURES)
+bool IsLensSearchProtectedPageEnabled();
 
 }  // namespace lens::features
 #endif  // COMPONENTS_LENS_LENS_FEATURES_H_

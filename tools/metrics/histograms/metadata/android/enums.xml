@@ -993,6 +993,12 @@ chromium-metrics-reviews@google.com.
   <int value="8" label="Undefined"/>
 </enum>
 
+<enum name="FontLoadingOutcome">
+  <int value="0" label="Fallback Font Family"/>
+  <int value="1" label="Font resource"/>
+  <int value="2" label="Font family"/>
+</enum>
+
 <enum name="FrameJankStatus">
   <int value="0" label="Janky"/>
   <int value="1" label="NonJanky"/>
@@ -1190,6 +1196,15 @@ chromium-metrics-reviews@google.com.
   <int value="0" label="Dialog shown"/>
   <int value="1" label="Continue without a device lock"/>
   <int value="2" label="Device lock restored"/>
+</enum>
+
+<enum name="MissingNavbarInsetsReason">
+  <int value="0" label="Other"/>
+  <int value="1" label="InMultiWindow"/>
+  <int value="2" label="InDesktopWindow"/>
+  <int value="3" label="InFullscreen"/>
+  <int value="4" label="ActivityNotVisible"/>
+  <int value="5" label="SystemBarInsetsEmpty"/>
 </enum>
 
 <enum name="MotionEventAction">
@@ -1567,6 +1582,11 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="Rare"/>
   <int value="4" label="Restricted"/>
   <int value="5" label="Exempted"/>
+</enum>
+
+<enum name="SupportedConfigurationSwitch">
+  <int value="0" label="FromSupportedToUnsupported"/>
+  <int value="1" label="FromUnsupportedToSupported"/>
 </enum>
 
 <enum name="SurveyDownloadResponseCodes2">

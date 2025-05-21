@@ -470,11 +470,12 @@ void PrefetchService::AddPrefetchContainerWithoutStartingPrefetch(
           std::move(owned_prefetch_container));
       if (UsePrefetchScheduler()) {
         scheduler_->NotifyAttributeMightChangedAndProgressAsync(
-            *prefetch_iter->second);
+            *prefetch_iter->second, /*should_progress=*/false);
       }
       break;
     case Action::kReplaceOldWithNew:
-      ResetPrefetchContainer(prefetch_iter->second->GetWeakPtr());
+      ResetPrefetchContainer(prefetch_iter->second->GetWeakPtr(),
+                             /*should_progress=*/false);
       owned_prefetches_[prefetch_container_key] =
           std::move(owned_prefetch_container);
       owned_prefetches_[prefetch_container_key]->OnAddedToPrefetchService();
@@ -1191,7 +1192,11 @@ void PrefetchService::OnGotEligibilityForNonRedirect(
     prefetch_queue_.push_back(std::move(prefetch_container));
     Prefetch();
   } else {
-    ScheduleAndProgress(std::move(prefetch_container));
+    if (features::kPrefetchSchedulerProgressSyncBestEffort.Get()) {
+      ScheduleAndProgress(std::move(prefetch_container));
+    } else {
+      ScheduleAndProgressAsync(std::move(prefetch_container));
+    }
   }
 }
 
@@ -1247,9 +1252,9 @@ void PrefetchService::OnGotEligibilityForRedirect(
         Prefetch();
       }
     } else {
-      // TODO(crbug.com/400761083): Use `ResetPrefetchContainerAndProgress()`
-      // instead.
-      RemoveFromSchedulerAndProgress(*prefetch_container);
+      // TODO(crbug.com/400761083): Use
+      // `ResetPrefetchContainerAndProgressAsync()` instead.
+      RemoveFromSchedulerAndProgressAsync(*prefetch_container);
     }
     return;
   }
@@ -1268,14 +1273,14 @@ void PrefetchService::OnGotEligibilityForRedirect(
       Prefetch();
     } else {
       // Remove first as it requires that `PrefetchContainer` is available.
-      RemoveFromSchedulerAndProgress(*prefetch_container);
+      RemoveFromSchedulerAndProgressAsync(*prefetch_container);
 
       streaming_url_loader->HandleRedirect(PrefetchRedirectStatus::kFail,
                                            redirect_info,
                                            std::move(redirect_head));
 
-      // TODO(crbug.com/400761083): Use `ResetPrefetchContainerAndProgress()`
-      // instead.
+      // TODO(crbug.com/400761083): Use
+      // `ResetPrefetchContainerAndProgressAsync()` instead.
     }
     return;
   }
@@ -1409,7 +1414,7 @@ void PrefetchService::OnPrefetchTimeout(
       Prefetch();
     }
   } else {
-    ResetPrefetchContainerAndProgress(std::move(prefetch_container));
+    ResetPrefetchContainerAndProgressAsync(std::move(prefetch_container));
   }
 }
 
@@ -1425,16 +1430,21 @@ void PrefetchService::MayReleasePrefetch(
 
   if (!UsePrefetchScheduler()) {
     ResetPrefetchContainer(prefetch_container);
+    if (base::FeatureList::IsEnabled(
+            features::kPrefetchQueueingPartialFixWithoutScheduler) &&
+        !active_prefetch_) {
+      base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+          FROM_HERE, base::BindOnce(&PrefetchService::Prefetch,
+                                    weak_method_factory_.GetWeakPtr()));
+    }
   } else {
-    // Note that this behavior is not the same to the old one. The new behavior
-    // is reset the prefetch container *and* start new prefetches.
-
-    ResetPrefetchContainerAndProgress(std::move(prefetch_container));
+    ResetPrefetchContainerAndProgressAsync(std::move(prefetch_container));
   }
 }
 
 void PrefetchService::ResetPrefetchContainer(
-    base::WeakPtr<PrefetchContainer> prefetch_container) {
+    base::WeakPtr<PrefetchContainer> prefetch_container,
+    bool should_progress) {
   CHECK(prefetch_container);
 
   if (!UsePrefetchScheduler()) {
@@ -1444,7 +1454,7 @@ void PrefetchService::ResetPrefetchContainer(
   } else {
     // Remove before calling `PrefetchContainer::dtor()` as `PrefetchScheduler`
     // manages them with weak pointers.
-    scheduler_->RemoveAndProgressAsync(*prefetch_container);
+    scheduler_->RemoveAndProgressAsync(*prefetch_container, should_progress);
   }
 
   auto it = owned_prefetches_.find(prefetch_container->key());
@@ -1458,12 +1468,20 @@ void PrefetchService::ScheduleAndProgress(
   CHECK(UsePrefetchScheduler());
   CHECK(prefetch_container);
 
+  scheduler_->PushAndProgress(*prefetch_container);
+}
+
+void PrefetchService::ScheduleAndProgressAsync(
+    base::WeakPtr<PrefetchContainer> prefetch_container) {
+  CHECK(UsePrefetchScheduler());
+  CHECK(prefetch_container);
+
   scheduler_->PushAndProgressAsync(*prefetch_container);
 
   // `PrefetchScheduler::Progress()` will be called asynchronously.
 }
 
-void PrefetchService::ResetPrefetchContainerAndProgress(
+void PrefetchService::ResetPrefetchContainerAndProgressAsync(
     base::WeakPtr<PrefetchContainer> prefetch_container) {
   CHECK(UsePrefetchScheduler());
 
@@ -1472,7 +1490,7 @@ void PrefetchService::ResetPrefetchContainerAndProgress(
   // `PrefetchScheduler::Progress()` will be called asynchronously.
 }
 
-void PrefetchService::ResetPrefetchContainersAndProgress(
+void PrefetchService::ResetPrefetchContainersAndProgressAsync(
     std::vector<base::WeakPtr<PrefetchContainer>> prefetch_containers) {
   CHECK(UsePrefetchScheduler());
 
@@ -1483,7 +1501,7 @@ void PrefetchService::ResetPrefetchContainersAndProgress(
   // `PrefetchScheduler::Progress()` will be called asynchronously.
 }
 
-void PrefetchService::RemoveFromSchedulerAndProgress(
+void PrefetchService::RemoveFromSchedulerAndProgressAsync(
     PrefetchContainer& prefetch_container) {
   CHECK(UsePrefetchScheduler());
 
@@ -1735,7 +1753,7 @@ void PrefetchService::OnPrefetchRedirect(
           PrefetchStatus::kPrefetchFailedInvalidRedirect);
 
       // Remove first as it requires that `PrefetchContainer` is available.
-      RemoveFromSchedulerAndProgress(*prefetch_container);
+      RemoveFromSchedulerAndProgressAsync(*prefetch_container);
 
       if (auto streaming_url_loader =
               prefetch_container->GetStreamingURLLoader()) {
@@ -1744,8 +1762,8 @@ void PrefetchService::OnPrefetchRedirect(
                                              std::move(redirect_head));
       }
 
-      // TODO(crbug.com/400761083): Use `ResetPrefetchContainerAndProgress()`
-      // instead.
+      // TODO(crbug.com/400761083): Use
+      // `ResetPrefetchContainerAndProgressAsync()` instead.
     }
     return;
   }
@@ -1866,7 +1884,7 @@ void PrefetchService::OnPrefetchResponseCompleted(
   } else {
     prefetch_container->OnPrefetchComplete(completion_status);
 
-    RemoveFromSchedulerAndProgress(*prefetch_container);
+    RemoveFromSchedulerAndProgressAsync(*prefetch_container);
   }
 }
 
@@ -2106,7 +2124,7 @@ void PrefetchService::EvictPrefetchesForBrowsingDataRemoval(
       ResetPrefetchContainer(prefetch_container);
     }
   } else {
-    ResetPrefetchContainersAndProgress(std::move(prefetches_to_reset));
+    ResetPrefetchContainersAndProgressAsync(std::move(prefetches_to_reset));
   }
 }
 

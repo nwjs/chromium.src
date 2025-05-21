@@ -35,7 +35,8 @@
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/gfx/animation/tween.h"
 #include "ui/views/accessibility/view_accessibility.h"
-#include "ui/views/layout/box_layout.h"
+#include "ui/views/controls/button/button.h"
+#include "ui/views/layout/flex_layout.h"
 #include "ui/views/mouse_watcher.h"
 #include "ui/views/mouse_watcher_view_host.h"
 #include "ui/views/view_class_properties.h"
@@ -75,6 +76,10 @@ constexpr char kDeclutterTriggerBucketedCTRName[] =
 
 #if BUILDFLAG(ENABLE_GLIC)
 constexpr int kLargeSpaceBetweenButtons = 6;
+#if !BUILDFLAG(IS_MAC)
+constexpr int kLargeSpaceBetweenSeparatorRight = 8;
+constexpr int kLargeSpaceBetweenSeparatorLeft = 2;
+#endif  // !BUILDFLAG(IS_MAC)
 #endif  // BUILDFLAG(ENABLE_GLIC)
 
 }  // namespace
@@ -113,14 +118,18 @@ void TabStripActionContainer::TabStripNudgeAnimationSession::Start() {
 }
 
 void TabStripActionContainer::TabStripNudgeAnimationSession::
-    ResetAnimationForTesting(double value) {
+    ResetExpansionAnimationForTesting(double value) {
+  expansion_animation_.Reset(value);
+}
+
+void TabStripActionContainer::TabStripNudgeAnimationSession::
+    ResetOpacityAnimationForTesting(double value) {
   if (is_opacity_animated_) {
     if (opacity_animation_delay_timer_.IsRunning()) {
       opacity_animation_delay_timer_.FireNow();
     }
   }
 
-  expansion_animation_.Reset(value);
   if (is_opacity_animated_) {
     opacity_animation_.Reset(value);
   }
@@ -201,7 +210,10 @@ void TabStripActionContainer::TabStripNudgeAnimationSession::MarkAnimationDone(
     opacity_animation_done_ = true;
   }
 
-  if (expansion_animation_done_ && opacity_animation_done_) {
+  const bool opacity_animation_not_running =
+      opacity_animation_done_ || !is_opacity_animated_;
+
+  if (expansion_animation_done_ && opacity_animation_not_running) {
     if (on_animation_ended_) {
       std::move(on_animation_ended_).Run();
     }
@@ -284,6 +296,12 @@ TabStripActionContainer::TabStripActionContainer(
 
     separator->SetColorId(kColorTabDividerFrameActive);
 
+    gfx::Insets margin;
+    margin.set_left_right(kLargeSpaceBetweenSeparatorLeft,
+                          kLargeSpaceBetweenSeparatorRight);
+
+    separator->SetProperty(views::kMarginsKey, margin);
+
     subscriptions_.push_back(browser_window_interface->RegisterDidBecomeActive(
         base::BindRepeating(&TabStripActionContainer::DidBecomeActive,
                             base::Unretained(this))));
@@ -295,13 +313,11 @@ TabStripActionContainer::TabStripActionContainer(
 #endif  // !BUILDFLAG(IS_MAC)
   }
 #endif  // BUILDFLAG(ENABLE_GLIC)
-
-  auto* const layout_manager =
-      SetLayoutManager(std::make_unique<views::BoxLayout>());
-  layout_manager->set_main_axis_alignment(
-      views::BoxLayout::MainAxisAlignment::kStart);
-  layout_manager->set_cross_axis_alignment(
-      views::BoxLayout::CrossAxisAlignment::kCenter);
+  SetLayoutManager(std::make_unique<views::FlexLayout>())
+      ->SetOrientation(views::LayoutOrientation::kHorizontal)
+      .SetMainAxisAlignment(views::LayoutAlignment::kStart)
+      .SetCrossAxisAlignment(views::LayoutAlignment::kCenter)
+      .SetCollapseMargins(false);
 }
 
 TabStripActionContainer::~TabStripActionContainer() {
@@ -453,6 +469,10 @@ void TabStripActionContainer::OnGlicButtonClicked() {
   }
 
   ExecuteHideTabStripNudge(glic_button_);
+  glic_button_->SetText(std::u16string());
+  // Reset state manually since there wont be a mouse up event as the animation
+  // moves the button out of the way.
+  glic_button_->SetState(views::Button::ButtonState::STATE_NORMAL);
 }
 
 void TabStripActionContainer::OnGlicButtonDismissed() {

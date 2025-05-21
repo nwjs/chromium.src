@@ -163,7 +163,7 @@ BASE_FEATURE_PARAM(int,
 BASE_FEATURE_PARAM(base::TimeDelta,
                    kShortSessionThreshold,
                    &kSearchEnginePreconnect2,
-                   "MaxShortSessionThreashold",
+                   "MaxShortSessionThreshold",
                    base::Seconds(30));
 
 extern const base::FeatureParam<int> kMaxPreconnectRetryInterval(
@@ -773,6 +773,10 @@ BASE_FEATURE(kIncludeDeprecatedClientCertLookup,
 
 BASE_FEATURE(kRestrictAbusePorts,
              "RestrictAbusePorts",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kRestrictAbusePortsOnLocalhost,
+             "RestrictAbusePortsOnLocalhost",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace net::features

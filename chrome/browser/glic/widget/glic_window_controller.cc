@@ -1098,6 +1098,9 @@ void GlicWindowController::CloseFinish(
   NotifyIfPanelStateChanged();
 
   host().PanelWasClosed();
+  if (base::FeatureList::IsEnabled(features::kGlicUnloadOnClose)) {
+    host().Shutdown();
+  }
 
   if (reopen_detached) {
     Show(nullptr, *reopen_detached_source);
@@ -1121,7 +1124,7 @@ void GlicWindowController::CloseAndReopenDetached(
 
 void GlicWindowController::SaveWidgetPosition() {
   if (GetGlicWidget() && GetGlicWidget()->IsVisible()) {
-    previous_position_ = GetGlicWidget()->GetWindowBoundsInScreen().origin();
+    previous_position_ = GetGlicWidget()->GetClientAreaBoundsInScreen().origin();
     profile_->GetPrefs()->SetInteger(prefs::kGlicPreviousPositionX,
                                      previous_position_->x());
     profile_->GetPrefs()->SetInteger(prefs::kGlicPreviousPositionY,
@@ -1155,6 +1158,9 @@ void GlicWindowController::HandleWindowDragWithOffset(
   // lead to crashes.
   if (!in_move_loop_) {
     in_move_loop_ = true;
+#if BUILDFLAG(IS_MAC)
+    GetGlicWidget()->SetCapture(nullptr);
+#endif
     const views::Widget::MoveLoopSource move_loop_source =
         views::Widget::MoveLoopSource::kMouse;
     if (!AlwaysDetached()) {

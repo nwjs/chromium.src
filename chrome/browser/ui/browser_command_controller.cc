@@ -262,7 +262,22 @@ BrowserCommandController::BrowserCommandController(Browser* browser)
       base::BindRepeating(
           &BrowserCommandController::UpdateCommandsForFullscreenMode,
           base::Unretained(this)));
-#endif
+#endif  //! BUILDFLAG(IS_MAC)
+
+#if BUILDFLAG(ENABLE_GLIC)
+  if (glic::GlicEnabling::IsEnabledByFlags()) {
+    auto* glic_service =
+        glic::GlicKeyedServiceFactory::GetGlicKeyedService(profile());
+    if (glic_service) {
+      glic_enabling_subscription_ = std::make_unique<
+          base::CallbackListSubscription>(
+
+          glic_service->enabling().RegisterAllowedChanged(base::BindRepeating(
+              &BrowserCommandController::UpdateCommandsForEnableGlicChanged,
+              base::Unretained(this))));
+    }
+  }
+#endif  // BUILDFLAG(ENABLE_GLIC)
 
   InitCommandState();
 
@@ -286,6 +301,7 @@ BrowserCommandController::~BrowserCommandController() {
   }
   profile_pref_registrar_.RemoveAll();
   local_pref_registrar_.RemoveAll();
+  glic_enabling_subscription_.reset();
   browser_->tab_strip_model()->RemoveObserver(this);
 }
 
@@ -2164,6 +2180,13 @@ void BrowserCommandController::UpdateCommandAndActionEnabled(
   if (auto* const action = FindAction(action_id)) {
     action->SetEnabled(enabled);
   }
+}
+
+void BrowserCommandController::UpdateCommandsForEnableGlicChanged() {
+#if BUILDFLAG(ENABLE_GLIC)
+  command_updater_.UpdateCommandEnabled(
+      IDC_OPEN_GLIC, glic::GlicEnabling::IsEnabledForProfile(profile()));
+#endif  //  BUILDFLAG(ENABLE_GLIC)
 }
 
 BrowserWindow* BrowserCommandController::window() {

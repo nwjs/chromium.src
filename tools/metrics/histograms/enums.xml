@@ -2701,6 +2701,8 @@ Called by update_net_error_codes.py.-->
 
 <!-- LINT.ThenChange(//components/content_settings/core/browser/content_settings_uma_util.cc:kHistogramValue) -->
 
+<!-- LINT.IfChange(ContextMenuOptionAndroid) -->
+
 <enum name="ContextMenuOptionAndroid">
   <summary>The item selected from a context menu on Android.</summary>
   <int value="0" label="Open in new tab"/>
@@ -2751,7 +2753,10 @@ Called by update_net_error_codes.py.-->
   <int value="45" label="Navigate forward"/>
   <int value="46" label="Reload page"/>
   <int value="47" label="Inspect"/>
+  <int value="48" label="Show Interest In Element"/>
 </enum>
+
+<!-- LINT.ThenChange(//chrome/android/java/src/org/chromium/chrome/browser/contextmenu/ChromeContextMenuPopulator.java:ContextMenuUma.Action) -->
 
 <!-- LINT.IfChange(ConversionCreateAggregatableReportStatus) -->
 
@@ -4000,6 +4005,22 @@ to ensure that the crash string is shown properly on the user-facing crash UI.
   <int value="0" label="Normal mirror mode"/>
   <int value="1" label="Mixed mirror mode"/>
 </enum>
+
+<!-- LINT.IfChange(DisruptiveNotificationFalsePositiveReason) -->
+
+<enum name="DisruptiveNotificationFalsePositiveReason">
+  <summary>
+    The reason why a disruptive notification revocation was considered a false
+    positive. Disruptive notifications are those with high notification volume
+    and low site engagement. Therefore if the user interacts with a site after
+    revocation, the revocation was a false positive.
+  </summary>
+  <int value="0" label="Page visit"/>
+  <int value="1" label="Persistent notification click"/>
+  <int value="2" label="Non persistent notification click"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/safety_hub/disruptive_notification_permissions_manager.h:FalsePositiveReason) -->
 
 <enum name="DlcInstallResult">
   <int value="0" label="Success"/>
@@ -14158,6 +14179,7 @@ from previous Chrome versions.
   <int value="-69427025" label="OfflinePagesPrefetchingUI:enabled"/>
   <int value="-69224661" label="FeedAblation:enabled"/>
   <int value="-68877684" label="BackgroundVideoTrackOptimization:enabled"/>
+  <int value="-68832811" label="LensOverlayOmniboxEntryPoint:disabled"/>
   <int value="-68797870" label="BuiltInHlsPlayer:disabled"/>
   <int value="-68619312" label="PassiveDocumentWheelEventListeners:disabled"/>
   <int value="-68613812" label="DarkLightMode:disabled"/>
@@ -15616,6 +15638,7 @@ from previous Chrome versions.
   <int value="485957747" label="finch-seed-ignore-pending-download"/>
   <int value="486667213" label="TabstripComboButton:disabled"/>
   <int value="487542146" label="Bruschetta:enabled"/>
+  <int value="487598416" label="LensOverlayOmniboxEntryPoint:enabled"/>
   <int value="487605950" label="PerformantSplitViewResizing:disabled"/>
   <int value="487677879" label="SendTabToSelfIOSPushNotifications:enabled"/>
   <int value="487810392" label="EnablePalmOnToolTypePalm:enabled"/>

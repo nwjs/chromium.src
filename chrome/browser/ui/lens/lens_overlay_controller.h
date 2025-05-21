@@ -214,13 +214,6 @@ class LensOverlayController : public LensSearchboxClient,
       lens::mojom::CenterRotatedBoxPtr region,
       const SkBitmap& region_bitmap);
 
-  // This is entry point for showing the overlay UI. This has no effect if state
-  // is not kOff. This has no effect if the tab is not in the foreground. If the
-  // overlay is successfully invoked, then the value of `invocation_source` will
-  // be recorded in the relevant metrics.
-  // Virtual for testing.
-  virtual void ShowUI(lens::LensOverlayInvocationSource invocation_source);
-
   // Starts the closing process of the overlay. This is an asynchronous process
   // with the following sequence:
   //   (1) Close the side panel
@@ -572,6 +565,7 @@ class LensOverlayController : public LensSearchboxClient,
   }
 
  protected:
+  friend class LensSearchController;
   friend class lens::LensOverlaySidePanelCoordinator;
 
   // Override these methods to stub out network requests for testing.
@@ -589,6 +583,12 @@ class LensOverlayController : public LensSearchboxClient,
       lens::LensOverlayInvocationSource invocation_source,
       bool use_dark_mode,
       lens::LensOverlayGen204Controller* gen204_controller);
+
+  // This is entry point for showing the overlay UI. This has no effect if state
+  // is not kOff. This has no effect if the tab is not in the foreground. If the
+  // overlay is successfully invoked, then the value of `invocation_source` will
+  // be recorded in the relevant metrics.
+  void ShowUI(lens::LensOverlayInvocationSource invocation_source);
 
   // Returns the vsrid to use for the new tab URL.
   std::string GetVsridForNewTab();
@@ -1389,6 +1389,16 @@ class LensOverlayController : public LensSearchboxClient,
   // Indicates whether the upload progress bar is currently being shown for this
   // upload.
   bool is_upload_progress_bar_shown_ = true;
+
+  // Indicates whether the user is currently on a context eligible page.
+  bool is_page_context_eligible_ = true;
+
+  // Indicates whether the screenshot should be sent when updating the page
+  // content when first initializing the overlay. This is only used when the
+  // early start query flow optimization is enabled. Setting this to true does
+  // not guarantee the screenshot is sent on initialization, as that is still
+  // dependent on whether the page is context eligible or not.
+  bool should_send_screenshot_on_init_ = false;
 
   // TODO(384778180): The three `pre_initialization_*` fields below are used to
   // store data that came back before the initialization data was ready. This

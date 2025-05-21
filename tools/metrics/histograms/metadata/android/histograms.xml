@@ -1875,6 +1875,18 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Android.EdgeToEdge.DrawToEdgeInUnsupportedConfiguration"
+    enum="Boolean" expires_after="2025-08-24">
+  <owner>clhager@google.com</owner>
+  <owner>wenyufu@chromium.org</owner>
+  <owner>edge-to-edge@chromium.org</owner>
+  <summary>
+    Records when EdgeToEdgeControllerImpl#drawToEdge gets called on a device
+    whose configuration does not support edge-to-edge, with the boolean record
+    indicating whether drawToEdge was called due to a change in window state.
+  </summary>
+</histogram>
+
 <histogram name="Android.EdgeToEdge.Eligible" enum="Boolean"
     expires_after="2025-08-24">
   <owner>lazzzis@google.com</owner>
@@ -1893,6 +1905,31 @@ chromium-metrics-reviews@google.com.
     Records the reason of why the current session is not eligibile for drawing
     any content edge to edge. Multiple reasons might be record for a single
     session. Recorded on ChromeActivity launch.
+  </summary>
+</histogram>
+
+<histogram name="Android.EdgeToEdge.MissingNavbarInsets2"
+    enum="MissingNavbarInsetsReason" expires_after="2025-12-01">
+  <owner>clhager@google.com</owner>
+  <owner>wenyufu@chromium.org</owner>
+  <owner>edge-to-edge@chromium.org</owner>
+  <summary>
+    Records once during the initialization of the EdgeToEdgeControllerImpl
+    whether there were no navigation bar insets at all, which may indicate an
+    incorrect value from the OS.
+  </summary>
+</histogram>
+
+<histogram name="Android.EdgeToEdge.SupportedConfigurationSwitch2"
+    enum="SupportedConfigurationSwitch" expires_after="2025-12-01">
+  <owner>clhager@google.com</owner>
+  <owner>wenyufu@chromium.org</owner>
+  <owner>edge-to-edge@chromium.org</owner>
+  <summary>
+    Records when the EdgeToEdgeControllerImpl notices a change in whether
+    edge-to-edge is supported by the device configuration when it handles a
+    change in window insets. This is recorded once every time a change is
+    detected.
   </summary>
 </histogram>
 
@@ -4945,6 +4982,16 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Android.StyleUtils.FontLoadingOutcome"
+    enum="FontLoadingOutcome" expires_after="2025-11-28">
+  <owner>wenyufu@chromium.org</owner>
+  <owner>clank-app-team@google.com</owner>
+  <summary>
+    Records the outcome for loading font using applyTextAppearanceToTextPaint.
+    Recorded during layout initialization on tablets.
+  </summary>
+</histogram>
+
 <histogram name="Android.Survey.DownloadRequested2" enum="BooleanRequested"
     expires_after="2025-10-19">
   <owner>wenyufu@chromium.org</owner>
@@ -5888,6 +5935,38 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
+<histogram name="Android.WebView.CacheQuotaSize" units="KiB"
+    expires_after="2025-12-31">
+  <owner>abhijithnair@chromium.org</owner>
+  <owner>src/android_webview/OWNERS</owner>
+  <summary>
+    Records the result of `StorageManager.getCacheQuotaBytes()` after WebView
+    startup. The value denotes the amount of cache quota that was allocated to
+    the app by the framework.
+
+    This is logged only once per session in a delayed background task
+    approximately 5 seconds after WebView completes its main startup tasks. The
+    measurement may be expensive, so it is only performed if the
+    WebViewRecordAppCacheHistograms feature is enabled.
+  </summary>
+</histogram>
+
+<histogram name="Android.WebView.CacheSize" units="KiB"
+    expires_after="2025-12-31">
+  <owner>abhijithnair@chromium.org</owner>
+  <owner>src/android_webview/OWNERS</owner>
+  <summary>
+    Records the result of `StorageManager.getCacheSizeBytes()` after WebView
+    startup. The value denotes the amount of cache that the app is currently
+    using.
+
+    This is logged only once per session in a delayed background task
+    approximately 5 seconds after WebView completes its main startup tasks. The
+    measurement may be expensive, so it is only performed if the
+    WebViewRecordAppCacheHistograms feature is enabled.
+  </summary>
+</histogram>
+
 <histogram name="Android.WebView.Callback.Counts" enum="WebViewCallbackType"
     expires_after="2025-09-14">
   <owner>ntfschr@chromium.org</owner>
@@ -6417,6 +6496,32 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Android.WebView.GetCacheQuotaSizeTime" units="ms"
+    expires_after="2025-12-31">
+  <owner>abhijithnair@chromium.org</owner>
+  <owner>src/android_webview/OWNERS</owner>
+  <summary>
+    Records the time taken to measure Android.WebView.CacheQuotaSize using
+    `StorageManager.getCacheQuotaBytes()` in milliseconds.
+
+    This may be logged even if the measurement for
+    Android.WebView.CacheQuotaSize fails.
+  </summary>
+</histogram>
+
+<histogram name="Android.WebView.GetCacheSizeTime" units="ms"
+    expires_after="2025-12-31">
+  <owner>abhijithnair@chromium.org</owner>
+  <owner>src/android_webview/OWNERS</owner>
+  <summary>
+    Records the time taken to measure Android.WebView.CacheSize using
+    `StorageManager.getCacheSizeBytes()` in milliseconds.
+
+    This may be logged even if the measurement for Android.WebView.CacheSize
+    fails.
+  </summary>
+</histogram>
+
 <histogram name="Android.WebView.Gfx.HardwareDrawType"
     enum="WebViewDrawAndSubmissionType" expires_after="2025-09-14">
   <owner>vasilyt@chromium.org</owner>
@@ -6526,6 +6631,35 @@ chromium-metrics-reviews@google.com.
     expired between December 2023 and May 2024. Data from that period will be
     incomplete.
   </summary>
+</histogram>
+
+<histogram name="Android.WebView.IoThreadClientOnUrlLoaderTime.{Stage}"
+    units="microseconds" expires_after="2025-12-31">
+  <owner>pbirk@chromium.org</owner>
+  <owner>src/android_webview/OWNERS</owner>
+  <summary>
+    Records the cumulative time spent on calls to AwContentsIoThreadClient from
+    AwProxyingUrlLoaderFactory during {Stage}. This histogram is logged for all
+    network requests made by WebView.
+
+    Because requests can restart and terminate early, there should not be any
+    expectation that the same number of histograms are emitted for .RequestSetup
+    and .RequestDone.
+
+    These calls each involve a JNI jump and acquiring a Java lock, and the
+    purpose of the histogram is to determine if there is a performance overhead
+    that it is worth mitigating by refactoring how the UrlLoader accesses the
+    data.
+
+    The values are recorded in microseconds to capture the short duration of
+    these calls, and is only emitted by Android WebView.
+  </summary>
+  <token key="Stage">
+    <variant name="RequestDone"
+        summary="a single full pass through InterceptedRequest from Restart
+                 to end of intercept"/>
+    <variant name="RequestSetup" summary="initial setup of InterceptedRequest"/>
+  </token>
 </histogram>
 
 <histogram name="Android.WebView.isDebuggable" enum="DebuggingEnabled"

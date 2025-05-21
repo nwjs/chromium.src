@@ -15,6 +15,7 @@ option optimize_for = LITE_RUNTIME;
 package sync_pb;
 
 // Account-local metadata for shared tab groups.
+// LINT.IfChange(SharedTabGroupAccountDataSpecifics)
 message SharedTabGroupAccountDataSpecifics {
   // The guid of this entity.
   // This could be the SharedTab guid (see SharedTabGroupDataSpecifics)
@@ -50,3 +51,4 @@ message SharedTabGroupDetails {
   // of message SavedTabGroup in saved_tab_group_specifics.proto.
   optional int64 pinned_position = 1;
 }
+// LINT.ThenChange(//components/saved_tab_groups/internal/shared_tab_group_account_data_sync_bridge.cc:TrimSpecifics)

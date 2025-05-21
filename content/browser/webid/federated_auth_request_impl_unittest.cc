@@ -22,6 +22,7 @@
 #include "components/ukm/test_ukm_recorder.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/browser/webid/fedcm_metrics.h"
+#include "content/browser/webid/federated_auth_disconnect_request.h"
 #include "content/browser/webid/test/delegated_idp_network_request_manager.h"
 #include "content/browser/webid/test/federated_auth_request_request_token_callback_helper.h"
 #include "content/browser/webid/test/mock_api_permission_delegate.h"
@@ -39,6 +40,7 @@
 #include "content/test/test_render_frame_host.h"
 #include "content/test/test_render_view_host.h"
 #include "content/test/test_web_contents.h"
+#include "fedcm_metrics.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "net/http/http_status_code.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
@@ -1340,6 +1342,20 @@ class FederatedAuthRequestImplTest : public RenderViewHostImplTestHarness {
   void CloseDialog() {
     federated_auth_request_impl_->OnDialogDismissed(
         IdentityRequestDialogController::DismissReason::kCloseButton);
+  }
+
+  void CompleteDisconnectRequest() {
+    std::unique_ptr<TestIdpNetworkRequestManager> network_request_manager =
+        std::make_unique<TestIdpNetworkRequestManager>();
+    blink::mojom::IdentityCredentialDisconnectOptionsPtr options =
+        blink::mojom::IdentityCredentialDisconnectOptions::New();
+    federated_auth_request_impl_->disconnect_request_ =
+        FederatedAuthDisconnectRequest::Create(
+            std::move(network_request_manager), test_permission_delegate_.get(),
+            main_test_rfh(), federated_auth_request_impl_->fedcm_metrics_.get(),
+            std::move(options));
+    federated_auth_request_impl_->CompleteDisconnectRequest(
+        base::DoNothing(), blink::mojom::DisconnectStatus::kSuccess);
   }
 
   base::span<const IdentityRequestAccountPtr> all_accounts_for_display() const {
@@ -8218,6 +8234,64 @@ TEST_F(FederatedAuthRequestImplTest, MetricsForConsecutiveSuccessfulRequests) {
   });
   CheckUkmMetrics(FedCmEntry::kEntryName);
   CheckUkmMetrics(FedCmIdpEntry::kEntryName);
+}
+
+// Test that completing a disconnect request while there is a pending request
+// and then later completing the pending request does not crash.
+TEST_F(FederatedAuthRequestImplTest, DisconnectWithPendingRequest) {
+  // Start an auth request.
+  RunAuthDontWaitForCallback(kDefaultRequestParameters, kConfigurationValid);
+
+  // Complete a disconnect request.
+  CompleteDisconnectRequest();
+
+  // Complete the auth request.
+  WaitForCurrentAuthRequest();
+  CheckAuthExpectations(kConfigurationValid, kExpectationSuccess);
+}
+
+class FakeLocalFrameWithDelayedCallback : public FakeLocalFrame {
+ public:
+  FakeLocalFrameWithDelayedCallback(RenderFrameHost* rfh) {
+    TestRenderFrameHost* test_rfh = static_cast<TestRenderFrameHost*>(rfh);
+    test_rfh->ResetLocalFrame();
+    Init(test_rfh->GetRemoteAssociatedInterfaces());
+  }
+
+  void RunCallback() {
+    if (!callback_) {
+      return;
+    }
+
+    std::move(callback_).Run(gfx::Point(0, 0));
+  }
+
+  // FakeLocalFrame:
+  void GetScrollPosition(GetScrollPositionCallback callback) override {
+    callback_ = std::move(callback);
+  }
+
+ private:
+  GetScrollPositionCallback callback_;
+};
+
+// Tests that we record the scroll position when an account is selected, even
+// when `GetScrollPosition` runs its callback after the FederatedAuthRequestImpl
+// object is destroyed.
+TEST_F(FederatedAuthRequestImplTest,
+       MetricsForAccountSelectionScrollPositionDelayedCallback) {
+  // Mock the `GetScrollPosition` call.
+  FakeLocalFrameWithDelayedCallback frame(
+      web_contents()->GetPrimaryMainFrame());
+
+  RunAuthTest(kDefaultRequestParameters, kExpectationSuccess,
+              kConfigurationValid);
+
+  frame.RunCallback();
+  base::RunLoop().RunUntilIdle();
+
+  ExpectUkmValueInEntry("AccountSelectionScrollPosition",
+                        FedCmEntry::kEntryName, 0);
 }
 
 }  // namespace content

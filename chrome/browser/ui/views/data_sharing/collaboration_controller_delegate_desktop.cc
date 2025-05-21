@@ -321,9 +321,14 @@ void CollaborationControllerDelegateDesktop::OnJoinDialogClosing(
     std::optional<data_sharing::mojom::GroupActionProgress> progress) {
   // Joins flow should end when the shared tab group is open after join
   // or cancel without joining.
-  // TODO(crbug.org/380287432): Only cancel the flow if user doesn't join the
-  // group.
-  std::move(result).Run(CollaborationControllerDelegate::Outcome::kCancel);
+  CollaborationControllerDelegate::Outcome outcome =
+      CollaborationControllerDelegate::Outcome::kCancel;
+  if (action == data_sharing::mojom::GroupAction::kJoinGroup &&
+      progress == data_sharing::mojom::GroupActionProgress::kSuccess) {
+    outcome = CollaborationControllerDelegate::Outcome::kSuccess;
+  }
+
+  std::move(result).Run(outcome);
 }
 
 void CollaborationControllerDelegateDesktop::OnManageDialogClosing(
@@ -390,7 +395,8 @@ void CollaborationControllerDelegateDesktop::MaybeShowSignInAndSyncUi() {
           ShowSignInAndSyncUi(profile);
           break;
         case collaboration::SyncStatus::kSyncWithoutTabGroup:
-          chrome::ShowSettingsSubPage(browser_, chrome::kSyncSetupSubPage);
+          chrome::ShowSettingsSubPage(browser_,
+                                      chrome::kSyncSetupAdvancedSubPage);
           break;
         case collaboration::SyncStatus::kSyncEnabled:
           NOTREACHED();

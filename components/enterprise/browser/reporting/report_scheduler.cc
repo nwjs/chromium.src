@@ -20,6 +20,7 @@
 #include "components/policy/core/common/cloud/cloud_policy_client.h"
 #include "components/policy/core/common/cloud/device_management_service.h"
 #include "components/policy/core/common/cloud/dm_token.h"
+#include "components/policy/core/common/policy_logger.h"
 #include "components/prefs/pref_service.h"
 
 namespace em = enterprise_management;
@@ -91,6 +92,10 @@ ReportScheduler::~ReportScheduler() = default;
 
 bool ReportScheduler::IsReportingEnabled() const {
   return delegate_->GetPrefService()->GetBoolean(reporting_pref_name_);
+}
+
+bool ReportScheduler::AreSecurityReportsEnabled() const {
+  return delegate_->AreSecurityReportsEnabled();
 }
 
 bool ReportScheduler::IsNextReportScheduledForTesting() const {
@@ -273,6 +278,10 @@ void ReportScheduler::GenerateAndUploadReport(ReportTrigger trigger) {
   active_report_generation_config_ = ReportGenerationConfig(
       report_type, signals_mode, delegate_->UseCookiesInUploads());
 
+  VLOG_POLICY(1, REPORTING)
+      << "Starting report generation with the following configuration: "
+      << active_report_generation_config_.ToString();
+
   if (report_type == ReportType::kProfileReport) {
     DCHECK(profile_request_generator_);
     profile_request_generator_->Generate(
@@ -307,7 +316,13 @@ void ReportScheduler::OnReportGenerated(ReportRequestQueue requests) {
     report_uploader_ =
         std::make_unique<ReportUploader>(cloud_policy_client_, kMaximumRetry);
   }
-  RecordUploadTrigger(active_trigger_);
+
+  RecordUploadTrigger();
+  if (active_report_generation_config_.security_signals_mode !=
+      SecuritySignalsMode::kNoSignals) {
+    delegate_->GetPrefService()->SetTime(kLastSignalsUploadAttemptTimestamp,
+                                         base::Time::Now());
+  }
 
   report_uploader_->SetRequestAndUpload(
       active_report_generation_config_, std::move(requests),
@@ -326,8 +341,21 @@ void ReportScheduler::OnReportUploaded(ReportUploader::ReportStatus status) {
       if (IsBrowserVersionUploaded(active_trigger_))
         delegate_->OnBrowserVersionUploaded();
 
-      delegate_->GetPrefService()->SetTime(kLastUploadSucceededTimestamp,
-                                           base::Time::Now());
+      // Signals-only report does not contain most content of a status report
+      // and should not update this timestamp.
+      if (active_trigger_ != ReportScheduler::kTriggerSecurity) {
+        delegate_->GetPrefService()->SetTime(kLastUploadSucceededTimestamp,
+                                             base::Time::Now());
+      }
+
+      if (active_report_generation_config_.security_signals_mode !=
+          SecuritySignalsMode::kNoSignals) {
+        delegate_->GetPrefService()->SetTime(
+            kLastSignalsUploadSucceededTimestamp, base::Time::Now());
+        delegate_->GetPrefService()->SetString(
+            kLastSignalsUploadSucceededConfig,
+            active_report_generation_config_.ToString());
+      }
       [[fallthrough]];
     case ReportUploader::kTransientError:
       // Stop retrying and schedule the next report to avoid stale report.
@@ -414,8 +442,7 @@ void ReportScheduler::RunPendingTriggers() {
   GenerateAndUploadReport(trigger);
 }
 
-// static
-void ReportScheduler::RecordUploadTrigger(ReportTrigger trigger) {
+void ReportScheduler::RecordUploadTrigger() {
   // These values are persisted to logs. Entries should not be renumbered and
   // numeric values should never be reused.
   enum class Sample {
@@ -429,7 +456,7 @@ void ReportScheduler::RecordUploadTrigger(ReportTrigger trigger) {
     kSecurity = 7,
     kMaxValue = kSecurity
   } sample = Sample::kNone;
-  switch (trigger) {
+  switch (active_trigger_) {
     case kTriggerNone:
       break;
     case kTriggerTimer:
@@ -450,6 +477,13 @@ void ReportScheduler::RecordUploadTrigger(ReportTrigger trigger) {
   }
   base::UmaHistogramEnumeration("Enterprise.CloudReportingUploadTrigger",
                                 sample);
+
+  if (active_report_generation_config_.security_signals_mode !=
+      SecuritySignalsMode::kNoSignals) {
+    base::UmaHistogramEnumeration(
+        "Enterprise.SecurityReport.User.Mode",
+        active_report_generation_config_.security_signals_mode);
+  }
 }
 
 ReportType ReportScheduler::TriggerToReportType(

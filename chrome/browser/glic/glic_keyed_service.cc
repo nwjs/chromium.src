@@ -154,6 +154,16 @@ void GlicKeyedService::ToggleUI(BrowserWindowInterface* bwi,
   window_controller_->Toggle(bwi, prevent_close, source);
 }
 
+void GlicKeyedService::OpenFreDialogInNewTab(BrowserWindowInterface* bwi) {
+  // Glic may be disabled for certain user profiles (the user is browsing in
+  // incognito or guest mode, policy, etc). In those cases, the entry points to
+  // this method should already have been removed.
+  CHECK(GlicEnabling::IsEnabledForProfile(profile_));
+
+  glic_profile_manager_->SetActiveGlic(this);
+  window_controller_->fre_controller()->OpenFreDialogInNewTab(bwi);
+}
+
 void GlicKeyedService::CloseUI() {
   window_controller_->Shutdown();
   host().Shutdown();
@@ -330,22 +340,8 @@ void GlicKeyedService::GetContextFromFocusedTab(
 
   metrics_->DidRequestContextFromFocusedTab();
 
-  auto fetcher = std::make_unique<glic::GlicPageContextFetcher>();
-  fetcher->Fetch(
-      GetFocusedTabData(), options,
-      base::BindOnce(
-          // Bind `fetcher` to the callback to keep it in scope until it
-          // returns.
-          // TODO(harringtond): Consider adding throttling of how often we fetch
-          // context.
-          // TODO(harringtond): Consider deleting the fetcher if the page
-          // handler is unbound before the fetch completes.
-          [](std::unique_ptr<glic::GlicPageContextFetcher> fetcher,
-             mojom::WebClientHandler::GetContextFromFocusedTabCallback callback,
-             mojom::GetContextResultPtr result) {
-            std::move(callback).Run(std::move(result));
-          },
-          std::move(fetcher), std::move(callback)));
+  GlicPageContextFetcher::Fetch(GetFocusedTabData(), options,
+                                std::move(callback));
 }
 
 void GlicKeyedService::ActInFocusedTab(

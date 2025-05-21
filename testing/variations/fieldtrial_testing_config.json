@@ -3025,12 +3025,14 @@
             ],
             "experiments": [
                 {
-                    "name": "IPHWithFastEtc1Encoder",
+                    "name": "IPHWithFastEtc1EncoderDelayed",
                     "params": {
                         "availability": "any",
+                        "compress-screenshot-when-quiet": "true",
                         "event_trigger": "name:rtl_gesture_iph_trigger;comparator:==0;window:365;storage:365",
                         "event_used": "name:rtl_gesture_iph_show;comparator:==0;window:365;storage:365",
                         "percentage-of-ram-to-use": "0.5",
+                        "screenshot-send-result-delay-ms": "400",
                         "session_rate": "<1",
                         "x_trigger": "",
                         "x_unhandled_gesture_threshold": "2"
@@ -16722,6 +16724,24 @@
             ]
         }
     ],
+    "PWANavigationCapturingV2ChromeOS": [
+        {
+            "platforms": [
+                "chromeos"
+            ],
+            "experiments": [
+                {
+                    "name": "EnabledSettingOffByDefault",
+                    "params": {
+                        "link_capturing_state": "reimpl_default_off"
+                    },
+                    "enable_features": [
+                        "PwaNavigationCapturing"
+                    ]
+                }
+            ]
+        }
+    ],
     "PWANavigationCapturingV2WindowMacLinux": [
         {
             "platforms": [
@@ -20910,6 +20930,25 @@
             ]
         }
     ],
+    "RestrictAbusePortsOnLocalhost": [
+        {
+            "platforms": [
+                "android",
+                "android_webview"
+            ],
+            "experiments": [
+                {
+                    "name": "RestrictAbusePortsOnLocalhost",
+                    "params": {
+                        "localhost_restrict_ports": "30987,30988,30989"
+                    },
+                    "enable_features": [
+                        "RestrictAbusePortsOnLocalhost"
+                    ]
+                }
+            ]
+        }
+    ],
     "RetryGetVideoCaptureDeviceInfos": [
         {
             "platforms": [
@@ -24536,6 +24575,21 @@
                     "name": "Enabled",
                     "enable_features": [
                         "TabStripIncognitoMigration"
+                    ]
+                }
+            ]
+        }
+    ],
+    "TabStripLayoutOptimization": [
+        {
+            "platforms": [
+                "android"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "TabStripLayoutOptimization"
                     ]
                 }
             ]

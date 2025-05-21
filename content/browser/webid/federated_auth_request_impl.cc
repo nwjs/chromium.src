@@ -761,6 +761,11 @@ void FederatedAuthRequestImpl::RequestToken(
                             /*error=*/nullptr,
                             /*is_auto_selected=*/false);
     fedcm_metrics_.reset();
+    // If there's an existing auth request token callback, we will need to
+    // record metrics for it once it is resolved.
+    if (auth_request_token_callback_) {
+      MaybeCreateFedCmMetrics();
+    }
     return;
   }
 
@@ -774,6 +779,11 @@ void FederatedAuthRequestImpl::RequestToken(
                             /*error=*/nullptr,
                             /*is_auto_selected=*/false);
     fedcm_metrics_.reset();
+    // If there's an existing auth request token callback, we will need to
+    // record metrics for it once it is resolved.
+    if (auth_request_token_callback_) {
+      MaybeCreateFedCmMetrics();
+    }
     return;
   }
 
@@ -1446,6 +1456,11 @@ void FederatedAuthRequestImpl::CompleteDisconnectRequest(
   std::move(callback).Run(status);
   disconnect_request_.reset();
   fedcm_metrics_.reset();
+  // If there's an existing auth request token callback, we will need to record
+  // metrics for it once it is resolved.
+  if (auth_request_token_callback_) {
+    MaybeCreateFedCmMetrics();
+  }
 }
 
 void FederatedAuthRequestImpl::OnClientMetadataResponseReceived(
@@ -2497,8 +2512,9 @@ void FederatedAuthRequestImpl::OnAccountSelected(const GURL& idp_config_url,
     RenderFrameHostImpl* host_impl = static_cast<RenderFrameHostImpl*>(
         render_frame_host().GetOutermostMainFrame());
     host_impl->GetAssociatedLocalFrame()->GetScrollPosition(
-        base::BindOnce(&FedCmMetrics::RecordAccountSelectionScrollPosition,
-                       base::Unretained(fedcm_metrics_.get())));
+        base::BindOnce(&RecordAccountSelectionScrollPosition,
+                       render_frame_host().GetPageUkmSourceId(),
+                       fedcm_metrics_->GetSessionID()));
   }
 
   fedcm_metrics_->RecordIsSignInUser(is_sign_in);

@@ -6,6 +6,7 @@
 
 #include <ctime>
 #include <memory>
+#include <string>
 
 #include "base/functional/callback_forward.h"
 #include "base/test/gmock_callback_support.h"
@@ -1631,6 +1632,93 @@ TEST_F(MessagingBackendServiceImplTest,
 }
 
 TEST_F(MessagingBackendServiceImplTest,
+       TestTabGroupRemovalWillHideExistingMessagesFromUi) {
+  CreateAndInitializeService();
+  AddPersistentMessageObserver();
+
+  data_sharing::GroupId collaboration_group_id =
+      data_sharing::GroupId("my group id");
+  base::Time now = base::Time::Now();
+
+  // Start with no messages in the DB.
+  std::vector<PersistentMessage> messages = service_->GetMessages(std::nullopt);
+  EXPECT_EQ(0u, messages.size());
+
+  // Add a tab message to the DB.
+  collaboration_pb::Message message = CreateStoredMessage(
+      collaboration_group_id, collaboration_pb::EventType::TAB_ADDED,
+      DirtyType::kDotAndChip, now);
+  AddMessage(message);
+
+  // Setup a tab group in TabGroupSyncService associated with the collaboration.
+  // It's necessary because messaging backend will consult TabGroupSyncService
+  // for the group info.
+  tab_groups::SavedTabGroup tab_group =
+      CreateSharedTabGroup(collaboration_group_id);
+  EXPECT_CALL(*mock_tab_group_sync_service_,
+              GetGroup(tab_groups::EitherGroupID(tab_group.saved_guid())))
+      .WillRepeatedly(Return(tab_group));
+  std::vector<tab_groups::SavedTabGroup> all_groups = {tab_group};
+  EXPECT_CALL(*mock_tab_group_sync_service_, GetAllGroups())
+      .WillRepeatedly(Return(all_groups));
+
+  // Query service for the messages of the group. It should have two persistent
+  // messages for the tab (chip and dirty dot), and one for the tab group (dirty
+  // dot).
+  messages = service_->GetMessagesForGroup(
+      tab_groups::EitherGroupID(tab_group.saved_guid()), std::nullopt);
+  ASSERT_EQ(3u, messages.size());
+  EXPECT_EQ(CollaborationEvent::TAB_ADDED, messages.at(0).collaboration_event);
+  EXPECT_EQ(PersistentNotificationType::CHIP, messages.at(0).type);
+  EXPECT_EQ(CollaborationEvent::TAB_ADDED, messages.at(1).collaboration_event);
+  EXPECT_EQ(PersistentNotificationType::DIRTY_TAB, messages.at(1).type);
+  EXPECT_EQ(CollaborationEvent::UNDEFINED, messages.at(2).collaboration_event);
+  EXPECT_EQ(PersistentNotificationType::DIRTY_TAB_GROUP, messages.at(2).type);
+
+  // OnTabGroupRemoved should result in hiding the persistent
+  // messages that are already showing.
+  // 1. Hide two persistent messages for the tab (chip and dirty dot).
+  // 2. Hide one persistent message for tab group dirty dot.
+
+  PersistentMessage message1, message2, message3;
+  testing::InSequence sequence;
+  EXPECT_CALL(mock_persistent_message_observer_, HidePersistentMessage(_))
+      .WillOnce(SaveArg<0>(&message1));  // Capture the first message
+  EXPECT_CALL(mock_persistent_message_observer_, HidePersistentMessage(_))
+      .WillOnce(SaveArg<0>(&message2));  // Capture the second message
+  EXPECT_CALL(mock_persistent_message_observer_, HidePersistentMessage(_))
+      .WillOnce(SaveArg<0>(&message3));  // Capture the third message
+
+  // Invoke the service API for tab group removal (e.g. unshare flow).
+  service_->OnTabGroupRemoved(tab_group, tab_groups::TriggerSource::REMOTE);
+
+  // Verify the messages that were hidden.
+  // Chip message of tab.
+  EXPECT_TRUE(message1.attribution.tab_metadata.has_value());
+  EXPECT_TRUE(message1.attribution.tab_group_metadata.has_value());
+  EXPECT_EQ(CollaborationEvent::TAB_ADDED, message1.collaboration_event);
+  EXPECT_EQ(tab_group.saved_guid(),
+            message1.attribution.tab_group_metadata->sync_tab_group_id.value());
+  EXPECT_EQ(PersistentNotificationType::CHIP, message1.type);
+
+  // Dirty dot of tab.
+  EXPECT_TRUE(message2.attribution.tab_metadata.has_value());
+  EXPECT_TRUE(message2.attribution.tab_group_metadata.has_value());
+  EXPECT_EQ(CollaborationEvent::TAB_ADDED, message2.collaboration_event);
+  EXPECT_EQ(tab_group.saved_guid(),
+            message2.attribution.tab_group_metadata->sync_tab_group_id.value());
+  EXPECT_EQ(PersistentNotificationType::DIRTY_TAB, message2.type);
+
+  // Dirty dot of tab group.
+  EXPECT_FALSE(message3.attribution.tab_metadata.has_value());
+  EXPECT_TRUE(message3.attribution.tab_group_metadata.has_value());
+  EXPECT_EQ(CollaborationEvent::UNDEFINED, message3.collaboration_event);
+  EXPECT_EQ(PersistentNotificationType::DIRTY_TAB_GROUP, message3.type);
+  EXPECT_EQ(tab_group.saved_guid(),
+            message3.attribution.tab_group_metadata->sync_tab_group_id.value());
+}
+
+TEST_F(MessagingBackendServiceImplTest,
        TestClearPersistentMessage_SpecificType) {
   CreateAndInitializeService();
 
@@ -2670,6 +2758,83 @@ TEST_F(MessagingBackendServiceImplTest, OnTabLastSeenTimeChanged_NonRemote) {
   auto dirty_message = GetDirtyMessageForTab(test_group, expected_tab_guid,
                                              DirtyType::kDotAndChip);
   EXPECT_TRUE(dirty_message.has_value());
+}
+
+TEST_F(MessagingBackendServiceImplTest, TruncateTabTitle) {
+  constexpr int kMaxNonTruncatedSize = 28;
+
+  char16_t chr = u'X';
+  const std::u16string kLargeTitleNoTrim(50, chr);
+  const std::u16string kSmallTitleNoTrim(10, chr);
+  const std::u16string kExactSizeTitleNoTrim(kMaxNonTruncatedSize, chr);
+  char16_t kEllipsis = u'\u2026';
+
+  const std::u16string kNoTitleNoTrim(50, u' ');
+  const std::u16string kNoTitleAllTrim = u"";
+
+  const std::u16string kLargeTitleWithTrim = u"   " + kLargeTitleNoTrim;
+  const std::u16string kSmallTitleWithTrim =
+      std::u16string(25, ' ') + kSmallTitleNoTrim + std::u16string(25, u' ');
+
+  const std::u16string kMultiGraphemeCharacter = u"A\u0301";  // “Á”
+  std::u16string exact_sized_title_with_multi_grapheme_characters = u"";
+  for (int i = 0; i < kMaxNonTruncatedSize; i++) {
+    exact_sized_title_with_multi_grapheme_characters.append(
+        kMultiGraphemeCharacter);
+  }
+  std::u16string small_title_with_multi_grapheme_characters = u"";
+  for (int i = 0; i < 20; i++) {
+    small_title_with_multi_grapheme_characters.append(kMultiGraphemeCharacter);
+  }
+
+  // Truncating empty strings works correctly.
+  EXPECT_EQ(kNoTitleAllTrim,
+            MessagingBackendServiceImpl::GetTruncatedTabTitleForTesting(
+                kNoTitleNoTrim));
+  EXPECT_EQ(kNoTitleAllTrim,
+            MessagingBackendServiceImpl::GetTruncatedTabTitleForTesting(
+                kNoTitleAllTrim));
+
+  std::u16string kLargeTitleAfterTruncation =
+      std::u16string(28, chr) + kEllipsis;
+  // Large titles truncate correctly
+  EXPECT_EQ(kLargeTitleAfterTruncation,
+            MessagingBackendServiceImpl::GetTruncatedTabTitleForTesting(
+                kLargeTitleNoTrim));
+  EXPECT_EQ(kLargeTitleAfterTruncation,
+            MessagingBackendServiceImpl::GetTruncatedTabTitleForTesting(
+                kLargeTitleWithTrim));
+
+  // Small titles trim correctly.
+  EXPECT_EQ(kSmallTitleNoTrim,
+            MessagingBackendServiceImpl::GetTruncatedTabTitleForTesting(
+                kSmallTitleNoTrim));
+  EXPECT_EQ(kSmallTitleNoTrim,
+            MessagingBackendServiceImpl::GetTruncatedTabTitleForTesting(
+                kSmallTitleWithTrim));
+
+  // Exact sizing works correctly.
+  EXPECT_EQ(kExactSizeTitleNoTrim,
+            MessagingBackendServiceImpl::GetTruncatedTabTitleForTesting(
+                kExactSizeTitleNoTrim));
+  EXPECT_EQ(kExactSizeTitleNoTrim,
+            MessagingBackendServiceImpl::GetTruncatedTabTitleForTesting(
+                kExactSizeTitleNoTrim + u" "));
+  EXPECT_EQ(kExactSizeTitleNoTrim + kEllipsis,
+            MessagingBackendServiceImpl::GetTruncatedTabTitleForTesting(
+                kExactSizeTitleNoTrim + chr));
+
+  // Multi grapheme characters work correctly.
+  EXPECT_EQ(small_title_with_multi_grapheme_characters,
+            MessagingBackendServiceImpl::GetTruncatedTabTitleForTesting(
+                small_title_with_multi_grapheme_characters));
+  EXPECT_EQ(exact_sized_title_with_multi_grapheme_characters,
+            MessagingBackendServiceImpl::GetTruncatedTabTitleForTesting(
+                exact_sized_title_with_multi_grapheme_characters));
+  EXPECT_EQ(exact_sized_title_with_multi_grapheme_characters + kEllipsis,
+            MessagingBackendServiceImpl::GetTruncatedTabTitleForTesting(
+                exact_sized_title_with_multi_grapheme_characters +
+                kMultiGraphemeCharacter));
 }
 
 }  // namespace collaboration::messaging

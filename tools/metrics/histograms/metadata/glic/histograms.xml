@@ -68,6 +68,7 @@ chromium-metrics-reviews@google.com.
     <variant name="AttachPanel"/>
     <variant name="CaptureScreenshot"/>
     <variant name="ClosePanel"/>
+    <variant name="ClosePanelAndShutdown"/>
     <variant name="CreateTab"/>
     <variant name="DetachPanel"/>
     <variant name="EnableDragResize"/>
@@ -150,6 +151,20 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Glic.Focus.Settings.Shortcut.Customized" enum="BooleanEnabled"
+    expires_after="2026-01-15">
+  <owner>bryantchandler@chromium.org</owner>
+  <owner>iwells@google.com</owner>
+  <summary>
+    After the user modifies the glic focus shortcut, logs a boolean that
+    reflects whether a shortcut is set.
+
+    Note: When setting a shortcut, 'disabled' will always be logged, then
+    'enabled'. This is because the edit process first clears the existing value.
+    If the shortcut is cleared, only a single 'disabled' log entry is generated.
+  </summary>
+</histogram>
+
 <histogram name="Glic.FrePresentationTime" units="ms"
     expires_after="2026-01-15">
   <owner>dewittj@google.com</owner>
@@ -206,6 +221,18 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Glic.PageContextFetcher.GetContextEligibility" units="ms"
+    expires_after="2026-01-15">
+  <owner>carlosk@chromium.org</owner>
+  <owner>harringtond@chromium.org</owner>
+  <owner>erikchen@chromium.org</owner>
+  <owner>sophiechang@chromium.org</owner>
+  <summary>
+    Recorded when a page context gets context eligibility. Measure the time from
+    start.
+  </summary>
+</histogram>
+
 <histogram name="Glic.PageContextFetcher.GetEncodedScreenshot" units="ms"
     expires_after="2026-01-15">
   <owner>carlosk@chromium.org</owner>
@@ -235,6 +262,18 @@ chromium-metrics-reviews@google.com.
   <summary>
     Recorded when a page context gets screenshot (pre-encoding and scaling).
     Measure the time from start.
+  </summary>
+</histogram>
+
+<histogram name="Glic.PageContextFetcher.PageContextEligible"
+    enum="BooleanEligible" expires_after="2026-01-15">
+  <owner>carlosk@chromium.org</owner>
+  <owner>harringtond@chromium.org</owner>
+  <owner>erikchen@chromium.org</owner>
+  <owner>sophiechang@chromium.org</owner>
+  <summary>
+    Recorded when a page context gets context eligibility and records whether
+    the page is eligible.
   </summary>
 </histogram>
 
@@ -595,6 +634,17 @@ chromium-metrics-reviews@google.com.
     the focused tab. Records an enum sample that answers a) is the main document
     a PDF (based on its MIME type) and b) were PDF contents actually found
     within the web page (only if Chrome's PDF plugin is actually active).
+  </summary>
+</histogram>
+
+<histogram name="Glic.TieredRolloutEnablementStatus"
+    enum="GlicTieredRolloutEnablementStatus" expires_after="2026-01-15">
+  <owner>sophiechang@chromium.org</owner>
+  <owner>dewittj@chromium.org</owner>
+  <summary>
+    Records whether the Glic-eligible profiles are enabled for tiered rollout.
+    Emitted in every UMA record from the current session (at the time the record
+    is finalized), but only if there is at least one Glic-eligible profile.
   </summary>
 </histogram>
 

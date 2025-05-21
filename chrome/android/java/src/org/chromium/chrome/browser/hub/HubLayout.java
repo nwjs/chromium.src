@@ -45,7 +45,6 @@ import org.chromium.chrome.browser.compositor.layouts.LayoutUpdateHost;
 import org.chromium.chrome.browser.compositor.layouts.components.LayoutTab;
 import org.chromium.chrome.browser.compositor.scene_layer.SolidColorSceneLayer;
 import org.chromium.chrome.browser.compositor.scene_layer.StaticTabSceneLayer;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.layouts.EventFilter;
 import org.chromium.chrome.browser.layouts.LayoutManager;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
@@ -362,12 +361,13 @@ public class HubLayout extends Layout implements HubLayoutController, AppHeaderO
             mRootView.addView(containerView, /* index= */ 0, params);
 
             if (!animate) {
-                // Don't post or wait for a layout as HubLayout is not in control of when the
-                // previous layout was hidden and this avoids a possibly empty frame.
-                queueAnimation();
-                forceAnimationToFinish();
-                hideCurrentTab();
-                maybeUpdateLayout();
+                if (containerView.getHeight() != 0) {
+                    // Don't post or wait for a layout as HubLayout is not in control of when the
+                    // previous layout was hidden and this avoids a possibly empty frame.
+                    forceShowLayout();
+                } else {
+                    containerView.runOnNextLayout(this::forceShowLayout);
+                }
             } else {
                 containerView.runOnNextLayout(this::queueAnimation);
             }
@@ -502,8 +502,11 @@ public class HubLayout extends Layout implements HubLayoutController, AppHeaderO
         // Immediately start any pending animations.
         mHubController.getContainerView().runOnNextLayoutRunnables();
 
-        // Force the animation to run to completion.
-        mCurrentAnimationRunner.forceAnimationToFinish();
+        // #runOnNextLayoutRunnables() may have set this to null.
+        if (mCurrentAnimationRunner != null) {
+            // Force the animation to run to completion.
+            mCurrentAnimationRunner.forceAnimationToFinish();
+        }
         mCurrentAnimationRunner = null;
 
         if (mScrimController != null) {
@@ -566,7 +569,7 @@ public class HubLayout extends Layout implements HubLayoutController, AppHeaderO
         getFinalRectForNewTabAnimation(containerView, newIsIncognito, finalRect);
         Rect initialRect;
         int cornerRadius;
-        if (ChromeFeatureList.sShowNewTabAnimations.isEnabled()) {
+        if (NewTabAnimationUtils.isNewTabAnimationEnabled()) {
             // Without this code, the upper corner shows a bit of blinking when running the
             // animation. This ensures the {@link ShrinkExpandImageView} fully covers the origin
             // corner.
@@ -579,7 +582,7 @@ public class HubLayout extends Layout implements HubLayoutController, AppHeaderO
 
             initialRect = new Rect();
             NewTabAnimationUtils.updateRects(
-                    initialRect, finalRect, isRtl, /* isTopAligned= */ true);
+                    NewTabAnimationUtils.RectStart.TOP, isRtl, initialRect, finalRect);
             cornerRadius =
                     getContext()
                             .getResources()
@@ -760,6 +763,13 @@ public class HubLayout extends Layout implements HubLayoutController, AppHeaderO
         }
         // Ignore edge offset and just ensure the width is correct. See crbug.com/1502437.
         finalRect.offset(-finalRect.left, -containerViewRect.top);
+    }
+
+    private void forceShowLayout() {
+        queueAnimation();
+        forceAnimationToFinish();
+        hideCurrentTab();
+        maybeUpdateLayout();
     }
 
     private void maybeAddPaneAnimationListener(HubLayoutAnimationRunner animationRunner) {

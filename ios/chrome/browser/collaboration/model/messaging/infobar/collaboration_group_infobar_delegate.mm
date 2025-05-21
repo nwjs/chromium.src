@@ -7,6 +7,8 @@
 #import "base/check.h"
 #import "base/memory/ptr_util.h"
 #import "base/strings/sys_string_conversions.h"
+#import "components/collaboration/public/collaboration_flow_entry_point.h"
+#import "components/data_sharing/public/group_data.h"
 #import "components/infobars/core/infobar.h"
 #import "components/infobars/core/infobar_delegate.h"
 #import "components/infobars/core/infobar_manager.h"
@@ -15,12 +17,19 @@
 #import "ios/chrome/browser/infobars/model/infobar_type.h"
 #import "ios/chrome/browser/infobars/model/infobar_utils.h"
 #import "ios/chrome/browser/saved_tab_groups/model/ios_tab_group_sync_util.h"
+#import "ios/chrome/browser/share_kit/model/share_kit_avatar_configuration.h"
+#import "ios/chrome/browser/share_kit/model/share_kit_avatar_primitive.h"
+#import "ios/chrome/browser/share_kit/model/share_kit_service.h"
+#import "ios/chrome/browser/share_kit/model/share_kit_service_factory.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list_factory.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/model/web_state_list/tab_group.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
+#import "ios/chrome/browser/shared/public/commands/collaboration_group_commands.h"
+#import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_params.h"
 #import "ios/chrome/grit/ios_strings.h"
@@ -29,6 +38,9 @@
 using collaboration::messaging::CollaborationEvent;
 
 namespace {
+
+// the size of avatars in points.
+const CGFloat kAvatarSize = 30;
 
 // Returns the `local_group_id` attached to the given `instant_message` if any.
 std::optional<tab_groups::LocalTabGroupID> GetLocalTabGroupId(
@@ -91,21 +103,18 @@ Browser* GetBrowserFromInstantMessage(
       break;
   }
 
-  // Retrieve the `source_browser`.
-  Browser* source_browser;
   for (Browser* browser : browsers) {
     // TODO(crbug.com/375595834): Handle cases where the `local_tab_group_id` is
     // not set.
     if (!local_tab_group_id.has_value() || use_first_available_browser) {
       // If `local_tab_group_id` is empty, use the first available browser.
-      source_browser = browser;
-      break;
+      return browser;
     }
     if (ContainsLocalTabGroup(local_tab_group_id, browser)) {
-      source_browser = browser;
+      return browser;
     }
   }
-  return source_browser;
+  return nullptr;
 }
 
 }  // namespace
@@ -117,6 +126,9 @@ bool CollaborationGroupInfoBarDelegate::Create(
   BrowserList* browser_list = BrowserListFactory::GetForProfile(profile);
   Browser* source_browser =
       GetBrowserFromInstantMessage(instant_message, browser_list);
+  if (!source_browser) {
+    return false;
+  }
 
   web::WebState* active_web_state =
       source_browser->GetWebStateList()->GetActiveWebState();
@@ -191,6 +203,7 @@ bool CollaborationGroupInfoBarDelegate::Accept() {
       ReopenTab();
       break;
     case CollaborationEvent::COLLABORATION_MEMBER_ADDED:
+      ManageGroup();
       break;
     case CollaborationEvent::UNDEFINED:
     case CollaborationEvent::TAB_ADDED:
@@ -211,9 +224,54 @@ void CollaborationGroupInfoBarDelegate::InfoBarDismissed() {
   ConfirmInfoBarDelegate::InfoBarDismissed();
 }
 
-UIImage* CollaborationGroupInfoBarDelegate::GetAvatarImage() {
-  // TODO(crbug.com/375595834): Update this to show avatars when needed.
-  return nil;
+id<ShareKitAvatarPrimitive>
+CollaborationGroupInfoBarDelegate::GetAvatarPrimitive() {
+  // Only return an avatar primitive if there is one affected user.
+  if (instant_message_.attributions.size() != 1 ||
+      !instant_message_.attributions.front().triggering_user.has_value()) {
+    return nil;
+  }
+
+  data_sharing::GroupMember user =
+      instant_message_.attributions.front().triggering_user.value();
+  ShareKitService* share_kit_service =
+      ShareKitServiceFactory::GetForProfile(profile_);
+
+  ShareKitAvatarConfiguration* config =
+      [[ShareKitAvatarConfiguration alloc] init];
+  config.avatarUrl =
+      [NSURL URLWithString:base::SysUTF8ToNSString(user.avatar_url.spec())];
+  // Use email instead when the display name is empty.
+  config.displayName = user.display_name.empty()
+                           ? base::SysUTF8ToNSString(user.email)
+                           : base::SysUTF8ToNSString(user.display_name);
+  config.avatarSize = CGSizeMake(kAvatarSize, kAvatarSize);
+
+  return share_kit_service->AvatarImage(config);
+}
+
+UIImage* CollaborationGroupInfoBarDelegate::GetSymbolImage() {
+  NSString* symbolName;
+  switch (instant_message_.collaboration_event) {
+    case CollaborationEvent::TAB_UPDATED:
+    case CollaborationEvent::TAB_REMOVED:
+    case CollaborationEvent::COLLABORATION_MEMBER_ADDED:
+    case CollaborationEvent::UNDEFINED:
+    case CollaborationEvent::TAB_ADDED:
+    case CollaborationEvent::TAB_GROUP_ADDED:
+    case CollaborationEvent::TAB_GROUP_NAME_UPDATED:
+    case CollaborationEvent::TAB_GROUP_COLOR_UPDATED:
+    case CollaborationEvent::COLLABORATION_ADDED:
+    case CollaborationEvent::COLLABORATION_MEMBER_REMOVED:
+      symbolName = kMultiIdentitySymbol;
+      break;
+    case CollaborationEvent::TAB_GROUP_REMOVED:
+    case CollaborationEvent::COLLABORATION_REMOVED:
+      symbolName = kTabGroupsSymbol;
+      break;
+  }
+  return DefaultSymbolTemplateWithPointSize(symbolName,
+                                            kInfobarSymbolPointSize);
 }
 
 void CollaborationGroupInfoBarDelegate::ReopenTab() {
@@ -258,4 +316,28 @@ void CollaborationGroupInfoBarDelegate::ReopenTab() {
   }
 
   UrlLoadingBrowserAgent::FromBrowser(group_info.browser)->Load(params);
+}
+
+void CollaborationGroupInfoBarDelegate::ManageGroup() {
+  std::optional<tab_groups::LocalTabGroupID> local_tab_group_id =
+      GetLocalTabGroupId(instant_message_);
+  if (!local_tab_group_id.has_value()) {
+    return;
+  }
+
+  BrowserList* browser_list = BrowserListFactory::GetForProfile(profile_);
+  tab_groups::utils::LocalTabGroupInfo group_info =
+      tab_groups::utils::GetLocalTabGroupInfo(browser_list,
+                                              local_tab_group_id.value());
+  if (!group_info.tab_group) {
+    return;
+  }
+
+  id<CollaborationGroupCommands> collaborationGroupHandler = HandlerForProtocol(
+      group_info.browser->GetCommandDispatcher(), CollaborationGroupCommands);
+  [collaborationGroupHandler
+      shareOrManageTabGroup:group_info.tab_group
+                 entryPoint:collaboration::
+                                CollaborationServiceShareOrManageEntryPoint::
+                                    kiOSMessage];
 }

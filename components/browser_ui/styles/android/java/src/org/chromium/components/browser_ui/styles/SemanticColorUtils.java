@@ -183,6 +183,11 @@ public class SemanticColorUtils {
         return resolve(R.attr.colorOnPrimary, context);
     }
 
+    /** Returns the semantic color values that correspond to colorOnSurface. */
+    public static @ColorInt int getColorOnSurface(Context context) {
+        return resolve(R.attr.colorOnSurface, context);
+    }
+
     /** Returns the semantic color values that correspond to colorOnSurfaceInverse. */
     public static @ColorInt int getColorOnSurfaceInverse(Context context) {
         return resolve(R.attr.colorOnSurfaceInverse, context);
@@ -235,5 +240,10 @@ public class SemanticColorUtils {
     /** Returns the semantic color values that correspond to colorSurfaceDim. */
     public static @ColorInt int getColorSurfaceDim(Context context) {
         return resolve(R.attr.colorSurfaceDim, context);
+    }
+
+    /** Returns the surface color value of the conceptual floating snackbar background color. */
+    public static @ColorInt int getFloatingSnackbarBackgroundColor(Context context) {
+        return resolve(R.attr.colorSurfaceContainerHigh, context);
     }
 }

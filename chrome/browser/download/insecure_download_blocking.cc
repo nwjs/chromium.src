@@ -18,13 +18,13 @@
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
-#include "chrome/common/webui_url_constants.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/download/public/common/download_stats.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/download_item_utils.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/common/url_constants.h"
 #include "net/base/url_util.h"
 #include "services/network/public/cpp/is_potentially_trustworthy.h"
 #include "third_party/blink/public/mojom/devtools/console_message.mojom.h"
@@ -353,6 +353,10 @@ struct InsecureDownloadData {
            !download_delivered_securely) &&
           !net::IsLocalhost(dl_url);
     }
+
+    is_user_initiated_on_webui_ =
+        item->GetTabUrl().SchemeIs(content::kChromeUIScheme) &&
+        download_source == DownloadSource::CONTEXT_MENU;
   }
 
   std::optional<url::Origin> initiator_;
@@ -365,6 +369,8 @@ struct InsecureDownloadData {
   bool is_mixed_content_;
   // Was the download initiated by an insecure origin or delivered insecurely?
   bool is_insecure_download_;
+  // Was the download initiated by a user on a chrome:// WebUI?
+  bool is_user_initiated_on_webui_;
 };
 
 // Check if |extension| is contained in the comma separated |extension_list|.
@@ -406,10 +412,8 @@ void PrintConsoleMessage(const InsecureDownloadData& data) {
     return;
   }
 
-  // TODO(crbug.com/399076164): debug only. Used to investigate why insecure
-  // downloads can be initiated from the NTP.
-  if (rfh->GetLastCommittedOrigin().host() == chrome::kChromeUINewTabPageHost) {
-    base::debug::DumpWithoutCrashing();
+  if (data.is_user_initiated_on_webui_) {
+    return;
   }
 
   rfh->AddMessageToConsole(

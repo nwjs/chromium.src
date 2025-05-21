@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/test/bind.h"
+#include "components/optimization_guide/content/browser/page_context_eligibility.h"
+#include "components/optimization_guide/content/browser/page_context_eligibility_api.h"
 #ifdef UNSAFE_BUFFERS_BUILD
 // TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
 #pragma allow_unsafe_libc_calls
@@ -617,6 +620,14 @@ class LensSearchControllerFake : public lens::TestLensSearchController {
   explicit LensSearchControllerFake(tabs::TabInterface* tab)
       : lens::TestLensSearchController(tab) {}
 
+  ~LensSearchControllerFake() override { ResetPageContextEligibilityAPI(); }
+
+  // Sets the context eligibility of the page and creates the new API.
+  void SetContextEligible(bool eligible) {
+    is_context_eligible_ = eligible;
+    CreatePageContextEligibilityAPI();
+  }
+
  protected:
   std::unique_ptr<LensOverlayController> CreateLensOverlayController(
       tabs::TabInterface* tab,
@@ -639,6 +650,43 @@ class LensSearchControllerFake : public lens::TestLensSearchController {
   CreateLensOverlaySidePanelCoordinator() override {
     return std::make_unique<lens::TestLensOverlaySidePanelCoordinator>(this);
   }
+
+  void CreatePageContextEligibilityAPI() override {
+    // Reset any old API pointers that could be dangling from a previous
+    // creation of the API.
+    ResetPageContextEligibilityAPI();
+
+    page_context_eligibility_api_ =
+        std::make_unique<optimization_guide::PageContextEligibilityAPI>();
+
+    page_context_eligibility_api_->IsPageContextEligible =
+        is_context_eligible_
+            ? [](const std::string& host, const std::string& path,
+                 const std::vector<
+                     optimization_guide::FrameMetadata>&) { return true; }
+            : [](const std::string& host, const std::string& path,
+                 const std::vector<optimization_guide::FrameMetadata>&) {
+                return false;
+              };
+
+    page_context_eligibility_ =
+        std::make_unique<optimization_guide::PageContextEligibility>(
+            page_context_eligibility_api_.get());
+    set_page_context_eligibility_for_testing(page_context_eligibility_.get());
+  }
+
+ private:
+  void ResetPageContextEligibilityAPI() {
+    set_page_context_eligibility_for_testing(nullptr);
+    page_context_eligibility_.reset();
+    page_context_eligibility_api_.reset();
+  }
+
+  bool is_context_eligible_ = true;
+  std::unique_ptr<optimization_guide::PageContextEligibilityAPI>
+      page_context_eligibility_api_;
+  std::unique_ptr<optimization_guide::PageContextEligibility>
+      page_context_eligibility_;
 };
 
 class TabFeaturesFake : public tabs::TabFeatures {
@@ -726,6 +774,14 @@ class LensOverlayControllerBrowserTest : public InProcessBrowserTest {
     return bitmap;
   }
 
+  LensSearchController* GetLensSearchController() {
+    return browser()
+        ->tab_strip_model()
+        ->GetActiveTab()
+        ->GetTabFeatures()
+        ->lens_search_controller();
+  }
+
   LensOverlayController* GetLensOverlayController() {
     return browser()
         ->tab_strip_model()
@@ -749,6 +805,10 @@ class LensOverlayControllerBrowserTest : public InProcessBrowserTest {
     auto* controller = GetLensOverlayController();
     return controller->results_side_panel_coordinator()
         ->get_search_query_history_for_testing();
+  }
+
+  void OpenLensOverlay(lens::LensOverlayInvocationSource invocation_source) {
+    GetLensSearchController()->OpenLensOverlay(invocation_source);
   }
 
   void SimulateLeftClickDrag(gfx::Point from, gfx::Point to) {
@@ -934,7 +994,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // with the contextual searchbox enabled.
   views::NamedWidgetShownWaiter waiter(views::test::AnyWidgetTestPasskey{},
                                        lens::kLensPermissionDialogName);
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   // State should remain off.
   ASSERT_EQ(controller->state(), State::kOff);
   auto* bubble_widget = waiter.WaitIfNeededAndGet();
@@ -945,7 +1005,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
                   ->HasOpenDialogWidget());
 
   // Verify attempting to show the UI again does not close the bubble widget.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   // State should remain off.
   ASSERT_EQ(controller->state(), State::kOff);
   ASSERT_TRUE(bubble_widget->IsVisible());
@@ -995,7 +1055,7 @@ IN_PROC_BROWSER_TEST_F(
   // with the contextual searchbox enabled.
   views::NamedWidgetShownWaiter waiter(views::test::AnyWidgetTestPasskey{},
                                        lens::kLensPermissionDialogName);
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   // State should remain off.
   ASSERT_EQ(controller->state(), State::kOff);
   auto* bubble_widget = waiter.WaitIfNeededAndGet();
@@ -1006,7 +1066,7 @@ IN_PROC_BROWSER_TEST_F(
                   ->HasOpenDialogWidget());
 
   // Verify attempting to show the UI again does not close the bubble widget.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   // State should remain off.
   ASSERT_EQ(controller->state(), State::kOff);
   ASSERT_TRUE(bubble_widget->IsVisible());
@@ -1054,7 +1114,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // Verify attempting to show the UI will show the permission bubble.
   views::NamedWidgetShownWaiter waiter(views::test::AnyWidgetTestPasskey{},
                                        lens::kLensPermissionDialogName);
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   // State should remain off.
   ASSERT_EQ(controller->state(), State::kOff);
   auto* bubble_widget = waiter.WaitIfNeededAndGet();
@@ -1065,7 +1125,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
                   ->HasOpenDialogWidget());
 
   // Verify attempting to show the UI again does not close the bubble widget.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   // State should remain off.
   ASSERT_EQ(controller->state(), State::kOff);
   ASSERT_TRUE(bubble_widget->IsVisible());
@@ -1105,7 +1165,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
       base::test::RunUntil([&]() { return tab_contents->IsCrashed(); }));
 
   // Showing UI should be a no-op and remain in state off.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kOff);
 }
 
@@ -1116,7 +1176,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest, CaptureScreenshot) {
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -1142,7 +1202,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest, CreateAndLoadWebUI) {
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -1161,7 +1221,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest, ShowSidePanel) {
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -1230,7 +1290,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest, SidePanelModalDialog) {
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -1320,7 +1380,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest, CloseSidePanel) {
   ASSERT_TRUE(browser()->GetWebView()->GetEnabled());
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -1362,7 +1422,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -1411,7 +1471,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   EXPECT_TRUE(controller->GetThumbnailForTesting().empty());
   EXPECT_EQ(controller->GetPageClassificationForTesting(),
@@ -1501,7 +1561,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -1551,7 +1611,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -1606,7 +1666,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -1670,7 +1730,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -1722,7 +1782,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -1804,7 +1864,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -1865,7 +1925,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // Showing UI should change the state to screenshot and eventually to overlay.
   // When the overlay is bound, it should start the query flow which returns a
   // response for the full image callback.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -1908,7 +1968,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // Showing UI should change the state to screenshot and eventually to overlay.
   // When the overlay is bound, it should start the query flow which returns a
   // response for the full image callback.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -1967,7 +2027,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // Showing UI should change the state to screenshot and eventually to overlay.
   // When the overlay is bound, it should start the query flow which returns a
   // response for the full image callback.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -2028,7 +2088,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // Showing UI should change the state to screenshot and eventually to overlay.
   // When the overlay is bound, it should start the query flow which returns a
   // response for the full image callback.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -2071,7 +2131,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
       browser()->tab_strip_model()->active_index();
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -2141,7 +2201,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -2183,7 +2243,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -2242,7 +2302,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
       ->SetConnectionType(net::NetworkChangeNotifier::CONNECTION_NONE);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -2309,7 +2369,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   EXPECT_EQ(controller->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   EXPECT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -2395,7 +2455,7 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_EQ(controller->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   EXPECT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -2468,7 +2528,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   EXPECT_EQ(controller->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   EXPECT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -2536,7 +2596,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   EXPECT_EQ(controller->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   EXPECT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -2608,7 +2668,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   EXPECT_EQ(controller->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   EXPECT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -2713,7 +2773,7 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_EQ(controller->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   EXPECT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -2808,7 +2868,7 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_EQ(controller->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   EXPECT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -2894,7 +2954,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   EXPECT_EQ(controller->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   EXPECT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -2977,7 +3037,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   EXPECT_EQ(controller->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   EXPECT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -3046,7 +3106,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   EXPECT_EQ(controller->state(), State::kOff);
 
   // Showing UI should eventually result in overlay state.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   EXPECT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
   EXPECT_TRUE(content::WaitForLoadStop(GetOverlayWebContents()));
@@ -3110,7 +3170,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Showing UI should eventually result in overlay state.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
   ASSERT_TRUE(content::WaitForLoadStop(GetOverlayWebContents()));
@@ -3146,7 +3206,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   EXPECT_EQ(controller->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   EXPECT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -3222,7 +3282,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   EXPECT_EQ(controller->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   EXPECT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -3270,7 +3330,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Showing UI should eventually result in overlay state.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
   ASSERT_TRUE(content::WaitForLoadStop(GetOverlayWebContents()));
@@ -3345,7 +3405,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Showing UI should eventually result in overlay state.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   EXPECT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
   EXPECT_TRUE(content::WaitForLoadStop(GetOverlayWebContents()));
@@ -3627,7 +3687,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Showing UI should eventually result in overlay state.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   EXPECT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
   EXPECT_TRUE(content::WaitForLoadStop(GetOverlayWebContents()));
@@ -4069,7 +4129,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Showing UI should eventually result in overlay state.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   EXPECT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
   EXPECT_TRUE(content::WaitForLoadStop(GetOverlayWebContents()));
@@ -4139,7 +4199,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // appropriate buckets and the total count of invocations, dismissals,
   // "resulted in search" and session duration should each be 1. In particular,
   // the "resulted in search" metric should have an entry in the false bucket.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
   ASSERT_TRUE(content::WaitForLoadStop(GetOverlayWebContents()));
@@ -4230,7 +4290,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
 
   // Showing the UI, issuing a search and then closing it should record
   // an entry in the true bucket of the "resulted in search" metric.
-  controller->ShowUI(LensOverlayInvocationSource::kToolbar);
+  OpenLensOverlay(LensOverlayInvocationSource::kToolbar);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
   ASSERT_TRUE(content::WaitForLoadStop(GetOverlayWebContents()));
@@ -4284,8 +4344,8 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
 
   // Attempting to invoke the overlay twice without closing it in between
   // should record only a single new entry.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
 
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -4328,7 +4388,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   EXPECT_EQ(0u, entries.size());
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -4368,7 +4428,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the Overlay
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
 
@@ -4389,7 +4449,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the Overlay
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
 
@@ -4410,7 +4470,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the Overlay
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
 
@@ -4431,7 +4491,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the Overlay
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
 
@@ -4466,7 +4526,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // Showing UI should eventually result in overlay state. When the overlay is
   // bound, it should start the query flow which returns a response for the
   // interaction data callback.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
 
@@ -4485,7 +4545,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // Showing UI should eventually result in overlay state. When the overlay is
   // bound, it should start the query flow which returns a response for the
   // interaction data callback.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
 
@@ -4517,7 +4577,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // Showing UI should eventually result in overlay state. When the overlay is
   // bound, it should start the query flow which returns a response for the
   // interaction data callback.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
 
@@ -4561,7 +4621,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest, SidePanelOpen) {
   }));
 
   auto* controller = GetLensOverlayController();
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
 
   // Overlay should eventually show.
   ASSERT_TRUE(base::test::RunUntil(
@@ -4580,7 +4640,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest, FindBarClosesOverlay) {
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -4662,7 +4722,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   VerifyEntrypoints(/*expected_visible=*/true);
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
 
@@ -4711,7 +4771,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the Overlay and wait for the WebUI to be ready.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
   ASSERT_TRUE(content::WaitForLoadStop(GetOverlayWebContents()));
@@ -4758,7 +4818,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the Overlay
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
 
@@ -4787,7 +4847,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the Overlay
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
 
@@ -4817,7 +4877,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
       browser()->tab_strip_model()->GetActiveWebContents();
 
   // Open the Overlay
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
 
@@ -4853,7 +4913,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
       browser()->tab_strip_model()->GetActiveWebContents();
 
   // Open the Overlay
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
 
@@ -4888,7 +4948,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   // Showing UI should change the state to screenshot and eventually to overlay.
   // When the overlay is bound, it should start the query flow which returns a
   // response for the full image callback.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -5093,7 +5153,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserStartQueryFlowOptimization,
   // Showing UI should eventually result in overlay state. This also tests that
   // the start query flow optimization doesn't break the overlay initialization
   // flow.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
   ASSERT_TRUE(content::WaitForLoadStop(GetOverlayWebContents()));
@@ -5146,7 +5206,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserFullscreenDisabled,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -5240,12 +5300,24 @@ class LensOverlayControllerBrowserPDFTest
     return disabled;
   }
 
+  LensSearchController* GetLensSearchController() {
+    return browser()
+        ->tab_strip_model()
+        ->GetActiveTab()
+        ->GetTabFeatures()
+        ->lens_search_controller();
+  }
+
   LensOverlayController* GetLensOverlayController() {
     return browser()
         ->tab_strip_model()
         ->GetActiveTab()
         ->GetTabFeatures()
         ->lens_overlay_controller();
+  }
+
+  void OpenLensOverlay(LensOverlayInvocationSource invocation_source) {
+    GetLensSearchController()->OpenLensOverlay(invocation_source);
   }
 
   void CloseOverlayAndWaitForOff(LensOverlayController* controller,
@@ -5330,7 +5402,7 @@ IN_PROC_BROWSER_TEST_P(LensOverlayControllerBrowserPDFTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -5432,7 +5504,7 @@ IN_PROC_BROWSER_TEST_P(LensOverlayControllerBrowserPDFContextualizationTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -5466,7 +5538,7 @@ IN_PROC_BROWSER_TEST_P(LensOverlayControllerBrowserPDFContextualizationTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&] { return controller->state() == State::kOverlay; }));
@@ -5497,7 +5569,7 @@ IN_PROC_BROWSER_TEST_P(LensOverlayControllerBrowserPDFContextualizationTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -5522,7 +5594,7 @@ IN_PROC_BROWSER_TEST_P(LensOverlayControllerBrowserPDFContextualizationTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -5548,7 +5620,7 @@ IN_PROC_BROWSER_TEST_P(LensOverlayControllerBrowserPDFContextualizationTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -5625,7 +5697,7 @@ IN_PROC_BROWSER_TEST_P(LensOverlayControllerBrowserPDFContextualizationTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -5668,7 +5740,7 @@ IN_PROC_BROWSER_TEST_P(LensOverlayControllerBrowserPDFContextualizationTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -5737,7 +5809,7 @@ IN_PROC_BROWSER_TEST_P(LensOverlayControllerBrowserPDFContextualizationTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -5875,7 +5947,7 @@ IN_PROC_BROWSER_TEST_P(LensOverlayControllerBrowserPDFContextualizationTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -5952,7 +6024,7 @@ IN_PROC_BROWSER_TEST_P(LensOverlayControllerBrowserPDFContextualizationTest,
   EXPECT_EQ(controller->state(), State::kOff);
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -6045,7 +6117,7 @@ IN_PROC_BROWSER_TEST_P(LensOverlayControllerBrowserPDFUpdatedContentFieldsTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&] { return controller->state() == State::kOverlay; }));
@@ -6100,7 +6172,7 @@ IN_PROC_BROWSER_TEST_P(LensOverlayControllerBrowserPDFIncreaseLimitTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&] { return controller->state() == State::kOverlay; }));
@@ -6165,7 +6237,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserWithPixelsTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -6222,7 +6294,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserWithPixelsTest,
       fake_controller->fake_overlay_page_.last_received_theme_.has_value());
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -6263,7 +6335,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserWithPixelsTest,
 
   // Showing UI should change the state to screenshot and eventually to starting
   // WebUI.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -6302,7 +6374,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -6410,7 +6482,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -6448,7 +6520,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
                                           "RANDOM", "\n\npuppies.\n"};
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -6533,7 +6605,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -6598,7 +6670,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
                                           "RANDOM", "\n\n\nCharacters.\n"};
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -6666,7 +6738,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -6727,7 +6799,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -6785,7 +6857,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -6922,7 +6994,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -7029,7 +7101,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -7126,7 +7198,7 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -7167,7 +7239,7 @@ IN_PROC_BROWSER_TEST_F(
       /*expected_count=*/0);
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -7228,7 +7300,7 @@ IN_PROC_BROWSER_TEST_F(
       /*expected_count=*/1);
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -7287,7 +7359,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -7349,7 +7421,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   fake_controller->is_screenshot_possible_ = false;
 
   // Show the overlay. State should still be off.
-  GetLensOverlayController()->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(fake_controller->state(), State::kOff);
 
   // Background the tab.
@@ -7372,7 +7444,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -7423,7 +7495,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -7454,6 +7526,65 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
       fake_query_controller->last_sent_underlying_content_bytes().empty());
   ASSERT_EQ(lens::MimeType::kUnknown,
             fake_query_controller->last_sent_underlying_content_type());
+}
+
+IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
+                       ProtectedPageDoesNotShow) {
+  base::HistogramTester histogram_tester;
+  WaitForPaint();
+
+  // There should be no histograms logged.
+  histogram_tester.ExpectTotalCount("Lens.Overlay.SidePanelResultStatus",
+                                    /*expected_count=*/0);
+
+  // Set the search controller to return the page as not context eligible.
+  auto* fake_controller =
+      static_cast<LensSearchControllerFake*>(GetLensSearchController());
+  ASSERT_TRUE(fake_controller);
+  fake_controller->SetContextEligible(false);
+
+  // State should start in off.
+  auto* controller = GetLensOverlayController();
+  ASSERT_EQ(controller->state(), State::kOff);
+
+  // Showing UI should change the state to screenshot and eventually to overlay.
+  // When the overlay is bound, it should start the query flow which returns a
+  // response for the full image callback.
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
+  ASSERT_EQ(controller->state(), State::kScreenshot);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kOverlay; }));
+  ASSERT_TRUE(content::WaitForLoadStop(GetOverlayWebContents()));
+
+  // Verify the error page histogram was not recorded since the result panel is
+  // not open.
+  histogram_tester.ExpectTotalCount("Lens.Overlay.SidePanelResultStatus",
+                                    /*expected_count=*/0);
+
+  // Side panel is not showing at first.
+  auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
+  EXPECT_FALSE(coordinator->IsSidePanelShowing());
+  EXPECT_FALSE(controller->GetSidePanelWebContentsForTesting());
+
+  // Issuing a request should show the side panel even if navigation is expected
+  // to fail.
+  controller->IssueTextSelectionRequestForTesting("test query",
+                                                  /*selection_start_index=*/0,
+                                                  /*selection_end_index=*/0);
+  EXPECT_TRUE(content::WaitForLoadStop(
+      controller->GetSidePanelWebContentsForTesting()));
+
+  // Expect the Lens Overlay results panel to open.
+  ASSERT_TRUE(coordinator->IsSidePanelShowing());
+  EXPECT_EQ(coordinator->GetCurrentEntryId(),
+            SidePanelEntry::Id::kLensOverlayResults);
+
+  // The recorded histogram should be a normal result shown.
+  histogram_tester.ExpectTotalCount("Lens.Overlay.SidePanelResultStatus",
+                                    /*expected_count=*/1);
+  histogram_tester.ExpectBucketCount("Lens.Overlay.SidePanelResultStatus",
+                                     lens::SidePanelResultStatus::kResultShown,
+                                     /*expected_count=*/1);
 }
 
 class LensOverlayControllerInnerHtmlEnabledTest
@@ -7495,7 +7626,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerInnerTextEnabledSmallByteLimitTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -7551,7 +7682,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerInnerHtmlEnabledSmallByteLimitTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -7579,7 +7710,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerInnerHtmlEnabledTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -7618,7 +7749,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerInnerHtmlEnabledTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -7643,7 +7774,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerInnerHtmlEnabledTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -7780,7 +7911,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerInnerHtmlEnabledTest,
   WaitForPaint(kImageFile);
   auto* controller = GetLensOverlayController();
   ASSERT_EQ(controller->state(), State::kOff);
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -7789,7 +7920,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerInnerHtmlEnabledTest,
 
   // Navigate to a audio file, and invoke then close the overlay.
   WaitForPaint(kAudioFile);
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -7798,7 +7929,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerInnerHtmlEnabledTest,
 
   // Navigate to a video file, and invoke then close the overlay.
   WaitForPaint(kVideoFile);
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -7807,7 +7938,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerInnerHtmlEnabledTest,
 
   // Navigate to a JSON file, and invoke then close the overlay.
   WaitForPaint(kJsonFile);
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -7841,7 +7972,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerInnerHtmlEnabledTest,
   WaitForPaint();
   auto* controller = GetLensOverlayController();
   ASSERT_EQ(controller->state(), State::kOff);
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -7904,15 +8035,17 @@ class LensOverlayControllerInnerHtmlWithInnerTextAndApc
     : public LensOverlayControllerBrowserTest {
  protected:
   void SetupFeatureList() override {
-    feature_list_.InitAndEnableFeatureWithParameters(
-        lens::features::kLensOverlayContextualSearchbox,
-        {
-            {"send-page-url-for-contextualization", "true"},
-            {"use-inner-text-as-context", "true"},
-            {"use-inner-html-as-context", "true"},
-            {"use-apc-as-context", "true"},
-            {"use-updated-content-fields", "true"},
-        });
+    feature_list_.InitWithFeaturesAndParameters(
+        {{lens::features::kLensOverlayContextualSearchbox,
+          {
+              {"send-page-url-for-contextualization", "true"},
+              {"use-inner-text-as-context", "true"},
+              {"use-inner-html-as-context", "true"},
+              {"use-apc-as-context", "true"},
+              {"use-updated-content-fields", "true"},
+          }},
+         {lens::features::kLensSearchProtectedPage, {}}},
+        {});
   }
 };
 
@@ -7925,7 +8058,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerInnerHtmlWithInnerTextAndApc,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -7992,6 +8125,78 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerInnerHtmlWithInnerTextAndApc,
                   .last_received_should_show_contextual_searchbox_);
 }
 
+IN_PROC_BROWSER_TEST_F(LensOverlayControllerInnerHtmlWithInnerTextAndApc,
+                       PageNotContextEligibleError) {
+  base::HistogramTester histogram_tester;
+  WaitForPaint(kDocumentWithNonAsciiCharacters);
+
+  // There should be no histograms logged.
+  histogram_tester.ExpectTotalCount("Lens.Overlay.SidePanelResultStatus",
+                                    /*expected_count=*/0);
+
+  // Set the search controller to return the page as not context eligible.
+  auto* fake_controller =
+      static_cast<LensSearchControllerFake*>(GetLensSearchController());
+  ASSERT_TRUE(fake_controller);
+  fake_controller->SetContextEligible(false);
+
+  // State should start in off.
+  auto* controller = GetLensOverlayController();
+  ASSERT_EQ(controller->state(), State::kOff);
+
+  // Showing UI should change the state to screenshot and eventually to overlay.
+  // When the overlay is bound, it should start the query flow which returns a
+  // response for the full image callback.
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
+  ASSERT_EQ(controller->state(), State::kScreenshot);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kOverlay; }));
+  ASSERT_TRUE(content::WaitForLoadStop(GetOverlayWebContents()));
+
+  // Verify the error page histogram was not recorded since the result panel is
+  // not open.
+  histogram_tester.ExpectTotalCount("Lens.Overlay.SidePanelResultStatus",
+                                    /*expected_count=*/0);
+
+  // Side panel is not showing at first.
+  auto* coordinator = browser()->GetFeatures().side_panel_coordinator();
+  EXPECT_FALSE(coordinator->IsSidePanelShowing());
+  EXPECT_FALSE(controller->GetSidePanelWebContentsForTesting());
+
+  // Issuing a request should show the side panel even if navigation is expected
+  // to fail.
+  controller->IssueTextSelectionRequestForTesting("test query",
+                                                  /*selection_start_index=*/0,
+                                                  /*selection_end_index=*/0);
+  EXPECT_TRUE(content::WaitForLoadStop(
+      controller->GetSidePanelWebContentsForTesting()));
+
+  // Expect the Lens Overlay results panel to open.
+  ASSERT_TRUE(coordinator->IsSidePanelShowing());
+  EXPECT_EQ(coordinator->GetCurrentEntryId(),
+            SidePanelEntry::Id::kLensOverlayResults);
+
+  // No page data or screenshot should have been sent.
+  auto* fake_query_controller =
+      static_cast<lens::TestLensOverlayQueryController*>(
+          controller->get_lens_overlay_query_controller_for_testing());
+  const auto last_sent_content =
+      fake_query_controller->last_sent_page_content_payload().content();
+  EXPECT_EQ(last_sent_content.content_data().size(), 0);
+  EXPECT_TRUE(last_sent_content.webpage_url().empty());
+  EXPECT_TRUE(last_sent_content.webpage_title().empty());
+  EXPECT_TRUE(
+      fake_query_controller->last_sent_underlying_content_bytes().empty());
+
+  // The recorded histogram should be a protected error page being shown.
+  histogram_tester.ExpectTotalCount("Lens.Overlay.SidePanelResultStatus",
+                                    /*expected_count=*/1);
+  histogram_tester.ExpectBucketCount(
+      "Lens.Overlay.SidePanelResultStatus",
+      lens::SidePanelResultStatus::kErrorPageShownProtected,
+      /*expected_count=*/1);
+}
+
 class LensOverlayControllerContextualFeaturesDisabledTest
     : public LensOverlayControllerBrowserTest {
  protected:
@@ -8012,7 +8217,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerContextualFeaturesDisabledTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -8033,7 +8238,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerContextualFeaturesDisabledTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -8072,7 +8277,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerContextualFeaturesDisabledTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -8114,7 +8319,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerContextualFeaturesDisabledTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -8146,7 +8351,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerContextualFeaturesDisabledTest,
   // Verify attempting to show the UI will show the permission bubble.
   views::NamedWidgetShownWaiter waiter(views::test::AnyWidgetTestPasskey{},
                                        lens::kLensPermissionDialogName);
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   // State should remain off.
   ASSERT_EQ(controller->state(), State::kOff);
   auto* bubble_widget = waiter.WaitIfNeededAndGet();
@@ -8157,7 +8362,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerContextualFeaturesDisabledTest,
                   ->HasOpenDialogWidget());
 
   // Verify attempting to show the UI again does not close the bubble widget.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   // State should remain off.
   ASSERT_EQ(controller->state(), State::kOff);
   ASSERT_TRUE(bubble_widget->IsVisible());
@@ -8204,7 +8409,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerContextualFeaturesDisabledTest,
   // Verify attempting to show the UI will show the permission bubble.
   views::NamedWidgetShownWaiter waiter(views::test::AnyWidgetTestPasskey{},
                                        lens::kLensPermissionDialogName);
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   // State should remain off.
   ASSERT_EQ(controller->state(), State::kOff);
   auto* bubble_widget = waiter.WaitIfNeededAndGet();
@@ -8215,7 +8420,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerContextualFeaturesDisabledTest,
                   ->HasOpenDialogWidget());
 
   // Verify attempting to show the UI again does not close the bubble widget.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   // State should remain off.
   ASSERT_EQ(controller->state(), State::kOff);
   ASSERT_TRUE(bubble_widget->IsVisible());
@@ -8249,7 +8454,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerContextualFeaturesDisabledTest,
   // Verify attempting to show the UI will show the permission bubble.
   views::NamedWidgetShownWaiter waiter(views::test::AnyWidgetTestPasskey{},
                                        lens::kLensPermissionDialogName);
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   // State should remain off.
   ASSERT_EQ(controller->state(), State::kOff);
   auto* bubble_widget = waiter.WaitIfNeededAndGet();
@@ -8260,7 +8465,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerContextualFeaturesDisabledTest,
                   ->HasOpenDialogWidget());
 
   // Verify attempting to show the UI again does not close the bubble widget.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   // State should remain off.
   ASSERT_EQ(controller->state(), State::kOff);
   ASSERT_TRUE(bubble_widget->IsVisible());
@@ -8314,7 +8519,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerOverlaySearchbox,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -8344,7 +8549,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerOverlaySearchbox,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Showing UI should change the state to screenshot and eventually to overlay.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));
@@ -8527,7 +8732,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserSimplifiedSelectionTest,
   // Showing UI should change the state to screenshot and eventually to overlay.
   // When the overlay is bound, it should start the query flow which returns a
   // response for the full image callback.
-  controller->ShowUI(LensOverlayInvocationSource::kAppMenu);
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
   ASSERT_EQ(controller->state(), State::kScreenshot);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return controller->state() == State::kOverlay; }));

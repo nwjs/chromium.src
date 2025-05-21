@@ -579,13 +579,17 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
           network::features::kLocalNetworkAccessChecks) &&
           !network::features::kLocalNetworkAccessChecksWarn.Get());
 
-  bool show_glic = false;
+  // AI
+  bool show_glic_section = false;
 
 #if BUILDFLAG(ENABLE_GLIC)
-  show_glic = glic::GlicEnabling::ShouldShowSettingsPage(profile);
-  html_source->AddBoolean("showGlicSettings", show_glic);
+  auto glic_enablement = glic::GlicEnabling::EnablementForProfile(profile);
+  show_glic_section = glic_enablement.ShouldShowSettingsPage();
+  html_source->AddBoolean("showGlicSettings", show_glic_section);
+  html_source->AddBoolean("glicDisallowedByAdmin",
+                          glic_enablement.DisallowedByAdmin());
 
-  if (glic::GlicEnabling::IsProfileEligible(profile)) {
+  if (glic_enablement.IsProfileEligible()) {
     AddSettingsPageUIHandler(std::make_unique<GlicHandler>());
 
     auto* glic_service = glic::GlicKeyedService::Get(profile);
@@ -600,7 +604,6 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
   }
 #endif
 
-  // AI
   const bool ai_settings_refresh_enabled =
       optimization_guide::features::IsAiSettingsPageRefreshEnabled();
 
@@ -649,19 +652,22 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
 
     const bool show_ai_settings_for_testing =
         optimization_guide::features::kShowAiSettingsForTesting.Get();
-    bool show_ai_page = show_ai_settings_for_testing;
+    bool show_ai_features_section = show_ai_settings_for_testing;
     for (auto [name, visible] : optimization_guide_features) {
       html_source->AddBoolean(name, visible || show_ai_settings_for_testing);
-      show_ai_page |= visible;
+      show_ai_features_section |= visible;
     }
 
-    show_ai_page |= show_glic;
-
     // "showAdvancedFeaturesMainControl", despite the name, controls whether the
-    // AI subpage is shown. We want to show the page if any of the AI features
-    // are enabled.
+    // AI subpage is shown. Within the AI subpage are separate sections for Glic
+    // and for all other AI features, the visibility of these are separately
+    // controlled but we want to show the subpage if any of the AI features or
+    // Glic are enabled.
     // TODO(crbug.com/363968675): Rename this to be clearer.
-    html_source->AddBoolean("showAdvancedFeaturesMainControl", show_ai_page);
+    html_source->AddBoolean("showAdvancedFeaturesMainControl",
+                            show_glic_section || show_ai_features_section);
+    html_source->AddBoolean("showAiPageAiFeatureSection",
+                            show_ai_features_section);
 #endif
   } else {
     std::pair<UserVisibleFeatureKey, const std::string_view>
@@ -685,9 +691,9 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       is_any_ai_feature_enabled |= visible;
     }
 
-    is_any_ai_feature_enabled |= show_glic;
-
     html_source->AddBoolean("showAdvancedFeaturesMainControl",
+                            is_any_ai_feature_enabled || show_glic_section);
+    html_source->AddBoolean("showAiPageAiFeatureSection",
                             is_any_ai_feature_enabled);
     // Compare is only shown when Synpase ("AiSettingsPageRefresh") is enabled.
     html_source->AddBoolean("showCompareControl", false);
@@ -861,11 +867,13 @@ void SettingsUI::UpdateShowGlicState() {
   // FRE. Propagate this state to the WebUI value used to display the settings
   // page.
   Profile* profile = Profile::FromWebUI(web_ui());
-  bool glic_enabled = glic::GlicEnabling::ShouldShowSettingsPage(profile);
+  auto enablement = glic::GlicEnabling::EnablementForProfile(profile);
+  const bool show_glic = enablement.ShouldShowSettingsPage();
 
   base::Value::Dict update;
-  update.Set("showGlicSettings", glic_enabled);
-  if (glic_enabled) {
+  update.Set("showGlicSettings", show_glic);
+  update.Set("glicDisallowedByAdmin", enablement.DisallowedByAdmin());
+  if (show_glic) {
     update.Set("showAdvancedFeaturesMainControl", true);
   }
 

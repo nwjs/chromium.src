@@ -21,6 +21,7 @@ html, body {
 
 body {
   overflow: hidden;
+  user-select: none;
 }
 
 webview:not([hidden]) {
@@ -88,6 +89,10 @@ webview:not([hidden]) {
   display: flex;
   justify-content: space-between;
   cursor: grab;
+}
+
+#loadingPanel .header {
+  padding-bottom: 8px;
 }
 
 .panel .logo {

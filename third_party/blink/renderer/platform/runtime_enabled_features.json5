@@ -2629,7 +2629,6 @@
     {
       // Improved support for debugging CSSNestedDeclarations.
       name: "InspectorGhostRules",
-      status: "stable",
     },
     {
       name: "InstalledApp",
@@ -3819,7 +3818,7 @@
       // composited pixel alignment issues. See
       // https://crbug.com/40084005
       name: "RenderSurfaceFor2DScaleTransform",
-      status: "stable",
+      status: "experimental",
     },
     {
       name: "ReportEventTimingAtVisibilityChange",
@@ -4133,7 +4132,6 @@
       // select option colors. https://issues.chromium.org/issues/40788356
       // This is shipping in M136 and can be removed in M138
       name: "SelectColorsRemoveImportant",
-      status: "stable",
     },
     {
       // The selectedcontentelement attribute is for connecting select elements
@@ -4546,7 +4544,7 @@
     },
     {
       name: "TableIsAutoFixedLayout",
-      status: "stable",
+      status: "test",
     },
     // For unit tests.
     {
@@ -4860,12 +4858,6 @@
         "Android": "stable",
         "default": "",
       },
-    },
-    {
-      // This flag uses the original DOM text for input when the password
-      // echo is enabled to create the offset_map.
-      name: "UseOriginalDomOffsetsForOffsetMap",
-      status: "stable",
     },
     {
       name: "UsePositionForPointInFlexibleBoxWithSingleChildElement",
@@ -5492,7 +5484,7 @@
     },
     {
       name: "XMLSerializerConsistentDefaultNsDeclMatching",
-      status: "stable",
+      status: "test",
     },
     {
       // If enabled, the `getDisplayMedia()` family of APIs will ask for NV12

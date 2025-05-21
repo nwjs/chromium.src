@@ -10004,7 +10004,7 @@ void RenderFrameHostImpl::CreateNewWindow(
 
     if (!shown_contents) {
       // These point to freed memory, so null them out to prevent inadvertent
-      // UAF in the feature (see NOTE above).
+      // UAF in the future (see NOTE above).
       new_frame_tree = nullptr;
       new_main_rfh = nullptr;
       new_rwh = nullptr;
@@ -10014,7 +10014,7 @@ void RenderFrameHostImpl::CreateNewWindow(
           new_main_rfh->GetView()->GetViewBounds());
       reply->window_screen_rect.emplace(
           new_main_rfh->GetView()->GetBoundsInRootWindow());
-      reply->visual_properties = new_rwh->GetInitialVisualProperties();
+      reply->visual_properties = new_rwh->GetVisualProperties();
     }
   }
 

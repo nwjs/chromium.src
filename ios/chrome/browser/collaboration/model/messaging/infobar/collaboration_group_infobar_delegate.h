@@ -15,6 +15,7 @@
 #import "components/infobars/core/confirm_infobar_delegate.h"
 
 class ProfileIOS;
+@protocol ShareKitAvatarPrimitive;
 
 // Shows a collaboration group update in an infobar.
 class CollaborationGroupInfoBarDelegate : public ConfirmInfoBarDelegate {
@@ -46,13 +47,21 @@ class CollaborationGroupInfoBarDelegate : public ConfirmInfoBarDelegate {
   bool Accept() override;
   void InfoBarDismissed() override;
 
-  // Returns the avatar banner image to display. Could be `nil`.
-  UIImage* GetAvatarImage();
+  // Returns an avatar primitive if there is only one affected user in
+  // `instant_message_`, otherwise return nil.
+  id<ShareKitAvatarPrimitive> GetAvatarPrimitive();
+
+  // Returns a symbol image based on the current `instant_message_`.
+  UIImage* GetSymbolImage();
 
  private:
   // Reopens the previous tab or the latest closed tab contained in
   // `instant_message_`.
   void ReopenTab();
+
+  // Starts a manage share kit flow for the collaboration group contained in
+  // `instant_message_`.
+  void ManageGroup();
 
   raw_ptr<ProfileIOS> profile_;
   collaboration::messaging::InstantMessage instant_message_;

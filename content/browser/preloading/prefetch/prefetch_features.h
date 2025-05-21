@@ -103,12 +103,21 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrefetchBrowsingDataRemoval);
 // https://docs.google.com/document/d/1W0Nk3Nq6NaUXkBppOUC5zyNmhVqMjYShm1bydGYd9qc
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrefetchScheduler);
 
+// Call `PrefetchScheduler::Progress()` synchronously as much as possible.
+CONTENT_EXPORT extern const base::FeatureParam<bool>
+    kPrefetchSchedulerProgressSyncBestEffort;
+
 // Controls params for tests of `PrefetchScheduler`.
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrefetchSchedulerTesting);
 CONTENT_EXPORT extern const base::FeatureParam<size_t>
     kPrefetchSchedulerTestingActiveSetSizeLimitForBase;
 CONTENT_EXPORT extern const base::FeatureParam<size_t>
     kPrefetchSchedulerTestingActiveSetSizeLimitForBurst;
+
+// Provide a partial fix for prefetch queueing problem (crbug.com/400233773),
+// without `PrefetchScheduler` feature.
+CONTENT_EXPORT BASE_DECLARE_FEATURE(
+    kPrefetchQueueingPartialFixWithoutScheduler);
 
 }  // namespace features
 

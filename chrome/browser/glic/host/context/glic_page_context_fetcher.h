@@ -32,10 +32,8 @@ class GlicPageContextFetcher : public content::WebContentsObserver {
   GlicPageContextFetcher();
   ~GlicPageContextFetcher() override;
 
-  // Fetches the page context. May be called at most once.
-  // TODO(harringtond): This API is error-prone, consider making this a static
-  // function so that Fetch() can't be called multiple times.
-  void Fetch(
+  // Fetches the page context.
+  static void Fetch(
       FocusedTabData focused_tab_data,
       const mojom::GetTabContextOptions& options,
       glic::mojom::WebClientHandler::GetContextFromFocusedTabCallback callback);
@@ -44,6 +42,11 @@ class GlicPageContextFetcher : public content::WebContentsObserver {
   void PrimaryPageChanged(content::Page& page) override;
 
  private:
+  void FetchStart(
+      FocusedTabData focused_tab_data,
+      const mojom::GetTabContextOptions& options,
+      glic::mojom::WebClientHandler::GetContextFromFocusedTabCallback callback);
+
   void GetTabScreenshot(content::WebContents& web_contents);
   void ReceivedViewportBitmap(const SkBitmap& bitmap);
   void RecievedJpegScreenshot(
@@ -57,6 +60,7 @@ class GlicPageContextFetcher : public content::WebContentsObserver {
                         const std::vector<uint8_t>& pdf_bytes,
                         uint32_t page_count);
   void ReceivedMediaContext(const std::string& media_context);
+  void ReceivedContextEligibility(bool is_eligible);
 
   base::WeakPtr<GlicPageContextFetcher> GetWeakPtr() {
     return weak_ptr_factory_.GetWeakPtr();
@@ -69,11 +73,13 @@ class GlicPageContextFetcher : public content::WebContentsObserver {
   // Intermediate results:
 
   // Whether work is complete for each task, does not imply success.
+  bool initialization_done_ = false;
   bool screenshot_done_ = false;
   bool inner_text_done_ = false;
   bool pdf_done_ = false;
   bool annotated_page_content_done_ = false;
   bool media_context_done_ = false;
+  bool context_eligibility_check_done_ = false;
   // Whether the primary page has changed since context fetching began.
   bool primary_page_changed_ = false;
   url::Origin pdf_origin_;
@@ -85,6 +91,7 @@ class GlicPageContextFetcher : public content::WebContentsObserver {
   std::optional<pdf::mojom::PdfListener_GetPdfBytesStatus> pdf_status_;
   std::optional<optimization_guide::AIPageContentResult>
       annotated_page_content_result_;
+  std::optional<bool> context_eligible_;
   base::TimeTicks start_time_;
   std::string media_context_;
 

@@ -14,6 +14,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/simple_test_tick_clock.h"
 #include "chrome/browser/ui/layout_constants.h"
+#include "chrome/browser/ui/tabs/saved_tab_groups/collaboration_messaging_tab_data.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_style.h"
 #include "chrome/browser/ui/tabs/tab_types.h"
@@ -28,7 +29,9 @@
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
 #include "chrome/browser/ui/views/tabs/tab_style_views.h"
 #include "chrome/common/chrome_features.h"
+#include "chrome/test/base/testing_profile.h"
 #include "chrome/test/views/chrome_views_test_base.h"
+#include "components/collaboration/public/messaging/message.h"
 #include "components/content_settings/core/common/features.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tab_groups/tab_group_visual_data.h"
@@ -46,6 +49,30 @@
 #include "ui/views/widget/widget.h"
 
 using views::Widget;
+
+namespace {
+
+using collaboration::messaging::CollaborationEvent;
+using collaboration::messaging::PersistentMessage;
+using collaboration::messaging::PersistentNotificationType;
+
+PersistentMessage CreateMessage(std::string given_name,
+                                CollaborationEvent event) {
+  data_sharing::GroupMember user;
+  user.given_name = given_name;
+
+  collaboration::messaging::MessageAttribution attr;
+  attr.triggering_user = user;
+
+  collaboration::messaging::PersistentMessage message;
+  message.collaboration_event = event;
+  message.attribution = attr;
+  message.type = PersistentNotificationType::CHIP;
+
+  return message;
+}
+
+}  // namespace
 
 class TabTest : public ChromeViewsTestBase {
  public:
@@ -235,12 +262,12 @@ class TabTest : public ChromeViewsTestBase {
   base::SimpleTestTickClock fake_clock_;
 };
 
-class AlertIndicatorButtonTest : public ChromeViewsTestBase {
+class TabContentsTest : public ChromeViewsTestBase {
  public:
-  AlertIndicatorButtonTest() = default;
-  AlertIndicatorButtonTest(const AlertIndicatorButtonTest&) = delete;
-  AlertIndicatorButtonTest& operator=(const AlertIndicatorButtonTest&) = delete;
-  ~AlertIndicatorButtonTest() override = default;
+  TabContentsTest() = default;
+  TabContentsTest(const TabContentsTest&) = delete;
+  TabContentsTest& operator=(const TabContentsTest&) = delete;
+  ~TabContentsTest() override = default;
 
   void SetUp() override {
     ChromeViewsTestBase::SetUp();
@@ -739,7 +766,7 @@ TEST_F(TabTest, TitleTextHasSufficientContrast) {
 
 // This test verifies that the tab has its icon state updated when the alert
 // animation fade-out finishes.
-TEST_F(AlertIndicatorButtonTest, ShowsAndHidesAlertIndicator) {
+TEST_F(TabContentsTest, ShowsAndHidesAlertIndicator) {
   controller_->AddTab(0, TabActive::kInactive, TabPinned::kPinned);
   controller_->AddTab(1, TabActive::kActive);
   Tab* media_tab = tab_strip_->tab_at(0);
@@ -780,7 +807,7 @@ TEST_F(AlertIndicatorButtonTest, ShowsAndHidesAlertIndicator) {
 
 // This test verifies that the alert indicator for a camera and/or mic is
 // visible at least for 5 seconds even if a camera/mic stopped being used.
-TEST_F(AlertIndicatorButtonTest, MinHoldDurationTest) {
+TEST_F(TabContentsTest, MinHoldDurationTest) {
   base::test::ScopedFeatureList scoped_feature_list_;
 
   controller_->AddTab(0, TabActive::kActive);
@@ -811,7 +838,7 @@ TEST_F(AlertIndicatorButtonTest, MinHoldDurationTest) {
 
 // This test verifies that the alert indicator for a camera and/or mic has
 // 1-second fadeout animation after it was visible for longer than 5 seconds.
-TEST_F(AlertIndicatorButtonTest, 1SecondFadeoutAnimationTest) {
+TEST_F(TabContentsTest, 1SecondFadeoutAnimationTest) {
   base::test::ScopedFeatureList scoped_feature_list_;
 
   controller_->AddTab(0, TabActive::kActive);
@@ -879,7 +906,7 @@ TEST_F(TabTest, AccessibleProperties) {
   EXPECT_EQ(ax::mojom::Role::kTab, data.role);
 }
 
-TEST_F(AlertIndicatorButtonTest, AccessibleNameChanged) {
+TEST_F(TabContentsTest, AccessibleNameChanged) {
   controller_->AddTab(0, TabActive::kInactive, TabPinned::kPinned);
 
   TabRendererData old_data = tab_strip_->tab_at(0)->data();
@@ -893,5 +920,56 @@ TEST_F(AlertIndicatorButtonTest, AccessibleNameChanged) {
 
   new_data.title = u"new_title";
   EXPECT_TRUE(
+      tab_strip_->tab_at(0)->ShouldUpdateAccessibleName(old_data, new_data));
+}
+
+TEST_F(TabContentsTest, AccessibleNameChangesWithCollaborationMessages) {
+  TestingProfile profile;
+
+  controller_->AddTab(0, TabActive::kInactive, TabPinned::kPinned);
+
+  TabRendererData old_data = tab_strip_->tab_at(0)->data();
+  TabRendererData new_data = tab_strip_->tab_at(0)->data();
+  EXPECT_FALSE(
+      tab_strip_->tab_at(0)->ShouldUpdateAccessibleName(old_data, new_data));
+
+  // Create message for new_data.
+  tab_groups::CollaborationMessagingTabData collaboration_messaging1(&profile);
+  collaboration_messaging1.set_mocked_avatar_for_testing(gfx::Image());
+  collaboration_messaging1.SetMessage(
+      CreateMessage("Name1", CollaborationEvent::TAB_ADDED));
+  new_data.collaboration_messaging = collaboration_messaging1.GetWeakPtr();
+
+  EXPECT_TRUE(
+      tab_strip_->tab_at(0)->ShouldUpdateAccessibleName(old_data, new_data));
+
+  // Create message with a different name for old_data.
+  tab_groups::CollaborationMessagingTabData collaboration_messaging2(&profile);
+  collaboration_messaging2.set_mocked_avatar_for_testing(gfx::Image());
+  collaboration_messaging2.SetMessage(
+      CreateMessage("Name2", CollaborationEvent::TAB_ADDED));
+  old_data.collaboration_messaging = collaboration_messaging2.GetWeakPtr();
+
+  EXPECT_TRUE(
+      tab_strip_->tab_at(0)->ShouldUpdateAccessibleName(old_data, new_data));
+
+  // Create message with a different event for old_data.
+  tab_groups::CollaborationMessagingTabData collaboration_messaging3(&profile);
+  collaboration_messaging3.set_mocked_avatar_for_testing(gfx::Image());
+  collaboration_messaging3.SetMessage(
+      CreateMessage("Name1", CollaborationEvent::TAB_UPDATED));
+  old_data.collaboration_messaging = collaboration_messaging3.GetWeakPtr();
+
+  EXPECT_TRUE(
+      tab_strip_->tab_at(0)->ShouldUpdateAccessibleName(old_data, new_data));
+
+  // Create a duplicate message for old_data.
+  tab_groups::CollaborationMessagingTabData collaboration_messaging4(&profile);
+  collaboration_messaging4.set_mocked_avatar_for_testing(gfx::Image());
+  collaboration_messaging4.SetMessage(
+      CreateMessage("Name1", CollaborationEvent::TAB_ADDED));
+  old_data.collaboration_messaging = collaboration_messaging4.GetWeakPtr();
+
+  EXPECT_FALSE(
       tab_strip_->tab_at(0)->ShouldUpdateAccessibleName(old_data, new_data));
 }

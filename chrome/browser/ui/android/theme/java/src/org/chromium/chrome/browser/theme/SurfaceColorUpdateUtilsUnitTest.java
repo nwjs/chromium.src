@@ -102,6 +102,24 @@ public class SurfaceColorUpdateUtilsUnitTest {
         assertEquals(
                 ContextCompat.getColor(mContext, R.color.gm3_baseline_surface_dim_dark),
                 tabCardViewBackgroundColorIncognito);
+
+        int messageCardBackgroundColor =
+                SurfaceColorUpdateUtils.getMessageCardBackgroundColor(mContext);
+        assertEquals(
+                SemanticColorUtils.getColorSurfaceContainerLow(mContext),
+                messageCardBackgroundColor);
+
+        int searchBoxBgColor =
+                SurfaceColorUpdateUtils.getGtsSearchBoxBackgroundColor(
+                        mContext, /* isIncognito= */ false);
+        assertEquals(SemanticColorUtils.getColorSurface(mContext), searchBoxBgColor);
+
+        int searchBoxBgColorIncognito =
+                SurfaceColorUpdateUtils.getGtsSearchBoxBackgroundColor(
+                        mContext, /* isIncognito= */ true);
+        assertEquals(
+                ContextCompat.getColor(mContext, R.color.gm3_baseline_surface_dark),
+                searchBoxBgColorIncognito);
     }
 
     @Test
@@ -133,5 +151,55 @@ public class SurfaceColorUpdateUtilsUnitTest {
                 ContextCompat.getColor(
                         mContext, R.color.gm3_baseline_surface_container_highest_dark),
                 tabCardViewBackgroundColorIncognito);
+
+        int messageCardBackgroundColor =
+                SurfaceColorUpdateUtils.getMessageCardBackgroundColor(mContext);
+        assertEquals(
+                SemanticColorUtils.getCardBackgroundColor(mContext), messageCardBackgroundColor);
+
+        int searchBoxBgColor =
+                SurfaceColorUpdateUtils.getGtsSearchBoxBackgroundColor(
+                        mContext, /* isIncognito= */ false);
+        assertEquals(SemanticColorUtils.getColorSurfaceContainerHigh(mContext), searchBoxBgColor);
+
+        int searchBoxBgColorIncognito =
+                SurfaceColorUpdateUtils.getGtsSearchBoxBackgroundColor(
+                        mContext, /* isIncognito= */ true);
+        assertEquals(
+                ContextCompat.getColor(
+                        mContext, R.color.gm3_baseline_surface_container_highest_dark),
+                searchBoxBgColorIncognito);
+    }
+
+    @Test
+    @Features.EnableFeatures({ChromeFeatureList.GRID_TAB_SWITCHER_SURFACE_COLOR_UPDATE})
+    public void testTabGridDialogColors_FlagEnabled() {
+        int gtsBackgroundColor =
+                SurfaceColorUpdateUtils.getTabGridDialogBackgroundColor(
+                        mContext, /* isIncognito= */ false);
+        assertEquals(SemanticColorUtils.getColorSurfaceContainer(mContext), gtsBackgroundColor);
+
+        int gtsBackgroundColorIncognito =
+                SurfaceColorUpdateUtils.getTabGridDialogBackgroundColor(
+                        mContext, /* isIncognito= */ true);
+        assertEquals(
+                ContextCompat.getColor(mContext, R.color.gm3_baseline_surface_container_dark),
+                gtsBackgroundColorIncognito);
+    }
+
+    @Test
+    @Features.DisableFeatures({ChromeFeatureList.GRID_TAB_SWITCHER_SURFACE_COLOR_UPDATE})
+    public void testTabGridDialogColors_FlagDisabled() {
+        int gtsBackgroundColor =
+                SurfaceColorUpdateUtils.getTabGridDialogBackgroundColor(
+                        mContext, /* isIncognito= */ false);
+        assertEquals(SemanticColorUtils.getColorSurface(mContext), gtsBackgroundColor);
+
+        int gtsBackgroundColorIncognito =
+                SurfaceColorUpdateUtils.getTabGridDialogBackgroundColor(
+                        mContext, /* isIncognito= */ true);
+        assertEquals(
+                ContextCompat.getColor(mContext, R.color.gm3_baseline_surface_container_low_dark),
+                gtsBackgroundColorIncognito);
     }
 }

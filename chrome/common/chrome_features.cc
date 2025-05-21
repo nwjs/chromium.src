@@ -354,7 +354,7 @@ const base::FeatureParam<int> kGlicReloadMaxLoadingTimeMs{
 const base::FeatureParam<int> kGlicInitialWidth{&kGlic, "glic-initial-width",
                                                 352};
 const base::FeatureParam<int> kGlicInitialHeight{&kGlic, "glic-initial-height",
-                                                 48};
+                                                 86};
 
 const base::FeatureParam<int> kGlicFreInitialWidth{
     &kGlic, "glic-fre-initial-width", 512};
@@ -515,6 +515,17 @@ BASE_FEATURE(kGlicRollout, "GlicRollout", base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicUserStatusCheck,
              "GlicUserStatusCheck",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kGlicPageContextEligibility,
+             "GlicPageContextEligibility",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<bool> kGlicPageContextEligibilityAllowNoMetadata{
+    &kGlicPageContextEligibility,
+    "glic-page-context-eligibility-allow-no-metadata", true};
+
+BASE_FEATURE(kGlicUnloadOnClose,
+             "GlicUnloadOnClose",
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(ENABLE_GLIC)
 

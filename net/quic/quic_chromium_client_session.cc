@@ -1646,7 +1646,7 @@ bool QuicChromiumClientSession::ShouldKeepConnectionAlive() const {
   // when we have an outstanding request in flight. We want to send PINGs when
   // there is an outstanding request or if `enable_periodic_ping_` has been
   // set to keep the connection alive when idle.
-  return enable_periodic_ping_ ||
+  return (enable_periodic_ping_ && crypto_handshake_complete_) ||
          quic::QuicSpdyClientSessionBase::ShouldKeepConnectionAlive();
 }
 
@@ -1928,6 +1928,16 @@ void QuicChromiumClientSession::OnConnectionClosed(
         streams_waiting_to_write);
     UMA_HISTOGRAM_COUNTS_100("Net.QuicSession.NumActiveStreamsOnIdleTimeout",
                              GetNumActiveStreams());
+    if (IsGoogleHostWithAlpnH3(session_key_.host())) {
+      UMA_HISTOGRAM_COUNTS_100(
+          "Net.QuicSession.NumStreamsWaitingToWriteOnIdleTimeout."
+          "GoogleWithAlpnH3",
+          streams_waiting_to_write);
+      UMA_HISTOGRAM_COUNTS_100(
+          "Net.QuicSession.NumActiveStreamsOnIdleTimeout.GoogleHost."
+          "GoogleWithAlpnH3",
+          GetNumActiveStreams());
+    }
   }
 
   if (source == quic::ConnectionCloseSource::FROM_PEER) {
@@ -2070,6 +2080,13 @@ void QuicChromiumClientSession::OnConnectionClosed(
         "Net.QuicSession.ConnectionDuration",
         tick_clock_->NowTicks() - connect_timing_.connect_end);
     UMA_HISTOGRAM_COUNTS_100("Net.QuicSession.NumMigrations", num_migrations_);
+    if (IsGoogleHostWithAlpnH3(session_key_.host())) {
+      UMA_HISTOGRAM_COUNTS_1000("Net.QuicSession.NumPingsSent.GoogleWithAlpnH3",
+                                connection()->GetStats().ping_frames_sent);
+      UMA_HISTOGRAM_LONG_TIMES_100(
+          "Net.QuicSession.ConnectionDuration.GoogleWithAlpnH3",
+          tick_clock_->NowTicks() - connect_timing_.connect_end);
+    }
 
     // KeyUpdates are used in TLS, but we no longer support pre-TLS QUIC.
     DCHECK(connection()->version().UsesTls());
@@ -3787,6 +3804,15 @@ void QuicChromiumClientSession::OnCryptoHandshakeComplete() {
       connect_timing_.connect_end - connect_timing_.connect_start;
   UMA_HISTOGRAM_TIMES("Net.QuicSession.HandshakeConfirmedTime",
                       handshake_confirmed_time);
+
+  // Indicate that the handshake is complete so that we can safely send pings
+  // to the peer.
+  crypto_handshake_complete_ = true;
+  // We explicitly kick off pings here, since we do not want to ping when there
+  // are no available encrypters available.
+  if (enable_periodic_ping_) {
+    connection()->SendPing();
+  }
 
   // Also record the handshake time when ECH was advertised in DNS. The ECH
   // experiment does not change DNS behavior, so this measures the same servers

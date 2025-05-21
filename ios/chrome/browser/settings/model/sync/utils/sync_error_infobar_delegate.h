@@ -14,6 +14,7 @@
 #import "components/sync/service/sync_service_observer.h"
 
 class ProfileIOS;
+enum class SyncErrorInfoBarTrigger;
 @protocol SyncPresenter;
 
 namespace infobars {
@@ -28,7 +29,9 @@ inline constexpr base::TimeDelta kSyncErrorInfobarTimeout = base::Hours(24);
 class SyncErrorInfoBarDelegate : public ConfirmInfoBarDelegate,
                                  public syncer::SyncServiceObserver {
  public:
-  SyncErrorInfoBarDelegate(ProfileIOS* profile, id<SyncPresenter> presenter);
+  SyncErrorInfoBarDelegate(ProfileIOS* profile,
+                           id<SyncPresenter> presenter,
+                           SyncErrorInfoBarTrigger trigger);
 
   SyncErrorInfoBarDelegate(const SyncErrorInfoBarDelegate&) = delete;
   SyncErrorInfoBarDelegate& operator=(const SyncErrorInfoBarDelegate&) = delete;
@@ -38,7 +41,8 @@ class SyncErrorInfoBarDelegate : public ConfirmInfoBarDelegate,
   // Creates a sync error infobar and adds it to `infobar_manager`.
   static bool Create(infobars::InfoBarManager* infobar_manager,
                      ProfileIOS* profile,
-                     id<SyncPresenter> presenter);
+                     id<SyncPresenter> presenter,
+                     SyncErrorInfoBarTrigger trigger);
 
   // InfoBarDelegate implementation.
   InfoBarIdentifier GetIdentifier() const override;
@@ -57,13 +61,18 @@ class SyncErrorInfoBarDelegate : public ConfirmInfoBarDelegate,
   // Called when the infobar is dismissed through timing out.
   void InfoBarDismissedByTimeout() const;
 
+  // Whether the infobar should display a password error icon instead of the
+  // default sync error icon.
+  bool DisplayPasswordErrorIcon() const;
+
  private:
-  raw_ptr<ProfileIOS> profile_;
+  const raw_ptr<ProfileIOS> profile_;
+  const id<SyncPresenter> presenter_;
+  const SyncErrorInfoBarTrigger trigger_;
   syncer::SyncService::UserActionableError error_state_;
   std::u16string title_;
   std::u16string message_;
   std::u16string button_text_;
-  id<SyncPresenter> presenter_;
 };
 
 #endif  // IOS_CHROME_BROWSER_SETTINGS_MODEL_SYNC_UTILS_SYNC_ERROR_INFOBAR_DELEGATE_H_

@@ -339,6 +339,25 @@ void InputManager::OnFrameSinkDeviceScaleFactorChanged(
   rir_iter->second->SetDeviceScaleFactor(device_scale_factor);
 }
 
+void InputManager::OnFrameSinkMobileOptimizedChanged(
+    const FrameSinkId& frame_sink_id,
+    bool is_mobile_optimized) {
+  auto rir_itr = rir_map_.find(frame_sink_id);
+  if (rir_itr == rir_map_.end()) {
+    return;
+  }
+  rir_itr->second->input_router()->NotifySiteIsMobileOptimized(
+      is_mobile_optimized);
+
+  auto metadata_itr = frame_sink_metadata_map_.find(frame_sink_id);
+  CHECK(metadata_itr != frame_sink_metadata_map_.end());
+  FrameSinkMetadata& frame_sink_metadata = metadata_itr->second;
+  CHECK(frame_sink_metadata.is_mobile_optimized != is_mobile_optimized);
+  frame_sink_metadata.is_mobile_optimized = is_mobile_optimized;
+  frame_sink_metadata.rir_support->NotifySiteIsMobileOptimized(
+      is_mobile_optimized);
+}
+
 input::TouchEmulator* InputManager::GetTouchEmulator(bool create_if_necessary) {
   return nullptr;
 }
@@ -519,21 +538,6 @@ void InputManager::StateOnTouchTransfer(
 #endif
 }
 
-void InputManager::NotifySiteIsMobileOptimized(
-    bool is_mobile_optimized,
-    const FrameSinkId& frame_sink_id) {
-  auto itr = rir_map_.find(frame_sink_id);
-  if (itr == rir_map_.end()) {
-    return;
-  }
-  itr->second->input_router()->NotifySiteIsMobileOptimized(is_mobile_optimized);
-
-  auto metadata_itr = frame_sink_metadata_map_.find(frame_sink_id);
-  CHECK(metadata_itr != frame_sink_metadata_map_.end());
-  metadata_itr->second.rir_support->NotifySiteIsMobileOptimized(
-      is_mobile_optimized);
-}
-
 void InputManager::ForceEnableZoomStateChanged(
     bool force_enable_zoom,
     const std::vector<FrameSinkId>& frame_sink_ids) {
@@ -586,7 +590,11 @@ GpuServiceImpl* InputManager::GetGpuService() {
 
 input::RenderInputRouter* InputManager::GetRenderInputRouterFromFrameSinkId(
     const FrameSinkId& id) {
-  return rir_map_[id].get();
+  auto itr = rir_map_.find(id);
+  if (itr == rir_map_.end()) {
+    return nullptr;
+  }
+  return itr->second.get();
 }
 
 bool InputManager::ReturnInputBackToBrowser() {
@@ -624,6 +632,7 @@ void InputManager::SetBeginFrameSource(const FrameSinkId& frame_sink_id,
   if (itr == rir_map_.end()) {
     return;
   }
+  CHECK(itr->second.get());
   itr->second->SetBeginFrameSourceForFlingScheduler(begin_frame_source);
 }
 
@@ -639,10 +648,12 @@ void InputManager::MaybeRecreateRootRenderInputRouterSupports(
     // associated with layer tree frame sinks.
     if (iter != frame_sink_metadata_map_.end() &&
         iter->second.rir_support->IsRenderInputRouterSupportChildFrame()) {
-      iter->second.rir_support.reset();
+      FrameSinkMetadata& metadata = iter->second;
+      metadata.rir_support.reset();
       auto* rir = rir_map_.find(frame_sink_id)->second.get();
-      iter->second.rir_support =
-          MakeRenderInputRouterSupport(rir, frame_sink_id);
+      metadata.rir_support = MakeRenderInputRouterSupport(rir, frame_sink_id);
+      metadata.rir_support->NotifySiteIsMobileOptimized(
+          metadata.is_mobile_optimized);
     }
   }
 }
@@ -657,6 +668,8 @@ void InputManager::RecreateRenderInputRouterSupport(
   frame_sink_metadata.rir_support.reset();
   frame_sink_metadata.rir_support =
       MakeRenderInputRouterSupport(rir, child_frame_sink_id);
+  frame_sink_metadata.rir_support->NotifySiteIsMobileOptimized(
+      frame_sink_metadata.is_mobile_optimized);
 }
 
 std::unique_ptr<RenderInputRouterSupportBase>
