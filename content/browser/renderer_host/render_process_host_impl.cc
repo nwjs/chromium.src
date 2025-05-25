@@ -4636,11 +4636,13 @@ bool RenderProcessHostImpl::IsSuitableHost(
       // Even when this process is not locked to a site, it is still associated
       // with a particular isolation configuration.  Ensure that it cannot be
       // reused for destinations with incompatible isolation requirements.
+
+#if 0 //NWJS#8205: keep sites in a single process
       if (process_lock.allows_any_site() &&
           !process_lock.IsCompatibleWithWebExposedIsolation(site_info)) {
         return false;
       }
-
+#endif
       if (!host->IsUnused() &&
           site_info.ShouldLockProcessToSite(isolation_context)) {
         // If this process has been used to host any other content, it cannot
