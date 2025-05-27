@@ -363,7 +363,7 @@ def main(argv=None):
                     help=("Only use log entries where the commit message "
                           "matches the supplied filter regex. Defaults to "
                           "'^Change-Id:' to suppress local commits."),
-                    default='^Change-Id:')
+                    default='.')
 
   args, extras = parser.parse_known_args(argv[1:])
 
