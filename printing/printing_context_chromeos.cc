@@ -29,7 +29,6 @@
 #include "printing/client_info_helpers.h"
 #include "printing/metafile.h"
 #include "printing/mojom/print.mojom.h"
-#include "printing/page_setup.h"
 #include "printing/print_job_constants.h"
 #include "printing/print_settings.h"
 #include "printing/printing_utils.h"
@@ -48,33 +47,6 @@ const char kDocumentNamePlaceholder[] = "-";
 bool IsUriSecure(std::string_view uri) {
   return base::StartsWith(uri, "ipps:") || base::StartsWith(uri, "https:") ||
          base::StartsWith(uri, "usb:") || base::StartsWith(uri, "ippusb:");
-}
-
-// Convert margins from microns to PWG units.
-// Returns false if the margins are not divisible by kMicronsPerPwgUnit meaning
-// that the microns margins are not backwards convertible to PWG units.
-bool MarginsMicronsToPWG(const PageMargins& margins_microns,
-                         int* bottom_pwg,
-                         int* left_pwg,
-                         int* right_pwg,
-                         int* top_pwg) {
-  CHECK(bottom_pwg);
-  CHECK(left_pwg);
-  CHECK(right_pwg);
-  CHECK(top_pwg);
-
-  if (margins_microns.bottom % kMicronsPerPwgUnit != 0 ||
-      margins_microns.left % kMicronsPerPwgUnit != 0 ||
-      margins_microns.right % kMicronsPerPwgUnit != 0 ||
-      margins_microns.top % kMicronsPerPwgUnit != 0) {
-    return false;
-  }
-
-  *bottom_pwg = margins_microns.bottom / kMicronsPerPwgUnit;
-  *left_pwg = margins_microns.left / kMicronsPerPwgUnit;
-  *right_pwg = margins_microns.right / kMicronsPerPwgUnit;
-  *top_pwg = margins_microns.top / kMicronsPerPwgUnit;
-  return true;
 }
 
 // Populates the 'client-info' attribute of the IPP collection `options`. Each
@@ -132,10 +104,9 @@ void EncodeClientInfo(const std::vector<mojom::IppClientInfo>& client_infos,
 void EncodeMediaCol(ipp_t* options,
                     const gfx::Size& size_um,
                     const gfx::Rect& printable_area_um,
+                    bool borderless,
                     const std::string& source,
-                    const PrintSettings& settings) {
-  const std::string& type = settings.media_type();
-
+                    const std::string& type) {
   // The size and printable area in microns were calculated from the size and
   // margins in PWG units, so we can losslessly convert them back. If
   // borderless printing was requested, though, set all margins to zero.
@@ -144,34 +115,10 @@ void EncodeMediaCol(ipp_t* options,
   int width = size_um.width() / kMicronsPerPwgUnit;
   int height = size_um.height() / kMicronsPerPwgUnit;
   int bottom_margin = 0, left_margin = 0, right_margin = 0, top_margin = 0;
-  if (!settings.borderless()) {
-    CHECK_NE(settings.margin_type(), mojom::MarginType::kNoMargins);
-    // There are 2 ways how print settings are setup -
-    //   1) via print preview dialog, which allows to set any margins, but it
-    //      involves preprocessing the document as one cannot use any arbitrary
-    //      value for margins. Then, default printer margins must be used to
-    //      setup the print job. These custom margins are not backwards
-    //      convertible to PWG units.
-    //   2) via chrome.printing API, which allows to set only supported margins,
-    //      meaning that this custom margins are backwards convertible to PWG
-    //      units.
-    //
-    // It's unknown if the custom margins here are the ones that were announced
-    // by the printer. Thus, first try to convert the custom margins to PWG
-    // units and if that fails, use the default margins. This preserves the
-    // original behaviour for the print preview dialog and usage of custom
-    // margins.
-    bool uses_custom_margins = false;
-    if (settings.margin_type() == mojom::MarginType::kCustomMargins) {
-      uses_custom_margins = MarginsMicronsToPWG(
-          settings.requested_custom_margins_in_microns(), &bottom_margin,
-          &left_margin, &right_margin, &top_margin);
-    }
-    if (!uses_custom_margins) {
-      PwgMarginsFromSizeAndPrintableArea(size_um, printable_area_um,
-                                         &bottom_margin, &left_margin,
-                                         &right_margin, &top_margin);
-    }
+  if (!borderless) {
+    PwgMarginsFromSizeAndPrintableArea(size_um, printable_area_um,
+                                       &bottom_margin, &left_margin,
+                                       &right_margin, &top_margin);
   }
 
   ScopedIppPtr media_col = WrapIpp(ippNew());
@@ -356,8 +303,8 @@ ScopedIppPtr SettingsToIPPOptions(const PrintSettings& settings,
 
   // Construct the IPP media-col attribute specifying media size, margins,
   // source, etc.
-  EncodeMediaCol(options, media_size_microns, printable_area_um, media_source,
-                 settings);
+  EncodeMediaCol(options, media_size_microns, printable_area_um,
+                 settings.borderless(), media_source, settings.media_type());
 
   // Add multivalue enum options.
   for (const auto& it : multival) {

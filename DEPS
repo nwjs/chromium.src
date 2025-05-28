@@ -304,11 +304,11 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling Skia
   # and whatever else without interference from each other.
-  'skia_revision': '5b8860c391f7c3d5b09b62e0d58c45cb6fa814f0',
+  'skia_revision': '0dfd95a49aed617f242c8b06dd5b255d1cb07776',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling V8
   # and whatever else without interference from each other.
-  'v8_revision': '003b9d837532294cb2c7e297619584843155024d',
+  'v8_revision': '44fdd9108308773dd3f4fa040de5f4f75edf671f',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling ANGLE
   # and whatever else without interference from each other.
@@ -396,7 +396,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling devtools-frontend
   # and whatever else without interference from each other.
-  'devtools_frontend_revision': 'a2b082f062d36c3941a614fe8899a66dfa005277',
+  'devtools_frontend_revision': 'a54ed1df191a9e2aff2e9ef453ee6fdc959dd125',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling libprotobuf-mutator
   # and whatever else without interference from each other.
@@ -1499,7 +1499,7 @@ deps = {
 
   'src/clank': {
     'url': Var('chrome_git') + '/clank/internal/apps.git' + '@' +
-    '29936c157e6d20bf3e3c134b2d7924f1391e572d',
+    'f22abee8bc4b496cc03b4de56f32ddeb7d8b80b0',
     'condition': 'checkout_android and checkout_src_internal',
   },
 
@@ -2390,7 +2390,7 @@ deps = {
     Var('chromium_git') + '/chromiumos/platform/libva-fake-driver.git' + '@' + 'a9bcab9cd6b15d4e3634ca44d5e5f7652c612194',
 
   'src/third_party/libvpx/source/libvpx':
-    Var('chromium_git') + '/webm/libvpx.git' + '@' +  'b32e98f52fb99e00bc99ea8f2b57a8015b71aa39',
+    Var('chromium_git') + '/webm/libvpx.git' + '@' +  '40ec928b3fadcf8edd836445bb5842a11aeb7a2d',
 
   'src/third_party/libwebm/source':
     Var('chromium_git') + '/webm/libwebm.git' + '@' + 'e79a98159fdf6d1aa37b3500e32c6410a2cbe268',
