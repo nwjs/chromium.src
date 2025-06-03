@@ -299,7 +299,7 @@
 <translation id="2196428379625389579">웹에서 검색</translation>
 <translation id="2199562093267256223"><ph name="USER_EMAIL" />에 로그인된 모든 기기에서 그룹이 삭제됩니다.</translation>
 <translation id="2202084845446535117">이메일 계정이 없음</translation>
-<translation id="2214453882118345682">카메라를 사용해 지금 보고 있는 항목을 쇼핑하고, 번역하고, 식별하세요.</translation>
+<translation id="2214453882118345682">카메라를 사용해 지금 보고 있는 항목을 쇼핑하고, 번역하고, 알아보세요</translation>
 <translation id="2215819824168709130">가격 추적 카드 숨기기</translation>
 <translation id="2216366330550244277">제품 페이지로 이동</translation>
 <translation id="2220529011494928058">문제 신고</translation>
@@ -1514,14 +1514,14 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="7272437679830969316">신원을 인증할 수 없습니다. 비밀번호가 복사되지 않았습니다.</translation>
 <translation id="728025568708172005">둘러보기</translation>
 <translation id="7293429513719260019">언어 선택</translation>
-<translation id="7300448350764260141">보호 기능을 한층 강화하여 온라인 위협으로부터 보호하세요.</translation>
+<translation id="7300448350764260141">온라인 위협으로부터 보호하는 기능을 더욱 강화하세요</translation>
 <translation id="7311244614769792472">검색결과 없음</translation>
 <translation id="7313347584264171202">여기에서 시크릿 탭을 확인할 수 있습니다</translation>
 <translation id="7336264872878993241"><ph name="PERCENT" />% 다운로드됨</translation>
 <translation id="7346909386216857016">확인</translation>
 <translation id="7352651011704765696">문제가 발생했습니다.</translation>
 <translation id="7363349185727752629">개인 정보 보호 선택 가이드</translation>
-<translation id="736564850024123010">주소 표시줄 위치를 전환하여 맞춤 환경을 이용하세요.</translation>
+<translation id="736564850024123010">주소 표시줄 위치를 전환하여 맞춤 환경을 이용하세요</translation>
 <translation id="7366909168761621528">인터넷 사용 기록</translation>
 <translation id="7367530036083223701">비밀번호 관리자 위젯으로 홈 화면에서 비밀번호에 안전하게 액세스하세요.</translation>
 <translation id="7369285139974632858">북마크에 추가</translation>
@@ -1556,7 +1556,7 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="7468373585447318060">추적하는 모든 제품의 가격 인하 소식을 받아보세요.</translation>
 <translation id="746872191028309255">카메라를 사용해 지금 보고 있거나 사진 갤러리에 있는 제품을 쇼핑하세요.</translation>
 <translation id="7471557245617580330">새 탭 만들기</translation>
-<translation id="7473891865547856676">건너뛰기</translation>
+<translation id="7473891865547856676">나중에</translation>
 <translation id="7476548258282096076">이 카드에는 가장 많이 방문한 사이트가 표시됩니다.</translation>
 <translation id="7484645889979462775">이 사이트 제외</translation>
 <translation id="7486006552035434095">기기 동기화 상태 유지</translation>

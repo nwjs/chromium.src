@@ -469,6 +469,24 @@ HeapVector<Member<LanguageDetectionResult>> LanguageDetector::ConvertResult(
   double last_score = 1;
   double cumulative_confidence = 0;
 
+  // TODO(crbug.com/419881396): `LanguageDetectionModel::PredictWithScan` should
+  // be updated to provide consistent results. Currently it only ever reports
+  // the "und" language tag for the empty string. Otherwise it will report
+  // unknown.
+  if (predictions.size() == 1) {
+    auto und = predictions.at(0);
+    CHECK_EQ(und.language, "und");
+    HeapVector<Member<LanguageDetectionResult>> results;
+    // Append "und" to end. Set it's confidence so that the total confidences
+    // add up to 1.
+    auto* und_result = MakeGarbageCollected<LanguageDetectionResult>();
+    results.push_back(und_result);
+    und_result->setDetectedLanguage(String("und"));
+    und_result->setConfidence(1);
+
+    return results;
+  }
+
   const WTF::UncheckedIterator<LanguageDetectionModel::LanguagePrediction>&
       unknown_iter = std::find_if(
           predictions.begin(), predictions.end(),
@@ -481,6 +499,10 @@ HeapVector<Member<LanguageDetectionResult>> LanguageDetector::ConvertResult(
 
   HeapVector<Member<LanguageDetectionResult>> results;
   for (const auto& prediction : predictions) {
+    if (prediction.language == "unknown") {
+      continue;
+    }
+
     CHECK_GE(prediction.score, 0);
     CHECK_LE(prediction.score, 1 - cumulative_confidence);
     CHECK_LE(prediction.score, last_score);

@@ -300,7 +300,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling V8
   # and whatever else without interference from each other.
-  'src_internal_revision': '9e2c6a5c38233277dfa09aa63754ef7bc3fff973',
+  'src_internal_revision': '20e891874f9ef110be0818e240888408e4af4e1a',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling Skia
   # and whatever else without interference from each other.
@@ -308,7 +308,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling V8
   # and whatever else without interference from each other.
-  'v8_revision': '44fdd9108308773dd3f4fa040de5f4f75edf671f',
+  'v8_revision': 'e398f9bf6d5c8a768ab736f46146d7349cf31547',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling ANGLE
   # and whatever else without interference from each other.
@@ -396,7 +396,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling devtools-frontend
   # and whatever else without interference from each other.
-  'devtools_frontend_revision': 'a54ed1df191a9e2aff2e9ef453ee6fdc959dd125',
+  'devtools_frontend_revision': 'fdc8ca697612f90e7ddf2621dffbc43733d2d238',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling libprotobuf-mutator
   # and whatever else without interference from each other.
@@ -1499,7 +1499,7 @@ deps = {
 
   'src/clank': {
     'url': Var('chrome_git') + '/clank/internal/apps.git' + '@' +
-    'f22abee8bc4b496cc03b4de56f32ddeb7d8b80b0',
+    '26f5e76bae3c02c7fe01346d34526df109ec28ce',
     'condition': 'checkout_android and checkout_src_internal',
   },
 
@@ -4693,7 +4693,7 @@ deps = {
 
   'src/ios_internal':  {
       'url': Var('chrome_git') + '/chrome/ios_internal.git' + '@' +
-        'a91fffd5817475cb53f14d2f0b88f17568f7daa4',
+        '7c3fe3379137057f6c1addfe349067c06066b647',
       'condition': 'checkout_ios and checkout_src_internal',
   },
 
